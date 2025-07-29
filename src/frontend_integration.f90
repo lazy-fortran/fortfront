@@ -46,8 +46,7 @@ contains
 
         type(compilation_options_t) :: options
 
-        ! Configure for Fortran backend with debug flags
-        options%backend = BACKEND_FORTRAN
+        ! Configure debug flags
         options%output_file = output_file
         options%debug_tokens = debug_tokens
         options%debug_ast = debug_ast
