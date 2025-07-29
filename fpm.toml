@@ -1,0 +1,19 @@
+name = "fortfront"
+version = "0.1.0"
+description = "Core analysis frontend for lazy fortran - lexer, parser, semantic analysis, AST operations"
+author = "krystophny"
+license = "MIT"
+
+[dependencies]
+stdlib = "*"
+json-fortran = { git = "https://github.com/jacobwilliams/json-fortran.git", tag = "8.3.0" }
+
+[build]
+auto-executables = true
+auto-tests = true
+auto-examples = false
+
+[fortran]
+implicit-external = false
+implicit-typing = false
+source-form = "free"

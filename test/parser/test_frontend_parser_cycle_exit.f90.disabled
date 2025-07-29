@@ -1,0 +1,176 @@
+program test_cycle_exit_parser
+    use iso_fortran_env
+    use lexer_core
+    use parser_state_module
+    use parser_control_flow_module
+    use parser_statements_module
+    use ast_factory
+    use ast_core
+    use ast_json
+    implicit none
+
+    call test_simple_cycle()
+    call test_simple_exit()
+    call test_cycle_with_label()
+    call test_exit_with_label()
+    call test_cycle_exit_in_do_loop()
+
+    print *, "All cycle/exit parser tests passed!"
+
+contains
+
+    subroutine test_simple_cycle()
+        type(token_t), allocatable :: tokens(:)
+        type(parser_state_t) :: parser
+        type(ast_arena_t) :: arena
+        integer :: cycle_index
+        character(len=:), allocatable :: json_output
+        
+        ! Test simple cycle statement
+        tokens = lexer("cycle")
+        parser = create_parser_state(tokens)
+        arena = create_ast_arena()
+        
+        cycle_index = parse_cycle_statement(parser, arena)
+        
+        if (cycle_index <= 0) then
+            call handle_error("Failed to parse simple cycle statement")
+        end if
+        
+        ! Check the AST
+        json_output = ast_to_json(arena)
+        if (index(json_output, '"type":"cycle_node"') == 0) then
+            call handle_error("cycle_node not found in AST JSON")
+        end if
+        
+        print *, "test_simple_cycle: PASS"
+    end subroutine test_simple_cycle
+
+    subroutine test_simple_exit()
+        type(token_t), allocatable :: tokens(:)
+        type(parser_state_t) :: parser
+        type(ast_arena_t) :: arena
+        integer :: exit_index
+        character(len=:), allocatable :: json_output
+        
+        ! Test simple exit statement
+        tokens = lexer("exit")
+        parser = create_parser_state(tokens)
+        arena = create_ast_arena()
+        
+        exit_index = parse_exit_statement(parser, arena)
+        
+        if (exit_index <= 0) then
+            call handle_error("Failed to parse simple exit statement")
+        end if
+        
+        ! Check the AST
+        json_output = ast_to_json(arena)
+        if (index(json_output, '"type":"exit_node"') == 0) then
+            call handle_error("exit_node not found in AST JSON")
+        end if
+        
+        print *, "test_simple_exit: PASS"
+    end subroutine test_simple_exit
+
+    subroutine test_cycle_with_label()
+        type(token_t), allocatable :: tokens(:)
+        type(parser_state_t) :: parser
+        type(ast_arena_t) :: arena
+        integer :: cycle_index
+        character(len=:), allocatable :: json_output
+        
+        ! Test cycle statement with label
+        tokens = lexer("cycle outer_loop")
+        parser = create_parser_state(tokens)
+        arena = create_ast_arena()
+        
+        cycle_index = parse_cycle_statement(parser, arena)
+        
+        if (cycle_index <= 0) then
+            call handle_error("Failed to parse cycle statement with label")
+        end if
+        
+        ! Check the AST
+        json_output = ast_to_json(arena)
+        if (index(json_output, '"type":"cycle_node"') == 0) then
+            call handle_error("cycle_node not found in AST JSON")
+        end if
+        if (index(json_output, '"loop_label":"outer_loop"') == 0) then
+            call handle_error("Loop label not found in cycle node")
+        end if
+        
+        print *, "test_cycle_with_label: PASS"
+    end subroutine test_cycle_with_label
+
+    subroutine test_exit_with_label()
+        type(token_t), allocatable :: tokens(:)
+        type(parser_state_t) :: parser
+        type(ast_arena_t) :: arena
+        integer :: exit_index
+        character(len=:), allocatable :: json_output
+        
+        ! Test exit statement with label
+        tokens = lexer("exit main_loop")
+        parser = create_parser_state(tokens)
+        arena = create_ast_arena()
+        
+        exit_index = parse_exit_statement(parser, arena)
+        
+        if (exit_index <= 0) then
+            call handle_error("Failed to parse exit statement with label")
+        end if
+        
+        ! Check the AST
+        json_output = ast_to_json(arena)
+        if (index(json_output, '"type":"exit_node"') == 0) then
+            call handle_error("exit_node not found in AST JSON")
+        end if
+        if (index(json_output, '"loop_label":"main_loop"') == 0) then
+            call handle_error("Loop label not found in exit node")
+        end if
+        
+        print *, "test_exit_with_label: PASS"
+    end subroutine test_exit_with_label
+
+    subroutine test_cycle_exit_in_do_loop()
+        type(token_t), allocatable :: tokens(:)
+        type(parser_state_t) :: parser
+        type(ast_arena_t) :: arena
+        integer :: loop_index
+        character(len=:), allocatable :: json_output
+        character(len=:), allocatable :: code
+        
+        ! Test cycle and exit inside do loop
+        code = "do i = 1, 10" // new_line('a') // &
+               "   if (i == 5) cycle" // new_line('a') // &
+               "   if (i == 8) exit" // new_line('a') // &
+               "   print *, i" // new_line('a') // &
+               "end do"
+        
+        tokens = lexer(code)
+        parser = create_parser_state(tokens)
+        arena = create_ast_arena()
+        
+        loop_index = parse_do_loop(parser, arena)
+        
+        if (loop_index <= 0) then
+            call handle_error("Failed to parse do loop with cycle/exit")
+        end if
+        
+        ! Check the AST
+        json_output = ast_to_json(arena)
+        if (index(json_output, '"type":"do_loop"') == 0) then
+            call handle_error("do_loop node not found in AST JSON")
+        end if
+        if (index(json_output, '"type":"cycle_node"') == 0) then
+            call handle_error("cycle_node not found inside do loop")
+        end if
+        if (index(json_output, '"type":"exit_node"') == 0) then
+            call handle_error("exit_node not found inside do loop")
+        end if
+        
+        print *, "test_cycle_exit_in_do_loop: PASS"
+    end subroutine test_cycle_exit_in_do_loop
+
+end program test_cycle_exit_parser

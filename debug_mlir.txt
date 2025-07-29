@@ -1,0 +1,19 @@
+module {
+  llvm.func @printf(!llvm.ptr, ...) -> i32
+
+
+  llvm.mlir.global private constant @str_6(dense<[37, 100, 10, 0]> : tensor<4xi8>) : !llvm.array<4 x i8>
+    llvm.func @main() -> i32 {
+      %1 = memref.alloca() : memref<1xi32>
+      %2 = arith.constant 42 : i32
+      %5 = arith.constant 0 : index
+      memref.store %2, %1[%5] : memref<1xi32>
+      %7 = llvm.mlir.addressof @str_6: !llvm.ptr
+      %9 = arith.constant 0 : index
+      %8 = memref.load %1[%9] : memref<1xi32>
+      %10 = llvm.call @printf(%7, %8) vararg(!llvm.func<i32 (!llvm.ptr, ...)>) : (!llvm.ptr, i32) -> i32
+      %exit_code = llvm.mlir.constant(0 : i32) : i32
+      llvm.return %exit_code : i32
+    }
+}
+
