@@ -1,4 +1,4 @@
-# fortfront
+![fortfront](media/logo.svg)
 
 Core analysis frontend for lazy fortran - lexer, parser, semantic analysis, and AST operations.
 
