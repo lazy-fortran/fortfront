@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Fortran
+      uses: fortran-lang/setup-fortran@v1
+      with:
+        compiler: gfortran
+        
+    - name: Setup FPM
+      uses: fortran-lang/setup-fpm@v5
+      
+    - name: Build
+      run: fpm build
+      
+    - name: Test
+      run: fpm test
+      
+    - name: Generate Coverage (Ubuntu only)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcovr
+        fpm build --flag '-fprofile-arcs -ftest-coverage'
+        fpm test --flag '-fprofile-arcs -ftest-coverage' || true
+        mkdir -p coverage
+        gcovr --root . \
+          --exclude 'build/*' \
+          --exclude 'test/*' \
+          --html-details -o coverage/index.html \
+          --print-summary
+        
+    - name: Upload Coverage
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage/
