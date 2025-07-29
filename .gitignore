@@ -1,0 +1,33 @@
+debug
+build
+packages/*/
+
+# Compiled/generated Fortran and JSON files in project root
+/*.f90
+/*.f
+/*.json
+
+# Test artifacts - prevent accidental commit of test-generated files
+test_*.md
+test_*.txt
+*_test.md
+*_test.txt
+*_test.f
+*_test.f90
+test_results*
+test_output*
+
+# Temporary files
+*.tmp
+*.temp
+
+# Draft directory - never commit draft work
+draft/
+!draft/.gitkeep
+
+# Coverage reports
+coverage/
+coverage.*
+*.gcov
+*.gcda
+*.gcno
