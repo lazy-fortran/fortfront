@@ -1,8 +1,8 @@
-# Fortfront-Fortrun Decoupling Plan
+# Fortfront-Fortrun Decoupling Implementation ✅ COMPLETED
 
 ## Overview
 
-This document outlines the plan to create a clean, well-defined API interface between fortfront and fortrun. fortfront will focus solely on the frontend transformation (lazy fortran → standard fortran), while fortrun handles compilation, caching, and project management.
+This document outlines the **completed implementation** of pure CLI decoupling between fortfront and fortrun. fortfront now operates as a standalone CLI tool for transformation (lazy fortran → standard fortran), while fortrun handles compilation, caching, and project management via subprocess calls.
 
 ## Current Coupling Analysis
 
