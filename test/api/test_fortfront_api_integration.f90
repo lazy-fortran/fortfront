@@ -47,8 +47,8 @@ contains
                      'end function compute' // new_line('A') // &
                      '' // new_line('A') // &
                      '! Main computation' // new_line('A') // &
-                     'a := 3.0' // new_line('A') // &
-                     'b := 4.0' // new_line('A') // &
+                     'a = 3.0' // new_line('A') // &
+                     'b = 4.0' // new_line('A') // &
                      'result = compute(a, b)' // new_line('A') // &
                      'print *, "Result:", result'
             

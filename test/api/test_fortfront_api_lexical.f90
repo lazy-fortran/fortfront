@@ -161,7 +161,7 @@ contains
             character(len=:), allocatable :: error_msg
             
             ! Type inference syntax
-            call lex_source('x := 42', tokens, error_msg)
+            call lex_source('x = 42', tokens, error_msg)
             
             if (error_msg /= "") then
                 print *, '  FAIL: Unexpected error: ', error_msg
