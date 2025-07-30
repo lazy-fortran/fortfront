@@ -1,51 +1,45 @@
 program fortfront_cli
-    use iso_fortran_env, only: output_unit, error_unit
+    use iso_fortran_env, only: input_unit, output_unit, error_unit, iostat_end
+    use frontend, only: transform_lazy_fortran_string
     implicit none
     
-    character(len=1024) :: arg
-    integer :: argc, i
+    character(len=:), allocatable :: input_text, output_text, error_msg
+    character(len=1000) :: line
+    integer :: iostat
     
-    argc = command_argument_count()
+    ! Read all input from stdin
+    allocate(character(len=0) :: input_text)
     
-    if (argc == 0) then
-        call print_usage()
+    do
+        read(input_unit, '(A)', iostat=iostat) line
+        if (iostat == iostat_end) exit
+        if (iostat /= 0) then
+            write(error_unit, '(A)') 'Error reading from stdin'
+            stop 1
+        end if
+        input_text = input_text // trim(line) // new_line('A')
+    end do
+    
+    ! Check if we got input
+    if (len(input_text) == 0) then
+        write(error_unit, '(A)') 'No input received from stdin'
         stop 1
     end if
     
-    call get_command_argument(1, arg)
+    ! Transform lazy fortran to standard fortran
+    call transform_lazy_fortran_string(input_text, output_text, error_msg)
     
-    select case (trim(arg))
-    case ('--help', '-h')
-        call print_usage()
-    case ('--version', '-v')
-        call print_version()
-    case default
-        write(error_unit, '(A)') 'Error: Unknown command: ' // trim(arg)
-        call print_usage()
+    if (error_msg /= "") then
+        write(error_unit, '(A)') trim(error_msg)
         stop 1
-    end select
+    end if
     
-contains
-    
-    subroutine print_usage()
-        write(output_unit, '(A)') 'fortfront - Core analysis frontend for lazy fortran'
-        write(output_unit, '(A)') ''
-        write(output_unit, '(A)') 'Usage: fortfront [OPTIONS] [FILE]'
-        write(output_unit, '(A)') ''
-        write(output_unit, '(A)') 'Options:'
-        write(output_unit, '(A)') '  -h, --help      Show this help message'
-        write(output_unit, '(A)') '  -v, --version   Show version information'
-        write(output_unit, '(A)') ''
-        write(output_unit, '(A)') 'Commands (planned):'
-        write(output_unit, '(A)') '  tokens          Dump tokens as JSON'
-        write(output_unit, '(A)') '  ast             Dump AST as JSON'
-        write(output_unit, '(A)') '  typed-ast       Dump typed AST as JSON'
-        write(output_unit, '(A)') '  emit-f90        Emit Standard Fortran code'
-    end subroutine print_usage
-    
-    subroutine print_version()
-        write(output_unit, '(A)') 'fortfront version 0.1.0'
-        write(output_unit, '(A)') 'Core analysis frontend for lazy fortran'
-    end subroutine print_version
+    ! Write output to stdout
+    if (allocated(output_text) .and. len(output_text) > 0) then
+        write(output_unit, '(A)', advance='no') output_text
+    else
+        write(error_unit, '(A)') 'No output generated'
+        stop 1
+    end if
     
 end program fortfront_cli
