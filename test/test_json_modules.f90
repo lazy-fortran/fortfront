@@ -59,8 +59,8 @@ contains
             print *, '  FAILED: JSON file not created'
         end if
         
-        ! Clean up
-        call execute_command_line("rm -f " // filename)
+        ! Clean up - portable file deletion
+        call delete_file_portable(filename)
         
         if (passed) print *, '  PASSED: Token JSON write'
     end function
@@ -73,5 +73,21 @@ contains
         ! Just verify the module works
         print *, '  PASSED: JSON file I/O'
     end function
+    
+    subroutine delete_file_portable(filename)
+        character(len=*), intent(in) :: filename
+        integer :: unit_num, iostat
+        logical :: exists
+        
+        ! Check if file exists before trying to delete
+        inquire(file=trim(filename), exist=exists)
+        if (exists) then
+            ! Open and close with delete status
+            open(newunit=unit_num, file=trim(filename), status='old', iostat=iostat)
+            if (iostat == 0) then
+                close(unit_num, status='delete')
+            end if
+        end if
+    end subroutine delete_file_portable
 
 end program test_json_modules
