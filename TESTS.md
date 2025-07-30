@@ -6,6 +6,18 @@
 **Problem**: Only 34 lines across entire codebase are measurable for coverage
 **Root Cause**: Most modules contain only interfaces/types, or functions not called by tests
 
+## External API Usage (fortrun Integration)
+
+**IMPORTANT**: Based on ../fortrun/FORTFRONT.md, fortrun extensively uses fortfront as a complete Fortran frontend for processing "lazy fortran" (.f/.F) files. The integration includes:
+
+- **4-phase compilation pipeline**: lexer → parser → semantic analysis → code generation
+- **Type inference**: Hindley-Milner algorithm W
+- **Debug system**: 5 debug modes (tokens, ast, semantic, standardize, codegen)
+- **Caching**: Content-based caching of preprocessed .f90 files
+- **Main API entry points**: `compile_with_frontend()`, `compile_with_frontend_debug()`, `is_simple_fortran_file()`
+
+This means most "zero coverage" modules are actually heavily used in production via fortrun.
+
 ## Complete Coverage Breakdown
 
 ### ✅ Fully Covered Modules (100%)
@@ -26,27 +38,31 @@ src/semantic/type_system_hm.f90           23/25  lines (92%) - missing 699-700
 src/json_reader.f90                       0/1    lines (0%)  - missing 709
 ```
 
-### ❌ Zero Measurable Lines (Need Function Calls)
+### ❌ Zero Measurable Lines (BUT Used Heavily by fortrun API)
 ```
-src/frontend.f90                          0      lines
-src/lexer/lexer_core.f90                  0      lines  
-src/parser/parser_core.f90                0      lines
-src/parser/parser_control_flow.f90        0      lines
-src/parser/parser_dispatcher.f90          0      lines
-src/parser/parser_expressions.f90         0      lines
-src/parser/parser_state.f90               0      lines
-src/ast/ast_core.f90                      0      lines
-src/json_writer.f90                       0      lines
-src/semantic/parameter_tracker.f90        0      lines
-src/semantic/scope_manager.f90            0      lines
-src/semantic/semantic_analyzer.f90        0      lines
-src/semantic/type_checker.f90             0      lines
-src/string_types.f90                      0      lines
+src/frontend.f90                          0      lines  ⭐ CORE API - 4-phase pipeline
+src/lexer/lexer_core.f90                  0      lines  ⭐ CORE API - Phase 1 tokenization
+src/parser/parser_core.f90                0      lines  ⭐ CORE API - Phase 2 AST construction
+src/parser/parser_control_flow.f90        0      lines  ⭐ CORE API - if/do/select parsing
+src/parser/parser_dispatcher.f90          0      lines  ⭐ CORE API - statement dispatcher
+src/parser/parser_expressions.f90         0      lines  ⭐ CORE API - expression parsing
+src/parser/parser_state.f90               0      lines  ⭐ CORE API - parser state mgmt
+src/ast/ast_core.f90                      0      lines  ⭐ CORE API - AST arena management
+src/json_writer.f90                       0      lines  ⭐ CORE API - debug output
+src/semantic/parameter_tracker.f90        0      lines  ⭐ CORE API - parameter tracking
+src/semantic/scope_manager.f90            0      lines  ⭐ CORE API - scope management
+src/semantic/semantic_analyzer.f90        0      lines  ⭐ CORE API - Phase 3 type inference
+src/semantic/type_checker.f90             0      lines  ⭐ CORE API - type compatibility
+src/string_types.f90                      0      lines  ⭐ CORE API - string utilities
 ```
+
+⭐ = Heavily used by fortrun's lazy fortran processing
 
 ## Test Strategy: Direct Function Calls
 
 **Goal**: Call functions from modules showing 0 lines to generate coverage data
+
+**Note**: While these modules show zero test coverage, they are heavily used by fortrun in production. The tests below would primarily serve coverage metrics rather than functional validation since the real validation happens through fortrun's integration testing.
 
 ### Test 1: Frontend Pipeline Test
 **File**: `test_frontend_core.f90`
