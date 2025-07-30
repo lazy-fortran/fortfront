@@ -36,7 +36,7 @@ contains
         print *, 'Testing array assignment semantic analysis...'
 
         ! Test 1: Array literal assignment
-        input_file = 'test_sem_arr.f'
+        input_file = 'test_sem_arr.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(3)'
@@ -57,7 +57,7 @@ contains
         end if
 
         ! Test 2: Array constructor assignment
-        input_file = 'test_sem_ctor.f'
+        input_file = 'test_sem_ctor.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(10)'
@@ -89,7 +89,7 @@ contains
         print *, 'Testing type consistency in semantic analysis...'
 
         ! Test: Mixed types in array
-        input_file = 'test_sem_mixed.f'
+        input_file = 'test_sem_mixed.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    real :: arr(3)'
@@ -120,7 +120,7 @@ contains
         print *, 'Testing scope resolution in semantic analysis...'
 
         ! Test: Variable used in implied do loop
-        input_file = 'test_sem_scope.f'
+        input_file = 'test_sem_scope.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(10), j'
@@ -153,7 +153,7 @@ contains
         print *, 'Testing intrinsic function semantic analysis...'
 
         ! Test: Array intrinsics
-        input_file = 'test_sem_intrinsic.f'
+        input_file = 'test_sem_intrinsic.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(5)'

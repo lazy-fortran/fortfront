@@ -38,7 +38,7 @@ contains
         print *, 'Testing array literal code generation...'
 
         ! Simple test that should work
-        input_file = 'test_cg_arr.f'
+        input_file = 'test_cg_arr.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [10, 20, 30]'
         close (unit)
@@ -89,7 +89,7 @@ contains
         test_implied_do_codegen = .true.
         print *, 'Testing implied do loop code generation...'
 
-        input_file = 'test_cg_do.f'
+        input_file = 'test_cg_do.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [(i*i, i=1,5)]'
         close (unit)
@@ -120,7 +120,7 @@ contains
         test_string_concat_codegen = .true.
         print *, 'Testing string concatenation code generation...'
 
-        input_file = 'test_cg_concat.f'
+        input_file = 'test_cg_concat.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'msg = "Hello" // " " // "World"'
         close (unit)
@@ -170,7 +170,7 @@ contains
         print *, 'Testing complex expression code generation...'
 
         ! Test: Nested array operations
-        input_file = 'test_cg_complex.f'
+        input_file = 'test_cg_complex.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'result = sum([1, 2, 3]) + maxval([(i*2, i=1,5)])'
         close (unit)
@@ -188,7 +188,7 @@ contains
         end if
 
         ! Test: Array slice in expression
-        input_file = 'test_cg_slice.f'
+        input_file = 'test_cg_slice.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'sub = arr(2:5) + [1, 1, 1, 1]'
         close (unit)
