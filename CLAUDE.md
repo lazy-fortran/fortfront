@@ -18,12 +18,17 @@ fpm test
 ```bash
 fpm clean --all
 fpm test --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
-gcovr --gcov-executable gcov -r src/ build/ \
-  --exclude 'build/dependencies/*' \
-  --exclude 'test/*' \
-  --xml -o coverage.xml \
-  --html-details -o coverage.html \
-  --print-summary
+lcov --capture --directory build/ --output-file coverage.info \
+  --rc branch_coverage=1 \
+  --ignore-errors inconsistent
+lcov --remove coverage.info \
+  'build/dependencies/*' \
+  'test/*' \
+  '/usr/*' \
+  --output-file coverage_filtered.info
+genhtml coverage_filtered.info --output-directory coverage_html \
+  --branch-coverage \
+  --legend
 ```
 
 ### Run a specific test
