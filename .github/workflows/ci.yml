@@ -179,13 +179,13 @@ jobs:
       shell: cmd
       run: |
         echo "Building project and all tests..."
-        fpm build --tests --flag '-cpp'
+        fpm build --tests --flag -cpp
 
     - name: Run all tests
       shell: cmd
       run: |
         echo "Running all tests..."
-        fpm test --flag '-cpp'
+        fpm test --flag -cpp
 
   test-macos:
     runs-on: macos-latest
@@ -260,7 +260,7 @@ jobs:
         fi
         
         echo "Using FPM_CC=$FPM_CC"
-        fpm build --tests --flag '-cpp'
+        fpm build --tests --flag -cpp
 
     - name: Run all tests
       shell: bash -el {0}
@@ -280,4 +280,4 @@ jobs:
         fi
         
         echo "Running all tests..."
-        fpm test --flag '-cpp'
+        fpm test --flag -cpp
