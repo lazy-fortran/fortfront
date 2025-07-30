@@ -215,11 +215,80 @@ assert(exit_code == 0)
 
 **Value**: Ensures stability in production use
 
-## Implementation Priority
+## Direct Function Coverage Strategy (URGENT)
 
-1. **Type Inference Edge Cases** - Most likely to find real bugs
-2. **Parser Error Recovery** - Improves user experience with invalid input  
-3. **Code Generation Quality** - Ensures professional output
-4. **Memory Stress Testing** - Validates production readiness
+**Problem**: Only 34 measurable lines detected by gcovr, most core modules show 0 lines
+**Solution**: Create direct unit tests that call individual module functions
 
-**Note**: String transformation tests already provide excellent coverage of the main pipeline. Focus on edge cases and error conditions not covered by happy path testing.
+### Immediate High Priority Tests
+
+#### 1. Lexer Core Direct Tests (`test/lexer/test_lexer_core_direct.f90`)
+```fortran
+use lexer_core, only: tokenize_source, classify_token, advance_position
+! Test tokenize_source() with edge cases: empty strings, single chars, complex expressions
+! Test classify_token() with boundary values: numbers, identifiers, operators
+! Test position tracking: line numbers, column numbers across different inputs
+```
+
+#### 2. Parser Core Direct Tests (`test/parser/test_parser_core_direct.f90`)
+```fortran
+use parser_core, only: parse_expression, parse_statement, build_ast_node
+! Test parse_expression() precedence: a+b*c, nested parentheses, mixed operators
+! Test parse_statement() variants: assignments, control flow, declarations
+! Test AST node construction: proper parent-child relationships, node types
+```
+
+#### 3. AST Core Direct Tests (`test/ast/test_ast_core_direct.f90`)
+```fortran
+use ast_core, only: create_node, destroy_node, traverse_ast, find_node_by_type
+! Test node lifecycle: creation, modification, destruction
+! Test tree traversal: pre-order, post-order, search algorithms
+! Test arena memory management: allocation patterns, cleanup
+```
+
+#### 4. Semantic Analyzer Direct Tests (`test/semantic/test_semantic_direct.f90`)
+```fortran
+use semantic_analyzer, only: analyze_types, resolve_scope, infer_function_types
+! Test type analysis: integer/real inference, array types, function return types
+! Test scope resolution: nested scopes, variable shadowing, function parameters
+! Test type inference: Hindley-Milner algorithm components with complex scenarios
+```
+
+#### 5. Type System Direct Tests (`test/semantic/test_type_system_direct.f90`)
+```fortran
+use type_system_hm, only: unify, substitute_type_vars, generalize, instantiate
+! Test unification: type variable binding, constraint satisfaction, failure cases
+! Test substitution: type variable replacement in complex expressions
+! Test polymorphism: generic function instantiation, type scheme management
+```
+
+### Test Quality Requirements
+
+- **Direct module imports**: `use module_name, only: function_name`
+- **Controlled test data**: Small, specific inputs to exercise exact code paths
+- **Boundary testing**: Empty inputs, single elements, maximum sizes
+- **Fast execution**: Each test file under 5 seconds
+- **Meaningful assertions**: Verify actual behavior, not just execution success
+
+### Expected Coverage Improvement
+
+- **Before**: 91.2% (31/34 lines) - most modules show 0 lines
+- **After**: 95%+ coverage with 200+ measurable lines
+- **New coverage**: Direct function calls will make gcovr detect actual code lines
+
+### Implementation Order
+
+1. **Lexer Core** - Foundation for all other phases
+2. **AST Core** - Data structures used throughout  
+3. **Parser Core** - AST construction logic
+4. **Semantic Analyzer** - Type inference and checking
+5. **Type System** - Hindley-Milner algorithm details
+
+### Secondary Priority (Existing Strategy)
+
+6. **Type Inference Edge Cases** - Complex semantic scenarios
+7. **Parser Error Recovery** - Malformed input handling
+8. **Code Generation Quality** - Output validation
+9. **Memory Stress Testing** - Production stability
+
+**Critical Success Metric**: gcovr should show 200+ measurable lines with 95%+ coverage after direct function tests are implemented.
