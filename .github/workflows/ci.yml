@@ -57,8 +57,8 @@ jobs:
         echo "Coverage files (.gcno):"
         find . -name "*.gcno" | head -10
         
-        # Generate coverage report (using the same command that works locally)
-        gcovr --gcov-executable gcov -r src/ build/ --exclude 'build/dependencies/*' --exclude 'test/*' --xml coverage.xml --html-details coverage.html --print-summary
+        # Generate coverage report focused on src/ directory with proper exclusions
+        gcovr --gcov-executable gcov --root . --filter 'src/.*' --exclude 'build/dependencies/.*' --exclude 'test/.*' --xml coverage.xml --html-details coverage.html --print-summary
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
