@@ -141,21 +141,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-fpm-deps-
 
-    - name: Restore build cache
-      uses: actions/cache@v4
-      id: cache-build-win
-      with:
-        path: build
-        key: ${{ runner.os }}-build-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-build-
-
-    - name: Build all tests
-      if: steps.cache-build-win.outputs.cache-hit != 'true'
-      shell: cmd
-      run: |
-        echo "Building project and all tests..."
-        fpm build --tests --flag -cpp
 
     - name: Run all tests
       shell: cmd
@@ -204,23 +189,10 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-fpm-deps-
 
-    - name: Restore build cache
-      uses: actions/cache@v4
-      id: cache-build-mac
-      with:
-        path: build
-        key: ${{ runner.os }}-build-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-build-
-
-    - name: Build all tests
-      if: steps.cache-build-mac.outputs.cache-hit != 'true'
+    - name: Run all tests
       shell: bash -el {0}
       run: |
-        echo "Building project and all tests..."
-        
-        # Workaround for FPM bug: https://github.com/fortran-lang/fpm/issues/1159
-        # Find the appropriate gcc version
+        # Set FPM_CC for test runs with proper GCC version
         if command -v gcc-15 &> /dev/null; then
           export FPM_CC=gcc-15
         elif command -v gcc-14 &> /dev/null; then
@@ -228,7 +200,6 @@ jobs:
         elif command -v gcc-13 &> /dev/null; then
           export FPM_CC=gcc-13
         else
-          # Try to find gcc from conda
           GCC_PATH=$(which gcc)
           if [ -n "$GCC_PATH" ]; then
             export FPM_CC=$GCC_PATH
@@ -236,24 +207,5 @@ jobs:
         fi
         
         echo "Using FPM_CC=$FPM_CC"
-        fpm build --tests --flag -cpp
-
-    - name: Run all tests
-      shell: bash -el {0}
-      run: |
-        # Set FPM_CC for test runs too
-        if command -v gcc-15 &> /dev/null; then
-          export FPM_CC=gcc-15
-        elif command -v gcc-14 &> /dev/null; then
-          export FPM_CC=gcc-14
-        elif command -v gcc-13 &> /dev/null; then
-          export FPM_CC=gcc-13
-        else
-          GCC_PATH=$(which gcc)
-          if [ -n "$GCC_PATH" ]; then
-            export FPM_CC=$GCC_PATH
-          fi
-        fi
-        
         echo "Running all tests..."
         fpm test --flag -cpp
