@@ -348,8 +348,14 @@ contains
         integer :: i
 
         ! Deallocate existing allocatable components to prevent memory leaks
-        if (allocated(lhs%args)) deallocate(lhs%args)
-        if (allocated(lhs%var%name)) deallocate(lhs%var%name)
+        if (allocated(lhs%args)) then
+            deallocate(lhs%args)
+        end if
+        ! Only try to deallocate var%name if it's allocated
+        ! Check that var component is initialized before accessing its components
+        if (allocated(lhs%var%name)) then
+            deallocate(lhs%var%name)
+        end if
 
         ! Copy scalar fields
         lhs%kind = rhs%kind
