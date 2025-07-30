@@ -39,10 +39,16 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-fpm-deps-
 
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+    
     - name: Show compiler versions
       run: |
         gfortran --version
         fpm --version
+        python3 --version
 
     - name: Run all tests with coverage
       run: |
@@ -75,9 +81,9 @@ jobs:
           --legend
         
         # Convert lcov info to Cobertura XML for codecov
-        # Install lcov-cobertura converter
-        pip install lcov-cobertura
-        lcov_cobertura coverage_filtered.info -o coverage.xml
+        # Ensure Python and pip are available
+        python3 -m pip install --user lcov-cobertura
+        python3 -m lcov_cobertura coverage_filtered.info -o coverage.xml
         
         # Debug: Show coverage.xml content
         echo "Coverage XML file size and first few lines:"
