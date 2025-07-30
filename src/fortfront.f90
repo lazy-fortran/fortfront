@@ -301,6 +301,11 @@ contains
         if (allocated(node)) then
             if (allocated(node%inferred_type)) then
                 allocate(node_type)
+                ! Initialize fields to avoid issues with uninitialized memory
+                node_type%kind = 0
+                node_type%size = 0
+                node_type%var%id = -1
+                allocate(character(len=0) :: node_type%var%name)
                 node_type = node%inferred_type  ! Use assignment operator for deep copy
             end if
         end if
