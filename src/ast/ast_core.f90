@@ -2727,11 +2727,9 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         end if
 
         ! Note: We cannot deep copy the polymorphic node component
-        ! as it would require knowledge of all possible derived types.
-        ! This should be handled at a higher level if needed.
+        ! Deep copy the polymorphic node component using sourced allocation
         if (allocated(this%node)) then
-            ! For now, we'll skip deep copying the node itself
-            ! This is a limitation that needs to be addressed based on usage
+            allocate(copy%node, source=this%node)
         end if
     end function ast_entry_deep_copy
 
@@ -2756,10 +2754,9 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
             lhs%child_indices = rhs%child_indices
         end if
 
-        ! Note: See comment in deep_copy about node component
+        ! Deep copy the node using sourced allocation
         if (allocated(rhs%node)) then
-            ! For now, we'll skip deep copying the node itself
-            ! This is a limitation that needs to be addressed based on usage
+            allocate(lhs%node, source=rhs%node)
         end if
     end subroutine ast_entry_assign
 
