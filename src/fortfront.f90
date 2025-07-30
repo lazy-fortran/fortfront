@@ -290,14 +290,16 @@ contains
     end subroutine analyze_program
     
     ! Get type information for a node
-    function get_type_for_node(arena, node_index) result(node_type)
+    subroutine get_type_for_node(arena, node_index, node_type, found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
-        type(mono_type_t), allocatable :: node_type
+        type(mono_type_t), allocatable, intent(out) :: node_type
+        logical, intent(out) :: found
         
         class(ast_node), allocatable :: node
         integer :: i
         
+        found = .false.
         node = get_node(arena, node_index)
         if (allocated(node)) then
             if (allocated(node%inferred_type)) then
@@ -318,9 +320,10 @@ contains
                         node_type%args(i) = node%inferred_type%args(i)
                     end do
                 end if
+                found = .true.
             end if
         end if
-    end function get_type_for_node
+    end subroutine get_type_for_node
     
     ! Collect diagnostics (placeholder for future implementation)
     function get_diagnostics(ctx) result(diagnostics)
