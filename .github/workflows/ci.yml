@@ -57,11 +57,14 @@ jobs:
         echo "Coverage files (.gcno):"
         find . -name "*.gcno" | head -10
         
-        # Generate coverage report for all source files
-        gcovr --gcov-executable gcov -r . \
+        # Generate coverage report for src files only (matching fortrun setup)
+        gcovr --root . \
           --filter 'src/.*' \
-          --exclude 'build/dependencies/.*' \
+          --filter 'app/fortfront.f90' \
           --exclude 'test/.*' \
+          --exclude 'example/.*' \
+          --exclude 'app/test_.*' \
+          --exclude 'build/dependencies/.*' \
           --xml coverage.xml \
           --html-details coverage.html \
           --print-summary
