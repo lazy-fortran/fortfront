@@ -2,7 +2,7 @@ program test_parser_edge_cases
     use lexer_core, only: token_t, tokenize_core
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression
-    use parser_declarations, only: parse_type_declaration
+    use parser_declarations_module, only: parse_variable_declaration
     use ast_core
     implicit none
 
@@ -87,7 +87,7 @@ contains
         call tokenize_core(source, tokens)
         state = create_parser_state(tokens)
         
-        node_id = parse_type_declaration(state)
+        node_id = parse_variable_declaration(state)
         
         ! Should parse complex type
         if (passed) print *, '  PASSED: Complex type declaration'
