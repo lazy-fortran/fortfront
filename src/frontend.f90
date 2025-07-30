@@ -1153,17 +1153,15 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
     end subroutine analyze_semantics
     
     subroutine emit_fortran(arena, prog_index, fortran_code)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: prog_index
+        type(ast_arena_t), intent(inout) :: arena  ! Changed to inout to avoid copying
+        integer, intent(inout) :: prog_index  ! Changed to inout for standardize_ast
         character(len=:), allocatable, intent(out) :: fortran_code
         
-        ! First standardize, then generate code
-        type(ast_arena_t) :: work_arena
-        integer :: work_prog_index
-        work_arena = arena  ! Copy
-        work_prog_index = prog_index
-        call standardize_ast(work_arena, work_prog_index)
-        fortran_code = generate_code_from_arena(work_arena, work_prog_index)
+        ! Standardize in place to avoid double free from arena copying
+        ! NOTE: This modifies the original arena - if we need immutability,
+        ! we need to implement proper deep copy for all AST node types
+        call standardize_ast(arena, prog_index)
+        fortran_code = generate_code_from_arena(arena, prog_index)
     end subroutine emit_fortran
 
 end module frontend
