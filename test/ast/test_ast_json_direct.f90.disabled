@@ -1,0 +1,181 @@
+program test_ast_json_direct
+    use ast_core
+    use ast_factory
+    use json_writer
+    use json_module
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER
+    implicit none
+    
+    integer :: test_count, pass_count
+    
+    test_count = 0
+    pass_count = 0
+    
+    print *, "=== AST JSON Direct Tests ==="
+    
+    ! Test JSON serialization functionality  
+    call test_json_writer_tokens()
+    call test_arena_node_json()
+    call test_arena_stats()
+    call test_node_creation()
+    
+    print *, ""
+    print *, "=== Test Summary ==="
+    write(*, '(A,I0,A,I0,A)') "Passed: ", pass_count, "/", test_count, " tests"
+    
+    if (pass_count == test_count) then
+        print *, "All AST JSON tests passed!"
+        stop 0
+    else
+        print *, "Some AST JSON tests failed!"
+        stop 1
+    end if
+    
+contains
+    
+    subroutine test_json_writer_tokens()
+        type(token_t), allocatable :: tokens(:)
+        character(len=:), allocatable :: json_str
+        
+        call test_start("JSON writer tokens")
+        
+        allocate(tokens(3))
+        tokens(1) = token_t(kind=TK_IDENTIFIER, text="x", line=1, column=1)
+        tokens(2) = token_t(kind=TK_OPERATOR, text="=", line=1, column=3)
+        tokens(3) = token_t(kind=TK_NUMBER, text="42", line=1, column=5)
+        
+        json_str = json_write_tokens_to_string(tokens)
+        
+        if (index(json_str, '"text":"x"') > 0 .and. &
+            index(json_str, '"text":"="') > 0 .and. &
+            index(json_str, '"text":"42"') > 0) then
+            call test_pass()
+        else
+            call test_fail("Token JSON missing expected fields")
+        end if
+        
+        deallocate(tokens)
+    end subroutine test_json_writer_tokens
+    
+    subroutine test_arena_node_json()
+        type(ast_arena_t) :: arena
+        type(json_core) :: json
+        type(json_value), pointer :: root
+        character(len=:), allocatable :: json_str
+        integer :: id_idx
+        
+        call test_start("Arena node to JSON")
+        
+        arena = create_ast_stack()
+        
+        ! Create a simple identifier
+        id_idx = push_identifier(arena, "test_var", 1, 1)
+        
+        ! Get the node and convert to JSON
+        if (id_idx > 0 .and. id_idx <= arena%size) then
+            call json%initialize()
+            call json%create_object(root, '')
+            
+            ! Call the node's to_json method
+            select type(node => arena%entries(id_idx)%node)
+            type is (identifier_node)
+                call node%to_json(json, root)
+            end select
+            
+            ! Convert to string
+            call json%print(root, json_str)
+            
+            if (index(json_str, '"identifier"') > 0 .and. &
+                index(json_str, '"test_var"') > 0) then
+                call test_pass()
+            else
+                call test_fail("Node JSON output incorrect")
+            end if
+            
+            call json%destroy(root)
+        else
+            call test_fail("Invalid node index")
+        end if
+        
+        call arena%clear()
+    end subroutine test_arena_node_json
+    
+    subroutine test_arena_stats()
+        type(ast_arena_t) :: arena
+        type(ast_arena_stats_t) :: stats
+        integer :: i, idx
+        
+        call test_start("Arena statistics")
+        
+        arena = create_ast_stack()
+        
+        ! Create multiple nodes
+        do i = 1, 10
+            idx = push_literal(arena, "value" // char(48+mod(i,10)), LITERAL_INTEGER)
+        end do
+        
+        ! Get stats
+        stats = arena%get_stats()
+        
+        if (stats%total_nodes == 10 .and. stats%capacity >= 10) then
+            call test_pass()
+        else
+            call test_fail("Arena stats incorrect")
+        end if
+        
+        call arena%clear()
+    end subroutine test_arena_stats
+    
+    subroutine test_node_creation()
+        type(ast_arena_t) :: arena
+        integer :: prog_idx, sub_idx, decl_idx
+        integer, allocatable :: body_indices(:)
+        type(ast_arena_stats_t) :: stats
+        
+        call test_start("Node creation and hierarchy")
+        
+        arena = create_ast_stack()
+        
+        ! Create declaration
+        decl_idx = push_declaration(arena, "real", "temperature")
+        
+        ! Create subroutine with empty body
+        allocate(body_indices(0))
+        sub_idx = push_subroutine_def(arena, "calculate", body_indices)
+        
+        ! Create program with declaration and subroutine in body
+        deallocate(body_indices)
+        allocate(body_indices(2))
+        body_indices = [decl_idx, sub_idx]
+        prog_idx = push_program(arena, "test_prog", body_indices)
+        
+        ! Check stats
+        stats = arena%get_stats()
+        
+        if (stats%total_nodes >= 3) then
+            call test_pass()
+        else
+            call test_fail("Expected at least 3 nodes")
+        end if
+        
+        call arena%clear()
+    end subroutine test_node_creation
+    
+    subroutine test_start(test_name)
+        character(len=*), intent(in) :: test_name
+        test_count = test_count + 1
+        write(*, '(A,A)', advance='no') "Testing: ", test_name
+    end subroutine test_start
+    
+    subroutine test_pass()
+        print *, " ... PASSED"
+        pass_count = pass_count + 1
+    end subroutine test_pass
+    
+    subroutine test_fail(reason)
+        character(len=*), intent(in) :: reason
+        print *, " ... FAILED"
+        print *, "  Reason: ", reason
+    end subroutine test_fail
+    
+end program test_ast_json_direct
