@@ -39,7 +39,7 @@ contains
         print *, 'Testing basic array compilation...'
 
         ! Create test input
-        input_file = 'test_basic_arr.f'
+        input_file = 'test_basic_arr.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [10, 20, 30]'
         write (unit, '(a)') 'print *, "Sum:", sum(arr)'
@@ -101,7 +101,7 @@ contains
         print *, 'Testing empty array generates allocatable...'
 
         ! Create test with empty array
-        input_file = 'test_empty.f'
+        input_file = 'test_empty.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'empty_arr = []'
         write (unit, '(a)') 'allocate(empty_arr(3))'
@@ -154,7 +154,7 @@ contains
         print *, 'Testing mixed type arrays...'
 
         ! Create test with different types
-        input_file = 'test_mixed.f'
+        input_file = 'test_mixed.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'int_arr = [1, 2, 3, 4, 5]'
         write (unit, '(a)') 'real_arr = [1.5, 2.5, 3.5]'
@@ -193,7 +193,7 @@ contains
         print *, 'Testing character array handling...'
 
         ! Create test
-        input_file = 'test_char.f'
+        input_file = 'test_char.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'words = ["hello", "world", "test "]'
         write (unit, '(a)') 'print *, words'
@@ -240,7 +240,7 @@ contains
         print *, 'Testing arrays with expressions...'
 
         ! Create test
-        input_file = 'test_expr.f'
+        input_file = 'test_expr.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'x = 10'
         write (unit, '(a)') 'y = 5'
@@ -294,7 +294,7 @@ contains
         print *, 'Testing large array size detection...'
 
         ! Create test with large array
-        input_file = 'test_large.f'
+        input_file = 'test_large.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'big = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]'
         write (unit, '(a)') 'print *, "Size:", size(big)'

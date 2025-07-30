@@ -43,7 +43,7 @@ Transform lazy Fortran to standard Fortran:
 echo "x = 42" | fortfront
 
 # With file input/output
-fortfront < input.f > output.f90
+fortfront < input.lf > output.f90
 
 # Example transformation
 echo -e "x = 42\ny = 3.14\nprint *, x + y" | fortfront
@@ -67,11 +67,11 @@ end program main
 fortfront is designed to work seamlessly with [fortrun](../fortrun):
 
 ```bash
-# fortrun automatically uses fortfront for .f files
-fortrun hello.f
+# fortrun automatically uses fortfront for .lf files
+fortrun hello.lf
 
 # Explicit usage in build scripts
-fortfront < lazy_source.f > standard_source.f90
+fortfront < lazy_source.lf > standard_source.f90
 gfortran standard_source.f90 -o program
 ```
 

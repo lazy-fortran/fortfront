@@ -33,7 +33,7 @@ contains
         print *, 'Testing array literal standardization...'
 
         ! Test: [1, 2, 3] should become (/ 1, 2, 3 /)
-        input_file = 'test_std_arr.f'
+        input_file = 'test_std_arr.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(3)'
@@ -84,7 +84,7 @@ contains
         print *, 'Testing implied do loop standardization...'
 
         ! Test: [(i, i=1,10)] should become (/ (i, i=1,10) /)
-        input_file = 'test_std_do.f'
+        input_file = 'test_std_do.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(10)'
@@ -118,7 +118,7 @@ contains
         print *, 'Testing string concatenation standardization...'
 
         ! Test: "hello" // "world" should remain the same
-        input_file = 'test_std_concat.f'
+        input_file = 'test_std_concat.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    character(len=20) :: msg'
@@ -168,7 +168,7 @@ contains
         print *, 'Testing array slice standardization...'
 
         ! Test: arr(1:3) and arr(:) should be preserved
-        input_file = 'test_std_slice.f'
+        input_file = 'test_std_slice.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(10), sub(3)'

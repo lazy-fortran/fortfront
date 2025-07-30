@@ -195,7 +195,7 @@ expected: Error to stderr, exit code 1
 3. Test file detection logic
 
 **Acceptance Criteria**:
-- `.f` and `.F` files detected as lazy fortran
+- `.lf` and `.LF` files detected as lazy fortran
 - `.f90`, `.F90` files NOT detected as lazy fortran  
 - Function is pure and handles edge cases (no extension, etc.)
 
@@ -228,15 +228,15 @@ expected: Error to stderr, exit code 1
 **Description**: Test complete fortrun workflow with CLI integration
 
 **Steps**:
-1. Create integration test with sample `.f` file
+1. Create integration test with sample `.lf` file
 2. Test caching behavior (CLI call only on cache miss)
 3. Test error propagation from fortfront CLI
 4. Test that `scan_modules` works on transformed output
 
 **Test Cases**:
-- Hello world `.f` file → successful build and execution
-- Type inference `.f` file → correct variable declarations in cache
-- Syntax error `.f` file → proper error reporting
+- Hello world `.lf` file → successful build and execution
+- Type inference `.lf` file → correct variable declarations in cache
+- Syntax error `.lf` file → proper error reporting
 - Cache hit scenario → no CLI call made
 
 **Acceptance Criteria**:

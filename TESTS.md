@@ -8,7 +8,7 @@
 
 ## External API Usage (fortrun Integration)
 
-**IMPORTANT**: Based on ../fortrun/FORTFRONT.md, fortrun extensively uses fortfront as a complete Fortran frontend for processing "lazy fortran" (.f/.F) files. The integration includes:
+**IMPORTANT**: Based on ../fortrun/FORTFRONT.md, fortrun extensively uses fortfront as a complete Fortran frontend for processing "lazy fortran" (.lf/.LF) files. The integration includes:
 
 - **4-phase compilation pipeline**: lexer → parser → semantic analysis → code generation
 - **Type inference**: Hindley-Milner algorithm W
@@ -112,7 +112,7 @@ expected: Minimal program output, exit code 0
 
 ```fortran
 ! Test extension detection
-assert(is_lazy_fortran_file("test.f"))
+assert(is_lazy_fortran_file("test.lf"))
 assert(.not. is_lazy_fortran_file("test.f90"))
 
 ! Test CLI subprocess execution

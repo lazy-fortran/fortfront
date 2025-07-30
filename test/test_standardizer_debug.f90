@@ -20,7 +20,7 @@ program test_standardizer_debug
     print *, '=== Standardizer Debug Test ==='
     
     ! Create test input
-    input_file = 'test_slice_debug.f'
+    input_file = 'test_slice_debug.lf'
     open(newunit=unit, file=input_file, status='replace')
     write(unit, '(a)') 'integer :: arr(5)'
     write(unit, '(a)') 'arr(1) = 1'

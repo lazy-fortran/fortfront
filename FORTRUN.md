@@ -34,7 +34,7 @@ Since fortrun's `scan_modules` works on any standard Fortran file (it just parse
 **fortrun** just calls it as a subprocess:
 ```fortran
 ! In fortrun - no imports from fortfront needed!
-if (is_lazy_fortran_file(filename)) then  ! Simple .f/.F extension check
+if (is_lazy_fortran_file(filename)) then  ! Simple .lf/.LF extension check
     ! Transform via CLI subprocess
     command = 'fortfront < '//trim(input_file)//' > '//trim(output_file)
     call execute_command_line(command, exitstat=status)
@@ -55,13 +55,13 @@ end if
 
 ```bash
 # Transform lazy fortran via stdin/stdout (ONLY operation)
-cat hello.f | fortfront > hello.f90
+cat hello.lf | fortfront > hello.f90
 
 # That's it! Pure Unix philosophy: one tool, one job
-cat calculate.f | fortfront > calculate.f90
+cat calculate.lf | fortfront > calculate.f90
 
 # File to file (if needed)
-fortfront < input.f > output.f90
+fortfront < input.lf > output.f90
 ```
 
 **Implementation**: 
@@ -79,7 +79,7 @@ fortfront < input.f > output.f90
 
 #### In fortrun:
 1. **Remove fortfront imports** - No more `use frontend_integration` or `use debug_state`
-2. **Add simple file extension check** - Basic `.f/.F` detection in fortrun itself
+2. **Add simple file extension check** - Basic `.lf/.LF` detection in fortrun itself
 3. **Use subprocess calls** - `execute_command_line()` to call `fortfront` CLI
 4. **Keep existing logic** - Caching, `scan_modules`, compilation, etc. all stay the same
 
@@ -114,7 +114,7 @@ fortfront < input.f > output.f90
 4. **Test CLI directly** - Unit tests via `echo "code" | fortfront`
 
 ### Phase 2: Update fortrun Integration  
-1. **Add file extension check** - Simple `.f/.F` detection in fortrun
+1. **Add file extension check** - Simple `.lf/.LF` detection in fortrun
 2. **Replace API calls** - Use `execute_command_line()` to call `fortfront` CLI
 3. **Remove fortfront imports** - Delete `use frontend_integration`, `use debug_state`
 4. **Test integration** - End-to-end tests with subprocess calls
@@ -171,7 +171,7 @@ logical function is_lazy_fortran_file(filename)
     
     ext_pos = index(filename, '.', back=.true.)
     if (ext_pos > 0) then
-        is_lazy_fortran_file = filename(ext_pos:) == '.f' .or. filename(ext_pos:) == '.F'
+        is_lazy_fortran_file = filename(ext_pos:) == '.lf' .or. filename(ext_pos:) == '.LF'
     else
         is_lazy_fortran_file = .false.
     end if

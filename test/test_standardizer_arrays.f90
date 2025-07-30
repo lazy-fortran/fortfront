@@ -35,7 +35,7 @@ contains
         print *, 'Testing array literal standardization...'
 
         ! Create test input
-        input_file = 'test_arr_std.f'
+        input_file = 'test_arr_std.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [1, 2, 3, 4, 5]'
         write (unit, '(a)') 'print *, arr'
@@ -98,7 +98,7 @@ contains
         print *, 'Testing array slice standardization...'
 
         ! Create test input
-        input_file = 'test_slice_std.f'
+        input_file = 'test_slice_std.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [1, 2, 3, 4, 5]'
         write (unit, '(a)') 'slice = arr(2:4)'
@@ -158,7 +158,7 @@ contains
         print *, 'Testing implied do loop standardization...'
 
         ! Create test input
-        input_file = 'test_implied_std.f'
+        input_file = 'test_implied_std.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'squares = [(i*i, i=1,5)]'
         write (unit, '(a)') 'print *, squares'

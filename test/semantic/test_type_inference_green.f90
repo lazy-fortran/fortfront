@@ -37,7 +37,7 @@ contains
         print *, 'Testing array literal type inference...'
 
         ! Test: [1, 2, 3] should infer array(integer)
-        input_file = 'test_inf_arr.f'
+        input_file = 'test_inf_arr.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(3)'
@@ -69,7 +69,7 @@ contains
         print *, 'Testing array constructor type inference...'
 
         ! Test: [(i, i=1,10)] should infer array(integer)
-        input_file = 'test_inf_ctor.f'
+        input_file = 'test_inf_ctor.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer :: arr(10)'
@@ -101,7 +101,7 @@ contains
         print *, 'Testing string concatenation type inference...'
 
         ! Test: "hello" // " world" should infer string
-        input_file = 'test_inf_concat.f'
+        input_file = 'test_inf_concat.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    character(len=20) :: msg'

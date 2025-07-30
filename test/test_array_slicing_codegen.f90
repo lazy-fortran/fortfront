@@ -35,7 +35,7 @@ contains
         print *, 'Testing basic array slicing code generation...'
 
         ! Create test input
-        input_file = 'test_slice.f'
+        input_file = 'test_slice.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [1, 2, 3, 4, 5]'
         write (unit, '(a)') 'print *, arr(2:4)'
@@ -87,7 +87,7 @@ contains
         print *, 'Testing array slicing with empty bounds...'
 
         ! Create test input
-        input_file = 'test_empty.f'
+        input_file = 'test_empty.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [1, 2, 3, 4, 5]'
         write (unit, '(a)') 'print *, arr(:3)'    ! Empty lower bound
@@ -145,7 +145,7 @@ contains
         print *, 'Testing multiple subscripts (2D array slicing)...'
 
         ! Create test input
-        input_file = 'test_multi.f'
+        input_file = 'test_multi.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'integer :: matrix(5,5)'
         write (unit, '(a)') 'print *, matrix(2:4, 1:3)'

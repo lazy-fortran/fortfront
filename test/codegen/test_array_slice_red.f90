@@ -31,7 +31,7 @@ contains
         test_basic_slice = .true.
         print *, 'Testing basic array slicing code generation...'
 
-        input_file = 'test_slice1.f'
+        input_file = 'test_slice1.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'integer :: arr(5), sub(3)'
         write (unit, '(a)') 'arr = [10, 20, 30, 40, 50]'
@@ -84,7 +84,7 @@ contains
         test_empty_bounds = .true.
         print *, 'Testing empty bounds in array slicing...'
 
-        input_file = 'test_slice2.f'
+        input_file = 'test_slice2.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'integer :: arr(5), lower(2), upper(3)'
         write (unit, '(a)') 'arr = [10, 20, 30, 40, 50]'
@@ -139,7 +139,7 @@ contains
         test_slice_assignment = .true.
         print *, 'Testing array slice assignment...'
 
-        input_file = 'test_slice3.f'
+        input_file = 'test_slice3.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'integer :: arr(5)'
         write (unit, '(a)') 'arr = [10, 20, 30, 40, 50]'

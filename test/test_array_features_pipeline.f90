@@ -38,7 +38,7 @@ contains
         print *, 'Testing array literals through full pipeline...'
 
         ! Create test input
-        input_file = 'test_arr_lit.f'
+        input_file = 'test_arr_lit.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [1, 2, 3]'
         write (unit, '(a)') 'print *, arr'
@@ -95,7 +95,7 @@ contains
         print *, 'Testing array slicing through full pipeline...'
 
         ! Create test input
-        input_file = 'test_slice.f'
+        input_file = 'test_slice.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'arr = [10, 20, 30, 40, 50]'
         write (unit, '(a)') 'sub = arr(2:4)'
@@ -130,7 +130,7 @@ contains
         print *, 'Testing array constructors with implied do loops...'
 
         ! Create test input
-        input_file = 'test_constructor.f'
+        input_file = 'test_constructor.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'squares = [(i**2, i=1,5)]'
         write (unit, '(a)') 'evens = [(2*i, i=1,10)]'
@@ -168,7 +168,7 @@ contains
         print *, 'Testing string concatenation through full pipeline...'
 
         ! Create test input
-        input_file = 'test_concat.f'
+        input_file = 'test_concat.lf'
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'greeting = "Hello" // " " // "World"'
         write (unit, '(a)') 'print *, greeting'
