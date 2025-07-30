@@ -127,8 +127,9 @@ contains
                     
                     ! Check target identifier type
                     if (stmt_node%target_index > 0) then
-                        node_type = get_type_for_node(arena, stmt_node%target_index)
-                        if (allocated(node_type)) then
+                        logical :: type_found
+                        call get_type_for_node(arena, stmt_node%target_index, node_type, type_found)
+                        if (type_found .and. allocated(node_type)) then
                             if (node_type%kind /= TINT) then
                                 print *, '  FAIL: Expected integer type for x identifier'
                                 test_type_inference = .false.

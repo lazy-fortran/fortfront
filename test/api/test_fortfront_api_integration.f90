@@ -96,8 +96,9 @@ contains
                     type is (program_node)
                         if (size(node%body_indices) > 0) then
                             ! Check if types were inferred
-                            node_type = get_type_for_node(arena, node%body_indices(1))
-                            if (allocated(node_type)) then
+                            logical :: type_found
+                            call get_type_for_node(arena, node%body_indices(1), node_type, type_found)
+                            if (type_found .and. allocated(node_type)) then
                                 print *, '  Note: Type inference successful'
                             end if
                         end if
@@ -268,8 +269,9 @@ contains
                                 if (allocated(assign_node)) then
                                     select type (assign_node)
                                     type is (assignment_node)
-                                        node_type = get_type_for_node(arena, assign_node%target_index)
-                                        if (allocated(node_type)) then
+                                        logical :: type_found
+                                        call get_type_for_node(arena, assign_node%target_index, node_type, type_found)
+                                        if (type_found .and. allocated(node_type)) then
                                             if (node_type%kind /= TINT) then
                                                 print *, '  FAIL: Wrong type for x'
                                                 test_type_system_integration = .false.
