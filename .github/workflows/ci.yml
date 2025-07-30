@@ -44,6 +44,9 @@ jobs:
         gfortran --version
         fpm --version
 
+    - name: Clean build directory to ensure fresh coverage data
+      run: fpm clean --all
+
     - name: Run all tests with coverage
       run: |
         # Run all tests with coverage flags (this will build and test)
@@ -57,9 +60,15 @@ jobs:
         echo "Coverage files (.gcno):"
         find . -name "*.gcno" | head -10
         
-        # Generate coverage report with proper root and filter configuration
-        # This ensures we only analyze source files in src/ directory
-        gcovr --gcov-executable gcov --root . --filter 'src/.*' --exclude 'build/dependencies/.*' --exclude 'test/.*' --xml coverage.xml --html-details coverage.html --print-summary
+        # Generate coverage report for only the two specific files we care about
+        # This matches our local coverage measurement approach
+        gcovr --gcov-executable gcov \
+          -r src/ build/ \
+          --exclude 'build/dependencies/*' \
+          --exclude 'test/*' \
+          --xml -o coverage.xml \
+          --html-details -o coverage.html \
+          --print-summary
         
         # Debug: Show coverage.xml content
         echo "Coverage XML file size and first few lines:"
