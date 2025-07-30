@@ -34,7 +34,7 @@ jobs:
         # Clean everything including dependencies
         fpm clean --all
         # Run all tests with coverage flags
-        fpm test --profile debug --flag '-fprofile-arcs -ftest-coverage -g'
+        fpm test --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
 
     - name: Generate coverage report
       run: |
@@ -103,7 +103,7 @@ jobs:
         # Clear build directory to avoid module version conflicts
         rm -rf build
         # Run all tests
-        fpm test
+        fpm test --flag '-cpp'
 
   test-macos:
     runs-on: macos-latest
@@ -135,4 +135,4 @@ jobs:
         fpm --version
         
         # Run all tests
-        fpm test
+        fpm test --flag '-cpp'
