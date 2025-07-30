@@ -36,14 +36,15 @@ contains
     subroutine test_basic_io()
         integer :: exit_code
         character(len=1000) :: output_line
+        character(len=512) :: command
         logical :: success
         
         call test_start("Basic CLI I/O")
         
         ! Run: echo "print *, 'test'" | fortfront
-        call execute_command_line('echo "print *, ''test''" | ' // &
-                                  './build/gfortran_*/app/fortfront > /tmp/fortfront_test_output.txt 2>/tmp/fortfront_test_error.txt', &
-                                  exitstat=exit_code)
+        command = 'echo "print *, ''test''" | ./build/gfortran_*/app/fortfront > ' // &
+                  '/tmp/fortfront_test_output.txt 2>/tmp/fortfront_test_error.txt'
+        call execute_command_line(command, exitstat=exit_code)
         
         success = (exit_code == 0)
         
@@ -63,14 +64,15 @@ contains
     
     subroutine test_error_handling()
         integer :: exit_code
+        character(len=512) :: command
         logical :: success
         
         call test_start("Error handling")
         
         ! Test with empty input (should work)
-        call execute_command_line('echo "" | ' // &
-                                  './build/gfortran_*/app/fortfront > /tmp/fortfront_test_output2.txt 2>/tmp/fortfront_test_error2.txt', &
-                                  exitstat=exit_code)
+        command = 'echo "" | ./build/gfortran_*/app/fortfront > ' // &
+                  '/tmp/fortfront_test_output2.txt 2>/tmp/fortfront_test_error2.txt'
+        call execute_command_line(command, exitstat=exit_code)
         
         ! Empty input should succeed (produces minimal program)
         success = (exit_code == 0)
@@ -84,14 +86,15 @@ contains
     subroutine test_empty_input()
         integer :: exit_code
         character(len=1000) :: output_line
+        character(len=512) :: command
         logical :: success
         
         call test_start("Empty input produces valid program")
         
         ! Test empty input
-        call execute_command_line('echo "" | ' // &
-                                  './build/gfortran_*/app/fortfront > /tmp/fortfront_test_output3.txt 2>/tmp/fortfront_test_error3.txt', &
-                                  exitstat=exit_code)
+        command = 'echo "" | ./build/gfortran_*/app/fortfront > ' // &
+                  '/tmp/fortfront_test_output3.txt 2>/tmp/fortfront_test_error3.txt'
+        call execute_command_line(command, exitstat=exit_code)
         
         success = (exit_code == 0)
         
