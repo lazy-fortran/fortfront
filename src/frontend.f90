@@ -993,12 +993,14 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         ! Check if current token is "if"
         if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "if") then
             ! Check if this is "else if" - if so, it's not a new if block for nesting purposes
-            if (pos > 1 .and. pos <= size(tokens) .and. tokens(pos - 1)%kind == TK_KEYWORD .and. &
-                tokens(pos - 1)%text == "else" .and. &
-                tokens(pos - 1)%line == tokens(pos)%line) then
-                ! This is "else if", not a new if block
-                is_if_then_start = .false.
-                return
+            if (pos > 1 .and. pos <= size(tokens)) then
+                if (tokens(pos - 1)%kind == TK_KEYWORD .and. &
+                    tokens(pos - 1)%text == "else" .and. &
+                    tokens(pos - 1)%line == tokens(pos)%line) then
+                    ! This is "else if", not a new if block
+                    is_if_then_start = .false.
+                    return
+                end if
             end if
 
             ! Look for "then" on the same line
