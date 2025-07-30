@@ -412,10 +412,10 @@ contains
     subroutine poly_type_assign(lhs, rhs)
         class(poly_type_t), intent(inout) :: lhs
         type(poly_type_t), intent(in) :: rhs
+        integer :: i
         
         ! Deallocate existing allocatable components
         if (allocated(lhs%forall)) deallocate(lhs%forall)
-        integer :: i
 
         ! Deep copy forall variables
         if (allocated(rhs%forall)) then
@@ -635,11 +635,11 @@ contains
     subroutine subst_assign(lhs, rhs)
         class(substitution_t), intent(inout) :: lhs
         type(substitution_t), intent(in) :: rhs
+        integer :: i
         
         ! Deallocate existing allocatable components
         if (allocated(lhs%vars)) deallocate(lhs%vars)
         if (allocated(lhs%types)) deallocate(lhs%types)
-        integer :: i
 
         lhs%count = rhs%count
         if (rhs%count > 0 .and. allocated(rhs%vars)) then
@@ -891,11 +891,11 @@ contains
     subroutine env_assign(lhs, rhs)
         class(type_env_t), intent(inout) :: lhs
         type(type_env_t), intent(in) :: rhs
+        integer :: i
         
         ! Deallocate existing allocatable components
         if (allocated(lhs%names)) deallocate(lhs%names)
         if (allocated(lhs%schemes)) deallocate(lhs%schemes)
-        integer :: i
 
         lhs%count = rhs%count
         lhs%capacity = rhs%capacity
