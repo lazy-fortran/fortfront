@@ -39,25 +39,20 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-fpm-deps-
     
-    - name: Restore build cache
-      uses: actions/cache@v4
-      id: cache-build
-      with:
-        path: build
-        key: ${{ runner.os }}-build-coverage-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-build-coverage-
+    # Note: Not caching build directory for coverage runs to ensure fresh .gcno/.gcda files
 
     - name: Show compiler versions
       run: |
         gfortran --version
         fpm --version
 
-    - name: Build all tests with coverage
-      if: steps.cache-build.outputs.cache-hit != 'true'
+    - name: Clean and build all tests with coverage
       run: |
-        # Build all tests with coverage flags
-        fpm build --tests --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
+        # Clean to ensure fresh coverage data
+        fpm clean --skip
+        
+        # Build with coverage flags
+        fpm build --tests --profile debug --flag "-cpp -fprofile-arcs -ftest-coverage -g"
         
         # Debug: Show build directory structure
         echo "Build directory structure:"
@@ -66,7 +61,7 @@ jobs:
     - name: Run all tests with coverage
       run: |
         # Run all tests with coverage flags
-        fpm test --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
+        fpm test --profile debug --flag "-cpp -fprofile-arcs -ftest-coverage -g"
 
     - name: Generate coverage report
       run: |
@@ -76,13 +71,8 @@ jobs:
         echo "Coverage files (.gcno):"
         find . -name "*.gcno" | head -10
         
-        # Generate coverage report
-        gcovr --gcov-executable gcov -r src/ build/ \
-          --exclude 'build/dependencies/*' \
-          --exclude 'test/*' \
-          --xml -o coverage.xml \
-          --html-details -o coverage.html \
-          --print-summary
+        # Generate coverage report (using the same command that works locally)
+        gcovr --gcov-executable gcov -r src/ build/ --exclude 'build/dependencies/*' --exclude 'test/*' --xml -o coverage.xml --html-details -o coverage.html --print-summary
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
