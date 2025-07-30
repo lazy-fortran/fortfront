@@ -51,6 +51,7 @@ contains
         logical :: passed
         type(token_t), allocatable :: tokens(:)
         character(len=:), allocatable :: source
+        integer :: i
         
         passed = .true.
         source = "program test" // new_line('a') // &
@@ -58,12 +59,12 @@ contains
         
         call tokenize_core(source, tokens)
         
-        ! Should still tokenize but mark string as extending to EOF
-        if (size(tokens) < 4) then
+        ! Should find the unterminated string token
+        if (size(tokens) < 6) then
             print *, '  FAILED: Should tokenize available tokens'
             passed = .false.
-        else if (tokens(4)%kind /= TK_STRING) then
-            print *, '  FAILED: Should recognize string start'
+        else if (tokens(6)%kind /= TK_STRING) then
+            print *, '  FAILED: Should recognize string start (got kind=', tokens(6)%kind, ')'
             passed = .false.
         end if
         
