@@ -132,174 +132,94 @@ assert(exit_code == 0)
 - **After**: 95%+ coverage with ~100+ measurable lines
 - **New measurable code**: String transformation (~30 lines), CLI wrapper (~20 lines)
 
-## Test Strategy: Direct Function Calls (LEGACY)
+## Outstanding Testing Opportunities
 
-**Goal**: Call functions from modules showing 0 lines to generate coverage data
+**Current Status**: 75 tests passing, good CLI and transformation coverage
 
-**Note**: With CLI implementation, most coverage now comes through string transformation function calls. Direct function tests below serve as additional coverage for completeness.
+**Remaining Gaps**: Focus on deep semantic analysis and error edge cases
 
-### Test 1: Frontend Pipeline Test
-**File**: `test_frontend_core.f90`
-**Target**: `frontend.f90`, `lexer_core.f90`, `parser_core.f90`
+### 1. Semantic Analysis Edge Cases (HIGH PRIORITY)
 
+**Current Gap**: Type inference works but edge cases in Hindley-Milner algorithm untested
+
+**Missing Tests**:
 ```fortran
-program test_frontend_core
-    use frontend, only: compile_source, lex_file, parse_tokens, emit_fortran
-    use lexer_core, only: tokenize_core, token_type_name
-    use parser_core, only: parse_expression, parse_primary
-    
-    ! Test frontend.f90 functions
-    call compile_source("integer :: x = 42", result, error)
-    call lex_file("real :: y", tokens, error)
-    call parse_tokens(tokens, arena, root, error)
-    call emit_fortran(arena, root, code)
-    
-    ! Test lexer_core.f90 functions directly
-    call tokenize_core("logical :: flag = .true.", core_tokens)
-    type_name = token_type_name(TK_KEYWORD)
-    
-    ! Test parser_core.f90 functions directly
-    state = create_parser_state(tokens)
-    expr_node = parse_expression(state, arena)
-    prim_node = parse_primary(state, arena)
-end program
+! test/semantic/test_type_inference_edge_cases.f90
+- Recursive function type inference: function calls itself with inferred types
+- Polymorphic type unification failures: incompatible type constraints  
+- Variable shadowing across scopes: same variable name different types
+- Complex array type inference: multidimensional arrays with mixed expressions
+- Function parameter type propagation: inferred types flowing through function chains
 ```
 
-### Test 2: Parser Modules Test  
-**File**: `test_parser_modules.f90`
-**Target**: `parser_expressions.f90`, `parser_control_flow.f90`, `parser_dispatcher.f90`
+**Value**: Catches type system bugs that could generate invalid Fortran
 
+### 2. Parser Error Recovery (MEDIUM PRIORITY)
+
+**Current Gap**: Parser handles invalid syntax but recovery paths not systematically tested
+
+**Missing Tests**:
 ```fortran
-program test_parser_modules
-    use parser_expressions, only: parse_logical_or, parse_comparison, parse_term
-    use parser_control_flow, only: parse_if, parse_do_loop, parse_select_case
-    use parser_dispatcher, only: parse_statement_dispatcher
-    use parser_state, only: parser_peek, parser_consume
-    
-    ! Test parser_expressions.f90
-    lor_node = parse_logical_or(state, arena)
-    cmp_node = parse_comparison(state, arena)  
-    term_node = parse_term(state, arena)
-    
-    ! Test parser_control_flow.f90
-    if_node = parse_if(state, arena)
-    do_node = parse_do_loop(state, arena)
-    case_node = parse_select_case(state, arena)
-    
-    ! Test parser_dispatcher.f90
-    stmt_node = parse_statement_dispatcher(state, arena)
-    
-    ! Test parser_state.f90
-    token = parser_peek(state)
-    call parser_consume(state)
-end program
+! test/parser/test_error_recovery.f90
+- Incomplete control structures: missing end statements with nested blocks
+- Malformed array syntax: unclosed brackets in complex expressions
+- Invalid operator sequences: consecutive operators with precedence conflicts
+- Partial function definitions: missing parameters or return types
+- Mixed syntax styles: F77 vs F90 constructs in same program
 ```
 
-### Test 3: AST Operations Test
-**File**: `test_ast_core.f90`  
-**Target**: `ast_core.f90`, `json_writer.f90`
+**Value**: Ensures graceful degradation with malformed input
 
+### 3. Code Generation Quality (MEDIUM PRIORITY)
+
+**Current Gap**: Code generation works but output quality not validated
+
+**Missing Tests**:
 ```fortran
-program test_ast_core
-    use ast_core, only: create_program, create_assignment, create_binary_op,
-                        create_identifier, create_literal, ast_arena_push
-    use json_writer, only: write_ast_to_json, write_token_to_json
-    
-    ! Test ast_core.f90 functions
-    prog_idx = create_program(arena, "test_prog")
-    id_idx = create_identifier(arena, "variable")
-    lit_idx = create_literal(arena, "42", LITERAL_INTEGER)
-    assign_idx = create_assignment(arena, id_idx, lit_idx)
-    binop_idx = create_binary_op(arena, "+", lit_idx, lit_idx)
-    
-    call ast_arena_push(arena, prog_idx)
-    
-    ! Test json_writer.f90 functions
-    json_str = write_ast_to_json(arena, prog_idx)
-    token_json = write_token_to_json(token)
-end program
+! test/codegen/test_output_quality.f90
+- Indentation consistency: nested blocks with correct spacing
+- Variable declaration ordering: grouped by type with proper intent
+- Standard compliance: generated code compiles with gfortran -std=f2008
+- Optimization opportunities: redundant declarations removed
+- Comment preservation: important comments maintained in output
 ```
 
-### Test 4: Semantic Analysis Test
-**File**: `test_semantic_core.f90`
-**Target**: `semantic_analyzer.f90`, `scope_manager.f90`, `type_checker.f90`
+**Value**: Ensures generated code is clean and maintainable
 
+### 4. AST Transformation Correctness (LOW-MEDIUM PRIORITY)
+
+**Current Gap**: AST operations work but semantic preservation not verified
+
+**Missing Tests**:
 ```fortran
-program test_semantic_core
-    use semantic_analyzer, only: analyze_semantics, create_semantic_context
-    use scope_manager, only: push_scope, pop_scope, add_symbol
-    use type_checker, only: check_type_compatibility, infer_type
-    use parameter_tracker, only: track_parameter, get_parameter_info
-    
-    ! Test semantic_analyzer.f90
-    ctx = create_semantic_context()
-    call analyze_semantics(arena, root_idx, ctx)
-    
-    ! Test scope_manager.f90  
-    call push_scope(ctx%scopes, "function")
-    call add_symbol(ctx%scopes, "x", type_info)
-    call pop_scope(ctx%scopes)
-    
-    ! Test type_checker.f90
-    compatible = check_type_compatibility(type1, type2)
-    inferred = infer_type(expr_node, ctx)
-    
-    ! Test parameter_tracker.f90
-    call track_parameter(tracker, "param", param_info)
-    info = get_parameter_info(tracker, "param")
-end program
+! test/ast/test_semantic_preservation.f90
+- Type information preservation: types maintained through transformations
+- Scope binding correctness: variable references point to correct declarations
+- Expression evaluation order: operator precedence preserved in AST
+- Control flow integrity: loop bounds and conditions unchanged
 ```
 
-### Test 5: Utility Modules Test
-**File**: `test_utilities.f90`
-**Target**: `string_types.f90`, remaining json_reader.f90 line
+**Value**: Prevents semantic errors in transformed code
 
+### 5. Memory Management Under Load (LOW PRIORITY)
+
+**Current Gap**: AST arena works but stress testing missing
+
+**Missing Tests**:
 ```fortran
-program test_utilities
-    use string_types, only: string_t, string_length, string_concat
-    use json_reader, only: json_to_semantic
-    
-    ! Test string_types.f90
-    str1 = string_t("hello")
-    str2 = string_t("world") 
-    len = string_length(str1)
-    result = string_concat(str1, str2)
-    
-    ! Test json_reader.f90 missing line 709
-    call json_to_semantic(json_file, arena, root, ctx) ! Exercise error path
-end program
+! test/memory/test_arena_stress.f90
+- Large AST handling: thousands of nodes without memory leaks
+- Arena reuse patterns: multiple compilation cycles in same process
+- Memory fragmentation: arena performance with mixed node sizes
 ```
 
-### Test 6: Complete Missing Lines
-**File**: `test_missing_lines.f90`
-**Target**: Specific uncovered lines in type_system_hm.f90
+**Value**: Ensures stability in production use
 
-```fortran
-program test_missing_lines
-    use type_system_hm, only: free_type_vars
-    
-    ! Create scenario that exercises lines 699-700 in type_system_hm.f90
-    ! These are likely error handling or edge case paths
-    
-    ! Create type with specific structure to hit missing lines
-    type_with_edge_case = create_complex_type()
-    call free_type_vars(type_with_edge_case, vars) ! Hit lines 699-700
-end program
-```
+## Implementation Priority
 
-## Implementation Plan
+1. **Type Inference Edge Cases** - Most likely to find real bugs
+2. **Parser Error Recovery** - Improves user experience with invalid input  
+3. **Code Generation Quality** - Ensures professional output
+4. **Memory Stress Testing** - Validates production readiness
 
-1. **Create Test 1** - Frontend pipeline (expect large coverage boost)
-2. **Measure coverage** - Should see many more measurable lines
-3. **Create Test 2** - Parser modules  
-4. **Create Test 3** - AST operations
-5. **Create Test 4** - Semantic analysis
-6. **Create Test 5** - Utilities
-7. **Create Test 6** - Specific missing lines
-
-## Success Metrics
-
-- **Immediate Goal**: >1000 measurable lines (from current 34)
-- **Coverage Target**: >80% of measurable lines
-- **Test Quality**: Fast (<2s each), meaningful assertions, real function calls
-- **Non-shallow**: Tests exercise actual module logic, not just imports
+**Note**: String transformation tests already provide excellent coverage of the main pipeline. Focus on edge cases and error conditions not covered by happy path testing.
