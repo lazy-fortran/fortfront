@@ -88,8 +88,11 @@ contains
 
     ! Assignment operator for type_var_t (deep copy)
     subroutine type_var_assign(lhs, rhs)
-        class(type_var_t), intent(out) :: lhs
+        class(type_var_t), intent(inout) :: lhs
         type(type_var_t), intent(in) :: rhs
+        
+        ! Deallocate existing allocatable components
+        if (allocated(lhs%name)) deallocate(lhs%name)
 
         lhs%id = rhs%id
         if (allocated(rhs%name)) then
@@ -340,9 +343,13 @@ contains
 
     ! Assignment operator for mono_type_t (deep copy)
     recursive subroutine mono_type_assign(lhs, rhs)
-        class(mono_type_t), intent(out) :: lhs
+        class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
         integer :: i
+
+        ! Deallocate existing allocatable components to prevent memory leaks
+        if (allocated(lhs%args)) deallocate(lhs%args)
+        if (allocated(lhs%var%name)) deallocate(lhs%var%name)
 
         ! Copy scalar fields
         lhs%kind = rhs%kind
@@ -403,8 +410,11 @@ contains
 
     ! Assignment operator for poly_type_t (deep copy)
     subroutine poly_type_assign(lhs, rhs)
-        class(poly_type_t), intent(out) :: lhs
+        class(poly_type_t), intent(inout) :: lhs
         type(poly_type_t), intent(in) :: rhs
+        
+        ! Deallocate existing allocatable components
+        if (allocated(lhs%forall)) deallocate(lhs%forall)
         integer :: i
 
         ! Deep copy forall variables
@@ -482,7 +492,7 @@ contains
     subroutine subst_apply_to_mono(this, typ, result_typ)
         class(substitution_t), intent(in) :: this
         type(mono_type_t), intent(in) :: typ
-        type(mono_type_t), intent(out) :: result_typ
+        type(mono_type_t), intent(inout) :: result_typ
         type(mono_type_t), allocatable :: lookup_result
         integer :: i
 
@@ -526,7 +536,7 @@ contains
     subroutine subst_apply_to_poly(this, scheme, result_scheme)
         class(substitution_t), intent(in) :: this
         type(poly_type_t), intent(in) :: scheme
-        type(poly_type_t), intent(out) :: result_scheme
+        type(poly_type_t), intent(inout) :: result_scheme
         type(substitution_t) :: filtered_subst
         integer :: i, j
         logical :: should_include
@@ -623,8 +633,12 @@ contains
 
     ! Assignment operator for substitution_t (deep copy)
     subroutine subst_assign(lhs, rhs)
-        class(substitution_t), intent(out) :: lhs
+        class(substitution_t), intent(inout) :: lhs
         type(substitution_t), intent(in) :: rhs
+        
+        ! Deallocate existing allocatable components
+        if (allocated(lhs%vars)) deallocate(lhs%vars)
+        if (allocated(lhs%types)) deallocate(lhs%types)
         integer :: i
 
         lhs%count = rhs%count
@@ -813,7 +827,7 @@ contains
     subroutine env_remove(this, name, new_env)
         class(type_env_t), intent(in) :: this
         character(len=*), intent(in) :: name
-        type(type_env_t), intent(out) :: new_env
+        type(type_env_t), intent(inout) :: new_env
         integer :: i
 
         new_env%capacity = this%capacity
@@ -836,7 +850,7 @@ contains
     subroutine env_apply_subst(this, subst, new_env)
         class(type_env_t), intent(in) :: this
         type(substitution_t), intent(in) :: subst
-        type(type_env_t), intent(out) :: new_env
+        type(type_env_t), intent(inout) :: new_env
         integer :: i
 
         new_env%capacity = this%capacity
@@ -875,8 +889,12 @@ contains
 
     ! Assignment operator for type_env_t (deep copy)
     subroutine env_assign(lhs, rhs)
-        class(type_env_t), intent(out) :: lhs
+        class(type_env_t), intent(inout) :: lhs
         type(type_env_t), intent(in) :: rhs
+        
+        ! Deallocate existing allocatable components
+        if (allocated(lhs%names)) deallocate(lhs%names)
+        if (allocated(lhs%schemes)) deallocate(lhs%schemes)
         integer :: i
 
         lhs%count = rhs%count
