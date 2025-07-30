@@ -51,7 +51,7 @@ clean-coverage:
 # Clean test artifacts (temporary files created by tests)
 clean-test-artifacts:
 	@echo "Cleaning test artifacts..."
-	rm -f test_*.lf test_*.f90 *.json 2>/dev/null || true
+	rm -f *.lf *.f90 *.json 2>/dev/null || true
 	rm -f coverage.*.html coverage.info coverage_filtered.info coverage.css 2>/dev/null || true
 	rm -f intent_*.f90 valid_*.f90 2>/dev/null || true
 	@echo "Test artifacts cleaned"
