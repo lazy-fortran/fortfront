@@ -84,13 +84,15 @@ contains
         
         ! 5. Test type information
         if (allocated(assign_nodes) .and. size(assign_nodes) > 0) then
-            logical :: type_found
-            call get_type_for_node(arena, assign_nodes(1), node_type, type_found)
-            if (type_found .and. allocated(node_type)) then
-                print *, "  ✓ Got type information for assignment"
-            else
-                print *, "  ! No type information available"
-            end if
+            block
+                logical :: type_found
+                call get_type_for_node(arena, assign_nodes(1), node_type, type_found)
+                if (type_found .and. allocated(node_type)) then
+                    print *, "  ✓ Got type information for assignment"
+                else
+                    print *, "  ! No type information available"
+                end if
+            end block
         end if
         
         ! 6. Test source location

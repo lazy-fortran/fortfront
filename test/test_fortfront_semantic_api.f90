@@ -107,14 +107,16 @@ contains
         ! Test getting type for identifiers
         found_nodes = find_nodes_by_type(arena, "identifier")
         if (size(found_nodes) > 0) then
-            logical :: type_found
-            do i = 1, size(found_nodes)
-                call get_type_for_node(arena, found_nodes(i), node_type, type_found)
-                if (type_found .and. allocated(node_type)) then
-                    ! We found a typed node
-                    exit
-                end if
-            end do
+            block
+                logical :: type_found
+                do i = 1, size(found_nodes)
+                    call get_type_for_node(arena, found_nodes(i), node_type, type_found)
+                    if (type_found .and. allocated(node_type)) then
+                        ! We found a typed node
+                        exit
+                    end if
+                end do
+            end block
             
             if (.not. allocated(node_type)) then
                 print *, "Failed to get type information for any identifier"

@@ -96,11 +96,13 @@ contains
                     type is (program_node)
                         if (size(node%body_indices) > 0) then
                             ! Check if types were inferred
-                            logical :: type_found
-                            call get_type_for_node(arena, node%body_indices(1), node_type, type_found)
-                            if (type_found .and. allocated(node_type)) then
-                                print *, '  Note: Type inference successful'
-                            end if
+                            block
+                                logical :: type_found
+                                call get_type_for_node(arena, node%body_indices(1), node_type, type_found)
+                                if (type_found .and. allocated(node_type)) then
+                                    print *, '  Note: Type inference successful'
+                                end if
+                            end block
                         end if
                     end select
                 end if
@@ -269,15 +271,17 @@ contains
                                 if (allocated(assign_node)) then
                                     select type (assign_node)
                                     type is (assignment_node)
-                                        logical :: type_found
-                                        call get_type_for_node(arena, assign_node%target_index, node_type, type_found)
-                                        if (type_found .and. allocated(node_type)) then
-                                            if (node_type%kind /= TINT) then
-                                                print *, '  FAIL: Wrong type for x'
-                                                test_type_system_integration = .false.
-                                                return
+                                        block
+                                            logical :: type_found
+                                            call get_type_for_node(arena, assign_node%target_index, node_type, type_found)
+                                            if (type_found .and. allocated(node_type)) then
+                                                if (node_type%kind /= TINT) then
+                                                    print *, '  FAIL: Wrong type for x'
+                                                    test_type_system_integration = .false.
+                                                    return
+                                                end if
                                             end if
-                                        end if
+                                        end block
                                     end select
                                 end if
                             end block
