@@ -62,8 +62,8 @@ jobs:
           --filter 'src/.*' \
           --exclude 'build/dependencies/.*' \
           --exclude 'test/.*' \
-          --xml -o coverage.xml \
-          --html-details -o coverage.html \
+          --xml coverage.xml \
+          --html-details coverage.html \
           --print-summary
         
         # Debug: Show coverage.xml content
