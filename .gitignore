@@ -28,6 +28,9 @@ draft/
 # Coverage reports
 coverage/
 coverage.*
+coverage_html/
+coverage_filtered.info
 *.gcov
 *.gcda
 *.gcno
+*.info
