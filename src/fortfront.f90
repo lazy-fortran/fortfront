@@ -300,7 +300,8 @@ contains
         node = get_node(arena, node_index)
         if (allocated(node)) then
             if (allocated(node%inferred_type)) then
-                allocate(node_type, source=node%inferred_type)
+                allocate(node_type)
+                node_type = node%inferred_type  ! Use assignment operator for deep copy
             end if
         end if
     end function get_type_for_node

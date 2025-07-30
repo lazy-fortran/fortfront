@@ -1005,7 +1005,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
 
             ! Look for "then" on the same line
             i = pos + 1
-            do while (i <= size(tokens) .and. tokens(i)%line == tokens(pos)%line)
+            do while (i <= size(tokens))
+                if (tokens(i)%line /= tokens(pos)%line) exit
                 if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "then") then
                     is_if_then_start = .true.
                     exit

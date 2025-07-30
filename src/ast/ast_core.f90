@@ -2815,7 +2815,8 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            allocate (lhs%inferred_type, source=rhs%inferred_type)
+            allocate (lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type  ! Use assignment for deep copy
         end if
 
         ! Copy specific components
@@ -2837,7 +2838,8 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            allocate (lhs%inferred_type, source=rhs%inferred_type)
+            allocate (lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type  ! Use assignment for deep copy
         end if
 
         ! Deep copy allocatable array
@@ -2895,7 +2897,8 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            allocate (lhs%inferred_type, source=rhs%inferred_type)
+            allocate (lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type  ! Use assignment for deep copy
         end if
 
         ! Copy specific components
@@ -2940,7 +2943,8 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            allocate (lhs%inferred_type, source=rhs%inferred_type)
+            allocate (lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type  ! Use assignment for deep copy
         end if
 
         ! Copy specific components
@@ -2989,7 +2993,8 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            allocate (lhs%inferred_type, source=rhs%inferred_type)
+            allocate (lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type  ! Use assignment for deep copy
         end if
 
         ! Copy specific components
@@ -3033,7 +3038,8 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            allocate (lhs%inferred_type, source=rhs%inferred_type)
+            allocate (lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type  ! Use assignment for deep copy
         end if
 
         ! Deep copy allocatable arrays
@@ -3079,7 +3085,8 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            allocate (lhs%inferred_type, source=rhs%inferred_type)
+            allocate (lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type  ! Use assignment for deep copy
         end if
 
         ! Copy specific components
@@ -3117,7 +3124,8 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            allocate (lhs%inferred_type, source=rhs%inferred_type)
+            allocate (lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type  ! Use assignment for deep copy
         end if
 
         ! Deep copy allocatable array
