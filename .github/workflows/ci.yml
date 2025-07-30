@@ -1,10 +1,6 @@
 name: Tests
 
-on:
-  push:
-    branches: [ main, develop, mlir ]
-  pull_request:
-    branches: [ main ]
+on: [push, pull_request]
 
 jobs:
   test-linux:
@@ -12,32 +8,74 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
-
+    
+    - name: Cache FPM binary
+      id: cache-fpm
+      uses: actions/cache@v4
+      with:
+        path: /usr/local/bin/fpm
+        key: ${{ runner.os }}-fpm-0.12.0
+    
     - name: Setup FPM
+      if: steps.cache-fpm.outputs.cache-hit != 'true'
       run: |
         wget https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-linux-x86_64-gcc-12
         chmod +x fpm-0.12.0-linux-x86_64-gcc-12
         sudo mv fpm-0.12.0-linux-x86_64-gcc-12 /usr/local/bin/fpm
-
-    - name: Install packages
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gfortran gcovr
+    
+    - name: Cache apt packages
+      uses: awalsh128/cache-apt-pkgs-action@v1
+      with:
+        packages: gfortran gcovr
+        version: 1.0
+    
+    - name: Cache FPM dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.local/share/fpm
+          build/dependencies
+        key: ${{ runner.os }}-fpm-deps-${{ hashFiles('fpm.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-fpm-deps-
+    
+    - name: Restore build cache
+      uses: actions/cache@v4
+      id: cache-build
+      with:
+        path: build
+        key: ${{ runner.os }}-build-coverage-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-build-coverage-
 
     - name: Show compiler versions
       run: |
         gfortran --version
         fpm --version
 
+    - name: Build all tests with coverage
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      run: |
+        # Build all tests with coverage flags
+        fpm build --tests --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
+        
+        # Debug: Show build directory structure
+        echo "Build directory structure:"
+        find build -type f -name "*.gcno" | head -10
+
     - name: Run all tests with coverage
       run: |
-        # Clean everything including dependencies
-        fpm clean --all
         # Run all tests with coverage flags
         fpm test --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
 
     - name: Generate coverage report
       run: |
+        # Debug: Show where coverage files are located
+        echo "Coverage files (.gcda):"
+        find . -name "*.gcda" | head -10
+        echo "Coverage files (.gcno):"
+        find . -name "*.gcno" | head -10
+        
         # Generate coverage report
         gcovr --gcov-executable gcov -r src/ build/ \
           --exclude 'build/dependencies/*' \
@@ -47,14 +85,13 @@ jobs:
           --print-summary
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        slug: lazy-fortran/fortfront
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
-        fail_ci_if_error: false
+        fail_ci_if_error: true
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
@@ -65,6 +102,20 @@ jobs:
           coverage.html
           coverage.*.html
           coverage.xml
+    
+    - name: Check coverage threshold
+      run: |
+        # Extract coverage percentage from XML
+        coverage=$(grep -oP 'line-rate="\K[^"]+' coverage.xml | head -1)
+        coverage_percent=$(echo "$coverage * 100" | bc -l | cut -d. -f1)
+        
+        echo "Total coverage: ${coverage_percent}%"
+        
+        # Fail if coverage drops below threshold
+        if [ "$coverage_percent" -lt "80" ]; then
+          echo "Coverage ${coverage_percent}% is below threshold of 80%"
+          exit 1
+        fi
 
   test-windows:
     runs-on: windows-latest
@@ -82,29 +133,58 @@ jobs:
           mingw-w64-x86_64-gcc-fortran
           mingw-w64-x86_64-gcc
           git
+      # Note: msys2/setup-msys2 has its own caching mechanism
 
     - name: Add MinGW to PATH
-      run: |
-        echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        echo "C:\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      run: echo C:\msys64\mingw64\bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       shell: pwsh
 
+    - name: Cache FPM binary (Windows)
+      id: cache-fpm-win
+      uses: actions/cache@v4
+      with:
+        path: C:\msys64\mingw64\bin\fpm.exe
+        key: ${{ runner.os }}-fpm-0.12.0
+
     - name: Install FPM
+      if: steps.cache-fpm-win.outputs.cache-hit != 'true'
       shell: pwsh
       run: |
+        Write-Host "Installing FPM directly from GitHub releases..."
         Invoke-WebRequest -Uri "https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-windows-x86_64-gcc-12.exe" -OutFile "fpm.exe"
         Move-Item -Path "fpm.exe" -Destination "C:\msys64\mingw64\bin\fpm.exe"
         & "C:\msys64\mingw64\bin\fpm.exe" --version
 
-    - name: Run all tests
-      shell: msys2 {0}
+    - name: Cache FPM dependencies (Windows)
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~\AppData\Local\fpm
+          build\dependencies
+        key: ${{ runner.os }}-fpm-deps-${{ hashFiles('fpm.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-fpm-deps-
+
+    - name: Restore build cache
+      uses: actions/cache@v4
+      id: cache-build-win
+      with:
+        path: build
+        key: ${{ runner.os }}-build-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-build-
+
+    - name: Build all tests
+      if: steps.cache-build-win.outputs.cache-hit != 'true'
+      shell: cmd
       run: |
-        # Verify FPM is accessible
-        which fpm
-        fpm --version
-        # Clear build directory to avoid module version conflicts
-        rm -rf build
-        # Run all tests
+        echo "Building project and all tests..."
+        fpm build --tests --flag '-cpp'
+
+    - name: Run all tests
+      shell: cmd
+      run: |
+        echo "Running all tests..."
         fpm test --flag '-cpp'
 
   test-macos:
@@ -113,28 +193,91 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install dependencies
+    - name: Setup Micromamba
+      uses: mamba-org/setup-micromamba@v2
+      with:
+        micromamba-version: 'latest'
+        environment-name: test-env
+        create-args: >-
+          python=3.11
+          fpm
+          gfortran
+        init-shell: bash
+        cache-environment: true
+        channels: conda-forge
+
+    - name: Check versions
+      shell: bash -el {0}
       run: |
-        brew install gcc@15 fpm
-        brew link --overwrite gcc@15
+        echo "GCC version:"
+        gfortran --version
+        echo "FPM version:"
+        fpm --version
+        echo "GCC/G++ version:"
+        gcc --version || true
+        # Check if gcc-15 is available
+        gcc-15 --version || echo "gcc-15 not found, will try to find appropriate gcc"
+
+    - name: Cache FPM dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.local/share/fpm
+          build/dependencies
+        key: ${{ runner.os }}-fpm-deps-${{ hashFiles('fpm.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-fpm-deps-
+
+    - name: Restore build cache
+      uses: actions/cache@v4
+      id: cache-build-mac
+      with:
+        path: build
+        key: ${{ runner.os }}-build-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-build-
+
+    - name: Build all tests
+      if: steps.cache-build-mac.outputs.cache-hit != 'true'
+      shell: bash -el {0}
+      run: |
+        echo "Building project and all tests..."
+        
+        # Workaround for FPM bug: https://github.com/fortran-lang/fpm/issues/1159
+        # Find the appropriate gcc version
+        if command -v gcc-15 &> /dev/null; then
+          export FPM_CC=gcc-15
+        elif command -v gcc-14 &> /dev/null; then
+          export FPM_CC=gcc-14
+        elif command -v gcc-13 &> /dev/null; then
+          export FPM_CC=gcc-13
+        else
+          # Try to find gcc from conda
+          GCC_PATH=$(which gcc)
+          if [ -n "$GCC_PATH" ]; then
+            export FPM_CC=$GCC_PATH
+          fi
+        fi
+        
+        echo "Using FPM_CC=$FPM_CC"
+        fpm build --tests --flag '-cpp'
 
     - name: Run all tests
+      shell: bash -el {0}
       run: |
-        # Clear build directory to avoid module version conflicts
-        rm -rf build
+        # Set FPM_CC for test runs too
+        if command -v gcc-15 &> /dev/null; then
+          export FPM_CC=gcc-15
+        elif command -v gcc-14 &> /dev/null; then
+          export FPM_CC=gcc-14
+        elif command -v gcc-13 &> /dev/null; then
+          export FPM_CC=gcc-13
+        else
+          GCC_PATH=$(which gcc)
+          if [ -n "$GCC_PATH" ]; then
+            export FPM_CC=$GCC_PATH
+          fi
+        fi
         
-        # Set up environment for GCC 15
-        export CC=gcc-15
-        export CXX=g++-15
-        export FC=gfortran-15
-        export FPM_CC=gcc-15
-        export FPM_FC=gfortran-15
-        
-        # Verify versions
-        echo "Using:"
-        gcc-15 --version
-        gfortran-15 --version
-        fpm --version
-        
-        # Run all tests
+        echo "Running all tests..."
         fpm test --flag '-cpp'
