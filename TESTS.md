@@ -58,11 +58,85 @@ src/string_types.f90                      0      lines  ⭐ CORE API - string ut
 
 ⭐ = Heavily used by fortrun's lazy fortran processing
 
-## Test Strategy: Direct Function Calls
+## CLI Testing Strategy (NEW)
+
+**Goal**: Test fortfront CLI interface for standalone usage and fortrun integration
+
+**CLI Implementation**: fortfront now operates as a pure CLI tool:
+- **Input**: Reads lazy fortran from stdin
+- **Output**: Writes standard fortran to stdout
+- **Errors**: Writes error messages to stderr with non-zero exit codes
+- **Architecture**: Thin wrapper around existing 4-phase pipeline
+
+### CLI Test Categories
+
+#### String Transformation Unit Tests
+**File**: `test/frontend/test_string_transformation.f90`
+**Coverage**: Direct function calls to `transform_lazy_fortran_string()`
+**Benefit**: Exercises entire pipeline (lexer→parser→semantic→codegen) with high coverage
+
+```fortran
+! Test 1: Hello world transformation
+call transform_lazy_fortran_string("print *, 'Hello'", output, error)
+assert(index(output, "program main") > 0)
+
+! Test 2: Type inference
+call transform_lazy_fortran_string("x = 42" // new_line('A') // "y = 3.14", output, error)  
+assert(index(output, "integer :: x") > 0)
+assert(index(output, "real") > 0)
+
+! Test 3: Error handling
+call transform_lazy_fortran_string("invalid syntax", output, error)
+assert(len_trim(error) == 0)  ! Should handle gracefully
+```
+
+#### CLI System Tests  
+**File**: `test/system/test_cli_integration.f90`
+**Coverage**: CLI wrapper I/O logic (minimal - 2-3 tests only)
+**Benefit**: Verify stdin/stdout interface works correctly
+
+```fortran
+! Test 1: Basic CLI I/O
+command: echo "print *, 'test'" | fortfront
+expected: Valid fortran output to stdout, exit code 0
+
+! Test 2: Error handling  
+command: echo "" | fortfront
+expected: Minimal program output, exit code 0
+```
+
+#### Integration Tests (fortrun)
+**File**: `../fortrun/test/integration/test_cli_integration.f90`
+**Coverage**: End-to-end workflow with CLI subprocess
+**Benefit**: Real-world validation of fortrun↔fortfront CLI integration
+
+```fortran
+! Test extension detection
+assert(is_lazy_fortran_file("test.f"))
+assert(.not. is_lazy_fortran_file("test.f90"))
+
+! Test CLI subprocess execution
+command = 'echo "x = 5" | fortfront > output.f90'
+call execute_command_line(command, exitstat=exit_code)
+assert(exit_code == 0)
+```
+
+### Updated Coverage Strategy
+
+**Primary Coverage**: String transformation function calls (automatic pipeline coverage)
+**Secondary Coverage**: CLI wrapper verification (minimal system tests)  
+**Integration Coverage**: fortrun workflow testing (subprocess validation)
+
+**Expected Results**:
+- **Before**: 91.2% (31/34 lines)
+- **After**: 95%+ coverage with ~100+ measurable lines
+- **New measurable code**: String transformation (~30 lines), CLI wrapper (~20 lines)
+
+## Test Strategy: Direct Function Calls (LEGACY)
 
 **Goal**: Call functions from modules showing 0 lines to generate coverage data
 
-**Note**: While these modules show zero test coverage, they are heavily used by fortrun in production. The tests below would primarily serve coverage metrics rather than functional validation since the real validation happens through fortrun's integration testing.
+**Note**: With CLI implementation, most coverage now comes through string transformation function calls. Direct function tests below serve as additional coverage for completeness.
 
 ### Test 1: Frontend Pipeline Test
 **File**: `test_frontend_core.f90`
