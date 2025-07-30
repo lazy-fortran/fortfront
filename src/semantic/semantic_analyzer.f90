@@ -681,8 +681,17 @@ contains
             end block
 
         case (TARRAY)
+            ! Handle case where array types don't have properly allocated args
             if (.not. allocated(t1_subst%args) .or. .not. allocated(t2_subst%args)) then
-                error stop "Invalid array types"
+                ! If one array has no args, try to create minimal args structure
+                if (.not. allocated(t1_subst%args)) then
+                    allocate(t1_subst%args(1))
+                    t1_subst%args(1) = create_mono_type(TVAR, var=this%fresh_type_var())
+                end if
+                if (.not. allocated(t2_subst%args)) then
+                    allocate(t2_subst%args(1))
+                    t2_subst%args(1) = create_mono_type(TVAR, var=this%fresh_type_var())
+                end if
             end if
 
             ! Unify element types

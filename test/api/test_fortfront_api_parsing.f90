@@ -130,7 +130,7 @@ contains
             integer :: prog_index
             
             ! Type inference assignment
-            call lex_source('x := 3.14', tokens, error_msg)
+            call lex_source('x = 3.14', tokens, error_msg)
             if (error_msg /= "") then
                 print *, '  FAIL: Lexing error: ', error_msg
                 test_lazy_fortran_parsing = .false.

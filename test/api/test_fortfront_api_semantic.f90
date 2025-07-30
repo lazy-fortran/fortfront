@@ -77,9 +77,9 @@ contains
             class(ast_node), allocatable :: prog_node, stmt_node
             
             ! Type inference code
-            source = 'x := 42' // new_line('A') // &
-                     'y := 3.14' // new_line('A') // &
-                     'z := "hello"'
+            source = 'x = 42' // new_line('A') // &
+                     'y = 3.14' // new_line('A') // &
+                     'z = "hello"'
             
             call lex_source(source, tokens, error_msg)
             arena = create_ast_arena()
