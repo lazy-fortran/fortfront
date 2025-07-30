@@ -754,7 +754,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         integer, intent(in) :: pos
 
         is_function_start = .false.
-        if (pos > size(tokens)) return
+        if (pos < 1 .or. pos > size(tokens)) return
 
         ! Only detect function start at the beginning of a line/statement
         ! Check for "type function" pattern first
@@ -797,7 +797,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         integer, intent(in) :: pos
 
         is_subroutine_start = .false.
-        if (pos > size(tokens)) return
+        if (pos < 1 .or. pos > size(tokens)) return
 
         if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "subroutine") then
             is_subroutine_start = .true.
@@ -809,7 +809,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         integer, intent(in) :: pos
 
         is_module_start = .false.
-        if (pos > size(tokens)) return
+        if (pos < 1 .or. pos > size(tokens)) return
 
         if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "module") then
             is_module_start = .true.
@@ -821,7 +821,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         integer, intent(in) :: pos
 
         is_program_start = .false.
-        if (pos > size(tokens)) return
+        if (pos < 1 .or. pos > size(tokens)) return
 
         if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "program") then
             is_program_start = .true.
@@ -907,7 +907,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         integer, intent(in) :: pos
 
         is_do_loop_start = .false.
-        if (pos <= size(tokens)) then
+        if (pos >= 1 .and. pos <= size(tokens)) then
             if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "do") then
                 ! Regular do loop (not do while)
                 if (pos + 1 <= size(tokens)) then
@@ -932,7 +932,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         integer, intent(in) :: pos
 
         is_do_while_start = .false.
-        if (pos <= size(tokens) - 1) then
+        if (pos >= 1 .and. pos <= size(tokens) - 1) then
             if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "do" .and. &
           tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "while") then
                 is_do_while_start = .true.
@@ -946,7 +946,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         integer, intent(in) :: pos
 
         is_select_case_start = .false.
-        if (pos <= size(tokens) - 1) then
+        if (pos >= 1 .and. pos <= size(tokens) - 1) then
            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "select" .and. &
            tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "case") then
                 is_select_case_start = .true.
@@ -988,12 +988,12 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         integer :: i
 
         is_if_then_start = .false.
-        if (pos > size(tokens)) return
+        if (pos < 1 .or. pos > size(tokens)) return
 
         ! Check if current token is "if"
         if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "if") then
             ! Check if this is "else if" - if so, it's not a new if block for nesting purposes
-            if (pos > 1 .and. tokens(pos - 1)%kind == TK_KEYWORD .and. &
+            if (pos > 1 .and. pos <= size(tokens) .and. tokens(pos - 1)%kind == TK_KEYWORD .and. &
                 tokens(pos - 1)%text == "else" .and. &
                 tokens(pos - 1)%line == tokens(pos)%line) then
                 ! This is "else if", not a new if block
@@ -1091,6 +1091,15 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         ! Phase 1: Lexical Analysis
         call lex_source(input, tokens, error_msg)
         if (error_msg /= "") return
+        
+        ! Check if we have any tokens to parse
+        if (size(tokens) == 0) then
+            ! No tokens - create minimal program
+            output = "program main" // new_line('A') // &
+                     "    implicit none" // new_line('A') // &
+                     "end program main" // new_line('A')
+            return
+        end if
         
         ! Phase 2: Parsing
         arena = create_ast_stack()
