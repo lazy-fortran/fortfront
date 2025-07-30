@@ -4,6 +4,12 @@
 
 **fortrun EXTENSIVELY uses fortfront API**: Based on ../fortrun/FORTFRONT.md, fortrun heavily integrates fortfront as a complete Fortran frontend for processing "lazy fortran" (.f/.F) files. The integration includes a 4-phase compilation pipeline (lexer → parser → semantic analysis → code generation) with type inference using the Hindley-Milner algorithm.
 
+**AST Visitor Pattern IMPORTANT for Future Tools**: The AST visitor infrastructure (`ast_visitor.f90`, `ast_operations.f90`, `ast_typed.f90`) is currently unused but provides essential APIs for:
+- Code formatters (traversing and transforming AST while preserving structure)
+- Static analyzers (pattern matching, code smell detection)
+- Refactoring tools (systematic AST transformations)
+- Documentation generators (extracting structured information)
+
 ## Dead/Obsolete Code in src/
 
 ### 1. Completely Dead Modules
@@ -39,13 +45,13 @@ Based on fortrun integration documentation, these support the core pipeline:
 - **`src/semantic/parameter_tracker.f90`** - Parameter tracking
 - **`src/codegen/codegen_indent.f90`** - Code formatting and indentation
 
-### 5. Modules with Zero Coverage (Need Investigation)
-These show 0 measurable lines in TESTS.md but may be used indirectly:
+### 5. Currently Unused but Essential for Future Tools
+These modules have zero coverage but are critical infrastructure for planned tools:
 
-- `ast_operations.f90` - AST manipulation utilities
-- `ast_visitor.f90` - AST traversal pattern implementation
-- `ast_typed.f90` - Type-annotated AST extensions  
-- `ast_json.f90` - AST-to-JSON serialization for debugging
+- **`ast_visitor.f90`** - Visitor pattern for AST traversal (KEEP - needed for formatters/analyzers)
+- **`ast_operations.f90`** - AST manipulation utilities (KEEP - needed for refactoring tools)
+- **`ast_typed.f90`** - Type-annotated AST nodes (KEEP - needed for type-aware tools)
+- **`ast_json.f90`** - AST serialization (KEEP - used by `compile_from_ast_json`)
 
 ## Redundant/Duplicate Tests
 
@@ -77,19 +83,31 @@ These show 0 measurable lines in TESTS.md but may be used indirectly:
 - `test_type_system_coverage.f90`
 - **Verdict**: These are artificial tests created solely for coverage, provide no functional validation
 
-## Cleanup Recommendations
+## Final Assessment and Cleanup Recommendations
 
-### High Priority (Safe to Remove)
-1. **`src/standard/lazy_fortran/ast_lf.f90`** - 100% dead code (0 imports)
-2. **Coverage-only test files** - Artificial tests with no real validation value
+### REMOVE - Confirmed Dead Code
+1. **`src/standard/lazy_fortran/ast_lf.f90`** - 100% dead, no imports, no future use
+2. **`src/codegen.f90`** - Empty wrapper that only re-exports codegen_core
+3. **Coverage-only test files** - Artificial tests created solely for metrics:
+   - `test_comprehensive_coverage.f90`
+   - `test_core_modules_coverage.f90`
+   - `test_array_coverage.f90`
+   - `test_type_system_coverage.f90`
 
-### Medium Priority (Review Before Removal)
-1. **`src/codegen.f90`** - Useless wrapper, but verify no future plans
-2. **Parser do-loop test duplication** - Compare content and merge if identical
+### KEEP - Essential for Compiler/Formatter/Analyzer Tools
+1. **AST Visitor Infrastructure** (currently unused but critical):
+   - `ast_visitor.f90` - Visitor pattern for tree traversal
+   - `ast_operations.f90` - AST transformation utilities
+   - `ast_typed.f90` - Type-annotated AST nodes
+   - `ast_json.f90` - AST serialization/deserialization
 
-### Low Priority (Keep for Now)
-1. **Zero-coverage modules** - May contain important interfaces used indirectly
-2. **Specialized test files** - Provide focused testing even if similar
+2. **All Core Modules** - Heavily used by fortrun and future tools:
+   - Lexer, Parser, Semantic Analyzer, Code Generator
+   - Type System (Hindley-Milner implementation)
+   - Standardizer (AST normalization)
+
+### INVESTIGATE - Possible Redundancy
+1. **Parser do-loop tests** - Check if `test_frontend_parser_do_loop.f90` and `test_frontend_parser_do_loops.f90` are duplicates
 
 ## External Dependencies
 
