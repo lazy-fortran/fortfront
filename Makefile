@@ -1,4 +1,4 @@
-.PHONY: all build test coverage clean clean-coverage help
+.PHONY: all build test coverage clean clean-coverage clean-test-artifacts help
 
 # Default target
 all: build
@@ -37,8 +37,8 @@ coverage: clean-coverage
 	fi
 	@echo "Coverage report generated in coverage_html/index.html"
 
-# Clean build artifacts
-clean:
+# Clean build artifacts and test artifacts
+clean: clean-test-artifacts
 	fpm clean --all
 
 # Clean coverage files only
@@ -48,6 +48,14 @@ clean-coverage:
 	rm -f *.gcov *.gcda *.gcno
 	find . -name "*.gcov" -o -name "*.gcda" -o -name "*.gcno" -delete 2>/dev/null || true
 
+# Clean test artifacts (temporary files created by tests)
+clean-test-artifacts:
+	@echo "Cleaning test artifacts..."
+	rm -f test_*.f test_*.f90 *.json 2>/dev/null || true
+	rm -f coverage.*.html coverage.info coverage_filtered.info coverage.css 2>/dev/null || true
+	rm -f intent_*.f90 valid_*.f90 2>/dev/null || true
+	@echo "Test artifacts cleaned"
+
 # Help target
 help:
 	@echo "Available targets:"
@@ -55,6 +63,7 @@ help:
 	@echo "  make build    - Build the project"
 	@echo "  make test     - Run tests"
 	@echo "  make coverage - Generate coverage report with lcov"
-	@echo "  make clean    - Clean all build artifacts"
+	@echo "  make clean    - Clean all build and test artifacts"
 	@echo "  make clean-coverage - Clean coverage files only"
+	@echo "  make clean-test-artifacts - Clean test temporary files only"
 	@echo "  make help     - Show this help message"
