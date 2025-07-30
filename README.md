@@ -1,10 +1,10 @@
-![ff](media/logo.svg)
+![fortfront](media/logo.svg)
 
 Core analysis frontend for lazy fortran - transforms lazy Fortran to standard Fortran via CLI.
 
 ## Overview
 
-ff (fortfront) is a pure CLI tool that transforms lazy Fortran code to standard Fortran:
+fortfront is a pure CLI tool that transforms lazy Fortran code to standard Fortran:
 - **Input**: Reads lazy fortran from stdin
 - **Output**: Writes standard fortran to stdout
 - **Pipeline**: 4-phase transformation (lexer → parser → semantic → codegen)
@@ -39,14 +39,14 @@ fpm test
 Transform lazy Fortran to standard Fortran:
 
 ```bash
-# Basic usage - pipe lazy fortran through ff
-echo "x = 42" | ff
+# Basic usage - pipe lazy fortran through fortfront
+echo "x = 42" | fortfront
 
 # With file input/output
-ff < input.f > output.f90
+fortfront < input.f > output.f90
 
 # Example transformation
-echo -e "x = 42\ny = 3.14\nprint *, x + y" | ff
+echo -e "x = 42\ny = 3.14\nprint *, x + y" | fortfront
 ```
 
 **Output:**
@@ -64,14 +64,14 @@ end program main
 
 ### Integration with fortrun
 
-ff is designed to work seamlessly with [fortrun](../fortrun) (where it's known as fortfront):
+fortfront is designed to work seamlessly with [fortrun](../fortrun):
 
 ```bash
-# fortrun automatically uses ff for .f files
+# fortrun automatically uses fortfront for .f files
 fortrun hello.f
 
 # Explicit usage in build scripts
-ff < lazy_source.f > standard_source.f90
+fortfront < lazy_source.f > standard_source.f90
 gfortran standard_source.f90 -o program
 ```
 

@@ -67,16 +67,16 @@ contains
         
         call test_start("Basic CLI I/O")
         
-        ! Run: echo "print *, 'test'" | ff
-        command = 'echo "print *, ''test''" | ./build/gfortran_*/app/ff > ' // &
-                  '/tmp/ff_test_output.txt 2>/tmp/ff_test_error.txt'
+        ! Run: echo "print *, 'test'" | fortfront
+        command = 'echo "print *, ''test''" | ./build/gfortran_*/app/fortfront > ' // &
+                  '/tmp/fortfront_test_output.txt 2>/tmp/fortfront_test_error.txt'
         call execute_command_line(command, exitstat=exit_code)
         
         success = (exit_code == 0)
         
         if (success) then
             ! Check if output contains expected Fortran code
-            open(unit=10, file='/tmp/ff_test_output.txt', status='old', action='read')  
+            open(unit=10, file='/tmp/fortfront_test_output.txt', status='old', action='read')  
             read(10, '(A)', end=100) output_line
             success = success .and. (index(output_line, 'program main') > 0)
 100         close(10)
@@ -96,8 +96,8 @@ contains
         call test_start("Error handling")
         
         ! Run with invalid input
-        command = 'echo "invalid fortran code @#$%" | ./build/gfortran_*/app/ff > ' // &
-                  '/tmp/ff_test_output2.txt 2>/tmp/ff_test_error2.txt'
+        command = 'echo "invalid fortran code @#$%" | ./build/gfortran_*/app/fortfront > ' // &
+                  '/tmp/fortfront_test_output2.txt 2>/tmp/fortfront_test_error2.txt'
         call execute_command_line(command, exitstat=exit_code)
         
         ! Should still exit successfully but output should contain error markers
@@ -118,15 +118,15 @@ contains
         call test_start("Empty input produces valid program")
         
         ! Run with empty input
-        command = 'echo "" | ./build/gfortran_*/app/ff > ' // &
-                  '/tmp/ff_test_output3.txt 2>/tmp/ff_test_error3.txt'
+        command = 'echo "" | ./build/gfortran_*/app/fortfront > ' // &
+                  '/tmp/fortfront_test_output3.txt 2>/tmp/fortfront_test_error3.txt'
         call execute_command_line(command, exitstat=exit_code)
         
         success = (exit_code == 0)
         
         if (success) then
             ! Check output contains valid empty program
-            open(unit=11, file='/tmp/ff_test_output3.txt', status='old', action='read')
+            open(unit=11, file='/tmp/fortfront_test_output3.txt', status='old', action='read')
             read(11, '(A)', end=200) output_line
             success = success .and. (index(output_line, 'program main') > 0)
 200         close(11)
