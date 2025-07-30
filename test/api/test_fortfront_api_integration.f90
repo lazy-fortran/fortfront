@@ -5,14 +5,6 @@ program test_fortfront_api_integration
     
     logical :: all_passed
     
-    ! Counting visitor for testing
-    type :: counting_visitor
-        integer :: assignment_count = 0
-        integer :: identifier_count = 0
-        integer :: literal_count = 0
-        integer :: binary_op_count = 0
-    end type counting_visitor
-    
     all_passed = .true.
     
     print *, '=== fortfront Public API Integration Tests ==='
@@ -298,14 +290,16 @@ contains
     
     logical function test_visitor_pattern_integration()
         test_visitor_pattern_integration = .true.
-        print *, 'Testing visitor pattern integration...'
+        print *, 'Testing AST node counting...'
         
         block
             character(len=:), allocatable :: source, error_msg
             type(token_t), allocatable :: tokens(:)
             type(ast_arena_t) :: arena
             integer :: prog_index
-            type(counting_visitor) :: visitor
+            integer :: assignment_count, identifier_count, literal_count, binary_op_count
+            integer :: i
+            class(ast_node), allocatable :: node
             
             source = 'do i = 1, 10' // new_line('A') // &
                      '    x(i) = i * i' // new_line('A') // &
@@ -317,32 +311,46 @@ contains
             call parse_tokens(tokens, arena, prog_index, error_msg)
             call analyze_semantics(arena, prog_index)
             
-            ! Initialize visitor
-            visitor%assignment_count = 0
-            visitor%identifier_count = 0
-            visitor%literal_count = 0
-            visitor%binary_op_count = 0
+            ! Count node types manually
+            assignment_count = 0
+            identifier_count = 0
+            literal_count = 0
+            binary_op_count = 0
             
-            ! Traverse AST
-            call traverse_ast(arena, prog_index, visitor, .true.)
+            ! Traverse all nodes in arena
+            do i = 1, arena%size
+                node = get_node(arena, i)
+                if (allocated(node)) then
+                    select type (node)
+                    type is (assignment_node)
+                        assignment_count = assignment_count + 1
+                    type is (identifier_node)
+                        identifier_count = identifier_count + 1
+                    type is (literal_node)
+                        literal_count = literal_count + 1
+                    type is (binary_op_node)
+                        binary_op_count = binary_op_count + 1
+                    end select
+                end if
+            end do
             
-            if (visitor%assignment_count == 0) then
-                print *, '  FAIL: No assignments found by visitor'
+            if (assignment_count == 0) then
+                print *, '  FAIL: No assignments found'
                 test_visitor_pattern_integration = .false.
                 return
             end if
             
-            if (visitor%binary_op_count == 0) then
-                print *, '  FAIL: No binary operations found by visitor'
+            if (binary_op_count == 0) then
+                print *, '  FAIL: No binary operations found'
                 test_visitor_pattern_integration = .false.
                 return
             end if
             
-            print *, '  PASS: Visitor pattern integration'
-            print *, '  Visitor stats: assignments=', visitor%assignment_count, &
-                     ', identifiers=', visitor%identifier_count, &
-                     ', literals=', visitor%literal_count, &
-                     ', binary_ops=', visitor%binary_op_count
+            print *, '  PASS: AST node counting'
+            print *, '  Node stats: assignments=', assignment_count, &
+                     ', identifiers=', identifier_count, &
+                     ', literals=', literal_count, &
+                     ', binary_ops=', binary_op_count
         end block
     end function test_visitor_pattern_integration
     

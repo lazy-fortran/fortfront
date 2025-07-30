@@ -116,11 +116,17 @@ contains
         end if
     end function get_children
     
-    ! Traverse AST with visitor pattern
-    subroutine traverse_ast(arena, root_index, visitor, pre_order)
+    ! Traverse AST with callback procedure
+    subroutine traverse_ast(arena, root_index, callback, pre_order)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
-        class(*), intent(inout) :: visitor
+        interface
+            subroutine callback(arena, node_index)
+                import :: ast_arena_t
+                type(ast_arena_t), intent(in) :: arena
+                integer, intent(in) :: node_index
+            end subroutine callback
+        end interface
         logical, intent(in), optional :: pre_order
         
         logical :: do_pre_order
@@ -128,14 +134,20 @@ contains
         do_pre_order = .true.
         if (present(pre_order)) do_pre_order = pre_order
         
-        call traverse_node(arena, root_index, visitor, do_pre_order)
+        call traverse_node(arena, root_index, callback, do_pre_order)
     end subroutine traverse_ast
     
     ! Internal recursive traversal
-    recursive subroutine traverse_node(arena, node_index, visitor, pre_order)
+    recursive subroutine traverse_node(arena, node_index, callback, pre_order)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
-        class(*), intent(inout) :: visitor
+        interface
+            subroutine callback(arena, node_index)
+                import :: ast_arena_t
+                type(ast_arena_t), intent(in) :: arena
+                integer, intent(in) :: node_index
+            end subroutine callback
+        end interface
         logical, intent(in) :: pre_order
         
         integer, allocatable :: child_indices(:)
@@ -146,18 +158,18 @@ contains
         
         ! Pre-order visit
         if (pre_order) then
-            call arena%entries(node_index)%node%accept(visitor)
+            call callback(arena, node_index)
         end if
         
         ! Visit children
         child_indices = get_children(arena, node_index)
         do i = 1, size(child_indices)
-            call traverse_node(arena, child_indices(i), visitor, pre_order)
+            call traverse_node(arena, child_indices(i), callback, pre_order)
         end do
         
         ! Post-order visit
         if (.not. pre_order) then
-            call arena%entries(node_index)%node%accept(visitor)
+            call callback(arena, node_index)
         end if
     end subroutine traverse_node
     
