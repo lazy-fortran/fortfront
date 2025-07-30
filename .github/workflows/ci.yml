@@ -57,8 +57,14 @@ jobs:
         echo "Coverage files (.gcno):"
         find . -name "*.gcno" | head -10
         
-        # Generate coverage report focused on src/ directory with proper exclusions
-        gcovr --gcov-executable gcov --root . --filter 'src/.*' --exclude 'build/dependencies/.*' --exclude 'test/.*' --xml coverage.xml --html-details coverage.html --print-summary
+        # Generate coverage report using the original working approach
+        # Use src/ as root to focus only on source files that are tested
+        gcovr --gcov-executable gcov -r src/ build/ --exclude 'build/dependencies/*' --exclude 'test/*' --xml coverage.xml --html-details coverage.html --print-summary
+        
+        # Debug: Show coverage.xml content
+        echo "Coverage XML file size and first few lines:"
+        ls -la coverage.xml
+        head -10 coverage.xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -68,6 +74,7 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: true
+        verbose: true
 
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
