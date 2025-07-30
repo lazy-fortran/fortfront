@@ -47,8 +47,10 @@ jobs:
           --print-summary
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: lazy-fortran/fortfront
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
