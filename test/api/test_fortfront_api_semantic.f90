@@ -95,14 +95,13 @@ contains
             call analyze_semantics(arena, prog_index)
             
             ! Check inferred types
-            prog_node = get_node(arena, prog_index)
-            if (.not. allocated(prog_node)) then
-                print *, '  FAIL: Could not get program node'
+            if (prog_index <= 0 .or. prog_index > arena%size .or. .not. allocated(arena%entries(prog_index)%node)) then
+                print *, '  FAIL: Invalid program node'
                 test_type_inference = .false.
                 return
             end if
             
-            select type (prog_node)
+            select type (prog_node => arena%entries(prog_index)%node)
             type is (program_node)
                 if (size(prog_node%body_indices) < 3) then
                     print *, '  FAIL: Expected at least 3 statements'
@@ -111,9 +110,17 @@ contains
                 end if
                 
                 ! Check first assignment (x := 42)
-                stmt_node = get_node(arena, prog_node%body_indices(1))
-                select type (stmt_node)
-                type is (assignment_node)
+                block
+                    integer :: stmt_index
+                    stmt_index = prog_node%body_indices(1)
+                    if (stmt_index <= 0 .or. stmt_index > arena%size .or. .not. allocated(arena%entries(stmt_index)%node)) then
+                        print *, '  FAIL: Invalid statement node'
+                        test_type_inference = .false.
+                        return
+                    end if
+                    
+                    select type (stmt_node => arena%entries(stmt_index)%node)
+                    type is (assignment_node)
                     ! Check if type was inferred
                     if (allocated(stmt_node%inferred_type)) then
                         if (stmt_node%inferred_type%kind /= TINT) then
@@ -140,11 +147,12 @@ contains
                         end block
                     end if
                     
-                class default
-                    print *, '  FAIL: Expected assignment node'
-                    test_type_inference = .false.
-                    return
-                end select
+                    class default
+                        print *, '  FAIL: Expected assignment node'
+                        test_type_inference = .false.
+                        return
+                    end select
+                end block
                 
             class default
                 print *, '  FAIL: Expected program node'
