@@ -17,7 +17,7 @@ fpm test --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
 echo "Capturing coverage data..."
 lcov --capture --directory build/ --output-file coverage.info \
   --rc branch_coverage=1 \
-  --ignore-errors inconsistent
+  --ignore-errors inconsistent,mismatch
 
 # Filter out unwanted files
 echo "Filtering coverage data..."
