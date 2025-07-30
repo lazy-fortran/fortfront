@@ -1,0 +1,5 @@
+program test_array_literal
+    implicit none
+    integer :: arr(3)
+    arr = [10, 20, 30]
+end program test_array_literal

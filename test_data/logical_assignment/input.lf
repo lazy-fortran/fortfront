@@ -1,0 +1,2 @@
+logical :: flag
+flag = .true.

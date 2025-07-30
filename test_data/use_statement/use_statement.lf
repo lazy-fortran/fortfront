@@ -1,0 +1,2 @@
+use iso_fortran_env
+print *, "Hello from Fortran"

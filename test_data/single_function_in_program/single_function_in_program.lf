@@ -1,0 +1,8 @@
+x = 5.0
+y = square(x)
+print *, x, y
+
+real function square(val)
+  real :: val
+  square = val * val
+end function
