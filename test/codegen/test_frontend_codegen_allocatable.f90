@@ -2,7 +2,6 @@ program test_frontend_codegen_allocatable
     use ast_core
     use ast_factory
     use codegen_core, only: generate_code_from_arena
-    use fpm_strings, only: string_t
     implicit none
 
     logical :: all_passed
