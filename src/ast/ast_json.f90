@@ -1,11 +1,35 @@
 module ast_json
-    ! This module re-exports the JSON functionality from ast_core
-    ! All JSON serialization is now handled directly by the AST nodes in ast_core
+    ! This module provides JSON serialization for AST nodes
+    ! Uses the built-in to_json methods on the AST nodes
     use ast_core
     use json_module
     implicit none
     
-    ! Re-export the ast_to_json_string function for convenience
     public :: ast_to_json_string
+
+contains
+
+    function ast_to_json_string(arena, node_index) result(json_str)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: json_str
+        type(json_core) :: json
+        type(json_value), pointer :: root, ast_obj
+        
+        call json%initialize()
+        
+        if (node_index == 0 .or. node_index > arena%size) then
+            call json%create_null(root, '')
+        else
+            ! Create a root array to hold the AST
+            call json%create_array(root, '')
+            ! Use the node's built-in to_json method
+            ! The node will add itself to the root array
+            call arena%entries(node_index)%node%to_json(json, root)
+        end if
+        
+        call json%print_to_string(root, json_str)
+        call json%destroy(root)
+    end function ast_to_json_string
 
 end module ast_json
