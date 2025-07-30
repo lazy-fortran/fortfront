@@ -60,10 +60,8 @@ jobs:
         echo "Coverage files (.gcno):"
         find . -name "*.gcno" | head -10
         
-        # Generate coverage report for only the two specific files we care about
-        # This matches our local coverage measurement approach
-        gcovr --gcov-executable gcov \
-          -r src/ build/ \
+        # Generate coverage report matching our local approach
+        gcovr --gcov-executable gcov -r src/ build/ \
           --exclude 'build/dependencies/*' \
           --exclude 'test/*' \
           --xml -o coverage.xml \
