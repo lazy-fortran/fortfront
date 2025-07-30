@@ -36,6 +36,10 @@ fpm test <test_name>
 - Always use `-cpp` flag when building/testing (required for preprocessing)
 - Use `--profile debug` for debugging and coverage
 
+## Development Tips
+
+- Do not always use `fpm clean all`. Only use clean in cases where all other fixes fail
+
 ## Architecture Overview
 
 fortfront is a Fortran frontend that processes code through four distinct phases:
