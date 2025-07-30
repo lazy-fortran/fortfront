@@ -116,6 +116,8 @@ module ast_core
     contains
         procedure :: accept => pointer_assignment_accept
         procedure :: to_json => pointer_assignment_to_json
+        procedure :: assign => pointer_assignment_assign
+        generic :: assignment(=) => assign
     end type pointer_assignment_node
 
     ! Binary operation node
@@ -162,6 +164,8 @@ module ast_core
     contains
         procedure :: accept => subroutine_call_accept
         procedure :: to_json => subroutine_call_to_json
+        procedure :: assign => subroutine_call_assign
+        generic :: assignment(=) => assign
     end type subroutine_call_node
 
     ! Call or subscript node (represents both function calls and array indexing)
@@ -226,6 +230,8 @@ module ast_core
     contains
         procedure :: accept => use_statement_accept
         procedure :: to_json => use_statement_to_json
+        procedure :: assign => use_statement_assign
+        generic :: assignment(=) => assign
     end type use_statement_node
 
     ! Include statement node
@@ -234,6 +240,8 @@ module ast_core
     contains
         procedure :: accept => include_statement_accept
         procedure :: to_json => include_statement_to_json
+        procedure :: assign => include_statement_assign
+        generic :: assignment(=) => assign
     end type include_statement_node
 
     ! Print statement node
@@ -243,6 +251,8 @@ module ast_core
     contains
         procedure :: accept => print_statement_accept
         procedure :: to_json => print_statement_to_json
+        procedure :: assign => print_statement_assign
+        generic :: assignment(=) => assign
     end type print_statement_node
 
     ! Write statement node
@@ -258,6 +268,8 @@ module ast_core
     contains
         procedure :: accept => write_statement_accept
         procedure :: to_json => write_statement_to_json
+        procedure :: assign => write_statement_assign
+        generic :: assignment(=) => assign
     end type write_statement_node
 
     ! Read statement node
@@ -273,6 +285,8 @@ module ast_core
     contains
         procedure :: accept => read_statement_accept
         procedure :: to_json => read_statement_to_json
+        procedure :: assign => read_statement_assign
+        generic :: assignment(=) => assign
     end type read_statement_node
 
     ! Format descriptor node for parsed format specifications
@@ -287,6 +301,8 @@ module ast_core
     contains
         procedure :: accept => format_descriptor_accept
         procedure :: to_json => format_descriptor_to_json
+        procedure :: assign => format_descriptor_assign
+        generic :: assignment(=) => assign
     end type format_descriptor_node
 
     ! Allocate statement node
@@ -300,6 +316,8 @@ module ast_core
     contains
         procedure :: accept => allocate_statement_accept
         procedure :: to_json => allocate_statement_to_json
+        procedure :: assign => allocate_statement_assign
+        generic :: assignment(=) => assign
     end type allocate_statement_node
 
     ! Deallocate statement node
@@ -310,6 +328,8 @@ module ast_core
     contains
         procedure :: accept => deallocate_statement_accept
         procedure :: to_json => deallocate_statement_to_json
+        procedure :: assign => deallocate_statement_assign
+        generic :: assignment(=) => assign
     end type deallocate_statement_node
 
     ! Declaration node
@@ -359,6 +379,8 @@ module ast_core
     contains
         procedure :: accept => contains_accept
         procedure :: to_json => contains_to_json
+        procedure :: assign => contains_assign
+        generic :: assignment(=) => assign
     end type contains_node
 
     ! Do loop node
@@ -383,6 +405,8 @@ module ast_core
     contains
         procedure :: accept => do_while_accept
         procedure :: to_json => do_while_to_json
+        procedure :: assign => do_while_assign
+        generic :: assignment(=) => assign
     end type do_while_node
 
     ! Forall construct node
@@ -474,6 +498,8 @@ module ast_core
     contains
         procedure :: accept => derived_type_accept
         procedure :: to_json => derived_type_to_json
+        procedure :: assign => derived_type_assign
+        generic :: assignment(=) => assign
     end type derived_type_node
 
     ! Interface block node
@@ -485,6 +511,8 @@ module ast_core
     contains
         procedure :: accept => interface_block_accept
         procedure :: to_json => interface_block_to_json
+        procedure :: assign => interface_block_assign
+        generic :: assignment(=) => assign
     end type interface_block_node
 
     ! Module node
@@ -496,6 +524,8 @@ module ast_core
     contains
         procedure :: accept => module_accept
         procedure :: to_json => module_to_json
+        procedure :: assign => module_assign
+        generic :: assignment(=) => assign
     end type module_node
 
     ! STOP statement node
@@ -505,6 +535,8 @@ module ast_core
     contains
         procedure :: accept => stop_accept
         procedure :: to_json => stop_to_json
+        procedure :: assign => stop_assign
+        generic :: assignment(=) => assign
     end type stop_node
 
     ! RETURN statement node
@@ -513,6 +545,8 @@ module ast_core
     contains
         procedure :: accept => return_accept
         procedure :: to_json => return_to_json
+        procedure :: assign => return_assign
+        generic :: assignment(=) => assign
     end type return_node
 
     ! CYCLE statement node
@@ -521,6 +555,8 @@ module ast_core
     contains
         procedure :: accept => cycle_accept
         procedure :: to_json => cycle_to_json
+        procedure :: assign => cycle_assign
+        generic :: assignment(=) => assign
     end type cycle_node
 
     ! EXIT statement node
@@ -2863,11 +2899,17 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
                     lhs_node = rhs_node
                 end select
             class default
-                ! For unhandled types, we use shallow copy
-                ! NOTE: This can cause double free issues with polymorphic types
-                ! TODO: All node types should have assignment operators
-                deallocate(lhs%node)
-                allocate(lhs%node, source=rhs%node)
+                ! For any remaining unhandled types, use mold+assignment approach
+                allocate(lhs%node, mold=rhs%node)
+                ! Copy base fields manually to avoid shallow copy issues
+                lhs%node%line = rhs%node%line
+                lhs%node%column = rhs%node%column
+                if (allocated(rhs%node%inferred_type)) then
+                    allocate(lhs%node%inferred_type)
+                    lhs%node%inferred_type = rhs%node%inferred_type
+                end if
+                ! Note: This only copies base ast_node fields.
+                ! All specific node types should be handled in explicit cases above.
             end select
         end if
     end subroutine ast_entry_assign
@@ -3302,7 +3344,7 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific fields
@@ -3321,7 +3363,7 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific fields
@@ -3338,7 +3380,7 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific fields
@@ -3352,7 +3394,7 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific fields
@@ -3367,7 +3409,7 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific fields
@@ -3383,7 +3425,7 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific fields
@@ -3409,7 +3451,7 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific fields
@@ -3452,7 +3494,7 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific fields
@@ -3477,7 +3519,7 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific fields
@@ -3506,7 +3548,7 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific fields
@@ -3523,5 +3565,343 @@ function create_function_def(name, param_indices, return_type, body_indices, lin
             lhs%dimension_indices = rhs%dimension_indices
         end if
     end subroutine parameter_declaration_assign
+
+    subroutine pointer_assignment_assign(lhs, rhs)
+        class(pointer_assignment_node), intent(inout) :: lhs
+        type(pointer_assignment_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        lhs%pointer_index = rhs%pointer_index
+        lhs%target_index = rhs%target_index
+    end subroutine pointer_assignment_assign
+
+    subroutine subroutine_call_assign(lhs, rhs)
+        class(subroutine_call_node), intent(inout) :: lhs
+        type(subroutine_call_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%name)) lhs%name = rhs%name
+        if (allocated(rhs%arg_indices)) then
+            if (allocated(lhs%arg_indices)) deallocate(lhs%arg_indices)
+            allocate(lhs%arg_indices(size(rhs%arg_indices)))
+            lhs%arg_indices = rhs%arg_indices
+        end if
+    end subroutine subroutine_call_assign
+
+    subroutine use_statement_assign(lhs, rhs)
+        class(use_statement_node), intent(inout) :: lhs
+        type(use_statement_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%module_name)) lhs%module_name = rhs%module_name
+        if (allocated(rhs%only_list)) then
+            if (allocated(lhs%only_list)) deallocate(lhs%only_list)
+            allocate(lhs%only_list(size(rhs%only_list)))
+            lhs%only_list = rhs%only_list
+        end if
+        lhs%has_only = rhs%has_only
+    end subroutine use_statement_assign
+
+    subroutine include_statement_assign(lhs, rhs)
+        class(include_statement_node), intent(inout) :: lhs
+        type(include_statement_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%filename)) lhs%filename = rhs%filename
+    end subroutine include_statement_assign
+
+    subroutine print_statement_assign(lhs, rhs)
+        class(print_statement_node), intent(inout) :: lhs
+        type(print_statement_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
+        if (allocated(rhs%arg_indices)) then
+            if (allocated(lhs%arg_indices)) deallocate(lhs%arg_indices)
+            allocate(lhs%arg_indices(size(rhs%arg_indices)))
+            lhs%arg_indices = rhs%arg_indices
+        end if
+    end subroutine print_statement_assign
+
+    subroutine write_statement_assign(lhs, rhs)
+        class(write_statement_node), intent(inout) :: lhs
+        type(write_statement_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
+        if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
+        if (allocated(rhs%arg_indices)) then
+            if (allocated(lhs%arg_indices)) deallocate(lhs%arg_indices)
+            allocate(lhs%arg_indices(size(rhs%arg_indices)))
+            lhs%arg_indices = rhs%arg_indices
+        end if
+        lhs%iostat_var_index = rhs%iostat_var_index
+        lhs%err_label_index = rhs%err_label_index
+        lhs%end_label_index = rhs%end_label_index
+        lhs%format_expr_index = rhs%format_expr_index
+        lhs%is_formatted = rhs%is_formatted
+    end subroutine write_statement_assign
+
+    subroutine read_statement_assign(lhs, rhs)
+        class(read_statement_node), intent(inout) :: lhs
+        type(read_statement_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
+        if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
+        if (allocated(rhs%var_indices)) then
+            if (allocated(lhs%var_indices)) deallocate(lhs%var_indices)
+            allocate(lhs%var_indices(size(rhs%var_indices)))
+            lhs%var_indices = rhs%var_indices
+        end if
+        lhs%iostat_var_index = rhs%iostat_var_index
+        lhs%err_label_index = rhs%err_label_index
+        lhs%end_label_index = rhs%end_label_index
+        lhs%format_expr_index = rhs%format_expr_index
+        lhs%is_formatted = rhs%is_formatted
+    end subroutine read_statement_assign
+
+    subroutine format_descriptor_assign(lhs, rhs)
+        class(format_descriptor_node), intent(inout) :: lhs
+        type(format_descriptor_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%descriptor_type)) lhs%descriptor_type = rhs%descriptor_type
+        lhs%width = rhs%width
+        lhs%decimal_places = rhs%decimal_places
+        lhs%exponent_width = rhs%exponent_width
+        lhs%repeat_count = rhs%repeat_count
+        lhs%is_literal = rhs%is_literal
+        if (allocated(rhs%literal_text)) lhs%literal_text = rhs%literal_text
+    end subroutine format_descriptor_assign
+
+    subroutine allocate_statement_assign(lhs, rhs)
+        class(allocate_statement_node), intent(inout) :: lhs
+        type(allocate_statement_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%var_indices)) then
+            if (allocated(lhs%var_indices)) deallocate(lhs%var_indices)
+            allocate(lhs%var_indices(size(rhs%var_indices)))
+            lhs%var_indices = rhs%var_indices
+        end if
+        if (allocated(rhs%shape_indices)) then
+            if (allocated(lhs%shape_indices)) deallocate(lhs%shape_indices)
+            allocate(lhs%shape_indices(size(rhs%shape_indices)))
+            lhs%shape_indices = rhs%shape_indices
+        end if
+        lhs%stat_var_index = rhs%stat_var_index
+        lhs%errmsg_var_index = rhs%errmsg_var_index
+        lhs%source_expr_index = rhs%source_expr_index
+        lhs%mold_expr_index = rhs%mold_expr_index
+    end subroutine allocate_statement_assign
+
+    subroutine deallocate_statement_assign(lhs, rhs)
+        class(deallocate_statement_node), intent(inout) :: lhs
+        type(deallocate_statement_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%var_indices)) then
+            if (allocated(lhs%var_indices)) deallocate(lhs%var_indices)
+            allocate(lhs%var_indices(size(rhs%var_indices)))
+            lhs%var_indices = rhs%var_indices
+        end if
+        lhs%stat_var_index = rhs%stat_var_index
+        lhs%errmsg_var_index = rhs%errmsg_var_index
+    end subroutine deallocate_statement_assign
+
+    subroutine contains_assign(lhs, rhs)
+        class(contains_node), intent(inout) :: lhs
+        type(contains_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields (contains_node has no specific fields)
+    end subroutine contains_assign
+
+    subroutine do_while_assign(lhs, rhs)
+        class(do_while_node), intent(inout) :: lhs
+        type(do_while_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        lhs%condition_index = rhs%condition_index
+        if (allocated(rhs%body_indices)) then
+            if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
+            allocate(lhs%body_indices(size(rhs%body_indices)))
+            lhs%body_indices = rhs%body_indices
+        end if
+    end subroutine do_while_assign
+
+    subroutine derived_type_assign(lhs, rhs)
+        class(derived_type_node), intent(inout) :: lhs
+        type(derived_type_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%name)) lhs%name = rhs%name
+        if (allocated(rhs%component_indices)) then
+            if (allocated(lhs%component_indices)) deallocate(lhs%component_indices)
+            allocate(lhs%component_indices(size(rhs%component_indices)))
+            lhs%component_indices = rhs%component_indices
+        end if
+    end subroutine derived_type_assign
+
+    subroutine interface_block_assign(lhs, rhs)
+        class(interface_block_node), intent(inout) :: lhs
+        type(interface_block_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%name)) lhs%name = rhs%name
+        if (allocated(rhs%procedure_indices)) then
+            if (allocated(lhs%procedure_indices)) deallocate(lhs%procedure_indices)
+            allocate(lhs%procedure_indices(size(rhs%procedure_indices)))
+            lhs%procedure_indices = rhs%procedure_indices
+        end if
+    end subroutine interface_block_assign
+
+    subroutine module_assign(lhs, rhs)
+        class(module_node), intent(inout) :: lhs
+        type(module_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields
+        if (allocated(rhs%name)) lhs%name = rhs%name
+        if (allocated(rhs%declaration_indices)) then
+            if (allocated(lhs%declaration_indices)) deallocate(lhs%declaration_indices)
+            allocate(lhs%declaration_indices(size(rhs%declaration_indices)))
+            lhs%declaration_indices = rhs%declaration_indices
+        end if
+        if (allocated(rhs%procedure_indices)) then
+            if (allocated(lhs%procedure_indices)) deallocate(lhs%procedure_indices)
+            allocate(lhs%procedure_indices(size(rhs%procedure_indices)))
+            lhs%procedure_indices = rhs%procedure_indices
+        end if
+        lhs%has_contains = rhs%has_contains
+    end subroutine module_assign
+
+    subroutine stop_assign(lhs, rhs)
+        class(stop_node), intent(inout) :: lhs
+        type(stop_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields (stop_node has no specific fields)
+    end subroutine stop_assign
+
+    subroutine return_assign(lhs, rhs)
+        class(return_node), intent(inout) :: lhs
+        type(return_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields (return_node has no specific fields)
+    end subroutine return_assign
+
+    subroutine cycle_assign(lhs, rhs)
+        class(cycle_node), intent(inout) :: lhs
+        type(cycle_node), intent(in) :: rhs
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy specific fields (cycle_node has no specific fields)
+    end subroutine cycle_assign
 
 end module ast_core
