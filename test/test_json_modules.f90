@@ -76,16 +76,16 @@ contains
     
     subroutine delete_file_portable(filename)
         character(len=*), intent(in) :: filename
-        integer :: unit_num, iostat
+        integer :: iostat
         logical :: exists
         
         ! Check if file exists before trying to delete
         inquire(file=trim(filename), exist=exists)
         if (exists) then
             ! Open and close with delete status
-            open(newunit=unit_num, file=trim(filename), status='old', iostat=iostat)
+            open(unit=99, file=trim(filename), status='old', iostat=iostat)
             if (iostat == 0) then
-                close(unit_num, status='delete')
+                close(99, status='delete')
             end if
         end if
     end subroutine delete_file_portable

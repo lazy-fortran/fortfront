@@ -1,5 +1,5 @@
 program test_cli_integration
-    use iso_fortran_env, only: error_unit, compiler_version
+    use iso_fortran_env, only: error_unit
     implicit none
     
     integer :: test_count, pass_count
