@@ -38,29 +38,15 @@ jobs:
         key: ${{ runner.os }}-fpm-deps-${{ hashFiles('fpm.toml') }}
         restore-keys: |
           ${{ runner.os }}-fpm-deps-
-    
-    # Note: Not caching build directory for coverage runs to ensure fresh .gcno/.gcda files
 
     - name: Show compiler versions
       run: |
         gfortran --version
         fpm --version
 
-    - name: Clean and build all tests with coverage
-      run: |
-        # Clean to ensure fresh coverage data
-        fpm clean --skip
-        
-        # Build with coverage flags
-        fpm build --tests --profile debug --flag "-cpp -fprofile-arcs -ftest-coverage -g"
-        
-        # Debug: Show build directory structure
-        echo "Build directory structure:"
-        find build -type f -name "*.gcno" | head -10
-
     - name: Run all tests with coverage
       run: |
-        # Run all tests with coverage flags
+        # Run all tests with coverage flags (this will build and test)
         fpm test --profile debug --flag "-cpp -fprofile-arcs -ftest-coverage -g"
 
     - name: Generate coverage report
@@ -72,7 +58,7 @@ jobs:
         find . -name "*.gcno" | head -10
         
         # Generate coverage report (using the same command that works locally)
-        gcovr --gcov-executable gcov -r src/ build/ --exclude 'build/dependencies/*' --exclude 'test/*' --xml -o coverage.xml --html-details -o coverage.html --print-summary
+        gcovr --gcov-executable gcov -r src/ build/ --exclude 'build/dependencies/*' --exclude 'test/*' --xml coverage.xml --html-details coverage.html --print-summary
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
