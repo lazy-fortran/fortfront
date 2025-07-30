@@ -296,17 +296,28 @@ contains
         type(mono_type_t), allocatable :: node_type
         
         class(ast_node), allocatable :: node
+        integer :: i
         
         node = get_node(arena, node_index)
         if (allocated(node)) then
             if (allocated(node%inferred_type)) then
                 allocate(node_type)
-                ! Initialize fields to avoid issues with uninitialized memory
-                node_type%kind = 0
-                node_type%size = 0
-                node_type%var%id = -1
-                allocate(character(len=0) :: node_type%var%name)
-                node_type = node%inferred_type  ! Use assignment operator for deep copy
+                ! Manual deep copy to avoid issues with assignment operator
+                node_type%kind = node%inferred_type%kind
+                node_type%size = node%inferred_type%size
+                node_type%var%id = node%inferred_type%var%id
+                if (allocated(node%inferred_type%var%name)) then
+                    node_type%var%name = node%inferred_type%var%name
+                else
+                    allocate(character(len=0) :: node_type%var%name)
+                end if
+                if (allocated(node%inferred_type%args)) then
+                    allocate(node_type%args(size(node%inferred_type%args)))
+                    do i = 1, size(node%inferred_type%args)
+                        ! For now, shallow copy args to avoid recursion issues
+                        node_type%args(i) = node%inferred_type%args(i)
+                    end do
+                end if
             end if
         end if
     end function get_type_for_node
