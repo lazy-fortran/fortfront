@@ -22,6 +22,7 @@ module frontend
     public :: lex_source, parse_tokens, analyze_semantics, emit_fortran
     public :: compile_source, compilation_options_t
     public :: compile_from_tokens_json, compile_from_ast_json, compile_from_semantic_json
+    public :: transform_lazy_fortran_string
     ! Debug functions for unit testing
     public :: find_program_unit_boundary, is_function_start, is_end_function, parse_program_unit
     public :: is_do_loop_start, is_do_while_start, is_select_case_start, is_end_do, is_end_select
@@ -1065,6 +1066,56 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end if
     end subroutine compilation_options_assign
 
+    ! String-based transformation function for CLI usage
+    subroutine transform_lazy_fortran_string(input, output, error_msg)
+        character(len=*), intent(in) :: input
+        character(len=:), allocatable, intent(out) :: output
+        character(len=:), allocatable, intent(out) :: error_msg
+        
+        ! Local variables for 4-phase pipeline
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        integer :: prog_index
+        
+        allocate(character(len=0) :: error_msg)
+        error_msg = ""
+        
+        ! Handle empty input
+        if (len_trim(input) == 0) then
+            output = "program main" // new_line('A') // &
+                     "    implicit none" // new_line('A') // &
+                     "end program main" // new_line('A')
+            return
+        end if
+        
+        ! Phase 1: Lexical Analysis
+        call lex_source(input, tokens, error_msg)
+        if (error_msg /= "") return
+        
+        ! Phase 2: Parsing
+        arena = create_ast_stack()
+        call parse_tokens(tokens, arena, prog_index, error_msg)
+        if (error_msg /= "") return
+        
+        ! Debug: check if we got a valid program index
+        if (prog_index <= 0) then
+            ! For empty or minimal input, create a basic program
+            output = "program main" // new_line('A') // &
+                     "    implicit none" // new_line('A') // &
+                     "end program main" // new_line('A')
+            return
+        end if
+        
+        ! Phase 3: Semantic Analysis
+        call analyze_program_with_checks(arena, prog_index)
+        
+        ! Phase 4: Standardization
+        call standardize_ast(arena, prog_index)
+        
+        ! Phase 5: Code Generation
+        output = generate_code_from_arena(arena, prog_index)
+    end subroutine transform_lazy_fortran_string
+
     ! Simple interface functions for clean pipeline usage
     
     subroutine lex_source(source_code, tokens, error_msg)
@@ -1074,8 +1125,10 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         
         call tokenize_core(source_code, tokens)
         if (.not. allocated(tokens)) then
+            allocate(character(len=22) :: error_msg)
             error_msg = "Failed to tokenize source"
         else
+            allocate(character(len=0) :: error_msg)
             error_msg = ""
         end if
     end subroutine lex_source
