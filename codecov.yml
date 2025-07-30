@@ -3,6 +3,7 @@ coverage:
     project:
       default:
         target: 80%
+        threshold: 1%
     patch:
       default:
         target: 80%
@@ -10,3 +11,10 @@ coverage:
   ignore:
     - "test/**/*"
     - "app/**/*"
+    - "build/**/*"
+    - "**/*.mod"
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
