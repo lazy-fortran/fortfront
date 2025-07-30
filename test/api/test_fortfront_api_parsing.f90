@@ -68,14 +68,19 @@ contains
             end if
             
             ! Verify we got a program node
-            node = get_node(arena, prog_index)
-            if (.not. allocated(node)) then
+            if (prog_index <= 0 .or. prog_index > arena%size) then
+                print *, '  FAIL: Invalid program node index'
+                test_basic_parsing = .false.
+                return
+            end if
+            
+            if (.not. allocated(arena%entries(prog_index)%node)) then
                 print *, '  FAIL: Could not get program node'
                 test_basic_parsing = .false.
                 return
             end if
             
-            select type (node)
+            select type (node => arena%entries(prog_index)%node)
             type is (program_node)
                 if (size(node%body_indices) == 0) then
                     print *, '  FAIL: Program has no body'
@@ -85,10 +90,16 @@ contains
                 
                 ! Check first statement is assignment
                 block
-                    class(ast_node), allocatable :: stmt
-                    stmt = get_node(arena, node%body_indices(1))
+                    integer :: stmt_index
+                    stmt_index = node%body_indices(1)
                     
-                    select type (stmt)
+                    if (stmt_index <= 0 .or. stmt_index > arena%size) then
+                        print *, '  FAIL: Invalid statement index'
+                        test_basic_parsing = .false.
+                        return
+                    end if
+                    
+                    select type (stmt => arena%entries(stmt_index)%node)
                     type is (assignment_node)
                         ! Success
                     class default
@@ -190,14 +201,19 @@ contains
             end if
             
             ! Should get function node directly for explicit function
-            node = get_node(arena, prog_index)
-            if (.not. allocated(node)) then
+            if (prog_index <= 0 .or. prog_index > arena%size) then
+                print *, '  FAIL: Invalid function node index'
+                test_function_parsing = .false.
+                return
+            end if
+            
+            if (.not. allocated(arena%entries(prog_index)%node)) then
                 print *, '  FAIL: Could not get parsed node'
                 test_function_parsing = .false.
                 return
             end if
             
-            select type (node)
+            select type (node => arena%entries(prog_index)%node)
             type is (function_def_node)
                 if (node%name /= 'square') then
                     print *, '  FAIL: Expected function name "square", got "', node%name, '"'

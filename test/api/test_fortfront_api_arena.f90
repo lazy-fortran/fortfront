@@ -162,10 +162,19 @@ contains
             
             ! Verify we can access the assignment through program body
             block
-                class(ast_node), allocatable :: prog_node
-                prog_node = get_node(arena, prog_index)
+                if (prog_index <= 0 .or. prog_index > arena%size) then
+                    print *, '  FAIL: Invalid program index'
+                    test_parent_child_navigation = .false.
+                    return
+                end if
                 
-                select type (prog_node)
+                if (.not. allocated(arena%entries(prog_index)%node)) then
+                    print *, '  FAIL: Program node not allocated'
+                    test_parent_child_navigation = .false.
+                    return
+                end if
+                
+                select type (prog_node => arena%entries(prog_index)%node)
                 type is (program_node)
                     if (size(prog_node%body_indices) /= 1) then
                         print *, '  FAIL: Expected 1 body index, got', size(prog_node%body_indices)
