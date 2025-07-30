@@ -1,52 +1,138 @@
-name: CI
+name: Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop, mlir ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        
+  test-linux:
+    runs-on: ubuntu-latest
+    
     steps:
     - uses: actions/checkout@v4
-    
-    - name: Setup Fortran
-      uses: fortran-lang/setup-fortran@v1
-      with:
-        compiler: gfortran
-        
+
     - name: Setup FPM
-      uses: fortran-lang/setup-fpm@v5
-      
-    - name: Build
-      run: fpm build
-      
-    - name: Test
-      run: fpm test
-      
-    - name: Generate Coverage (Ubuntu only)
-      if: matrix.os == 'ubuntu-latest'
+      run: |
+        wget https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-linux-x86_64-gcc-12
+        chmod +x fpm-0.12.0-linux-x86_64-gcc-12
+        sudo mv fpm-0.12.0-linux-x86_64-gcc-12 /usr/local/bin/fpm
+
+    - name: Install packages
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcovr
-        fpm build --flag '-fprofile-arcs -ftest-coverage'
-        fpm test --flag '-fprofile-arcs -ftest-coverage' || true
-        mkdir -p coverage
-        gcovr --root . \
-          --exclude 'build/*' \
+        sudo apt-get install -y gfortran gcovr
+
+    - name: Show compiler versions
+      run: |
+        gfortran --version
+        fpm --version
+
+    - name: Run all tests with coverage
+      run: |
+        # Clean everything including dependencies
+        fpm clean --all
+        # Run all tests with coverage flags
+        fpm test --profile debug --flag '-fprofile-arcs -ftest-coverage -g'
+
+    - name: Generate coverage report
+      run: |
+        # Generate coverage report
+        gcovr --gcov-executable gcov -r src/ build/ \
+          --exclude 'build/dependencies/*' \
           --exclude 'test/*' \
-          --html-details -o coverage/index.html \
+          --xml -o coverage.xml \
+          --html-details -o coverage.html \
           --print-summary
-        
-    - name: Upload Coverage
-      if: matrix.os == 'ubuntu-latest'
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+    - name: Upload coverage report
       uses: actions/upload-artifact@v4
+      if: always()
       with:
         name: coverage-report
-        path: coverage/
+        path: |
+          coverage.html
+          coverage.*.html
+          coverage.xml
+
+  test-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: false
+        path-type: inherit
+        install: >-
+          mingw-w64-x86_64-gcc-fortran
+          mingw-w64-x86_64-gcc
+          git
+
+    - name: Add MinGW to PATH
+      run: |
+        echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "C:\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      shell: pwsh
+
+    - name: Install FPM
+      shell: pwsh
+      run: |
+        Invoke-WebRequest -Uri "https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-windows-x86_64-gcc-12.exe" -OutFile "fpm.exe"
+        Move-Item -Path "fpm.exe" -Destination "C:\msys64\mingw64\bin\fpm.exe"
+        & "C:\msys64\mingw64\bin\fpm.exe" --version
+
+    - name: Run all tests
+      shell: msys2 {0}
+      run: |
+        # Verify FPM is accessible
+        which fpm
+        fpm --version
+        # Clear build directory to avoid module version conflicts
+        rm -rf build
+        # Run all tests
+        fpm test
+
+  test-macos:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        brew install gcc@15 fpm
+        brew link --overwrite gcc@15
+
+    - name: Run all tests
+      run: |
+        # Clear build directory to avoid module version conflicts
+        rm -rf build
+        
+        # Set up environment for GCC 15
+        export CC=gcc-15
+        export CXX=g++-15
+        export FC=gfortran-15
+        export FPM_CC=gcc-15
+        export FPM_FC=gfortran-15
+        
+        # Verify versions
+        echo "Using:"
+        gcc-15 --version
+        gfortran-15 --version
+        fpm --version
+        
+        # Run all tests
+        fpm test
