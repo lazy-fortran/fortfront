@@ -1708,7 +1708,18 @@ contains
                         end if
                         stmt_index = 0  ! Don't add to AST
                     case ("integer", "real", "logical", "character", "complex")
-                        stmt_index = parse_declaration(parser, arena)
+                        ! Use multi-declaration parser to handle comma-separated variables
+                        block
+                            integer, allocatable :: decl_indices(:)
+                            decl_indices = parse_multi_declaration(parser, arena)
+                            if (allocated(decl_indices) .and. size(decl_indices) > 0) then
+                                ! Add all declarations to body
+                                body_indices = [body_indices, decl_indices]
+                                stmt_index = 0  ! Don't add again below
+                            else
+                                stmt_index = 0
+                            end if
+                        end block
                     case ("print")
                         stmt_index = parse_print_statement(parser, arena)
                     case default
