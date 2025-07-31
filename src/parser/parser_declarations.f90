@@ -2,7 +2,7 @@ module parser_declarations_module
     use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
     use ast_core
-    use ast_factory, only: push_literal, push_identifier, push_binary_op, push_derived_type, push_declaration
+    use ast_factory, only: push_literal, push_identifier, push_binary_op, push_derived_type, push_declaration, push_multi_declaration
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_comparison
     implicit none
@@ -621,87 +621,114 @@ contains
             return
         end if
 
-        ! Parse variable list
-        do
-            ! Get variable name
-            var_token = parser%peek()
-            if (var_token%kind == TK_IDENTIFIER) then
-                var_token = parser%consume()
-                var_name = var_token%text
-            else
-                exit  ! No more variables
-            end if
-
-            ! Check for array dimensions
-            is_array = .false.
-            var_token = parser%peek()
-            if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                is_array = .true.
-                ! Consume '('
-                var_token = parser%consume()
-
-                ! Parse dimensions
-                call parse_array_dimensions(parser, arena, dimension_indices)
-
-                ! Consume ')'
+        ! Parse variable list - collect all variable names first
+        block
+            character(len=100) :: temp_var_names(20)  ! Fixed size array
+            integer :: var_count
+            logical :: has_complex_attributes
+            
+            ! Initialize
+            var_count = 0
+            has_complex_attributes = .false.
+            
+            do
+                ! Get variable name
                 var_token = parser%peek()
-                if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                if (var_token%kind == TK_IDENTIFIER) then
                     var_token = parser%consume()
+                    var_name = var_token%text
+                    
+                    ! Add to variable names list
+                    var_count = var_count + 1
+                    if (var_count <= 20) then
+                        temp_var_names(var_count) = var_name
+                    else
+                        ! Too many variables - error
+                        decl_indices = [push_literal(arena, "ERROR: Too many variables in declaration", LITERAL_STRING, line, column)]
+                        return
+                    end if
                 else
-                    ! Error: expected )
-                    decl_index = push_literal(arena, "ERROR: Expected ) after array dimensions", LITERAL_STRING, line, column)
-                    decl_indices = [decl_indices, decl_index]
-                    return
+                    exit  ! No more variables
                 end if
-            end if
 
-            ! Check for initialization
-            block
-                integer :: initializer_index
-                initializer_index = 0
-
+                ! Check for complex attributes (array dimensions or initializers)
                 var_token = parser%peek()
+                if (var_token%kind == TK_OPERATOR .and. (var_token%text == "(" .or. var_token%text == "=")) then
+                    has_complex_attributes = .true.
+                end if
+
+                ! For now, skip complex attributes in multi-declarations
+                ! TODO: Handle array dimensions and initializers per variable
+                if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                    ! Skip array dimensions for now
+                    var_token = parser%consume()  ! consume '('
+                    do while (.not. parser%is_at_end())
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()  ! consume ')'
+                            exit
+                        end if
+                        var_token = parser%consume()
+                    end do
+                end if
+
                 if (var_token%kind == TK_OPERATOR .and. var_token%text == "=") then
-                    ! Consume '='
+                    ! Skip initializer for now
+                    var_token = parser%consume()  ! consume '='
+                    ! Skip until comma or end
+                    do while (.not. parser%is_at_end())
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
+                            exit
+                        end if
+                        if (var_token%kind == TK_EOF) exit
+                        var_token = parser%consume()
+                    end do
+                end if
+
+                ! Check for comma (more variables)
+                var_token = parser%peek()
+                if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
+                    ! Consume ','
                     var_token = parser%consume()
-
-                    ! Parse the initializer expression
-                    initializer_index = parse_comparison(parser, arena)
-                end if
-
-                ! Create declaration node
-                if (has_kind .and. is_array) then
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                           kind_value=kind_value, initializer_index=initializer_index, &
-                   dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                                                  line=line, column=column)
-                else if (has_kind) then
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                           kind_value=kind_value, initializer_index=initializer_index, &
-                                is_allocatable=is_allocatable, line=line, column=column)
-                else if (is_array) then
-                    decl_index = push_declaration(arena, type_name, var_name, &
-             initializer_index=initializer_index, dimension_indices=dimension_indices, &
-                                is_allocatable=is_allocatable, line=line, column=column)
                 else
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                   initializer_index=initializer_index, is_allocatable=is_allocatable, &
+                    exit  ! No more variables
+                end if
+            end do
+            
+            ! Create appropriate declaration node
+            if (var_count == 1) then
+                ! Single variable - use regular declaration
+                if (has_kind) then
+                    decl_index = push_declaration(arena, type_name, trim(temp_var_names(1)), &
+                               kind_value=kind_value, is_allocatable=is_allocatable, &
+                                                  line=line, column=column)
+                else
+                    decl_index = push_declaration(arena, type_name, trim(temp_var_names(1)), &
+                                                  is_allocatable=is_allocatable, &
                                                   line=line, column=column)
                 end if
-
-                decl_indices = [decl_indices, decl_index]
-                decl_count = decl_count + 1
-            end block
-
-            ! Check for comma (more variables)
-            var_token = parser%peek()
-            if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
-                ! Consume ','
-                var_token = parser%consume()
+                decl_indices = [decl_index]
+            else if (var_count > 1 .and. .not. has_complex_attributes) then
+                ! Multiple simple variables - use multi-declaration
+                if (has_kind) then
+                    decl_index = push_multi_declaration(arena, type_name, temp_var_names(1:var_count), &
+                               kind_value=kind_value, is_allocatable=is_allocatable, &
+                                                        line=line, column=column)
+                else
+                    decl_index = push_multi_declaration(arena, type_name, temp_var_names(1:var_count), &
+                                                        is_allocatable=is_allocatable, &
+                                                        line=line, column=column)
+                end if
+                decl_indices = [decl_index]
             else
-                exit  ! No more variables
+                ! Complex multi-variable declarations - fall back to separate declarations for now
+                ! TODO: Implement proper multi-variable with per-variable attributes
+                decl_indices = [push_literal(arena, "ERROR: Complex multi-variable declarations not yet supported", LITERAL_STRING, line, column)]
             end if
-        end do
+            
+            decl_count = var_count
+        end block
 
     end function parse_multi_declaration
 

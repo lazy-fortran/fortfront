@@ -6,7 +6,7 @@ module ast_factory
     ! Public interface for creating AST nodes in stack-based system
     public :: push_program, push_assignment, push_pointer_assignment, push_binary_op
    public :: push_call_or_subscript, push_subroutine_call, push_identifier, push_literal, push_array_literal
-    public :: push_derived_type, push_declaration, push_parameter_declaration
+    public :: push_derived_type, push_declaration, push_multi_declaration, push_parameter_declaration
     public :: push_if, push_do_loop, push_do_while, push_forall, push_select_case
     public :: push_case_block, push_case_range, push_case_default, push_select_case_with_default
     public :: push_use_statement, push_include_statement, push_print_statement, &
@@ -252,6 +252,83 @@ contains
         decl_index = arena%size
 
     end function push_declaration
+
+    ! Create multi-variable declaration node and add to stack
+    function push_multi_declaration(arena, type_name, var_names, kind_value, dimension_indices, &
+           initializer_index, is_allocatable, is_pointer, intent_value, line, column, parent_index) result(decl_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: type_name
+        character(len=*), intent(in) :: var_names(:)
+        integer, intent(in), optional :: kind_value
+        integer, intent(in), optional :: dimension_indices(:)
+        integer, intent(in), optional :: initializer_index
+        logical, intent(in), optional :: is_allocatable
+        logical, intent(in), optional :: is_pointer
+        character(len=*), intent(in), optional :: intent_value
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: decl_index
+        type(declaration_node) :: decl
+        integer :: i
+
+        ! Create multi-variable declaration
+        decl%type_name = type_name
+        decl%is_multi_declaration = .true.
+        
+        ! Allocate and copy variable names
+        allocate(character(len=100) :: decl%var_names(size(var_names)))
+        do i = 1, size(var_names)
+            decl%var_names(i) = trim(var_names(i))
+        end do
+
+        if (present(kind_value)) then
+            decl%kind_value = kind_value
+            decl%has_kind = .true.
+        else
+            decl%kind_value = 0
+            decl%has_kind = .false.
+        end if
+
+        if (present(initializer_index)) then
+            decl%initializer_index = initializer_index
+            decl%has_initializer = .true.
+        else
+            decl%initializer_index = 0
+            decl%has_initializer = .false.
+        end if
+
+        if (present(dimension_indices)) then
+            decl%is_array = .true.
+            allocate (decl%dimension_indices, source=dimension_indices)
+        else
+            decl%is_array = .false.
+        end if
+
+        if (present(is_allocatable)) then
+            decl%is_allocatable = is_allocatable
+        else
+            decl%is_allocatable = .false.
+        end if
+
+        if (present(is_pointer)) then
+            decl%is_pointer = is_pointer
+        else
+            decl%is_pointer = .false.
+        end if
+
+        if (present(intent_value)) then
+            decl%intent = intent_value
+            decl%has_intent = .true.
+        else
+            decl%has_intent = .false.
+        end if
+
+        if (present(line)) decl%line = line
+        if (present(column)) decl%column = column
+
+        call arena%push(decl, "multi_declaration", parent_index)
+        decl_index = arena%size
+
+    end function push_multi_declaration
 
     ! Create parameter declaration node and add to stack
  function push_parameter_declaration(arena, name, type_name, kind_value, intent_value, &
