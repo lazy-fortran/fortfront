@@ -2,7 +2,7 @@ module frontend
     ! fortfront - Core analysis frontend
     ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
     
-    use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD
+    use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, TK_COMMENT
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
@@ -757,10 +757,14 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 stmt_end = i - 1  ! Couldn't find matching end
             end if
         else
-            ! Single-line statement - find end of line
+            ! Single-line statement - find end of line or comment
             i = start_pos
             do while (i <= size(tokens))
                 if (tokens(i)%kind == TK_EOF) then
+                    stmt_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_COMMENT .and. i > start_pos) then
+                    ! Stop before comment - let comment be parsed separately
                     stmt_end = i - 1
                     exit
                else if (i < size(tokens) .and. tokens(i)%line < tokens(i + 1)%line) then
