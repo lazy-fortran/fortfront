@@ -45,7 +45,7 @@ contains
         
         call test_start("Literal code generation")
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         lit_idx = push_literal(arena, "42", LITERAL_INTEGER)
         
         code = generate_code_from_arena(arena, lit_idx)
@@ -68,7 +68,7 @@ contains
         
         call test_start("Identifier code generation")
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         id_idx = push_identifier(arena, "test_var")
         
         code = generate_code_from_arena(arena, id_idx)
@@ -91,7 +91,7 @@ contains
         
         call test_start("Assignment code generation")
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         id_idx = push_identifier(arena, "x")
         lit_idx = push_literal(arena, "10", LITERAL_INTEGER)
         assign_idx = push_assignment(arena, id_idx, lit_idx)
@@ -116,7 +116,7 @@ contains
         
         call test_start("Binary operation code generation")
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         left_idx = push_identifier(arena, "a")
         right_idx = push_identifier(arena, "b")
         binop_idx = push_binary_op(arena, left_idx, right_idx, "+")
@@ -142,7 +142,7 @@ contains
         
         call test_start("Polymorphic code generation")
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         lit_idx = push_literal(arena, "3.14", LITERAL_REAL)
         
         code = generate_code_polymorphic(arena, lit_idx)
@@ -164,7 +164,7 @@ contains
         
         call test_start("Invalid node index handling")
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Test negative index
         code = generate_code_from_arena(arena, -1)
@@ -181,7 +181,7 @@ contains
         
         call test_start("Empty arena handling")
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Test index beyond arena size
         code = generate_code_from_arena(arena, 1)

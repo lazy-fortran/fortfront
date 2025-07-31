@@ -341,7 +341,7 @@ contains
                         block
                             type(call_or_subscript_node) :: call_node
                             call_node = create_call_or_subscript(func_name, arg_indices, current%line, current%column)
-                            call arena%push(call_node, "call_or_subscript")
+                            call arena%push(call_node, "call_or_subscript", 0)
                             expr_index = arena%size
                         end block
                     else
@@ -351,7 +351,7 @@ contains
                             type(call_or_subscript_node) :: call_node
                             allocate (empty_args(0))  ! Empty index array
                             call_node = create_call_or_subscript(func_name, empty_args, current%line, current%column)
-                            call arena%push(call_node, "call_or_subscript")
+                            call arena%push(call_node, "call_or_subscript", 0)
                             expr_index = arena%size
                         end block
                     end if

@@ -1,6 +1,6 @@
 program test_codegen_core_direct
     use codegen_core, only: generate_code_from_arena, generate_code_polymorphic
-    use ast_core, only: ast_arena_t, create_ast_stack, create_identifier, &
+    use ast_core, only: ast_arena_t, create_ast_arena, create_identifier, &
                         create_literal, create_program, identifier_node, &
                         literal_node, LITERAL_INTEGER, LITERAL_STRING
     implicit none
@@ -20,7 +20,7 @@ program test_codegen_core_direct
 
     ! Test 1: Generate code for identifier
     call test_start("Generate identifier code")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     id_node = create_identifier("test_var", 1, 1)
     call arena%push(id_node, "identifier")
     node_index = arena%current_index
@@ -35,7 +35,7 @@ program test_codegen_core_direct
 
     ! Test 2: Generate code for integer literal
     call test_start("Generate integer literal code")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     lit_node = create_literal("42", LITERAL_INTEGER, 1, 1)
     call arena%push(lit_node, "literal")
     node_index = arena%current_index
@@ -50,7 +50,7 @@ program test_codegen_core_direct
 
     ! Test 3: Generate code for string literal
     call test_start("Generate string literal code")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     lit_node = create_literal("'hello'", LITERAL_STRING, 1, 1)
     call arena%push(lit_node, "literal")
     node_index = arena%current_index
@@ -65,7 +65,7 @@ program test_codegen_core_direct
 
     ! Test 4: Generate code for empty program
     call test_start("Generate empty program code")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     call arena%push(create_program("test_prog", [integer::]), "program")
     node_index = arena%current_index
     code = generate_code_from_arena(arena, node_index)
@@ -79,7 +79,7 @@ program test_codegen_core_direct
 
     ! Test 5: Invalid node index handling
     call test_start("Invalid node index")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     code = generate_code_from_arena(arena, 999)  ! Invalid index
     if (len_trim(code) == 0) then  ! Should return empty string
         call test_pass()
@@ -91,7 +91,7 @@ program test_codegen_core_direct
 
     ! Test 6: Empty arena handling
     call test_start("Empty arena")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     code = generate_code_from_arena(arena, 1)  ! No nodes in arena
     if (len_trim(code) == 0) then  ! Should return empty string
         call test_pass()
@@ -103,7 +103,7 @@ program test_codegen_core_direct
 
     ! Test 7: Multiple nodes in arena
     call test_start("Multiple nodes in arena")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     call arena%push(create_identifier("x"), "identifier")
     call arena%push(create_literal("5", LITERAL_INTEGER), "literal")
     

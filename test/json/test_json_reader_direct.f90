@@ -114,7 +114,7 @@ contains
         call test_start("JSON to AST conversion")
         
         ! Initialize arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create JSON structure for simple assignment
         call json%initialize()
@@ -204,7 +204,7 @@ contains
         call test_start("JSON edge case - nested AST node")
         
         ! Initialize arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create nested structure
         call json%initialize()

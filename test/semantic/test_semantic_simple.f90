@@ -46,7 +46,7 @@ program test_semantic_simple
 !         print *, "PASS: Tokenization completed"
 !
 !         ! Parse
-!         arena = create_ast_stack()
+!         arena = create_ast_arena()
 !         call parse_tokens(tokens, arena, prog_index, error_msg)
 !         if (error_msg /= "") then
 !             print *, "FAIL: Parsing failed: ", error_msg
