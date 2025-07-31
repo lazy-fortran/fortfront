@@ -13,6 +13,7 @@ module frontend
     use semantic_analyzer_with_checks, only: analyze_program_with_checks
     use standardizer, only: standardize_ast
     use codegen_core, only: generate_code_from_arena, generate_code_polymorphic
+    use codegen_indent, only: set_indent_config, get_indent_config
     use json_reader, only: json_read_tokens_from_file, json_read_ast_from_file, json_read_semantic_from_file
     use stdlib_logger, only: global_logger
 
@@ -22,7 +23,7 @@ module frontend
     public :: lex_source, parse_tokens, analyze_semantics, emit_fortran
     public :: compile_source, compilation_options_t
     public :: compile_from_tokens_json, compile_from_ast_json, compile_from_semantic_json
-    public :: transform_lazy_fortran_string
+    public :: transform_lazy_fortran_string, transform_lazy_fortran_string_with_format, format_options_t
     ! Debug functions for unit testing
     public :: find_program_unit_boundary, is_function_start, is_end_function, parse_program_unit
     public :: is_do_loop_start, is_do_while_start, is_select_case_start, is_end_do, is_end_select
@@ -42,6 +43,13 @@ module frontend
         procedure :: assign => compilation_options_assign
         generic :: assignment(=) => assign
     end type compilation_options_t
+
+    ! Formatting options for code generation
+    type :: format_options_t
+        integer :: indent_size = 4
+        logical :: use_tabs = .false.
+        character(len=1) :: indent_char = ' '
+    end type format_options_t
 
 contains
 
@@ -1175,6 +1183,28 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         ! Phase 5: Code Generation
         output = generate_code_from_arena(arena, prog_index)
     end subroutine transform_lazy_fortran_string
+
+    ! String-based transformation function with formatting options
+    subroutine transform_lazy_fortran_string_with_format(input, output, error_msg, format_opts)
+        character(len=*), intent(in) :: input
+        character(len=:), allocatable, intent(out) :: output
+        character(len=:), allocatable, intent(out) :: error_msg
+        type(format_options_t), intent(in) :: format_opts
+        
+        ! Save current indentation configuration
+        integer :: saved_size
+        character(len=1) :: saved_char
+        call get_indent_config(saved_size, saved_char)
+        
+        ! Set new indentation configuration
+        call set_indent_config(format_opts%indent_size, format_opts%indent_char)
+        
+        ! Call the regular transformation function
+        call transform_lazy_fortran_string(input, output, error_msg)
+        
+        ! Restore original indentation configuration
+        call set_indent_config(saved_size, saved_char)
+    end subroutine transform_lazy_fortran_string_with_format
 
     ! Simple interface functions for clean pipeline usage
     

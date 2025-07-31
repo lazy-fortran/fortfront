@@ -3,23 +3,26 @@ module codegen_indent
     implicit none
     private
 
-    ! Constants
-    integer, parameter :: INDENT_SIZE = 4
-    character(len=1), parameter :: INDENT_CHAR = ' '
+    ! Default constants
+    integer, parameter :: DEFAULT_INDENT_SIZE = 4
+    character(len=1), parameter :: DEFAULT_INDENT_CHAR = ' '
 
-    ! Module state for current indentation level
+    ! Module state for current indentation level and configuration
     integer, save :: current_indent_level = 0
+    integer, save :: active_indent_size = DEFAULT_INDENT_SIZE
+    character(len=1), save :: active_indent_char = DEFAULT_INDENT_CHAR
 
     ! Public interface
     public :: get_indent, increase_indent, decrease_indent, reset_indent
     public :: with_indent, indent_lines
+    public :: set_indent_config, get_indent_config
 
 contains
 
     ! Get current indentation string
     function get_indent() result(indent)
         character(len=:), allocatable :: indent
-        indent = repeat(INDENT_CHAR, current_indent_level*INDENT_SIZE)
+        indent = repeat(active_indent_char, current_indent_level*active_indent_size)
     end function get_indent
 
     ! Increase indentation level
@@ -57,7 +60,7 @@ contains
         extra = 0
         if (present(extra_indent)) extra = extra_indent
 
-        indent_str = repeat(INDENT_CHAR, (current_indent_level + extra)*INDENT_SIZE)
+        indent_str = repeat(active_indent_char, (current_indent_level + extra)*active_indent_size)
         indented = ""
         start_pos = 1
 
@@ -86,5 +89,21 @@ contains
             end if
         end if
     end function indent_lines
+
+    ! Set indentation configuration
+    subroutine set_indent_config(size, char)
+        integer, intent(in) :: size
+        character(len=1), intent(in) :: char
+        active_indent_size = size
+        active_indent_char = char
+    end subroutine set_indent_config
+
+    ! Get current indentation configuration
+    subroutine get_indent_config(size, char)
+        integer, intent(out) :: size
+        character(len=1), intent(out) :: char
+        size = active_indent_size
+        char = active_indent_char
+    end subroutine get_indent_config
 
 end module codegen_indent
