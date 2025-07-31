@@ -22,7 +22,8 @@ contains
         type(token_t) :: type_token, var_token
         character(len=:), allocatable :: type_name, var_name
         integer :: line, column, kind_value
-        logical :: has_kind, is_array, is_allocatable
+        logical :: has_kind, is_array, is_allocatable, has_intent
+        character(len=:), allocatable :: intent
         integer, allocatable :: dimension_indices(:)
 
         ! Get type name (real, integer, etc.)
@@ -33,6 +34,7 @@ contains
         has_kind = .false.
         kind_value = 0
         is_allocatable = .false.
+        has_intent = .false.
 
         ! Check for kind specification (e.g., real(8)) or derived type (e.g., type(point))
         var_token = parser%peek()
@@ -115,14 +117,50 @@ contains
             ! Consume ','
             var_token = parser%consume()
 
-            ! Parse attribute (for now, just handle allocatable)
+            ! Parse attribute (handle allocatable and intent)
             var_token = parser%peek()
-         if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "allocatable") then
+            if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "allocatable") then
                 is_allocatable = .true.
                 var_token = parser%consume()
+            else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "intent") then
+                has_intent = .true.
+                var_token = parser%consume()  ! consume 'intent'
+                
+                ! Parse intent specification (in|out|inout) - simplified version  
+                var_token = parser%peek()
+                if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                    var_token = parser%consume()  ! consume '('
+                    
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_IDENTIFIER) then
+                        intent = var_token%text
+                        var_token = parser%consume()  ! consume intent value
+                    end if
+                    
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                        var_token = parser%consume()  ! consume ')'
+                    end if
+                end if
             else
-                ! Unknown attribute - for now, just consume it
+                ! Unknown attribute - consume it and handle complex attributes like intent(out)
                 var_token = parser%consume()
+                
+                ! If next token is '(', consume until we find matching ')'
+                var_token = parser%peek()
+                if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                    var_token = parser%consume()  ! consume '('
+                    
+                    ! Consume tokens until we find ')'
+                    do while (.not. parser%is_at_end())
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()  ! consume ')'
+                            exit
+                        end if
+                        var_token = parser%consume()  ! consume whatever token
+                    end do
+                end if
             end if
         end if
 
@@ -186,22 +224,47 @@ contains
 
             ! Create declaration node with or without initializer
             if (has_kind .and. is_array) then
-                decl_index = push_declaration(arena, type_name, var_name, &
-                           kind_value=kind_value, initializer_index=initializer_index, &
-                   dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                                              line=line, column=column)
+                if (has_intent) then
+                    decl_index = push_declaration(arena, type_name, var_name, &
+                               kind_value=kind_value, initializer_index=initializer_index, &
+                       dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
+                                                  intent_value=intent, line=line, column=column)
+                else
+                    decl_index = push_declaration(arena, type_name, var_name, &
+                               kind_value=kind_value, initializer_index=initializer_index, &
+                       dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
+                                                  line=line, column=column)
+                end if
             else if (has_kind) then
-                decl_index = push_declaration(arena, type_name, var_name, &
-                           kind_value=kind_value, initializer_index=initializer_index, &
-                                is_allocatable=is_allocatable, line=line, column=column)
+                if (has_intent) then
+                    decl_index = push_declaration(arena, type_name, var_name, &
+                               kind_value=kind_value, initializer_index=initializer_index, &
+                               is_allocatable=is_allocatable, intent_value=intent, line=line, column=column)
+                else
+                    decl_index = push_declaration(arena, type_name, var_name, &
+                               kind_value=kind_value, initializer_index=initializer_index, &
+                                    is_allocatable=is_allocatable, line=line, column=column)
+                end if
             else if (is_array) then
-                decl_index = push_declaration(arena, type_name, var_name, &
-             initializer_index=initializer_index, dimension_indices=dimension_indices, &
-                                is_allocatable=is_allocatable, line=line, column=column)
+                if (has_intent) then
+                    decl_index = push_declaration(arena, type_name, var_name, &
+                 initializer_index=initializer_index, dimension_indices=dimension_indices, &
+                                    is_allocatable=is_allocatable, intent_value=intent, line=line, column=column)
+                else
+                    decl_index = push_declaration(arena, type_name, var_name, &
+                 initializer_index=initializer_index, dimension_indices=dimension_indices, &
+                                    is_allocatable=is_allocatable, line=line, column=column)
+                end if
             else
-                decl_index = push_declaration(arena, type_name, var_name, &
-                   initializer_index=initializer_index, is_allocatable=is_allocatable, &
-                                              line=line, column=column)
+                if (has_intent) then
+                    decl_index = push_declaration(arena, type_name, var_name, &
+                       initializer_index=initializer_index, is_allocatable=is_allocatable, &
+                                                  intent_value=intent, line=line, column=column)
+                else
+                    decl_index = push_declaration(arena, type_name, var_name, &
+                       initializer_index=initializer_index, is_allocatable=is_allocatable, &
+                                                  line=line, column=column)
+                end if
             end if
         end block
 
@@ -450,7 +513,8 @@ contains
         type(token_t) :: type_token, var_token, token
         character(len=:), allocatable :: type_name
         integer :: line, column, kind_value
-        logical :: has_kind, is_allocatable
+        logical :: has_kind, is_allocatable, has_intent
+        character(len=:), allocatable :: intent
         integer :: decl_count, decl_index
         character(len=:), allocatable :: var_name
         logical :: is_array
@@ -467,6 +531,7 @@ contains
         has_kind = .false.
         kind_value = 0
         is_allocatable = .false.
+        has_intent = .false.
 
         ! Check for kind specification (e.g., real(8))
         var_token = parser%peek()
@@ -502,12 +567,46 @@ contains
 
             ! Parse attribute
             var_token = parser%peek()
-         if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "allocatable") then
+            if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "allocatable") then
                 is_allocatable = .true.
                 var_token = parser%consume()
+            else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "intent") then
+                var_token = parser%consume()  ! consume 'intent'
+                
+                ! Parse intent specification (in|out|inout) - simplified version
+                var_token = parser%peek()
+                if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                    var_token = parser%consume()  ! consume '('
+                    
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_IDENTIFIER) then
+                        var_token = parser%consume()  ! consume intent value
+                    end if
+                    
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                        var_token = parser%consume()  ! consume ')'
+                    end if
+                end if
             else
-                ! Unknown attribute - for now, just consume it
+                ! Unknown attribute - consume it and handle complex attributes like intent(out)
                 var_token = parser%consume()
+                
+                ! If next token is '(', consume until we find matching ')'
+                var_token = parser%peek()
+                if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                    var_token = parser%consume()  ! consume '('
+                    
+                    ! Consume tokens until we find ')'
+                    do while (.not. parser%is_at_end())
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()  ! consume ')'
+                            exit
+                        end if
+                        var_token = parser%consume()  ! consume whatever token
+                    end do
+                end if
             end if
         end if
 

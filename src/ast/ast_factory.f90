@@ -186,14 +186,15 @@ contains
 
     ! Create declaration node and add to stack
   function push_declaration(arena, type_name, var_name, kind_value, dimension_indices, &
-       initializer_index, is_allocatable, is_pointer, line, column, parent_index) result(decl_index)
+       initializer_index, is_allocatable, is_pointer, intent_value, line, column, parent_index) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name, var_name
         integer, intent(in), optional :: kind_value
         integer, intent(in), optional :: dimension_indices(:)
         integer, intent(in), optional :: initializer_index
         logical, intent(in), optional :: is_allocatable
-        logical, intent(in), optional :: is_pointer
+        logical, intent(in), optional :: is_pointer  
+        character(len=*), intent(in), optional :: intent_value
         integer, intent(in), optional :: line, column, parent_index
         integer :: decl_index
         type(declaration_node) :: decl
@@ -235,6 +236,13 @@ contains
             decl%is_pointer = is_pointer
         else
             decl%is_pointer = .false.
+        end if
+
+        if (present(intent_value)) then
+            decl%intent = intent_value
+            decl%has_intent = .true.
+        else
+            decl%has_intent = .false.
         end if
 
         if (present(line)) decl%line = line

@@ -872,7 +872,7 @@ contains
 
                     ! Check for intent
                     token = parser%peek()
-                    if (token%kind == TK_KEYWORD .and. token%text == "intent") then
+                    if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. token%text == "intent") then
                         token = parser%consume()  ! consume 'intent'
 
                         token = parser%peek()
@@ -880,7 +880,7 @@ contains
                             token = parser%consume()  ! consume '('
 
                             token = parser%peek()
-                            if (token%kind == TK_KEYWORD) then
+                            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
                                 if (token%text == "in") then
                                     current_intent = 1
                                 else if (token%text == "out") then

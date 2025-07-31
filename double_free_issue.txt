@@ -1,1 +1,0 @@
-The double free issue in ast_entry_assign is caused by shallow copying of polymorphic types with allocatable components. The allocate(source=) statement doesn't perform deep copies for allocatable components within polymorphic types. A proper fix would require implementing a clone method for all AST node types or redesigning the AST arena to avoid copying.

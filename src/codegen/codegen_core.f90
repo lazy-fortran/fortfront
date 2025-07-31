@@ -110,11 +110,17 @@ contains
                 code = node%value
             end if
         case (LITERAL_REAL)
-            ! For real literals, ensure double precision by adding 'd0' suffix if needed
-            if (index(node%value, 'd') == 0 .and. index(node%value, 'D') == 0 .and. &
-                index(node%value, '_') == 0) then
-                code = node%value//"d0"
+            ! For real literals, conditionally add 'd0' suffix based on standardization setting
+            if (standardize_types_enabled) then
+                ! Ensure double precision by adding 'd0' suffix if needed
+                if (index(node%value, 'd') == 0 .and. index(node%value, 'D') == 0 .and. &
+                    index(node%value, '_') == 0) then
+                    code = node%value//"d0"
+                else
+                    code = node%value
+                end if
             else
+                ! When standardization is disabled, preserve original literal format
                 code = node%value
             end if
         case default
