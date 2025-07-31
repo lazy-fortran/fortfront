@@ -8,7 +8,8 @@ module fortfront
     
     ! Re-export core pipeline functionality
     use frontend, only: lex_source, parse_tokens, analyze_semantics, emit_fortran, &
-                       transform_lazy_fortran_string, compilation_options_t
+                       transform_lazy_fortran_string, transform_lazy_fortran_string_with_format, &
+                       compilation_options_t, format_options_t
     
     ! Re-export AST arena and core types
     use ast_core, only: ast_arena_t, ast_node, program_node, assignment_node, &
