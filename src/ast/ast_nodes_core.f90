@@ -195,6 +195,16 @@ contains
     subroutine identifier_assign(lhs, rhs)
         class(identifier_node), intent(inout) :: lhs
         class(identifier_node), intent(in) :: rhs
+        
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type, source=rhs%inferred_type)
+        end if
+        
+        ! Copy derived class fields
         if (allocated(rhs%name)) then
             lhs%name = rhs%name
         end if
@@ -217,6 +227,16 @@ contains
     subroutine literal_assign(lhs, rhs)
         class(literal_node), intent(inout) :: lhs
         class(literal_node), intent(in) :: rhs
+        
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type, source=rhs%inferred_type)
+        end if
+        
+        ! Copy derived class fields
         if (allocated(rhs%value)) then
             lhs%value = rhs%value
         end if

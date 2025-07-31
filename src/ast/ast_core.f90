@@ -67,8 +67,12 @@ contains
         type(identifier_node) :: node
 
         node%name = name
-        if (present(line)) node%line = line
-        if (present(column)) node%column = column
+        if (present(line)) then
+            node%line = line
+        end if
+        if (present(column)) then
+            node%column = column
+        end if
     end function create_identifier
 
     function create_literal(value, kind, line, column) result(node)
@@ -79,8 +83,12 @@ contains
 
         node%value = value
         node%literal_kind = kind
-        if (present(line)) node%line = line
-        if (present(column)) node%column = column
+        if (present(line)) then
+            node%line = line
+        end if
+        if (present(column)) then
+            node%column = column
+        end if
     end function create_literal
 
     function create_binary_op(left_index, right_index, operator, line, column) result(node)
