@@ -75,6 +75,8 @@ contains
             code = generate_code_where(arena, node, node_index)
         type is (module_node)
             code = generate_code_module(arena, node, node_index)
+        type is (comment_node)
+            code = generate_code_comment(node)
         class default
             code = "! Unknown node type"
         end select
@@ -1487,5 +1489,17 @@ contains
         call decrease_indent()
         code = code//"end module "//node%name
     end function generate_code_module
+
+    ! Generate code for comment node
+    function generate_code_comment(node) result(code)
+        type(comment_node), intent(in) :: node
+        character(len=:), allocatable :: code
+
+        if (allocated(node%text)) then
+            code = node%text  ! Comments are output as-is
+        else
+            code = "!"
+        end if
+    end function generate_code_comment
 
 end module codegen_core

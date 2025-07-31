@@ -95,15 +95,9 @@ contains
             else if (is_letter(ch)) then
           call scan_identifier(source, pos, line_num, col_num, temp_tokens, token_count)
 
-                ! Comments - skip everything from ! to end of line
+                ! Comments - capture and emit as tokens
             else if (ch == '!') then
-                ! Skip to end of line or end of source
-                do while (pos <= source_len)
-                    if (pos > source_len) exit
-                    if (source(pos:pos) == new_line('a')) exit
-                    pos = pos + 1
-                end do
-                ! Don't increment col_num here since we'll handle newline in next iteration
+                call scan_comment(source, pos, line_num, col_num, temp_tokens, token_count)
 
                 ! Logical constants and operators (starting with '.')
             else if (ch == '.') then
@@ -206,6 +200,41 @@ contains
         tokens(token_count)%column = start_col
 
     end subroutine scan_number
+
+    subroutine scan_comment(source, pos, line_num, col_num, tokens, token_count)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        integer :: start_pos, start_col
+        character(len=:), allocatable :: comment_text
+
+        start_pos = pos
+        start_col = col_num
+
+        ! Skip the ! character
+        pos = pos + 1
+        col_num = col_num + 1
+
+        ! Capture everything until end of line or end of source
+        do while (pos <= len(source))
+            if (source(pos:pos) == new_line('a')) exit
+            pos = pos + 1
+            col_num = col_num + 1
+        end do
+
+        ! Extract comment text (including the !)
+        comment_text = source(start_pos:pos-1)
+
+        ! Create comment token
+        token_count = token_count + 1
+        if (token_count > size(tokens)) then
+            call resize_tokens(tokens)
+        end if
+        tokens(token_count)%kind = TK_COMMENT
+        tokens(token_count)%text = comment_text
+        tokens(token_count)%line = line_num
+        tokens(token_count)%column = start_col
+    end subroutine scan_comment
 
     subroutine scan_string(source, pos, line_num, col_num, tokens, token_count)
         character(len=*), intent(in) :: source
