@@ -13,9 +13,13 @@ module standardizer
     use json_module, only: json_core, json_value, json_file
     implicit none
     private
+    
+    ! Type standardization configuration for standardizer
+    logical, save :: standardizer_type_standardization_enabled = .true.
 
     public :: standardize_ast
     public :: standardize_ast_json
+    public :: set_standardizer_type_standardization, get_standardizer_type_standardization
 
 contains
 
@@ -880,7 +884,11 @@ contains
         case (TINT)
             type_str = "integer"
         case (TREAL)
-            type_str = "real(8)"
+            if (standardizer_type_standardization_enabled) then
+                type_str = "real(8)"
+            else
+                type_str = "real"
+            end if
         case (TLOGICAL)
             type_str = "logical"
         case (TCHAR)
@@ -1046,8 +1054,8 @@ contains
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
                     type is (declaration_node)
-                        ! Standardize the type name
-                        if (stmt%type_name == "real") then
+                        ! Standardize the type name (if enabled)
+                        if (stmt%type_name == "real" .and. standardizer_type_standardization_enabled) then
                             stmt%type_name = "real"
                             stmt%has_kind = .true.
                             stmt%kind_value = 8
@@ -1356,5 +1364,17 @@ contains
         ! Update root index to point to the program
         sub_index = prog_index
     end subroutine wrap_subroutine_in_program
+
+    ! Set type standardization configuration for standardizer
+    subroutine set_standardizer_type_standardization(enabled)
+        logical, intent(in) :: enabled
+        standardizer_type_standardization_enabled = enabled
+    end subroutine set_standardizer_type_standardization
+
+    ! Get current type standardization configuration for standardizer
+    subroutine get_standardizer_type_standardization(enabled)
+        logical, intent(out) :: enabled
+        enabled = standardizer_type_standardization_enabled
+    end subroutine get_standardizer_type_standardization
 
 end module standardizer

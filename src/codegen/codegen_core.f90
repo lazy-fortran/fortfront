@@ -8,9 +8,13 @@ module codegen_core
 
     ! Context for function indentation
     logical :: context_has_executable_before_contains = .false.
+    
+    ! Type standardization configuration
+    logical, save :: standardize_types_enabled = .true.
 
     ! Public interface for code generation
     public :: generate_code_from_arena, generate_code_polymorphic
+    public :: set_type_standardization, get_type_standardization
 
 contains
 
@@ -734,7 +738,11 @@ contains
             case (TINT)
                 type_str = "integer"
             case (TREAL)
-                type_str = "real(8)"
+                if (standardize_types_enabled) then
+                    type_str = "real(8)"
+                else
+                    type_str = "real"
+                end if
             case (TCHAR)
                 if (node%inferred_type%size > 0) then
                     type_str = "character(len="//trim(adjustl(int_to_string(node%inferred_type%size)))//")"
@@ -1501,5 +1509,17 @@ contains
             code = "!"
         end if
     end function generate_code_comment
+
+    ! Set type standardization configuration
+    subroutine set_type_standardization(enabled)
+        logical, intent(in) :: enabled
+        standardize_types_enabled = enabled
+    end subroutine set_type_standardization
+
+    ! Get current type standardization configuration
+    subroutine get_type_standardization(enabled)
+        logical, intent(out) :: enabled
+        enabled = standardize_types_enabled
+    end subroutine get_type_standardization
 
 end module codegen_core
