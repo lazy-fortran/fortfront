@@ -785,7 +785,18 @@ contains
             code = code//", allocatable"
         end if
 
-        code = code//" :: "//node%var_name
+        ! Add variable names - handle both single and multi declarations
+        code = code//" :: "
+        if (node%is_multi_declaration .and. allocated(node%var_names)) then
+            ! Multi-variable declaration
+            do i = 1, size(node%var_names)
+                if (i > 1) code = code//", "
+                code = code//trim(node%var_names(i))
+            end do
+        else
+            ! Single variable declaration
+            code = code//node%var_name
+        end if
 
         ! Add array dimensions if present
         if (node%is_array .and. allocated(node%dimension_indices)) then
