@@ -115,7 +115,32 @@ contains
         class(program_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
+        type(json_value), pointer :: body_array, body_item
+        integer :: i
+        
+        ! Add type field
+        call json%add(parent, 'type', 'program')
+        
+        ! Add stack_index if available (we don't have it here, so add a placeholder)
+        call json%add(parent, 'stack_index', 1)
+        
+        ! Add program name
+        if (allocated(this%name)) then
+            call json%add(parent, 'name', this%name)
+        else
+            call json%add(parent, 'name', '')
+        end if
+        
+        ! Add body array
+        call json%create_array(body_array, 'body')
+        if (allocated(this%body_indices)) then
+            do i = 1, size(this%body_indices)
+                call json%create_object(body_item, '')
+                call json%add(body_item, 'index', this%body_indices(i))
+                call json%add(body_array, body_item)
+            end do
+        end if
+        call json%add(parent, body_array)
     end subroutine program_to_json
 
     subroutine program_assign(lhs, rhs)

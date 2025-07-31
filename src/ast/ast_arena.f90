@@ -179,10 +179,58 @@ contains
         end if
     end subroutine ast_arena_add_child
 
-    ! Stub implementations for other procedures (to be implemented incrementally)
+    ! Pop the last node from the arena
     subroutine ast_arena_pop(this)
         class(ast_arena_t), intent(inout) :: this
-        ! Stub implementation
+        integer :: parent_idx, i, j
+        
+        if (this%size <= 0) return
+        
+        ! Get parent of the node being removed
+        parent_idx = this%entries(this%size)%parent_index
+        
+        ! Remove this node from parent's children list if it has a parent
+        if (parent_idx > 0 .and. parent_idx <= this%size) then
+            if (allocated(this%entries(parent_idx)%child_indices)) then
+                ! Find and remove this node from parent's children
+                do i = 1, this%entries(parent_idx)%child_count
+                    if (this%entries(parent_idx)%child_indices(i) == this%size) then
+                        ! Shift remaining children left
+                        do j = i, this%entries(parent_idx)%child_count - 1
+                            this%entries(parent_idx)%child_indices(j) = &
+                                this%entries(parent_idx)%child_indices(j + 1)
+                        end do
+                        this%entries(parent_idx)%child_count = &
+                            this%entries(parent_idx)%child_count - 1
+                        exit
+                    end if
+                end do
+            end if
+        end if
+        
+        ! Clean up the node being removed
+        if (allocated(this%entries(this%size)%node)) then
+            deallocate(this%entries(this%size)%node)
+        end if
+        if (allocated(this%entries(this%size)%node_type)) then
+            deallocate(this%entries(this%size)%node_type)
+        end if
+        if (allocated(this%entries(this%size)%child_indices)) then
+            deallocate(this%entries(this%size)%child_indices)
+        end if
+        
+        ! Reset the entry
+        this%entries(this%size)%parent_index = 0
+        this%entries(this%size)%depth = 0
+        this%entries(this%size)%child_count = 0
+        
+        ! Decrement size
+        this%size = this%size - 1
+        
+        ! Update current index
+        if (this%current_index > this%size) then
+            this%current_index = this%size
+        end if
     end subroutine ast_arena_pop
 
     function ast_arena_current(this) result(node)
@@ -217,8 +265,34 @@ contains
         class(ast_arena_t), intent(in) :: this
         character(len=*), intent(in) :: node_type
         integer, allocatable :: indices(:)
-        ! Stub implementation
-        allocate (indices(0))
+        integer, allocatable :: temp(:)
+        integer :: i, count
+        
+        ! Count matching nodes
+        count = 0
+        do i = 1, this%size
+            if (allocated(this%entries(i)%node_type)) then
+                if (this%entries(i)%node_type == node_type) then
+                    count = count + 1
+                end if
+            end if
+        end do
+        
+        ! Allocate result array
+        allocate(indices(count))
+        
+        ! Fill with matching indices
+        if (count > 0) then
+            count = 0
+            do i = 1, this%size
+                if (allocated(this%entries(i)%node_type)) then
+                    if (this%entries(i)%node_type == node_type) then
+                        count = count + 1
+                        indices(count) = i
+                    end if
+                end if
+            end do
+        end if
     end function ast_arena_find_by_type
 
     function ast_arena_get_children(this, parent_index) result(child_indices)

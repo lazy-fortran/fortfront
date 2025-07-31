@@ -14,17 +14,17 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: json_str
         type(json_core) :: json
-        type(json_value), pointer :: root, ast_obj
+        type(json_value), pointer :: root
         
         call json%initialize()
         
         if (node_index == 0 .or. node_index > arena%size) then
             call json%create_null(root, '')
         else
-            ! Create a root array to hold the AST
-            call json%create_array(root, '')
+            ! Create a root object (not array) to hold the AST node
+            call json%create_object(root, '')
             ! Use the node's built-in to_json method
-            ! The node will add itself to the root array
+            ! The node should add its properties to the root object
             call arena%entries(node_index)%node%to_json(json, root)
         end if
         
