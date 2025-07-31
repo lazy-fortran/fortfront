@@ -1,5 +1,5 @@
 program test_ast_core_direct
-    use ast_core, only: ast_arena_t, create_ast_stack, create_identifier, &
+    use ast_core, only: ast_arena_t, create_ast_arena, create_identifier, &
                         create_literal, identifier_node, literal_node, &
                         ast_arena_stats_t, LITERAL_INTEGER, LITERAL_STRING
     implicit none
@@ -18,7 +18,7 @@ program test_ast_core_direct
 
     ! Test 1: Create AST arena with default capacity
     call test_start("Create AST arena default")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     if (arena%size == 0 .and. arena%capacity >= 256) then
         call test_pass()
     else
@@ -29,7 +29,7 @@ program test_ast_core_direct
 
     ! Test 2: Create AST arena with custom capacity
     call test_start("Create AST arena custom")
-    arena = create_ast_stack(512)
+    arena = create_ast_arena(512)
     if (arena%size == 0 .and. arena%capacity >= 512) then
         call test_pass()
     else
@@ -94,7 +94,7 @@ program test_ast_core_direct
 
     ! Test 7: Push node to arena
     call test_start("Push node to arena")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     call arena%push(id_node, "identifier")
     if (arena%size == 1 .and. arena%current_index == 1) then
         call test_pass()
@@ -119,12 +119,12 @@ program test_ast_core_direct
 
     ! Test 9: Get arena depth
     call test_start("Get arena depth")
-    if (arena%get_depth() == 0) then  ! All nodes at root level so far
+    if (arena%max_depth == 0) then  ! All nodes at root level so far
         call test_pass()
     else
         call test_fail()
         print *, "  Expected: depth=0"
-        print *, "  Got: depth=", arena%get_depth()
+        print *, "  Got: depth=", arena%max_depth
     end if
 
     ! Test 10: Arena statistics
@@ -156,7 +156,7 @@ program test_ast_core_direct
 
     ! Test 12: Arena capacity growth
     call test_start("Arena capacity growth")
-    arena = create_ast_stack(2)  ! Small initial capacity
+    arena = create_ast_arena(2)  ! Small initial capacity
     ! Push more nodes than initial capacity
     call arena%push(create_identifier("a"), "identifier")
     call arena%push(create_identifier("b"), "identifier")
@@ -174,12 +174,12 @@ program test_ast_core_direct
     call arena%clear()
     call arena%push(create_identifier("parent"), "identifier")  ! Index 1
     call arena%push(create_identifier("child"), "identifier", 1)  ! Index 2, parent=1
-    if (arena%size == 2 .and. arena%get_depth() == 1) then  ! Depth should be 1 now
+    if (arena%size == 2 .and. arena%max_depth == 1) then  ! Depth should be 1 now
         call test_pass()
     else
         call test_fail()
         print *, "  Expected: size=2, depth=1"
-        print *, "  Got: size=", arena%size, ", depth=", arena%get_depth()
+        print *, "  Got: size=", arena%size, ", depth=", arena%max_depth
     end if
 
     print *, ""

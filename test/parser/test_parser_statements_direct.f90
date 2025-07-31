@@ -65,7 +65,7 @@ contains
         tokens(1) = token_t(kind=TK_KEYWORD, text="use", line=1, column=1)
         tokens(2) = token_t(kind=TK_IDENTIFIER, text="mymodule", line=1, column=5)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         
         stmt_idx = parse_use_statement(parser, arena)
@@ -121,7 +121,7 @@ contains
         tokens(3) = token_t(kind=TK_OPERATOR, text=",", line=1, column=8)
         tokens(4) = token_t(kind=TK_STRING, text='"Hello"', line=1, column=10)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         
         stmt_idx = parse_print_statement(parser, arena)
@@ -198,7 +198,7 @@ contains
         allocate(tokens(1))
         tokens(1) = token_t(kind=TK_KEYWORD, text="stop", line=1, column=1)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         
         stmt_idx = parse_stop_statement(parser, arena)
@@ -265,7 +265,7 @@ contains
         tokens(1) = token_t(kind=TK_KEYWORD, text="program", line=1, column=1)
         tokens(2) = token_t(kind=TK_IDENTIFIER, text="test_prog", line=1, column=9)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         
         stmt_idx = parse_program_statement(parser, arena)
@@ -317,7 +317,7 @@ contains
         tokens(5) = token_t(kind=TK_NUMBER, text="10", line=1, column=14)
         tokens(6) = token_t(kind=TK_OPERATOR, text=")", line=1, column=16)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         
         stmt_idx = parse_allocate_statement(parser, arena)

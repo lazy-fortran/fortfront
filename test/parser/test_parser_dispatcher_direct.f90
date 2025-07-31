@@ -49,7 +49,7 @@ contains
         tokens(1) = token_t(kind=TK_KEYWORD, text="use", line=1, column=1)
         tokens(2) = token_t(kind=TK_IDENTIFIER, text="mymodule", line=1, column=5)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         stmt_idx = parse_statement_dispatcher(tokens, arena)
         
         if (stmt_idx > 0) then
@@ -75,7 +75,7 @@ contains
         tokens(4) = token_t(kind=TK_STRING, text='"Hello"', line=1, column=10)
         tokens(5) = token_t(kind=TK_EOF, text="", line=1, column=17)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         stmt_idx = parse_statement_dispatcher(tokens, arena)
         
         if (stmt_idx > 0) then
@@ -103,7 +103,7 @@ contains
         tokens(6) = token_t(kind=TK_OPERATOR, text=")", line=1, column=10)
         tokens(7) = token_t(kind=TK_KEYWORD, text="then", line=1, column=12)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         stmt_idx = parse_statement_dispatcher(tokens, arena)
         
         if (stmt_idx > 0) then
@@ -131,7 +131,7 @@ contains
         tokens(6) = token_t(kind=TK_NUMBER, text="10", line=1, column=11)
         tokens(7) = token_t(kind=TK_NEWLINE, text="\n", line=1, column=13)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         stmt_idx = parse_statement_dispatcher(tokens, arena)
         
         if (stmt_idx > 0) then
@@ -155,7 +155,7 @@ contains
         tokens(2) = token_t(kind=TK_OPERATOR, text="=", line=1, column=3)
         tokens(3) = token_t(kind=TK_NUMBER, text="42", line=1, column=5)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         stmt_idx = parse_statement_dispatcher(tokens, arena)
         
         if (stmt_idx > 0) then
@@ -177,7 +177,7 @@ contains
         allocate(tokens(1))
         tokens(1) = token_t(kind=TK_EOF, text="", line=1, column=1)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         stmt_idx = parse_statement_dispatcher(tokens, arena)
         
         ! Empty should return 0

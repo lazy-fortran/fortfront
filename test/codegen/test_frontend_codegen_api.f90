@@ -40,7 +40,7 @@ contains
         print *, 'Testing assignment code generation...'
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create assignment: x = 42
         target_index = push_identifier(arena, 'x', 1, 1)
@@ -72,7 +72,7 @@ contains
         print *, 'Testing literal code generation...'
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Integer literal
         lit_index = push_literal(arena, '123', LITERAL_INTEGER, 1, 1)
@@ -115,7 +115,7 @@ contains
         print *, 'Testing binary operation code generation...'
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create binary operation: a + b
         left_index = push_identifier(arena, 'a', 1, 1)
@@ -148,7 +148,7 @@ contains
         print *, 'Testing print statement code generation...'
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create print statement with one argument
         arg_index = push_identifier(arena, 'result', 1, 7)
@@ -181,7 +181,7 @@ contains
         print *, 'Testing program code generation...'
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create assignment: answer = 42
         target_index = push_identifier(arena, 'answer', 1, 1)
@@ -217,7 +217,7 @@ contains
         print *, 'Testing identifier code generation...'
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create identifier
         id_index = push_identifier(arena, 'variable_name', 1, 1)

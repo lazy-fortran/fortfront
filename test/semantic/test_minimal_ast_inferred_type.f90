@@ -90,7 +90,7 @@ contains
         test_count = test_count + 1
 
         ! Create arena for AST storage
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create target identifier using arena
         target_idx = push_identifier(arena, "y", 1, 1)

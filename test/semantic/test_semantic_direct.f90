@@ -1,7 +1,7 @@
 program test_semantic_direct
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program
-    use ast_core, only: ast_arena_t, create_ast_stack, create_program, &
+    use ast_core, only: ast_arena_t, create_ast_arena, create_program, &
                         create_identifier, create_literal, create_assignment, &
                         program_node, LITERAL_INTEGER
     use type_system_hm, only: mono_type_t, type_var_t, TINT, TREAL, TCHAR, TLOGICAL
@@ -67,7 +67,7 @@ program test_semantic_direct
 
     ! Test 5: Create empty program AST
     call test_start("Analyze empty program")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     prog = create_program("test_program", [integer::], line=1, column=1)  ! Empty body_indices
     call arena%push(prog, "program")
     prog_index = arena%current_index
@@ -99,7 +99,7 @@ program test_semantic_direct
 
     ! Test 7: Invalid program index handling
     call test_start("Invalid program index")
-    arena = create_ast_stack()
+    arena = create_ast_arena()
     ctx = create_semantic_context()
     
     ! Try to analyze with invalid index - should not crash

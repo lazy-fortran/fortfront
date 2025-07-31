@@ -8,7 +8,7 @@ module parser_core
     use parser_control_flow_module, only: parse_do_loop, parse_do_while, parse_select_case, parse_if, &
                                           parse_if_condition, parse_if_body
     use parser_dispatcher_module, only: parse_statement_dispatcher
-    use ast_core, only: ast_node, ast_node_wrapper, ast_arena_t, create_ast_stack, assignment_node, binary_op_node, &
+    use ast_core, only: ast_node, ast_node_wrapper, ast_arena_t, create_ast_arena, assignment_node, binary_op_node, &
              identifier_node, literal_node, call_or_subscript_node, function_def_node, &
                         subroutine_def_node, print_statement_node, use_statement_node, &
                 include_statement_node, declaration_node, do_loop_node, do_while_node, &

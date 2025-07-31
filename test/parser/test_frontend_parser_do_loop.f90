@@ -3,7 +3,7 @@ program test_frontend_parser_do_loop
     use parser_dispatcher_module, only: parse_statement_dispatcher
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_control_flow_module, only: parse_do_loop
-    use ast_core, only: ast_arena_t, create_ast_stack, do_loop_node
+    use ast_core, only: ast_arena_t, create_ast_arena, do_loop_node
     use frontend, only: find_program_unit_boundary
     implicit none
 
@@ -42,7 +42,7 @@ contains
         tokens(7) = token_t(TK_EOF, "", 1, 12)
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Parse do loop directly
         parser = create_parser_state(tokens)

@@ -1,6 +1,6 @@
 program test_frontend_parser_if_statement
     use lexer_core
-    use ast_core, only: ast_arena_t, create_ast_stack, if_node
+    use ast_core, only: ast_arena_t, create_ast_arena, if_node
     use ast_factory
     use parser_control_flow_module, only: parse_if
     use parser_state_module, only: parser_state_t, create_parser_state
@@ -50,7 +50,7 @@ contains
         tokens(8) = token_t(TK_EOF, "", 1, 16)
 
         ! Create parser and arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
 
         ! Parse if statement
@@ -101,7 +101,7 @@ contains
         tokens(8) = token_t(TK_EOF, "", 1, 18)
 
         ! Create parser and arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
 
         ! Parse if statement
@@ -157,7 +157,7 @@ contains
         tokens(8) = token_t(TK_EOF, "", 1, 16)
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Parse through dispatcher
         stmt_index = parse_statement_dispatcher(tokens, arena)

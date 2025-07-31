@@ -1,6 +1,6 @@
 program test_frontend_parser_do_loops
     use lexer_core, only: tokenize_core, token_t, TK_EOF
-    use ast_core, only: ast_node, do_loop_node, do_while_node, literal_node, binary_op_node, ast_arena_t, create_ast_stack
+    use ast_core, only: ast_node, do_loop_node, do_while_node, literal_node, binary_op_node, ast_arena_t, create_ast_arena
     use parser_dispatcher_module, only: parse_statement_dispatcher
     implicit none
 
@@ -56,7 +56,7 @@ contains
             tokens_with_eof(n + 1)%line = 1
             tokens_with_eof(n + 1)%column = 1
 
-            arena = create_ast_stack()
+            arena = create_ast_arena()
             stmt_index = parse_statement_dispatcher(tokens_with_eof, arena)
         end block
 
@@ -183,7 +183,7 @@ contains
             tokens_with_eof(n + 1)%line = 1
             tokens_with_eof(n + 1)%column = 1
 
-            arena = create_ast_stack()
+            arena = create_ast_arena()
             stmt_index = parse_statement_dispatcher(tokens_with_eof, arena)
         end block
 
@@ -260,7 +260,7 @@ contains
             tokens_with_eof(n + 1)%line = 1
             tokens_with_eof(n + 1)%column = 1
 
-            arena = create_ast_stack()
+            arena = create_ast_arena()
             stmt_index = parse_statement_dispatcher(tokens_with_eof, arena)
         end block
 
@@ -344,7 +344,7 @@ contains
             tokens_with_eof(n + 1)%line = 1
             tokens_with_eof(n + 1)%column = 1
 
-            arena = create_ast_stack()
+            arena = create_ast_arena()
             stmt_index = parse_statement_dispatcher(tokens_with_eof, arena)
         end block
 
@@ -411,7 +411,7 @@ print '(a)', "INFO: Infinite do loop parsed as do_while_node (alternate represen
             tokens_with_eof(n + 1)%line = 1
             tokens_with_eof(n + 1)%column = 1
 
-            arena = create_ast_stack()
+            arena = create_ast_arena()
             stmt_index = parse_statement_dispatcher(tokens_with_eof, arena)
         end block
 

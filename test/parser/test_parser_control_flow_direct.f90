@@ -59,7 +59,7 @@ contains
         tokens(5) = token_t(kind=TK_NUMBER, text="0", line=1, column=9)
         tokens(6) = token_t(kind=TK_OPERATOR, text=")", line=1, column=10)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         
         stmt_idx = parse_if(parser, arena)
@@ -120,7 +120,7 @@ contains
         tokens(6) = token_t(kind=TK_NUMBER, text="10", line=1, column=11)
         tokens(7) = token_t(kind=TK_NEWLINE, text="\n", line=1, column=13)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         
         stmt_idx = parse_do_loop(parser, arena)
@@ -203,7 +203,7 @@ contains
         tokens(4) = token_t(kind=TK_IDENTIFIER, text="x", line=1, column=14)
         tokens(5) = token_t(kind=TK_OPERATOR, text=")", line=1, column=15)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         
         stmt_idx = parse_select_case(parser, arena)
@@ -238,7 +238,7 @@ contains
         tokens(5) = token_t(kind=TK_NUMBER, text="0", line=1, column=14)
         tokens(6) = token_t(kind=TK_OPERATOR, text=")", line=1, column=15)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         
         stmt_idx = parse_where_construct(parser, arena)
@@ -300,7 +300,7 @@ contains
 !        tokens(8) = token_t(kind=TK_OPERATOR, text=")", line=1, column=14)
 !        tokens(9) = token_t(kind=TK_NEWLINE, text="\n", line=1, column=15)
 !        
-!        arena = create_ast_stack()
+!        arena = create_ast_arena()
 !        parser = create_parser_state(tokens)
 !        
 !        stmt_idx = parse_forall_statement(parser, arena)

@@ -33,7 +33,7 @@ contains
         print '(a)', "Testing statement code generation..."
 
         ! Initialize arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create assignment with expression: z = x + y
         target_idx = push_identifier(arena, "z", 1, 1)
@@ -68,7 +68,7 @@ contains
         print '(a)', "Testing use statement generation..."
 
         ! Initialize arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create use statement
         use_idx = push_use_statement(arena, "iso_fortran_env", line=1, column=1)
@@ -100,7 +100,7 @@ contains
         print '(a)', "Testing print statement generation..."
 
         ! Initialize arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create print statement with one argument
         var_idx = push_identifier(arena, "result", 1, 7)

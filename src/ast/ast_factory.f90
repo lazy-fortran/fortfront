@@ -36,7 +36,7 @@ contains
         type(program_node) :: prog
 
         prog = create_program(name, body_indices, line, column)
-        call arena%push(prog, "program")
+        call arena%push(prog, "program", 0)
         prog_index = arena%size
     end function push_program
 
@@ -62,7 +62,7 @@ contains
         integer :: assign_index
         type(pointer_assignment_node) :: ptr_assign
 
-       ptr_assign = create_pointer_assignment(pointer_index, target_index, line, column)
+        ptr_assign = create_pointer_assignment(pointer_index, target_index, line, column)
         call arena%push(ptr_assign, "pointer_assignment", parent_index)
         assign_index = arena%size
     end function push_pointer_assignment
@@ -146,6 +146,7 @@ contains
         array_lit = create_array_literal(element_indices, line, column)
         call arena%push(array_lit, "array_literal", parent_index)
         array_index = arena%size
+
     end function push_array_literal
 
     ! Create derived type node and add to stack
@@ -180,6 +181,7 @@ contains
 
         call arena%push(dtype, "derived_type", parent_index)
         type_index = arena%size
+
     end function push_derived_type
 
     ! Create declaration node and add to stack
@@ -240,6 +242,7 @@ contains
 
         call arena%push(decl, "declaration", parent_index)
         decl_index = arena%size
+
     end function push_declaration
 
     ! Create parameter declaration node and add to stack
@@ -294,6 +297,7 @@ contains
 
         call arena%push(param, "parameter_declaration", parent_index)
         param_index = arena%size
+
     end function push_parameter_declaration
 
     ! Create if statement node and add to stack
@@ -348,6 +352,7 @@ contains
 
         call arena%push(if_stmt, "if_statement", parent_index)
         if_index = arena%size
+
     end function push_if
 
     ! Create do loop node and add to stack
@@ -395,6 +400,7 @@ contains
 
         call arena%push(loop_node, "do_loop", parent_index)
         loop_index = arena%size
+
     end function push_do_loop
 
     ! Create do while loop node and add to stack
@@ -424,6 +430,7 @@ contains
 
         call arena%push(while_node, "do_while", parent_index)
         while_index = arena%size
+
     end function push_do_while
 
     ! Create forall construct node and add to stack
@@ -476,6 +483,7 @@ contains
 
         call arena%push(forall_stmt, "forall", parent_index)
         forall_index = arena%size
+
     end function push_forall
 
     ! Create select case node and add to stack
@@ -504,6 +512,7 @@ contains
 
         call arena%push(select_node, "select_case", parent_index)
         select_index = arena%size
+
     end function push_select_case
 
     ! Create select case node with default case and add to stack
@@ -539,6 +548,7 @@ contains
 
         call arena%push(select_node, "select_case", parent_index)
         select_index = arena%size
+
     end function push_select_case_with_default
 
     ! Create case block node and add to stack
@@ -567,6 +577,7 @@ contains
 
         call arena%push(case_node, "case_block", parent_index)
         case_index = arena%size
+
     end function push_case_block
 
     ! Create case range node and add to stack
@@ -585,6 +596,7 @@ contains
 
         call arena%push(range_node, "case_range", parent_index)
         range_index = arena%size
+
     end function push_case_range
 
     ! Create case default node and add to stack
@@ -607,6 +619,7 @@ contains
 
         call arena%push(default_node, "case_default", parent_index)
         default_index = arena%size
+
     end function push_case_default
 
     ! Build AST from individual nodes (helper function)
@@ -662,6 +675,7 @@ contains
         use_stmt = create_use_statement(module_name, only_list, rename_list, has_only, line, column)
         call arena%push(use_stmt, "use_statement", parent_index)
         use_index = arena%size
+
     end function push_use_statement
 
     ! Create include statement node and add to stack
@@ -675,6 +689,7 @@ contains
         include_stmt = create_include_statement(filename, line, column)
         call arena%push(include_stmt, "include_statement", parent_index)
         include_index = arena%size
+
     end function push_include_statement
 
     ! Create print statement node and add to stack
@@ -689,7 +704,7 @@ contains
         print_stmt%format_spec = format_spec
         if (present(arg_indices)) then
             if (size(arg_indices) > 0) then
-                print_stmt%arg_indices = arg_indices
+                print_stmt%expression_indices = arg_indices
             end if
         end if
         if (present(line)) print_stmt%line = line
@@ -697,6 +712,7 @@ contains
 
         call arena%push(print_stmt, "print_statement", parent_index)
         print_index = arena%size
+
     end function push_print_statement
 
     function push_write_statement(arena, unit_spec, arg_indices, format_spec, line, column, parent_index) result(write_index)
@@ -720,6 +736,7 @@ contains
 
         call arena%push(write_stmt, "write_statement", parent_index)
         write_index = arena%size
+
     end function push_write_statement
 
     function push_read_statement(arena, unit_spec, var_indices, format_spec, line, column, parent_index) result(read_index)
@@ -743,6 +760,7 @@ contains
 
         call arena%push(read_stmt, "read_statement", parent_index)
         read_index = arena%size
+
     end function push_read_statement
 
     ! Create allocate statement node and add to stack
@@ -779,6 +797,7 @@ contains
 
         call arena%push(alloc_stmt, "allocate_statement", parent_index)
         alloc_index = arena%size
+
     end function push_allocate
 
     ! Create deallocate statement node and add to stack
@@ -803,6 +822,7 @@ contains
 
         call arena%push(dealloc_stmt, "deallocate_statement", parent_index)
         dealloc_index = arena%size
+
     end function push_deallocate
 
     ! Create function definition node and add to stack
@@ -820,6 +840,7 @@ contains
         func_def = create_function_def(name, param_indices, return_type, body_indices, line, column)
         call arena%push(func_def, "function_def", parent_index)
         func_index = arena%size
+
     end function push_function_def
 
     ! Create subroutine definition node and add to stack
@@ -836,6 +857,7 @@ contains
         sub_def = create_subroutine_def(name, param_indices, body_indices, line, column)
         call arena%push(sub_def, "subroutine_def", parent_index)
         sub_index = arena%size
+
     end function push_subroutine_def
 
     ! Create interface block node and add to stack
@@ -852,6 +874,7 @@ contains
                           procedure_indices=procedure_indices, line=line, column=column)
         call arena%push(interface_block, "interface_block", parent_index)
         interface_index = arena%size
+
     end function push_interface_block
 
     ! Create module node and add to stack
@@ -867,6 +890,7 @@ contains
 
         call arena%push(mod_node, "module_node", parent_index)
         module_index = arena%size
+
     end function push_module
 
     ! Create STOP statement node and add to stack
@@ -884,6 +908,7 @@ contains
 
         call arena%push(stop_stmt, "stop_node", parent_index)
         stop_index = arena%size
+
     end function push_stop
 
     ! Create RETURN statement node and add to stack
@@ -897,6 +922,7 @@ contains
 
         call arena%push(return_stmt, "return_node", parent_index)
         return_index = arena%size
+
     end function push_return
 
     ! Create CYCLE statement node and add to stack
@@ -911,6 +937,7 @@ contains
 
         call arena%push(cycle_stmt, "cycle_node", parent_index)
         cycle_index = arena%size
+
     end function push_cycle
 
     ! Create EXIT statement node and add to stack
@@ -925,6 +952,7 @@ contains
 
         call arena%push(exit_stmt, "exit_node", parent_index)
         exit_index = arena%size
+
     end function push_exit
 
     ! Create WHERE construct node and add to stack
@@ -945,6 +973,7 @@ contains
 
         call arena%push(where_stmt, "where_node", parent_index)
         where_index = arena%size
+
     end function push_where
 
     ! Create WHERE construct node and add to stack (simplified interface)
@@ -997,6 +1026,7 @@ contains
 
         call arena%push(constructor_node, "type_constructor", parent_index)
         constructor_index = arena%size
+
     end function push_type_constructor
 
     ! Create component access node and add to stack
@@ -1019,6 +1049,7 @@ contains
 
         call arena%push(access_node, "component_access", parent_index)
         access_index = arena%size
+
     end function push_component_access
 
     ! Create complex literal node and add to stack
@@ -1037,6 +1068,7 @@ contains
 
         call arena%push(complex_node, "complex_literal", parent_index)
         complex_index = arena%size
+
     end function push_complex_literal
 
     ! Extended I/O statement functions with iostat/err/end specifiers
@@ -1059,6 +1091,7 @@ contains
 
         call arena%push(write_stmt, "write_statement", parent_index)
         write_index = arena%size
+
     end function push_write_statement_with_iostat
 
     function push_read_statement_with_err(arena, unit_spec, var_indices, format_spec, &
@@ -1080,6 +1113,7 @@ contains
 
         call arena%push(read_stmt, "read_statement", parent_index)
         read_index = arena%size
+
     end function push_read_statement_with_err
 
     function push_read_statement_with_end(arena, unit_spec, var_indices, format_spec, &
@@ -1101,6 +1135,7 @@ contains
 
         call arena%push(read_stmt, "read_statement", parent_index)
         read_index = arena%size
+
     end function push_read_statement_with_end
 
     function push_read_statement_with_all_specifiers(arena, unit_spec, var_indices, format_spec, &
@@ -1125,6 +1160,7 @@ contains
 
         call arena%push(read_stmt, "read_statement", parent_index)
         read_index = arena%size
+
     end function push_read_statement_with_all_specifiers
 
     ! Format descriptor support functions
@@ -1147,6 +1183,7 @@ contains
 
         call arena%push(write_stmt, "write_statement", parent_index)
         write_index = arena%size
+
     end function push_write_statement_with_format
 
     function push_write_statement_with_runtime_format(arena, unit_spec, arg_indices, format_var, &
@@ -1168,6 +1205,7 @@ contains
 
         call arena%push(write_stmt, "write_statement", parent_index)
         write_index = arena%size
+
     end function push_write_statement_with_runtime_format
 
     function push_array_section(arena, array_name, start_idx, end_idx, line, column, parent_index) result(section_index)

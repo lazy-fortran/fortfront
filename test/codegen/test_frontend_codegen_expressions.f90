@@ -33,7 +33,7 @@ contains
         print '(a)', "Testing nested binary operations..."
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create: a + b * c
         a_idx = push_identifier(arena, "a", 1, 1)
@@ -66,7 +66,7 @@ contains
         print '(a)', "Testing parentheses generation..."
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create: (a + b) * c
         a_idx = push_identifier(arena, "a", 1, 2)
@@ -99,7 +99,7 @@ contains
         print '(a)', "Testing complex expression generation..."
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create: a * b + c - d
         a_idx = push_identifier(arena, "a", 1, 1)

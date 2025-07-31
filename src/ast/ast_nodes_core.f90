@@ -1,0 +1,315 @@
+module ast_nodes_core
+    use json_module
+    use ast_base, only: ast_node, visit_interface, to_json_interface
+    implicit none
+    private
+
+    ! Public factory functions
+    public :: create_pointer_assignment, create_array_literal
+
+    ! Core AST node types used by all Fortran dialects
+
+    ! Program node
+    type, extends(ast_node), public :: program_node
+        character(len=:), allocatable :: name
+        integer, allocatable :: body_indices(:)  ! Indices to body nodes in stack
+    contains
+        procedure :: accept => program_accept
+        procedure :: to_json => program_to_json
+        procedure :: assign => program_assign
+        generic :: assignment(=) => assign
+    end type program_node
+
+    ! Assignment node
+    type, extends(ast_node), public :: assignment_node
+        integer :: target_index      ! Index to target node in stack
+        integer :: value_index       ! Index to value node in stack
+        character(len=:), allocatable :: operator
+        ! Type inference support (dialect-agnostic)
+        logical :: type_was_inferred = .false.  ! true if type was inferred
+        character(len=:), allocatable :: inferred_type_name
+    contains
+        procedure :: accept => assignment_accept
+        procedure :: to_json => assignment_to_json
+        procedure :: assign => assignment_assign
+        generic :: assignment(=) => assign
+    end type assignment_node
+
+    ! Pointer assignment node (ptr => target)
+    type, extends(ast_node), public :: pointer_assignment_node
+        integer :: pointer_index     ! Index to pointer node in stack
+        integer :: target_index      ! Index to target node in stack
+    contains
+        procedure :: accept => pointer_assignment_accept
+        procedure :: to_json => pointer_assignment_to_json
+        procedure :: assign => pointer_assignment_assign
+        generic :: assignment(=) => assign
+    end type pointer_assignment_node
+
+    ! Identifier node
+    type, extends(ast_node), public :: identifier_node
+        character(len=:), allocatable :: name
+    contains
+        procedure :: accept => identifier_accept
+        procedure :: to_json => identifier_to_json
+        procedure :: assign => identifier_assign
+        generic :: assignment(=) => assign
+    end type identifier_node
+
+    ! Literal node
+    type, extends(ast_node), public :: literal_node
+        character(len=:), allocatable :: value
+        character(len=:), allocatable :: literal_type  ! "integer", "real", "character", etc.
+        integer :: literal_kind = 0  ! INTEGER_LITERAL, REAL_LITERAL, etc.
+    contains
+        procedure :: accept => literal_accept
+        procedure :: to_json => literal_to_json
+        procedure :: assign => literal_assign
+        generic :: assignment(=) => assign
+    end type literal_node
+
+    ! Binary operation node
+    type, extends(ast_node), public :: binary_op_node
+        integer :: left_index        ! Index to left operand in stack
+        integer :: right_index       ! Index to right operand in stack
+        character(len=:), allocatable :: operator
+    contains
+        procedure :: accept => binary_op_accept
+        procedure :: to_json => binary_op_to_json
+        procedure :: assign => binary_op_assign
+        generic :: assignment(=) => assign
+    end type binary_op_node
+
+    ! Call or subscript node (represents both function calls and array indexing)
+    type, extends(ast_node), public :: call_or_subscript_node
+        character(len=:), allocatable :: name
+        integer, allocatable :: arg_indices(:)
+    contains
+        procedure :: accept => call_or_subscript_accept
+        procedure :: to_json => call_or_subscript_to_json
+        procedure :: assign => call_or_subscript_assign
+        generic :: assignment(=) => assign
+    end type call_or_subscript_node
+
+    ! Array literal node
+    type, extends(ast_node), public :: array_literal_node
+        integer, allocatable :: element_indices(:)  ! Indices to array elements
+        character(len=:), allocatable :: element_type  ! Type of array elements
+    contains
+        procedure :: accept => array_literal_accept
+        procedure :: to_json => array_literal_to_json
+        procedure :: assign => array_literal_assign
+        generic :: assignment(=) => assign
+    end type array_literal_node
+
+contains
+
+    ! Stub implementations for program_node
+    subroutine program_accept(this, visitor)
+        class(program_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine program_accept
+
+    subroutine program_to_json(this, json, parent)
+        class(program_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        ! Stub implementation
+    end subroutine program_to_json
+
+    subroutine program_assign(lhs, rhs)
+        class(program_node), intent(inout) :: lhs
+        class(program_node), intent(in) :: rhs
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        end if
+        if (allocated(rhs%body_indices)) then
+            lhs%body_indices = rhs%body_indices
+        end if
+    end subroutine program_assign
+
+    ! Stub implementations for assignment_node
+    subroutine assignment_accept(this, visitor)
+        class(assignment_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine assignment_accept
+
+    subroutine assignment_to_json(this, json, parent)
+        class(assignment_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        ! Stub implementation
+    end subroutine assignment_to_json
+
+    subroutine assignment_assign(lhs, rhs)
+        class(assignment_node), intent(inout) :: lhs
+        class(assignment_node), intent(in) :: rhs
+        lhs%target_index = rhs%target_index
+        lhs%value_index = rhs%value_index
+        if (allocated(rhs%operator)) then
+            lhs%operator = rhs%operator
+        end if
+        lhs%type_was_inferred = rhs%type_was_inferred
+        if (allocated(rhs%inferred_type_name)) then
+            lhs%inferred_type_name = rhs%inferred_type_name
+        end if
+    end subroutine assignment_assign
+
+    ! Stub implementations for pointer_assignment_node
+    subroutine pointer_assignment_accept(this, visitor)
+        class(pointer_assignment_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine pointer_assignment_accept
+
+    subroutine pointer_assignment_to_json(this, json, parent)
+        class(pointer_assignment_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        ! Stub implementation
+    end subroutine pointer_assignment_to_json
+
+    subroutine pointer_assignment_assign(lhs, rhs)
+        class(pointer_assignment_node), intent(inout) :: lhs
+        class(pointer_assignment_node), intent(in) :: rhs
+        lhs%pointer_index = rhs%pointer_index
+        lhs%target_index = rhs%target_index
+    end subroutine pointer_assignment_assign
+
+    ! Stub implementations for identifier_node
+    subroutine identifier_accept(this, visitor)
+        class(identifier_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine identifier_accept
+
+    subroutine identifier_to_json(this, json, parent)
+        class(identifier_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        ! Stub implementation
+    end subroutine identifier_to_json
+
+    subroutine identifier_assign(lhs, rhs)
+        class(identifier_node), intent(inout) :: lhs
+        class(identifier_node), intent(in) :: rhs
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        end if
+    end subroutine identifier_assign
+
+    ! Stub implementations for literal_node
+    subroutine literal_accept(this, visitor)
+        class(literal_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine literal_accept
+
+    subroutine literal_to_json(this, json, parent)
+        class(literal_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        ! Stub implementation
+    end subroutine literal_to_json
+
+    subroutine literal_assign(lhs, rhs)
+        class(literal_node), intent(inout) :: lhs
+        class(literal_node), intent(in) :: rhs
+        if (allocated(rhs%value)) then
+            lhs%value = rhs%value
+        end if
+        if (allocated(rhs%literal_type)) then
+            lhs%literal_type = rhs%literal_type
+        end if
+        lhs%literal_kind = rhs%literal_kind
+    end subroutine literal_assign
+
+    ! Stub implementations for binary_op_node
+    subroutine binary_op_accept(this, visitor)
+        class(binary_op_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine binary_op_accept
+
+    subroutine binary_op_to_json(this, json, parent)
+        class(binary_op_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        ! Stub implementation
+    end subroutine binary_op_to_json
+
+    subroutine binary_op_assign(lhs, rhs)
+        class(binary_op_node), intent(inout) :: lhs
+        class(binary_op_node), intent(in) :: rhs
+        lhs%left_index = rhs%left_index
+        lhs%right_index = rhs%right_index
+        if (allocated(rhs%operator)) lhs%operator = rhs%operator
+    end subroutine binary_op_assign
+
+    ! Stub implementations for call_or_subscript_node
+    subroutine call_or_subscript_accept(this, visitor)
+        class(call_or_subscript_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine call_or_subscript_accept
+
+    subroutine call_or_subscript_to_json(this, json, parent)
+        class(call_or_subscript_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        ! Stub implementation
+    end subroutine call_or_subscript_to_json
+
+    subroutine call_or_subscript_assign(lhs, rhs)
+        class(call_or_subscript_node), intent(inout) :: lhs
+        class(call_or_subscript_node), intent(in) :: rhs
+        if (allocated(rhs%name)) lhs%name = rhs%name
+        if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
+    end subroutine call_or_subscript_assign
+
+    ! Stub implementations for array_literal_node
+    subroutine array_literal_accept(this, visitor)
+        class(array_literal_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine array_literal_accept
+
+    subroutine array_literal_to_json(this, json, parent)
+        class(array_literal_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        ! Stub implementation
+    end subroutine array_literal_to_json
+
+    subroutine array_literal_assign(lhs, rhs)
+        class(array_literal_node), intent(inout) :: lhs
+        class(array_literal_node), intent(in) :: rhs
+        if (allocated(rhs%element_indices)) lhs%element_indices = rhs%element_indices
+        if (allocated(rhs%element_type)) lhs%element_type = rhs%element_type
+    end subroutine array_literal_assign
+
+    ! Factory functions
+    function create_pointer_assignment(pointer_index, target_index, line, column) result(node)
+        integer, intent(in) :: pointer_index
+        integer, intent(in) :: target_index
+        integer, intent(in), optional :: line, column
+        type(pointer_assignment_node) :: node
+
+        node%pointer_index = pointer_index
+        node%target_index = target_index
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_pointer_assignment
+
+    function create_array_literal(element_indices, line, column) result(node)
+        integer, intent(in) :: element_indices(:)
+        integer, intent(in), optional :: line, column
+        type(array_literal_node) :: node
+        node%element_indices = element_indices
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_array_literal
+
+end module ast_nodes_core

@@ -33,7 +33,7 @@ contains
         integer, allocatable :: body(:)
         
         call test_start("Identifier creation")
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         id_idx = push_identifier(arena, "test_var", line=1, column=5)
         if (id_idx > 0 .and. arena%size == 1) then
             call test_pass()

@@ -3,9 +3,9 @@ module ast_types
     ! All AST types are now defined in ast_core with stack-based storage
     use ast_core, only: ast_node, program_node, assignment_node, binary_op_node, &
           call_or_subscript_node, subroutine_call_node, identifier_node, literal_node, &
-                        ast_arena_t, ast_arena_stats_t, &
+                        ast_arena_t, ast_arena_stats_t, create_ast_arena, &
                        LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL, &
-                create_ast_stack, create_program, create_assignment, create_binary_op, &
+                create_program, create_assignment, create_binary_op, &
      create_call_or_subscript, create_subroutine_call, create_identifier, create_literal
     implicit none
 
@@ -14,7 +14,7 @@ module ast_types
    public :: call_or_subscript_node, subroutine_call_node, identifier_node, literal_node
     public :: ast_arena_t, ast_arena_stats_t
     public :: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
-    public :: create_ast_stack, create_program, create_assignment, create_binary_op
+    public :: create_ast_arena, create_program, create_assignment, create_binary_op
     public :: create_call_or_subscript, create_subroutine_call, create_identifier, create_literal
 
 end module ast_types

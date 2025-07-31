@@ -46,7 +46,7 @@ contains
         tokens(2) = token_t(kind=TK_EOF, text="", line=1, column=6)
         
         parser = create_parser_state(tokens)
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         cycle_index = parse_cycle_statement(parser, arena)
         
@@ -70,7 +70,7 @@ contains
         tokens(2) = token_t(kind=TK_EOF, text="", line=1, column=5)
         
         parser = create_parser_state(tokens)
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         exit_index = parse_exit_statement(parser, arena)
         
@@ -95,7 +95,7 @@ contains
         tokens(3) = token_t(kind=TK_EOF, text="", line=1, column=17)
         
         parser = create_parser_state(tokens)
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         cycle_index = parse_cycle_statement(parser, arena)
         
@@ -120,7 +120,7 @@ contains
         tokens(3) = token_t(kind=TK_EOF, text="", line=1, column=15)
         
         parser = create_parser_state(tokens)
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         exit_index = parse_exit_statement(parser, arena)
         

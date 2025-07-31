@@ -34,7 +34,7 @@ contains
         test_basic_grouping = .true.
 
         ! Create function with two real(8) parameters
-        arena = create_ast_stack(100)
+        arena = create_ast_arena(100)
 
         ! Create parameter identifiers
         a_idx = push_identifier(arena, "a", 1, 1)
@@ -84,7 +84,7 @@ contains
 
         test_mixed_types = .true.
 
-        arena = create_ast_stack(100)
+        arena = create_ast_arena(100)
 
         ! Create parameters
         x_idx = push_identifier(arena, "x", 1, 1)
@@ -137,7 +137,7 @@ contains
 
         test_different_intents = .true.
 
-        arena = create_ast_stack(100)
+        arena = create_ast_arena(100)
 
         ! Create parameters
         a_idx = push_identifier(arena, "a", 1, 1)
@@ -190,7 +190,7 @@ contains
 
         test_mixed_declarations = .true.
 
-        arena = create_ast_stack(100)
+        arena = create_ast_arena(100)
 
         ! Create parameters
         a_idx = push_identifier(arena, "a", 1, 1)

@@ -138,15 +138,15 @@ contains
             end if
             
         type is (where_node)
-            if (allocated(node%where_body_indices)) then
-                do i = 1, size(node%where_body_indices)
-                    call check_all_assignments(ctx, arena, node%where_body_indices(i))
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call check_all_assignments(ctx, arena, node%body_indices(i))
                 end do
             end if
             
-            if (allocated(node%elsewhere_body_indices)) then
-                do i = 1, size(node%elsewhere_body_indices)
-                    call check_all_assignments(ctx, arena, node%elsewhere_body_indices(i))
+            if (allocated(node%elsewhere_indices)) then
+                do i = 1, size(node%elsewhere_indices)
+                    call check_all_assignments(ctx, arena, node%elsewhere_indices(i))
                 end do
             end if
             

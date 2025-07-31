@@ -1,6 +1,6 @@
 program test_frontend_semantic_array_type_inference
     use semantic_analyzer, only: analyze_program, create_semantic_context, semantic_context_t
-    use ast_core, only: ast_arena_t, create_ast_stack, assignment_node, subroutine_call_node, identifier_node
+    use ast_core, only: ast_arena_t, create_ast_arena, assignment_node, subroutine_call_node, identifier_node
     use lexer_core
     use parser_dispatcher_module, only: parse_statement_dispatcher
     implicit none
@@ -44,7 +44,7 @@ contains
             call tokenize_core("arr = [1, 2, 3]", tokens)
 
             ! Create arena
-            arena = create_ast_stack()
+            arena = create_ast_arena()
 
             ! Parse using dispatcher
             stmt_index = parse_statement_dispatcher(tokens, arena)
@@ -95,7 +95,7 @@ contains
             call tokenize_core("x = arr(1)", tokens)
 
             ! Create arena
-            arena = create_ast_stack()
+            arena = create_ast_arena()
 
             ! Parse using dispatcher
             stmt_index = parse_statement_dispatcher(tokens, arena)
@@ -146,7 +146,7 @@ contains
             call tokenize_core("arr(1) = 42", tokens)
 
             ! Create arena
-            arena = create_ast_stack()
+            arena = create_ast_arena()
 
             ! Parse using dispatcher
             stmt_index = parse_statement_dispatcher(tokens, arena)
@@ -206,7 +206,7 @@ contains
             call tokenize_core("result = 1 + 2", tokens)
 
             ! Create arena
-            arena = create_ast_stack()
+            arena = create_ast_arena()
 
             ! Parse using dispatcher
             stmt_index = parse_statement_dispatcher(tokens, arena)

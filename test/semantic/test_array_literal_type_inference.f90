@@ -1,6 +1,6 @@
 program test_array_literal_type_inference
     use semantic_analyzer, only: analyze_program, create_semantic_context, semantic_context_t
-    use ast_core, only: ast_arena_t, create_ast_stack, assignment_node, array_literal_node
+    use ast_core, only: ast_arena_t, create_ast_arena, assignment_node, array_literal_node
     use lexer_core
     use parser_dispatcher_module, only: parse_statement_dispatcher
     implicit none
@@ -42,7 +42,7 @@ contains
 
             ! Parse "arr = [1, 2, 3]"
             call tokenize_core("arr = [1, 2, 3]", tokens)
-            arena = create_ast_stack()
+            arena = create_ast_arena()
             stmt_index = parse_statement_dispatcher(tokens, arena)
 
             if (stmt_index > 0) then
@@ -92,7 +92,7 @@ contains
 
             ! Parse "arr = [1.0, 2.5, 3.14]"
             call tokenize_core("arr = [1.0, 2.5, 3.14]", tokens)
-            arena = create_ast_stack()
+            arena = create_ast_arena()
             stmt_index = parse_statement_dispatcher(tokens, arena)
 
             if (stmt_index > 0) then
@@ -140,7 +140,7 @@ contains
 
             ! Parse "arr = [1, 2.0, 3]" - should promote to real
             call tokenize_core("arr = [1, 2.0, 3]", tokens)
-            arena = create_ast_stack()
+            arena = create_ast_arena()
             stmt_index = parse_statement_dispatcher(tokens, arena)
 
             if (stmt_index > 0) then
@@ -189,7 +189,7 @@ contains
 
             ! Parse "arr = [10, 20, 30, 40, 50]" - 5 elements
             call tokenize_core("arr = [10, 20, 30, 40, 50]", tokens)
-            arena = create_ast_stack()
+            arena = create_ast_arena()
             stmt_index = parse_statement_dispatcher(tokens, arena)
 
             if (stmt_index > 0) then

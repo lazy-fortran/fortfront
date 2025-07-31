@@ -1,5 +1,5 @@
 program test_parser_expressions_comprehensive
-    use ast_core, only: ast_arena_t, create_ast_stack, ast_node, binary_op_node, &
+    use ast_core, only: ast_arena_t, create_ast_arena, ast_node, binary_op_node, &
                         array_literal_node, call_or_subscript_node, literal_node, &
                         identifier_node, LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
                         LITERAL_LOGICAL, create_call_or_subscript
@@ -18,7 +18,7 @@ program test_parser_expressions_comprehensive
     print *
 
     ! Initialize arena
-    arena = create_ast_stack()
+    arena = create_ast_arena()
 
     ! Run comprehensive expression parsing tests
     if (.not. test_arithmetic_operators()) all_passed = .false.
@@ -155,7 +155,7 @@ contains
         print *, 'Test 4: Operator precedence'
         
         ! Test: a + b * c (multiplication should bind tighter)
-        arena = create_ast_stack()  ! Fresh arena
+        arena = create_ast_arena()  ! Fresh arena
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("a + b * c", tokens)
@@ -176,7 +176,7 @@ contains
         end block
         
         ! Test: a * b + c (multiplication still binds tighter)
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("a * b + c", tokens)
@@ -209,7 +209,7 @@ contains
         print *, 'Test 5: Parentheses'
         
         ! Test: (a + b) * c (parentheses override precedence)
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("(a + b) * c", tokens)
@@ -236,7 +236,7 @@ contains
         end block
         
         ! Test nested parentheses
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("((a + b) * (c - d))", tokens)
@@ -263,7 +263,7 @@ contains
         print *, 'Test 6: Unary operators'
         
         ! Test unary minus
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("-x", tokens)
@@ -278,7 +278,7 @@ contains
         end block
         
         ! Test unary plus
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("+y", tokens)
@@ -293,7 +293,7 @@ contains
         end block
         
         ! Test logical NOT
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core(".not. flag", tokens)
@@ -320,7 +320,7 @@ contains
         print *, 'Test 7: Array literals'
         
         ! Test simple integer array
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("[1, 2, 3]", tokens)
@@ -346,7 +346,7 @@ contains
         end block
         
         ! Test real array
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("[1.0, 2.5, 3.14]", tokens)
@@ -361,7 +361,7 @@ contains
         end block
         
         ! Test empty array
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("[]", tokens)
@@ -387,7 +387,7 @@ contains
         end block
         
         ! Test single element array
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("[42]", tokens)
@@ -414,7 +414,7 @@ contains
         print *, 'Test 8: Function calls'
         
         ! Test no-arg function
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("random()", tokens)
@@ -429,7 +429,7 @@ contains
         end block
         
         ! Test single-arg function
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("sin(x)", tokens)
@@ -444,7 +444,7 @@ contains
         end block
         
         ! Test multi-arg function
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("max(a, b, c)", tokens)
@@ -459,7 +459,7 @@ contains
         end block
         
         ! Test nested function calls
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("sqrt(abs(x))", tokens)
@@ -486,7 +486,7 @@ contains
         print *, 'Test 9: Complex expressions'
         
         ! Test arithmetic with parentheses
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("a + b * (c - d) / e", tokens)
@@ -501,7 +501,7 @@ contains
         end block
         
         ! Test logical combination
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("x > 0 .and. y < 10 .or. z == 5", tokens)
@@ -516,7 +516,7 @@ contains
         end block
         
         ! Test function in expression
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("sin(x) * cos(y) + tan(z)", tokens)
@@ -543,7 +543,7 @@ contains
         print *, 'Test 10: Error cases'
         
         ! Test malformed array literal - missing closing bracket
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("[1, 2, 3", tokens)
@@ -558,7 +558,7 @@ contains
         end block
         
         ! Test malformed array literal - trailing comma
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("[1, 2,]", tokens)
@@ -573,7 +573,7 @@ contains
         end block
         
         ! Test incomplete expression
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("a +", tokens)
@@ -597,7 +597,7 @@ contains
         end block
         
         ! Test mismatched parentheses
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("(a + b))", tokens)
@@ -626,7 +626,7 @@ contains
         
         test_binary_expr = .true.
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         call tokenize_core(expr_str, tokens)
         expr_index = parse_expression(tokens, arena)
         
@@ -704,7 +704,7 @@ contains
         print *, 'Test 11: Member access operator (%)'
         
         ! Test simple member access
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("obj%field", tokens)
@@ -730,7 +730,7 @@ contains
         end block
         
         ! Test nested member access
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("obj%nested%field", tokens)
@@ -757,7 +757,7 @@ contains
         print *, 'Test 12: Logical literals'
         
         ! Test .true.
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core(".true.", tokens)
@@ -783,7 +783,7 @@ contains
         end block
         
         ! Test .false.
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core(".false.", tokens)
@@ -798,7 +798,7 @@ contains
         end block
         
         ! Test logical literals in expressions
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core("x .and. .true.", tokens)
@@ -834,7 +834,7 @@ contains
         end do
         large_array_str = trim(large_array_str) // "]"
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         block
             type(token_t), allocatable :: tokens(:)
             call tokenize_core(trim(large_array_str), tokens)

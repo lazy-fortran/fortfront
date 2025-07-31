@@ -43,7 +43,7 @@ contains
         test_empty_array_codegen = .true.
         print *, 'Testing empty array code generation...'
 
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create empty array
         allocate(indices(0))
@@ -73,7 +73,7 @@ contains
         test_integer_array_codegen = .true.
         print *, 'Testing integer array code generation...'
 
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create array [1, 2, 3]
         allocate(indices(3))
@@ -106,7 +106,7 @@ contains
         test_real_array_codegen = .true.
         print *, 'Testing real array code generation...'
 
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create array [1.0, 2.5, 3.14]
         allocate(indices(3))
@@ -143,7 +143,7 @@ contains
         test_mixed_array_codegen = .true.
         print *, 'Testing mixed type array code generation...'
 
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create array [1, 2.0, 3] - mixed int/real
         allocate(indices(3))
@@ -179,7 +179,7 @@ contains
         test_character_array_codegen = .true.
         print *, 'Testing character array code generation...'
 
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create array ["hello", "world"]
         allocate(indices(2))
@@ -212,7 +212,7 @@ contains
         test_logical_array_codegen = .true.
         print *, 'Testing logical array code generation...'
 
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create array [.true., .false., .true.]
         allocate(indices(3))
@@ -247,7 +247,7 @@ contains
         test_nested_array_codegen = .true.
         print *, 'Testing array with expressions code generation...'
 
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create array [a + b, c * 2]
         allocate(indices(2))
@@ -291,7 +291,7 @@ contains
         test_array_in_assignment = .true.
         print *, 'Testing array literal in assignment...'
 
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create array [1, 2, 3]
         allocate(indices(3))
@@ -328,7 +328,7 @@ contains
         test_array_constructor_style = .true.
         print *, 'Testing array constructor style preference...'
 
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create simple array for testing constructor style
         allocate(indices(2))

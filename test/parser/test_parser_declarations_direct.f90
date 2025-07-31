@@ -51,7 +51,7 @@ contains
         tokens(1) = token_t(kind=TK_KEYWORD, text="integer", line=1, column=1)
         tokens(2) = token_t(kind=TK_IDENTIFIER, text="n", line=1, column=9)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         decl_idx = parse_declaration(parser, arena)
         
@@ -77,7 +77,7 @@ contains
         tokens(4) = token_t(kind=TK_OPERATOR, text=")", line=1, column=7)
         tokens(5) = token_t(kind=TK_IDENTIFIER, text="x", line=1, column=9)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         decl_idx = parse_declaration(parser, arena)
         
@@ -106,7 +106,7 @@ contains
         tokens(7) = token_t(kind=TK_OPERATOR, text="::", line=1, column=24)
         tokens(8) = token_t(kind=TK_IDENTIFIER, text="arr", line=1, column=27)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         decl_idx = parse_declaration(parser, arena)
         
@@ -132,7 +132,7 @@ contains
         tokens(4) = token_t(kind=TK_OPERATOR, text="::", line=1, column=19)
         tokens(5) = token_t(kind=TK_IDENTIFIER, text="vec", line=1, column=22)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         decl_idx = parse_declaration(parser, arena)
         
@@ -158,7 +158,7 @@ contains
         tokens(4) = token_t(kind=TK_KEYWORD, text="end", line=2, column=1)
         tokens(5) = token_t(kind=TK_KEYWORD, text="type", line=2, column=5)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         type_idx = parse_derived_type(parser, arena)
         
@@ -186,7 +186,7 @@ contains
         tokens(6) = token_t(kind=TK_OPERATOR, text=",", line=1, column=16)
         tokens(7) = token_t(kind=TK_IDENTIFIER, text="k", line=1, column=18)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         decl_indices = parse_multi_declaration(parser, arena)
         

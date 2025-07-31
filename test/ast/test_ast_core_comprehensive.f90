@@ -50,7 +50,7 @@ contains
         call test_start("Arena initialization and growth")
         
         ! Initialize arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Test automatic growth (reduced for Windows compatibility)  
         do i = 1, 50  ! Sufficient to test growth without exhausting stack
@@ -98,7 +98,7 @@ contains
         
         call test_start("Node creation via factory")
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create nodes
         allocate(body(0))
@@ -140,7 +140,7 @@ contains
         
         call test_start("Arena stats tracking")
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Add some nodes
         do i = 1, 10

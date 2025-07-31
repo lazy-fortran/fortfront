@@ -45,7 +45,7 @@ contains
         allocate(tokens(1))
         tokens(1) = token_t(kind=TK_NUMBER, text="42", line=1, column=1)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         expr_idx = parse_expression(tokens, arena)
         
         if (expr_idx > 0 .and. arena%size > 0) then
@@ -67,7 +67,7 @@ contains
         tokens(2) = token_t(kind=TK_OPERATOR, text="+", line=1, column=3)
         tokens(3) = token_t(kind=TK_NUMBER, text="3", line=1, column=5)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         expr_idx = parse_expression(tokens, arena)
         
         if (expr_idx > 0 .and. arena%size >= 3) then
@@ -90,7 +90,7 @@ contains
         tokens(2) = token_t(kind=TK_OPERATOR, text=":", line=1, column=2)
         tokens(3) = token_t(kind=TK_NUMBER, text="10", line=1, column=3)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         expr_idx = parse_range(parser, arena)
         
@@ -114,7 +114,7 @@ contains
         tokens(2) = token_t(kind=TK_OPERATOR, text=">", line=1, column=3)
         tokens(3) = token_t(kind=TK_NUMBER, text="0", line=1, column=5)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         expr_idx = parse_comparison(parser, arena)
         
@@ -139,7 +139,7 @@ contains
         tokens(3) = token_t(kind=TK_NUMBER, text="4", line=1, column=6)
         tokens(4) = token_t(kind=TK_OPERATOR, text=")", line=1, column=7)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         expr_idx = parse_primary(parser, arena)
         
@@ -164,7 +164,7 @@ contains
         tokens(3) = token_t(kind=TK_NUMBER, text="5", line=1, column=5)
         tokens(4) = token_t(kind=TK_OPERATOR, text=")", line=1, column=6)
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         parser = create_parser_state(tokens)
         expr_idx = parse_primary(parser, arena)
         

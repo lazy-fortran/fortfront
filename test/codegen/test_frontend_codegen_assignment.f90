@@ -32,7 +32,7 @@ contains
         print '(a)', "Testing simple assignment code generation..."
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create assignment: x = 1
         target_index = push_identifier(arena, "x", 1, 1)
@@ -62,7 +62,7 @@ contains
         print '(a)', "Testing complex assignment code generation..."
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create assignment: result = a + b
         target_index = push_identifier(arena, "result", 1, 1)

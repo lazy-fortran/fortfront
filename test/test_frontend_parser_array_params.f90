@@ -47,7 +47,7 @@ contains
 
         ! Create parser and arena
         parser = create_parser_state(tokens)
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Parse typed parameters
         call parse_typed_parameters(parser, arena, param_indices)

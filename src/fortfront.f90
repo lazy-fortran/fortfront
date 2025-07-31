@@ -26,7 +26,7 @@ module fortfront
                         case_default_node, complex_literal_node, &
                         LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
                         LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX, &
-                        create_ast_stack, ast_arena_stats_t
+                        create_ast_arena, ast_arena_stats_t
     
     ! Re-export semantic analyzer functionality
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
@@ -144,12 +144,6 @@ module fortfront
     end type function_signature_t
     
 contains
-    
-    ! Create AST arena (wrapper for consistency)
-    function create_ast_arena() result(arena)
-        type(ast_arena_t) :: arena
-        arena = create_ast_stack()
-    end function create_ast_arena
     
     ! Get node from arena by index
     function get_node(arena, node_index) result(node)

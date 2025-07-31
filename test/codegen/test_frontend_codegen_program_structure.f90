@@ -32,7 +32,7 @@ contains
         test_count = test_count + 1
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create simple program: x = 42
         id_x_idx = push_identifier(arena, "x", 1, 1)
@@ -73,7 +73,7 @@ contains
         test_count = test_count + 1
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! x = 42
         id_x_idx = push_identifier(arena, "x", 1, 1)
@@ -133,7 +133,7 @@ contains
         test_count = test_count + 1
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Main: x = f(5)
         id_x_idx = push_identifier(arena, "x", 2, 5)

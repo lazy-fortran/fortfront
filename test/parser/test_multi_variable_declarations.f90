@@ -53,7 +53,7 @@ contains
 
         ! Create parser and arena
         parser = create_parser_state(tokens)
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Record initial arena size
         initial_size = arena%size

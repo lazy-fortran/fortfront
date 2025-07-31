@@ -193,41 +193,41 @@ contains
         ! Create appropriate node based on type and allocate in arena
         select case (node_type)
         case ('lf_program', 'program')
-            call arena%push(json_to_program_node(core, json_obj, arena))
+            call arena%push(json_to_program_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case ('assignment')
-            call arena%push(json_to_assignment_node(core, json_obj, arena))
+            call arena%push(json_to_assignment_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case ('binary_op')
-            call arena%push(json_to_binary_op_node(core, json_obj, arena))
+            call arena%push(json_to_binary_op_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case ('identifier')
-            call arena%push(json_to_identifier_node(core, json_obj, arena))
+            call arena%push(json_to_identifier_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case ('literal')
-            call arena%push(json_to_literal_node(core, json_obj, arena))
+            call arena%push(json_to_literal_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case ('function_def')
-            call arena%push(json_to_function_def_node(core, json_obj, arena))
+            call arena%push(json_to_function_def_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case ('call_or_subscript')
-            call arena%push(json_to_call_or_subscript_node(core, json_obj, arena))
+            call arena%push(json_to_call_or_subscript_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case ('subroutine_call')
-            call arena%push(json_to_subroutine_call_node(core, json_obj, arena))
+            call arena%push(json_to_subroutine_call_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case ('use_statement')
-            call arena%push(json_to_use_statement_node(core, json_obj, arena))
+            call arena%push(json_to_use_statement_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case ('include_statement')
-            call arena%push(json_to_include_statement_node(core, json_obj, arena))
+            call arena%push(json_to_include_statement_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case ('print_statement')
-            call arena%push(json_to_print_statement_node(core, json_obj, arena))
+            call arena%push(json_to_print_statement_node(core, json_obj, arena), node_type, 0)
             node_index = arena%size
         case default
             ! Unknown node type - create a literal as placeholder
- call arena%push(create_literal("Unknown node type: "//node_type, LITERAL_STRING, 1, 1))
+            call arena%push(create_literal("Unknown node type: "//node_type, LITERAL_STRING, 1, 1), "literal", 0)
             node_index = arena%size
         end select
 
@@ -293,7 +293,7 @@ contains
         if (found) then
             node%target_index = json_to_ast_node(core, target_obj, arena)
         else
-            call arena%push(create_identifier("unknown", line, column))
+            call arena%push(create_identifier("unknown", line, column), "identifier", 0)
             node%target_index = arena%size
         end if
 
@@ -301,7 +301,7 @@ contains
         if (found) then
             node%value_index = json_to_ast_node(core, value_obj, arena)
         else
-            call arena%push(create_literal("0", LITERAL_INTEGER, line, column))
+            call arena%push(create_literal("0", LITERAL_INTEGER, line, column), "literal", 0)
             node%value_index = arena%size
         end if
 
@@ -339,7 +339,7 @@ contains
         if (found) then
             node%left_index = json_to_ast_node(core, left_obj, arena)
         else
-            call arena%push(create_literal("0", LITERAL_INTEGER, line, column))
+            call arena%push(create_literal("0", LITERAL_INTEGER, line, column), "literal", 0)
             node%left_index = arena%size
         end if
 
@@ -347,7 +347,7 @@ contains
         if (found) then
             node%right_index = json_to_ast_node(core, right_obj, arena)
         else
-            call arena%push(create_literal("0", LITERAL_INTEGER, line, column))
+            call arena%push(create_literal("0", LITERAL_INTEGER, line, column), "literal", 0)
             node%right_index = arena%size
         end if
 
@@ -623,9 +623,9 @@ contains
         ! Get arguments
         call core%get(json_obj, 'args', args_array, found)
         if (found) then
-            node%arg_indices = json_to_ast_indices(core, args_array, arena)
+            node%expression_indices = json_to_ast_indices(core, args_array, arena)
         else
-            node%arg_indices = [integer::]  ! Empty arguments
+            node%expression_indices = [integer::]  ! Empty arguments
         end if
 
         ! Create node

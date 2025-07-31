@@ -37,7 +37,7 @@ contains
         test_allocatable_scalar = .true.
         print *, 'Testing allocatable scalar declaration...'
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create allocatable scalar declaration
         decl%type_name = "real(8)"
@@ -77,7 +77,7 @@ contains
         test_allocatable_array = .true.
         print *, 'Testing allocatable array declaration...'
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create allocatable array declaration
         decl%type_name = "integer"
@@ -121,7 +121,7 @@ contains
         test_allocatable_with_type = .true.
         print *, 'Testing allocatable with custom type...'
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create allocatable with custom type
         decl%type_name = "type(my_type)"
@@ -160,7 +160,7 @@ contains
         test_allocatable_character = .true.
         print *, 'Testing allocatable character array...'
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create allocatable character array
         decl%type_name = "character(len=10)"
@@ -204,7 +204,7 @@ contains
         test_non_allocatable = .true.
         print *, 'Testing non-allocatable declaration...'
         
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         
         ! Create non-allocatable declaration
         decl%type_name = "real"

@@ -15,7 +15,7 @@ program test_parser_array_features
     print *
 
     ! Initialize arena
-    arena = create_ast_stack()
+    arena = create_ast_arena()
 
     ! Run array feature tests
     if (.not. test_array_constructors()) all_passed = .false.

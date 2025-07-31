@@ -89,7 +89,7 @@ contains
         ! Debug tokens output disabled - implement later if needed
 
         ! Phase 2: Parsing
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         call parse_tokens(tokens, arena, prog_index, error_msg)
         if (error_msg /= "") return
         ! Debug AST output disabled - implement later if needed
@@ -136,7 +136,7 @@ contains
         ! if (options%debug_tokens) call debug_output_tokens(tokens_json_file, tokens)
 
         ! Phase 2: Parsing
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         call parse_tokens(tokens, arena, prog_index, error_msg)
         if (error_msg /= "") return
        ! if (options%debug_ast) call debug_output_ast(tokens_json_file, arena, prog_index)
@@ -174,7 +174,7 @@ contains
         error_msg = ""
 
         ! Read AST from JSON - simplified for now
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRING, 1, 1)
         ! if (options%debug_ast) call debug_output_ast(ast_json_file, arena, prog_index)
 
@@ -215,7 +215,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         error_msg = ""
 
         ! Read annotated AST and semantic context from JSON - simplified
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         prog_index = push_literal(arena, "! Semantic JSON loading not implemented", LITERAL_STRING, 1, 1)
         ! if (options%debug_semantic) ! call debug_output_semantic(semantic_json_file, arena, prog_index)
 
@@ -1105,7 +1105,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end if
         
         ! Phase 2: Parsing
-        arena = create_ast_stack()
+        arena = create_ast_arena()
         call parse_tokens(tokens, arena, prog_index, error_msg)
         if (error_msg /= "") return
         

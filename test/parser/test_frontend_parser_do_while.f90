@@ -4,7 +4,7 @@ program test_frontend_parser_do_while
     use parser_control_flow_module, only: parse_do_while
     use parser_state_module, only: parser_state_t, create_parser_state
     use lexer_core, only: token_t, TK_KEYWORD, TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_EOF
-    use ast_core, only: ast_arena_t, create_ast_stack, do_while_node
+    use ast_core, only: ast_arena_t, create_ast_arena, do_while_node
     use iso_fortran_env, only: real64
     implicit none
 
@@ -46,7 +46,7 @@ contains
         tokens(8) = token_t(TK_EOF, "", 1, 18)
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         parser = create_parser_state(tokens)
         loop_index = parse_do_while(parser, arena)

@@ -35,7 +35,7 @@ contains
         test_count = test_count + 1
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create integer declaration with inferred type
         decl%var_name = "count"
@@ -75,7 +75,7 @@ contains
         test_count = test_count + 1
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create real declaration with inferred type
         decl%var_name = "temperature"
@@ -116,7 +116,7 @@ contains
         test_count = test_count + 1
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create character declaration with length
         decl%var_name = "name"
@@ -157,7 +157,7 @@ contains
         test_count = test_count + 1
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create dimension literal
         dim%value = "100"
@@ -210,7 +210,7 @@ contains
         test_count = test_count + 1
 
         ! Create arena
-        arena = create_ast_stack()
+        arena = create_ast_arena()
 
         ! Create initializer literal
         init_val%value = "3.14159"
