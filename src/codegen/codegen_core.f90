@@ -73,6 +73,8 @@ contains
             code = generate_code_exit(arena, node, node_index)
         type is (where_node)
             code = generate_code_where(arena, node, node_index)
+        type is (module_node)
+            code = generate_code_module(arena, node, node_index)
         class default
             code = "! Unknown node type"
         end select
@@ -211,6 +213,25 @@ contains
 
         ! Reset indentation for top-level program
         call reset_indent()
+        
+        ! Special handling for multiple top-level units
+        if (node%name == "__MULTI_UNIT__") then
+            code = ""
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
+                        stmt_code = generate_code_from_arena(arena, node%body_indices(i))
+                        if (len_trim(stmt_code) > 0) then
+                            if (len(code) > 0) then
+                                code = code//new_line('A')
+                            end if
+                            code = code//stmt_code
+                        end if
+                    end if
+                end do
+            end if
+            return
+        end if
 
         ! Initialize sections
         use_statements = ""
@@ -1418,5 +1439,53 @@ contains
 
         ! Keep trailing newline - it will be handled by caller if needed
     end function generate_grouped_body
+
+    ! Generate code for module node
+    function generate_code_module(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: stmt_code
+        integer :: i
+        
+        ! Reset indentation for top-level module
+        call reset_indent()
+        
+        ! Start module
+        code = "module "//node%name//new_line('A')
+        call increase_indent()
+        
+        ! Process declarations
+        if (allocated(node%declaration_indices)) then
+            do i = 1, size(node%declaration_indices)
+                if (node%declaration_indices(i) > 0) then
+                    stmt_code = generate_code_from_arena(arena, node%declaration_indices(i))
+                    if (len_trim(stmt_code) > 0) then
+                        code = code//with_indent(stmt_code)//new_line('A')
+                    end if
+                end if
+            end do
+        end if
+        
+        ! Process procedures
+        if (allocated(node%procedure_indices) .and. size(node%procedure_indices) > 0) then
+            ! Add contains statement
+            code = code//"contains"//new_line('A')
+            
+            ! Generate procedures
+            do i = 1, size(node%procedure_indices)
+                if (node%procedure_indices(i) > 0) then
+                    stmt_code = generate_code_from_arena(arena, node%procedure_indices(i))
+                    if (len_trim(stmt_code) > 0) then
+                        code = code//with_indent(stmt_code)//new_line('A')
+                    end if
+                end if
+            end do
+        end if
+        
+        call decrease_indent()
+        code = code//"end module "//node%name
+    end function generate_code_module
 
 end module codegen_core
