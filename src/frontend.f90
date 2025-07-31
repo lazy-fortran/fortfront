@@ -45,6 +45,17 @@ module frontend
 
 contains
 
+    ! Create a container for multiple top-level program units
+    function create_multi_unit_container(arena, unit_indices) result(container_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: unit_indices(:)
+        integer :: container_index
+        
+        ! For now, use a program node with a special flag to indicate multiple units
+        ! The code generator will handle this specially
+        container_index = push_program(arena, "__MULTI_UNIT__", unit_indices, 1, 1)
+    end function create_multi_unit_container
+
     ! Main entry point - clean 4-phase compilation pipeline
     subroutine compile_source(input_file, options, error_msg)
         character(len=*), intent(in) :: input_file
@@ -369,8 +380,14 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 prog_index = 0
             end if
         else if (stmt_count > 0) then
-            ! Use the first (and should be only) statement as the program unit
-            prog_index = body_indices(1)
+            ! Handle multiple top-level program units (modules, programs, etc.)
+            if (stmt_count == 1) then
+                ! Single program unit - use it directly
+                prog_index = body_indices(1)
+            else
+                ! Multiple program units - create a special multi-unit container
+                prog_index = create_multi_unit_container(arena, body_indices)
+            end if
         else
             ! No program unit found
             error_msg = "No program unit found in file"
@@ -567,6 +584,15 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 parser = create_parser_state(tokens)
                 unit_index = parse_function_definition(parser, arena)
             end block
+        else if (is_subroutine_start(tokens, 1)) then
+            ! Subroutine definition
+            unit_index = parse_statement_dispatcher(tokens, arena)
+        else if (is_module_start(tokens, 1)) then
+            ! Module definition
+            unit_index = parse_statement_dispatcher(tokens, arena)
+        else if (is_program_start(tokens, 1)) then
+            ! Program definition
+            unit_index = parse_statement_dispatcher(tokens, arena)
         else
             ! For lazy fortran, we need to parse ALL statements in the token array
             unit_index = parse_all_statements(tokens, arena)
@@ -1122,7 +1148,25 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         call analyze_program_with_checks(arena, prog_index)
         
         ! Phase 4: Standardization
-        call standardize_ast(arena, prog_index)
+        ! Skip standardization for multi-unit containers
+        block
+            logical :: skip_standardization
+            skip_standardization = .false.
+            if (prog_index > 0 .and. prog_index <= arena%size) then
+                if (allocated(arena%entries(prog_index)%node)) then
+                    select type (node => arena%entries(prog_index)%node)
+                    type is (program_node)
+                        if (node%name == "__MULTI_UNIT__") then
+                            skip_standardization = .true.
+                        end if
+                    end select
+                end if
+            end if
+            
+            if (.not. skip_standardization) then
+                call standardize_ast(arena, prog_index)
+            end if
+        end block
         
         ! Phase 5: Code Generation
         output = generate_code_from_arena(arena, prog_index)

@@ -20,22 +20,41 @@ module standardizer
 contains
 
     ! Main standardization entry point
-    subroutine standardize_ast(arena, root_index)
+    recursive subroutine standardize_ast(arena, root_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
+        integer :: i
 
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
 
         select type (node => arena%entries(root_index)%node)
         type is (program_node)
-            call standardize_program(arena, node, root_index)
+            ! Skip standardization for multi-unit containers
+            if (node%name == "__MULTI_UNIT__") then
+                ! Standardize each unit individually
+                if (allocated(node%body_indices)) then
+                    block
+                        integer :: j
+                        do j = 1, size(node%body_indices)
+                        if (node%body_indices(j) > 0 .and. node%body_indices(j) <= arena%size) then
+                            call standardize_ast(arena, node%body_indices(j))
+                        end if
+                    end do
+                    end block
+                end if
+            else
+                call standardize_program(arena, node, root_index)
+            end if
         type is (function_def_node)
             ! Wrap standalone function in a program
             call wrap_function_in_program(arena, root_index)
         type is (subroutine_def_node)
             ! Wrap standalone subroutine in a program
             call wrap_subroutine_in_program(arena, root_index)
+        type is (module_node)
+            ! Modules don't need wrapping - standardize their contents
+            call standardize_module(arena, node, root_index)
         class default
             ! For other node types, no standardization needed yet
         end select
@@ -84,6 +103,32 @@ contains
         call standardize_subprograms(arena, prog)
 
     end subroutine standardize_program
+
+    ! Standardize a module node
+    subroutine standardize_module(arena, mod, mod_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(module_node), intent(inout) :: mod
+        integer, intent(in) :: mod_index
+        integer :: i
+        
+        ! Standardize declarations in the module
+        if (allocated(mod%declaration_indices)) then
+            do i = 1, size(mod%declaration_indices)
+                if (mod%declaration_indices(i) > 0 .and. mod%declaration_indices(i) <= arena%size) then
+                    call standardize_ast(arena, mod%declaration_indices(i))
+                end if
+            end do
+        end if
+        
+        ! Standardize procedures in the module
+        if (allocated(mod%procedure_indices)) then
+            do i = 1, size(mod%procedure_indices)
+                if (mod%procedure_indices(i) > 0 .and. mod%procedure_indices(i) <= arena%size) then
+                    call standardize_ast(arena, mod%procedure_indices(i))
+                end if
+            end do
+        end if
+    end subroutine standardize_module
 
     ! Analyze program content to determine its nature
     subroutine analyze_program_content(arena, prog, has_functions, has_subroutines, &
@@ -250,21 +295,30 @@ contains
         insert_pos = find_declaration_insertion_point(arena, prog)
         if (insert_pos == 0) insert_pos = 1  ! Default to beginning if no use statements
 
-        ! Create implicit none node
-        implicit_none_node%value = "implicit none"
-        implicit_none_node%literal_kind = LITERAL_STRING
-        implicit_none_node%line = 1
-        implicit_none_node%column = 1
-        call arena%push(implicit_none_node, "implicit_none", prog_index)
-        implicit_none_index = arena%size
+        ! Check if implicit none already exists
+        if (.not. has_implicit_none(arena, prog)) then
+            ! Create implicit none node
+            implicit_none_node%value = "implicit none"
+            implicit_none_node%literal_kind = LITERAL_STRING
+            implicit_none_node%line = 1
+            implicit_none_node%column = 1
+            call arena%push(implicit_none_node, "implicit_none", prog_index)
+            implicit_none_index = arena%size
+        else
+            implicit_none_index = 0  ! Don't add duplicate
+        end if
 
         ! Collect and generate variable declarations
      call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
         n_declarations = 0
         if (allocated(declaration_indices)) n_declarations = size(declaration_indices)
 
-        ! Create new body indices with implicit none and declarations
-        allocate (new_body_indices(size(prog%body_indices) + 1 + n_declarations))
+        ! Create new body indices with optional implicit none and declarations
+        if (implicit_none_index > 0) then
+            allocate (new_body_indices(size(prog%body_indices) + 1 + n_declarations))
+        else
+            allocate (new_body_indices(size(prog%body_indices) + n_declarations))
+        end if
 
         ! Copy use statements
         j = 1
@@ -273,9 +327,11 @@ contains
             j = j + 1
         end do
 
-        ! Insert implicit none
-        new_body_indices(j) = implicit_none_index
-        j = j + 1
+        ! Insert implicit none if we created one
+        if (implicit_none_index > 0) then
+            new_body_indices(j) = implicit_none_index
+            j = j + 1
+        end if
 
         ! Insert declarations
         do i = 1, n_declarations
@@ -296,6 +352,32 @@ contains
         arena%entries(prog_index)%node = prog
 
     end subroutine insert_variable_declarations
+
+    ! Check if a program already has implicit none
+    function has_implicit_none(arena, prog) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        logical :: found
+        integer :: i
+        
+        found = .false.
+        if (.not. allocated(prog%body_indices)) return
+        
+        do i = 1, size(prog%body_indices)
+            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                    select type (stmt => arena%entries(prog%body_indices(i))%node)
+                    type is (literal_node)
+                        if (stmt%literal_kind == LITERAL_STRING .and. &
+                            index(stmt%value, "implicit none") > 0) then
+                            found = .true.
+                            return
+                        end if
+                    end select
+                end if
+            end if
+        end do
+    end function has_implicit_none
 
     ! Find where to insert declarations (after use statements)
     function find_declaration_insertion_point(arena, prog) result(pos)
