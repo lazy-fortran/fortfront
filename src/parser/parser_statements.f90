@@ -3,7 +3,7 @@ module parser_statements_module
     use iso_fortran_env, only: error_unit
     use lexer_core
     use parser_state_module
-    use parser_expressions_module, only: parse_comparison, parse_expression
+    use parser_expressions_module, only: parse_comparison, parse_expression, parse_range
     use parser_declarations_module, only: parse_declaration, parse_multi_declaration
     use ast_core
     use ast_factory
@@ -1731,11 +1731,10 @@ contains
                             ! Create target identifier
     target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
 
-                            ! Parse value - simple literal for now
-                            token = parser%peek()
-                            if (token%kind == TK_NUMBER) then
-                                token = parser%consume()
-value_index = push_literal(arena, token%text, LITERAL_INTEGER, token%line, token%column)
+                            ! Parse value expression
+                            value_index = parse_range(parser, arena)
+                            
+                            if (value_index > 0) then
                                 stmt_index = push_assignment(arena, target_index, value_index, id_token%line, id_token%column)
                             else
                                 stmt_index = 0
