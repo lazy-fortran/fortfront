@@ -92,6 +92,9 @@ contains
         case (TK_IDENTIFIER)
             ! Could be assignment or expression
             stmt_index = parse_assignment_or_expression(parser, arena)
+        case (TK_COMMENT)
+            ! Parse comment
+            stmt_index = parse_comment(parser, arena)
         case default
             ! Parse as expression
             stmt_index = parse_as_expression(tokens, arena)
@@ -305,5 +308,19 @@ contains
         arg_indices = temp_indices(1:arg_count)
 
     end subroutine parse_call_arguments
+
+    ! Parse a comment token
+    function parse_comment(parser, arena) result(comment_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: comment_index
+        type(token_t) :: token
+        type(comment_node) :: comment
+
+        token = parser%consume()
+        comment = create_comment(token%text, token%line, token%column)
+        call arena%push(comment, "comment")
+        comment_index = arena%size
+    end function parse_comment
 
 end module parser_dispatcher_module

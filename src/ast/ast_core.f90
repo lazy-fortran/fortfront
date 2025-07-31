@@ -29,7 +29,8 @@ module ast_core
     use ast_nodes_io, only: print_statement_node, write_statement_node, read_statement_node, format_descriptor_node, &
                              create_print_statement
     use ast_nodes_misc, only: complex_literal_node, allocate_statement_node, deallocate_statement_node, &
-                              use_statement_node, include_statement_node, contains_node, interface_block_node
+                              use_statement_node, include_statement_node, contains_node, interface_block_node, &
+                              comment_node
     
     implicit none
     
@@ -46,7 +47,7 @@ module ast_core
     public :: declaration_node, parameter_declaration_node, module_node, derived_type_node
     public :: print_statement_node, write_statement_node, read_statement_node, format_descriptor_node
     public :: complex_literal_node, allocate_statement_node, deallocate_statement_node
-    public :: use_statement_node, include_statement_node, contains_node, interface_block_node
+    public :: use_statement_node, include_statement_node, contains_node, interface_block_node, comment_node
     ! Re-export factory functions
     public :: create_pointer_assignment, create_array_literal, create_function_def, create_subroutine_def, &
               create_print_statement, create_declaration, create_do_loop, create_do_while, create_if, &
@@ -55,7 +56,7 @@ module ast_core
     public :: create_identifier, create_literal, create_binary_op, create_call_or_subscript, &
               create_assignment, create_program, create_subroutine_call, create_use_statement, &
               create_include_statement, create_interface_block, create_module, create_stop, &
-              create_return, create_cycle, create_exit, create_where
+              create_return, create_cycle, create_exit, create_where, create_comment
     
 contains
 
@@ -326,6 +327,16 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_where
+
+    function create_comment(text, line, column) result(node)
+        character(len=*), intent(in) :: text
+        integer, intent(in), optional :: line, column
+        type(comment_node) :: node
+
+        node%text = text
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_comment
 
     ! Backward compatibility wrapper for create_declaration
     function create_declaration_wrapper(type_name, var_name, kind_value, initializer, dimensions, &
