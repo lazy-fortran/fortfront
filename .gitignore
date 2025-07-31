@@ -34,3 +34,4 @@ coverage_filtered.info
 *.gcda
 *.gcno
 *.info
+test_old_api.o
