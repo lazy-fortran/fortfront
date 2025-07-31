@@ -205,35 +205,19 @@ contains
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), allocatable, intent(inout) :: tokens(:)
-        integer :: start_pos, start_col
-        character(len=:), allocatable :: comment_text
-
-        start_pos = pos
-        start_col = col_num
 
         ! Skip the ! character
         pos = pos + 1
         col_num = col_num + 1
 
-        ! Capture everything until end of line or end of source
+        ! Skip everything until end of line or end of source
         do while (pos <= len(source))
             if (source(pos:pos) == new_line('a')) exit
             pos = pos + 1
             col_num = col_num + 1
         end do
 
-        ! Extract comment text (including the !)
-        comment_text = source(start_pos:pos-1)
-
-        ! Create comment token
-        token_count = token_count + 1
-        if (token_count > size(tokens)) then
-            call resize_tokens(tokens)
-        end if
-        tokens(token_count)%kind = TK_COMMENT
-        tokens(token_count)%text = comment_text
-        tokens(token_count)%line = line_num
-        tokens(token_count)%column = start_col
+        ! Comments are ignored - no token is created
     end subroutine scan_comment
 
     subroutine scan_string(source, pos, line_num, col_num, tokens, token_count)

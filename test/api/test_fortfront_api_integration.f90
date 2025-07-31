@@ -94,7 +94,7 @@ contains
                 if (allocated(node)) then
                     select type (node)
                     type is (program_node)
-                        if (size(node%body_indices) > 0) then
+                        if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
                             ! Check if types were inferred
                             block
                                 logical :: type_found
@@ -103,6 +103,8 @@ contains
                                     print *, '  Note: Type inference successful'
                                 end if
                             end block
+                        else
+                            print *, '  Note: Program has no body statements'
                         end if
                     end select
                 end if
