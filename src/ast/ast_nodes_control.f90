@@ -4,6 +4,9 @@ module ast_nodes_control
     implicit none
     private
 
+    ! Constants
+    integer, parameter, public :: MAX_INDEX_NAME_LENGTH = 32
+
     ! Public factory functions
     public :: create_do_loop, create_do_while, create_if, create_select_case
 

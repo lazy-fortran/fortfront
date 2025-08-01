@@ -343,10 +343,19 @@ contains
         integer, intent(in), optional :: line, column
         type(where_node) :: node
 
+        ! Initialize all fields to safe defaults
         node%mask_expr_index = mask_expr_index
+        node%mask_is_simple = .false.
+        node%can_vectorize = .false.
+        
+        ! Validate mask index
+        if (mask_expr_index <= 0) then
+            error stop "Invalid mask expression index in create_where"
+        end if
         
         if (present(where_body_indices)) then
             if (size(where_body_indices) > 0) then
+                allocate(node%where_body_indices(size(where_body_indices)))
                 node%where_body_indices = where_body_indices
             end if
         end if
@@ -357,6 +366,7 @@ contains
                 ! Create a single elsewhere clause without mask
                 allocate(node%elsewhere_clauses(1))
                 node%elsewhere_clauses(1)%mask_index = 0
+                allocate(node%elsewhere_clauses(1)%body_indices(size(elsewhere_body_indices)))
                 node%elsewhere_clauses(1)%body_indices = elsewhere_body_indices
             end if
         end if

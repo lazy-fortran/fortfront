@@ -545,6 +545,7 @@ contains
     ! Create forall construct node and add to stack
     function push_forall(arena, index_var, start_index, end_index, step_index, &
               mask_index, body_indices, line, column, parent_index) result(forall_index)
+        use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: index_var
         integer, intent(in) :: start_index, end_index
@@ -553,14 +554,34 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: forall_index
         type(forall_node) :: forall_stmt
-        integer :: i
+        integer :: i, index_var_len
+
+        ! Validate arena is initialized
+        if (arena%size <= 0 .or. .not. allocated(arena%entries)) then
+            error stop "Arena not properly initialized in push_forall"
+        end if
+
+        ! Validate index variable name
+        index_var_len = len_trim(index_var)
+        if (index_var_len == 0) then
+            error stop "Empty index variable name in push_forall"
+        end if
+        if (index_var_len > MAX_INDEX_NAME_LENGTH) then
+            error stop "Index variable name too long in push_forall"
+        end if
 
         ! Validate required indices
         if (start_index <= 0 .or. start_index > arena%size) then
             error stop "Invalid start index in push_forall"
         end if
+        if (.not. allocated(arena%entries(start_index)%node)) then
+            error stop "Start index references unallocated node in push_forall"
+        end if
         if (end_index <= 0 .or. end_index > arena%size) then
             error stop "Invalid end index in push_forall"
+        end if
+        if (.not. allocated(arena%entries(end_index)%node)) then
+            error stop "End index references unallocated node in push_forall"
         end if
 
         ! Validate optional step index
@@ -572,8 +593,13 @@ contains
 
         ! Validate optional mask index
         if (present(mask_index)) then
-            if (mask_index > 0 .and. mask_index > arena%size) then
-                error stop "Invalid mask index in push_forall"
+            if (mask_index > 0) then
+                if (mask_index > arena%size) then
+                    error stop "Invalid mask index in push_forall"
+                end if
+                if (.not. allocated(arena%entries(mask_index)%node)) then
+                    error stop "Mask index references unallocated node in push_forall"
+                end if
             end if
         end if
 
@@ -582,6 +608,9 @@ contains
             do i = 1, size(body_indices)
                 if (body_indices(i) <= 0 .or. body_indices(i) > arena%size) then
                     error stop "Invalid body index in push_forall"
+                end if
+                if (.not. allocated(arena%entries(body_indices(i))%node)) then
+                    error stop "Body index references unallocated node in push_forall"
                 end if
             end do
         end if
@@ -1133,9 +1162,17 @@ contains
         type(where_node) :: where_stmt
         integer :: i
 
+        ! Validate arena is initialized
+        if (arena%size <= 0 .or. .not. allocated(arena%entries)) then
+            error stop "Arena not properly initialized in push_where"
+        end if
+
         ! Validate mask expression index
         if (mask_expr_index <= 0 .or. mask_expr_index > arena%size) then
             error stop "Invalid mask expression index in push_where"
+        end if
+        if (.not. allocated(arena%entries(mask_expr_index)%node)) then
+            error stop "Mask expression index references unallocated node in push_where"
         end if
 
         ! Validate where body indices
@@ -1143,6 +1180,9 @@ contains
             do i = 1, size(where_body_indices)
                 if (where_body_indices(i) <= 0 .or. where_body_indices(i) > arena%size) then
                     error stop "Invalid where body index in push_where"
+                end if
+                if (.not. allocated(arena%entries(where_body_indices(i))%node)) then
+                    error stop "Where body index references unallocated node in push_where"
                 end if
             end do
         end if
@@ -1152,6 +1192,9 @@ contains
             do i = 1, size(elsewhere_body_indices)
                 if (elsewhere_body_indices(i) <= 0 .or. elsewhere_body_indices(i) > arena%size) then
                     error stop "Invalid elsewhere body index in push_where"
+                end if
+                if (.not. allocated(arena%entries(elsewhere_body_indices(i))%node)) then
+                    error stop "Elsewhere body index references unallocated node in push_where"
                 end if
             end do
         end if
