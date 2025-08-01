@@ -34,10 +34,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 
 ## 🟠 High-Impact Parser & AST Enhancements
 
-### #35 - Add allocate/deallocate support to lazy Fortran parser
+### ✅ #35 - Add allocate/deallocate support to lazy Fortran parser
 **Priority: High** | **Impact: Parser Architecture** | **Effort: Medium**
+- **Status**: ✅ **COMPLETED** - allocate/deallocate keywords added to lexer, tests passing (PR #40)
 - **Description**: Integrate existing allocate/deallocate parsing with lazy parser
-- **Status**: Implementation exists but not integrated
+- **Root Cause**: Missing lexer keyword recognition, not parser dispatcher integration
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### #13 - Missing AST Traversal and Visitor Pattern Implementation
 **Priority: High** | **Impact: Architectural** | **Effort: Medium**
