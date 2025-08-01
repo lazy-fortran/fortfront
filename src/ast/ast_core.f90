@@ -431,7 +431,7 @@ contains
         ! Call the real create_declaration
         node = create_declaration(type_name, var_name, kind_value, &
                                   initializer_index, dim_indices, &
-                                 is_allocatable, is_pointer, line, column)
+                                 is_allocatable, is_pointer, .false., line, column)
     end function create_declaration_wrapper
 
     function create_array_bounds(lower_index, upper_index, stride_index) result(node)

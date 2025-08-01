@@ -26,6 +26,7 @@ module ast_nodes_data
         integer, allocatable :: dimension_indices(:)  ! Dimension indices (stack-based)
         logical :: is_allocatable = .false.           ! Whether allocatable attribute is present
         logical :: is_pointer = .false.                ! Whether pointer attribute is present
+        logical :: is_target = .false.                 ! Whether target attribute is present
     contains
         procedure :: accept => declaration_accept
         procedure :: to_json => declaration_to_json
@@ -107,6 +108,7 @@ contains
         lhs%is_array = rhs%is_array
         lhs%is_allocatable = rhs%is_allocatable
         lhs%is_pointer = rhs%is_pointer
+        lhs%is_target = rhs%is_target
         if (allocated(rhs%dimension_indices)) then
             if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
             allocate(lhs%dimension_indices(size(rhs%dimension_indices)))
@@ -209,7 +211,7 @@ contains
 
     ! Factory functions
     function create_declaration(type_name, var_name, kind_value, initializer_index, dimension_indices, &
-                               is_allocatable, is_pointer, line, column) result(node)
+                               is_allocatable, is_pointer, is_target, line, column) result(node)
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_name
         integer, intent(in), optional :: kind_value
@@ -217,6 +219,7 @@ contains
         integer, intent(in), optional :: dimension_indices(:)
         logical, intent(in), optional :: is_allocatable
         logical, intent(in), optional :: is_pointer
+        logical, intent(in), optional :: is_target
         integer, intent(in), optional :: line, column
         type(declaration_node) :: node
 
@@ -248,6 +251,7 @@ contains
 
         if (present(is_allocatable)) node%is_allocatable = is_allocatable
         if (present(is_pointer)) node%is_pointer = is_pointer
+        if (present(is_target)) node%is_target = is_target
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_declaration
