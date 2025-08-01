@@ -598,8 +598,25 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         type(ast_arena_t), intent(inout) :: arena
         integer :: unit_index
         type(parser_state_t) :: parser
+        integer :: i
+        logical :: has_content
 
         ! Note: Parsing program unit
+        
+        ! Check if tokens contain any real content (not just comments/EOF)
+        has_content = .false.
+        do i = 1, size(tokens)
+            if (tokens(i)%kind /= TK_COMMENT .and. tokens(i)%kind /= TK_EOF) then
+                has_content = .true.
+                exit
+            end if
+        end do
+        
+        ! If only comments (no real statements), don't create a program wrapper
+        if (.not. has_content) then
+            unit_index = 0
+            return
+        end if
 
         parser = create_parser_state(tokens)
 
@@ -688,7 +705,12 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end do
 
         ! Create program node with all statements
-        prog_index = push_program(arena, "main", body_indices, 1, 1)
+        ! Only create program node if we have actual statements
+        if (size(body_indices) > 0) then
+            prog_index = push_program(arena, "main", body_indices, 1, 1)
+        else
+            prog_index = 0
+        end if
     end function parse_all_statements
 
     ! Find statement boundary (handles multi-line constructs)
