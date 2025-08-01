@@ -514,7 +514,8 @@ contains
                                                 found_array_type = .true.
                                                 decl_node%is_array = .true.
                                                 ! Use fixed-size array if size is known
-                                                if (allocated(decl_node%dimension_indices)) deallocate(decl_node%dimension_indices)
+                                                if (allocated(decl_node%dimension_indices)) &
+                                                    deallocate(decl_node%dimension_indices)
                                                 allocate(decl_node%dimension_indices(1))
                                                 if (node%inferred_type%size > 0) then
                                                     ! Create literal node for the size

@@ -46,7 +46,8 @@ contains
         
         ! Count how many variables are declared
         var_count = 0
-        if (index(output, ":: a") > 0 .or. index(output, " a,") > 0 .or. index(output, " a" // new_line('a')) > 0) var_count = var_count + 1
+        if (index(output, ":: a") > 0 .or. index(output, " a,") > 0 .or. &
+            index(output, " a" // new_line('a')) > 0) var_count = var_count + 1
         if (index(output, " b") > 0) var_count = var_count + 1
         if (index(output, " c") > 0) var_count = var_count + 1
         
