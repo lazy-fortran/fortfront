@@ -43,7 +43,7 @@ contains
         class is (ast_node)
             call visit_node(node, visitor)
             ! Then visit children
-            call traverse_children_preorder(arena, node, visitor)
+            call traverse_children(arena, node, visitor, .true.)
         end select
     end subroutine traverse_preorder
     
@@ -59,7 +59,7 @@ contains
         select type (node => arena%entries(node_index)%node)
         class is (ast_node)
             ! Visit children first
-            call traverse_children_postorder(arena, node, visitor)
+            call traverse_children(arena, node, visitor, .false.)
             
             ! Then visit current node
             call visit_node(node, visitor)
@@ -115,287 +115,162 @@ contains
         end select
     end subroutine visit_node
     
-    ! Pre-order traversal of children
-    subroutine traverse_children_preorder(arena, node, visitor)
+    ! Generic traversal of children to avoid code duplication
+    subroutine traverse_children(arena, node, visitor, is_preorder)
         type(ast_arena_t), intent(in) :: arena
         class(ast_node), intent(in) :: node
         class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
         integer :: i
         
         select type (n => node)
         type is (program_node)
             if (allocated(n%body_indices)) then
                 do i = 1, size(n%body_indices)
-                    call traverse_preorder(arena, n%body_indices(i), visitor)
+                    call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (assignment_node)
-            call traverse_preorder(arena, n%target_index, visitor)
-            call traverse_preorder(arena, n%value_index, visitor)
+            call traverse_node(arena, n%target_index, visitor, is_preorder)
+            call traverse_node(arena, n%value_index, visitor, is_preorder)
             
         type is (binary_op_node)
-            call traverse_preorder(arena, n%left_index, visitor)
-            call traverse_preorder(arena, n%right_index, visitor)
+            call traverse_node(arena, n%left_index, visitor, is_preorder)
+            call traverse_node(arena, n%right_index, visitor, is_preorder)
             
         type is (function_def_node)
             if (allocated(n%param_indices)) then
                 do i = 1, size(n%param_indices)
-                    call traverse_preorder(arena, n%param_indices(i), visitor)
+                    call traverse_node(arena, n%param_indices(i), visitor, is_preorder)
                 end do
             end if
             if (allocated(n%body_indices)) then
                 do i = 1, size(n%body_indices)
-                    call traverse_preorder(arena, n%body_indices(i), visitor)
+                    call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (subroutine_def_node)
             if (allocated(n%param_indices)) then
                 do i = 1, size(n%param_indices)
-                    call traverse_preorder(arena, n%param_indices(i), visitor)
+                    call traverse_node(arena, n%param_indices(i), visitor, is_preorder)
                 end do
             end if
             if (allocated(n%body_indices)) then
                 do i = 1, size(n%body_indices)
-                    call traverse_preorder(arena, n%body_indices(i), visitor)
+                    call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (call_or_subscript_node)
             if (allocated(n%arg_indices)) then
                 do i = 1, size(n%arg_indices)
-                    call traverse_preorder(arena, n%arg_indices(i), visitor)
+                    call traverse_node(arena, n%arg_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (subroutine_call_node)
             if (allocated(n%arg_indices)) then
                 do i = 1, size(n%arg_indices)
-                    call traverse_preorder(arena, n%arg_indices(i), visitor)
+                    call traverse_node(arena, n%arg_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (if_node)
-            call traverse_preorder(arena, n%condition_index, visitor)
+            call traverse_node(arena, n%condition_index, visitor, is_preorder)
             if (allocated(n%then_body_indices)) then
                 do i = 1, size(n%then_body_indices)
-                    call traverse_preorder(arena, n%then_body_indices(i), visitor)
+                    call traverse_node(arena, n%then_body_indices(i), visitor, is_preorder)
                 end do
             end if
             if (allocated(n%else_body_indices)) then
                 do i = 1, size(n%else_body_indices)
-                    call traverse_preorder(arena, n%else_body_indices(i), visitor)
+                    call traverse_node(arena, n%else_body_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (do_loop_node)
-            call traverse_preorder(arena, n%start_expr_index, visitor)
-            call traverse_preorder(arena, n%end_expr_index, visitor)
+            call traverse_node(arena, n%start_expr_index, visitor, is_preorder)
+            call traverse_node(arena, n%end_expr_index, visitor, is_preorder)
             if (n%step_expr_index > 0) then
-                call traverse_preorder(arena, n%step_expr_index, visitor)
+                call traverse_node(arena, n%step_expr_index, visitor, is_preorder)
             end if
             if (allocated(n%body_indices)) then
                 do i = 1, size(n%body_indices)
-                    call traverse_preorder(arena, n%body_indices(i), visitor)
+                    call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (do_while_node)
-            call traverse_preorder(arena, n%condition_index, visitor)
+            call traverse_node(arena, n%condition_index, visitor, is_preorder)
             if (allocated(n%body_indices)) then
                 do i = 1, size(n%body_indices)
-                    call traverse_preorder(arena, n%body_indices(i), visitor)
+                    call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (select_case_node)
-            call traverse_preorder(arena, n%selector_index, visitor)
+            call traverse_node(arena, n%selector_index, visitor, is_preorder)
             if (allocated(n%case_indices)) then
                 do i = 1, size(n%case_indices)
-                    call traverse_preorder(arena, n%case_indices(i), visitor)
+                    call traverse_node(arena, n%case_indices(i), visitor, is_preorder)
                 end do
             end if
             if (n%default_index > 0) then
-                call traverse_preorder(arena, n%default_index, visitor)
+                call traverse_node(arena, n%default_index, visitor, is_preorder)
             end if
             
         type is (module_node)
             if (allocated(n%declaration_indices)) then
                 do i = 1, size(n%declaration_indices)
-                    call traverse_preorder(arena, n%declaration_indices(i), visitor)
+                    call traverse_node(arena, n%declaration_indices(i), visitor, is_preorder)
                 end do
             end if
             if (allocated(n%procedure_indices)) then
                 do i = 1, size(n%procedure_indices)
-                    call traverse_preorder(arena, n%procedure_indices(i), visitor)
+                    call traverse_node(arena, n%procedure_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (derived_type_node)
             if (allocated(n%component_indices)) then
                 do i = 1, size(n%component_indices)
-                    call traverse_preorder(arena, n%component_indices(i), visitor)
+                    call traverse_node(arena, n%component_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (interface_block_node)
             if (allocated(n%procedure_indices)) then
                 do i = 1, size(n%procedure_indices)
-                    call traverse_preorder(arena, n%procedure_indices(i), visitor)
+                    call traverse_node(arena, n%procedure_indices(i), visitor, is_preorder)
                 end do
             end if
             
         type is (print_statement_node)
             if (allocated(n%expression_indices)) then
                 do i = 1, size(n%expression_indices)
-                    call traverse_preorder(arena, n%expression_indices(i), visitor)
+                    call traverse_node(arena, n%expression_indices(i), visitor, is_preorder)
                 end do
             end if
         end select
-    end subroutine traverse_children_preorder
+    end subroutine traverse_children
     
-    ! Post-order traversal of children (same structure, different order)
-    subroutine traverse_children_postorder(arena, node, visitor)
+    ! Helper to traverse a single node
+    recursive subroutine traverse_node(arena, node_index, visitor, is_preorder)
         type(ast_arena_t), intent(in) :: arena
-        class(ast_node), intent(in) :: node
+        integer, intent(in) :: node_index
         class(ast_visitor_t), intent(inout) :: visitor
-        integer :: i
+        logical, intent(in) :: is_preorder
         
-        select type (n => node)
-        type is (program_node)
-            if (allocated(n%body_indices)) then
-                do i = 1, size(n%body_indices)
-                    call traverse_postorder(arena, n%body_indices(i), visitor)
-                end do
-            end if
-            
-        type is (assignment_node)
-            call traverse_postorder(arena, n%target_index, visitor)
-            call traverse_postorder(arena, n%value_index, visitor)
-            
-        type is (binary_op_node)
-            call traverse_postorder(arena, n%left_index, visitor)
-            call traverse_postorder(arena, n%right_index, visitor)
-            
-        type is (function_def_node)
-            if (allocated(n%param_indices)) then
-                do i = 1, size(n%param_indices)
-                    call traverse_postorder(arena, n%param_indices(i), visitor)
-                end do
-            end if
-            if (allocated(n%body_indices)) then
-                do i = 1, size(n%body_indices)
-                    call traverse_postorder(arena, n%body_indices(i), visitor)
-                end do
-            end if
-            
-        type is (subroutine_def_node)
-            if (allocated(n%param_indices)) then
-                do i = 1, size(n%param_indices)
-                    call traverse_postorder(arena, n%param_indices(i), visitor)
-                end do
-            end if
-            if (allocated(n%body_indices)) then
-                do i = 1, size(n%body_indices)
-                    call traverse_postorder(arena, n%body_indices(i), visitor)
-                end do
-            end if
-            
-        type is (call_or_subscript_node)
-            if (allocated(n%arg_indices)) then
-                do i = 1, size(n%arg_indices)
-                    call traverse_postorder(arena, n%arg_indices(i), visitor)
-                end do
-            end if
-            
-        type is (subroutine_call_node)
-            if (allocated(n%arg_indices)) then
-                do i = 1, size(n%arg_indices)
-                    call traverse_postorder(arena, n%arg_indices(i), visitor)
-                end do
-            end if
-            
-        type is (if_node)
-            call traverse_postorder(arena, n%condition_index, visitor)
-            if (allocated(n%then_body_indices)) then
-                do i = 1, size(n%then_body_indices)
-                    call traverse_postorder(arena, n%then_body_indices(i), visitor)
-                end do
-            end if
-            if (allocated(n%else_body_indices)) then
-                do i = 1, size(n%else_body_indices)
-                    call traverse_postorder(arena, n%else_body_indices(i), visitor)
-                end do
-            end if
-            
-        type is (do_loop_node)
-            call traverse_postorder(arena, n%start_expr_index, visitor)
-            call traverse_postorder(arena, n%end_expr_index, visitor)
-            if (n%step_expr_index > 0) then
-                call traverse_postorder(arena, n%step_expr_index, visitor)
-            end if
-            if (allocated(n%body_indices)) then
-                do i = 1, size(n%body_indices)
-                    call traverse_postorder(arena, n%body_indices(i), visitor)
-                end do
-            end if
-            
-        type is (do_while_node)
-            call traverse_postorder(arena, n%condition_index, visitor)
-            if (allocated(n%body_indices)) then
-                do i = 1, size(n%body_indices)
-                    call traverse_postorder(arena, n%body_indices(i), visitor)
-                end do
-            end if
-            
-        type is (select_case_node)
-            call traverse_postorder(arena, n%selector_index, visitor)
-            if (allocated(n%case_indices)) then
-                do i = 1, size(n%case_indices)
-                    call traverse_postorder(arena, n%case_indices(i), visitor)
-                end do
-            end if
-            if (n%default_index > 0) then
-                call traverse_postorder(arena, n%default_index, visitor)
-            end if
-            
-        type is (module_node)
-            if (allocated(n%declaration_indices)) then
-                do i = 1, size(n%declaration_indices)
-                    call traverse_postorder(arena, n%declaration_indices(i), visitor)
-                end do
-            end if
-            if (allocated(n%procedure_indices)) then
-                do i = 1, size(n%procedure_indices)
-                    call traverse_postorder(arena, n%procedure_indices(i), visitor)
-                end do
-            end if
-            
-        type is (derived_type_node)
-            if (allocated(n%component_indices)) then
-                do i = 1, size(n%component_indices)
-                    call traverse_postorder(arena, n%component_indices(i), visitor)
-                end do
-            end if
-            
-        type is (interface_block_node)
-            if (allocated(n%procedure_indices)) then
-                do i = 1, size(n%procedure_indices)
-                    call traverse_postorder(arena, n%procedure_indices(i), visitor)
-                end do
-            end if
-            
-        type is (print_statement_node)
-            if (allocated(n%expression_indices)) then
-                do i = 1, size(n%expression_indices)
-                    call traverse_postorder(arena, n%expression_indices(i), visitor)
-                end do
-            end if
-        end select
-    end subroutine traverse_children_postorder
+        if (is_preorder) then
+            call traverse_preorder(arena, node_index, visitor)
+        else
+            call traverse_postorder(arena, node_index, visitor)
+        end if
+    end subroutine traverse_node
     
-    ! Node type checking functions
+    ! Node type checking functions with consistent formatting
     function is_program_node(arena, index) result(is_program)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
@@ -445,11 +320,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_function_def
-                
+        
         is_function_def = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (function_def_node)
@@ -461,11 +335,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_subroutine_def
-                
+        
         is_subroutine_def = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (subroutine_def_node)
@@ -477,11 +350,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_identifier
-                
+        
         is_identifier = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (identifier_node)
@@ -493,11 +365,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_literal
-                
+        
         is_literal = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (literal_node)
@@ -509,11 +380,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_declaration
-                
+        
         is_declaration = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (declaration_node)
@@ -525,11 +395,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_if
-                
+        
         is_if = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (if_node)
@@ -541,11 +410,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_do_loop
-                
+        
         is_do_loop = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (do_loop_node)
@@ -557,11 +425,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_do_while
-                
+        
         is_do_while = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (do_while_node)
@@ -573,11 +440,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_call_or_subscript
-                
+        
         is_call_or_subscript = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (call_or_subscript_node)
@@ -589,11 +455,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_subroutine_call
-                
+        
         is_subroutine_call = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (subroutine_call_node)
@@ -605,11 +470,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_print_statement
-                
+        
         is_print_statement = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (print_statement_node)
@@ -621,11 +485,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_use_statement
-                
+        
         is_use_statement = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (use_statement_node)
@@ -637,11 +500,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_select_case
-                
+        
         is_select_case = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (select_case_node)
@@ -653,11 +515,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_derived_type
-                
+        
         is_derived_type = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (derived_type_node)
@@ -669,11 +530,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_module
-                
+        
         is_module = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (module_node)
@@ -685,11 +545,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         logical :: is_interface_block
-                
+        
         is_interface_block = .false.
         if (index <= 0 .or. index > arena%size) return
-        
-                if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. allocated(arena%entries(index)%node)) return
         
         select type (n => arena%entries(index)%node)
         type is (interface_block_node)
