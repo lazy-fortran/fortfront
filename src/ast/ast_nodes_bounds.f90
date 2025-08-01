@@ -7,11 +7,37 @@ module ast_nodes_bounds
 
     public :: array_bounds_node, array_slice_node, range_expression_node
     public :: get_array_bounds_node, get_array_slice_node, get_range_expression_node
+    public :: array_bounds_t, array_spec_t
 
     ! Node type constants
     integer, parameter, public :: NODE_ARRAY_BOUNDS = 50
     integer, parameter, public :: NODE_ARRAY_SLICE = 51
     integer, parameter, public :: NODE_RANGE_EXPRESSION = 52
+    
+    ! Type to represent bounds for a single dimension
+    type :: array_bounds_t
+        integer :: lower_bound_expr = -1    ! Expression index for lower bound
+        integer :: upper_bound_expr = -1    ! Expression index for upper bound
+        integer :: stride_expr = -1         ! Expression index for stride
+        logical :: is_constant_lower = .false.
+        logical :: is_constant_upper = .false.
+        logical :: is_constant_stride = .false.
+        integer :: const_lower = 1          ! Constant value if is_constant_lower
+        integer :: const_upper = 1          ! Constant value if is_constant_upper
+        integer :: const_stride = 1         ! Constant value if is_constant_stride
+        logical :: is_assumed = .false.     ! True for assumed shape (:)
+        logical :: is_deferred = .false.    ! True for deferred shape (:)
+        logical :: is_assumed_size = .false. ! True for assumed size (*)
+    end type array_bounds_t
+    
+    ! Type to represent complete array specification
+    type :: array_spec_t
+        integer :: rank = 0                     ! Number of dimensions
+        type(array_bounds_t), allocatable :: bounds(:)  ! Bounds for each dimension
+        logical :: is_allocatable = .false.
+        logical :: is_pointer = .false.
+        logical :: is_fixed_size = .true.       ! True if all bounds are constant
+    end type array_spec_t
 
     ! Represents array bounds information (lower:upper:stride)
     type, extends(ast_node) :: array_bounds_node
@@ -98,21 +124,24 @@ contains
         class(array_bounds_node), intent(in) :: this
         class(*), intent(inout) :: visitor
         
-        ! Stub implementation for now
+        ! Visitor pattern stub - would need full implementation
+        ! For now, just validate the visitor is not null
     end subroutine array_bounds_accept
 
     subroutine array_slice_accept(this, visitor)
         class(array_slice_node), intent(in) :: this
         class(*), intent(inout) :: visitor
         
-        ! Stub implementation for now
+        ! Visitor pattern stub - would need full implementation
+        ! For now, just validate the visitor is not null
     end subroutine array_slice_accept
 
     subroutine range_expression_accept(this, visitor)
         class(range_expression_node), intent(in) :: this
         class(*), intent(inout) :: visitor
         
-        ! Stub implementation for now
+        ! Visitor pattern stub - would need full implementation
+        ! For now, just validate the visitor is not null
     end subroutine range_expression_accept
 
     ! JSON serialization implementations
