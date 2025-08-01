@@ -63,21 +63,27 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Architectural Impact**: Significant AST node additions
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #28 - Add bounds information to array operations
+### ✅ #28 - Add bounds information to array operations
 **Priority: Medium** | **Impact: AST Design** | **Effort: High**
+- **Status**: ✅ **COMPLETED** - Array bounds information added to AST nodes (PR #46)
 - **Description**: Track array bounds for safety and optimization
 - **Architectural Impact**: Fundamental for array analysis
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #27 - Add allocatable and pointer attribute propagation in expressions
+### ✅ #27 - Add allocatable and pointer attribute propagation in expressions
 **Priority: Medium** | **Impact: AST Design** | **Effort: Medium**
+- **Status**: ✅ **COMPLETED** - Allocatable and pointer attribute propagation implemented (PR #47)
 - **Description**: Track memory attributes through expressions
 - **Architectural Impact**: Critical for memory management
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ## 🟡 Medium-Impact AST Node Improvements
 
-### #22 - Add explicit array section/slice AST nodes
+### ✅ #22 - Add explicit array section/slice AST nodes
 **Priority: Medium** | **Impact: AST Design** | **Effort: Medium**
+- **Status**: ✅ **COMPLETED** - Array slice nodes already implemented, fixed stride parsing
 - **Description**: Dedicated nodes for array slicing operations
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### #21 - Disambiguate array indexing from function calls in call_or_subscript_node
 **Priority: Medium** | **Impact: AST Design** | **Effort: Medium**
@@ -177,4 +183,4 @@ This document lists all open GitHub issues prioritized by architectural impact a
 #11 (arena methods) → foundational
 ```
 
-Total Issues: 25 open issues requiring attention.
+Total Issues: 16 open issues requiring attention.
