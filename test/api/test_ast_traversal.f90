@@ -17,6 +17,7 @@ program test_ast_traversal
     if (.not. test_postorder_traversal()) all_tests_passed = .false.
     if (.not. test_node_type_checking()) all_tests_passed = .false.
     if (.not. test_visitor_pattern()) all_tests_passed = .false.
+    if (.not. test_traverse_ast_main()) all_tests_passed = .false.
     
     print *
     if (all_tests_passed) then
@@ -197,5 +198,54 @@ contains
         end if
         
     end function test_visitor_pattern
+    
+    logical function test_traverse_ast_main()
+        character(len=*), parameter :: source = &
+            "module test_mod" // new_line('A') // &
+            "    implicit none" // new_line('A') // &
+            "contains" // new_line('A') // &
+            "    subroutine sub1()" // new_line('A') // &
+            "        call sub2()" // new_line('A') // &
+            "    end subroutine sub1" // new_line('A') // &
+            "    subroutine sub2()" // new_line('A') // &
+            "        integer :: i" // new_line('A') // &
+            "        do i = 1, 10" // new_line('A') // &
+            "            print *, i" // new_line('A') // &
+            "        end do" // new_line('A') // &
+            "    end subroutine sub2" // new_line('A') // &
+            "end module test_mod"
+        
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        integer :: prog_index
+        character(len=:), allocatable :: error_msg
+        type(debug_visitor_t) :: visitor
+        
+        test_traverse_ast_main = .true.
+        print *, "Testing traverse_ast main function..."
+        
+        call lex_source(source, tokens, error_msg)
+        arena = create_ast_arena()
+        call parse_tokens(tokens, arena, prog_index, error_msg)
+        
+        visitor = debug_visitor_t()
+        ! Test the main traverse_ast function (which delegates to preorder)
+        call traverse_ast_visitor(arena, prog_index, visitor)
+        
+        if (allocated(visitor%output)) then
+            ! Check for module and subroutines
+            if (index(visitor%output, "module") > 0 .and. &
+                index(visitor%output, "subroutine_def") > 0) then
+                print *, "  PASS: traverse_ast function working"
+            else
+                print *, "  FAIL: traverse_ast didn't visit expected nodes"
+                test_traverse_ast_main = .false.
+            end if
+        else
+            print *, "  FAIL: traverse_ast produced no output"
+            test_traverse_ast_main = .false.
+        end if
+        
+    end function test_traverse_ast_main
     
 end program test_ast_traversal
