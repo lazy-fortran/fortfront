@@ -570,6 +570,222 @@ contains
         end if
     end function get_node_as_function_def
     
+    ! ===== TYPE-SAFE ACCESSOR FUNCTIONS =====
+    ! These functions provide safe access to node fields without exposing internal structure
+    
+    ! Assignment node accessors
+    function get_assignment_indices(arena, node_index, target_index, value_index, operator) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, intent(out) :: target_index, value_index
+        character(len=:), allocatable, intent(out) :: operator
+        logical :: found
+        
+        found = .false.
+        target_index = 0
+        value_index = 0
+        if (allocated(operator)) deallocate(operator)
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (assignment_node)
+                    target_index = node%target_index
+                    value_index = node%value_index
+                    if (allocated(node%operator)) then
+                        operator = node%operator
+                    else
+                        operator = "="
+                    end if
+                    found = .true.
+                end select
+            end if
+        end if
+    end function get_assignment_indices
+    
+    ! Binary operation accessors
+    function get_binary_op_info(arena, node_index, left_index, right_index, operator) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, intent(out) :: left_index, right_index
+        character(len=:), allocatable, intent(out) :: operator
+        logical :: found
+        
+        found = .false.
+        left_index = 0
+        right_index = 0
+        if (allocated(operator)) deallocate(operator)
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (binary_op_node)
+                    left_index = node%left_index
+                    right_index = node%right_index
+                    if (allocated(node%operator)) then
+                        operator = node%operator
+                    else
+                        operator = "unknown"
+                    end if
+                    found = .true.
+                end select
+            end if
+        end if
+    end function get_binary_op_info
+    
+    ! Identifier accessors
+    function get_identifier_name(arena, node_index, name) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+        logical :: found
+        
+        found = .false.
+        if (allocated(name)) deallocate(name)
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (identifier_node)
+                    if (allocated(node%name)) then
+                        name = node%name
+                        found = .true.
+                    end if
+                end select
+            end if
+        end if
+    end function get_identifier_name
+    
+    ! Literal accessors
+    function get_literal_value(arena, node_index, value, literal_type) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: value, literal_type
+        logical :: found
+        
+        found = .false.
+        if (allocated(value)) deallocate(value)
+        if (allocated(literal_type)) deallocate(literal_type)
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (literal_node)
+                    if (allocated(node%value)) then
+                        value = node%value
+                    else
+                        value = ""
+                    end if
+                    if (allocated(node%literal_type)) then
+                        literal_type = node%literal_type
+                    else
+                        literal_type = "unknown"
+                    end if
+                    found = .true.
+                end select
+            end if
+        end if
+    end function get_literal_value
+    
+    ! Function/array call accessors
+    function get_call_info(arena, node_index, name, arg_indices) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+        integer, allocatable, intent(out) :: arg_indices(:)
+        logical :: found
+        
+        found = .false.
+        if (allocated(name)) deallocate(name)
+        if (allocated(arg_indices)) deallocate(arg_indices)
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (call_or_subscript_node)
+                    if (allocated(node%name)) then
+                        name = node%name
+                    else
+                        name = ""
+                    end if
+                    if (allocated(node%arg_indices)) then
+                        allocate(arg_indices(size(node%arg_indices)))
+                        arg_indices = node%arg_indices
+                    else
+                        allocate(arg_indices(0))
+                    end if
+                    found = .true.
+                end select
+            end if
+        end if
+    end function get_call_info
+    
+    ! Array literal accessors
+    function get_array_literal_info(arena, node_index, element_indices, element_type) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, allocatable, intent(out) :: element_indices(:)
+        character(len=:), allocatable, intent(out) :: element_type
+        logical :: found
+        
+        found = .false.
+        if (allocated(element_indices)) deallocate(element_indices)
+        if (allocated(element_type)) deallocate(element_type)
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (array_literal_node)
+                    if (allocated(node%element_indices)) then
+                        allocate(element_indices(size(node%element_indices)))
+                        element_indices = node%element_indices
+                    else
+                        allocate(element_indices(0))
+                    end if
+                    if (allocated(node%element_type)) then
+                        element_type = node%element_type
+                    else
+                        element_type = "unknown"
+                    end if
+                    found = .true.
+                end select
+            end if
+        end if
+    end function get_array_literal_info
+    
+    ! Program node accessors
+    function get_program_info(arena, node_index, name, body_indices) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+        integer, allocatable, intent(out) :: body_indices(:)
+        logical :: found
+        
+        found = .false.
+        if (allocated(name)) deallocate(name)
+        if (allocated(body_indices)) deallocate(body_indices)
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (program_node)
+                    if (allocated(node%name)) then
+                        name = node%name
+                    else
+                        name = ""
+                    end if
+                    if (allocated(node%body_indices)) then
+                        allocate(body_indices(size(node%body_indices)))
+                        body_indices = node%body_indices
+                    else
+                        allocate(body_indices(0))
+                    end if
+                    found = .true.
+                end select
+            end if
+        end if
+    end function get_program_info
+    
     ! Symbol lookup
     function lookup_symbol(ctx, name, scope_node_index) result(symbol)
         type(semantic_context_t), intent(in) :: ctx
