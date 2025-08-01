@@ -119,63 +119,69 @@ contains
         end if
 
         ! Check for attributes like allocatable (e.g., "real, allocatable :: arr")
-        var_token = parser%peek()
-        if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
-            ! Consume ','
-            var_token = parser%consume()
-
-            ! Parse attribute (handle allocatable and intent)
+        ! Parse multiple attributes separated by commas
+        do while (.not. parser%is_at_end())
             var_token = parser%peek()
-            if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "allocatable") then
-                is_allocatable = .true.
+            if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
+                ! Consume ','
                 var_token = parser%consume()
-            else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "pointer") then
-                is_pointer = .true.
-                var_token = parser%consume()
-            else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "target") then
-                is_target = .true.
-                var_token = parser%consume()
-            else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "intent") then
-                has_intent = .true.
-                var_token = parser%consume()  ! consume 'intent'
-                
-                ! Parse intent specification (in|out|inout) - simplified version  
+
+                ! Parse attribute (handle allocatable, pointer, target, and intent)
                 var_token = parser%peek()
-                if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                    var_token = parser%consume()  ! consume '('
+                if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "allocatable") then
+                    is_allocatable = .true.
+                    var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "pointer") then
+                    is_pointer = .true.
+                    var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "target") then
+                    is_target = .true.
+                    var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "intent") then
+                    has_intent = .true.
+                    var_token = parser%consume()  ! consume 'intent'
                     
+                    ! Parse intent specification (in|out|inout) - simplified version  
                     var_token = parser%peek()
-                    if (var_token%kind == TK_IDENTIFIER) then
-                        intent = var_token%text
-                        var_token = parser%consume()  ! consume intent value
-                    end if
-                    
-                    var_token = parser%peek()
-                    if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
-                        var_token = parser%consume()  ! consume ')'
-                    end if
-                end if
-            else
-                ! Unknown attribute - consume it and handle complex attributes like intent(out)
-                var_token = parser%consume()
-                
-                ! If next token is '(', consume until we find matching ')'
-                var_token = parser%peek()
-                if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                    var_token = parser%consume()  ! consume '('
-                    
-                    ! Consume tokens until we find ')'
-                    do while (.not. parser%is_at_end())
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_IDENTIFIER) then
+                            intent = var_token%text
+                            var_token = parser%consume()  ! consume intent value
+                        end if
+                        
                         var_token = parser%peek()
                         if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
                             var_token = parser%consume()  ! consume ')'
-                            exit
                         end if
-                        var_token = parser%consume()  ! consume whatever token
-                    end do
+                    end if
+                else
+                    ! Unknown attribute - consume it and handle complex attributes like intent(out)
+                    var_token = parser%consume()
+                    
+                    ! If next token is '(', consume until we find matching ')'
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        ! Consume tokens until we find ')'
+                        do while (.not. parser%is_at_end())
+                            var_token = parser%peek()
+                            if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                                var_token = parser%consume()  ! consume ')'
+                                exit
+                            end if
+                            var_token = parser%consume()  ! consume whatever token
+                        end do
+                    end if
                 end if
+            else
+                ! No more attributes
+                exit
             end if
-        end if
+        end do
 
         ! Consume ::
         var_token = parser%peek()
@@ -592,61 +598,69 @@ contains
         end if
 
         ! Check for attributes like allocatable
-        var_token = parser%peek()
-        if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
-            ! Consume ','
-            var_token = parser%consume()
-
-            ! Parse attribute
+        ! Parse multiple attributes separated by commas
+        do while (.not. parser%is_at_end())
             var_token = parser%peek()
-            if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "allocatable") then
-                is_allocatable = .true.
+            if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
+                ! Consume ','
                 var_token = parser%consume()
-            else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "pointer") then
-                is_pointer = .true.
-                var_token = parser%consume()
-            else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "target") then
-                is_target = .true.
-                var_token = parser%consume()
-            else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "intent") then
-                var_token = parser%consume()  ! consume 'intent'
-                
-                ! Parse intent specification (in|out|inout) - simplified version
+
+                ! Parse attribute
                 var_token = parser%peek()
-                if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                    var_token = parser%consume()  ! consume '('
+                if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "allocatable") then
+                    is_allocatable = .true.
+                    var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "pointer") then
+                    is_pointer = .true.
+                    var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "target") then
+                    is_target = .true.
+                    var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "intent") then
+                    has_intent = .true.
+                    var_token = parser%consume()  ! consume 'intent'
                     
+                    ! Parse intent specification (in|out|inout) - simplified version
                     var_token = parser%peek()
-                    if (var_token%kind == TK_IDENTIFIER) then
-                        var_token = parser%consume()  ! consume intent value
-                    end if
-                    
-                    var_token = parser%peek()
-                    if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
-                        var_token = parser%consume()  ! consume ')'
-                    end if
-                end if
-            else
-                ! Unknown attribute - consume it and handle complex attributes like intent(out)
-                var_token = parser%consume()
-                
-                ! If next token is '(', consume until we find matching ')'
-                var_token = parser%peek()
-                if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                    var_token = parser%consume()  ! consume '('
-                    
-                    ! Consume tokens until we find ')'
-                    do while (.not. parser%is_at_end())
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_IDENTIFIER) then
+                            intent = var_token%text
+                            var_token = parser%consume()  ! consume intent value
+                        end if
+                        
                         var_token = parser%peek()
                         if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
                             var_token = parser%consume()  ! consume ')'
-                            exit
                         end if
-                        var_token = parser%consume()  ! consume whatever token
-                    end do
+                    end if
+                else
+                    ! Unknown attribute - consume it and handle complex attributes like intent(out)
+                    var_token = parser%consume()
+                    
+                    ! If next token is '(', consume until we find matching ')'
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        ! Consume tokens until we find ')'
+                        do while (.not. parser%is_at_end())
+                            var_token = parser%peek()
+                            if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                                var_token = parser%consume()  ! consume ')'
+                                exit
+                            end if
+                            var_token = parser%consume()  ! consume whatever token
+                        end do
+                    end if
                 end if
+            else
+                ! No more attributes
+                exit
             end if
-        end if
+        end do
 
         ! Consume ::
         var_token = parser%peek()
