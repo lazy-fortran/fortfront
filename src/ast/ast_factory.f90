@@ -555,6 +555,37 @@ contains
         type(forall_node) :: forall_stmt
         integer :: i
 
+        ! Validate required indices
+        if (start_index <= 0 .or. start_index > arena%size) then
+            error stop "Invalid start index in push_forall"
+        end if
+        if (end_index <= 0 .or. end_index > arena%size) then
+            error stop "Invalid end index in push_forall"
+        end if
+
+        ! Validate optional step index
+        if (present(step_index)) then
+            if (step_index > 0 .and. step_index > arena%size) then
+                error stop "Invalid step index in push_forall"
+            end if
+        end if
+
+        ! Validate optional mask index
+        if (present(mask_index)) then
+            if (mask_index > 0 .and. mask_index > arena%size) then
+                error stop "Invalid mask index in push_forall"
+            end if
+        end if
+
+        ! Validate body indices
+        if (present(body_indices)) then
+            do i = 1, size(body_indices)
+                if (body_indices(i) <= 0 .or. body_indices(i) > arena%size) then
+                    error stop "Invalid body index in push_forall"
+                end if
+            end do
+        end if
+
         ! For simple single-index FORALL, use first element of arrays
         forall_stmt%num_indices = 1
         allocate(character(len=len(index_var)) :: forall_stmt%index_names(1))
@@ -565,13 +596,8 @@ contains
         allocate(forall_stmt%upper_bound_indices(1))
         allocate(forall_stmt%stride_indices(1))
         
-        if (start_index > 0 .and. start_index <= arena%size) then
-            forall_stmt%lower_bound_indices(1) = start_index
-        end if
-
-        if (end_index > 0 .and. end_index <= arena%size) then
-            forall_stmt%upper_bound_indices(1) = end_index
-        end if
+        forall_stmt%lower_bound_indices(1) = start_index
+        forall_stmt%upper_bound_indices(1) = end_index
 
         ! Set optional step expression index
         if (present(step_index)) then
@@ -1105,6 +1131,30 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: where_index
         type(where_node) :: where_stmt
+        integer :: i
+
+        ! Validate mask expression index
+        if (mask_expr_index <= 0 .or. mask_expr_index > arena%size) then
+            error stop "Invalid mask expression index in push_where"
+        end if
+
+        ! Validate where body indices
+        if (present(where_body_indices)) then
+            do i = 1, size(where_body_indices)
+                if (where_body_indices(i) <= 0 .or. where_body_indices(i) > arena%size) then
+                    error stop "Invalid where body index in push_where"
+                end if
+            end do
+        end if
+
+        ! Validate elsewhere body indices
+        if (present(elsewhere_body_indices)) then
+            do i = 1, size(elsewhere_body_indices)
+                if (elsewhere_body_indices(i) <= 0 .or. elsewhere_body_indices(i) > arena%size) then
+                    error stop "Invalid elsewhere body index in push_where"
+                end if
+            end do
+        end if
 
         where_stmt = create_where(mask_expr_index=mask_expr_index, &
                                   where_body_indices=where_body_indices, &
