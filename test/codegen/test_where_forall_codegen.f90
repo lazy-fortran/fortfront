@@ -143,12 +143,9 @@ contains
         if (index(code, "elsewhere (temp < 50)") == 0) then
             error stop "Missing second ELSEWHERE with mask"
         end if
-        ! Count occurrences of "elsewhere"
-        i = 0
-        i = i + merge(1, 0, index(code, "elsewhere (temp < 0)") > 0)
-        i = i + merge(1, 0, index(code, "elsewhere (temp < 50)") > 0)
-        i = i + merge(1, 0, index(code(index(code, "liquid"):), "elsewhere") > 0)
-        if (i < 3) then
+        ! Check for final ELSEWHERE without mask
+        ! Look for "elsewhere" followed by newline and "state = 'liquid'"
+        if (index(code, "elsewhere"//new_line('A')//"state = 'liquid'") == 0) then
             error stop "Missing final ELSEWHERE without mask"
         end if
         
