@@ -89,6 +89,8 @@ contains
             code = generate_code_array_bounds(arena, node, node_index)
         type is (array_slice_node)
             code = generate_code_array_slice(arena, node, node_index)
+        type is (array_operation_node)
+            code = generate_code_array_operation(arena, node, node_index)
         class default
             code = "! Unknown node type"
         end select
@@ -1756,5 +1758,54 @@ contains
         
         code = code // ")"
     end function generate_code_array_slice
+
+    ! Generate code for array operation node
+    function generate_code_array_operation(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_operation_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: left_code, right_code
+        
+        ! Generate code for operands
+        if (node%left_operand_index > 0) then
+            left_code = generate_code_from_arena(arena, node%left_operand_index)
+        else
+            left_code = "? "
+        end if
+        
+        if (node%right_operand_index > 0) then
+            right_code = generate_code_from_arena(arena, node%right_operand_index)
+        else
+            right_code = " ?"
+        end if
+        
+        ! Generate the operation
+        select case (trim(node%operation))
+        case ("=")
+            code = left_code//" = "//right_code
+        case ("+")
+            code = left_code//" + "//right_code
+        case ("-")
+            code = left_code//" - "//right_code
+        case ("*")
+            code = left_code//" * "//right_code
+        case ("/")
+            code = left_code//" / "//right_code
+        case ("**")
+            code = left_code//" ** "//right_code
+        case default
+            code = left_code//" "//trim(node%operation)//" "//right_code
+        end select
+        
+        ! Add bounds checking comments if available
+        if (node%bounds_checked) then
+            code = code//" ! bounds checked"
+        end if
+        
+        if (node%shape_conformant) then
+            code = code//" ! shape conformant"
+        end if
+    end function generate_code_array_operation
 
 end module codegen_core
