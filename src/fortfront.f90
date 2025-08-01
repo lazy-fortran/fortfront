@@ -157,16 +157,12 @@ contains
         
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%node)) then
-                allocate(node, mold=arena%entries(node_index)%node)
-                ! Copy base fields manually
-                node%line = arena%entries(node_index)%node%line
-                node%column = arena%entries(node_index)%node%column
-                ! Don't copy inferred_type to avoid double free issues
-                ! The returned node is mainly for inspection, not modification
-                ! Note: This only copies base ast_node fields. Specific node &
-                ! fields are not copied.
-                ! This function should ideally not be used for copying nodes &
-                ! with complex structures.
+                ! Use source= to create a proper deep copy of the node
+                allocate(node, source=arena%entries(node_index)%node)
+                ! Clear inferred_type to avoid double free issues
+                if (allocated(node%inferred_type)) then
+                    deallocate(node%inferred_type)
+                end if
             end if
         end if
     end function get_node

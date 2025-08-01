@@ -33,5 +33,9 @@ CI tests fail on Windows with exit code -1073740940 (0xC0000374) indicating heap
 **Problem**: No validation of array bounds and indices before operations.
 **Fix**: Added defensive checks for valid indices and circular references.
 
+### 5. Uninitialized Memory in get_node Function
+**Problem**: The get_node function in fortfront.f90 used `allocate(node, mold=...)` which only allocated memory but didn't copy data, leaving derived type fields uninitialized.
+**Fix**: Changed to use `allocate(node, source=...)` for proper deep copy.
+
 ## Status
 **RESOLVED** - All fixes have been implemented and tested successfully.
