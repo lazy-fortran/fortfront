@@ -81,8 +81,9 @@ This document lists all open GitHub issues prioritized by architectural impact a
 
 ### ✅ #22 - Add explicit array section/slice AST nodes
 **Priority: Medium** | **Impact: AST Design** | **Effort: Medium**
-- **Status**: ✅ **COMPLETED** - Array slice nodes already implemented, fixed stride parsing
+- **Status**: ✅ **COMPLETED** - Array slice nodes already implemented, fixed stride parsing (PR #48)
 - **Description**: Dedicated nodes for array slicing operations
+- **Note**: Array slice infrastructure (array_slice_node, array_bounds_node) was already present; this PR fixed stride parsing
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### #21 - Disambiguate array indexing from function calls in call_or_subscript_node

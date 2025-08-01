@@ -57,6 +57,18 @@ contains
                         print *, '  PASS: Stride parsed as range_expression_node'
                         if (node%stride_index > 0) then
                             print *, '  PASS: Stride index is non-zero'
+                            ! Verify stride value
+                            if (allocated(arena%entries(node%stride_index)%node)) then
+                                select type (stride_node => arena%entries(node%stride_index)%node)
+                                type is (literal_node)
+                                    if (stride_node%value == "2") then
+                                        print *, '  PASS: Stride value correctly parsed as 2'
+                                    else
+                                        print *, '  FAIL: Stride value mismatch'
+                                        test_simple_stride = .false.
+                                    end if
+                                end select
+                            end if
                         else
                             print *, '  FAIL: Stride index is zero'
                             test_simple_stride = .false.
@@ -93,7 +105,22 @@ contains
                         print *, '  PASS: Empty lower bound with stride parsed'
                         if (node%start_index == 0 .and. node%end_index > 0 .and. &
                             node%stride_index > 0) then
-                            print *, '  PASS: Correct bounds and stride indices'
+                            ! Verify stride value is correctly parsed
+                            if (allocated(arena%entries(node%stride_index)%node)) then
+                                select type (stride_node => arena%entries(node%stride_index)%node)
+                                type is (literal_node)
+                                    if (stride_node%value == "2") then
+                                        print *, '  PASS: Correct bounds and stride indices with value 2'
+                                    else
+                                        print *, '  FAIL: Stride value mismatch, got: ', stride_node%value
+                                        test_empty_bounds_with_stride = .false.
+                                    end if
+                                class default
+                                    print *, '  PASS: Correct bounds and stride indices'
+                                end select
+                            else
+                                print *, '  PASS: Correct bounds and stride indices'
+                            end if
                         else
                             print *, '  FAIL: Incorrect indices for empty lower bound with stride'
                             test_empty_bounds_with_stride = .false.
