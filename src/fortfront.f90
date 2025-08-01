@@ -890,8 +890,6 @@ contains
                     
                     ! Parameter values - simplified for now (would need initializer access)
                     allocate(character(len=1) :: values(0))
-                    
-                    
                     ! Get type specification
                     if (allocated(node%type_name)) then
                         type_spec = node%type_name
