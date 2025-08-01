@@ -354,8 +354,10 @@ contains
         ! For backward compatibility, treat simple elsewhere as final elsewhere
         if (present(elsewhere_body_indices)) then
             if (size(elsewhere_body_indices) > 0) then
-                node%has_final_elsewhere = .true.
-                node%final_elsewhere_body_indices = elsewhere_body_indices
+                ! Create a single elsewhere clause without mask
+                allocate(node%elsewhere_clauses(1))
+                node%elsewhere_clauses(1)%mask_index = 0
+                node%elsewhere_clauses(1)%body_indices = elsewhere_body_indices
             end if
         end if
         
