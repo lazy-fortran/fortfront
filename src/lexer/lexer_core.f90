@@ -472,6 +472,45 @@ contains
                 end if
             end if
 
+            ! Check for .eqv. and .neqv. (5 and 6 characters)
+            if (remaining >= 6) then
+                if (source(pos:pos + 5) == ".neqv.") then
+                    ! Found .neqv.
+                    pos = pos + 6
+                    col_num = col_num + 6
+                    word = ".neqv."
+
+                    token_count = token_count + 1
+                    if (token_count > size(tokens)) then
+                        call resize_tokens(tokens)
+                    end if
+                    tokens(token_count)%kind = TK_OPERATOR
+                    tokens(token_count)%text = word
+                    tokens(token_count)%line = line_num
+                    tokens(token_count)%column = start_col
+                    return
+                end if
+            end if
+
+            if (remaining >= 5) then
+                if (source(pos:pos + 4) == ".eqv.") then
+                    ! Found .eqv.
+                    pos = pos + 5
+                    col_num = col_num + 5
+                    word = ".eqv."
+
+                    token_count = token_count + 1
+                    if (token_count > size(tokens)) then
+                        call resize_tokens(tokens)
+                    end if
+                    tokens(token_count)%kind = TK_OPERATOR
+                    tokens(token_count)%text = word
+                    tokens(token_count)%line = line_num
+                    tokens(token_count)%column = start_col
+                    return
+                end if
+            end if
+
             ! Check for .or. (4 characters)
             if (remaining >= 4) then
                 if (source(pos:pos + 3) == ".or.") then
