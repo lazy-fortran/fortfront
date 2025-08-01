@@ -17,6 +17,7 @@ concurrency:
 jobs:
   test-linux:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     
     steps:
     - uses: actions/checkout@v4
@@ -140,6 +141,7 @@ jobs:
 
   test-windows:
     runs-on: windows-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     
     steps:
     - uses: actions/checkout@v4
@@ -195,6 +197,7 @@ jobs:
   test-macos:
     runs-on: macos-13  # Use macos-13 instead of latest to avoid performance issues
     timeout-minutes: 30
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     
     steps:
     - uses: actions/checkout@v4
