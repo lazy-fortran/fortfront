@@ -1824,6 +1824,10 @@ contains
                         end block
                     case ("print")
                         stmt_index = parse_print_statement(parser, arena)
+                    case ("allocate")
+                        stmt_index = parse_allocate_statement(parser, arena)
+                    case ("deallocate")
+                        stmt_index = parse_deallocate_statement(parser, arena)
                     case default
                         ! Skip unknown keywords
                         token = parser%consume()

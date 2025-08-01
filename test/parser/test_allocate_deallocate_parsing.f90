@@ -23,7 +23,7 @@ program test_allocate_deallocate_parsing
     if (all_tests_passed) then
         print *, "All allocate/deallocate parsing tests passed!"
     else
-        print *, "Some tests failed"
+        print *, "Some allocate/deallocate tests failed!"
         stop 1
     end if
 
@@ -63,6 +63,8 @@ contains
             integer, allocatable :: allocate_nodes(:)
             integer :: i
             
+            associate(i => i)
+            end associate
             
             allocate_nodes = find_nodes_by_type(arena, "allocate_statement")
             if (size(allocate_nodes) > 0) then
