@@ -5,6 +5,7 @@ module type_system_hm
 
     ! Public types and interfaces
     public :: type_var_t, mono_type_t, poly_type_t, type_env_t, substitution_t
+    public :: allocation_info_t
     public :: create_type_var, create_mono_type, create_poly_type, create_fun_type
     public :: apply_substitution, compose_substitutions
     public :: occurs_check, free_type_vars
@@ -27,12 +28,22 @@ module type_system_hm
         generic :: assignment(=) => assign
     end type type_var_t
 
+    ! Memory allocation attributes
+    type :: allocation_info_t
+        logical :: is_allocatable = .false.
+        logical :: is_pointer = .false.
+        logical :: is_target = .false.
+        logical :: is_allocated = .false.  ! Known at compile time
+        logical :: needs_allocation_check = .false.
+    end type allocation_info_t
+
     ! Monomorphic type - simplified to avoid circular dependency
     type :: mono_type_t
         integer :: kind  ! TVAR, TINT, TREAL, etc.
         type(type_var_t) :: var  ! for TVAR
         type(mono_type_t), allocatable :: args(:)  ! for TFUN (arg, result), TARRAY (element type)
         integer :: size  ! for TCHAR(len=size), TARRAY(size)
+        type(allocation_info_t) :: alloc_info  ! Memory allocation attributes
     contains
         procedure :: equals => mono_type_equals
         procedure :: to_string => mono_type_to_string
@@ -360,6 +371,7 @@ contains
         ! Copy scalar fields
         lhs%kind = rhs%kind
         lhs%size = rhs%size
+        lhs%alloc_info = rhs%alloc_info  ! Copy allocation attributes
 
         ! Deep copy var field
         lhs%var%id = rhs%var%id

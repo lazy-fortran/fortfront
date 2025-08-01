@@ -205,7 +205,7 @@ contains
     ! Create declaration node and add to stack
   function push_declaration(arena, type_name, var_name, kind_value, &
        dimension_indices, &
-       initializer_index, is_allocatable, is_pointer, intent_value, line, column, &
+       initializer_index, is_allocatable, is_pointer, is_target, intent_value, line, column, &
        parent_index) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name, var_name
@@ -214,6 +214,7 @@ contains
         integer, intent(in), optional :: initializer_index
         logical, intent(in), optional :: is_allocatable
         logical, intent(in), optional :: is_pointer  
+        logical, intent(in), optional :: is_target
         character(len=*), intent(in), optional :: intent_value
         integer, intent(in), optional :: line, column, parent_index
         integer :: decl_index
@@ -257,6 +258,12 @@ contains
         else
             decl%is_pointer = .false.
         end if
+        
+        if (present(is_target)) then
+            decl%is_target = is_target
+        else
+            decl%is_target = .false.
+        end if
 
         if (present(intent_value)) then
             decl%intent = intent_value
@@ -276,7 +283,7 @@ contains
     ! Create multi-variable declaration node and add to stack
     function push_multi_declaration(arena, type_name, var_names, kind_value, &
            dimension_indices, &
-           initializer_index, is_allocatable, is_pointer, intent_value, &
+           initializer_index, is_allocatable, is_pointer, is_target, intent_value, &
            line, column, parent_index) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
@@ -286,6 +293,7 @@ contains
         integer, intent(in), optional :: initializer_index
         logical, intent(in), optional :: is_allocatable
         logical, intent(in), optional :: is_pointer
+        logical, intent(in), optional :: is_target
         character(len=*), intent(in), optional :: intent_value
         integer, intent(in), optional :: line, column, parent_index
         integer :: decl_index
@@ -335,6 +343,12 @@ contains
             decl%is_pointer = is_pointer
         else
             decl%is_pointer = .false.
+        end if
+        
+        if (present(is_target)) then
+            decl%is_target = is_target
+        else
+            decl%is_target = .false.
         end if
 
         if (present(intent_value)) then

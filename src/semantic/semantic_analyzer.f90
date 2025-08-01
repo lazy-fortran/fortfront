@@ -1,7 +1,7 @@
 module semantic_analyzer
     ! Hindley-Milner type inference (Algorithm W) - dialect-agnostic
     use type_system_hm, only: type_env_t, type_var_t, mono_type_t, poly_type_t, &
-                              substitution_t, create_mono_type, create_type_var, &
+                              substitution_t, allocation_info_t, create_mono_type, create_type_var, &
                               create_poly_type, create_fun_type, free_type_vars, &
                               compose_substitutions, occurs_check, &
                               TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
@@ -416,6 +416,18 @@ contains
                 if (is_numeric_type(left_typ) .or. is_numeric_type(right_typ)) then
                     ! Get common type for numeric operations
                     result_typ = get_common_type(left_typ, right_typ)
+                    
+                    ! Propagate allocation attributes from operands
+                    ! Result is allocatable if either operand is allocatable
+                    result_typ%alloc_info%is_allocatable = left_typ%alloc_info%is_allocatable .or. &
+                                                           right_typ%alloc_info%is_allocatable
+                    ! Result involves pointers if either operand is a pointer
+                    result_typ%alloc_info%is_pointer = left_typ%alloc_info%is_pointer .or. &
+                                                       right_typ%alloc_info%is_pointer
+                    ! Result needs allocation check if either operand does
+                    result_typ%alloc_info%needs_allocation_check = &
+                        left_typ%alloc_info%is_allocatable .or. right_typ%alloc_info%is_allocatable .or. &
+                        left_typ%alloc_info%is_pointer .or. right_typ%alloc_info%is_pointer
                 else
                     ! For type variables, unify as before
                     result_typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
@@ -1136,14 +1148,26 @@ contains
             ! Unknown type - use type variable
             typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
         end select
+        
+        ! Set allocation attributes
+        typ%alloc_info%is_allocatable = decl%is_allocatable
+        typ%alloc_info%is_pointer = decl%is_pointer
 
         ! If this is an array declaration, wrap the type in an array type
         if (decl%is_array) then
             block
                 type(mono_type_t), allocatable :: array_args(:)
+                type(allocation_info_t) :: saved_alloc_info
+                
+                ! Save allocation info before wrapping in array type
+                saved_alloc_info = typ%alloc_info
+                
                 allocate (array_args(1))
                 array_args(1) = typ  ! Element type
                 typ = create_mono_type(TARRAY, args=array_args)
+                
+                ! Restore allocation info to the array type
+                typ%alloc_info = saved_alloc_info
                 ! TODO: Set array size from dimension_indices
             end block
         end if
