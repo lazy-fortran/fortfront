@@ -2,21 +2,27 @@
 
 This document lists all open GitHub issues prioritized by architectural impact and implementation complexity.
 
+## ⚠️ Development Workflow Note
+
+**All completed issues must await qodo merge feedback and code coverage analysis before being considered fully closed.** Issues marked as ✅ COMPLETED with ⚠️ PENDING status indicate implementation is done but awaiting final quality review.
+
 ## 🔴 Critical Architectural Issues (Blocking)
 
-### #32 - Removal of get_node() breaks AST traversal - need accessor functions
+### ✅ #32 - Removal of get_node() breaks AST traversal - need accessor functions
 **Priority: URGENT** | **Impact: Architectural** | **Effort: High**
-- **Status**: Blocking all AST traversal and code generation work
+- **Status**: ✅ **COMPLETED** - Comprehensive accessor functions implemented (PR #37)
 - **Description**: Core API removal prevents accessing node-specific fields
 - **Architectural Impact**: Requires fundamental API design decision
-- **Dependencies**: Blocks issues #33, #30, #29, #13
+- **Dependencies**: ✅ Resolved - unblocks issues #33, #30, #29, #13
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### ✅ #33 - Add symbol table and scope information to public API
 **Priority: High** | **Impact: Architectural** | **Effort: High** 
-- **Status**: ✅ **COMPLETED** - Comprehensive symbol table API implemented
+- **Status**: ✅ **COMPLETED** - Comprehensive symbol table API implemented (PR #38)
 - **Description**: Expose semantic analysis results for symbol resolution
 - **Architectural Impact**: Major addition to public API design
 - **Dependencies**: ✅ Depends on #32 resolution
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### #11 - AST Arena Access Methods Are Stub Implementations
 **Priority: High** | **Impact: Architectural** | **Effort: Medium**
