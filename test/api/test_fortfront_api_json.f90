@@ -2,7 +2,7 @@ program test_fortfront_api_json
     ! Test the public API JSON serialization functionality
     use fortfront, only: lex_source, parse_tokens, token_t, &
                         ast_arena_t, create_ast_arena, &
-                        ast_to_json, get_node, ast_node, &
+                        ast_to_json, ast_node, &
                         program_node, assignment_node, identifier_node, &
                         literal_node, LITERAL_INTEGER
     use ast_factory, only: push_program, push_assignment, push_identifier, push_literal

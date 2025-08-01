@@ -87,26 +87,26 @@ contains
             
             ! Verify type information was added
             block
-                class(ast_node), allocatable :: node
                 type(mono_type_t), allocatable :: node_type
                 
-                node = get_node(arena, prog_index)
-                if (allocated(node)) then
-                    select type (node)
-                    type is (program_node)
-                        if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
-                            ! Check if types were inferred
-                            block
-                                logical :: type_found
-                                call get_type_for_node(arena, node%body_indices(1), node_type, type_found)
-                                if (type_found .and. allocated(node_type)) then
-                                    print *, '  Note: Type inference successful'
-                                end if
-                            end block
-                        else
-                            print *, '  Note: Program has no body statements'
-                        end if
-                    end select
+                if (prog_index > 0 .and. prog_index <= arena%size) then
+                    if (allocated(arena%entries(prog_index)%node)) then
+                        select type (node => arena%entries(prog_index)%node)
+                        type is (program_node)
+                            if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
+                                ! Check if types were inferred
+                                block
+                                    logical :: type_found
+                                    call get_type_for_node(arena, node%body_indices(1), node_type, type_found)
+                                    if (type_found .and. allocated(node_type)) then
+                                        print *, '  Note: Type inference successful'
+                                    end if
+                                end block
+                            else
+                                print *, '  Note: Program has no body statements'
+                            end if
+                        end select
+                    end if
                 end if
             end block
             
@@ -169,31 +169,34 @@ contains
             
             ! Navigate through AST
             block
-                class(ast_node), allocatable :: prog_node, stmt_node
-                integer :: parent_idx
+                integer :: parent_idx, stmt_idx, expr_idx
                 
-                prog_node = get_node(arena, prog_index)
-                if (.not. allocated(prog_node)) then
+                if (prog_index <= 0 .or. prog_index > arena%size) then
+                    print *, '  FAIL: Invalid program index'
+                    test_arena_navigation_pipeline = .false.
+                    return
+                end if
+                
+                if (.not. allocated(arena%entries(prog_index)%node)) then
                     print *, '  FAIL: Could not get program node'
                     test_arena_navigation_pipeline = .false.
                     return
                 end if
                 
-                select type (prog_node)
+                select type (prog_node => arena%entries(prog_index)%node)
                 type is (program_node)
                     if (size(prog_node%body_indices) >= 3) then
                         ! Get last statement
-                        stmt_node = get_node(arena, prog_node%body_indices(3))
-                        if (allocated(stmt_node)) then
-                            select type (stmt_node)
-                            type is (assignment_node)
-                                ! Navigate to value expression
-                                if (stmt_node%value_index > 0) then
-                                    block
-                                        class(ast_node), allocatable :: expr_node
-                                        expr_node = get_node(arena, stmt_node%value_index)
-                                        if (allocated(expr_node)) then
-                                            select type (expr_node)
+                        stmt_idx = prog_node%body_indices(3)
+                        if (stmt_idx > 0 .and. stmt_idx <= arena%size) then
+                            if (allocated(arena%entries(stmt_idx)%node)) then
+                                select type (stmt_node => arena%entries(stmt_idx)%node)
+                                type is (assignment_node)
+                                    ! Navigate to value expression
+                                    expr_idx = stmt_node%value_index
+                                    if (expr_idx > 0 .and. expr_idx <= arena%size) then
+                                        if (allocated(arena%entries(expr_idx)%node)) then
+                                            select type (expr_node => arena%entries(expr_idx)%node)
                                             type is (binary_op_node)
                                                 if (expr_node%operator /= '+') then
                                                     print *, '  FAIL: Expected + operator'
@@ -202,9 +205,9 @@ contains
                                                 end if
                                             end select
                                         end if
-                                    end block
-                                end if
-                            end select
+                                    end if
+                                end select
+                            end if
                         end if
                     end if
                 end select
@@ -267,7 +270,6 @@ contains
             integer :: prog_index
             integer :: assignment_count, identifier_count, literal_count, binary_op_count
             integer :: i
-            class(ast_node), allocatable :: node
             
             source = 'do i = 1, 10' // new_line('A') // &
                      '    x(i) = i * i' // new_line('A') // &
@@ -287,9 +289,8 @@ contains
             
             ! Traverse all nodes in arena
             do i = 1, arena%size
-                node = get_node(arena, i)
-                if (allocated(node)) then
-                    select type (node)
+                if (allocated(arena%entries(i)%node)) then
+                    select type (node => arena%entries(i)%node)
                     type is (assignment_node)
                         assignment_count = assignment_count + 1
                     type is (identifier_node)
