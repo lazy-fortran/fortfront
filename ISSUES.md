@@ -11,12 +11,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Architectural Impact**: Requires fundamental API design decision
 - **Dependencies**: Blocks issues #33, #30, #29, #13
 
-### #33 - Add symbol table and scope information to public API
+### ✅ #33 - Add symbol table and scope information to public API
 **Priority: High** | **Impact: Architectural** | **Effort: High** 
-- **Status**: Critical for static analysis tools
+- **Status**: ✅ **COMPLETED** - Comprehensive symbol table API implemented
 - **Description**: Expose semantic analysis results for symbol resolution
 - **Architectural Impact**: Major addition to public API design
-- **Dependencies**: Depends on #32 resolution
+- **Dependencies**: ✅ Depends on #32 resolution
 
 ### #11 - AST Arena Access Methods Are Stub Implementations
 **Priority: High** | **Impact: Architectural** | **Effort: Medium**
