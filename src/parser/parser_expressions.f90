@@ -2,7 +2,9 @@ module parser_expressions_module
     use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
     use ast_core
-    use ast_factory, only: push_binary_op, push_literal, push_identifier, push_call_or_subscript, push_array_literal
+    use ast_factory, only: push_binary_op, push_literal, push_identifier, &
+                           push_call_or_subscript, push_array_literal, &
+                           push_range_expression, push_call_or_subscript_with_slice_detection
     use parser_state_module, only: parser_state_t, create_parser_state
     implicit none
     private
@@ -58,8 +60,8 @@ contains
                 right_index = 0
             end if
 
-            expr_index = push_binary_op(arena, expr_index, right_index, ":", &
-                                        op_token%line, op_token%column)
+            expr_index = push_range_expression(arena, expr_index, right_index, &
+                                              line=op_token%line, column=op_token%column)
             return
         end if
 
@@ -90,8 +92,8 @@ contains
                     right_index = 0
                 end if
 
-                expr_index = push_binary_op(arena, expr_index, right_index, ":", &
-                                            op_token%line, op_token%column)
+                expr_index = push_range_expression(arena, expr_index, right_index, &
+                                                  line=op_token%line, column=op_token%column)
             end if
         end if
     end function parse_range
@@ -336,9 +338,9 @@ contains
                         paren = parser%consume()
                     end if
 
-                    ! Create function call node
+                    ! Create function call node with array slice detection
                     if (allocated(arg_indices)) then
-                        expr_index = push_call_or_subscript(arena, func_name, arg_indices, &
+                        expr_index = push_call_or_subscript_with_slice_detection(arena, func_name, arg_indices, &
                                                            current%line, current%column)
                     else
                         ! For empty args, create empty function call

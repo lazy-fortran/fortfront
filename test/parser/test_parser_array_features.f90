@@ -103,6 +103,9 @@ contains
                             ! The slice 1:3 is parsed as one argument
                             print *, '  INFO: Slice notation parsed (semantic analysis needed)'
                         end if
+                    type is (array_slice_node)
+                        print *, '  PASS: Array slicing parsed as array_slice_node'
+                        print *, '  INFO: Array slice node created with', node%num_dimensions, 'dimensions'
                     class default
                         print *, '  FAIL: Unexpected node type for array slice'
                         test_array_slicing = .false.
@@ -128,6 +131,9 @@ contains
                         else
                             print *, '  INFO: Colon notation parsed with no args'
                         end if
+                    type is (array_slice_node)
+                        print *, '  PASS: Colon notation parsed as array_slice_node'
+                        print *, '  INFO: Array slice node created with', node%num_dimensions, 'dimensions'
                     class default
                         print *, '  INFO: Unexpected node type'
                     end select

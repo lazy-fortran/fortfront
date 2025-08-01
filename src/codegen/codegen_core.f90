@@ -83,6 +83,14 @@ contains
             code = generate_code_module(arena, node, node_index)
         type is (comment_node)
             code = generate_code_comment(node)
+        type is (range_expression_node)
+            code = generate_code_range_expression(arena, node, node_index)
+        type is (array_bounds_node)
+            code = generate_code_array_bounds(arena, node, node_index)
+        type is (array_slice_node)
+            code = generate_code_array_slice(arena, node, node_index)
+        type is (array_operation_node)
+            code = generate_code_array_operation(arena, node, node_index)
         class default
             code = "! Unknown node type"
         end select
@@ -1640,5 +1648,164 @@ contains
         logical, intent(out) :: enabled
         enabled = standardize_types_enabled
     end subroutine get_type_standardization
+
+    ! Generate code for range expression node
+    function generate_code_range_expression(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(range_expression_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: start_code, end_code, stride_code
+        
+        code = ""
+        
+        ! Generate start bound
+        if (node%start_index > 0) then
+            start_code = generate_code_from_arena(arena, node%start_index)
+        else
+            start_code = ""
+        end if
+        
+        ! Generate end bound
+        if (node%end_index > 0) then
+            end_code = generate_code_from_arena(arena, node%end_index)
+        else
+            end_code = ""
+        end if
+        
+        ! Generate stride if present
+        if (node%stride_index > 0) then
+            stride_code = generate_code_from_arena(arena, node%stride_index)
+            code = start_code // ":" // end_code // ":" // stride_code
+        else
+            code = start_code // ":" // end_code
+        end if
+    end function generate_code_range_expression
+
+    ! Generate code for array bounds node
+    function generate_code_array_bounds(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_bounds_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: lower_code, upper_code, stride_code
+        
+        code = ""
+        
+        ! Handle special cases
+        if (node%is_assumed_shape) then
+            code = ":"
+            return
+        else if (node%is_assumed_size) then
+            code = "*"
+            return
+        else if (node%is_deferred_shape) then
+            code = ":"
+            return
+        end if
+        
+        ! Generate lower bound
+        if (node%lower_bound_index > 0) then
+            lower_code = generate_code_from_arena(arena, node%lower_bound_index)
+        else
+            lower_code = ""
+        end if
+        
+        ! Generate upper bound
+        if (node%upper_bound_index > 0) then
+            upper_code = generate_code_from_arena(arena, node%upper_bound_index)
+        else
+            upper_code = ""
+        end if
+        
+        ! Generate stride if present
+        if (node%stride_index > 0) then
+            stride_code = generate_code_from_arena(arena, node%stride_index)
+            code = lower_code // ":" // upper_code // ":" // stride_code
+        else
+            code = lower_code // ":" // upper_code
+        end if
+    end function generate_code_array_bounds
+
+    ! Generate code for array slice node
+    function generate_code_array_slice(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_slice_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: array_code, bounds_code
+        integer :: i
+        
+        ! Generate array expression
+        if (node%array_index > 0) then
+            array_code = generate_code_from_arena(arena, node%array_index)
+        else
+            array_code = "!error_array"
+        end if
+        
+        code = array_code // "("
+        
+        ! Generate bounds for each dimension
+        do i = 1, node%num_dimensions
+            if (i > 1) code = code // ", "
+            if (node%bounds_indices(i) > 0) then
+                bounds_code = generate_code_from_arena(arena, node%bounds_indices(i))
+                code = code // bounds_code
+            else
+                code = code // ":"  ! Empty bounds
+            end if
+        end do
+        
+        code = code // ")"
+    end function generate_code_array_slice
+
+    ! Generate code for array operation node
+    function generate_code_array_operation(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_operation_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: left_code, right_code
+        
+        ! Generate code for operands
+        if (node%left_operand_index > 0) then
+            left_code = generate_code_from_arena(arena, node%left_operand_index)
+        else
+            left_code = "? "
+        end if
+        
+        if (node%right_operand_index > 0) then
+            right_code = generate_code_from_arena(arena, node%right_operand_index)
+        else
+            right_code = " ?"
+        end if
+        
+        ! Generate the operation
+        select case (trim(node%operation))
+        case ("=")
+            code = left_code//" = "//right_code
+        case ("+")
+            code = left_code//" + "//right_code
+        case ("-")
+            code = left_code//" - "//right_code
+        case ("*")
+            code = left_code//" * "//right_code
+        case ("/")
+            code = left_code//" / "//right_code
+        case ("**")
+            code = left_code//" ** "//right_code
+        case default
+            code = left_code//" "//trim(node%operation)//" "//right_code
+        end select
+        
+        ! Add bounds checking comments if available
+        if (node%bounds_checked) then
+            code = code//" ! bounds checked"
+        end if
+        
+        if (node%shape_conformant) then
+            code = code//" ! shape conformant"
+        end if
+    end function generate_code_array_operation
 
 end module codegen_core
