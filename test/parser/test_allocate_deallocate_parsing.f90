@@ -9,20 +9,28 @@ program test_allocate_deallocate_parsing
 
     print *, "=== Allocate/Deallocate Parsing Tests ==="
     print *
-    print *, "NOTE: Allocate/deallocate parsing is implemented but not integrated"
-    print *, "      with the lazy parser. These statements require full Fortran parsing."
-    print *, "      See GitHub issue #35 for implementation tracking."
+    
+    all_tests_passed = .true.
+    
+    ! Run all tests
+    if (.not. test_simple_allocate()) all_tests_passed = .false.
+    if (.not. test_allocate_with_shape()) all_tests_passed = .false.
+    if (.not. test_allocate_with_stat()) all_tests_passed = .false.
+    if (.not. test_simple_deallocate()) all_tests_passed = .false.
+    if (.not. test_deallocate_with_stat()) all_tests_passed = .false.
+    
     print *
-    print *, "Tests skipped - allocate/deallocate not supported in lazy parser yet"
-    stop 0
+    if (all_tests_passed) then
+        print *, "All allocate/deallocate parsing tests passed!"
+    else
+        print *, "Some tests failed"
+        stop 1
+    end if
 
 contains
 
     logical function test_simple_allocate()
-        character(len=*), parameter :: source = &
-            "program test" // new_line('A') // &
-            "    allocate(arr)" // new_line('A') // &
-            "end program test"
+        character(len=*), parameter :: source = "allocate(arr)"
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: prog_index
@@ -55,24 +63,6 @@ contains
             integer, allocatable :: allocate_nodes(:)
             integer :: i
             
-            ! Debug: print all nodes in arena
-            print *, "  Arena size:", arena%size
-            do i = 1, arena%size
-                if (allocated(arena%entries(i)%node_type)) then
-                    print *, "    Node", i, "type:", trim(arena%entries(i)%node_type)
-                    ! Check program body
-                    if (arena%entries(i)%node_type == "program") then
-                        select type (node => arena%entries(i)%node)
-                        type is (program_node)
-                            if (allocated(node%body_indices)) then
-                                print *, "      Program has", size(node%body_indices), "body statements"
-                            else
-                                print *, "      Program has no body"
-                            end if
-                        end select
-                    end if
-                end if
-            end do
             
             allocate_nodes = find_nodes_by_type(arena, "allocate_statement")
             if (size(allocate_nodes) > 0) then
@@ -86,10 +76,7 @@ contains
     end function test_simple_allocate
 
     logical function test_allocate_with_shape()
-        character(len=*), parameter :: source = &
-            "program test" // new_line('A') // &
-            "    allocate(matrix(10, 20))" // new_line('A') // &
-            "end program test"
+        character(len=*), parameter :: source = "allocate(matrix(10, 20))"
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: prog_index
@@ -116,10 +103,7 @@ contains
     end function test_allocate_with_shape
 
     logical function test_allocate_with_stat()
-        character(len=*), parameter :: source = &
-            "program test" // new_line('A') // &
-            "    allocate(arr(100), stat=ierr)" // new_line('A') // &
-            "end program test"
+        character(len=*), parameter :: source = "allocate(arr(100), stat=ierr)"
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: prog_index
@@ -146,10 +130,7 @@ contains
     end function test_allocate_with_stat
 
     logical function test_simple_deallocate()
-        character(len=*), parameter :: source = &
-            "program test" // new_line('A') // &
-            "    deallocate(arr)" // new_line('A') // &
-            "end program test"
+        character(len=*), parameter :: source = "deallocate(arr)"
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: prog_index
@@ -176,10 +157,7 @@ contains
     end function test_simple_deallocate
 
     logical function test_deallocate_with_stat()
-        character(len=*), parameter :: source = &
-            "program test" // new_line('A') // &
-            "    deallocate(arr, stat=ierr)" // new_line('A') // &
-            "end program test"
+        character(len=*), parameter :: source = "deallocate(arr, stat=ierr)"
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: prog_index
