@@ -7,8 +7,10 @@ module fortfront
     ! - Code Generation
     
     ! Re-export core pipeline functionality
-    use frontend, only: lex_source, parse_tokens, analyze_semantics, emit_fortran, &
-                       transform_lazy_fortran_string, transform_lazy_fortran_string_with_format, &
+    use frontend, only: lex_source, parse_tokens, analyze_semantics, &
+                       emit_fortran, &
+                       transform_lazy_fortran_string, &
+                       transform_lazy_fortran_string_with_format, &
                        compilation_options_t, format_options_t
     
     ! Re-export AST arena and core types
@@ -19,7 +21,8 @@ module fortfront
                         parameter_declaration_node, if_node, do_loop_node, &
                         do_while_node, select_case_node, case_block_node, &
                         module_node, use_statement_node, include_statement_node, &
-                        print_statement_node, write_statement_node, read_statement_node, &
+                        print_statement_node, write_statement_node, &
+                        read_statement_node, &
                         allocate_statement_node, deallocate_statement_node, &
                         stop_node, return_node, cycle_node, exit_node, &
                         where_node, interface_block_node, derived_type_node, &
@@ -160,8 +163,10 @@ contains
                 node%column = arena%entries(node_index)%node%column
                 ! Don't copy inferred_type to avoid double free issues
                 ! The returned node is mainly for inspection, not modification
-                ! Note: This only copies base ast_node fields. Specific node fields are not copied.
-                ! This function should ideally not be used for copying nodes with complex structures.
+                ! Note: This only copies base ast_node fields. Specific node &
+                ! fields are not copied.
+                ! This function should ideally not be used for copying nodes &
+                ! with complex structures.
             end if
         end if
     end function get_node
@@ -187,7 +192,8 @@ contains
         allocate(child_indices(0))
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%child_indices)) then
-                child_indices = arena%entries(node_index)%child_indices(1:arena%entries(node_index)%child_count)
+                child_indices = arena%entries(node_index)%child_indices(&
+                    1:arena%entries(node_index)%child_count)
             end if
         end if
     end function get_children
@@ -703,8 +709,10 @@ contains
                     if (p%literal_kind == LITERAL_STRING) then
                         ! Remove quotes if present
                         if (len(p%value) >= 2) then
-                            if ((p%value(1:1) == '"' .and. p%value(len(p%value):len(p%value)) == '"') .or. &
-                                (p%value(1:1) == "'" .and. p%value(len(p%value):len(p%value)) == "'")) then
+                            if ((p%value(1:1) == '"' .and. &
+                                 p%value(len(p%value):len(p%value)) == '"') .or. &
+                                (p%value(1:1) == "'" .and. &
+                                 p%value(len(p%value):len(p%value)) == "'")) then
                                 value = p%value(2:len(p%value)-1)
                             else
                                 value = p%value

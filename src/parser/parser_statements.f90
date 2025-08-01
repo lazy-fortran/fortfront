@@ -1777,16 +1777,49 @@ contains
                         end if
                         stmt_index = 0  ! Don't add to AST
                     case ("integer", "real", "logical", "character", "complex")
-                        ! Use multi-declaration parser to handle comma-separated variables
+                        ! Check if this is a single declaration with initializer
+                        ! If so, use parse_declaration for proper initializer handling
                         block
-                            integer, allocatable :: decl_indices(:)
-                            decl_indices = parse_multi_declaration(parser, arena)
-                            if (allocated(decl_indices) .and. size(decl_indices) > 0) then
-                                ! Add all declarations to body
-                                body_indices = [body_indices, decl_indices]
-                                stmt_index = 0  ! Don't add again below
+                            logical :: has_initializer, has_comma
+                            integer :: lookahead_pos
+                            type(token_t) :: lookahead_token
+                            
+                            ! Look ahead to check for = (initializer) and comma (multi-var)
+                            has_initializer = .false.
+                            has_comma = .false.
+                            lookahead_pos = parser%current_token
+                            
+                            do while (lookahead_pos <= size(parser%tokens))
+                                if (lookahead_pos > size(parser%tokens)) exit
+                                lookahead_token = parser%tokens(lookahead_pos)
+                                if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == "=") then
+                                    has_initializer = .true.
+                                else if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == ",") then
+                                    has_comma = .true.
+                                    exit
+                                else if (lookahead_token%kind == TK_EOF .or. &
+                                        (lookahead_token%kind == TK_KEYWORD .and. lookahead_token%text == "end")) then
+                                    exit
+                                end if
+                                lookahead_pos = lookahead_pos + 1
+                            end do
+                            
+                            if (has_initializer .and. .not. has_comma) then
+                                ! Single variable with initializer - use parse_declaration
+                                stmt_index = parse_declaration(parser, arena)
                             else
-                                stmt_index = 0
+                                ! Multi-variable declaration - use parse_multi_declaration
+                                block
+                                    integer, allocatable :: decl_indices(:)
+                                    decl_indices = parse_multi_declaration(parser, arena)
+                                if (allocated(decl_indices) .and. size(decl_indices) > 0) then
+                                    ! Add all declarations to body
+                                    body_indices = [body_indices, decl_indices]
+                                    stmt_index = 0  ! Don't add again below
+                                else
+                                    stmt_index = 0
+                                end if
+                                end block
                             end if
                         end block
                     case ("print")
