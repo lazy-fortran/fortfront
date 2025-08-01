@@ -61,20 +61,40 @@ module ast_nodes_control
         generic :: assignment(=) => assign
     end type do_while_node
 
-    ! Forall construct node
+    ! Enhanced FORALL construct node
     type, extends(ast_node), public :: forall_node
-        character(len=:), allocatable :: index_var        ! Index variable name
-        integer :: start_index = 0                        ! Start expression arena index
-        integer :: end_index = 0                          ! End expression arena index
-        integer :: step_index = 0                         ! Step expression arena index (optional)
-        integer :: mask_index = 0                         ! Mask condition arena index (optional)
-        integer, allocatable :: body_indices(:)           ! Forall body arena indices
+        ! Iteration specifications
+        integer :: num_indices = 0
+        character(len=:), allocatable :: index_names(:)
+        integer, allocatable :: lower_bound_indices(:)
+        integer, allocatable :: upper_bound_indices(:)
+        integer, allocatable :: stride_indices(:)  ! Optional strides (0 = no stride)
+        
+        ! Optional mask
+        logical :: has_mask = .false.
+        integer :: mask_expr_index = 0
+        
+        ! Body statements
+        integer, allocatable :: body_indices(:)
+        
+        ! Dependency analysis results
+        logical :: has_dependencies = .false.
+        logical :: is_parallel_safe = .false.
+        integer, allocatable :: dependency_pairs(:,:)  ! Pairs of dependent statements
     contains
         procedure :: accept => forall_accept
         procedure :: to_json => forall_to_json
         procedure :: assign => forall_assign
         generic :: assignment(=) => assign
     end type forall_node
+    
+    ! FORALL triplet type for index specifications
+    type, public :: forall_triplet_t
+        character(len=:), allocatable :: index_name
+        integer :: lower_expr_index = 0
+        integer :: upper_expr_index = 0
+        integer :: stride_expr_index = 0  ! 0 if no stride
+    end type forall_triplet_t
 
     ! Select case construct node
     type, extends(ast_node), public :: select_case_node
@@ -120,17 +140,41 @@ module ast_nodes_control
         generic :: assignment(=) => assign
     end type case_default_node
 
-    ! Where construct node
+    ! Enhanced WHERE construct node
     type, extends(ast_node), public :: where_node
-        integer :: mask_index = 0                     ! Mask expression arena index
-        integer, allocatable :: body_indices(:)       ! Where body arena indices
-        integer, allocatable :: elsewhere_indices(:)  ! Elsewhere body arena indices (optional)
+        ! Main WHERE clause
+        integer :: mask_expr_index = 0
+        integer, allocatable :: where_body_indices(:)
+        
+        ! ELSEWHERE clauses (0 or more)
+        integer, allocatable :: elsewhere_mask_indices(:)  ! Masks for each elsewhere
+        integer, allocatable :: elsewhere_body_indices(:,:) ! Bodies for each elsewhere
+        integer :: num_elsewhere_clauses = 0
+        
+        ! Final ELSEWHERE (no mask)
+        logical :: has_final_elsewhere = .false.
+        integer, allocatable :: final_elsewhere_body_indices(:)
+        
+        ! Optimization hints
+        logical :: mask_is_simple = .false.  ! True if mask is simple comparison
+        logical :: can_vectorize = .false.   ! True if all assignments vectorizable
     contains
         procedure :: accept => where_accept
         procedure :: to_json => where_to_json
         procedure :: assign => where_assign
         generic :: assignment(=) => assign
     end type where_node
+    
+    ! Single-line WHERE statement node
+    type, extends(ast_node), public :: where_stmt_node
+        integer :: mask_expr_index = 0
+        integer :: assignment_index = 0
+    contains
+        procedure :: accept => where_stmt_accept
+        procedure :: to_json => where_stmt_to_json
+        procedure :: assign => where_stmt_assign
+        generic :: assignment(=) => assign
+    end type where_stmt_node
 
     ! Cycle statement node
     type, extends(ast_node), public :: cycle_node
@@ -288,7 +332,32 @@ contains
         class(forall_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
+        type(json_value), pointer :: obj
+        
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'forall')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'num_indices', this%num_indices)
+        if (allocated(this%lower_bound_indices)) then
+            call json%add(obj, 'lower_bound_indices', this%lower_bound_indices)
+        end if
+        if (allocated(this%upper_bound_indices)) then
+            call json%add(obj, 'upper_bound_indices', this%upper_bound_indices)
+        end if
+        if (allocated(this%stride_indices)) then
+            call json%add(obj, 'stride_indices', this%stride_indices)
+        end if
+        call json%add(obj, 'has_mask', this%has_mask)
+        if (this%has_mask) then
+            call json%add(obj, 'mask_expr_index', this%mask_expr_index)
+        end if
+        if (allocated(this%body_indices)) then
+            call json%add(obj, 'body_indices', this%body_indices)
+        end if
+        call json%add(obj, 'has_dependencies', this%has_dependencies)
+        call json%add(obj, 'is_parallel_safe', this%is_parallel_safe)
+        call json%add(parent, obj)
     end subroutine forall_to_json
 
     subroutine forall_assign(lhs, rhs)
@@ -302,15 +371,38 @@ contains
             lhs%inferred_type = rhs%inferred_type
         end if
         ! Copy specific components
-        lhs%index_var = rhs%index_var
-        lhs%start_index = rhs%start_index
-        lhs%end_index = rhs%end_index
-        lhs%step_index = rhs%step_index
-        lhs%mask_index = rhs%mask_index
+        lhs%num_indices = rhs%num_indices
+        if (allocated(rhs%index_names)) then
+            if (allocated(lhs%index_names)) deallocate(lhs%index_names)
+            allocate(lhs%index_names, source=rhs%index_names)
+        end if
+        if (allocated(rhs%lower_bound_indices)) then
+            if (allocated(lhs%lower_bound_indices)) deallocate(lhs%lower_bound_indices)
+            allocate(lhs%lower_bound_indices(size(rhs%lower_bound_indices)))
+            lhs%lower_bound_indices = rhs%lower_bound_indices
+        end if
+        if (allocated(rhs%upper_bound_indices)) then
+            if (allocated(lhs%upper_bound_indices)) deallocate(lhs%upper_bound_indices)
+            allocate(lhs%upper_bound_indices(size(rhs%upper_bound_indices)))
+            lhs%upper_bound_indices = rhs%upper_bound_indices
+        end if
+        if (allocated(rhs%stride_indices)) then
+            if (allocated(lhs%stride_indices)) deallocate(lhs%stride_indices)
+            allocate(lhs%stride_indices(size(rhs%stride_indices)))
+            lhs%stride_indices = rhs%stride_indices
+        end if
+        lhs%has_mask = rhs%has_mask
+        lhs%mask_expr_index = rhs%mask_expr_index
         if (allocated(rhs%body_indices)) then
             if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
             allocate(lhs%body_indices(size(rhs%body_indices)))
             lhs%body_indices = rhs%body_indices
+        end if
+        lhs%has_dependencies = rhs%has_dependencies
+        lhs%is_parallel_safe = rhs%is_parallel_safe
+        if (allocated(rhs%dependency_pairs)) then
+            if (allocated(lhs%dependency_pairs)) deallocate(lhs%dependency_pairs)
+            allocate(lhs%dependency_pairs, source=rhs%dependency_pairs)
         end if
     end subroutine forall_assign
 
@@ -488,7 +580,20 @@ contains
         call json%add(obj, 'type', 'where')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
-        call json%add(obj, 'mask_index', this%mask_index)
+        call json%add(obj, 'mask_expr_index', this%mask_expr_index)
+        if (allocated(this%where_body_indices)) then
+            call json%add(obj, 'where_body_indices', this%where_body_indices)
+        end if
+        if (allocated(this%elsewhere_mask_indices)) then
+            call json%add(obj, 'elsewhere_mask_indices', this%elsewhere_mask_indices)
+        end if
+        call json%add(obj, 'num_elsewhere_clauses', this%num_elsewhere_clauses)
+        call json%add(obj, 'has_final_elsewhere', this%has_final_elsewhere)
+        if (allocated(this%final_elsewhere_body_indices)) then
+            call json%add(obj, 'final_elsewhere_body_indices', this%final_elsewhere_body_indices)
+        end if
+        call json%add(obj, 'mask_is_simple', this%mask_is_simple)
+        call json%add(obj, 'can_vectorize', this%can_vectorize)
         call json%add(parent, obj)
     end subroutine where_to_json
 
@@ -501,17 +606,30 @@ contains
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
         end if
-        lhs%mask_index = rhs%mask_index
-        if (allocated(rhs%body_indices)) then
-            if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
-            allocate(lhs%body_indices(size(rhs%body_indices)))
-            lhs%body_indices = rhs%body_indices
+        lhs%mask_expr_index = rhs%mask_expr_index
+        if (allocated(rhs%where_body_indices)) then
+            if (allocated(lhs%where_body_indices)) deallocate(lhs%where_body_indices)
+            allocate(lhs%where_body_indices(size(rhs%where_body_indices)))
+            lhs%where_body_indices = rhs%where_body_indices
         end if
-        if (allocated(rhs%elsewhere_indices)) then
-            if (allocated(lhs%elsewhere_indices)) deallocate(lhs%elsewhere_indices)
-            allocate(lhs%elsewhere_indices(size(rhs%elsewhere_indices)))
-            lhs%elsewhere_indices = rhs%elsewhere_indices
+        if (allocated(rhs%elsewhere_mask_indices)) then
+            if (allocated(lhs%elsewhere_mask_indices)) deallocate(lhs%elsewhere_mask_indices)
+            allocate(lhs%elsewhere_mask_indices(size(rhs%elsewhere_mask_indices)))
+            lhs%elsewhere_mask_indices = rhs%elsewhere_mask_indices
         end if
+        if (allocated(rhs%elsewhere_body_indices)) then
+            if (allocated(lhs%elsewhere_body_indices)) deallocate(lhs%elsewhere_body_indices)
+            allocate(lhs%elsewhere_body_indices, source=rhs%elsewhere_body_indices)
+        end if
+        lhs%num_elsewhere_clauses = rhs%num_elsewhere_clauses
+        lhs%has_final_elsewhere = rhs%has_final_elsewhere
+        if (allocated(rhs%final_elsewhere_body_indices)) then
+            if (allocated(lhs%final_elsewhere_body_indices)) deallocate(lhs%final_elsewhere_body_indices)
+            allocate(lhs%final_elsewhere_body_indices(size(rhs%final_elsewhere_body_indices)))
+            lhs%final_elsewhere_body_indices = rhs%final_elsewhere_body_indices
+        end if
+        lhs%mask_is_simple = rhs%mask_is_simple
+        lhs%can_vectorize = rhs%can_vectorize
     end subroutine where_assign
 
     ! Cycle statement implementations
@@ -734,5 +852,39 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_select_case
+
+    ! WHERE statement implementations
+    subroutine where_stmt_accept(this, visitor)
+        class(where_stmt_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+    end subroutine where_stmt_accept
+
+    subroutine where_stmt_to_json(this, json, parent)
+        class(where_stmt_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'where_stmt')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'mask_expr_index', this%mask_expr_index)
+        call json%add(obj, 'assignment_index', this%assignment_index)
+        call json%add(parent, obj)
+    end subroutine where_stmt_to_json
+
+    subroutine where_stmt_assign(lhs, rhs)
+        class(where_stmt_node), intent(inout) :: lhs
+        class(where_stmt_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        lhs%mask_expr_index = rhs%mask_expr_index
+        lhs%assignment_index = rhs%assignment_index
+    end subroutine where_stmt_assign
 
 end module ast_nodes_control

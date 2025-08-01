@@ -555,29 +555,45 @@ contains
         type(forall_node) :: forall_stmt
         integer :: i
 
-        forall_stmt%index_var = index_var
+        ! For simple single-index FORALL, use first element of arrays
+        forall_stmt%num_indices = 1
+        allocate(character(len=len(index_var)) :: forall_stmt%index_names(1))
+        forall_stmt%index_names(1) = index_var
 
         ! Set start and end expression indices
+        allocate(forall_stmt%lower_bound_indices(1))
+        allocate(forall_stmt%upper_bound_indices(1))
+        allocate(forall_stmt%stride_indices(1))
+        
         if (start_index > 0 .and. start_index <= arena%size) then
-            forall_stmt%start_index = start_index
+            forall_stmt%lower_bound_indices(1) = start_index
         end if
 
         if (end_index > 0 .and. end_index <= arena%size) then
-            forall_stmt%end_index = end_index
+            forall_stmt%upper_bound_indices(1) = end_index
         end if
 
         ! Set optional step expression index
         if (present(step_index)) then
             if (step_index > 0) then
-                forall_stmt%step_index = step_index
+                forall_stmt%stride_indices(1) = step_index
+            else
+                forall_stmt%stride_indices(1) = 0
             end if
+        else
+            forall_stmt%stride_indices(1) = 0
         end if
 
         ! Set optional mask expression index
         if (present(mask_index)) then
             if (mask_index > 0) then
-                forall_stmt%mask_index = mask_index
+                forall_stmt%has_mask = .true.
+                forall_stmt%mask_expr_index = mask_index
+            else
+                forall_stmt%has_mask = .false.
             end if
+        else
+            forall_stmt%has_mask = .false.
         end if
 
         ! Set body indices

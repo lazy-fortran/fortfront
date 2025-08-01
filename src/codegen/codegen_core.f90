@@ -675,18 +675,18 @@ contains
         integer :: i
         
         ! Generate mask expression
-        if (node%mask_index > 0 .and. node%mask_index <= arena%size) then
-            mask_code = generate_code_from_arena(arena, node%mask_index)
+        if (node%mask_expr_index > 0 .and. node%mask_expr_index <= arena%size) then
+            mask_code = generate_code_from_arena(arena, node%mask_expr_index)
         else
             mask_code = "???"
         end if
         
         ! Check if this is a single-line WHERE
-        if (allocated(node%body_indices) .and. size(node%body_indices) == 1 .and. &
-            .not. allocated(node%elsewhere_indices)) then
+        if (allocated(node%where_body_indices) .and. size(node%where_body_indices) == 1 .and. &
+            .not. node%has_final_elsewhere) then
             ! Single-line WHERE
-            if (node%body_indices(1) > 0 .and. node%body_indices(1) <= arena%size) then
-                stmt_code = generate_code_from_arena(arena, node%body_indices(1))
+            if (node%where_body_indices(1) > 0 .and. node%where_body_indices(1) <= arena%size) then
+                stmt_code = generate_code_from_arena(arena, node%where_body_indices(1))
                 ! Remove indentation from statement for single-line
                 stmt_code = adjustl(stmt_code)
             else
@@ -701,10 +701,10 @@ contains
             call increase_indent()
             
             ! Generate WHERE body
-            if (allocated(node%body_indices)) then
-                do i = 1, size(node%body_indices)
-                    if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
-                        stmt_code = generate_code_from_arena(arena, node%body_indices(i))
+            if (allocated(node%where_body_indices)) then
+                do i = 1, size(node%where_body_indices)
+                    if (node%where_body_indices(i) > 0 .and. node%where_body_indices(i) <= arena%size) then
+                        stmt_code = generate_code_from_arena(arena, node%where_body_indices(i))
                         code = code//new_line('A')//stmt_code
                     end if
                 end do
@@ -714,15 +714,15 @@ contains
             call decrease_indent()
             
             ! Generate ELSEWHERE block if present
-            if (allocated(node%elsewhere_indices)) then
+            if (node%has_final_elsewhere .and. allocated(node%final_elsewhere_body_indices)) then
                 code = code//new_line('A')//with_indent("elsewhere")
                 
                 ! Increase indentation for elsewhere body
                 call increase_indent()
                 
-                do i = 1, size(node%elsewhere_indices)
-                    if (node%elsewhere_indices(i) > 0 .and. node%elsewhere_indices(i) <= arena%size) then
-                        stmt_code = generate_code_from_arena(arena, node%elsewhere_indices(i))
+                do i = 1, size(node%final_elsewhere_body_indices)
+                    if (node%final_elsewhere_body_indices(i) > 0 .and. node%final_elsewhere_body_indices(i) <= arena%size) then
+                        stmt_code = generate_code_from_arena(arena, node%final_elsewhere_body_indices(i))
                         code = code//new_line('A')//stmt_code
                     end if
                 end do

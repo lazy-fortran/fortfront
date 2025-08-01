@@ -1065,7 +1065,7 @@ contains
         if (allocated(body_indices)) deallocate (body_indices)
     end function parse_do_while_from_do
     
-    ! Parse WHERE construct
+    ! Parse WHERE construct (enhanced version)
     function parse_where_construct(parser, arena) result(where_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
