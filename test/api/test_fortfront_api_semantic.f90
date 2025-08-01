@@ -4,7 +4,7 @@ program test_fortfront_api_semantic
                         semantic_context_t, create_semantic_context, &
                         lex_source, parse_tokens, token_t, &
                         ast_arena_t, create_ast_arena, &
-                        get_node, get_type_for_node, ast_node, &
+                        get_type_for_node, ast_node, &
                         mono_type_t, TINT, TREAL, TCHAR, TLOGICAL, &
                         program_node, assignment_node, identifier_node, literal_node
     implicit none

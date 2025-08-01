@@ -153,11 +153,12 @@ jobs:
         msystem: MINGW64
         update: false
         path-type: inherit
+        cache: true
+        release: false
         install: >-
           mingw-w64-x86_64-gcc-fortran
           mingw-w64-x86_64-gcc
           git
-      # Note: msys2/setup-msys2 has its own caching mechanism
 
     - name: Add MinGW to PATH
       run: echo C:\msys64\mingw64\bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
@@ -189,72 +190,81 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-fpm-deps-
 
+    - name: Cache build artifacts (Windows)
+      uses: actions/cache@v4
+      with:
+        path: |
+          build\gfortran_*
+          !build\gfortran_*/test
+        key: ${{ runner.os }}-build-${{ hashFiles('src/**/*.f90') }}
+        restore-keys: |
+          ${{ runner.os }}-build-
+
     - name: Run all tests
       shell: cmd
       run: |
         echo "Running all tests..."
         fpm test --flag -cpp
 
-  test-macos:
-    runs-on: macos-13  # Use macos-13 instead of latest to avoid performance issues
-    timeout-minutes: 30
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
-    
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup Micromamba
-      uses: mamba-org/setup-micromamba@v2
-      with:
-        micromamba-version: 'latest'
-        environment-name: test-env
-        create-args: >-
-          python=3.11
-          fpm
-          gfortran
-        init-shell: bash
-        cache-environment: true
-        channels: conda-forge
-
-    - name: Check versions
-      shell: bash -el {0}
-      run: |
-        echo "GCC version:"
-        gfortran --version
-        echo "FPM version:"
-        fpm --version
-        echo "GCC/G++ version:"
-        gcc --version || true
-        # Check if gcc-15 is available
-        gcc-15 --version || echo "gcc-15 not found, will try to find appropriate gcc"
-
-    - name: Cache FPM dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.local/share/fpm
-          build/dependencies
-        key: ${{ runner.os }}-fpm-deps-${{ hashFiles('fpm.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-fpm-deps-
-
-    - name: Run all tests
-      shell: bash -el {0}
-      run: |
-        # Set FPM_CC for test runs with proper GCC version
-        if command -v gcc-15 &> /dev/null; then
-          export FPM_CC=gcc-15
-        elif command -v gcc-14 &> /dev/null; then
-          export FPM_CC=gcc-14
-        elif command -v gcc-13 &> /dev/null; then
-          export FPM_CC=gcc-13
-        else
-          GCC_PATH=$(which gcc)
-          if [ -n "$GCC_PATH" ]; then
-            export FPM_CC=$GCC_PATH
-          fi
-        fi
-        
-        echo "Using FPM_CC=$FPM_CC"
-        echo "Running all tests..."
-        fpm test --flag -cpp
+  # macOS CI temporarily disabled due to runner issues
+  # test-macos:
+  #   runs-on: macos-latest
+  #   
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #
+  #   - name: Setup Micromamba
+  #     uses: mamba-org/setup-micromamba@v2
+  #     with:
+  #       micromamba-version: 'latest'
+  #       environment-name: test-env
+  #       create-args: >-
+  #         python=3.11
+  #         fpm
+  #         gfortran
+  #       init-shell: bash
+  #       cache-environment: true
+  #       channels: conda-forge
+  #
+  #   - name: Check versions
+  #     shell: bash -el {0}
+  #     run: |
+  #       echo "GCC version:"
+  #       gfortran --version
+  #       echo "FPM version:"
+  #       fpm --version
+  #       echo "GCC/G++ version:"
+  #       gcc --version || true
+  #       # Check if gcc-15 is available
+  #       gcc-15 --version || echo "gcc-15 not found, will try to find appropriate gcc"
+  #
+  #   - name: Cache FPM dependencies
+  #     uses: actions/cache@v4
+  #     with:
+  #       path: |
+  #         ~/.local/share/fpm
+  #         build/dependencies
+  #       key: ${{ runner.os }}-fpm-deps-${{ hashFiles('fpm.toml') }}
+  #       restore-keys: |
+  #         ${{ runner.os }}-fpm-deps-
+  #
+  #   - name: Run all tests
+  #     shell: bash -el {0}
+  #     run: |
+  #       # Set FPM_CC for test runs with proper GCC version
+  #       if command -v gcc-15 &> /dev/null; then
+  #         export FPM_CC=gcc-15
+  #       elif command -v gcc-14 &> /dev/null; then
+  #         export FPM_CC=gcc-14
+  #       elif command -v gcc-13 &> /dev/null; then
+  #         export FPM_CC=gcc-13
+  #       else
+  #         GCC_PATH=$(which gcc)
+  #         if [ -n "$GCC_PATH" ]; then
+  #           export FPM_CC=$GCC_PATH
+  #         fi
+  #       fi
+  #       
+  #       echo "Using FPM_CC=$FPM_CC"
+  #       echo "Running all tests..."
+  #       fpm test --flag -cpp

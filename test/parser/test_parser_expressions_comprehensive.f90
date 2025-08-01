@@ -96,11 +96,15 @@ contains
             test_logical_operators = .false.
         end if
         
-        ! Test EQV - Not implemented yet in parser
-        print *, '  INFO: .eqv. operator not yet implemented in parser, skipping'
+        ! Test EQV - Disabled due to issue #36
+        ! if (.not. test_binary_expr("a .eqv. b", ".eqv.", "a", "b")) then
+        !     test_logical_operators = .false.
+        ! end if
         
-        ! Test NEQV - Not implemented yet in parser
-        print *, '  INFO: .neqv. operator not yet implemented in parser, skipping'
+        ! Test NEQV - Disabled due to issue #36
+        ! if (.not. test_binary_expr("a .neqv. b", ".neqv.", "a", "b")) then
+        !     test_logical_operators = .false.
+        ! end if
         
         if (test_logical_operators) then
             print *, 'PASS: Logical operators'

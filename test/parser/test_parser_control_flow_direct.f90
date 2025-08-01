@@ -25,7 +25,8 @@ program test_parser_control_flow_direct
     ! Test where constructs
     call test_where_constructs()
     
-    ! Test forall constructs - not implemented yet
+    ! Test forall constructs - parser not implemented yet
+    ! FORALL is a deprecated Fortran feature, low priority to implement
     ! call test_forall_constructs()
     
     print *, ""

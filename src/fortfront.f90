@@ -22,12 +22,13 @@ module fortfront
                         do_while_node, select_case_node, case_block_node, &
                         module_node, use_statement_node, include_statement_node, &
                         print_statement_node, write_statement_node, &
-                        read_statement_node, &
+                        read_statement_node, format_descriptor_node, &
                         allocate_statement_node, deallocate_statement_node, &
                         stop_node, return_node, cycle_node, exit_node, &
                         where_node, interface_block_node, derived_type_node, &
                         pointer_assignment_node, forall_node, case_range_node, &
                         case_default_node, complex_literal_node, &
+                        comment_node, contains_node, &
                         LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
                         LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX, &
                         create_ast_arena, ast_arena_stats_t
@@ -149,27 +150,45 @@ module fortfront
     
 contains
     
-    ! Get node from arena by index
-    function get_node(arena, node_index) result(node)
+    ! Check if a node exists at the given index
+    function node_exists(arena, node_index) result(exists)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
-        class(ast_node), allocatable :: node
+        logical :: exists
         
-        if (node_index > 0 .and. node_index <= arena%size) then
-            if (allocated(arena%entries(node_index)%node)) then
-                allocate(node, mold=arena%entries(node_index)%node)
-                ! Copy base fields manually
-                node%line = arena%entries(node_index)%node%line
-                node%column = arena%entries(node_index)%node%column
-                ! Don't copy inferred_type to avoid double free issues
-                ! The returned node is mainly for inspection, not modification
-                ! Note: This only copies base ast_node fields. Specific node &
-                ! fields are not copied.
-                ! This function should ideally not be used for copying nodes &
-                ! with complex structures.
-            end if
+        exists = node_index > 0 .and. node_index <= arena%size
+        if (exists) then
+            exists = allocated(arena%entries(node_index)%node)
         end if
-    end function get_node
+    end function node_exists
+    
+    ! Get node type at index (returns empty string if invalid)
+    function get_node_type_at(arena, node_index) result(node_type)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: node_type
+        
+        if (node_exists(arena, node_index)) then
+            node_type = arena%entries(node_index)%node_type
+        else
+            node_type = ""
+        end if
+    end function get_node_type_at
+    
+    ! Get node line/column info
+    subroutine get_node_location(arena, node_index, line, column)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer, intent(out) :: line, column
+        
+        line = 0
+        column = 0
+        if (node_exists(arena, node_index)) then
+            line = arena%entries(node_index)%node%line
+            column = arena%entries(node_index)%node%column
+        end if
+    end subroutine get_node_location
+    
     
     ! Get parent node for a given node index
     function get_parent(arena, node_index) result(parent_index)
@@ -261,7 +280,7 @@ contains
         integer, intent(in) :: node_index
         type(source_range_t) :: range
         
-        class(ast_node), allocatable :: node
+        integer :: line, column
         
         ! Initialize with default values
         range%start%line = 1
@@ -269,10 +288,10 @@ contains
         range%start%byte_offset = 0
         range%end = range%start
         
-        node = get_node(arena, node_index)
-        if (allocated(node)) then
-            range%start%line = node%line
-            range%start%column = node%column
+        if (node_exists(arena, node_index)) then
+            call get_node_location(arena, node_index, line, column)
+            range%start%line = line
+            range%start%column = column
             ! End position would need to be calculated based on node content
             ! For now, use same as start
             range%end = range%start
@@ -284,7 +303,11 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(ast_arena_stats_t) :: stats
         
-        stats = arena%get_stats()
+        ! Direct access instead of type-bound procedure to avoid compiler crash
+        stats%total_nodes = arena%size
+        stats%max_depth = arena%max_depth
+        stats%capacity = arena%capacity
+        stats%memory_usage = arena%capacity * 64  ! Rough estimate
     end function get_arena_stats
     
     ! Analyze program with explicit context (for advanced usage)
@@ -304,31 +327,33 @@ contains
         type(mono_type_t), allocatable, intent(out) :: node_type
         logical, intent(out) :: found
         
-        class(ast_node), allocatable :: node
         integer :: i
         
         found = .false.
-        node = get_node(arena, node_index)
-        if (allocated(node)) then
-            if (allocated(node%inferred_type)) then
-                allocate(node_type)
-                ! Manual deep copy to avoid issues with assignment operator
-                node_type%kind = node%inferred_type%kind
-                node_type%size = node%inferred_type%size
-                node_type%var%id = node%inferred_type%var%id
-                if (allocated(node%inferred_type%var%name)) then
-                    node_type%var%name = node%inferred_type%var%name
-                else
-                    allocate(character(len=0) :: node_type%var%name)
+        if (node_exists(arena, node_index)) then
+            if (allocated(arena%entries(node_index)%node)) then
+                if (allocated(arena%entries(node_index)%node%inferred_type)) then
+                    allocate(node_type)
+                    ! Manual deep copy to avoid issues with assignment operator
+                    associate (src_type => arena%entries(node_index)%node%inferred_type)
+                        node_type%kind = src_type%kind
+                        node_type%size = src_type%size
+                        node_type%var%id = src_type%var%id
+                        if (allocated(src_type%var%name)) then
+                            node_type%var%name = src_type%var%name
+                        else
+                            allocate(character(len=0) :: node_type%var%name)
+                        end if
+                        if (allocated(src_type%args)) then
+                            allocate(node_type%args(size(src_type%args)))
+                            do i = 1, size(src_type%args)
+                                ! For now, shallow copy args to avoid recursion issues
+                                node_type%args(i) = src_type%args(i)
+                            end do
+                        end if
+                    end associate
+                    found = .true.
                 end if
-                if (allocated(node%inferred_type%args)) then
-                    allocate(node_type%args(size(node%inferred_type%args)))
-                    do i = 1, size(node%inferred_type%args)
-                        ! For now, shallow copy args to avoid recursion issues
-                        node_type%args(i) = node%inferred_type%args(i)
-                    end do
-                end if
-                found = .true.
             end if
         end if
     end subroutine get_type_for_node
