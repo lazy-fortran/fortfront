@@ -37,5 +37,9 @@ CI tests fail on Windows with exit code -1073740940 (0xC0000374) indicating heap
 **Problem**: The get_node function in fortfront.f90 used `allocate(node, mold=...)` which only allocated memory but didn't copy data, leaving derived type fields uninitialized.
 **Fix**: Changed to use `allocate(node, source=...)` for proper deep copy.
 
+### 6. Incomplete Assignment Operators
+**Problem**: AST node assignment operators didn't copy base class fields (line, column, inferred_type), causing uninitialized memory when `allocate(source=)` used the assignment operator.
+**Fix**: Updated all assignment operators to properly copy base class fields before derived class fields.
+
 ## Status
 **RESOLVED** - All fixes have been implemented and tested successfully.

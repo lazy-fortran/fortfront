@@ -158,11 +158,9 @@ contains
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%node)) then
                 ! Use source= to create a proper deep copy of the node
+                ! This will call the assignment operator which now properly
+                ! copies all fields including base class fields
                 allocate(node, source=arena%entries(node_index)%node)
-                ! Clear inferred_type to avoid double free issues
-                if (allocated(node%inferred_type)) then
-                    deallocate(node%inferred_type)
-                end if
             end if
         end if
     end function get_node

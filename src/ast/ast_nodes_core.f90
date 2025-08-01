@@ -146,6 +146,14 @@ contains
     subroutine program_assign(lhs, rhs)
         class(program_node), intent(inout) :: lhs
         class(program_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type, source=rhs%inferred_type)
+        end if
+        ! Copy derived class fields
         if (allocated(rhs%name)) then
             lhs%name = rhs%name
         end if
@@ -171,6 +179,14 @@ contains
     subroutine assignment_assign(lhs, rhs)
         class(assignment_node), intent(inout) :: lhs
         class(assignment_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type, source=rhs%inferred_type)
+        end if
+        ! Copy derived class fields
         lhs%target_index = rhs%target_index
         lhs%value_index = rhs%value_index
         if (allocated(rhs%operator)) then
@@ -199,6 +215,14 @@ contains
     subroutine pointer_assignment_assign(lhs, rhs)
         class(pointer_assignment_node), intent(inout) :: lhs
         class(pointer_assignment_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type, source=rhs%inferred_type)
+        end if
+        ! Copy derived class fields
         lhs%pointer_index = rhs%pointer_index
         lhs%target_index = rhs%target_index
     end subroutine pointer_assignment_assign
@@ -288,6 +312,14 @@ contains
     subroutine binary_op_assign(lhs, rhs)
         class(binary_op_node), intent(inout) :: lhs
         class(binary_op_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type, source=rhs%inferred_type)
+        end if
+        ! Copy derived class fields
         lhs%left_index = rhs%left_index
         lhs%right_index = rhs%right_index
         if (allocated(rhs%operator)) lhs%operator = rhs%operator
@@ -310,6 +342,14 @@ contains
     subroutine call_or_subscript_assign(lhs, rhs)
         class(call_or_subscript_node), intent(inout) :: lhs
         class(call_or_subscript_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type, source=rhs%inferred_type)
+        end if
+        ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
     end subroutine call_or_subscript_assign
@@ -331,6 +371,14 @@ contains
     subroutine array_literal_assign(lhs, rhs)
         class(array_literal_node), intent(inout) :: lhs
         class(array_literal_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type, source=rhs%inferred_type)
+        end if
+        ! Copy derived class fields
         if (allocated(rhs%element_indices)) lhs%element_indices = rhs%element_indices
         if (allocated(rhs%element_type)) lhs%element_type = rhs%element_type
     end subroutine array_literal_assign
