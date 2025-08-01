@@ -77,7 +77,6 @@ module fortfront
     public :: get_assignment_indices, get_binary_op_info, get_identifier_name, &
               get_literal_value, get_call_info, get_array_literal_info, &
               get_program_info, get_declaration_info, get_parameter_declaration_info
-    
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
@@ -835,10 +834,10 @@ contains
                 type is (declaration_node)
                     ! Get variable names
                     if (node%is_multi_declaration .and. allocated(node%var_names)) then
-                        allocate(character(len=256) :: var_names(size(node%var_names)))
+                        allocate(character(len=len(node%var_names)) :: var_names(size(node%var_names)))
                         var_names = node%var_names
                     else if (allocated(node%var_name)) then
-                        allocate(character(len=256) :: var_names(1))
+                        allocate(character(len=len(node%var_name)) :: var_names(1))
                         var_names(1) = node%var_name
                     else
                         allocate(character(len=1) :: var_names(0))
@@ -853,7 +852,7 @@ contains
                     
                     ! Get attributes based on available fields
                     if (node%has_intent .and. allocated(node%intent)) then
-                        allocate(character(len=256) :: attributes(1))
+                        allocate(character(len=len("intent(" // node%intent // ")")) :: attributes(1))
                         attributes(1) = "intent(" // node%intent // ")"
                     else
                         allocate(character(len=1) :: attributes(0))
@@ -883,7 +882,7 @@ contains
                 type is (parameter_declaration_node)
                     ! Get parameter names
                     if (allocated(node%name)) then
-                        allocate(character(len=256) :: var_names(1))
+                        allocate(character(len=len(node%name)) :: var_names(1))
                         var_names(1) = node%name
                     else
                         allocate(character(len=1) :: var_names(0))
@@ -891,7 +890,6 @@ contains
                     
                     ! Parameter values - simplified for now (would need initializer access)
                     allocate(character(len=1) :: values(0))
-                    
                     ! Get type specification
                     if (allocated(node%type_name)) then
                         type_spec = node%type_name
@@ -1010,41 +1008,44 @@ contains
         end if
     end function get_symbols_in_scope
     
-    ! Get references to a symbol (for cross-reference analysis)
+    ! Get references to a symbol (for cross-reference analysis) - optimized single pass
     function get_symbol_references(arena, ctx, symbol_name) result(references)
         type(ast_arena_t), intent(in) :: arena
         type(semantic_context_t), intent(in) :: ctx
         character(len=*), intent(in) :: symbol_name
         type(symbol_reference_t), allocatable :: references(:)
-        integer :: i, ref_count
+        integer :: i, ref_count, initial_capacity
         character(len=:), allocatable :: node_name
         
-        ! First pass: count references
+        ! Pre-allocate with reasonable initial capacity to minimize reallocations
+        initial_capacity = min(64, max(1, arena%size / 10))  
+        allocate(references(initial_capacity))
         ref_count = 0
+        
+        ! Single pass: find and collect references
         do i = 1, arena%size
             if (get_identifier_name(arena, i, node_name)) then
                 if (node_name == symbol_name) then
                     ref_count = ref_count + 1
-                end if
-            end if
-        end do
-        
-        ! Allocate result array
-        allocate(references(ref_count))
-        
-        ! Second pass: populate references
-        ref_count = 0
-        do i = 1, arena%size
-            if (get_identifier_name(arena, i, node_name)) then
-                if (node_name == symbol_name) then
-                    ref_count = ref_count + 1
+                    
+                    ! Grow array if needed using geometric growth
+                    if (ref_count > size(references)) then
+                        references = [references, references]  ! Double the size
+                    end if
+                    
+                    ! Populate reference information
                     references(ref_count)%node_index = i
-                    references(ref_count)%scope_level = ctx%scopes%depth  ! Use current scope depth instead of hardcoded 1
-                    references(ref_count)%is_definition = .false.  ! Would need to check if this is a declaration
-                    references(ref_count)%is_assignment = .false.  ! Would need to check if this is target of assignment
+                    references(ref_count)%scope_level = ctx%scopes%depth
+                    references(ref_count)%is_definition = .false.  ! Would need AST analysis to determine
+                    references(ref_count)%is_assignment = .false.  ! Would need parent node analysis
                 end if
             end if
         end do
+        
+        ! Trim array to actual size to free unused memory
+        if (ref_count < size(references)) then
+            references = references(1:ref_count)
+        end if
     end function get_symbol_references
     
     ! Get scope information
