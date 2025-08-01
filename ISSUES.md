@@ -86,9 +86,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Note**: Array slice infrastructure (array_slice_node, array_bounds_node) was already present; this PR fixed stride parsing
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #21 - Disambiguate array indexing from function calls in call_or_subscript_node
+### ✅ #21 - Disambiguate array indexing from function calls in call_or_subscript_node
 **Priority: Medium** | **Impact: AST Design** | **Effort: Medium**
+- **Status**: ✅ **COMPLETED** - Added is_array_access flag to disambiguate array indexing from function calls (PR pending)
 - **Description**: Separate array access from function calls in AST
+- **Implementation**: Added boolean flag to call_or_subscript_node, set during semantic analysis
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### #24 - Add dedicated component access AST node for % operator
 **Priority: Medium** | **Impact: AST Design** | **Effort: Low**
@@ -184,4 +187,4 @@ This document lists all open GitHub issues prioritized by architectural impact a
 #11 (arena methods) → foundational
 ```
 
-Total Issues: 16 open issues requiring attention.
+Total Issues: 14 open issues requiring attention.

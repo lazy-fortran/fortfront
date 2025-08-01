@@ -1,7 +1,8 @@
 module semantic_analyzer
     ! Hindley-Milner type inference (Algorithm W) - dialect-agnostic
     use type_system_hm, only: type_env_t, type_var_t, mono_type_t, poly_type_t, &
-                              substitution_t, allocation_info_t, create_mono_type, create_type_var, &
+                              substitution_t, allocation_info_t, &
+                              create_mono_type, create_type_var, &
                               create_poly_type, create_fun_type, free_type_vars, &
                               compose_substitutions, occurs_check, &
                               TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
@@ -290,19 +291,62 @@ contains
 
         type is (call_or_subscript_node)
             ! Check if this is array subscripting or function call
-            ! For now, assume it's a function call, but handle errors gracefully
             block
                 use iso_fortran_env, only: error_unit
                 integer :: i
                 logical :: is_array_slice
+                logical :: is_known_array
+                type(poly_type_t), allocatable :: sym_scheme
 
                 ! Simple heuristic: if any argument contains a colon operator, it's array slicing
                 is_array_slice = .false.
 
-                ! TODO: Properly detect array slicing vs function calls
-                ! For now, try function call inference and catch errors
+                ! Check for array slicing pattern (contains : operator)
+                if (allocated(expr%arg_indices)) then
+                    do i = 1, size(expr%arg_indices)
+                        if (expr%arg_indices(i) > 0 .and. expr%arg_indices(i) <= arena%size) then
+                            if (allocated(arena%entries(expr%arg_indices(i))%node)) then
+                                select type (arg_node => arena%entries(expr%arg_indices(i))%node)
+                                type is (range_expression_node)
+                                    is_array_slice = .true.
+                                    exit
+                                end select
+                            end if
+                        end if
+                    end do
+                end if
 
-                typ = infer_function_call(this, arena, expr)
+                ! Check if the identifier is a known array in the symbol table
+                is_known_array = .false.
+                call this%scopes%lookup(expr%name, sym_scheme)
+                if (allocated(sym_scheme)) then
+                    ! Check if the type is an array type
+                    select case (sym_scheme%mono%kind)
+                    case (TARRAY)
+                        is_known_array = .true.
+                    end select
+                end if
+
+                ! Set the disambiguation flag
+                expr%is_array_access = is_array_slice .or. is_known_array
+                
+                ! Handle type inference based on what it is
+                if (expr%is_array_access) then
+                    ! For array access, return the element type
+                    if (is_known_array .and. sym_scheme%mono%kind == TARRAY) then
+                        if (allocated(sym_scheme%mono%args) .and. size(sym_scheme%mono%args) > 0) then
+                            typ = sym_scheme%mono%args(1)  ! First arg is element type
+                        else
+                            typ = create_mono_type(TVAR, var=this%fresh_type_var())
+                        end if
+                    else
+                        ! Return a type variable for unknown arrays
+                        typ = create_mono_type(TVAR, var=this%fresh_type_var())
+                    end if
+                else
+                    ! It's a function call
+                    typ = infer_function_call(this, arena, expr)
+                end if
             end block
 
         type is (array_slice_node)
