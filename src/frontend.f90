@@ -2,7 +2,7 @@ module frontend
     ! fortfront - Core analysis frontend
     ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
     
-    use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, TK_COMMENT
+    use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
@@ -343,6 +343,26 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 !                 trim(start_str)//" to "//trim(end_str))
             end block
 
+            ! Check if this unit has any non-whitespace content
+            block
+                logical :: unit_has_content
+                integer :: j
+                unit_has_content = .false.
+                do j = unit_start, unit_end
+                    if (tokens(j)%kind /= TK_EOF .and. tokens(j)%kind /= TK_NEWLINE .and. &
+                        tokens(j)%kind /= TK_COMMENT) then
+                        unit_has_content = .true.
+                        exit
+                    end if
+                end do
+                
+                ! Skip units without content
+                if (.not. unit_has_content) then
+                    i = unit_end + 1
+                    cycle
+                end if
+            end block
+            
             ! Skip empty units, units with just EOF, or single-token keywords that are part of larger constructs
             if (unit_end >= unit_start .and. &
           .not. (unit_end == unit_start .and. tokens(unit_start)%kind == TK_EOF) .and. &
@@ -368,7 +388,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     !              " tokens for unit")
 
                 ! Parse the program unit
-                stmt_index = parse_program_unit(unit_tokens, arena)
+                stmt_index = parse_program_unit(unit_tokens, arena, has_explicit_program_unit)
 
                 if (stmt_index > 0) then
                     ! Add to body indices
@@ -593,9 +613,10 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
     end subroutine find_program_unit_boundary
 
     ! Parse a program unit (function, subroutine, module, or statements)
-    function parse_program_unit(tokens, arena) result(unit_index)
+    function parse_program_unit(tokens, arena, has_explicit_program) result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        logical, intent(in) :: has_explicit_program
         integer :: unit_index
         type(parser_state_t) :: parser
         integer :: i
@@ -603,16 +624,17 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
 
         ! Note: Parsing program unit
         
-        ! Check if tokens contain any real content (not just comments/EOF)
+        ! Check if tokens contain any real content (not just comments/EOF/newlines)
         has_content = .false.
         do i = 1, size(tokens)
-            if (tokens(i)%kind /= TK_COMMENT .and. tokens(i)%kind /= TK_EOF) then
+            if (tokens(i)%kind /= TK_COMMENT .and. tokens(i)%kind /= TK_EOF .and. &
+                tokens(i)%kind /= TK_NEWLINE) then
                 has_content = .true.
                 exit
             end if
         end do
         
-        ! If only comments (no real statements), don't create a program wrapper
+        ! If only comments/newlines (no real statements), don't create a program wrapper
         if (.not. has_content) then
             unit_index = 0
             return
@@ -638,8 +660,31 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             ! Program definition
             unit_index = parse_statement_dispatcher(tokens, arena)
         else
-            ! For lazy fortran, we need to parse ALL statements in the token array
-            unit_index = parse_all_statements(tokens, arena)
+            ! If we're in explicit program unit mode, don't create implicit program wrappers
+            if (has_explicit_program) then
+                unit_index = 0
+            else
+                ! For lazy fortran, we need to parse ALL statements in the token array
+                ! But first check if we have any real content
+                block
+                    logical :: has_real_content
+                    integer :: k
+                    has_real_content = .false.
+                    do k = 1, size(tokens)
+                        if (tokens(k)%kind /= TK_EOF .and. tokens(k)%kind /= TK_NEWLINE .and. &
+                            tokens(k)%kind /= TK_COMMENT) then
+                            has_real_content = .true.
+                            exit
+                        end if
+                    end do
+                    
+                    if (has_real_content) then
+                        unit_index = parse_all_statements(tokens, arena)
+                    else
+                        unit_index = 0
+                    end if
+                end block
+            end if
         end if
     end function parse_program_unit
 

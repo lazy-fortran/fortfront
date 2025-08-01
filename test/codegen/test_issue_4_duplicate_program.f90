@@ -151,8 +151,9 @@ contains
             end if
         end if
         
-        ! Check each module appears exactly once
+        ! Check each module appears exactly once (excluding "end module")
         count = count_occurrences(output, "module mod1")
+        count = count - count_occurrences(output, "end module mod1")
         if (count /= 1) then
             print *, "  FAIL: module mod1 appears ", count, " times"
             print *, "  Output: ", trim(output)
@@ -160,6 +161,7 @@ contains
         end if
         
         count = count_occurrences(output, "module mod2")
+        count = count - count_occurrences(output, "end module mod2")
         if (count /= 1) then
             print *, "  FAIL: module mod2 appears ", count, " times"
             print *, "  Output: ", trim(output)
