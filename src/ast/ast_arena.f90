@@ -254,12 +254,14 @@ contains
         class(ast_arena_t), intent(in) :: this
         class(ast_node), allocatable :: node
         
-        ! Return the node at current_index
+        ! Return the node at current_index with bounds checking
         if (this%current_index > 0 .and. this%current_index <= this%size) then
             if (allocated(this%entries(this%current_index)%node)) then
+                ! Safe polymorphic copy - allocate(source=) handles all AST node types
                 allocate(node, source=this%entries(this%current_index)%node)
             end if
         end if
+        ! Returns unallocated node if index is invalid or node not allocated
     end function ast_arena_current
 
     function ast_arena_get_parent(this, index) result(parent_node)
@@ -268,15 +270,17 @@ contains
         class(ast_node), allocatable :: parent_node
         integer :: parent_index
         
-        ! Get parent node if it exists
+        ! Get parent node with defensive bounds checking
         if (index > 0 .and. index <= this%size) then
             parent_index = this%entries(index)%parent_index
             if (parent_index > 0 .and. parent_index <= this%size) then
                 if (allocated(this%entries(parent_index)%node)) then
+                    ! Safe polymorphic copy - allocate(source=) handles all AST node types
                     allocate(parent_node, source=this%entries(parent_index)%node)
                 end if
             end if
         end if
+        ! Returns unallocated parent_node if invalid index or no parent
     end function ast_arena_get_parent
 
     function ast_arena_get_depth(this, index) result(depth)
@@ -382,8 +386,12 @@ contains
         
         ! Only shrink if we have more capacity than needed plus some buffer
         if (this%capacity > this%size + this%chunk_size) then
-            ! Calculate new capacity with some buffer
-            new_capacity = max(this%size + this%chunk_size / 2, this%initial_capacity)
+            ! Calculate new capacity with some buffer, check for overflow
+            if (this%size > huge(this%size) - this%chunk_size / 2) then
+                new_capacity = this%initial_capacity
+            else
+                new_capacity = max(this%size + this%chunk_size / 2, this%initial_capacity)
+            end if
             
             if (new_capacity < this%capacity) then
                 ! Allocate smaller array
