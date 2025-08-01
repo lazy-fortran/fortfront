@@ -452,7 +452,13 @@ contains
         integer :: i
         
         node%array_index = array_index
-        node%num_dimensions = min(num_dims, 10)  ! Max 10 dimensions
+        ! Validate non-negative dimensions
+        if (num_dims < 0) then
+            node%num_dimensions = 0
+        else
+            node%num_dimensions = min(num_dims, 10)  ! Max 10 dimensions
+        end if
+        
         do i = 1, node%num_dimensions
             if (i <= size(bounds_indices)) then
                 node%bounds_indices(i) = bounds_indices(i)
