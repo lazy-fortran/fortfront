@@ -1,8 +1,10 @@
 module parser_declarations_module
     use iso_fortran_env, only: error_unit
-    use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
+    use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, &
+                          TK_OPERATOR, TK_KEYWORD
     use ast_core
-    use ast_factory, only: push_literal, push_identifier, push_binary_op, push_derived_type, push_declaration, push_multi_declaration
+    use ast_factory, only: push_literal, push_identifier, push_binary_op, &
+                           push_derived_type, push_declaration, push_multi_declaration
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_comparison
     implicit none
@@ -81,11 +83,13 @@ contains
                             ! Handle kind=real64, kind=int32, etc.
                             var_token = parser%consume()
                             type_spec = type_spec//var_token%text
-                        else if (var_token%kind == TK_OPERATOR .and. var_token%text == ":") then
+                        else if (var_token%kind == TK_OPERATOR .and. &
+                                 var_token%text == ":") then
                             ! Handle len=: for deferred length
                             var_token = parser%consume()
                             type_spec = type_spec//":"
-                        else if (var_token%kind == TK_OPERATOR .and. var_token%text == "*") then
+                        else if (var_token%kind == TK_OPERATOR .and. &
+                                 var_token%text == "*") then
                             ! Handle len=* for assumed length
                             var_token = parser%consume()
                             type_spec = type_spec//"*"
@@ -106,7 +110,8 @@ contains
                 end if
             else
                 ! Error: expected number or identifier
-                decl_index = push_literal(arena, "ERROR: Expected kind value or type name", LITERAL_STRING, line, column)
+                decl_index = push_literal(arena, &
+                    "ERROR: Expected kind value or type name", LITERAL_STRING, line, column)
                 return
             end if
         end if
@@ -648,7 +653,9 @@ contains
                         temp_var_names(var_count) = var_name
                     else
                         ! Too many variables - error
-                        decl_indices = [push_literal(arena, "ERROR: Too many variables in declaration", LITERAL_STRING, line, column)]
+                        decl_indices = [push_literal(arena, &
+                            "ERROR: Too many variables in declaration", &
+                            LITERAL_STRING, line, column)]
                         return
                     end if
                 else
@@ -728,7 +735,9 @@ contains
             else
                 ! Complex multi-variable declarations - fall back to separate declarations for now
                 ! TODO: Implement proper multi-variable with per-variable attributes
-                decl_indices = [push_literal(arena, "ERROR: Complex multi-variable declarations not yet supported", LITERAL_STRING, line, column)]
+                decl_indices = [push_literal(arena, &
+                    "ERROR: Complex multi-variable declarations not yet supported", &
+                    LITERAL_STRING, line, column)]
             end if
             
             decl_count = var_count
