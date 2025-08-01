@@ -329,13 +329,9 @@ contains
         ! Generate code
         code = generate_code_from_arena(arena, forall_idx)
         
-        print *, "Generated FORALL code: '", trim(code), "'"
-        print *, "Code length: ", len_trim(code)
-        
-        ! Skip check for now to see output
-        ! if (index(code, "forall") == 0) then
-        !     error stop "Generated code missing 'forall'"
-        ! end if
+        if (index(code, "forall") == 0) then
+            error stop "Generated code missing 'forall'"
+        end if
         
         print *, "  ✓ FORALL code generation successful"
     end subroutine test_codegen_forall
