@@ -49,10 +49,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Dependencies**: Related to #32
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #30 - Add intrinsic function identification and signature information
+### ✅ #30 - Add intrinsic function identification and signature information
 **Priority: Medium** | **Impact: AST Design** | **Effort: High**
+- **Status**: ✅ **COMPLETED** - Intrinsic function identification and signature information implemented (PR #44)
 - **Description**: Distinguish intrinsic functions from user functions in AST
 - **Architectural Impact**: Changes function call representation
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### #29 - Add WHERE and FORALL statement/construct detailed representation
 **Priority: Medium** | **Impact: AST Design** | **Effort: High**
