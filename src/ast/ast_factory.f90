@@ -26,6 +26,7 @@ module ast_factory
     public :: push_allocate, push_deallocate
     public :: push_array_section
     public :: push_array_bounds, push_array_slice, push_range_expression
+    public :: push_call_or_subscript_with_slice_detection
     public :: build_ast_from_nodes
 
 contains
@@ -1535,5 +1536,46 @@ contains
         call arena%push(range, "range_expression", parent_index)
         range_index = arena%size
     end function push_range_expression
+
+    ! Create call or subscript with array slice detection
+    function push_call_or_subscript_with_slice_detection(arena, name, arg_indices, &
+                                                        line, column, parent_index) result(node_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: name
+        integer, intent(in) :: arg_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: node_index
+        logical :: has_slice
+        integer :: i
+        
+        ! Check if any argument is a range expression (array slice)
+        has_slice = .false.
+        do i = 1, size(arg_indices)
+            if (arg_indices(i) > 0 .and. arg_indices(i) <= arena%size) then
+                if (allocated(arena%entries(arg_indices(i))%node)) then
+                    select type (node => arena%entries(arg_indices(i))%node)
+                    type is (range_expression_node)
+                        has_slice = .true.
+                        exit
+                    end select
+                end if
+            end if
+        end do
+        
+        if (has_slice) then
+            ! Create array slice node
+            ! First push identifier for array name
+            block
+                integer :: array_name_index
+                array_name_index = push_identifier(arena, name, line, column, parent_index)
+                node_index = push_array_slice(arena, array_name_index, arg_indices, &
+                                            size(arg_indices), line, column, parent_index)
+            end block
+        else
+            ! Regular function call or array indexing
+            node_index = push_call_or_subscript(arena, name, arg_indices, &
+                                               line, column, parent_index)
+        end if
+    end function push_call_or_subscript_with_slice_detection
 
 end module ast_factory

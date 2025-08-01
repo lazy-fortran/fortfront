@@ -7,6 +7,7 @@ program test_array_bounds
 
     call test_basic_array_bounds_creation()
     call test_range_expression_creation()
+    call test_negative_dimensions_validation()
 
     if (all_tests_passed) then
         print *, "All array bounds tests passed!"
@@ -69,6 +70,67 @@ contains
             all_tests_passed = .false.
         else
             print *, "PASS: range_expression_node with stride creation"
+        end if
+    end subroutine
+
+    subroutine test_array_slice_parsing()
+        use frontend
+        use lexer_core, only: token_t
+        use semantic_analyzer, only: semantic_context_t
+        
+        character(len=:), allocatable :: source
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        character(len=:), allocatable :: lex_error_msg
+        character(len=1024) :: parse_error_msg
+        integer :: prog_index
+        
+        print *, "Testing array slice parsing..."
+        
+        source = "program test" // new_line('a') // &
+                "real :: arr(100)" // new_line('a') // &
+                "real :: x" // new_line('a') // &
+                "x = arr(10:20)" // new_line('a') // &
+                "end program test"
+        
+        ! Lex 
+        call lex_source(source, tokens, lex_error_msg)
+        if (allocated(lex_error_msg)) then
+            print *, "FAIL: Could not lex array slice: ", lex_error_msg
+            all_tests_passed = .false.
+            return
+        end if
+        
+        ! Parse
+        arena = create_ast_arena()
+        parse_error_msg = ""
+        call parse_tokens(tokens, arena, prog_index, parse_error_msg)
+        if (len_trim(parse_error_msg) > 0) then
+            print *, "FAIL: Could not parse array slice: ", trim(parse_error_msg)
+            all_tests_passed = .false.
+            return
+        end if
+        
+        ! TODO: Verify array_slice_node was created
+        print *, "PASS: array slice parsed successfully"
+    end subroutine
+
+    subroutine test_negative_dimensions_validation()
+        type(array_slice_node) :: slice
+        integer :: bounds_indices(1)
+        
+        print *, "Testing negative dimensions validation..."
+        
+        bounds_indices(1) = 1
+        
+        ! Test negative dimensions
+        slice = create_array_slice(1, bounds_indices, -5)
+        
+        if (slice%num_dimensions /= 0) then
+            print *, "FAIL: Negative dimensions not handled correctly"
+            all_tests_passed = .false.
+        else
+            print *, "PASS: Negative dimensions validation works"
         end if
     end subroutine
 
