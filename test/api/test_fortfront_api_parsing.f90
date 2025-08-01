@@ -1,7 +1,7 @@
 program test_fortfront_api_parsing
     ! Test the public API parsing functionality
     use fortfront, only: parse_tokens, ast_arena_t, create_ast_arena, &
-                        lex_source, token_t, get_node, ast_node, &
+                        lex_source, token_t, ast_node, &
                         program_node, assignment_node, function_def_node, &
                         if_node, do_loop_node
     implicit none
@@ -236,18 +236,27 @@ contains
             type is (program_node)
                 ! For lazy fortran, might wrap in program
                 if (size(node%body_indices) > 0) then
-                    block
-                        class(ast_node), allocatable :: func_node
-                        func_node = get_node(arena, node%body_indices(1))
-                        select type (func_node)
-                        type is (function_def_node)
-                            ! OK - function is in program body
-                        class default
-                            print *, '  FAIL: Expected function in program body'
+                    ! Check the first body item is a function
+                    if (node%body_indices(1) > 0 .and. node%body_indices(1) <= arena%size) then
+                        if (allocated(arena%entries(node%body_indices(1))%node)) then
+                            select type (func_node => arena%entries(node%body_indices(1))%node)
+                            type is (function_def_node)
+                                ! OK - function is in program body
+                            class default
+                                print *, '  FAIL: Expected function in program body'
+                                test_function_parsing = .false.
+                                return
+                            end select
+                        else
+                            print *, '  FAIL: Function node not allocated'
                             test_function_parsing = .false.
                             return
-                        end select
-                    end block
+                        end if
+                    else
+                        print *, '  FAIL: Invalid function index'
+                        test_function_parsing = .false.
+                        return
+                    end if
                 end if
                 
             class default

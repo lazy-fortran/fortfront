@@ -1,6 +1,7 @@
 program test_fortfront_api_arena
     ! Test the public API AST arena functionality
-    use fortfront, only: ast_arena_t, create_ast_arena, get_node, get_parent, &
+    use fortfront, only: ast_arena_t, create_ast_arena, node_exists, get_node_type_at, &
+                        get_node_location, get_parent, &
                         get_children, get_arena_stats, traverse_ast, &
                         get_node_range, source_range_t, &
                         ast_node, program_node, assignment_node, identifier_node, &
@@ -68,7 +69,6 @@ contains
         
         block
             type(ast_arena_t) :: arena
-            class(ast_node), allocatable :: node
             integer :: lit_index, id_index
             
             arena = create_ast_arena()
@@ -77,39 +77,31 @@ contains
             lit_index = push_literal(arena, "42", LITERAL_INTEGER, 1, 1)
             id_index = push_identifier(arena, "x", 1, 3)
             
-            ! Get literal node
-            node = get_node(arena, lit_index)
-            if (.not. allocated(node)) then
-                print *, '  FAIL: Could not get literal node'
+            ! Check literal node
+            if (.not. node_exists(arena, lit_index)) then
+                print *, '  FAIL: Literal node does not exist'
                 test_node_access = .false.
                 return
             end if
             
-            select type (node)
-            type is (literal_node)
-                ! Just check that we got the right type
-            class default
-                print *, '  FAIL: Expected literal_node type'
-                test_node_access = .false.
-                return
-            end select
-            
-            ! Get identifier node
-            node = get_node(arena, id_index)
-            if (.not. allocated(node)) then
-                print *, '  FAIL: Could not get identifier node'
+            if (get_node_type_at(arena, lit_index) /= "literal") then
+                print *, '  FAIL: Expected literal node type, got ', get_node_type_at(arena, lit_index)
                 test_node_access = .false.
                 return
             end if
             
-            select type (node)
-            type is (identifier_node)
-                ! Just check that we got the right type
-            class default
-                print *, '  FAIL: Expected identifier_node type'
+            ! Check identifier node
+            if (.not. node_exists(arena, id_index)) then
+                print *, '  FAIL: Identifier node does not exist'
                 test_node_access = .false.
                 return
-            end select
+            end if
+            
+            if (get_node_type_at(arena, id_index) /= "identifier") then
+                print *, '  FAIL: Expected identifier node type, got ', get_node_type_at(arena, id_index)
+                test_node_access = .false.
+                return
+            end if
             
             ! Test invalid index - skip for now due to deallocation issues
             ! print *, '  DEBUG: Testing invalid index...'
@@ -244,7 +236,6 @@ contains
             type(ast_arena_t) :: arena
             integer :: prog_index, assign_index, id_index, lit_index
             integer, allocatable :: body_indices(:)
-            class(ast_node), allocatable :: node
             integer :: node_count
             
             arena = create_ast_arena()
@@ -260,37 +251,30 @@ contains
             node_count = 0
             
             ! Check program node
-            node = get_node(arena, prog_index)
-            if (allocated(node)) then
+            if (node_exists(arena, prog_index)) then
                 node_count = node_count + 1
-                select type (node)
-                type is (program_node)
-                    ! Good, it's a program node
-                class default
+                if (get_node_type_at(arena, prog_index) /= "program") then
                     print *, '  FAIL: Root is not a program node'
                     test_traversal = .false.
                     return
-                end select
+                end if
             else
-                print *, '  FAIL: Could not get program node'
+                print *, '  FAIL: Program node does not exist'
                 test_traversal = .false.
                 return
             end if
             
             ! Check assignment node
-            node = get_node(arena, assign_index)
-            if (allocated(node)) then
+            if (node_exists(arena, assign_index)) then
                 node_count = node_count + 1
             end if
             
             ! Check identifier and literal nodes
-            node = get_node(arena, id_index)
-            if (allocated(node)) then
+            if (node_exists(arena, id_index)) then
                 node_count = node_count + 1
             end if
             
-            node = get_node(arena, lit_index)
-            if (allocated(node)) then
+            if (node_exists(arena, lit_index)) then
                 node_count = node_count + 1
             end if
             
