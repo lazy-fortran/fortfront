@@ -14,49 +14,71 @@ module ast_core
     use ast_arena, only: ast_arena_t, ast_entry_t, ast_arena_stats_t, create_ast_arena
     
     ! Re-export all node types
-    use ast_nodes_core, only: program_node, assignment_node, pointer_assignment_node, identifier_node, literal_node, &
+    use ast_nodes_core, only: program_node, assignment_node, &
+                              pointer_assignment_node, identifier_node, literal_node, &
                               binary_op_node, call_or_subscript_node, array_literal_node, &
                               create_pointer_assignment, create_array_literal
-    use ast_nodes_control, only: if_node, do_loop_node, do_while_node, forall_node, elseif_wrapper, &
-                                 case_wrapper, &
-                                 select_case_node, case_block_node, case_range_node, case_default_node, &
+    use ast_nodes_control, only: if_node, do_loop_node, do_while_node, forall_node, &
+                                 elseif_wrapper, case_wrapper, &
+                                 select_case_node, case_block_node, case_range_node, &
+                                 case_default_node, &
                                  where_node, cycle_node, exit_node, stop_node, return_node, &
-                                 create_do_loop, create_do_while, create_if, create_select_case
-    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, subroutine_call_node, &
+                                 create_do_loop, create_do_while, create_if, &
+                                 create_select_case
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
+                                   subroutine_call_node, &
                                    create_function_def, create_subroutine_def
-    use ast_nodes_data, only: declaration_node, parameter_declaration_node, module_node, derived_type_node, &
+    use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
+                               module_node, derived_type_node, &
                                create_declaration, create_derived_type
-    use ast_nodes_io, only: print_statement_node, write_statement_node, read_statement_node, format_descriptor_node, &
+    use ast_nodes_io, only: print_statement_node, write_statement_node, &
+                             read_statement_node, format_descriptor_node, &
                              create_print_statement
-    use ast_nodes_misc, only: complex_literal_node, allocate_statement_node, deallocate_statement_node, &
-                              use_statement_node, include_statement_node, contains_node, interface_block_node, &
+    use ast_nodes_misc, only: complex_literal_node, allocate_statement_node, &
+                              deallocate_statement_node, &
+                              use_statement_node, include_statement_node, &
+                              contains_node, interface_block_node, &
                               comment_node
     
     implicit none
     
     ! Re-export everything as public
-    public :: ast_node, visit_interface, to_json_interface, string_t, ast_node_wrapper
-    public :: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX
+    public :: ast_node, visit_interface, to_json_interface, string_t, &
+              ast_node_wrapper
+    public :: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL, &
+              LITERAL_ARRAY, LITERAL_COMPLEX
     public :: ast_arena_t, ast_entry_t, ast_arena_stats_t, create_ast_arena
-    public :: program_node, assignment_node, pointer_assignment_node, identifier_node, literal_node
+    public :: program_node, assignment_node, pointer_assignment_node, &
+              identifier_node, literal_node
     public :: binary_op_node, call_or_subscript_node, array_literal_node
-    public :: if_node, do_loop_node, do_while_node, forall_node, elseif_wrapper, case_wrapper
+    public :: if_node, do_loop_node, do_while_node, forall_node, &
+              elseif_wrapper, case_wrapper
     public :: select_case_node, case_block_node, case_range_node, case_default_node
     public :: where_node, cycle_node, exit_node, stop_node, return_node
     public :: function_def_node, subroutine_def_node, subroutine_call_node
-    public :: declaration_node, parameter_declaration_node, module_node, derived_type_node
-    public :: print_statement_node, write_statement_node, read_statement_node, format_descriptor_node
-    public :: complex_literal_node, allocate_statement_node, deallocate_statement_node
-    public :: use_statement_node, include_statement_node, contains_node, interface_block_node, comment_node
+    public :: declaration_node, parameter_declaration_node, module_node, &
+              derived_type_node
+    public :: print_statement_node, write_statement_node, &
+              read_statement_node, format_descriptor_node
+    public :: complex_literal_node, allocate_statement_node, &
+              deallocate_statement_node
+    public :: use_statement_node, include_statement_node, contains_node, &
+              interface_block_node, comment_node
     ! Re-export factory functions
-    public :: create_pointer_assignment, create_array_literal, create_function_def, create_subroutine_def, &
-              create_print_statement, create_declaration, create_do_loop, create_do_while, create_if, &
+    public :: create_pointer_assignment, create_array_literal, &
+              create_function_def, create_subroutine_def, &
+              create_print_statement, create_declaration, create_do_loop, &
+              create_do_while, create_if, &
               create_select_case, create_derived_type
     ! Factory functions in this module
-    public :: create_identifier, create_literal, create_binary_op, create_call_or_subscript, &
-              create_assignment, create_program, create_subroutine_call, create_use_statement, &
-              create_include_statement, create_interface_block, create_module, create_stop, &
-              create_return, create_cycle, create_exit, create_where, create_comment
+    public :: create_identifier, create_literal, create_binary_op, &
+              create_call_or_subscript, &
+              create_assignment, create_program, create_subroutine_call, &
+              create_use_statement, &
+              create_include_statement, create_interface_block, create_module, &
+              create_stop, &
+              create_return, create_cycle, create_exit, create_where, &
+              create_comment
     
 contains
 
@@ -92,7 +114,8 @@ contains
         end if
     end function create_literal
 
-    function create_binary_op(left_index, right_index, operator, line, column) result(node)
+    function create_binary_op(left_index, right_index, operator, line, column) &
+            result(node)
         integer, intent(in) :: left_index, right_index
         character(len=*), intent(in) :: operator
         integer, intent(in), optional :: line, column
@@ -121,7 +144,8 @@ contains
         if (present(column)) node%column = column
     end function create_call_or_subscript
 
-    function create_assignment(target_index, value_index, line, column, inferred_type, inferred_type_name) result(node)
+    function create_assignment(target_index, value_index, line, column, &
+            inferred_type, inferred_type_name) result(node)
         integer, intent(in) :: target_index, value_index
         integer, intent(in), optional :: line, column
         type(mono_type_t), intent(in), optional :: inferred_type
@@ -175,7 +199,8 @@ contains
         if (present(column)) node%column = column
     end function create_subroutine_call
 
-    function create_use_statement(module_name, only_list, rename_list, has_only, line, column) result(node)
+    function create_use_statement(module_name, only_list, rename_list, has_only, &
+            line, column) result(node)
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
         logical, intent(in), optional :: has_only
@@ -218,7 +243,8 @@ contains
         if (present(column)) node%column = column
     end function create_include_statement
 
-    function create_interface_block(name, kind, operator, procedure_indices, line, column) result(node)
+    function create_interface_block(name, kind, operator, procedure_indices, &
+            line, column) result(node)
         character(len=*), intent(in), optional :: name, kind, operator
         integer, intent(in), optional :: procedure_indices(:)
         integer, intent(in), optional :: line, column
@@ -238,7 +264,8 @@ contains
         if (present(column)) node%column = column
     end function create_interface_block
 
-    function create_module(name, declaration_indices, procedure_indices, has_contains, line, column) result(node)
+    function create_module(name, declaration_indices, procedure_indices, &
+            has_contains, line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: declaration_indices(:), procedure_indices(:)
         logical, intent(in), optional :: has_contains
@@ -304,9 +331,11 @@ contains
         if (present(column)) node%column = column
     end function create_exit
 
-    function create_where(mask_expr_index, where_body_indices, elsewhere_body_indices, line, column) result(node)
+    function create_where(mask_expr_index, where_body_indices, &
+            elsewhere_body_indices, line, column) result(node)
         integer, intent(in) :: mask_expr_index
-        integer, intent(in), optional :: where_body_indices(:), elsewhere_body_indices(:)
+        integer, intent(in), optional :: where_body_indices(:), &
+                                          elsewhere_body_indices(:)
         integer, intent(in), optional :: line, column
         type(where_node) :: node
 
@@ -339,7 +368,8 @@ contains
     end function create_comment
 
     ! Backward compatibility wrapper for create_declaration
-    function create_declaration_wrapper(type_name, var_name, kind_value, initializer, dimensions, &
+    function create_declaration_wrapper(type_name, var_name, kind_value, &
+            initializer, dimensions, &
                                is_allocatable, is_pointer, line, column) result(node)
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_name
@@ -368,7 +398,8 @@ contains
         end if
 
         ! Call the real create_declaration
-        node = create_declaration(type_name, var_name, kind_value, initializer_index, dim_indices, &
+        node = create_declaration(type_name, var_name, kind_value, &
+                                  initializer_index, dim_indices, &
                                  is_allocatable, is_pointer, line, column)
     end function create_declaration_wrapper
 

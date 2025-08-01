@@ -174,11 +174,16 @@ contains
             return
         end if
 
-        ! Get variable name
+        ! Get variable name and create identifier node
         var_token = parser%peek()
         if (var_token%kind == TK_IDENTIFIER) then
             var_token = parser%consume()
             var_name = var_token%text
+            ! Create identifier node for the variable name
+            block
+                integer :: var_id_index
+                var_id_index = push_identifier(arena, var_name, var_token%line, var_token%column)
+            end block
         else
             ! Error: expected identifier
             decl_index = push_literal(arena, "ERROR: Expected identifier", LITERAL_STRING, line, column)
@@ -217,7 +222,6 @@ contains
             if (var_token%kind == TK_OPERATOR .and. var_token%text == "=") then
                 ! Consume '='
                 var_token = parser%consume()
-
                 ! Parse the initializer expression
                 initializer_index = parse_comparison(parser, arena)
             end if

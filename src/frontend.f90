@@ -6,17 +6,20 @@ module frontend
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
-    use parser_control_flow_module, only: parse_do_loop, parse_do_while, parse_select_case
+    use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
+                                          parse_select_case
     use ast_core
     use ast_factory, only: push_program, push_literal
-    use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program
+    use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
+                                   analyze_program
     use semantic_analyzer_with_checks, only: analyze_program_with_checks
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
     use codegen_core, only: generate_code_from_arena, generate_code_polymorphic, &
                            set_type_standardization, get_type_standardization
     use codegen_indent, only: set_indent_config, get_indent_config
-    use json_reader, only: json_read_tokens_from_file, json_read_ast_from_file, json_read_semantic_from_file
+    use json_reader, only: json_read_tokens_from_file, json_read_ast_from_file, &
+                            json_read_semantic_from_file
     use stdlib_logger, only: global_logger
 
     implicit none
@@ -24,11 +27,15 @@ module frontend
 
     public :: lex_source, parse_tokens, analyze_semantics, emit_fortran
     public :: compile_source, compilation_options_t
-    public :: compile_from_tokens_json, compile_from_ast_json, compile_from_semantic_json
-    public :: transform_lazy_fortran_string, transform_lazy_fortran_string_with_format, format_options_t
+    public :: compile_from_tokens_json, compile_from_ast_json, &
+              compile_from_semantic_json
+    public :: transform_lazy_fortran_string, &
+              transform_lazy_fortran_string_with_format, format_options_t
     ! Debug functions for unit testing
-    public :: find_program_unit_boundary, is_function_start, is_end_function, parse_program_unit
-    public :: is_do_loop_start, is_do_while_start, is_select_case_start, is_end_do, is_end_select
+    public :: find_program_unit_boundary, is_function_start, is_end_function, &
+              parse_program_unit
+    public :: is_do_loop_start, is_do_while_start, is_select_case_start, &
+              is_end_do, is_end_select
     public :: is_if_then_start, is_end_if
     public :: lex_file
 
@@ -238,7 +245,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
 
         ! Read annotated AST and semantic context from JSON - simplified
         arena = create_ast_arena()
-        prog_index = push_literal(arena, "! Semantic JSON loading not implemented", LITERAL_STRING, 1, 1)
+        prog_index = push_literal(arena, "! Semantic JSON loading not implemented", &
+                                 LITERAL_STRING, 1, 1)
         ! if (options%debug_semantic) ! call debug_output_semantic(semantic_json_file, arena, prog_index)
 
         ! Phase 4: Code Generation (direct from annotated AST)
@@ -324,7 +332,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
 
             ! Find program unit boundary
-            call find_program_unit_boundary(tokens, i, unit_start, unit_end, has_explicit_program_unit)
+            call find_program_unit_boundary(tokens, i, unit_start, unit_end, &
+                                           has_explicit_program_unit)
 
             block
                 character(len=20) :: start_str, end_str
@@ -340,7 +349,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
        .not. (unit_end == unit_start .and. tokens(unit_start)%kind == TK_KEYWORD .and. &
      (tokens(unit_start)%text == "real" .or. tokens(unit_start)%text == "integer" .or. &
  tokens(unit_start)%text == "logical" .or. tokens(unit_start)%text == "character" .or. &
-                            tokens(unit_start)%text == "function" .or. tokens(unit_start)%text == "subroutine" .or. &
+                            tokens(unit_start)%text == "function" .or. &
+                            tokens(unit_start)%text == "subroutine" .or. &
         tokens(unit_start)%text == "module" .or. tokens(unit_start)%text == "end" .or. &
       tokens(unit_start)%text == "else" .or. tokens(unit_start)%text == "elseif"))) then
                 ! Extract unit tokens and add EOF
@@ -385,7 +395,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         if (.not. has_explicit_program_unit) then
             ! For lazy fortran, parse_all_statements already created the program node
             if (stmt_count > 0) then
-                prog_index = body_indices(1)  ! This is the program node from parse_all_statements
+                prog_index = body_indices(1)  ! This is the program node from &
+                                             ! parse_all_statements
             else
                 error_msg = "No statements found in file"
                 prog_index = 0
@@ -407,14 +418,16 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
     end subroutine parse_tokens
 
     ! Find program unit boundary (function/subroutine/module spans multiple lines)
-    subroutine find_program_unit_boundary(tokens, start_pos, unit_start, unit_end, has_explicit_program)
+    subroutine find_program_unit_boundary(tokens, start_pos, unit_start, unit_end, &
+                                         has_explicit_program)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         integer, intent(out) :: unit_start, unit_end
         logical, intent(in) :: has_explicit_program
 
         integer :: i, current_line, nesting_level
-        logical :: in_function, in_subroutine, in_module, in_do_loop, in_select_case, in_if_block
+        logical :: in_function, in_subroutine, in_module, in_do_loop, &
+                   in_select_case, in_if_block
 
         unit_start = start_pos
         unit_end = start_pos
@@ -461,7 +474,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end if
 
         ! If this is a multi-line construct, find the end
-        if (in_function .or. in_subroutine .or. in_module .or. in_do_loop .or. in_select_case .or. in_if_block) then
+        if (in_function .or. in_subroutine .or. in_module .or. in_do_loop .or. &
+            in_select_case .or. in_if_block) then
             i = start_pos
             do while (i <= size(tokens) .and. nesting_level > 0)
                 if (tokens(i)%kind == TK_EOF) exit
@@ -477,7 +491,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                         nesting_level = nesting_level + 1
                     else if (in_module .and. is_module_start(tokens, i)) then
                         nesting_level = nesting_level + 1
-                    else if (in_do_loop .and. (is_do_loop_start(tokens, i) .or. is_do_while_start(tokens, i))) then
+                    else if (in_do_loop .and. (is_do_loop_start(tokens, i) .or. &
+                                                is_do_while_start(tokens, i))) then
                         nesting_level = nesting_level + 1
                     else if (in_select_case .and. is_select_case_start(tokens, i)) then
                         nesting_level = nesting_level + 1
@@ -570,7 +585,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 if (start_pos + 1 <= size(tokens) .and. &
                     tokens(start_pos + 1)%kind == TK_KEYWORD .and. &
                     tokens(start_pos + 1)%text == "function") then
-                    unit_end = unit_start - 1  ! Signal to skip this unit - it's part of a function def
+                    unit_end = unit_start - 1  ! Signal to skip this unit - &
+                                              ! it's part of a function def
                 end if
             end if
         end if
@@ -695,7 +711,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         if (is_if_then_start(tokens, start_pos)) then
             in_if_block = .true.
             nesting_level = 1
-        else if (is_do_loop_start(tokens, start_pos) .or. is_do_while_start(tokens, start_pos)) then
+        else if (is_do_loop_start(tokens, start_pos) .or. &
+                 is_do_while_start(tokens, start_pos)) then
             in_do_loop = .true.
             nesting_level = 1
         else if (is_select_case_start(tokens, start_pos)) then
@@ -716,7 +733,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 if (i /= start_pos) then
                     if (in_if_block .and. is_if_then_start(tokens, i)) then
                         nesting_level = nesting_level + 1
-                    else if (in_do_loop .and. (is_do_loop_start(tokens, i) .or. is_do_while_start(tokens, i))) then
+                    else if (in_do_loop .and. (is_do_loop_start(tokens, i) .or. &
+                                                is_do_while_start(tokens, i))) then
                         nesting_level = nesting_level + 1
                     else if (in_select_case .and. is_select_case_start(tokens, i)) then
                         nesting_level = nesting_level + 1
@@ -823,7 +841,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
            (tokens(pos - 1)%text == "real" .or. tokens(pos - 1)%text == "integer" .or. &
        tokens(pos - 1)%text == "logical" .or. tokens(pos - 1)%text == "character" .or. &
                      tokens(pos - 1)%text == "end")) then
-                    is_function_start = .false.  ! Already counted with the type or it's "end function"
+                    is_function_start = .false.  ! Already counted with the type &
+                                                 ! or it's "end function"
                 else
                     is_function_start = .true.
                 end if
@@ -953,7 +972,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 ! Regular do loop (not do while)
                 if (pos + 1 <= size(tokens)) then
       if (tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "while") then
-                        is_do_loop_start = .false.  ! It's a do while, not a regular do loop
+                        is_do_loop_start = .false.  ! It's a do while, not &
+                                                    ! a regular do loop
                         ! Found do while, not do loop
                     else
                         is_do_loop_start = .true.
@@ -1033,7 +1053,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
 
         ! Check if current token is "if"
         if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "if") then
-            ! Check if this is "else if" - if so, it's not a new if block for nesting purposes
+            ! Check if this is "else if" - if so, it's not a new if block &
+            ! for nesting purposes
             if (pos > 1 .and. pos <= size(tokens)) then
                 if (tokens(pos - 1)%kind == TK_KEYWORD .and. &
                     tokens(pos - 1)%text == "else" .and. &
@@ -1188,7 +1209,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
     end subroutine transform_lazy_fortran_string
 
     ! String-based transformation function with formatting options
-    subroutine transform_lazy_fortran_string_with_format(input, output, error_msg, format_opts)
+    subroutine transform_lazy_fortran_string_with_format(input, output, &
+                                                         error_msg, format_opts)
         character(len=*), intent(in) :: input
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
