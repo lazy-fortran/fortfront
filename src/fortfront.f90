@@ -1039,7 +1039,7 @@ contains
                 if (node_name == symbol_name) then
                     ref_count = ref_count + 1
                     references(ref_count)%node_index = i
-                    references(ref_count)%scope_level = 1  ! Simplified - would need AST traversal to determine actual scope
+                    references(ref_count)%scope_level = ctx%scopes%depth  ! Use current scope depth instead of hardcoded 1
                     references(ref_count)%is_definition = .false.  ! Would need to check if this is a declaration
                     references(ref_count)%is_assignment = .false.  ! Would need to check if this is target of assignment
                 end if
