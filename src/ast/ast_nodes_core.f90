@@ -386,6 +386,8 @@ contains
         lhs%is_intrinsic = rhs%is_intrinsic
         if (allocated(rhs%intrinsic_signature) .and. len_trim(rhs%intrinsic_signature) > 0) then
             lhs%intrinsic_signature = rhs%intrinsic_signature
+        else
+            if (allocated(lhs%intrinsic_signature)) deallocate(lhs%intrinsic_signature)
         end if
     end subroutine call_or_subscript_assign
 

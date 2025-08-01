@@ -66,7 +66,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 30
+        integer, parameter :: NUM_INTRINSICS = 31
         integer :: i
 
         if (registry_initialized) return
@@ -230,6 +230,11 @@ contains
         intrinsic_functions(i) = intrinsic_signature_t( &
             name="precision", return_type="integer", arg_types="real", &
             description="Decimal precision")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+            name="allocated", return_type="logical", arg_types="allocatable", &
+            description="Check if allocatable variable is allocated")
 
         ! Validate we used all allocated slots
         if (i /= NUM_INTRINSICS) then
