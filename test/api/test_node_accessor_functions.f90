@@ -64,6 +64,9 @@ program test_node_accessor_functions
     ! Test binary operation and call nodes
     call test_advanced_nodes(arena)
     
+    ! Test declaration nodes
+    call test_declaration_nodes(arena)
+    
     ! Test error handling
     print *, "Testing error handling..."
     found = get_identifier_name(arena, 999, id_name)
@@ -201,5 +204,66 @@ contains
             print *, "  ✗ Failed to get array literal info"
         end if
     end subroutine test_advanced_nodes
+    
+    subroutine test_declaration_nodes(arena)
+        type(ast_arena_t), intent(inout) :: arena
+        type(declaration_node) :: decl_node
+        type(parameter_declaration_node) :: param_node
+        integer :: decl_idx, param_idx
+        character(len=:), allocatable :: var_names(:), type_spec, attributes(:)
+        character(len=:), allocatable :: values(:)
+        logical :: found
+        
+        print *, "Testing declaration node accessors..."
+        
+        ! Create declaration node: integer :: a, b
+        decl_node%type_name = "integer"
+        decl_node%is_multi_declaration = .true.
+        allocate(character(len=256) :: decl_node%var_names(2))
+        decl_node%var_names(1) = "a"
+        decl_node%var_names(2) = "b"
+        decl_node%has_intent = .true.
+        decl_node%intent = "in"
+        call arena%push(decl_node, "declaration")
+        decl_idx = arena%size
+        
+        ! Test declaration accessor
+        found = get_declaration_info(arena, decl_idx, var_names, type_spec, attributes)
+        if (found) then
+            print *, "  ✓ Declaration type:", type_spec
+            print *, "  ✓ Variable count:", size(var_names)
+            if (size(var_names) >= 2) then
+                print *, "  ✓ First variable:", var_names(1)
+                print *, "  ✓ Second variable:", var_names(2)
+            end if
+            print *, "  ✓ Attributes count:", size(attributes)
+            if (size(attributes) > 0) then
+                print *, "  ✓ First attribute:", attributes(1)
+            end if
+        else
+            print *, "  ✗ Failed to get declaration info"
+        end if
+        
+        ! Create parameter declaration: parameter :: pi = 3.14
+        param_node%type_name = "real"
+        param_node%name = "pi"
+        call arena%push(param_node, "parameter_declaration")
+        param_idx = arena%size
+        
+        ! Test parameter declaration accessor
+        found = get_parameter_declaration_info(arena, param_idx, var_names, values, type_spec)
+        if (found) then
+            print *, "  ✓ Parameter type:", type_spec
+            print *, "  ✓ Parameter count:", size(var_names)
+            if (size(var_names) > 0) then
+                print *, "  ✓ Parameter name:", var_names(1)
+            end if
+            if (size(values) > 0) then
+                print *, "  ✓ Parameter value:", values(1)
+            end if
+        else
+            print *, "  ✗ Failed to get parameter declaration info"
+        end if
+    end subroutine test_declaration_nodes
     
 end program test_node_accessor_functions
