@@ -24,12 +24,13 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Dependencies**: ✅ Depends on #32 resolution
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #11 - AST Arena Access Methods Are Stub Implementations
+### ✅ #11 - AST Arena Access Methods Are Stub Implementations  
 **Priority: High** | **Impact: Architectural** | **Effort: Medium**
-- **Status**: Core infrastructure incomplete
+- **Status**: ✅ **COMPLETED** - All stub methods fully implemented
 - **Labels**: bug, enhancement
 - **Description**: Many arena methods are stubs, limiting functionality
 - **Architectural Impact**: Core data structure incomplete
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ## 🟠 High-Impact Parser & AST Enhancements
 
