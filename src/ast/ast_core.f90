@@ -343,17 +343,19 @@ contains
         integer, intent(in), optional :: line, column
         type(where_node) :: node
 
-        node%mask_index = mask_expr_index
+        node%mask_expr_index = mask_expr_index
         
         if (present(where_body_indices)) then
             if (size(where_body_indices) > 0) then
-                node%body_indices = where_body_indices
+                node%where_body_indices = where_body_indices
             end if
         end if
         
+        ! For backward compatibility, treat simple elsewhere as final elsewhere
         if (present(elsewhere_body_indices)) then
             if (size(elsewhere_body_indices) > 0) then
-                node%elsewhere_indices = elsewhere_body_indices
+                node%has_final_elsewhere = .true.
+                node%final_elsewhere_body_indices = elsewhere_body_indices
             end if
         end if
         
