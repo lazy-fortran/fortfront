@@ -44,6 +44,9 @@ fpm test <test_name>
 ## Development Tips
 
 - Do not always use `fpm clean all`. Only use clean in cases where all other fixes fail
+- **Avoid Using Shell Redirection Tricks**
+  - Never use `2>&1` or similar shell redirection techniques blindly
+  - These can mask underlying issues and make debugging more difficult
 
 ## Architecture Overview
 

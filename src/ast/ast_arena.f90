@@ -382,11 +382,13 @@ contains
         class(ast_entry_t), intent(inout) :: lhs
         class(ast_entry_t), intent(in) :: rhs
         
-        ! Deep copy the node if allocated
+        ! Clear existing node if any
         if (allocated(lhs%node)) deallocate(lhs%node)
-        if (allocated(rhs%node)) then
-            allocate(lhs%node, source=rhs%node)
-        end if
+        
+        ! For safety and simplicity, we don't copy nodes between entries
+        ! The arena maintains ownership of all nodes
+        ! If you need to copy nodes, use the arena's push method
+        ! This avoids all the dangerous allocate(source=) issues
         
         ! Copy scalar fields
         lhs%parent_index = rhs%parent_index
