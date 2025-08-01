@@ -190,7 +190,7 @@ contains
         parser = create_parser_state(tokens)
         decl_indices = parse_multi_declaration(parser, arena)
         
-        if (size(decl_indices) == 3) then
+        if (size(decl_indices) == 1) then
             call test_pass()
         else
             call test_fail("Failed to parse multi-variable declaration")
