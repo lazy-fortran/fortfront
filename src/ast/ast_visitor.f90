@@ -480,8 +480,8 @@ contains
         class(print_statement_node), intent(in) :: node
 
         call append_debug(this, "print_statement: "//node%format_spec)
-        if (allocated(node%arg_indices)) then
-         call append_debug(this, "arg_indices: "//int_array_to_string(node%arg_indices))
+        if (allocated(node%expression_indices)) then
+         call append_debug(this, "expression_indices: "//int_array_to_string(node%expression_indices))
         end if
     end subroutine debug_visit_print_statement
 

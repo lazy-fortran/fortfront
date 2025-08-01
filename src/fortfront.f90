@@ -47,6 +47,21 @@ module fortfront
     use scope_manager, only: scope_stack_t, SCOPE_GLOBAL, SCOPE_MODULE, SCOPE_FUNCTION, &
                            SCOPE_SUBROUTINE, SCOPE_BLOCK, SCOPE_INTERFACE
     
+    ! Re-export AST traversal and visitor functionality
+    use ast_traversal, only: traverse_ast_visitor => traverse_ast, &
+                            traverse_preorder, traverse_postorder, &
+                            is_program_node, is_assignment_node, is_binary_op_node, &
+                            is_function_def_node, is_subroutine_def_node, &
+                            is_identifier_node, is_literal_node, is_declaration_node, &
+                            is_if_node, is_do_loop_node, is_do_while_node, &
+                            is_call_or_subscript_node, is_subroutine_call_node, &
+                            is_print_statement_node, is_use_statement_node, &
+                            is_select_case_node, is_derived_type_node, &
+                            is_module_node, is_interface_block_node
+    
+    ! Re-export visitor pattern
+    use ast_visitor, only: ast_visitor_t, debug_visitor_t
+    
     implicit none
     public
     
