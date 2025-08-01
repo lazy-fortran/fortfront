@@ -153,11 +153,12 @@ jobs:
         msystem: MINGW64
         update: false
         path-type: inherit
+        cache: true
+        release: false
         install: >-
           mingw-w64-x86_64-gcc-fortran
           mingw-w64-x86_64-gcc
           git
-      # Note: msys2/setup-msys2 has its own caching mechanism
 
     - name: Add MinGW to PATH
       run: echo C:\msys64\mingw64\bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
@@ -188,6 +189,16 @@ jobs:
         key: ${{ runner.os }}-fpm-deps-${{ hashFiles('fpm.toml') }}
         restore-keys: |
           ${{ runner.os }}-fpm-deps-
+
+    - name: Cache build artifacts (Windows)
+      uses: actions/cache@v4
+      with:
+        path: |
+          build\gfortran_*
+          !build\gfortran_*/test
+        key: ${{ runner.os }}-build-${{ hashFiles('src/**/*.f90') }}
+        restore-keys: |
+          ${{ runner.os }}-build-
 
     - name: Run all tests
       shell: cmd
