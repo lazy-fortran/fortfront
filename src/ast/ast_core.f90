@@ -3,6 +3,7 @@ module ast_core
     ! This allows existing code to continue working during the transition
     
     use type_system_hm, only: mono_type_t
+    use intrinsic_registry, only: get_intrinsic_info
     
     ! Re-export base types and interfaces
     use ast_base, only: ast_node, visit_interface, to_json_interface, string_t, &
@@ -142,6 +143,9 @@ contains
         end if
         if (present(line)) node%line = line
         if (present(column)) node%column = column
+        
+        ! Check if this is an intrinsic function
+        call get_intrinsic_info(name, node%is_intrinsic, node%intrinsic_signature)
     end function create_call_or_subscript
 
     function create_assignment(target_index, value_index, line, column, &
