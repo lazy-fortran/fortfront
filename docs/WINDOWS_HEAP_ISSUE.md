@@ -41,5 +41,17 @@ CI tests fail on Windows with exit code -1073740940 (0xC0000374) indicating heap
 **Problem**: AST node assignment operators didn't copy base class fields (line, column, inferred_type), causing uninitialized memory when `allocate(source=)` used the assignment operator.
 **Fix**: Updated all assignment operators to properly copy base class fields before derived class fields.
 
+### 7. Code Review Improvements (QODO)
+**Problems identified by QODO**:
+- Overly restrictive array shifting condition that would skip necessary shifts
+- Corruption detection that silently reset state instead of returning early
+- Complex array resizing logic using temporary arrays and move_alloc
+
+**Fixes**:
+- Simplified array shifting condition to only check if elements need shifting
+- Changed corruption detection to return early for safety
+- Used Fortran array extension syntax per CLAUDE.md policy for cleaner code
+- Kept arrays as-is when children remain, only deallocate when empty
+
 ## Status
-**RESOLVED** - All fixes have been implemented and tested successfully.
+**RESOLVED** - All fixes have been implemented, tested, and code review suggestions incorporated.

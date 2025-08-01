@@ -156,8 +156,6 @@ contains
     subroutine ast_arena_add_child(this, parent_index, child_index)
         class(ast_arena_t), intent(inout) :: this
         integer, intent(in) :: parent_index, child_index
-        integer, allocatable :: temp_children(:)
-        integer :: i, new_size
 
         ! Defensive checks for valid indices
         if (parent_index <= 0 .or. parent_index > this%size) return
@@ -166,20 +164,17 @@ contains
         ! Prevent circular references
         if (parent_index == child_index) return
 
-        ! Grow children array
+        ! Grow children array using Fortran array extension syntax
         if (.not. allocated(this%entries(parent_index)%child_indices)) then
             allocate (this%entries(parent_index)%child_indices(1))
             this%entries(parent_index)%child_indices(1) = child_index
             this%entries(parent_index)%child_count = 1
         else
-            new_size = this%entries(parent_index)%child_count + 1
-            allocate (temp_children(new_size))
-            do i = 1, this%entries(parent_index)%child_count
-                temp_children(i) = this%entries(parent_index)%child_indices(i)
-            end do
-            temp_children(new_size) = child_index
-            call move_alloc(temp_children, this%entries(parent_index)%child_indices)
-            this%entries(parent_index)%child_count = new_size
+            ! Use Fortran array extension syntax as per CLAUDE.md policy
+            this%entries(parent_index)%child_indices = &
+                [this%entries(parent_index)%child_indices, child_index]
+            this%entries(parent_index)%child_count = &
+                this%entries(parent_index)%child_count + 1
         end if
     end subroutine ast_arena_add_child
 
@@ -193,8 +188,8 @@ contains
         
         ! Defensive check: ensure size is within bounds
         if (this%size > this%capacity) then
-            ! Corrupted state - reset to safe value
-            this%size = this%capacity
+            ! Corrupted state - cannot safely proceed
+            return
         end if
         
         ! Get parent of the node being removed
@@ -207,7 +202,7 @@ contains
                 do i = 1, this%entries(parent_idx)%child_count
                     if (this%entries(parent_idx)%child_indices(i) == this%size) then
                         ! Shift remaining children left (only if there are elements to shift)
-                        if (this%entries(parent_idx)%child_count > 1 .and. i < this%entries(parent_idx)%child_count) then
+                        if (i < this%entries(parent_idx)%child_count) then
                             do j = i, this%entries(parent_idx)%child_count - 1
                                 this%entries(parent_idx)%child_indices(j) = &
                                     this%entries(parent_idx)%child_indices(j + 1)
@@ -216,17 +211,8 @@ contains
                         this%entries(parent_idx)%child_count = &
                             this%entries(parent_idx)%child_count - 1
                         
-                        ! Resize the child_indices array to prevent stale memory access
-                        if (this%entries(parent_idx)%child_count > 0) then
-                            ! Create a properly sized array
-                            block
-                                integer, allocatable :: temp_children(:)
-                                allocate(temp_children(this%entries(parent_idx)%child_count))
-                                temp_children = this%entries(parent_idx)%child_indices(1:this%entries(parent_idx)%child_count)
-                                call move_alloc(temp_children, this%entries(parent_idx)%child_indices)
-                            end block
-                        else
-                            ! No children left, deallocate the array
+                        ! If no children left, deallocate the array
+                        if (this%entries(parent_idx)%child_count == 0) then
                             if (allocated(this%entries(parent_idx)%child_indices)) then
                                 deallocate(this%entries(parent_idx)%child_indices)
                             end if
