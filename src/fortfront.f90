@@ -77,7 +77,6 @@ module fortfront
     public :: get_assignment_indices, get_binary_op_info, get_identifier_name, &
               get_literal_value, get_call_info, get_array_literal_info, &
               get_program_info, get_declaration_info, get_parameter_declaration_info
-    
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
@@ -891,6 +890,7 @@ contains
                     
                     ! Parameter values - simplified for now (would need initializer access)
                     allocate(character(len=1) :: values(0))
+                    
                     
                     ! Get type specification
                     if (allocated(node%type_name)) then
