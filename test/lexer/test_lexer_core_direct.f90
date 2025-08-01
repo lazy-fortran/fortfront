@@ -1,7 +1,7 @@
 program test_lexer_core_direct
     use lexer_core, only: tokenize_core, token_t, token_type_name, &
                           TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_OPERATOR, &
-                          TK_KEYWORD, TK_EOF
+                          TK_KEYWORD, TK_EOF, TK_COMMENT
     implicit none
 
     integer :: total_tests, passed_tests
@@ -203,15 +203,23 @@ program test_lexer_core_direct
     ! Test 16: Comment handling
     call test_start("Comment handling")
     call tokenize_core("x = 5 ! this is a comment", tokens)
-    if (size(tokens) == 4 .and. &
+    if (size(tokens) == 5 .and. &
         tokens(1)%kind == TK_IDENTIFIER .and. tokens(1)%text == "x" .and. &
         tokens(2)%kind == TK_OPERATOR .and. tokens(2)%text == "=" .and. &
         tokens(3)%kind == TK_NUMBER .and. tokens(3)%text == "5" .and. &
-        tokens(4)%kind == TK_EOF) then
+        tokens(4)%kind == TK_COMMENT .and. tokens(4)%text == "! this is a comment" .and. &
+        tokens(5)%kind == TK_EOF) then
         call test_pass()
     else
         call test_fail()
-        print *, "  Expected: comments to be ignored"
+        print *, "  Expected: identifier, operator, number, comment + EOF"
+        print *, "  Got ", size(tokens), " tokens:"
+        block
+            integer :: i
+            do i = 1, size(tokens)
+                print *, "    Token ", i, ": kind=", tokens(i)%kind, " text='", trim(tokens(i)%text), "'"
+            end do
+        end block
     end if
 
     ! Test 17: Token type name function
