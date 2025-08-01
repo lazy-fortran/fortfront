@@ -92,6 +92,7 @@ contains
     ! Create call_or_subscript node and add to stack
     function push_call_or_subscript(arena, name, arg_indices, line, column, &
                                    parent_index) result(call_index)
+        use intrinsic_registry, only: is_intrinsic_function, get_intrinsic_signature
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in) :: arg_indices(:)
@@ -100,6 +101,13 @@ contains
         type(call_or_subscript_node) :: call_node
 
         call_node = create_call_or_subscript(name, arg_indices, line, column)
+        
+        ! Set intrinsic function information
+        call_node%is_intrinsic = is_intrinsic_function(name)
+        if (call_node%is_intrinsic) then
+            call_node%intrinsic_signature = get_intrinsic_signature(name)
+        end if
+        
         call arena%push(call_node, "call_or_subscript", parent_index)
         call_index = arena%size
     end function push_call_or_subscript

@@ -84,6 +84,9 @@ module ast_nodes_core
     type, extends(ast_node), public :: call_or_subscript_node
         character(len=:), allocatable :: name
         integer, allocatable :: arg_indices(:)
+        ! Intrinsic function identification
+        logical :: is_intrinsic = .false.
+        character(len=:), allocatable :: intrinsic_signature
     contains
         procedure :: accept => call_or_subscript_accept
         procedure :: to_json => call_or_subscript_to_json
@@ -336,7 +339,35 @@ contains
         class(call_or_subscript_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
+        type(json_value), pointer :: args_array, arg_item
+        integer :: i
+        
+        ! Add type field
+        call json%add(parent, 'type', 'call_or_subscript')
+        
+        ! Add function name
+        if (allocated(this%name)) then
+            call json%add(parent, 'name', this%name)
+        else
+            call json%add(parent, 'name', '')
+        end if
+        
+        ! Add intrinsic function information
+        call json%add(parent, 'is_intrinsic', this%is_intrinsic)
+        if (allocated(this%intrinsic_signature)) then
+            call json%add(parent, 'intrinsic_signature', this%intrinsic_signature)
+        end if
+        
+        ! Add arguments array
+        call json%create_array(args_array, 'arguments')
+        if (allocated(this%arg_indices)) then
+            do i = 1, size(this%arg_indices)
+                call json%create_object(arg_item, '')
+                call json%add(arg_item, 'index', this%arg_indices(i))
+                call json%add(args_array, arg_item)
+            end do
+        end if
+        call json%add(parent, args_array)
     end subroutine call_or_subscript_to_json
 
     subroutine call_or_subscript_assign(lhs, rhs)
@@ -352,6 +383,10 @@ contains
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
+        lhs%is_intrinsic = rhs%is_intrinsic
+        if (allocated(rhs%intrinsic_signature)) then
+            lhs%intrinsic_signature = rhs%intrinsic_signature
+        end if
     end subroutine call_or_subscript_assign
 
     ! Stub implementations for array_literal_node
