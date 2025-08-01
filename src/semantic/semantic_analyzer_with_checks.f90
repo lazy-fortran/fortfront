@@ -2,6 +2,7 @@ module semantic_analyzer_with_checks
     use semantic_analyzer
     use semantic_checks
     use ast_core
+    use ast_nodes_control, only: where_node, forall_node
     implicit none
     private
     
@@ -34,7 +35,7 @@ contains
         integer, intent(in) :: node_index
         
         character(len=:), allocatable :: error_msg
-        integer :: i
+        integer :: i, j
         
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
@@ -138,15 +139,26 @@ contains
             end if
             
         type is (where_node)
-            if (allocated(node%body_indices)) then
-                do i = 1, size(node%body_indices)
-                    call check_all_assignments(ctx, arena, node%body_indices(i))
+            if (allocated(node%where_body_indices)) then
+                do i = 1, size(node%where_body_indices)
+                    call check_all_assignments(ctx, arena, node%where_body_indices(i))
                 end do
             end if
             
-            if (allocated(node%elsewhere_indices)) then
-                do i = 1, size(node%elsewhere_indices)
-                    call check_all_assignments(ctx, arena, node%elsewhere_indices(i))
+            if (allocated(node%elsewhere_clauses)) then
+                do i = 1, size(node%elsewhere_clauses)
+                    if (allocated(node%elsewhere_clauses(i)%body_indices)) then
+                        do j = 1, size(node%elsewhere_clauses(i)%body_indices)
+                            call check_all_assignments(ctx, arena, node%elsewhere_clauses(i)%body_indices(j))
+                        end do
+                    end if
+                end do
+            end if
+            
+        type is (forall_node)
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call check_all_assignments(ctx, arena, node%body_indices(i))
                 end do
             end if
             
