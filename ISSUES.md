@@ -56,10 +56,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Architectural Impact**: Changes function call representation
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #29 - Add WHERE and FORALL statement/construct detailed representation
+### ✅ #29 - Add WHERE and FORALL statement/construct detailed representation
 **Priority: Medium** | **Impact: AST Design** | **Effort: High**
+- **Status**: ✅ **COMPLETED** - WHERE and FORALL AST nodes implemented (PR #45)
 - **Description**: Enhanced AST nodes for complex array constructs
 - **Architectural Impact**: Significant AST node additions
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### #28 - Add bounds information to array operations
 **Priority: Medium** | **Impact: AST Design** | **Effort: High**
