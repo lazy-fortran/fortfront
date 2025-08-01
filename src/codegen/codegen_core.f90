@@ -672,7 +672,7 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: mask_code, stmt_code
-        integer :: i
+        integer :: i, j
         
         ! Generate mask expression
         if (node%mask_expr_index > 0 .and. node%mask_expr_index <= arena%size) then
@@ -683,7 +683,7 @@ contains
         
         ! Check if this is a single-line WHERE
         if (allocated(node%where_body_indices) .and. size(node%where_body_indices) == 1 .and. &
-            .not. node%has_final_elsewhere) then
+            .not. allocated(node%elsewhere_clauses)) then
             ! Single-line WHERE
             if (node%where_body_indices(1) > 0 .and. node%where_body_indices(1) <= arena%size) then
                 stmt_code = generate_code_from_arena(arena, node%where_body_indices(1))
@@ -713,22 +713,33 @@ contains
             ! Decrease indentation
             call decrease_indent()
             
-            ! Generate ELSEWHERE block if present
-            if (node%has_final_elsewhere .and. allocated(node%final_elsewhere_body_indices)) then
-                code = code//new_line('A')//with_indent("elsewhere")
-                
-                ! Increase indentation for elsewhere body
-                call increase_indent()
-                
-                do i = 1, size(node%final_elsewhere_body_indices)
-                    if (node%final_elsewhere_body_indices(i) > 0 .and. node%final_elsewhere_body_indices(i) <= arena%size) then
-                        stmt_code = generate_code_from_arena(arena, node%final_elsewhere_body_indices(i))
-                        code = code//new_line('A')//stmt_code
+            ! Generate ELSEWHERE blocks
+            if (allocated(node%elsewhere_clauses)) then
+                do i = 1, size(node%elsewhere_clauses)
+                    if (node%elsewhere_clauses(i)%mask_index > 0) then
+                        ! ELSEWHERE with mask
+                        mask_code = generate_code_from_arena(arena, node%elsewhere_clauses(i)%mask_index)
+                        code = code//new_line('A')//with_indent("elsewhere ("//mask_code//")")
+                    else
+                        ! Final ELSEWHERE without mask
+                        code = code//new_line('A')//with_indent("elsewhere")
+                    end if
+                    
+                    ! Generate body for this elsewhere clause
+                    if (allocated(node%elsewhere_clauses(i)%body_indices)) then
+                        call increase_indent()
+                        
+                        do j = 1, size(node%elsewhere_clauses(i)%body_indices)
+                            if (node%elsewhere_clauses(i)%body_indices(j) > 0 .and. &
+                                node%elsewhere_clauses(i)%body_indices(j) <= arena%size) then
+                                stmt_code = generate_code_from_arena(arena, node%elsewhere_clauses(i)%body_indices(j))
+                                code = code//new_line('A')//stmt_code
+                            end if
+                        end do
+                        
+                        call decrease_indent()
                     end if
                 end do
-                
-                ! Decrease indentation
-                call decrease_indent()
             end if
             
             code = code//new_line('A')//with_indent("end where")

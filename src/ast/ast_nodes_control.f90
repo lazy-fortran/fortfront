@@ -140,20 +140,20 @@ module ast_nodes_control
         generic :: assignment(=) => assign
     end type case_default_node
 
+    ! Type for ELSEWHERE clause information
+    type, public :: elsewhere_clause_t
+        integer :: mask_index = 0  ! 0 for final ELSEWHERE without mask
+        integer, allocatable :: body_indices(:)
+    end type elsewhere_clause_t
+
     ! Enhanced WHERE construct node
     type, extends(ast_node), public :: where_node
         ! Main WHERE clause
         integer :: mask_expr_index = 0
         integer, allocatable :: where_body_indices(:)
         
-        ! ELSEWHERE clauses (0 or more)
-        integer, allocatable :: elsewhere_mask_indices(:)  ! Masks for each elsewhere
-        integer, allocatable :: elsewhere_body_indices(:,:) ! Bodies for each elsewhere
-        integer :: num_elsewhere_clauses = 0
-        
-        ! Final ELSEWHERE (no mask)
-        logical :: has_final_elsewhere = .false.
-        integer, allocatable :: final_elsewhere_body_indices(:)
+        ! ELSEWHERE clauses (includes all ELSEWHERE, even final one without mask)
+        type(elsewhere_clause_t), allocatable :: elsewhere_clauses(:)
         
         ! Optimization hints
         logical :: mask_is_simple = .false.  ! True if mask is simple comparison
@@ -584,13 +584,10 @@ contains
         if (allocated(this%where_body_indices)) then
             call json%add(obj, 'where_body_indices', this%where_body_indices)
         end if
-        if (allocated(this%elsewhere_mask_indices)) then
-            call json%add(obj, 'elsewhere_mask_indices', this%elsewhere_mask_indices)
-        end if
-        call json%add(obj, 'num_elsewhere_clauses', this%num_elsewhere_clauses)
-        call json%add(obj, 'has_final_elsewhere', this%has_final_elsewhere)
-        if (allocated(this%final_elsewhere_body_indices)) then
-            call json%add(obj, 'final_elsewhere_body_indices', this%final_elsewhere_body_indices)
+        if (allocated(this%elsewhere_clauses)) then
+            call json%add(obj, 'num_elsewhere_clauses', size(this%elsewhere_clauses))
+        else
+            call json%add(obj, 'num_elsewhere_clauses', 0)
         end if
         call json%add(obj, 'mask_is_simple', this%mask_is_simple)
         call json%add(obj, 'can_vectorize', this%can_vectorize)
@@ -600,6 +597,8 @@ contains
     subroutine where_assign(lhs, rhs)
         class(where_node), intent(inout) :: lhs
         class(where_node), intent(in) :: rhs
+        integer :: i
+        
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
@@ -612,21 +611,16 @@ contains
             allocate(lhs%where_body_indices(size(rhs%where_body_indices)))
             lhs%where_body_indices = rhs%where_body_indices
         end if
-        if (allocated(rhs%elsewhere_mask_indices)) then
-            if (allocated(lhs%elsewhere_mask_indices)) deallocate(lhs%elsewhere_mask_indices)
-            allocate(lhs%elsewhere_mask_indices(size(rhs%elsewhere_mask_indices)))
-            lhs%elsewhere_mask_indices = rhs%elsewhere_mask_indices
-        end if
-        if (allocated(rhs%elsewhere_body_indices)) then
-            if (allocated(lhs%elsewhere_body_indices)) deallocate(lhs%elsewhere_body_indices)
-            allocate(lhs%elsewhere_body_indices, source=rhs%elsewhere_body_indices)
-        end if
-        lhs%num_elsewhere_clauses = rhs%num_elsewhere_clauses
-        lhs%has_final_elsewhere = rhs%has_final_elsewhere
-        if (allocated(rhs%final_elsewhere_body_indices)) then
-            if (allocated(lhs%final_elsewhere_body_indices)) deallocate(lhs%final_elsewhere_body_indices)
-            allocate(lhs%final_elsewhere_body_indices(size(rhs%final_elsewhere_body_indices)))
-            lhs%final_elsewhere_body_indices = rhs%final_elsewhere_body_indices
+        if (allocated(rhs%elsewhere_clauses)) then
+            if (allocated(lhs%elsewhere_clauses)) deallocate(lhs%elsewhere_clauses)
+            allocate(lhs%elsewhere_clauses(size(rhs%elsewhere_clauses)))
+            do i = 1, size(rhs%elsewhere_clauses)
+                lhs%elsewhere_clauses(i)%mask_index = rhs%elsewhere_clauses(i)%mask_index
+                if (allocated(rhs%elsewhere_clauses(i)%body_indices)) then
+                    allocate(lhs%elsewhere_clauses(i)%body_indices(size(rhs%elsewhere_clauses(i)%body_indices)))
+                    lhs%elsewhere_clauses(i)%body_indices = rhs%elsewhere_clauses(i)%body_indices
+                end if
+            end do
         end if
         lhs%mask_is_simple = rhs%mask_is_simple
         lhs%can_vectorize = rhs%can_vectorize

@@ -34,7 +34,7 @@ contains
         integer, intent(in) :: node_index
         
         character(len=:), allocatable :: error_msg
-        integer :: i
+        integer :: i, j
         
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
@@ -144,9 +144,13 @@ contains
                 end do
             end if
             
-            if (node%has_final_elsewhere .and. allocated(node%final_elsewhere_body_indices)) then
-                do i = 1, size(node%final_elsewhere_body_indices)
-                    call check_all_assignments(ctx, arena, node%final_elsewhere_body_indices(i))
+            if (allocated(node%elsewhere_clauses)) then
+                do i = 1, size(node%elsewhere_clauses)
+                    if (allocated(node%elsewhere_clauses(i)%body_indices)) then
+                        do j = 1, size(node%elsewhere_clauses(i)%body_indices)
+                            call check_all_assignments(ctx, arena, node%elsewhere_clauses(i)%body_indices(j))
+                        end do
+                    end if
                 end do
             end if
             
