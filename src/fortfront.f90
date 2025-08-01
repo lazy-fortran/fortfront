@@ -43,8 +43,40 @@ module fortfront
     use type_system_hm, only: mono_type_t, poly_type_t, TINT, TREAL, TCHAR, TLOGICAL, &
                              TFUN, TARRAY, TVAR
     
+    ! Re-export scope management
+    use scope_manager, only: scope_stack_t, SCOPE_GLOBAL, SCOPE_MODULE, SCOPE_FUNCTION, &
+                           SCOPE_SUBROUTINE, SCOPE_BLOCK, SCOPE_INTERFACE
+    
     implicit none
     public
+    
+    ! ===== SYMBOL TABLE AND SCOPE API TYPES =====
+    
+    ! Symbol reference information for cross-reference analysis
+    type :: symbol_reference_t
+        integer :: node_index = 0        ! Where symbol is referenced
+        integer :: scope_level = 0       ! Scope level of reference
+        logical :: is_definition = .false. ! True if this is the declaration
+        logical :: is_assignment = .false. ! True if symbol is being assigned
+    end type symbol_reference_t
+    
+    ! Scope information type
+    type :: scope_info_t
+        integer :: level = 0
+        integer :: scope_type = 0  ! SCOPE_GLOBAL, SCOPE_MODULE, etc.
+        character(len=:), allocatable :: name
+        integer :: symbol_count = 0
+    end type scope_info_t
+    
+    ! Public symbol table interface functions
+    public :: symbol_info_t, symbol_reference_t, scope_info_t
+    public :: get_symbol_info, get_symbols_in_scope, get_symbol_references, &
+              get_scope_info, get_all_scopes
+    
+    ! Public node accessor functions
+    public :: get_assignment_indices, get_binary_op_info, get_identifier_name, &
+              get_literal_value, get_call_info, get_array_literal_info, &
+              get_program_info, get_declaration_info, get_parameter_declaration_info
     
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
@@ -128,16 +160,19 @@ module fortfront
         character(len=:), allocatable :: category  ! Error category
     end type diagnostic_t
     
-    ! Symbol information type
+    ! Enhanced symbol information type for static analysis
     type :: symbol_info_t
         character(len=:), allocatable :: name
         integer :: declaration_node_index = 0
         integer :: scope_level = 0
-        type(type_info_t) :: type_info
+        character(len=:), allocatable :: scope_name
+        type(mono_type_t) :: symbol_type
         logical :: is_parameter = .false.
-        logical :: is_module_variable = .false.
+        logical :: is_optional = .false.
         logical :: is_function = .false.
         logical :: is_subroutine = .false.
+        logical :: is_module_variable = .false.
+        integer :: intent_type = 0  ! 0=none, 1=in, 2=out, 3=inout
     end type symbol_info_t
     
     ! Function signature type
@@ -870,7 +905,9 @@ contains
         end if
     end function get_parameter_declaration_info
     
-    ! Symbol lookup
+    ! ===== SYMBOL TABLE AND SCOPE API IMPLEMENTATION =====
+    
+    ! Symbol lookup - enhanced version
     function lookup_symbol(ctx, name, scope_node_index) result(symbol)
         type(semantic_context_t), intent(in) :: ctx
         character(len=*), intent(in) :: name
@@ -891,10 +928,183 @@ contains
         call ctx%scopes%lookup(name, scheme)
         if (allocated(scheme)) then
             symbol%name = name
-            ! Convert poly_type to type_info
-            symbol%type_info = mono_type_to_type_info(scheme%mono)
+            symbol%symbol_type = scheme%mono
         end if
     end function lookup_symbol
+    
+    ! Get enhanced symbol information
+    function get_symbol_info(ctx, name, scope_level) result(symbol)
+        type(semantic_context_t), intent(in) :: ctx
+        character(len=*), intent(in) :: name
+        integer, intent(in), optional :: scope_level  ! If not provided, searches all scopes
+        type(symbol_info_t) :: symbol
+        type(poly_type_t), allocatable :: scheme
+        integer :: search_scope
+        
+        ! Initialize with defaults
+        symbol%name = ""
+        symbol%declaration_node_index = 0
+        symbol%scope_level = 0
+        symbol%scope_name = ""
+        symbol%is_parameter = .false.
+        symbol%is_optional = .false.
+        symbol%is_function = .false.
+        symbol%is_subroutine = .false.
+        symbol%is_module_variable = .false.
+        symbol%intent_type = 0
+        
+        ! Search for symbol in scopes
+        if (present(scope_level)) then
+            search_scope = scope_level
+        else
+            search_scope = -1  ! Search all scopes
+        end if
+        
+        call ctx%scopes%lookup(name, scheme)
+        if (allocated(scheme)) then
+            symbol%name = name
+            symbol%symbol_type = scheme%mono
+            symbol%scope_level = ctx%scopes%depth
+            
+            ! Get scope name if available
+            if (ctx%scopes%depth > 0) then
+                symbol%scope_name = ctx%scopes%scopes(ctx%scopes%depth)%name
+            else
+                symbol%scope_name = "global"
+            end if
+            
+            ! Check parameter tracker for additional attributes
+            if (ctx%param_tracker%count > 0) then
+                call check_parameter_attributes(ctx, name, symbol)
+            end if
+        end if
+    end function get_symbol_info
+    
+    ! Get all symbols in a specific scope level
+    function get_symbols_in_scope(ctx, scope_level) result(symbols)
+        type(semantic_context_t), intent(in) :: ctx
+        integer, intent(in) :: scope_level
+        type(symbol_info_t), allocatable :: symbols(:)
+        integer :: i, count, symbol_idx
+        
+        ! Count symbols in the specified scope
+        count = 0
+        if (scope_level > 0 .and. scope_level <= ctx%scopes%depth) then
+            count = ctx%scopes%scopes(scope_level)%env%count
+        end if
+        
+        ! Allocate result array
+        allocate(symbols(count))
+        
+        ! Populate symbols
+        if (count > 0) then
+            do i = 1, count
+                symbols(i)%name = ctx%scopes%scopes(scope_level)%env%names(i)
+                symbols(i)%symbol_type = ctx%scopes%scopes(scope_level)%env%schemes(i)%mono
+                symbols(i)%scope_level = scope_level
+                symbols(i)%scope_name = ctx%scopes%scopes(scope_level)%name
+                
+                ! Check parameter attributes
+                call check_parameter_attributes(ctx, symbols(i)%name, symbols(i))
+            end do
+        end if
+    end function get_symbols_in_scope
+    
+    ! Get references to a symbol (for cross-reference analysis)
+    function get_symbol_references(arena, ctx, symbol_name) result(references)
+        type(ast_arena_t), intent(in) :: arena
+        type(semantic_context_t), intent(in) :: ctx
+        character(len=*), intent(in) :: symbol_name
+        type(symbol_reference_t), allocatable :: references(:)
+        integer :: i, ref_count
+        character(len=:), allocatable :: node_name
+        
+        ! First pass: count references
+        ref_count = 0
+        do i = 1, arena%size
+            if (get_identifier_name(arena, i, node_name)) then
+                if (node_name == symbol_name) then
+                    ref_count = ref_count + 1
+                end if
+            end if
+        end do
+        
+        ! Allocate result array
+        allocate(references(ref_count))
+        
+        ! Second pass: populate references
+        ref_count = 0
+        do i = 1, arena%size
+            if (get_identifier_name(arena, i, node_name)) then
+                if (node_name == symbol_name) then
+                    ref_count = ref_count + 1
+                    references(ref_count)%node_index = i
+                    references(ref_count)%scope_level = ctx%scopes%depth  ! Use current scope depth instead of hardcoded 1
+                    references(ref_count)%is_definition = .false.  ! Would need to check if this is a declaration
+                    references(ref_count)%is_assignment = .false.  ! Would need to check if this is target of assignment
+                end if
+            end if
+        end do
+    end function get_symbol_references
+    
+    ! Get scope information
+    function get_scope_info(ctx, scope_level) result(scope_info)
+        type(semantic_context_t), intent(in) :: ctx
+        integer, intent(in) :: scope_level
+        type(scope_info_t) :: scope_info
+        
+        scope_info%level = 0
+        scope_info%scope_type = 0
+        scope_info%name = ""
+        scope_info%symbol_count = 0
+        
+        if (scope_level > 0 .and. scope_level <= ctx%scopes%depth) then
+            scope_info%level = scope_level
+            scope_info%scope_type = ctx%scopes%scopes(scope_level)%scope_type
+            scope_info%name = ctx%scopes%scopes(scope_level)%name
+            scope_info%symbol_count = ctx%scopes%scopes(scope_level)%env%count
+        end if
+    end function get_scope_info
+    
+    ! Get all scope information
+    function get_all_scopes(ctx) result(scopes)
+        type(semantic_context_t), intent(in) :: ctx
+        type(scope_info_t), allocatable :: scopes(:)
+        integer :: i
+        
+        allocate(scopes(ctx%scopes%depth))
+        
+        do i = 1, ctx%scopes%depth
+            scopes(i) = get_scope_info(ctx, i)
+        end do
+    end function get_all_scopes
+    
+    ! Helper to check parameter attributes
+    subroutine check_parameter_attributes(ctx, name, symbol)
+        type(semantic_context_t), intent(in) :: ctx
+        character(len=*), intent(in) :: name
+        type(symbol_info_t), intent(inout) :: symbol
+        integer :: i
+        
+        ! Check parameter tracker for attributes
+        do i = 1, ctx%param_tracker%count
+            if (ctx%param_tracker%params(i)%name == name) then
+                symbol%is_parameter = .true.
+                symbol%is_optional = ctx%param_tracker%params(i)%is_optional
+                ! Convert intent string to integer
+                if (ctx%param_tracker%params(i)%intent == "in") then
+                    symbol%intent_type = 1
+                else if (ctx%param_tracker%params(i)%intent == "out") then
+                    symbol%intent_type = 2
+                else if (ctx%param_tracker%params(i)%intent == "inout") then
+                    symbol%intent_type = 3
+                else
+                    symbol%intent_type = 0
+                end if
+                exit
+            end if
+        end do
+    end subroutine check_parameter_attributes
     
     ! Get all symbols in a scope
     function get_scope_symbols(ctx, scope_node_index) result(symbols)
