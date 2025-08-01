@@ -10,19 +10,16 @@ program test_scope_manager_basic
     pass_count = 0
 
     write (*, '(A)') "=== Scope Manager Basic Tests ==="
-    write (*, '(A)') "SKIP: Scope manager tests are temporarily disabled"
-   write (*, '(A)') "      (semantic analysis is disabled to prevent memory corruption)"
 
-    ! call test_scope_creation()
-    ! call test_scope_stack_creation()
-    ! call test_scope_lookup_empty()
+    call test_scope_creation()
+    call test_scope_stack_creation()
+    call test_scope_lookup_empty()
 
     write (*, '(A,I0,A,I0,A)') "Passed ", pass_count, " out of ", test_count, " tests."
-    ! Skip test failure for now
-    ! if (pass_count /= test_count) then
-    !     write (error_unit, '(A)') "FAIL"
-    !     stop 1
-    ! end if
+    if (pass_count /= test_count) then
+        write (error_unit, '(A)') "FAIL"
+        stop 1
+    end if
     stop 0
 
 contains
