@@ -5,6 +5,7 @@ module intrinsic_registry
     ! Public interfaces
     public :: is_intrinsic_function
     public :: get_intrinsic_signature
+    public :: get_intrinsic_info
     public :: initialize_intrinsic_registry
 
     ! Intrinsic function signature type
@@ -21,54 +22,72 @@ module intrinsic_registry
 
 contains
 
-    ! Check if a function name corresponds to an intrinsic function
-    function is_intrinsic_function(name) result(is_intrinsic)
+    ! Combined function to get intrinsic information efficiently
+    subroutine get_intrinsic_info(name, is_intrinsic, signature)
         character(len=*), intent(in) :: name
-        logical :: is_intrinsic
+        logical, intent(out) :: is_intrinsic
+        character(len=:), allocatable, intent(out) :: signature
         integer :: i
 
         if (.not. registry_initialized) call initialize_intrinsic_registry()
 
         is_intrinsic = .false.
+        if (allocated(signature)) deallocate(signature)
         if (.not. allocated(intrinsic_functions)) return
 
         do i = 1, size(intrinsic_functions)
-            if (trim(intrinsic_functions(i)%name) == trim(name)) then
+            if (trim(to_lower(intrinsic_functions(i)%name)) == trim(to_lower(name))) then
                 is_intrinsic = .true.
+                signature = intrinsic_functions(i)%return_type // "(" // &
+                           intrinsic_functions(i)%arg_types // ")"
                 return
             end if
         end do
+    end subroutine get_intrinsic_info
+
+    ! Check if a function name corresponds to an intrinsic function
+    function is_intrinsic_function(name) result(is_intrinsic)
+        character(len=*), intent(in) :: name
+        logical :: is_intrinsic
+        character(len=:), allocatable :: signature
+
+        call get_intrinsic_info(name, is_intrinsic, signature)
     end function is_intrinsic_function
 
     ! Get signature information for an intrinsic function
     function get_intrinsic_signature(name) result(signature)
         character(len=*), intent(in) :: name
         character(len=:), allocatable :: signature
-        integer :: i
+        logical :: is_intrinsic
 
-        if (.not. registry_initialized) call initialize_intrinsic_registry()
+        call get_intrinsic_info(name, is_intrinsic, signature)
+        if (.not. is_intrinsic) signature = ""
+    end function get_intrinsic_signature
 
-        signature = ""
-        if (.not. allocated(intrinsic_functions)) return
+    ! Helper function to convert string to lowercase
+    function to_lower(str) result(lower_str)
+        character(len=*), intent(in) :: str
+        character(len=len(str)) :: lower_str
+        integer :: i, ascii_val
 
-        do i = 1, size(intrinsic_functions)
-            if (trim(intrinsic_functions(i)%name) == trim(name)) then
-                signature = intrinsic_functions(i)%return_type // "(" // &
-                           intrinsic_functions(i)%arg_types // ")"
-                return
+        lower_str = str
+        do i = 1, len(str)
+            ascii_val = iachar(str(i:i))
+            if (ascii_val >= 65 .and. ascii_val <= 90) then  ! A-Z
+                lower_str(i:i) = achar(ascii_val + 32)  ! Convert to lowercase
             end if
         end do
-    end function get_intrinsic_signature
+    end function to_lower
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
+        integer, parameter :: NUM_INTRINSICS = 30
         integer :: i
 
         if (registry_initialized) return
 
-        ! Allocate space for common intrinsic functions
-        allocate(intrinsic_functions(50))
-
+        ! Allocate exact space for intrinsic functions
+        allocate(intrinsic_functions(NUM_INTRINSICS))
         i = 0
 
         ! Mathematical functions
@@ -227,16 +246,9 @@ contains
             name="precision", return_type="integer", arg_types="real", &
             description="Decimal precision")
 
-        ! Resize array to actual count
-        if (i < size(intrinsic_functions)) then
-            block
-                type(intrinsic_signature_t), allocatable :: temp(:)
-                allocate(temp(i))
-                temp = intrinsic_functions(1:i)
-                deallocate(intrinsic_functions)
-                allocate(intrinsic_functions(i))
-                intrinsic_functions = temp
-            end block
+        ! Validate we used all allocated slots
+        if (i /= NUM_INTRINSICS) then
+            error stop "Intrinsic function count mismatch in initialization"
         end if
 
         registry_initialized = .true.

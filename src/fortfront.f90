@@ -65,7 +65,7 @@ module fortfront
     ! Re-export intrinsic function registry (using renamed imports to avoid conflicts)
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
                                  registry_get_signature => get_intrinsic_signature, &
-                                 initialize_intrinsic_registry, intrinsic_signature_t
+                                 get_intrinsic_info, initialize_intrinsic_registry, intrinsic_signature_t
     
     implicit none
     public

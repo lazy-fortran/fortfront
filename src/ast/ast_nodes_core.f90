@@ -354,7 +354,7 @@ contains
         
         ! Add intrinsic function information
         call json%add(parent, 'is_intrinsic', this%is_intrinsic)
-        if (allocated(this%intrinsic_signature)) then
+        if (allocated(this%intrinsic_signature) .and. len_trim(this%intrinsic_signature) > 0) then
             call json%add(parent, 'intrinsic_signature', this%intrinsic_signature)
         end if
         
@@ -384,7 +384,7 @@ contains
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
         lhs%is_intrinsic = rhs%is_intrinsic
-        if (allocated(rhs%intrinsic_signature)) then
+        if (allocated(rhs%intrinsic_signature) .and. len_trim(rhs%intrinsic_signature) > 0) then
             lhs%intrinsic_signature = rhs%intrinsic_signature
         end if
     end subroutine call_or_subscript_assign
