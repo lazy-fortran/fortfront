@@ -1,10 +1,24 @@
 name: Tests
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-linux:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     
     steps:
     - uses: actions/checkout@v4
@@ -128,6 +142,7 @@ jobs:
 
   test-windows:
     runs-on: windows-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     
     steps:
     - uses: actions/checkout@v4
@@ -181,7 +196,9 @@ jobs:
         fpm test --flag -cpp
 
   test-macos:
-    runs-on: macos-latest
+    runs-on: macos-13  # Use macos-13 instead of latest to avoid performance issues
+    timeout-minutes: 30
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     
     steps:
     - uses: actions/checkout@v4

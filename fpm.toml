@@ -11,7 +11,7 @@ json-fortran = { git = "https://github.com/jacobwilliams/json-fortran.git", tag 
 [build]
 auto-executables = true
 auto-tests = true
-auto-examples = false
+auto-examples = true
 
 [fortran]
 implicit-external = false

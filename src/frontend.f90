@@ -2,18 +2,24 @@ module frontend
     ! fortfront - Core analysis frontend
     ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
     
-    use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD
+    use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
-    use parser_control_flow_module, only: parse_do_loop, parse_do_while, parse_select_case
+    use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
+                                          parse_select_case
     use ast_core
     use ast_factory, only: push_program, push_literal
-    use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program
+    use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
+                                   analyze_program
     use semantic_analyzer_with_checks, only: analyze_program_with_checks
-    use standardizer, only: standardize_ast
-    use codegen_core, only: generate_code_from_arena, generate_code_polymorphic
-    use json_reader, only: json_read_tokens_from_file, json_read_ast_from_file, json_read_semantic_from_file
+    use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
+                           get_standardizer_type_standardization
+    use codegen_core, only: generate_code_from_arena, generate_code_polymorphic, &
+                           set_type_standardization, get_type_standardization
+    use codegen_indent, only: set_indent_config, get_indent_config
+    use json_reader, only: json_read_tokens_from_file, json_read_ast_from_file, &
+                            json_read_semantic_from_file
     use stdlib_logger, only: global_logger
 
     implicit none
@@ -21,11 +27,15 @@ module frontend
 
     public :: lex_source, parse_tokens, analyze_semantics, emit_fortran
     public :: compile_source, compilation_options_t
-    public :: compile_from_tokens_json, compile_from_ast_json, compile_from_semantic_json
-    public :: transform_lazy_fortran_string
+    public :: compile_from_tokens_json, compile_from_ast_json, &
+              compile_from_semantic_json
+    public :: transform_lazy_fortran_string, &
+              transform_lazy_fortran_string_with_format, format_options_t
     ! Debug functions for unit testing
-    public :: find_program_unit_boundary, is_function_start, is_end_function, parse_program_unit
-    public :: is_do_loop_start, is_do_while_start, is_select_case_start, is_end_do, is_end_select
+    public :: find_program_unit_boundary, is_function_start, is_end_function, &
+              parse_program_unit
+    public :: is_do_loop_start, is_do_while_start, is_select_case_start, &
+              is_end_do, is_end_select
     public :: is_if_then_start, is_end_if
     public :: lex_file
 
@@ -43,7 +53,26 @@ module frontend
         generic :: assignment(=) => assign
     end type compilation_options_t
 
+    ! Formatting options for code generation
+    type :: format_options_t
+        integer :: indent_size = 4
+        logical :: use_tabs = .false.
+        character(len=1) :: indent_char = ' '
+        logical :: standardize_types = .true.  ! Whether to standardize type kinds
+    end type format_options_t
+
 contains
+
+    ! Create a container for multiple top-level program units
+    function create_multi_unit_container(arena, unit_indices) result(container_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: unit_indices(:)
+        integer :: container_index
+        
+        ! For now, use a program node with a special flag to indicate multiple units
+        ! The code generator will handle this specially
+        container_index = push_program(arena, "__MULTI_UNIT__", unit_indices, 1, 1)
+    end function create_multi_unit_container
 
     ! Main entry point - clean 4-phase compilation pipeline
     subroutine compile_source(input_file, options, error_msg)
@@ -216,7 +245,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
 
         ! Read annotated AST and semantic context from JSON - simplified
         arena = create_ast_arena()
-        prog_index = push_literal(arena, "! Semantic JSON loading not implemented", LITERAL_STRING, 1, 1)
+        prog_index = push_literal(arena, "! Semantic JSON loading not implemented", &
+                                 LITERAL_STRING, 1, 1)
         ! if (options%debug_semantic) ! call debug_output_semantic(semantic_json_file, arena, prog_index)
 
         ! Phase 4: Code Generation (direct from annotated AST)
@@ -302,7 +332,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
 
             ! Find program unit boundary
-            call find_program_unit_boundary(tokens, i, unit_start, unit_end, has_explicit_program_unit)
+            call find_program_unit_boundary(tokens, i, unit_start, unit_end, &
+                                           has_explicit_program_unit)
 
             block
                 character(len=20) :: start_str, end_str
@@ -312,13 +343,34 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 !                 trim(start_str)//" to "//trim(end_str))
             end block
 
+            ! Check if this unit has any non-whitespace content
+            block
+                logical :: unit_has_content
+                integer :: j
+                unit_has_content = .false.
+                do j = unit_start, unit_end
+                    if (tokens(j)%kind /= TK_EOF .and. tokens(j)%kind /= TK_NEWLINE .and. &
+                        tokens(j)%kind /= TK_COMMENT) then
+                        unit_has_content = .true.
+                        exit
+                    end if
+                end do
+                
+                ! Skip units without content
+                if (.not. unit_has_content) then
+                    i = unit_end + 1
+                    cycle
+                end if
+            end block
+            
             ! Skip empty units, units with just EOF, or single-token keywords that are part of larger constructs
             if (unit_end >= unit_start .and. &
           .not. (unit_end == unit_start .and. tokens(unit_start)%kind == TK_EOF) .and. &
        .not. (unit_end == unit_start .and. tokens(unit_start)%kind == TK_KEYWORD .and. &
      (tokens(unit_start)%text == "real" .or. tokens(unit_start)%text == "integer" .or. &
  tokens(unit_start)%text == "logical" .or. tokens(unit_start)%text == "character" .or. &
-                            tokens(unit_start)%text == "function" .or. tokens(unit_start)%text == "subroutine" .or. &
+                            tokens(unit_start)%text == "function" .or. &
+                            tokens(unit_start)%text == "subroutine" .or. &
         tokens(unit_start)%text == "module" .or. tokens(unit_start)%text == "end" .or. &
       tokens(unit_start)%text == "else" .or. tokens(unit_start)%text == "elseif"))) then
                 ! Extract unit tokens and add EOF
@@ -336,7 +388,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     !              " tokens for unit")
 
                 ! Parse the program unit
-                stmt_index = parse_program_unit(unit_tokens, arena)
+                stmt_index = parse_program_unit(unit_tokens, arena, has_explicit_program_unit)
 
                 if (stmt_index > 0) then
                     ! Add to body indices
@@ -363,14 +415,21 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         if (.not. has_explicit_program_unit) then
             ! For lazy fortran, parse_all_statements already created the program node
             if (stmt_count > 0) then
-                prog_index = body_indices(1)  ! This is the program node from parse_all_statements
+                prog_index = body_indices(1)  ! This is the program node from &
+                                             ! parse_all_statements
             else
                 error_msg = "No statements found in file"
                 prog_index = 0
             end if
         else if (stmt_count > 0) then
-            ! Use the first (and should be only) statement as the program unit
-            prog_index = body_indices(1)
+            ! Handle multiple top-level program units (modules, programs, etc.)
+            if (stmt_count == 1) then
+                ! Single program unit - use it directly
+                prog_index = body_indices(1)
+            else
+                ! Multiple program units - create a special multi-unit container
+                prog_index = create_multi_unit_container(arena, body_indices)
+            end if
         else
             ! No program unit found
             error_msg = "No program unit found in file"
@@ -379,14 +438,16 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
     end subroutine parse_tokens
 
     ! Find program unit boundary (function/subroutine/module spans multiple lines)
-    subroutine find_program_unit_boundary(tokens, start_pos, unit_start, unit_end, has_explicit_program)
+    subroutine find_program_unit_boundary(tokens, start_pos, unit_start, unit_end, &
+                                         has_explicit_program)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         integer, intent(out) :: unit_start, unit_end
         logical, intent(in) :: has_explicit_program
 
         integer :: i, current_line, nesting_level
-        logical :: in_function, in_subroutine, in_module, in_do_loop, in_select_case, in_if_block
+        logical :: in_function, in_subroutine, in_module, in_do_loop, &
+                   in_select_case, in_if_block
 
         unit_start = start_pos
         unit_end = start_pos
@@ -433,7 +494,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end if
 
         ! If this is a multi-line construct, find the end
-        if (in_function .or. in_subroutine .or. in_module .or. in_do_loop .or. in_select_case .or. in_if_block) then
+        if (in_function .or. in_subroutine .or. in_module .or. in_do_loop .or. &
+            in_select_case .or. in_if_block) then
             i = start_pos
             do while (i <= size(tokens) .and. nesting_level > 0)
                 if (tokens(i)%kind == TK_EOF) exit
@@ -449,7 +511,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                         nesting_level = nesting_level + 1
                     else if (in_module .and. is_module_start(tokens, i)) then
                         nesting_level = nesting_level + 1
-                    else if (in_do_loop .and. (is_do_loop_start(tokens, i) .or. is_do_while_start(tokens, i))) then
+                    else if (in_do_loop .and. (is_do_loop_start(tokens, i) .or. &
+                                                is_do_while_start(tokens, i))) then
                         nesting_level = nesting_level + 1
                     else if (in_select_case .and. is_select_case_start(tokens, i)) then
                         nesting_level = nesting_level + 1
@@ -542,20 +605,40 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 if (start_pos + 1 <= size(tokens) .and. &
                     tokens(start_pos + 1)%kind == TK_KEYWORD .and. &
                     tokens(start_pos + 1)%text == "function") then
-                    unit_end = unit_start - 1  ! Signal to skip this unit - it's part of a function def
+                    unit_end = unit_start - 1  ! Signal to skip this unit - &
+                                              ! it's part of a function def
                 end if
             end if
         end if
     end subroutine find_program_unit_boundary
 
     ! Parse a program unit (function, subroutine, module, or statements)
-    function parse_program_unit(tokens, arena) result(unit_index)
+    function parse_program_unit(tokens, arena, has_explicit_program) result(unit_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        logical, intent(in) :: has_explicit_program
         integer :: unit_index
         type(parser_state_t) :: parser
+        integer :: i
+        logical :: has_content
 
         ! Note: Parsing program unit
+        
+        ! Check if tokens contain any real content (not just comments/EOF/newlines)
+        has_content = .false.
+        do i = 1, size(tokens)
+            if (tokens(i)%kind /= TK_COMMENT .and. tokens(i)%kind /= TK_EOF .and. &
+                tokens(i)%kind /= TK_NEWLINE) then
+                has_content = .true.
+                exit
+            end if
+        end do
+        
+        ! If only comments/newlines (no real statements), don't create a program wrapper
+        if (.not. has_content) then
+            unit_index = 0
+            return
+        end if
 
         parser = create_parser_state(tokens)
 
@@ -567,9 +650,41 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 parser = create_parser_state(tokens)
                 unit_index = parse_function_definition(parser, arena)
             end block
+        else if (is_subroutine_start(tokens, 1)) then
+            ! Subroutine definition
+            unit_index = parse_statement_dispatcher(tokens, arena)
+        else if (is_module_start(tokens, 1)) then
+            ! Module definition
+            unit_index = parse_statement_dispatcher(tokens, arena)
+        else if (is_program_start(tokens, 1)) then
+            ! Program definition
+            unit_index = parse_statement_dispatcher(tokens, arena)
         else
-            ! For lazy fortran, we need to parse ALL statements in the token array
-            unit_index = parse_all_statements(tokens, arena)
+            ! If we're in explicit program unit mode, don't create implicit program wrappers
+            if (has_explicit_program) then
+                unit_index = 0
+            else
+                ! For lazy fortran, we need to parse ALL statements in the token array
+                ! But first check if we have any real content
+                block
+                    logical :: has_real_content
+                    integer :: k
+                    has_real_content = .false.
+                    do k = 1, size(tokens)
+                        if (tokens(k)%kind /= TK_EOF .and. tokens(k)%kind /= TK_NEWLINE .and. &
+                            tokens(k)%kind /= TK_COMMENT) then
+                            has_real_content = .true.
+                            exit
+                        end if
+                    end do
+                    
+                    if (has_real_content) then
+                        unit_index = parse_all_statements(tokens, arena)
+                    else
+                        unit_index = 0
+                    end if
+                end block
+            end if
         end if
     end function parse_program_unit
 
@@ -635,7 +750,12 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end do
 
         ! Create program node with all statements
-        prog_index = push_program(arena, "main", body_indices, 1, 1)
+        ! Only create program node if we have actual statements
+        if (size(body_indices) > 0) then
+            prog_index = push_program(arena, "main", body_indices, 1, 1)
+        else
+            prog_index = 0
+        end if
     end function parse_all_statements
 
     ! Find statement boundary (handles multi-line constructs)
@@ -658,7 +778,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         if (is_if_then_start(tokens, start_pos)) then
             in_if_block = .true.
             nesting_level = 1
-        else if (is_do_loop_start(tokens, start_pos) .or. is_do_while_start(tokens, start_pos)) then
+        else if (is_do_loop_start(tokens, start_pos) .or. &
+                 is_do_while_start(tokens, start_pos)) then
             in_do_loop = .true.
             nesting_level = 1
         else if (is_select_case_start(tokens, start_pos)) then
@@ -679,7 +800,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 if (i /= start_pos) then
                     if (in_if_block .and. is_if_then_start(tokens, i)) then
                         nesting_level = nesting_level + 1
-                    else if (in_do_loop .and. (is_do_loop_start(tokens, i) .or. is_do_while_start(tokens, i))) then
+                    else if (in_do_loop .and. (is_do_loop_start(tokens, i) .or. &
+                                                is_do_while_start(tokens, i))) then
                         nesting_level = nesting_level + 1
                     else if (in_select_case .and. is_select_case_start(tokens, i)) then
                         nesting_level = nesting_level + 1
@@ -731,10 +853,14 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 stmt_end = i - 1  ! Couldn't find matching end
             end if
         else
-            ! Single-line statement - find end of line
+            ! Single-line statement - find end of line or comment
             i = start_pos
             do while (i <= size(tokens))
                 if (tokens(i)%kind == TK_EOF) then
+                    stmt_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_COMMENT .and. i > start_pos) then
+                    ! Stop before comment - let comment be parsed separately
                     stmt_end = i - 1
                     exit
                else if (i < size(tokens) .and. tokens(i)%line < tokens(i + 1)%line) then
@@ -782,7 +908,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
            (tokens(pos - 1)%text == "real" .or. tokens(pos - 1)%text == "integer" .or. &
        tokens(pos - 1)%text == "logical" .or. tokens(pos - 1)%text == "character" .or. &
                      tokens(pos - 1)%text == "end")) then
-                    is_function_start = .false.  ! Already counted with the type or it's "end function"
+                    is_function_start = .false.  ! Already counted with the type &
+                                                 ! or it's "end function"
                 else
                     is_function_start = .true.
                 end if
@@ -912,7 +1039,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 ! Regular do loop (not do while)
                 if (pos + 1 <= size(tokens)) then
       if (tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "while") then
-                        is_do_loop_start = .false.  ! It's a do while, not a regular do loop
+                        is_do_loop_start = .false.  ! It's a do while, not &
+                                                    ! a regular do loop
                         ! Found do while, not do loop
                     else
                         is_do_loop_start = .true.
@@ -992,7 +1120,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
 
         ! Check if current token is "if"
         if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "if") then
-            ! Check if this is "else if" - if so, it's not a new if block for nesting purposes
+            ! Check if this is "else if" - if so, it's not a new if block &
+            ! for nesting purposes
             if (pos > 1 .and. pos <= size(tokens)) then
                 if (tokens(pos - 1)%kind == TK_KEYWORD .and. &
                     tokens(pos - 1)%text == "else" .and. &
@@ -1122,11 +1251,59 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         call analyze_program_with_checks(arena, prog_index)
         
         ! Phase 4: Standardization
-        call standardize_ast(arena, prog_index)
+        ! Skip standardization for multi-unit containers
+        block
+            logical :: skip_standardization
+            skip_standardization = .false.
+            if (prog_index > 0 .and. prog_index <= arena%size) then
+                if (allocated(arena%entries(prog_index)%node)) then
+                    select type (node => arena%entries(prog_index)%node)
+                    type is (program_node)
+                        if (node%name == "__MULTI_UNIT__") then
+                            skip_standardization = .true.
+                        end if
+                    end select
+                end if
+            end if
+            
+            if (.not. skip_standardization) then
+                call standardize_ast(arena, prog_index)
+            end if
+        end block
         
         ! Phase 5: Code Generation
         output = generate_code_from_arena(arena, prog_index)
     end subroutine transform_lazy_fortran_string
+
+    ! String-based transformation function with formatting options
+    subroutine transform_lazy_fortran_string_with_format(input, output, &
+                                                         error_msg, format_opts)
+        character(len=*), intent(in) :: input
+        character(len=:), allocatable, intent(out) :: output
+        character(len=:), allocatable, intent(out) :: error_msg
+        type(format_options_t), intent(in) :: format_opts
+        
+        ! Save current indentation and type standardization configuration
+        integer :: saved_size
+        character(len=1) :: saved_char
+        logical :: saved_standardize_types, saved_standardizer_types
+        call get_indent_config(saved_size, saved_char)
+        call get_type_standardization(saved_standardize_types)
+        call get_standardizer_type_standardization(saved_standardizer_types)
+        
+        ! Set new configuration
+        call set_indent_config(format_opts%indent_size, format_opts%indent_char)
+        call set_type_standardization(format_opts%standardize_types)
+        call set_standardizer_type_standardization(format_opts%standardize_types)
+        
+        ! Call the regular transformation function
+        call transform_lazy_fortran_string(input, output, error_msg)
+        
+        ! Restore original configuration
+        call set_indent_config(saved_size, saved_char)
+        call set_type_standardization(saved_standardize_types)
+        call set_standardizer_type_standardization(saved_standardizer_types)
+    end subroutine transform_lazy_fortran_string_with_format
 
     ! Simple interface functions for clean pipeline usage
     
