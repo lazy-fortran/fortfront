@@ -16,6 +16,33 @@ module parser_expressions_module
 
 contains
 
+    ! Helper function to parse stride (third component of range expression)
+    function parse_stride_component(parser, arena) result(stride_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stride_index
+        type(token_t) :: op_token, next_tok
+        
+        stride_index = 0
+        
+        if (.not. parser%is_at_end()) then
+            op_token = parser%peek()
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
+                op_token = parser%consume()  ! consume second ':'
+                
+                ! Parse stride
+                if (.not. parser%is_at_end()) then
+                    next_tok = parser%peek()
+                    if (.not. (next_tok%kind == TK_OPERATOR .and. &
+                             (next_tok%text == ")" .or. next_tok%text == "," .or. &
+                              next_tok%text == "]" .or. next_tok%text == ";"))) then
+                        stride_index = parse_logical_or(parser, arena)
+                    end if
+                end if
+            end if
+        end if
+    end function parse_stride_component
+
     ! Main expression parsing entry point with stack
     function parse_expression(tokens, arena) result(expr_index)
         type(token_t), intent(in) :: tokens(:)
@@ -60,8 +87,15 @@ contains
                 right_index = 0
             end if
 
-            expr_index = push_range_expression(arena, expr_index, right_index, &
-                                              line=op_token%line, column=op_token%column)
+            ! Check for stride (second colon) for empty lower bound case
+            block
+                integer :: stride_index
+                stride_index = parse_stride_component(parser, arena)
+                
+                expr_index = push_range_expression(arena, expr_index, right_index, &
+                                                  stride_index=stride_index, &
+                                                  line=op_token%line, column=op_token%column)
+            end block
             return
         end if
 
@@ -92,8 +126,15 @@ contains
                     right_index = 0
                 end if
 
-                expr_index = push_range_expression(arena, expr_index, right_index, &
-                                                  line=op_token%line, column=op_token%column)
+                ! Check for stride (second colon)
+                block
+                    integer :: stride_index
+                    stride_index = parse_stride_component(parser, arena)
+                    
+                    expr_index = push_range_expression(arena, expr_index, right_index, &
+                                                      stride_index=stride_index, &
+                                                      line=op_token%line, column=op_token%column)
+                end block
             end if
         end if
     end function parse_range
