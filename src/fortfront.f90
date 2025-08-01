@@ -76,7 +76,8 @@ module fortfront
     ! Public node accessor functions
     public :: get_assignment_indices, get_binary_op_info, get_identifier_name, &
               get_literal_value, get_call_info, get_array_literal_info, &
-              get_program_info, get_declaration_info, get_parameter_declaration_info
+              get_program_info, get_declaration_info, get_parameter_declaration_info, &
+              get_declaration_details, get_parameter_declaration_details
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
@@ -816,7 +817,7 @@ contains
         end if
     end function get_program_info
     
-    ! Declaration node accessors
+    ! Comprehensive declaration node accessor - provides access to ALL declaration details
     function get_declaration_info(arena, node_index, var_names, type_spec, attributes) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
@@ -843,28 +844,115 @@ contains
                         allocate(character(len=1) :: var_names(0))
                     end if
                     
-                    ! Get type specification
+                    ! Get comprehensive type specification with kind 
                     if (allocated(node%type_name)) then
-                        type_spec = node%type_name
+                        if (node%has_kind) then
+                            type_spec = node%type_name // "(" // trim(adjustl(int_to_str(node%kind_value))) // ")"
+                        else
+                            type_spec = node%type_name
+                        end if
                     else
                         type_spec = "unknown"
                     end if
                     
-                    ! Get attributes based on available fields
-                    if (node%has_intent .and. allocated(node%intent)) then
-                        allocate(character(len=len("intent(" // node%intent // ")")) :: attributes(1))
-                        attributes(1) = "intent(" // node%intent // ")"
-                    else
-                        allocate(character(len=1) :: attributes(0))
-                    end if
+                    ! Build comprehensive attributes list
+                    call build_declaration_attributes(node, attributes)
                     
                     found = .true.
                 end select
             end if
         end if
     end function get_declaration_info
+
+    ! Get detailed declaration information with all fields accessible
+    function get_declaration_details(arena, node_index, var_names, type_name, kind_value, has_kind, &
+                                   intent_spec, has_intent, is_array, dimension_indices, &
+                                   is_allocatable, is_pointer, initializer_index, has_initializer) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: var_names(:)
+        character(len=:), allocatable, intent(out) :: type_name
+        integer, intent(out) :: kind_value
+        logical, intent(out) :: has_kind
+        character(len=:), allocatable, intent(out) :: intent_spec
+        logical, intent(out) :: has_intent
+        logical, intent(out) :: is_array
+        integer, allocatable, intent(out) :: dimension_indices(:)
+        logical, intent(out) :: is_allocatable
+        logical, intent(out) :: is_pointer
+        integer, intent(out) :: initializer_index
+        logical, intent(out) :: has_initializer
+        logical :: found
+        
+        found = .false.
+        ! Initialize output parameters
+        kind_value = 0
+        has_kind = .false.
+        has_intent = .false.
+        is_array = .false.
+        is_allocatable = .false.
+        is_pointer = .false.
+        initializer_index = 0
+        has_initializer = .false.
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (declaration_node)
+                    ! Variable names
+                    if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                        allocate(character(len=len(node%var_names)) :: var_names(size(node%var_names)))
+                        var_names = node%var_names
+                    else if (allocated(node%var_name)) then
+                        allocate(character(len=len(node%var_name)) :: var_names(1))
+                        var_names(1) = node%var_name
+                    else
+                        allocate(character(len=1) :: var_names(0))
+                    end if
+                    
+                    ! Type information
+                    if (allocated(node%type_name)) then
+                        type_name = node%type_name
+                    else
+                        type_name = "unknown"
+                    end if
+                    
+                    ! Kind information
+                    kind_value = node%kind_value
+                    has_kind = node%has_kind
+                    
+                    ! Intent information
+                    if (allocated(node%intent)) then
+                        intent_spec = node%intent
+                    else
+                        intent_spec = ""
+                    end if
+                    has_intent = node%has_intent
+                    
+                    ! Array information
+                    is_array = node%is_array
+                    if (allocated(node%dimension_indices)) then
+                        allocate(dimension_indices(size(node%dimension_indices)))
+                        dimension_indices = node%dimension_indices
+                    else
+                        allocate(dimension_indices(0))
+                    end if
+                    
+                    ! Memory attributes
+                    is_allocatable = node%is_allocatable
+                    is_pointer = node%is_pointer
+                    
+                    ! Initializer information
+                    initializer_index = node%initializer_index 
+                    has_initializer = node%has_initializer
+                    
+                    found = .true.
+                end select
+            end if
+        end if
+    end function get_declaration_details
     
-    ! Parameter declaration node accessors
+    ! Comprehensive parameter declaration node accessor
     function get_parameter_declaration_info(arena, node_index, var_names, values, type_spec) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
@@ -888,11 +976,16 @@ contains
                         allocate(character(len=1) :: var_names(0))
                     end if
                     
-                    ! Parameter values - simplified for now (would need initializer access)
+                    ! Parameter values - return empty for now (future: could access initializers)
                     allocate(character(len=1) :: values(0))
-                    ! Get type specification
+                    
+                    ! Get comprehensive type specification with kind
                     if (allocated(node%type_name)) then
-                        type_spec = node%type_name
+                        if (node%has_kind) then
+                            type_spec = node%type_name // "(" // trim(adjustl(int_to_str(node%kind_value))) // ")"
+                        else
+                            type_spec = node%type_name
+                        end if
                     else
                         type_spec = "unknown"
                     end if
@@ -902,6 +995,73 @@ contains
             end if
         end if
     end function get_parameter_declaration_info
+
+    ! Get detailed parameter declaration information with all fields accessible  
+    function get_parameter_declaration_details(arena, node_index, name, type_name, kind_value, has_kind, &
+                                             intent_spec, has_intent, is_array, dimension_indices) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: name
+        character(len=:), allocatable, intent(out) :: type_name
+        integer, intent(out) :: kind_value
+        logical, intent(out) :: has_kind
+        character(len=:), allocatable, intent(out) :: intent_spec
+        logical, intent(out) :: has_intent
+        logical, intent(out) :: is_array
+        integer, allocatable, intent(out) :: dimension_indices(:)
+        logical :: found
+        
+        found = .false.
+        ! Initialize output parameters
+        kind_value = 0
+        has_kind = .false.
+        has_intent = .false.
+        is_array = .false.
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (parameter_declaration_node)
+                    ! Parameter name
+                    if (allocated(node%name)) then
+                        name = node%name
+                    else
+                        name = ""
+                    end if
+                    
+                    ! Type information
+                    if (allocated(node%type_name)) then
+                        type_name = node%type_name
+                    else
+                        type_name = "unknown"
+                    end if
+                    
+                    ! Kind information
+                    kind_value = node%kind_value
+                    has_kind = node%has_kind
+                    
+                    ! Intent information
+                    if (allocated(node%intent)) then
+                        intent_spec = node%intent
+                    else
+                        intent_spec = ""
+                    end if
+                    has_intent = node%has_intent
+                    
+                    ! Array information
+                    is_array = node%is_array
+                    if (allocated(node%dimension_indices)) then
+                        allocate(dimension_indices(size(node%dimension_indices)))
+                        dimension_indices = node%dimension_indices
+                    else
+                        allocate(dimension_indices(0))
+                    end if
+                    
+                    found = .true.
+                end select
+            end if
+        end if
+    end function get_parameter_declaration_details
     
     ! ===== SYMBOL TABLE AND SCOPE API IMPLEMENTATION =====
     
@@ -1358,4 +1518,66 @@ contains
         end if
     end function get_type_string
     
+    ! ===== HELPER FUNCTIONS =====
+
+    ! Convert integer to string
+    function int_to_str(int_val) result(str)
+        integer, intent(in) :: int_val
+        character(len=32) :: str
+        
+        write(str, '(I0)') int_val
+        str = trim(adjustl(str))
+    end function int_to_str
+
+    ! Build comprehensive declaration attributes list
+    subroutine build_declaration_attributes(node, attributes)
+        type(declaration_node), intent(in) :: node
+        character(len=:), allocatable, intent(out) :: attributes(:)
+        character(len=:), allocatable :: temp_attrs(:)
+        integer :: attr_count, i
+        
+        ! Count attributes
+        attr_count = 0
+        if (node%has_intent .and. allocated(node%intent)) attr_count = attr_count + 1
+        if (node%is_array) attr_count = attr_count + 1
+        if (node%is_allocatable) attr_count = attr_count + 1
+        if (node%is_pointer) attr_count = attr_count + 1
+        if (node%has_initializer) attr_count = attr_count + 1
+        
+        ! Allocate result array
+        if (attr_count > 0) then
+            allocate(character(len=64) :: attributes(attr_count))
+        else
+            allocate(character(len=1) :: attributes(0))
+            return
+        end if
+        
+        ! Build attributes list
+        i = 0
+        if (node%has_intent .and. allocated(node%intent)) then
+            i = i + 1
+            attributes(i) = "intent(" // node%intent // ")"
+        end if
+        if (node%is_array) then
+            i = i + 1
+            if (allocated(node%dimension_indices)) then
+                attributes(i) = "dimension(" // trim(int_to_str(size(node%dimension_indices))) // ")"
+            else
+                attributes(i) = "dimension(:)"
+            end if
+        end if
+        if (node%is_allocatable) then
+            i = i + 1
+            attributes(i) = "allocatable"
+        end if
+        if (node%is_pointer) then
+            i = i + 1
+            attributes(i) = "pointer"
+        end if
+        if (node%has_initializer) then
+            i = i + 1
+            attributes(i) = "initialized"
+        end if
+    end subroutine build_declaration_attributes
+
 end module fortfront
