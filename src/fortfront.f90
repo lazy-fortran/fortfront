@@ -584,7 +584,7 @@ contains
         found = .false.
         target_index = 0
         value_index = 0
-        if (allocated(operator)) deallocate(operator)
+        ! operator is intent(out) - automatically deallocated on entry
         
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%node)) then
@@ -614,7 +614,7 @@ contains
         found = .false.
         left_index = 0
         right_index = 0
-        if (allocated(operator)) deallocate(operator)
+        ! operator is intent(out) - automatically deallocated on entry
         
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%node)) then
@@ -641,7 +641,7 @@ contains
         logical :: found
         
         found = .false.
-        if (allocated(name)) deallocate(name)
+        ! name is intent(out) - automatically deallocated on entry
         
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%node)) then
@@ -664,8 +664,7 @@ contains
         logical :: found
         
         found = .false.
-        if (allocated(value)) deallocate(value)
-        if (allocated(literal_type)) deallocate(literal_type)
+        ! value and literal_type are intent(out) - automatically deallocated on entry
         
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%node)) then
@@ -696,8 +695,7 @@ contains
         logical :: found
         
         found = .false.
-        if (allocated(name)) deallocate(name)
-        if (allocated(arg_indices)) deallocate(arg_indices)
+        ! name and arg_indices are intent(out) - automatically deallocated on entry
         
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%node)) then
@@ -729,8 +727,7 @@ contains
         logical :: found
         
         found = .false.
-        if (allocated(element_indices)) deallocate(element_indices)
-        if (allocated(element_type)) deallocate(element_type)
+        ! element_indices and element_type are intent(out) - automatically deallocated on entry
         
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%node)) then
@@ -762,8 +759,7 @@ contains
         logical :: found
         
         found = .false.
-        if (allocated(name)) deallocate(name)
-        if (allocated(body_indices)) deallocate(body_indices)
+        ! name and body_indices are intent(out) - automatically deallocated on entry
         
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%node)) then
@@ -785,6 +781,94 @@ contains
             end if
         end if
     end function get_program_info
+    
+    ! Declaration node accessors
+    function get_declaration_info(arena, node_index, var_names, type_spec, attributes) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: var_names(:)
+        character(len=:), allocatable, intent(out) :: type_spec
+        character(len=:), allocatable, intent(out) :: attributes(:)
+        logical :: found
+        
+        found = .false.
+        ! All output parameters are intent(out) - automatically deallocated on entry
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (declaration_node)
+                    ! Get variable names
+                    if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                        allocate(character(len=256) :: var_names(size(node%var_names)))
+                        var_names = node%var_names
+                    else if (allocated(node%var_name)) then
+                        allocate(character(len=256) :: var_names(1))
+                        var_names(1) = node%var_name
+                    else
+                        allocate(character(len=1) :: var_names(0))
+                    end if
+                    
+                    ! Get type specification
+                    if (allocated(node%type_name)) then
+                        type_spec = node%type_name
+                    else
+                        type_spec = "unknown"
+                    end if
+                    
+                    ! Get attributes based on available fields
+                    if (node%has_intent .and. allocated(node%intent)) then
+                        allocate(character(len=256) :: attributes(1))
+                        attributes(1) = "intent(" // node%intent // ")"
+                    else
+                        allocate(character(len=1) :: attributes(0))
+                    end if
+                    
+                    found = .true.
+                end select
+            end if
+        end if
+    end function get_declaration_info
+    
+    ! Parameter declaration node accessors
+    function get_parameter_declaration_info(arena, node_index, var_names, values, type_spec) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: var_names(:)
+        character(len=:), allocatable, intent(out) :: values(:)
+        character(len=:), allocatable, intent(out) :: type_spec
+        logical :: found
+        
+        found = .false.
+        ! All output parameters are intent(out) - automatically deallocated on entry
+        
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (parameter_declaration_node)
+                    ! Get parameter names
+                    if (allocated(node%name)) then
+                        allocate(character(len=256) :: var_names(1))
+                        var_names(1) = node%name
+                    else
+                        allocate(character(len=1) :: var_names(0))
+                    end if
+                    
+                    ! Parameter values - simplified for now (would need initializer access)
+                    allocate(character(len=1) :: values(0))
+                    
+                    ! Get type specification
+                    if (allocated(node%type_name)) then
+                        type_spec = node%type_name
+                    else
+                        type_spec = "unknown"
+                    end if
+                    
+                    found = .true.
+                end select
+            end if
+        end if
+    end function get_parameter_declaration_info
     
     ! Symbol lookup
     function lookup_symbol(ctx, name, scope_node_index) result(symbol)
