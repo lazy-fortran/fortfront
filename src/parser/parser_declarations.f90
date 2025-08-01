@@ -245,13 +245,13 @@ contains
                     decl_index = push_declaration(arena, type_name, var_name, &
                                kind_value=kind_value, initializer_index=initializer_index, &
                        dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                                      is_pointer=is_pointer, is_target=is_target, \
+                                      is_pointer=is_pointer, is_target=is_target, &
                                       intent_value=intent, line=line, column=column)
                 else
                     decl_index = push_declaration(arena, type_name, var_name, &
                                kind_value=kind_value, initializer_index=initializer_index, &
                        dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                                                  is_pointer=is_pointer, is_target=is_target, \
+                                                  is_pointer=is_pointer, is_target=is_target, &
                                                   line=line, column=column)
                 end if
             else if (has_kind) then
@@ -259,36 +259,36 @@ contains
                     decl_index = push_declaration(arena, type_name, var_name, &
                                kind_value=kind_value, initializer_index=initializer_index, &
                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                               intent_value=intent, line=line, column=column)
+                               is_target=is_target, intent_value=intent, line=line, column=column)
                 else
                     decl_index = push_declaration(arena, type_name, var_name, &
                                kind_value=kind_value, initializer_index=initializer_index, &
                                     is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    line=line, column=column)
+                               is_target=is_target, line=line, column=column)
                 end if
             else if (is_array) then
                 if (has_intent) then
                     decl_index = push_declaration(arena, type_name, var_name, &
                  initializer_index=initializer_index, dimension_indices=dimension_indices, &
                                     is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    intent_value=intent, line=line, column=column)
+                               is_target=is_target, intent_value=intent, line=line, column=column)
                 else
                     decl_index = push_declaration(arena, type_name, var_name, &
                  initializer_index=initializer_index, dimension_indices=dimension_indices, &
                                     is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    line=line, column=column)
+                               is_target=is_target, line=line, column=column)
                 end if
             else
                 if (has_intent) then
                     decl_index = push_declaration(arena, type_name, var_name, &
                        initializer_index=initializer_index, is_allocatable=is_allocatable, &
-                                                  is_pointer=is_pointer, is_target=is_target, \
+                                                  is_pointer=is_pointer, is_target=is_target, &
                                       intent_value=intent, &
                                                   line=line, column=column)
                 else
                     decl_index = push_declaration(arena, type_name, var_name, &
                        initializer_index=initializer_index, is_allocatable=is_allocatable, &
-                                                  is_pointer=is_pointer, is_target=is_target, \
+                                                  is_pointer=is_pointer, is_target=is_target, &
                                                   line=line, column=column)
                 end if
             end if
@@ -318,21 +318,21 @@ contains
                   additional_decl_index = push_declaration(arena, type_name, var_name, &
                            kind_value=kind_value, dimension_indices=dimension_indices, &
                                 is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                line=line, column=column)
+                               is_target=is_target, line=line, column=column)
                         else if (has_kind) then
                   additional_decl_index = push_declaration(arena, type_name, var_name, &
                                  kind_value=kind_value, is_allocatable=is_allocatable, &
-                                 is_pointer=is_pointer, is_target=is_target, \
+                                 is_pointer=is_pointer, is_target=is_target, &
                                                   line=line, column=column)
                         else if (is_array) then
                   additional_decl_index = push_declaration(arena, type_name, var_name, &
                    dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                   is_pointer=is_pointer, is_target=is_target, \
+                   is_pointer=is_pointer, is_target=is_target, &
                                                   line=line, column=column)
                         else
                   additional_decl_index = push_declaration(arena, type_name, var_name, &
                                 is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                line=line, column=column)
+                               is_target=is_target, line=line, column=column)
                         end if
 
                         ! Note: Currently the function only returns the first declaration index
@@ -745,12 +745,12 @@ contains
                 if (has_kind) then
                     decl_index = push_declaration(arena, type_name, trim(temp_var_names(1)), &
                                kind_value=kind_value, is_allocatable=is_allocatable, &
-                               is_pointer=is_pointer, is_target=is_target, \
+                               is_pointer=is_pointer, is_target=is_target, &
                                                   line=line, column=column)
                 else
                     decl_index = push_declaration(arena, type_name, trim(temp_var_names(1)), &
                                                   is_allocatable=is_allocatable, &
-                                                  is_pointer=is_pointer, is_target=is_target, \
+                                                  is_pointer=is_pointer, is_target=is_target, &
                                                   line=line, column=column)
                 end if
                 decl_indices = [decl_index]
@@ -759,12 +759,12 @@ contains
                 if (has_kind) then
                     decl_index = push_multi_declaration(arena, type_name, temp_var_names(1:var_count), &
                                kind_value=kind_value, is_allocatable=is_allocatable, &
-                               is_pointer=is_pointer, is_target=is_target, \
+                               is_pointer=is_pointer, is_target=is_target, &
                                                   line=line, column=column)
                 else
                     decl_index = push_multi_declaration(arena, type_name, temp_var_names(1:var_count), &
                                                         is_allocatable=is_allocatable, &
-                                                        is_pointer=is_pointer, is_target=is_target, \
+                                                        is_pointer=is_pointer, is_target=is_target, &
                                                   line=line, column=column)
                 end if
                 decl_indices = [decl_index]
@@ -780,24 +780,24 @@ contains
                                        kind_value=kind_value, &
                                        dimension_indices=var_dimensions(i)%dimension_indices, &
                                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                                              line=line, column=column)
+                               is_target=is_target, line=line, column=column)
                         else
                             decl_indices(i) = push_declaration(arena, type_name, trim(temp_var_names(i)), &
                                               dimension_indices=var_dimensions(i)%dimension_indices, &
                                               is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                                              line=line, column=column)
+                               is_target=is_target, line=line, column=column)
                         end if
                     else
                         ! Simple variable without dimensions
                         if (has_kind) then
                             decl_indices(i) = push_declaration(arena, type_name, trim(temp_var_names(i)), &
                                        kind_value=kind_value, is_allocatable=is_allocatable, &
-                                       is_pointer=is_pointer, is_target=is_target, \
+                                       is_pointer=is_pointer, is_target=is_target, &
                                                   line=line, column=column)
                         else
                             decl_indices(i) = push_declaration(arena, type_name, trim(temp_var_names(i)), &
                                                               is_allocatable=is_allocatable, &
-                                                              is_pointer=is_pointer, is_target=is_target, \
+                                                              is_pointer=is_pointer, is_target=is_target, &
                                                   line=line, column=column)
                         end if
                     end if
