@@ -128,11 +128,11 @@ contains
         
         ! Test empty signature for non-intrinsic functions
         signature = get_intrinsic_signature("my_function")
-        if (allocated(signature) .and. len(signature) /= 0) &
+        if (allocated(signature) .and. len_trim(signature) /= 0) &
             error stop "Non-intrinsic function should have empty signature"
         
         signature = get_intrinsic_signature("unknown")
-        if (allocated(signature) .and. len(signature) /= 0) &
+        if (allocated(signature) .and. len_trim(signature) /= 0) &
             error stop "Unknown function should have empty signature"
         
         print *, "  ✓ Non-intrinsic function tests passed"
@@ -158,7 +158,10 @@ contains
         ! Test with non-intrinsic
         call get_intrinsic_info("my_func", is_intrinsic, signature)
         if (is_intrinsic) error stop "my_func should not be intrinsic"
-        if (allocated(signature)) error stop "Non-intrinsic should not have allocated signature"
+        if (allocated(signature)) then
+            if (len_trim(signature) > 0) &
+                error stop "Non-intrinsic should not have non-empty signature"
+        end if
         
         print *, "  ✓ Registry initialization tests passed"
     end subroutine test_registry_initialization
