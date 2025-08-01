@@ -41,10 +41,12 @@ module ast_core
                               contains_node, interface_block_node, &
                               comment_node
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node, &
-                                range_expression_node, &
+                                range_expression_node, array_operation_node, &
                                 get_array_bounds_node, get_array_slice_node, &
-                                get_range_expression_node, &
-                                NODE_ARRAY_BOUNDS, NODE_ARRAY_SLICE, NODE_RANGE_EXPRESSION
+                                get_range_expression_node, get_array_operation_node, &
+                                array_bounds_t, array_spec_t, &
+                                NODE_ARRAY_BOUNDS, NODE_ARRAY_SLICE, NODE_RANGE_EXPRESSION, &
+                                NODE_ARRAY_OPERATION
     
     implicit none
     
@@ -70,9 +72,11 @@ module ast_core
               deallocate_statement_node
     public :: use_statement_node, include_statement_node, contains_node, &
               interface_block_node, comment_node
-    public :: array_bounds_node, array_slice_node, range_expression_node
-    public :: get_array_bounds_node, get_array_slice_node, get_range_expression_node
-    public :: NODE_ARRAY_BOUNDS, NODE_ARRAY_SLICE, NODE_RANGE_EXPRESSION
+    public :: array_bounds_node, array_slice_node, range_expression_node, array_operation_node
+    public :: get_array_bounds_node, get_array_slice_node, get_range_expression_node, &
+              get_array_operation_node
+    public :: array_bounds_t, array_spec_t
+    public :: NODE_ARRAY_BOUNDS, NODE_ARRAY_SLICE, NODE_RANGE_EXPRESSION, NODE_ARRAY_OPERATION
     ! Re-export factory functions
     public :: create_pointer_assignment, create_array_literal, &
               create_function_def, create_subroutine_def, &
@@ -88,7 +92,7 @@ module ast_core
               create_stop, &
               create_return, create_cycle, create_exit, create_where, &
               create_comment, create_array_bounds, create_array_slice, &
-              create_range_expression
+              create_range_expression, create_array_operation
     
 contains
 
@@ -481,5 +485,29 @@ contains
             node%stride_index = -1
         end if
     end function create_range_expression
+
+    function create_array_operation(operation, left_index, right_index, &
+                                    array_spec, result_spec) result(node)
+        character(len=*), intent(in) :: operation
+        integer, intent(in) :: left_index, right_index
+        type(array_spec_t), intent(in), optional :: array_spec, result_spec
+        type(array_operation_node) :: node
+        
+        node%operation = operation
+        node%left_operand_index = left_index
+        node%right_operand_index = right_index
+        
+        if (present(array_spec)) then
+            node%array_spec = array_spec
+        end if
+        
+        if (present(result_spec)) then
+            node%result_spec = result_spec
+        end if
+        
+        ! These will be set by semantic analysis
+        node%bounds_checked = .false.
+        node%shape_conformant = .false.
+    end function create_array_operation
 
 end module ast_core

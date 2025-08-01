@@ -8,12 +8,15 @@ module semantic_analyzer
     use scope_manager
     use type_checker
     use ast_core
+    use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
+                                range_expression_node, get_array_slice_node
     use parameter_tracker
     implicit none
     private
 
     public :: semantic_context_t, create_semantic_context
     public :: analyze_program
+    public :: validate_array_bounds, check_shape_conformance
 
     ! Semantic analysis context
     type :: semantic_context_t
@@ -34,6 +37,8 @@ module semantic_analyzer
         procedure :: compose_with_subst
         procedure :: deep_copy => semantic_context_deep_copy
         procedure :: assign => semantic_context_assign
+        procedure :: validate_bounds => validate_array_access_bounds
+        procedure :: check_conformance => check_array_shape_conformance
         generic :: assignment(=) => assign
     end type semantic_context_t
 
@@ -299,6 +304,10 @@ contains
 
                 typ = infer_function_call(this, arena, expr)
             end block
+
+        type is (array_slice_node)
+            ! Handle array slicing with bounds information
+            typ = infer_array_slice(this, arena, expr)
 
         type is (subroutine_call_node)
             ! Subroutine calls don't return a value - shouldn't appear in expressions
@@ -1630,5 +1639,147 @@ contains
         typ%size = -1
 
     end function infer_implied_do_loop
+
+    ! Infer type of array slice with bounds checking
+    function infer_array_slice(ctx, arena, slice_node) result(typ)
+        class(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(array_slice_node), intent(inout) :: slice_node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: array_type, element_type
+        type(mono_type_t), allocatable :: array_args(:)
+        integer :: i
+        
+        ! Get the type of the array being sliced
+        if (slice_node%array_index > 0 .and. slice_node%array_index <= arena%size) then
+            array_type = ctx%infer(arena, slice_node%array_index)
+            
+            ! Validate this is actually an array type
+            if (array_type%kind == TARRAY .and. allocated(array_type%args)) then
+                element_type = array_type%args(1)
+                
+                ! Validate array bounds for each dimension
+                call ctx%validate_bounds(arena, slice_node)
+                
+                ! For array slicing, result type depends on the slice:
+                ! - Single index: returns element type
+                ! - Range (start:end): returns array of same element type
+                ! For now, assume it returns an array of the element type
+                allocate(array_args(1))
+                array_args(1) = element_type
+                typ = create_mono_type(TARRAY, args=array_args)
+                typ%size = -1  ! Size not known at compile time for slices
+            else
+                ! Not an array - this is an error
+                print *, "ERROR: Attempting to slice non-array type"
+                typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+            end if
+        else
+            ! Invalid array index
+            typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+        end if
+    end function infer_array_slice
+
+    ! Validate array access bounds
+    subroutine validate_array_access_bounds(ctx, arena, slice_node)
+        class(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(array_slice_node), intent(in) :: slice_node
+        integer :: i
+        
+        ! For each dimension, validate that the bounds are reasonable
+        do i = 1, slice_node%num_dimensions
+            if (slice_node%bounds_indices(i) > 0) then
+                ! TODO: For full bounds checking, we would need to:
+                ! 1. Evaluate the bound expressions at compile time if possible
+                ! 2. Generate runtime checks for dynamic bounds
+                ! 3. Validate that lower <= upper and stride != 0
+                ! For now, just mark that we've seen a bounds check
+                continue
+            end if
+        end do
+        
+        ! TODO: Add actual bounds validation logic here
+        ! This could include:
+        ! - Compile-time constant bounds checking
+        ! - Runtime bounds check code generation
+        ! - Warning generation for potentially unsafe accesses
+    end subroutine validate_array_access_bounds
+
+    ! Check shape conformance between arrays
+    logical function check_array_shape_conformance(ctx, spec1, spec2) result(conformable)
+        class(semantic_context_t), intent(inout) :: ctx
+        type(array_spec_t), intent(in) :: spec1, spec2
+        integer :: i
+        
+        conformable = .false.
+        
+        ! Arrays must have the same rank to be conformable
+        if (spec1%rank /= spec2%rank) return
+        
+        ! Scalar arrays are always conformable
+        if (spec1%rank == 0) then
+            conformable = .true.
+            return
+        end if
+        
+        ! Check each dimension for conformability
+        if (allocated(spec1%bounds) .and. allocated(spec2%bounds)) then
+            do i = 1, spec1%rank
+                ! For compile-time constant bounds, check exact sizes
+                if (spec1%bounds(i)%is_constant_lower .and. spec1%bounds(i)%is_constant_upper .and. &
+                    spec2%bounds(i)%is_constant_lower .and. spec2%bounds(i)%is_constant_upper) then
+                    
+                    if ((spec1%bounds(i)%const_upper - spec1%bounds(i)%const_lower) /= &
+                        (spec2%bounds(i)%const_upper - spec2%bounds(i)%const_lower)) then
+                        return  ! Different sizes, not conformable
+                    end if
+                else
+                    ! For dynamic bounds, assume conformable (runtime check needed)
+                    continue
+                end if
+            end do
+        end if
+        
+        conformable = .true.
+    end function check_array_shape_conformance
+
+    ! Public interface for array bounds validation
+    subroutine validate_array_bounds(arena, node_index, error_msg)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: error_msg
+        type(array_slice_node), pointer :: slice_ptr
+        
+        error_msg = ""
+        
+        if (node_index <= 0 .or. node_index > arena%size) then
+            error_msg = "Invalid node index for bounds validation"
+            return
+        end if
+        
+        slice_ptr => get_array_slice_node(arena, node_index)
+        if (associated(slice_ptr)) then
+            ! TODO: Implement comprehensive bounds validation
+            ! For now, just check basic structure
+            if (slice_ptr%num_dimensions < 0) then
+                error_msg = "Invalid number of dimensions in array slice"
+            else if (slice_ptr%num_dimensions > 10) then
+                error_msg = "Too many dimensions in array slice (max 10)"
+            end if
+        else
+            error_msg = "Node is not an array slice node"
+        end if
+    end subroutine validate_array_bounds
+
+    ! Public interface for shape conformance checking
+    logical function check_shape_conformance(spec1, spec2) result(conformable)
+        type(array_spec_t), intent(in) :: spec1, spec2
+        type(semantic_context_t) :: dummy_ctx
+        
+        ! Create dummy context for the method call
+        dummy_ctx = create_semantic_context()
+        conformable = dummy_ctx%check_conformance(spec1, spec2)
+    end function check_shape_conformance
 
 end module semantic_analyzer

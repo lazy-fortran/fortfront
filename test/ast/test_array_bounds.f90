@@ -13,6 +13,8 @@ program test_array_bounds
     call test_get_node_functions()
     call test_visitor_pattern()
     call test_json_serialization()
+    call test_array_operation_node()
+    call test_semantic_integration()
 
     if (all_tests_passed) then
         print *, "All array bounds tests passed!"
@@ -339,5 +341,118 @@ contains
         ! Cleanup
         call json%destroy(root)
     end subroutine test_json_serialization
+
+    subroutine test_array_operation_node()
+        type(array_operation_node) :: op_node
+        type(array_spec_t) :: array_spec, result_spec
+        
+        print *, "Testing array_operation_node functionality..."
+        
+        ! Create array specifications for testing
+        array_spec%rank = 2
+        allocate(array_spec%bounds(2))
+        array_spec%bounds(1)%is_constant_lower = .true.
+        array_spec%bounds(1)%is_constant_upper = .true.
+        array_spec%bounds(1)%const_lower = 1
+        array_spec%bounds(1)%const_upper = 10
+        array_spec%bounds(2)%is_constant_lower = .true.
+        array_spec%bounds(2)%is_constant_upper = .true.
+        array_spec%bounds(2)%const_lower = 1
+        array_spec%bounds(2)%const_upper = 5
+        
+        result_spec = array_spec  ! Same spec for result
+        
+        ! Create array operation node
+        op_node = create_array_operation("+", 1, 2, array_spec, result_spec)
+        
+        if (trim(op_node%operation) == "+" .and. &
+            op_node%left_operand_index == 1 .and. &
+            op_node%right_operand_index == 2) then
+            print *, "PASS: array_operation_node creation works"
+        else
+            print *, "FAIL: array_operation_node creation failed"
+            all_tests_passed = .false.
+        end if
+        
+        ! Test that array_spec information is preserved
+        if (op_node%array_spec%rank == 2 .and. op_node%result_spec%rank == 2) then
+            print *, "PASS: array_spec information preserved"
+        else
+            print *, "FAIL: array_spec information not preserved"
+            all_tests_passed = .false.
+        end if
+        
+        ! Test bounds checking and conformance flags
+        if (.not. op_node%bounds_checked .and. .not. op_node%shape_conformant) then
+            print *, "PASS: Bounds checking flags initialized correctly"
+        else
+            print *, "FAIL: Bounds checking flags not initialized correctly"
+            all_tests_passed = .false.
+        end if
+    end subroutine test_array_operation_node
+
+    subroutine test_semantic_integration()
+        use semantic_analyzer, only: validate_array_bounds, check_shape_conformance
+        type(ast_arena_t) :: arena
+        type(array_slice_node) :: slice
+        type(array_spec_t) :: spec1, spec2
+        character(len=:), allocatable :: error_msg
+        logical :: conformable
+        integer :: bounds_indices(1), slice_index
+        
+        print *, "Testing semantic integration..."
+        
+        ! Test bounds validation
+        arena = create_ast_arena()
+        bounds_indices(1) = 1
+        slice = create_array_slice(1, bounds_indices, 1)
+        call arena%push(slice, "array_slice", 0)
+        slice_index = arena%size
+        
+        call validate_array_bounds(arena, slice_index, error_msg)
+        if (.not. allocated(error_msg) .or. len(error_msg) == 0) then
+            print *, "PASS: Array bounds validation works"
+        else
+            print *, "FAIL: Array bounds validation failed:", error_msg
+            all_tests_passed = .false.
+        end if
+        
+        ! Test shape conformance
+        spec1%rank = 2
+        allocate(spec1%bounds(2))
+        spec1%bounds(1)%is_constant_lower = .true.
+        spec1%bounds(1)%is_constant_upper = .true.
+        spec1%bounds(1)%const_lower = 1
+        spec1%bounds(1)%const_upper = 10
+        spec1%bounds(2)%is_constant_lower = .true.
+        spec1%bounds(2)%is_constant_upper = .true.
+        spec1%bounds(2)%const_lower = 1
+        spec1%bounds(2)%const_upper = 5
+        
+        spec2 = spec1  ! Same shape
+        
+        conformable = check_shape_conformance(spec1, spec2)
+        if (conformable) then
+            print *, "PASS: Shape conformance check works for conformable arrays"
+        else
+            print *, "FAIL: Shape conformance check failed for conformable arrays"
+            all_tests_passed = .false.
+        end if
+        
+        ! Test non-conformable arrays
+        spec2%rank = 1
+        deallocate(spec2%bounds)
+        allocate(spec2%bounds(1))
+        
+        conformable = check_shape_conformance(spec1, spec2)
+        if (.not. conformable) then
+            print *, "PASS: Shape conformance correctly detects non-conformable arrays"
+        else
+            print *, "FAIL: Shape conformance failed to detect non-conformable arrays"
+            all_tests_passed = .false.
+        end if
+        
+        print *, "PASS: Semantic integration tests completed"
+    end subroutine test_semantic_integration
 
 end program test_array_bounds

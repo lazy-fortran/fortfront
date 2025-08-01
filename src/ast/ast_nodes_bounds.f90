@@ -5,14 +5,16 @@ module ast_nodes_bounds
     implicit none
     private
 
-    public :: array_bounds_node, array_slice_node, range_expression_node
-    public :: get_array_bounds_node, get_array_slice_node, get_range_expression_node
+    public :: array_bounds_node, array_slice_node, range_expression_node, array_operation_node
+    public :: get_array_bounds_node, get_array_slice_node, get_range_expression_node, &
+              get_array_operation_node
     public :: array_bounds_t, array_spec_t
 
     ! Node type constants
     integer, parameter, public :: NODE_ARRAY_BOUNDS = 50
     integer, parameter, public :: NODE_ARRAY_SLICE = 51
     integer, parameter, public :: NODE_RANGE_EXPRESSION = 52
+    integer, parameter, public :: NODE_ARRAY_OPERATION = 53
     
     ! Type to represent bounds for a single dimension
     type :: array_bounds_t
@@ -75,6 +77,21 @@ module ast_nodes_bounds
         procedure :: to_json => range_expression_to_json
     end type range_expression_node
 
+    ! Represents array operations (assignment, arithmetic, etc.) with bounds info
+    type, extends(ast_node) :: array_operation_node
+        integer :: node_type = NODE_ARRAY_OPERATION
+        character(len=32) :: operation = ""    ! Operation type (=, +, -, *, etc.)
+        integer :: left_operand_index = -1     ! Left operand (array)
+        integer :: right_operand_index = -1    ! Right operand (array or scalar)
+        type(array_spec_t) :: array_spec       ! Array specification with bounds
+        type(array_spec_t) :: result_spec      ! Result specification
+        logical :: bounds_checked = .false.    ! Whether bounds have been validated
+        logical :: shape_conformant = .false.  ! Whether operands are conformant
+    contains
+        procedure :: accept => array_operation_accept
+        procedure :: to_json => array_operation_to_json
+    end type array_operation_node
+
 contains
 
     function get_array_bounds_node(arena, index) result(node)
@@ -119,6 +136,20 @@ contains
         end if
     end function get_range_expression_node
 
+    function get_array_operation_node(arena, index) result(node)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: index
+        type(array_operation_node), pointer :: node
+        
+        node => null()
+        if (index > 0 .and. index <= arena%size) then
+            select type (p => arena%entries(index)%node)
+            type is (array_operation_node)
+                node => p
+            end select
+        end if
+    end function get_array_operation_node
+
     ! Visitor pattern implementations
     subroutine array_bounds_accept(this, visitor)
         class(array_bounds_node), intent(in) :: this
@@ -143,6 +174,14 @@ contains
         ! Visitor pattern stub - would need full implementation
         ! For now, just validate the visitor is not null
     end subroutine range_expression_accept
+
+    subroutine array_operation_accept(this, visitor)
+        class(array_operation_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        
+        ! Visitor pattern stub - would need full implementation
+        ! For now, just validate the visitor is not null
+    end subroutine array_operation_accept
 
     ! JSON serialization implementations
     subroutine array_bounds_to_json(this, json, parent)
@@ -190,5 +229,30 @@ contains
         call json%add(parent, "end_index", this%end_index)
         call json%add(parent, "stride_index", this%stride_index)
     end subroutine range_expression_to_json
+
+    subroutine array_operation_to_json(this, json, parent)
+        class(array_operation_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        
+        call json%create_object(parent, "array_operation")
+        call json%add(parent, "node_type", "array_operation")
+        call json%add(parent, "operation", trim(this%operation))
+        call json%add(parent, "left_operand_index", this%left_operand_index)
+        call json%add(parent, "right_operand_index", this%right_operand_index)
+        call json%add(parent, "bounds_checked", this%bounds_checked)
+        call json%add(parent, "shape_conformant", this%shape_conformant)
+        
+        ! Add array_spec information if available
+        if (this%array_spec%rank > 0) then
+            call json%add(parent, "array_rank", this%array_spec%rank)
+            call json%add(parent, "is_allocatable", this%array_spec%is_allocatable)
+            call json%add(parent, "is_pointer", this%array_spec%is_pointer)
+        end if
+        
+        if (this%result_spec%rank > 0) then
+            call json%add(parent, "result_rank", this%result_spec%rank)
+        end if
+    end subroutine array_operation_to_json
 
 end module ast_nodes_bounds
