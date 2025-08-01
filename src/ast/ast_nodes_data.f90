@@ -12,7 +12,9 @@ module ast_nodes_data
     ! Declaration node
     type, extends(ast_node), public :: declaration_node
         character(len=:), allocatable :: type_name     ! real, integer, etc.
-        character(len=:), allocatable :: var_name      ! Variable name
+        character(len=:), allocatable :: var_name      ! Variable name (for single declarations)
+        character(len=:), allocatable :: var_names(:)  ! Variable names (for multi declarations)
+        logical :: is_multi_declaration = .false.      ! Whether this declares multiple variables
         integer :: kind_value                          ! Kind parameter (e.g., 8 for real(8))
         logical :: has_kind                            ! Whether kind was specified
         character(len=:), allocatable :: intent        ! in, out, inout (for parameters)

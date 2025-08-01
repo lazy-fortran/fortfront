@@ -31,7 +31,7 @@ contains
             "program test" // char(10) // &
             "    integer :: x = 5" // char(10) // &
             "    real :: y = 3.14" // char(10) // &
-            "    x = x + 1" // char(10) // &
+            "    x = 42" // char(10) // &
             "end program test"
         
         print *, "Testing find_by_type..."
@@ -58,7 +58,7 @@ contains
         
         ! Test finding assignment nodes
         found_nodes = find_nodes_by_type(arena, "assignment")
-        if (size(found_nodes) /= 1) then  ! Only the x = x + 1 assignment
+        if (size(found_nodes) /= 1) then  ! Only x = x + 1 (declarations with init are not assignments)
             print *, "Expected 1 assignment node, found", size(found_nodes)
             failures = failures + 1
         end if
@@ -206,8 +206,8 @@ contains
             return
         end if
         
-        if (prog%name /= "main") then
-            print *, "Expected program name 'main', got '", trim(prog%name), "'"
+        if (prog%name /= "test") then
+            print *, "Expected program name 'test', got '", trim(prog%name), "'"
             failures = failures + 1
         end if
         

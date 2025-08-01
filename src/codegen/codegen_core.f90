@@ -8,9 +8,13 @@ module codegen_core
 
     ! Context for function indentation
     logical :: context_has_executable_before_contains = .false.
+    
+    ! Type standardization configuration
+    logical, save :: standardize_types_enabled = .true.
 
     ! Public interface for code generation
     public :: generate_code_from_arena, generate_code_polymorphic
+    public :: set_type_standardization, get_type_standardization
 
 contains
 
@@ -73,6 +77,10 @@ contains
             code = generate_code_exit(arena, node, node_index)
         type is (where_node)
             code = generate_code_where(arena, node, node_index)
+        type is (module_node)
+            code = generate_code_module(arena, node, node_index)
+        type is (comment_node)
+            code = generate_code_comment(node)
         class default
             code = "! Unknown node type"
         end select
@@ -102,11 +110,17 @@ contains
                 code = node%value
             end if
         case (LITERAL_REAL)
-            ! For real literals, ensure double precision by adding 'd0' suffix if needed
-            if (index(node%value, 'd') == 0 .and. index(node%value, 'D') == 0 .and. &
-                index(node%value, '_') == 0) then
-                code = node%value//"d0"
+            ! For real literals, conditionally add 'd0' suffix based on standardization setting
+            if (standardize_types_enabled) then
+                ! Ensure double precision by adding 'd0' suffix if needed
+                if (index(node%value, 'd') == 0 .and. index(node%value, 'D') == 0 .and. &
+                    index(node%value, '_') == 0) then
+                    code = node%value//"d0"
+                else
+                    code = node%value
+                end if
             else
+                ! When standardization is disabled, preserve original literal format
                 code = node%value
             end if
         case default
@@ -211,6 +225,25 @@ contains
 
         ! Reset indentation for top-level program
         call reset_indent()
+        
+        ! Special handling for multiple top-level units
+        if (node%name == "__MULTI_UNIT__") then
+            code = ""
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
+                        stmt_code = generate_code_from_arena(arena, node%body_indices(i))
+                        if (len_trim(stmt_code) > 0) then
+                            if (len(code) > 0) then
+                                code = code//new_line('A')
+                            end if
+                            code = code//stmt_code
+                        end if
+                    end if
+                end do
+            end if
+            return
+        end if
 
         ! Initialize sections
         use_statements = ""
@@ -293,6 +326,16 @@ contains
                     type is (identifier_node)
                         ! Skip standalone identifiers - they are not executable statements
                         continue
+                    type is (comment_node)
+                        ! Comments go in executable section
+                        stmt_code = generate_code_from_arena(arena, child_indices(i))
+                        if (len(stmt_code) > 0) then
+                            if (len(exec_statements) > 0) then
+                                exec_statements = exec_statements//new_line('A')
+                            end if
+                            exec_statements = exec_statements//stmt_code
+                            ! Don't set has_executable for comments alone
+                        end if
                     class default
                         ! All other statements are executable
                         stmt_code = generate_code_from_arena(arena, child_indices(i))
@@ -711,7 +754,11 @@ contains
             case (TINT)
                 type_str = "integer"
             case (TREAL)
-                type_str = "real(8)"
+                if (standardize_types_enabled) then
+                    type_str = "real(8)"
+                else
+                    type_str = "real"
+                end if
             case (TCHAR)
                 if (node%inferred_type%size > 0) then
                     type_str = "character(len="//trim(adjustl(int_to_string(node%inferred_type%size)))//")"
@@ -748,7 +795,18 @@ contains
             code = code//", allocatable"
         end if
 
-        code = code//" :: "//node%var_name
+        ! Add variable names - handle both single and multi declarations
+        code = code//" :: "
+        if (node%is_multi_declaration .and. allocated(node%var_names)) then
+            ! Multi-variable declaration
+            do i = 1, size(node%var_names)
+                if (i > 1) code = code//", "
+                code = code//trim(node%var_names(i))
+            end do
+        else
+            ! Single variable declaration
+            code = code//node%var_name
+        end if
 
         ! Add array dimensions if present
         if (node%is_array .and. allocated(node%dimension_indices)) then
@@ -1418,5 +1476,77 @@ contains
 
         ! Keep trailing newline - it will be handled by caller if needed
     end function generate_grouped_body
+
+    ! Generate code for module node
+    function generate_code_module(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: stmt_code
+        integer :: i
+        
+        ! Reset indentation for top-level module
+        call reset_indent()
+        
+        ! Start module
+        code = "module "//node%name//new_line('A')
+        call increase_indent()
+        
+        ! Process declarations
+        if (allocated(node%declaration_indices)) then
+            do i = 1, size(node%declaration_indices)
+                if (node%declaration_indices(i) > 0) then
+                    stmt_code = generate_code_from_arena(arena, node%declaration_indices(i))
+                    if (len_trim(stmt_code) > 0) then
+                        code = code//with_indent(stmt_code)//new_line('A')
+                    end if
+                end if
+            end do
+        end if
+        
+        ! Process procedures
+        if (allocated(node%procedure_indices) .and. size(node%procedure_indices) > 0) then
+            ! Add contains statement
+            code = code//"contains"//new_line('A')
+            
+            ! Generate procedures
+            do i = 1, size(node%procedure_indices)
+                if (node%procedure_indices(i) > 0) then
+                    stmt_code = generate_code_from_arena(arena, node%procedure_indices(i))
+                    if (len_trim(stmt_code) > 0) then
+                        code = code//with_indent(stmt_code)//new_line('A')
+                    end if
+                end if
+            end do
+        end if
+        
+        call decrease_indent()
+        code = code//"end module "//node%name
+    end function generate_code_module
+
+    ! Generate code for comment node
+    function generate_code_comment(node) result(code)
+        type(comment_node), intent(in) :: node
+        character(len=:), allocatable :: code
+
+        if (allocated(node%text)) then
+            code = node%text  ! Comments are output as-is
+        else
+            code = "!"
+        end if
+    end function generate_code_comment
+
+    ! Set type standardization configuration
+    subroutine set_type_standardization(enabled)
+        logical, intent(in) :: enabled
+        standardize_types_enabled = enabled
+    end subroutine set_type_standardization
+
+    ! Get current type standardization configuration
+    subroutine get_type_standardization(enabled)
+        logical, intent(out) :: enabled
+        enabled = standardize_types_enabled
+    end subroutine get_type_standardization
 
 end module codegen_core

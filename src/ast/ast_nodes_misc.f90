@@ -6,6 +6,16 @@ module ast_nodes_misc
 
     ! Miscellaneous AST nodes
 
+    ! Comment node
+    type, extends(ast_node), public :: comment_node
+        character(len=:), allocatable :: text
+    contains
+        procedure :: accept => comment_accept
+        procedure :: to_json => comment_to_json
+        procedure :: assign => comment_assign
+        generic :: assignment(=) => assign
+    end type comment_node
+
     ! Complex literal node
     type, extends(ast_node), public :: complex_literal_node
         integer :: real_index = 0     ! Index to real part expression in arena
@@ -371,5 +381,40 @@ contains
             lhs%procedure_indices = rhs%procedure_indices
         end if
     end subroutine interface_block_assign
+
+    ! Comment node methods
+    subroutine comment_accept(this, visitor)
+        class(comment_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! For now, do nothing since we don't have a visitor framework in place
+    end subroutine comment_accept
+
+    subroutine comment_to_json(this, json, parent)
+        class(comment_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+        
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'comment')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%text)) call json%add(obj, 'text', this%text)
+        call json%add(parent, obj)
+    end subroutine comment_to_json
+
+    subroutine comment_assign(lhs, rhs)
+        class(comment_node), intent(inout) :: lhs
+        class(comment_node), intent(in) :: rhs
+        ! Copy base class components
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+        ! Copy comment text
+        if (allocated(rhs%text)) lhs%text = rhs%text
+    end subroutine comment_assign
 
 end module ast_nodes_misc

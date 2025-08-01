@@ -3,7 +3,7 @@ module parser_statements_module
     use iso_fortran_env, only: error_unit
     use lexer_core
     use parser_state_module
-    use parser_expressions_module, only: parse_comparison, parse_expression
+    use parser_expressions_module, only: parse_comparison, parse_expression, parse_range
     use parser_declarations_module, only: parse_declaration, parse_multi_declaration
     use ast_core
     use ast_factory
@@ -872,7 +872,7 @@ contains
 
                     ! Check for intent
                     token = parser%peek()
-                    if (token%kind == TK_KEYWORD .and. token%text == "intent") then
+                    if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. token%text == "intent") then
                         token = parser%consume()  ! consume 'intent'
 
                         token = parser%peek()
@@ -880,7 +880,7 @@ contains
                             token = parser%consume()  ! consume '('
 
                             token = parser%peek()
-                            if (token%kind == TK_KEYWORD) then
+                            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
                                 if (token%text == "in") then
                                     current_intent = 1
                                 else if (token%text == "out") then
@@ -1513,61 +1513,130 @@ contains
         end if
 
         ! Parse module body (declarations)
-        ! For now, just skip until "contains" or "end module"
+        allocate(declaration_indices(0))
+        
         do
             token = parser%peek()
             if (token%kind == TK_EOF) exit
+            
             if (token%kind == TK_KEYWORD .and. token%text == "contains") then
-                token = parser%consume()  ! consume 'contains'
                 has_contains = .true.
                 exit
             else if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                token = parser%consume()  ! consume 'end'
-                token = parser%peek()
-                if (token%kind == TK_KEYWORD .and. token%text == "module") then
-                    token = parser%consume()  ! consume 'module'
-                    ! Optional module name after 'end module'
-                    token = parser%peek()
-                    if (token%kind == TK_IDENTIFIER) then
-                        token = parser%consume()  ! consume module name
+                ! Check if this is end module
+                if (parser%current_token + 1 <= size(parser%tokens)) then
+                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                        parser%tokens(parser%current_token + 1)%text == "module") then
+                        ! Don't consume yet, we've found the end
+                        exit
                     end if
-                    exit
                 end if
-            else
-                token = parser%consume()  ! skip token
+                ! Not end module, parse this statement
             end if
+            
+            ! Parse declaration statement
+            block
+                integer :: stmt_index
+                
+                if (token%kind == TK_KEYWORD .and. token%text == "implicit") then
+                    token = parser%consume()  ! consume 'implicit'
+                    token = parser%peek()
+                    if (token%kind == TK_KEYWORD .and. token%text == "none") then
+                        token = parser%consume()  ! consume 'none'
+                        stmt_index = push_literal(arena, "implicit none", LITERAL_STRING, token%line, token%column)
+                        declaration_indices = [declaration_indices, stmt_index]
+                    end if
+                else if (token%kind == TK_KEYWORD .and. &
+                    (token%text == "integer" .or. token%text == "real" .or. &
+                     token%text == "logical" .or. token%text == "character")) then
+                    ! Parse declaration
+                    stmt_index = parse_declaration(parser, arena)
+                    if (stmt_index > 0) then
+                        declaration_indices = [declaration_indices, stmt_index]
+                    end if
+                else
+                    ! Skip unknown tokens
+                    token = parser%consume()
+                end if
+            end block
         end do
 
         ! Parse procedures after contains
-        ! For now, just skip until "end module"
+        allocate(procedure_indices(0))
+        
         if (has_contains) then
+            ! Consume 'contains'
+            token = parser%consume()
+            
             do
                 token = parser%peek()
                 if (token%kind == TK_EOF) exit
+                
                 if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                    token = parser%consume()  ! consume 'end'
-                    token = parser%peek()
-                    if (token%kind == TK_KEYWORD .and. token%text == "module") then
-                        token = parser%consume()  ! consume 'module'
-                        ! Optional module name after 'end module'
-                        token = parser%peek()
-                        if (token%kind == TK_IDENTIFIER) then
-                            token = parser%consume()  ! consume module name
+                    ! Check if this is end module
+                    if (parser%current_token + 1 <= size(parser%tokens)) then
+                        if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                            parser%tokens(parser%current_token + 1)%text == "module") then
+                            ! Don't consume yet, we've found the end
+                            exit
                         end if
-                        exit
                     end if
-                else
-                    token = parser%consume()  ! skip token
                 end if
+                
+                ! Parse procedures
+                block
+                    integer :: proc_index
+                    proc_index = 0
+                    
+                    if (token%kind == TK_KEYWORD) then
+                        if (token%text == "subroutine") then
+                            proc_index = parse_subroutine_definition(parser, arena)
+                        else if (token%text == "function") then
+                            proc_index = parse_function_definition(parser, arena)
+                        else
+                            ! Skip unknown tokens
+                            token = parser%consume()
+                        end if
+                        
+                        if (proc_index > 0) then
+                            procedure_indices = [procedure_indices, proc_index]
+                        end if
+                    else
+                        ! Skip non-keyword tokens
+                        token = parser%consume()
+                    end if
+                end block
             end do
+        end if
+        
+        ! Consume end module if we haven't already
+        token = parser%peek()
+        if (token%kind == TK_KEYWORD .and. token%text == "end") then
+            token = parser%consume()  ! consume 'end'
+            token = parser%peek()
+            if (token%kind == TK_KEYWORD .and. token%text == "module") then
+                token = parser%consume()  ! consume 'module'
+                ! Optional module name
+                token = parser%peek()
+                if (token%kind == TK_IDENTIFIER) then
+                    token = parser%consume()
+                end if
+            end if
         end if
 
         ! Create module node
         block
-            integer, allocatable :: body_indices(:)
-            ! For now, use empty body until full module body parsing is implemented
-            allocate (body_indices(0))
-            module_index = push_module(arena, name, body_indices, line, column)
+            type(module_node) :: mod_node
+            if (.not. allocated(procedure_indices)) then
+                allocate(procedure_indices(0))
+            end if
+            mod_node = create_module(name, declaration_indices=declaration_indices, line=line, column=column)
+            mod_node%has_contains = has_contains
+            if (allocated(procedure_indices)) then
+                mod_node%procedure_indices = procedure_indices
+            end if
+            call arena%push(mod_node, "module_node")
+            module_index = arena%size
         end block
 
     end function parse_module
@@ -1708,7 +1777,51 @@ contains
                         end if
                         stmt_index = 0  ! Don't add to AST
                     case ("integer", "real", "logical", "character", "complex")
-                        stmt_index = parse_declaration(parser, arena)
+                        ! Check if this is a single declaration with initializer
+                        ! If so, use parse_declaration for proper initializer handling
+                        block
+                            logical :: has_initializer, has_comma
+                            integer :: lookahead_pos
+                            type(token_t) :: lookahead_token
+                            
+                            ! Look ahead to check for = (initializer) and comma (multi-var)
+                            has_initializer = .false.
+                            has_comma = .false.
+                            lookahead_pos = parser%current_token
+                            
+                            do while (lookahead_pos <= size(parser%tokens))
+                                if (lookahead_pos > size(parser%tokens)) exit
+                                lookahead_token = parser%tokens(lookahead_pos)
+                                if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == "=") then
+                                    has_initializer = .true.
+                                else if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == ",") then
+                                    has_comma = .true.
+                                    exit
+                                else if (lookahead_token%kind == TK_EOF .or. &
+                                        (lookahead_token%kind == TK_KEYWORD .and. lookahead_token%text == "end")) then
+                                    exit
+                                end if
+                                lookahead_pos = lookahead_pos + 1
+                            end do
+                            
+                            if (has_initializer .and. .not. has_comma) then
+                                ! Single variable with initializer - use parse_declaration
+                                stmt_index = parse_declaration(parser, arena)
+                            else
+                                ! Multi-variable declaration - use parse_multi_declaration
+                                block
+                                    integer, allocatable :: decl_indices(:)
+                                    decl_indices = parse_multi_declaration(parser, arena)
+                                if (allocated(decl_indices) .and. size(decl_indices) > 0) then
+                                    ! Add all declarations to body
+                                    body_indices = [body_indices, decl_indices]
+                                    stmt_index = 0  ! Don't add again below
+                                else
+                                    stmt_index = 0
+                                end if
+                                end block
+                            end if
+                        end block
                     case ("print")
                         stmt_index = parse_print_statement(parser, arena)
                     case default
@@ -1731,11 +1844,10 @@ contains
                             ! Create target identifier
     target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
 
-                            ! Parse value - simple literal for now
-                            token = parser%peek()
-                            if (token%kind == TK_NUMBER) then
-                                token = parser%consume()
-value_index = push_literal(arena, token%text, LITERAL_INTEGER, token%line, token%column)
+                            ! Parse value expression
+                            value_index = parse_range(parser, arena)
+                            
+                            if (value_index > 0) then
                                 stmt_index = push_assignment(arena, target_index, value_index, id_token%line, id_token%column)
                             else
                                 stmt_index = 0

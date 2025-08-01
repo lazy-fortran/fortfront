@@ -91,7 +91,7 @@ Tests are organized by compilation phase:
 - `test/codegen/` - Code generation tests
 - `test/standardizer/` - AST standardization tests
 
-Total: 72 test files, with 69 passing as of last update.
+Total: 133 test files as of latest count.
 
 ### Common Development Patterns
 
