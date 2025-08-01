@@ -326,6 +326,16 @@ contains
                     type is (identifier_node)
                         ! Skip standalone identifiers - they are not executable statements
                         continue
+                    type is (comment_node)
+                        ! Comments go in executable section
+                        stmt_code = generate_code_from_arena(arena, child_indices(i))
+                        if (len(stmt_code) > 0) then
+                            if (len(exec_statements) > 0) then
+                                exec_statements = exec_statements//new_line('A')
+                            end if
+                            exec_statements = exec_statements//stmt_code
+                            ! Don't set has_executable for comments alone
+                        end if
                     class default
                         ! All other statements are executable
                         stmt_code = generate_code_from_arena(arena, child_indices(i))

@@ -633,8 +633,12 @@ contains
         ! Parse variable list - collect all variable names first
         block
             character(len=100) :: temp_var_names(20)  ! Fixed size array
-            integer :: var_count
+            integer :: var_count, i, j
             logical :: has_complex_attributes
+            type :: var_dims_t
+                integer, allocatable :: dimension_indices(:)
+            end type var_dims_t
+            type(var_dims_t) :: var_dimensions(20)
             
             ! Initialize
             var_count = 0
@@ -668,19 +672,18 @@ contains
                     has_complex_attributes = .true.
                 end if
 
-                ! For now, skip complex attributes in multi-declarations
-                ! TODO: Handle array dimensions and initializers per variable
+                ! Handle array dimensions for this variable
                 if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                    ! Skip array dimensions for now
                     var_token = parser%consume()  ! consume '('
-                    do while (.not. parser%is_at_end())
-                        var_token = parser%peek()
-                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
-                            var_token = parser%consume()  ! consume ')'
-                            exit
-                        end if
-                        var_token = parser%consume()
-                    end do
+                    
+                    ! Parse array dimensions for this variable
+                    call parse_array_dimensions(parser, arena, var_dimensions(var_count)%dimension_indices)
+                    
+                    ! Consume ')' if not already consumed
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                        var_token = parser%consume()  ! consume ')'
+                    end if
                 end if
 
                 if (var_token%kind == TK_OPERATOR .and. var_token%text == "=") then
@@ -733,11 +736,37 @@ contains
                 end if
                 decl_indices = [decl_index]
             else
-                ! Complex multi-variable declarations - fall back to separate declarations for now
-                ! TODO: Implement proper multi-variable with per-variable attributes
-                decl_indices = [push_literal(arena, &
-                    "ERROR: Complex multi-variable declarations not yet supported", &
-                    LITERAL_STRING, line, column)]
+                ! Complex multi-variable declarations - create separate declarations for each variable
+                if (allocated(decl_indices)) deallocate(decl_indices)
+                allocate(decl_indices(var_count))
+                do i = 1, var_count
+                    if (allocated(var_dimensions(i)%dimension_indices)) then
+                        ! Variable has array dimensions
+                        if (has_kind) then
+                            decl_indices(i) = push_declaration(arena, type_name, trim(temp_var_names(i)), &
+                                       kind_value=kind_value, &
+                                       dimension_indices=var_dimensions(i)%dimension_indices, &
+                                       is_allocatable=is_allocatable, &
+                                                              line=line, column=column)
+                        else
+                            decl_indices(i) = push_declaration(arena, type_name, trim(temp_var_names(i)), &
+                                              dimension_indices=var_dimensions(i)%dimension_indices, &
+                                              is_allocatable=is_allocatable, &
+                                                              line=line, column=column)
+                        end if
+                    else
+                        ! Simple variable without dimensions
+                        if (has_kind) then
+                            decl_indices(i) = push_declaration(arena, type_name, trim(temp_var_names(i)), &
+                                       kind_value=kind_value, is_allocatable=is_allocatable, &
+                                                              line=line, column=column)
+                        else
+                            decl_indices(i) = push_declaration(arena, type_name, trim(temp_var_names(i)), &
+                                                              is_allocatable=is_allocatable, &
+                                                              line=line, column=column)
+                        end if
+                    end if
+                end do
             end if
             
             decl_count = var_count
