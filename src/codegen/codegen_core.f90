@@ -77,6 +77,8 @@ contains
             code = generate_code_exit(arena, node, node_index)
         type is (where_node)
             code = generate_code_where(arena, node, node_index)
+        type is (forall_node)
+            code = generate_code_forall(arena, node, node_index)
         type is (module_node)
             code = generate_code_module(arena, node, node_index)
         type is (comment_node)
@@ -672,21 +674,21 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: mask_code, stmt_code
-        integer :: i
+        integer :: i, j
         
         ! Generate mask expression
-        if (node%mask_index > 0 .and. node%mask_index <= arena%size) then
-            mask_code = generate_code_from_arena(arena, node%mask_index)
+        if (node%mask_expr_index > 0 .and. node%mask_expr_index <= arena%size) then
+            mask_code = generate_code_from_arena(arena, node%mask_expr_index)
         else
             mask_code = "???"
         end if
         
         ! Check if this is a single-line WHERE
-        if (allocated(node%body_indices) .and. size(node%body_indices) == 1 .and. &
-            .not. allocated(node%elsewhere_indices)) then
+        if (allocated(node%where_body_indices) .and. size(node%where_body_indices) == 1 .and. &
+            .not. allocated(node%elsewhere_clauses)) then
             ! Single-line WHERE
-            if (node%body_indices(1) > 0 .and. node%body_indices(1) <= arena%size) then
-                stmt_code = generate_code_from_arena(arena, node%body_indices(1))
+            if (node%where_body_indices(1) > 0 .and. node%where_body_indices(1) <= arena%size) then
+                stmt_code = generate_code_from_arena(arena, node%where_body_indices(1))
                 ! Remove indentation from statement for single-line
                 stmt_code = adjustl(stmt_code)
             else
@@ -701,10 +703,10 @@ contains
             call increase_indent()
             
             ! Generate WHERE body
-            if (allocated(node%body_indices)) then
-                do i = 1, size(node%body_indices)
-                    if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
-                        stmt_code = generate_code_from_arena(arena, node%body_indices(i))
+            if (allocated(node%where_body_indices)) then
+                do i = 1, size(node%where_body_indices)
+                    if (node%where_body_indices(i) > 0 .and. node%where_body_indices(i) <= arena%size) then
+                        stmt_code = generate_code_from_arena(arena, node%where_body_indices(i))
                         code = code//new_line('A')//stmt_code
                     end if
                 end do
@@ -713,27 +715,117 @@ contains
             ! Decrease indentation
             call decrease_indent()
             
-            ! Generate ELSEWHERE block if present
-            if (allocated(node%elsewhere_indices)) then
-                code = code//new_line('A')//with_indent("elsewhere")
-                
-                ! Increase indentation for elsewhere body
-                call increase_indent()
-                
-                do i = 1, size(node%elsewhere_indices)
-                    if (node%elsewhere_indices(i) > 0 .and. node%elsewhere_indices(i) <= arena%size) then
-                        stmt_code = generate_code_from_arena(arena, node%elsewhere_indices(i))
-                        code = code//new_line('A')//stmt_code
+            ! Generate ELSEWHERE blocks
+            if (allocated(node%elsewhere_clauses)) then
+                do i = 1, size(node%elsewhere_clauses)
+                    if (node%elsewhere_clauses(i)%mask_index > 0) then
+                        ! ELSEWHERE with mask
+                        mask_code = generate_code_from_arena(arena, node%elsewhere_clauses(i)%mask_index)
+                        code = code//new_line('A')//with_indent("elsewhere ("//mask_code//")")
+                    else
+                        ! Final ELSEWHERE without mask
+                        code = code//new_line('A')//with_indent("elsewhere")
+                    end if
+                    
+                    ! Generate body for this elsewhere clause
+                    if (allocated(node%elsewhere_clauses(i)%body_indices)) then
+                        call increase_indent()
+                        
+                        do j = 1, size(node%elsewhere_clauses(i)%body_indices)
+                            if (node%elsewhere_clauses(i)%body_indices(j) > 0 .and. &
+                                node%elsewhere_clauses(i)%body_indices(j) <= arena%size) then
+                                stmt_code = generate_code_from_arena(arena, node%elsewhere_clauses(i)%body_indices(j))
+                                code = code//new_line('A')//stmt_code
+                            end if
+                        end do
+                        
+                        call decrease_indent()
                     end if
                 end do
-                
-                ! Decrease indentation
-                call decrease_indent()
             end if
             
             code = code//new_line('A')//with_indent("end where")
         end if
     end function generate_code_where
+
+    ! Generate code for FORALL construct
+    function generate_code_forall(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(forall_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: index_spec, mask_code, stmt_code
+        integer :: i, j
+        
+        ! Build index specifications
+        index_spec = ""
+        do i = 1, node%num_indices
+            if (i > 1) index_spec = index_spec//", "
+            
+            ! Add index name
+            if (allocated(node%index_names)) then
+                index_spec = index_spec//trim(node%index_names(i))//"="
+            else
+                index_spec = index_spec//"i"//trim(adjustl(int_to_string(i)))//"="
+            end if
+            
+            ! Add lower bound
+            if (allocated(node%lower_bound_indices)) then
+                if (node%lower_bound_indices(i) > 0 .and. node%lower_bound_indices(i) <= arena%size) then
+                    index_spec = index_spec//generate_code_from_arena(arena, node%lower_bound_indices(i))
+                else
+                    index_spec = index_spec//"1"
+                end if
+            else
+                index_spec = index_spec//"1"
+            end if
+            
+            index_spec = index_spec//":"
+            
+            ! Add upper bound
+            if (allocated(node%upper_bound_indices)) then
+                if (node%upper_bound_indices(i) > 0 .and. node%upper_bound_indices(i) <= arena%size) then
+                    index_spec = index_spec//generate_code_from_arena(arena, node%upper_bound_indices(i))
+                else
+                    index_spec = index_spec//"n"
+                end if
+            else
+                index_spec = index_spec//"n"
+            end if
+            
+            ! Add optional stride
+            if (allocated(node%stride_indices)) then
+                if (node%stride_indices(i) > 0 .and. node%stride_indices(i) <= arena%size) then
+                    index_spec = index_spec//":"//generate_code_from_arena(arena, node%stride_indices(i))
+                end if
+            end if
+        end do
+        
+        ! Add optional mask
+        if (node%has_mask .and. node%mask_expr_index > 0 .and. node%mask_expr_index <= arena%size) then
+            mask_code = generate_code_from_arena(arena, node%mask_expr_index)
+            index_spec = index_spec//", "//mask_code
+        end if
+        
+        ! Generate FORALL header
+        code = with_indent("forall ("//index_spec//")")
+        
+        ! Generate body
+        if (allocated(node%body_indices)) then
+            call increase_indent()
+            
+            do j = 1, size(node%body_indices)
+                if (node%body_indices(j) > 0 .and. node%body_indices(j) <= arena%size) then
+                    stmt_code = generate_code_from_arena(arena, node%body_indices(j))
+                    code = code//new_line('A')//stmt_code
+                end if
+            end do
+            
+            call decrease_indent()
+        end if
+        
+        code = code//new_line('A')//with_indent("end forall")
+    end function generate_code_forall
 
     ! Generate code for declaration
     function generate_code_declaration(arena, node, node_index) result(code)
