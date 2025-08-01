@@ -345,14 +345,14 @@ contains
         ! Add type field
         call json%add(parent, 'type', 'call_or_subscript')
         
-        ! Add function name
+        ! Add function/subscript name
         if (allocated(this%name)) then
             call json%add(parent, 'name', this%name)
         else
             call json%add(parent, 'name', '')
         end if
         
-        ! Add intrinsic function information
+        ! Add intrinsic information
         call json%add(parent, 'is_intrinsic', this%is_intrinsic)
         if (allocated(this%intrinsic_signature) .and. len_trim(this%intrinsic_signature) > 0) then
             call json%add(parent, 'intrinsic_signature', this%intrinsic_signature)
@@ -384,6 +384,7 @@ contains
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
         lhs%is_intrinsic = rhs%is_intrinsic
+        if (allocated(lhs%intrinsic_signature)) deallocate(lhs%intrinsic_signature)
         if (allocated(rhs%intrinsic_signature) .and. len_trim(rhs%intrinsic_signature) > 0) then
             lhs%intrinsic_signature = rhs%intrinsic_signature
         end if

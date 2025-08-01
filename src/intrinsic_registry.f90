@@ -64,24 +64,9 @@ contains
         if (.not. is_intrinsic) signature = ""
     end function get_intrinsic_signature
 
-    ! Helper function to convert string to lowercase
-    function to_lower(str) result(lower_str)
-        character(len=*), intent(in) :: str
-        character(len=len(str)) :: lower_str
-        integer :: i, ascii_val
-
-        lower_str = str
-        do i = 1, len(str)
-            ascii_val = iachar(str(i:i))
-            if (ascii_val >= 65 .and. ascii_val <= 90) then  ! A-Z
-                lower_str(i:i) = achar(ascii_val + 32)  ! Convert to lowercase
-            end if
-        end do
-    end function to_lower
-
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 30
+        integer, parameter :: NUM_INTRINSICS = 31
         integer :: i
 
         if (registry_initialized) return
@@ -246,6 +231,11 @@ contains
             name="precision", return_type="integer", arg_types="real", &
             description="Decimal precision")
 
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+            name="allocated", return_type="logical", arg_types="allocatable", &
+            description="Check if allocatable variable is allocated")
+
         ! Validate we used all allocated slots
         if (i /= NUM_INTRINSICS) then
             error stop "Intrinsic function count mismatch in initialization"
@@ -253,5 +243,20 @@ contains
 
         registry_initialized = .true.
     end subroutine initialize_intrinsic_registry
+
+    ! Helper function to convert string to lowercase
+    function to_lower(str) result(lower_str)
+        character(len=*), intent(in) :: str
+        character(len=len(str)) :: lower_str
+        integer :: i, ascii_val
+        
+        lower_str = str
+        do i = 1, len(str)
+            ascii_val = iachar(str(i:i))
+            if (ascii_val >= 65 .and. ascii_val <= 90) then  ! A-Z
+                lower_str(i:i) = achar(ascii_val + 32)  ! Convert to lowercase
+            end if
+        end do
+    end function to_lower
 
 end module intrinsic_registry
