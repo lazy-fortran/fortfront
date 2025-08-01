@@ -159,8 +159,12 @@ contains
         integer, allocatable :: temp_children(:)
         integer :: i, new_size
 
+        ! Defensive checks for valid indices
         if (parent_index <= 0 .or. parent_index > this%size) return
         if (child_index <= 0 .or. child_index > this%size) return
+        
+        ! Prevent circular references
+        if (parent_index == child_index) return
 
         ! Grow children array
         if (.not. allocated(this%entries(parent_index)%child_indices)) then
@@ -184,7 +188,14 @@ contains
         class(ast_arena_t), intent(inout) :: this
         integer :: parent_idx, i, j
         
+        ! Defensive check: ensure we have something to pop
         if (this%size <= 0) return
+        
+        ! Defensive check: ensure size is within bounds
+        if (this%size > this%capacity) then
+            ! Corrupted state - reset to safe value
+            this%size = this%capacity
+        end if
         
         ! Get parent of the node being removed
         parent_idx = this%entries(this%size)%parent_index
@@ -195,13 +206,32 @@ contains
                 ! Find and remove this node from parent's children
                 do i = 1, this%entries(parent_idx)%child_count
                     if (this%entries(parent_idx)%child_indices(i) == this%size) then
-                        ! Shift remaining children left
-                        do j = i, this%entries(parent_idx)%child_count - 1
-                            this%entries(parent_idx)%child_indices(j) = &
-                                this%entries(parent_idx)%child_indices(j + 1)
-                        end do
+                        ! Shift remaining children left (only if there are elements to shift)
+                        if (this%entries(parent_idx)%child_count > 1 .and. i < this%entries(parent_idx)%child_count) then
+                            do j = i, this%entries(parent_idx)%child_count - 1
+                                this%entries(parent_idx)%child_indices(j) = &
+                                    this%entries(parent_idx)%child_indices(j + 1)
+                            end do
+                        end if
                         this%entries(parent_idx)%child_count = &
                             this%entries(parent_idx)%child_count - 1
+                        
+                        ! Resize the child_indices array to prevent stale memory access
+                        if (this%entries(parent_idx)%child_count > 0) then
+                            ! Create a properly sized array
+                            block
+                                integer, allocatable :: temp_children(:)
+                                allocate(temp_children(this%entries(parent_idx)%child_count))
+                                temp_children = this%entries(parent_idx)%child_indices(1:this%entries(parent_idx)%child_count)
+                                call move_alloc(temp_children, this%entries(parent_idx)%child_indices)
+                            end block
+                        else
+                            ! No children left, deallocate the array
+                            if (allocated(this%entries(parent_idx)%child_indices)) then
+                                deallocate(this%entries(parent_idx)%child_indices)
+                            end if
+                        end if
+                        
                         exit
                     end if
                 end do
@@ -211,6 +241,7 @@ contains
         ! Clean up the node being removed
         if (allocated(this%entries(this%size)%node)) then
             deallocate(this%entries(this%size)%node)
+            ! Nullification not needed for allocatable components in Fortran
         end if
         if (allocated(this%entries(this%size)%node_type)) then
             deallocate(this%entries(this%size)%node_type)
@@ -334,6 +365,7 @@ contains
     subroutine ast_arena_assign(lhs, rhs)
         class(ast_arena_t), intent(inout) :: lhs
         class(ast_arena_t), intent(in) :: rhs
+        integer :: i
         
         ! Copy all scalar components
         lhs%size = rhs%size
@@ -343,11 +375,14 @@ contains
         lhs%chunk_size = rhs%chunk_size
         lhs%initial_capacity = rhs%initial_capacity
         
-        ! Copy allocatable array
+        ! Deep copy allocatable array
         if (allocated(rhs%entries)) then
             if (allocated(lhs%entries)) deallocate(lhs%entries)
             allocate(lhs%entries(size(rhs%entries)))
-            lhs%entries = rhs%entries
+            ! Deep copy each entry to avoid double-free issues
+            do i = 1, size(rhs%entries)
+                lhs%entries(i) = rhs%entries(i)  ! Calls ast_entry_assign
+            end do
         end if
     end subroutine ast_arena_assign
 
