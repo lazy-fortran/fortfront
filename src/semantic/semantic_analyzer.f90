@@ -1676,7 +1676,8 @@ contains
         copy%scopes = this%scopes        ! Uses scope_stack_t assignment (deep copy)
         copy%next_var_id = this%next_var_id
         copy%subst = this%subst          ! Uses substitution_t assignment (deep copy)
-        copy%temp_tracker = this%temp_tracker  ! Uses temp_tracker_t assignment (deep copy)
+        ! Uses temp_tracker_t assignment (deep copy)
+        copy%temp_tracker = this%temp_tracker
     end function semantic_context_deep_copy
 
     subroutine semantic_context_assign(lhs, rhs)
@@ -1687,7 +1688,8 @@ contains
         lhs%scopes = rhs%scopes          ! Uses scope_stack_t assignment (deep copy)
         lhs%next_var_id = rhs%next_var_id
         lhs%subst = rhs%subst            ! Uses substitution_t assignment (deep copy)
-        lhs%temp_tracker = rhs%temp_tracker  ! Uses temp_tracker_t assignment (deep copy)
+        ! Uses temp_tracker_t assignment (deep copy)
+        lhs%temp_tracker = rhs%temp_tracker
     end subroutine semantic_context_assign
 
     ! Infer type of array literal
