@@ -48,6 +48,10 @@ module fortfront
                            SCOPE_FUNCTION, SCOPE_SUBROUTINE, SCOPE_BLOCK, &
                            SCOPE_INTERFACE
     
+    ! Re-export AST introspection APIs for issue #12
+    use ast_introspection, only: get_node, get_node_type_id, has_semantic_info, &
+                                get_node_type_info_from_arena, get_node_source_location
+    
     ! Re-export AST traversal and visitor functionality
     use ast_traversal, only: traverse_ast_visitor => traverse_ast, &
                             traverse_preorder, traverse_postorder, &
@@ -101,6 +105,10 @@ module fortfront
               get_literal_value, get_call_info, get_array_literal_info, &
               get_program_info, get_declaration_info, get_parameter_declaration_info, &
               get_declaration_details, get_parameter_declaration_details
+    
+    ! Public AST introspection APIs for issue #12
+    public :: get_node, get_node_type_id, get_node_source_location, &
+              has_semantic_info, get_node_type_info_from_arena
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
