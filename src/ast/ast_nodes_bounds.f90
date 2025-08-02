@@ -210,10 +210,13 @@ contains
         type(json_value), pointer :: bounds_array, bounds_item
         integer :: i
         
-        call json%create_object(parent, "array_slice")
+        if (.not. associated(parent)) then
+            call json%create_object(parent, "array_slice")
+        end if
         call json%add(parent, "node_type", "array_slice")
         call json%add(parent, "array_index", this%array_index)
         call json%add(parent, "num_dimensions", this%num_dimensions)
+        call json%add(parent, "is_character_substring", this%is_character_substring)
         
         call json%create_array(bounds_array, "bounds_indices")
         do i = 1, this%num_dimensions
