@@ -3,7 +3,7 @@ module parser_expressions_module
     use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, &
                           TK_OPERATOR, TK_KEYWORD
     use ast_core
-    use ast_nodes_core, only: component_access_node, identifier_node
+    use ast_nodes_core, only: component_access_node, identifier_node, character_substring_node
     use ast_factory, only: push_binary_op, push_literal, push_identifier, &
                            push_call_or_subscript, push_array_literal, &
                            push_range_expression, &
@@ -757,37 +757,7 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                         paren = parser%consume()
                     end if
                     
-                    ! Check for character substring syntax (single range argument)
-                    if (allocated(arg_indices) .and. size(arg_indices) == 1) then
-                        ! Check if the single argument is a range expression
-                        block
-                            use ast_nodes_bounds, only: range_expression_node
-                            logical :: is_substring
-                            
-                            is_substring = .false.
-                            if (arg_indices(1) > 0 .and. arg_indices(1) <= arena%size) then
-                                select type (arg_node => arena%entries(arg_indices(1))%node)
-                                type is (range_expression_node)
-                                    ! This is a range expression - character substring syntax!
-                                    is_substring = .true.
-                                end select
-                            end if
-                            
-                            if (is_substring) then
-                                ! Create character substring node
-                                select type (arg_node => arena%entries(arg_indices(1))%node)
-                                type is (range_expression_node)
-                                    expr_index = push_character_substring(arena, expr_index, &
-                                        arg_node%start_index, arg_node%end_index, &
-                                        paren%line, paren%column)
-                                end select
-                                deallocate(arg_indices)
-                                cycle  ! Continue to next postfix operator
-                            end if
-                        end block
-                    end if
-                    
-                    ! Create call_or_subscript node (not a character substring)
+                    ! Create call_or_subscript node with slice detection
                     if (allocated(arg_indices)) then
                         ! Get the name to use for the call_or_subscript node
                         select type (node => arena%entries(expr_index)%node)
@@ -797,6 +767,33 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                         type is (identifier_node)
                             ! For identifiers, use the identifier name
                             name_for_call = node%name
+                        type is (character_substring_node)
+                            ! For character substrings, handle nested substring operation
+                            block
+                                use ast_nodes_bounds, only: range_expression_node
+                                logical :: is_range_substring
+                                
+                                is_range_substring = .false.
+                                if (size(arg_indices) == 1 .and. arg_indices(1) > 0 .and. arg_indices(1) <= arena%size) then
+                                    select type (arg_node => arena%entries(arg_indices(1))%node)
+                                    type is (range_expression_node)
+                                        ! Create nested character substring
+                                        expr_index = push_character_substring(arena, expr_index, &
+                                            arg_node%start_index, arg_node%end_index, &
+                                            paren%line, paren%column)
+                                        is_range_substring = .true.
+                                    end select
+                                end if
+                                
+                                if (is_range_substring) then
+                                    deallocate(arg_indices)
+                                    cycle
+                                else
+                                    ! Not a range - can't handle other operations on character_substring
+                                    deallocate(arg_indices)
+                                    exit
+                                end if
+                            end block
                         class default
                             ! For other expressions, we can't handle array indexing
                             deallocate(arg_indices)
