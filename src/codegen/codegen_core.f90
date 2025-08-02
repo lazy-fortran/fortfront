@@ -472,6 +472,9 @@ contains
 
         ! Combine function name and arguments
         code = node%name//"("//args_code//")"
+        
+        ! The disambiguation flag (node%is_array_access) is available for backends
+        ! that need to distinguish between array access and function calls
     end function generate_code_call_or_subscript
 
     ! Generate code for subroutine call node
