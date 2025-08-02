@@ -269,6 +269,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific fields
         lhs%condition_index = rhs%condition_index
@@ -312,6 +314,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         lhs%var_name = rhs%var_name
@@ -343,8 +347,22 @@ contains
     subroutine do_while_assign(lhs, rhs)
         class(do_while_node), intent(inout) :: lhs
         class(do_while_node), intent(in) :: rhs
+        ! Copy base class components
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        end if
+        ! Copy specific components
         lhs%condition_index = rhs%condition_index
-        if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
+        if (allocated(rhs%body_indices)) then
+            if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
+            allocate(lhs%body_indices(size(rhs%body_indices)))
+            lhs%body_indices = rhs%body_indices
+        end if
     end subroutine do_while_assign
 
     ! Stub implementations for forall_node
@@ -395,6 +413,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         lhs%num_indices = rhs%num_indices
@@ -464,6 +484,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         lhs%selector_index = rhs%selector_index
@@ -504,6 +526,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Deep copy allocatable arrays
         if (allocated(rhs%value_indices)) then
@@ -548,6 +572,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         lhs%start_value = rhs%start_value
@@ -582,6 +608,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Deep copy allocatable array
         if (allocated(rhs%body_indices)) then
@@ -631,6 +659,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         lhs%mask_expr_index = rhs%mask_expr_index
         if (allocated(rhs%where_body_indices)) then
@@ -684,6 +714,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine cycle_assign
@@ -716,6 +748,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine exit_assign
@@ -751,6 +785,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         lhs%stop_code_index = rhs%stop_code_index
         if (allocated(rhs%stop_message)) lhs%stop_message = rhs%stop_message
@@ -783,6 +819,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
     end subroutine return_assign
 
@@ -839,6 +877,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
 
         ! Copy associations
@@ -982,6 +1022,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         lhs%mask_expr_index = rhs%mask_expr_index
         lhs%assignment_index = rhs%assignment_index
