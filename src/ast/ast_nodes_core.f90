@@ -6,7 +6,7 @@ module ast_nodes_core
 
     ! Public factory functions
     public :: create_pointer_assignment, create_array_literal, create_component_access
-    public :: create_character_substring
+    public :: create_range_subscript
 
     ! Core AST node types used by all Fortran dialects
 
@@ -120,17 +120,22 @@ module ast_nodes_core
         generic :: assignment(=) => assign
     end type component_access_node
 
-    ! Character substring node for character(start:end) operations
-    type, extends(ast_node), public :: character_substring_node
-        integer :: string_expr_index    ! The character expression being substringed
+    ! Range subscript node - represents name(start:end) which could be:
+    ! - Array slice (for arrays)
+    ! - Character substring (for character variables)
+    ! This ambiguity is resolved during semantic analysis
+    type, extends(ast_node), public :: range_subscript_node
+        integer :: base_expr_index      ! The expression being subscripted
         integer :: start_index = -1     ! Start position expression (-1 if not specified)
         integer :: end_index = -1       ! End position expression (-1 if not specified)
+        ! Resolution flag (set during semantic analysis)
+        logical :: is_character_substring = .false.  ! true if substring, false if array slice
     contains
-        procedure :: accept => character_substring_accept
-        procedure :: to_json => character_substring_to_json
-        procedure :: assign => character_substring_assign
+        procedure :: accept => range_subscript_accept
+        procedure :: to_json => range_subscript_to_json
+        procedure :: assign => range_subscript_assign
         generic :: assignment(=) => assign
-    end type character_substring_node
+    end type range_subscript_node
 
 contains
 
@@ -531,34 +536,37 @@ contains
         if (present(column)) node%column = column
     end function create_component_access
 
-    ! Stub implementations for character_substring_node
-    subroutine character_substring_accept(this, visitor)
-        class(character_substring_node), intent(in) :: this
+    ! Stub implementations for range_subscript_node
+    subroutine range_subscript_accept(this, visitor)
+        class(range_subscript_node), intent(in) :: this
         class(*), intent(inout) :: visitor
         ! Stub implementation
-    end subroutine character_substring_accept
+    end subroutine range_subscript_accept
 
-    subroutine character_substring_to_json(this, json, parent)
-        class(character_substring_node), intent(in) :: this
+    subroutine range_subscript_to_json(this, json, parent)
+        class(range_subscript_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         
         ! Add type field
-        call json%add(parent, 'type', 'character_substring')
+        call json%add(parent, 'type', 'range_subscript')
         
-        ! Add string expression index
-        call json%add(parent, 'string_expr_index', this%string_expr_index)
+        ! Add base expression index
+        call json%add(parent, 'base_expr_index', this%base_expr_index)
         
         ! Add start index
         call json%add(parent, 'start_index', this%start_index)
         
         ! Add end index
         call json%add(parent, 'end_index', this%end_index)
-    end subroutine character_substring_to_json
+        
+        ! Add resolution flag
+        call json%add(parent, 'is_character_substring', this%is_character_substring)
+    end subroutine range_subscript_to_json
 
-    subroutine character_substring_assign(lhs, rhs)
-        class(character_substring_node), intent(inout) :: lhs
-        class(character_substring_node), intent(in) :: rhs
+    subroutine range_subscript_assign(lhs, rhs)
+        class(range_subscript_node), intent(inout) :: lhs
+        class(range_subscript_node), intent(in) :: rhs
         
         ! Copy base class fields
         lhs%line = rhs%line
@@ -569,23 +577,33 @@ contains
         end if
         
         ! Copy derived class fields
-        lhs%string_expr_index = rhs%string_expr_index
+        lhs%base_expr_index = rhs%base_expr_index
         lhs%start_index = rhs%start_index
         lhs%end_index = rhs%end_index
-    end subroutine character_substring_assign
+        lhs%is_character_substring = rhs%is_character_substring
+    end subroutine range_subscript_assign
 
-    ! Factory function for character substring
-    function create_character_substring(string_expr_index, start_index, end_index, line, column) result(node)
-        integer, intent(in) :: string_expr_index
+    ! Factory function for range subscript
+    function create_range_subscript(base_expr_index, start_index, end_index, line, column) result(node)
+        integer, intent(in) :: base_expr_index
         integer, intent(in), optional :: start_index, end_index
         integer, intent(in), optional :: line, column
-        type(character_substring_node) :: node
+        type(range_subscript_node) :: node
         
-        node%string_expr_index = string_expr_index
-        if (present(start_index)) node%start_index = start_index
-        if (present(end_index)) node%end_index = end_index
+        node%base_expr_index = base_expr_index
+        if (present(start_index)) then
+            node%start_index = start_index
+        else
+            node%start_index = -1
+        end if
+        if (present(end_index)) then
+            node%end_index = end_index
+        else
+            node%end_index = -1
+        end if
         if (present(line)) node%line = line
         if (present(column)) node%column = column
-    end function create_character_substring
+        node%is_character_substring = .false.  ! Default to array slice
+    end function create_range_subscript
 
 end module ast_nodes_core

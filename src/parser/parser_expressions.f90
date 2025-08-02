@@ -4,12 +4,12 @@ module parser_expressions_module
                           TK_OPERATOR, TK_KEYWORD
     use ast_core
     use ast_nodes_core, only: component_access_node, identifier_node, &
-                               character_substring_node
+                               range_subscript_node
     use ast_factory, only: push_binary_op, push_literal, push_identifier, &
                            push_call_or_subscript, push_array_literal, &
                            push_range_expression, &
                            push_call_or_subscript_with_slice_detection, &
-                           push_component_access, push_character_substring
+                           push_component_access, push_range_subscript
     use parser_state_module, only: parser_state_t, create_parser_state
     use codegen_core, only: generate_code_from_arena
     implicit none
@@ -768,31 +768,61 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                         type is (identifier_node)
                             ! For identifiers, use the identifier name
                             name_for_call = node%name
-                        type is (character_substring_node)
-                            ! For character substrings, handle nested substring operation
+                        type is (range_subscript_node)
+                            ! For range subscripts, handle nested subscript operation
                             block
                                 use ast_nodes_bounds, only: range_expression_node
-                                logical :: is_range_substring
+                                logical :: is_range_subscript
                                 
-                                is_range_substring = .false.
+                                is_range_subscript = .false.
                                 if (size(arg_indices) == 1 .and. arg_indices(1) > 0 .and. &
                                     arg_indices(1) <= arena%size) then
                                     select type (arg_node => arena%entries(arg_indices(1))%node)
                                     type is (range_expression_node)
-                                        ! Create nested character substring
-                                        expr_index = push_character_substring(arena, &
+                                        ! Create nested range subscript
+                                        expr_index = push_range_subscript(arena, &
                                             expr_index, arg_node%start_index, &
                                             arg_node%end_index, paren%line, paren%column)
-                                        is_range_substring = .true.
+                                        is_range_subscript = .true.
                                     end select
                                 end if
                                 
-                                if (is_range_substring) then
+                                if (is_range_subscript) then
                                     deallocate(arg_indices)
                                     cycle
                                 else
                                     ! Not a range - can't handle other operations on &
-                                    ! character_substring
+                                    ! range_subscript
+                                    deallocate(arg_indices)
+                                    exit
+                                end if
+                            end block
+                        type is (array_slice_node)
+                            ! For array slices (which could be character substrings),
+                            ! handle nested subscript operation
+                            block
+                                use ast_nodes_bounds, only: range_expression_node, array_slice_node
+                                logical :: is_range_subscript
+                                
+                                is_range_subscript = .false.
+                                if (size(arg_indices) == 1 .and. arg_indices(1) > 0 .and. &
+                                    arg_indices(1) <= arena%size) then
+                                    select type (arg_node => arena%entries(arg_indices(1))%node)
+                                    type is (range_expression_node)
+                                        ! Create nested range subscript using the array_slice
+                                        ! as the base expression
+                                        expr_index = push_range_subscript(arena, &
+                                            expr_index, arg_node%start_index, &
+                                            arg_node%end_index, paren%line, paren%column)
+                                        is_range_subscript = .true.
+                                    end select
+                                end if
+                                
+                                if (is_range_subscript) then
+                                    deallocate(arg_indices)
+                                    cycle
+                                else
+                                    ! Not a range - can't handle other operations
                                     deallocate(arg_indices)
                                     exit
                                 end if

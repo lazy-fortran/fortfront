@@ -56,11 +56,15 @@ module ast_nodes_bounds
     end type array_bounds_node
 
     ! Represents array slice operation arr(bounds1, bounds2, ...)
+    ! Note: For single-dimension slices on character types, this could represent
+    ! a character substring operation rather than array slicing
     type, extends(ast_node) :: array_slice_node
         integer :: node_type = NODE_ARRAY_SLICE
         integer :: array_index            ! Index to array expression being sliced
         integer :: bounds_indices(10)     ! Indices to array_bounds_node for each dimension
         integer :: num_dimensions = 0     ! Number of dimensions in slice
+        ! Resolution flag (set during semantic analysis)
+        logical :: is_character_substring = .false.  ! true if substring, false if array slice
     contains
         procedure :: accept => array_slice_accept
         procedure :: to_json => array_slice_to_json

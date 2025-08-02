@@ -22,7 +22,7 @@ module ast_factory
     public :: push_cycle, push_exit
     public :: push_where, push_where_construct, push_where_construct_with_elsewhere
     public :: push_type_constructor, push_component_access
-    public :: push_complex_literal, push_character_substring
+    public :: push_complex_literal, push_range_subscript
     public :: push_allocate, push_deallocate
     public :: push_array_section
     public :: push_array_bounds, push_array_slice, push_range_expression
@@ -1314,32 +1314,32 @@ contains
 
     end function push_component_access
 
-    ! Create character substring node and add to stack
-    function push_character_substring(arena, string_expr_index, start_index, end_index, &
-                                     line, column, parent_index) result(substring_index)
-        use ast_nodes_core, only: character_substring_node, create_character_substring
+    ! Create range subscript node (for array slices or character substrings)
+    function push_range_subscript(arena, base_expr_index, start_index, end_index, &
+                                     line, column, parent_index) result(subscript_index)
+        use ast_nodes_core, only: range_subscript_node, create_range_subscript
         type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: string_expr_index
+        integer, intent(in) :: base_expr_index
         integer, intent(in), optional :: start_index, end_index
         integer, intent(in), optional :: line, column, parent_index
-        integer :: substring_index
-        type(character_substring_node) :: substring_node
+        integer :: subscript_index
+        type(range_subscript_node) :: subscript_node
         
-        ! Validate string expression index
-        if (string_expr_index <= 0 .or. string_expr_index > arena%size) then
-            ! Create error node for invalid string expression
-            substring_index = push_literal(arena, "!ERROR: Invalid string for substring", &
+        ! Validate base expression index
+        if (base_expr_index <= 0 .or. base_expr_index > arena%size) then
+            ! Create error node for invalid base expression
+            subscript_index = push_literal(arena, "!ERROR: Invalid base for range subscript", &
                                          LITERAL_STRING, line, column)
             return
         end if
         
-        ! Create substring node
-        substring_node = create_character_substring(string_expr_index, start_index, end_index, &
+        ! Create range subscript node
+        subscript_node = create_range_subscript(base_expr_index, start_index, end_index, &
                                                    line, column)
         
-        call arena%push(substring_node, "character_substring", parent_index)
-        substring_index = arena%size
-    end function push_character_substring
+        call arena%push(subscript_node, "range_subscript", parent_index)
+        subscript_index = arena%size
+    end function push_range_subscript
 
     ! Create complex literal node and add to stack
     function push_complex_literal(arena, real_index, imag_index, line, column, &
@@ -1595,7 +1595,7 @@ contains
         integer, intent(in) :: arg_indices(:)
         integer, intent(in), optional :: line, column, parent_index
         integer :: node_index
-        logical :: has_slice, is_likely_substring
+        logical :: has_slice
         integer :: i
         
         ! Check if any argument is a range expression (array slice)
@@ -1613,60 +1613,14 @@ contains
         end do
         
         if (has_slice) then
-            ! Check if this might be a character substring
-            is_likely_substring = .false.
-            
-            ! Heuristic: single range argument with string-like identifier names
-            if (size(arg_indices) == 1) then
-                select type (node => arena%entries(arg_indices(1))%node)
-                type is (range_expression_node)
-                    ! Check if name suggests string variable
-                    block
-                        character(len=:), allocatable :: lower_name
-                        integer :: i
-                        
-                        ! Simple lowercase conversion
-                        lower_name = name
-                        do i = 1, len(lower_name)
-                            if (lower_name(i:i) >= 'A' .and. lower_name(i:i) <= 'Z') then
-                                lower_name(i:i) = achar(iachar(lower_name(i:i)) + 32)
-                            end if
-                        end do
-                        
-                        if (index(lower_name, 'str') > 0 .or. &
-                            index(lower_name, 'string') > 0 .or. &
-                            index(lower_name, 'char') > 0 .or. &
-                            index(lower_name, 'name') > 0 .or. &
-                            index(lower_name, 'text') > 0 .or. &
-                            index(lower_name, 'msg') > 0 .or. &
-                            index(lower_name, 'line') > 0) then
-                            is_likely_substring = .true.
-                        end if
-                    end block
-                end select
-            end if
-            
-            if (is_likely_substring) then
-                ! Create character substring node
-                select type (node => arena%entries(arg_indices(1))%node)
-                type is (range_expression_node)
-                    block
-                        integer :: name_index
-                        name_index = push_identifier(arena, name, line, column, parent_index)
-                        node_index = push_character_substring(arena, name_index, &
-                            node%start_index, node%end_index, line, column, &
-                            parent_index)
-                    end block
-                end select
-            else
-                ! Create array slice node  
-                block
-                    integer :: array_name_index
-                    array_name_index = push_identifier(arena, name, line, column, parent_index)
-                    node_index = push_array_slice(arena, array_name_index, &
-                        arg_indices, size(arg_indices), line, column, parent_index)
-                end block
-            end if
+            ! Always create array slice at parse time
+            ! Semantic analysis will set is_character_substring flag for character types
+            block
+                integer :: array_name_index
+                array_name_index = push_identifier(arena, name, line, column, parent_index)
+                node_index = push_array_slice(arena, array_name_index, &
+                    arg_indices, size(arg_indices), line, column, parent_index)
+            end block
         else
             ! Regular function call or array indexing
             node_index = push_call_or_subscript(arena, name, arg_indices, &

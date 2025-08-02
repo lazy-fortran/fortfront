@@ -1,11 +1,13 @@
 program test_character_substring
     use ast_core
-    use ast_nodes_core, only: character_substring_node
+    use ast_nodes_core, only: range_subscript_node
+    use ast_nodes_bounds, only: array_slice_node
     use ast_factory
     use parser_expressions_module, only: parse_expression
     use lexer_core, only: token_t
     use frontend, only: lex_source
     use codegen_core
+    use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program
     implicit none
     
     logical :: all_passed
@@ -44,11 +46,22 @@ contains
         call lex_source(source, tokens, error_msg)
         expr_index = parse_expression(tokens, arena)
         
-        ! Check that we created a character_substring_node
+        ! Check that we created either range_subscript_node or array_slice_node
         test_passed = .false.
         if (expr_index > 0 .and. expr_index <= arena%size) then
             select type (node => arena%entries(expr_index)%node)
-            type is (character_substring_node)
+            type is (range_subscript_node)
+                test_passed = .true.
+                ! Generate code to verify
+                code = generate_code_from_arena(arena, expr_index)
+                if (code /= "str(1:5)") then
+                    print *, "FAIL: ", trim(test_name), " - incorrect code generation"
+                    print *, "  Expected: str(1:5)"
+                    print *, "  Got: ", code
+                    test_passed = .false.
+                end if
+            type is (array_slice_node)
+                ! Also accept array_slice_node as it's created at parse time
                 test_passed = .true.
                 ! Generate code to verify
                 code = generate_code_from_arena(arena, expr_index)
@@ -97,7 +110,16 @@ contains
         test_passed = .false.
         if (expr_index > 0 .and. expr_index <= arena%size) then
             select type (node => arena%entries(expr_index)%node)
-            type is (character_substring_node)
+            type is (range_subscript_node)
+                test_passed = .true.
+                code = generate_code_from_arena(arena, expr_index)
+                if (code /= "str(:5)") then
+                    print *, "FAIL: ", trim(test_name), " - incorrect code generation"
+                    print *, "  Expected: str(:5)"
+                    print *, "  Got: ", code
+                    test_passed = .false.
+                end if
+            type is (array_slice_node)
                 test_passed = .true.
                 code = generate_code_from_arena(arena, expr_index)
                 if (code /= "str(:5)") then
@@ -141,7 +163,16 @@ contains
         test_passed = .false.
         if (expr_index > 0 .and. expr_index <= arena%size) then
             select type (node => arena%entries(expr_index)%node)
-            type is (character_substring_node)
+            type is (range_subscript_node)
+                test_passed = .true.
+                code = generate_code_from_arena(arena, expr_index)
+                if (code /= "str(3:)") then
+                    print *, "FAIL: ", trim(test_name), " - incorrect code generation"
+                    print *, "  Expected: str(3:)"
+                    print *, "  Got: ", code
+                    test_passed = .false.
+                end if
+            type is (array_slice_node)
                 test_passed = .true.
                 code = generate_code_from_arena(arena, expr_index)
                 if (code /= "str(3:)") then
@@ -185,7 +216,16 @@ contains
         test_passed = .false.
         if (expr_index > 0 .and. expr_index <= arena%size) then
             select type (node => arena%entries(expr_index)%node)
-            type is (character_substring_node)
+            type is (range_subscript_node)
+                test_passed = .true.
+                code = generate_code_from_arena(arena, expr_index)
+                if (code /= "str(i:j)") then
+                    print *, "FAIL: ", trim(test_name), " - incorrect code generation"
+                    print *, "  Expected: str(i:j)"
+                    print *, "  Got: ", code
+                    test_passed = .false.
+                end if
+            type is (array_slice_node)
                 test_passed = .true.
                 code = generate_code_from_arena(arena, expr_index)
                 if (code /= "str(i:j)") then
@@ -229,7 +269,16 @@ contains
         test_passed = .false.
         if (expr_index > 0 .and. expr_index <= arena%size) then
             select type (node => arena%entries(expr_index)%node)
-            type is (character_substring_node)
+            type is (range_subscript_node)
+                test_passed = .true.
+                code = generate_code_from_arena(arena, expr_index)
+                if (code /= "str(i + 1:j*2)") then
+                    print *, "FAIL: ", trim(test_name), " - incorrect code generation"
+                    print *, "  Expected: str(i + 1:j*2)"
+                    print *, "  Got: ", code
+                    test_passed = .false.
+                end if
+            type is (array_slice_node)
                 test_passed = .true.
                 code = generate_code_from_arena(arena, expr_index)
                 if (code /= "str(i + 1:j*2)") then
@@ -272,9 +321,18 @@ contains
         
         test_passed = .false.
         if (expr_index > 0 .and. expr_index <= arena%size) then
-            ! The outer operation should be a substring
+            ! The outer operation should be a range subscript
             select type (node => arena%entries(expr_index)%node)
-            type is (character_substring_node)
+            type is (range_subscript_node)
+                test_passed = .true.
+                code = generate_code_from_arena(arena, expr_index)
+                if (code /= "str(2:8)(1:3)") then
+                    print *, "FAIL: ", trim(test_name), " - incorrect code generation"
+                    print *, "  Expected: str(2:8)(1:3)"
+                    print *, "  Got: ", code
+                    test_passed = .false.
+                end if
+            type is (array_slice_node)
                 test_passed = .true.
                 code = generate_code_from_arena(arena, expr_index)
                 if (code /= "str(2:8)(1:3)") then
@@ -317,9 +375,18 @@ contains
         
         test_passed = .false.
         if (expr_index > 0 .and. expr_index <= arena%size) then
-            ! Should create a character substring on the component access
+            ! Should create a range subscript on the component access
             select type (node => arena%entries(expr_index)%node)
-            type is (character_substring_node)
+            type is (range_subscript_node)
+                test_passed = .true.
+                code = generate_code_from_arena(arena, expr_index)
+                if (code /= "obj%name(1:10)") then
+                    print *, "FAIL: ", trim(test_name), " - incorrect code generation"
+                    print *, "  Expected: obj%name(1:10)"
+                    print *, "  Got: ", code
+                    test_passed = .false.
+                end if
+            type is (array_slice_node)
                 test_passed = .true.
                 code = generate_code_from_arena(arena, expr_index)
                 if (code /= "obj%name(1:10)") then
