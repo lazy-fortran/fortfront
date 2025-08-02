@@ -53,6 +53,10 @@ module fortfront
                         LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX, &
                         create_ast_arena, ast_arena_stats_t
     
+    ! Re-export AST node data utilities  
+    use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, INTENT_IN, &
+                             INTENT_OUT, INTENT_INOUT
+    
     ! Re-export semantic analyzer functionality
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     
@@ -1105,12 +1109,8 @@ contains
                     has_kind = node%has_kind
                     
                     ! Intent information
-                    if (allocated(node%intent)) then
-                        intent_spec = node%intent
-                    else
-                        intent_spec = ""
-                    end if
-                    has_intent = node%has_intent
+                    intent_spec = intent_type_to_string(node%intent_type)
+                    has_intent = (node%intent_type /= INTENT_NONE)
                     
                     ! Array information
                     is_array = node%is_array

@@ -2,6 +2,7 @@ program test_frontend_parser_param_nodes
     use lexer_core
     use ast_core
     use ast_factory
+    use ast_nodes_data, only: intent_type_to_string
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_statements_module, only: parse_function_definition
     implicit none
@@ -78,7 +79,7 @@ contains
                     print *, '  Found parameter_declaration node for: ', trim(node%name)
                         print *, '    Type: ', trim(node%type_name)
                         print *, '    Kind: ', node%kind_value
-                        print *, '    Intent: ', trim(node%intent)
+                        print *, '    Intent: ', trim(intent_type_to_string(node%intent_type))
                     end select
                 end if
             end do

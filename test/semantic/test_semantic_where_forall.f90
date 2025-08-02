@@ -3,6 +3,7 @@ module test_semantic_where_forall
     use ast_core
     use ast_factory
     use ast_nodes_control
+    use ast_nodes_data, only: INTENT_IN, INTENT_OUT, INTENT_INOUT
     implicit none
 
 contains
@@ -37,16 +38,14 @@ contains
         ! Create parameters with different intents
         param1%name = "input_array"
         param1%type_name = "real"
-        param1%intent = "in"
-        param1%has_intent = .true.
+        param1%intent_type = INTENT_IN
         param1%is_array = .true.
         call arena%push(param1, "parameter_declaration")
         param1_idx = arena%size
         
         param2%name = "output_array"
         param2%type_name = "real"
-        param2%intent = "out"
-        param2%has_intent = .true.
+        param2%intent_type = INTENT_OUT
         param2%is_array = .true.
         call arena%push(param2, "parameter_declaration")
         param2_idx = arena%size
@@ -118,8 +117,7 @@ contains
         ! Create parameter
         param%name = "matrix"
         param%type_name = "real"
-        param%intent = "inout"
-        param%has_intent = .true.
+        param%intent_type = INTENT_INOUT
         param%is_array = .true.
         call arena%push(param, "parameter_declaration")
         param_idx = arena%size

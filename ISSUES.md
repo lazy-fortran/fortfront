@@ -145,10 +145,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 **Priority: Low** | **Impact: Optimization** | **Effort: High**
 - **Description**: Track temporary variables for memory optimization
 
-### #20 - Include parameter attributes (optional, intent) in AST nodes
+### 🚧 #20 - Include parameter attributes (optional, intent) in AST nodes
 **Priority: Low** | **Impact: AST Enhancement** | **Effort: Low**
+- **Status**: 🚧 **IN PROGRESS** - Working on parameter attribute support
 - **Labels**: enhancement
 - **Description**: Add parameter metadata to AST nodes
+- **Branch**: feature/20-parameter-attributes
 
 ### #19 - Need clearer block boundaries and sibling relationships in AST
 **Priority: Low** | **Impact: API Enhancement** | **Effort: Medium**

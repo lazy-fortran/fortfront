@@ -1,5 +1,6 @@
 module ast_factory
     use ast_core
+    use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     implicit none
     private
 
@@ -390,18 +391,9 @@ contains
         end if
 
         if (present(intent_value)) then
-            select case (intent_value)
-            case (1)
-                param%intent = "in"
-            case (2)
-                param%intent = "out"
-            case (3)
-                param%intent = "inout"
-            case default
-                param%intent = ""
-            end select
+            param%intent_type = intent_value
         else
-            param%intent = ""
+            param%intent_type = INTENT_NONE
         end if
 
         ! Handle array dimensions
