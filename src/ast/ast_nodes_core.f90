@@ -6,6 +6,7 @@ module ast_nodes_core
 
     ! Public factory functions
     public :: create_pointer_assignment, create_array_literal, create_component_access
+    public :: create_character_substring
 
     ! Core AST node types used by all Fortran dialects
 
@@ -118,6 +119,18 @@ module ast_nodes_core
         procedure :: assign => component_access_assign
         generic :: assignment(=) => assign
     end type component_access_node
+
+    ! Character substring node for character(start:end) operations
+    type, extends(ast_node), public :: character_substring_node
+        integer :: string_expr_index    ! The character expression being substringed
+        integer :: start_index = -1     ! Start position expression (-1 if not specified)
+        integer :: end_index = -1       ! End position expression (-1 if not specified)
+    contains
+        procedure :: accept => character_substring_accept
+        procedure :: to_json => character_substring_to_json
+        procedure :: assign => character_substring_assign
+        generic :: assignment(=) => assign
+    end type character_substring_node
 
 contains
 
@@ -517,5 +530,62 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_component_access
+
+    ! Stub implementations for character_substring_node
+    subroutine character_substring_accept(this, visitor)
+        class(character_substring_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine character_substring_accept
+
+    subroutine character_substring_to_json(this, json, parent)
+        class(character_substring_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        
+        ! Add type field
+        call json%add(parent, 'type', 'character_substring')
+        
+        ! Add string expression index
+        call json%add(parent, 'string_expr_index', this%string_expr_index)
+        
+        ! Add start index
+        call json%add(parent, 'start_index', this%start_index)
+        
+        ! Add end index
+        call json%add(parent, 'end_index', this%end_index)
+    end subroutine character_substring_to_json
+
+    subroutine character_substring_assign(lhs, rhs)
+        class(character_substring_node), intent(inout) :: lhs
+        class(character_substring_node), intent(in) :: rhs
+        
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type, source=rhs%inferred_type)
+        end if
+        
+        ! Copy derived class fields
+        lhs%string_expr_index = rhs%string_expr_index
+        lhs%start_index = rhs%start_index
+        lhs%end_index = rhs%end_index
+    end subroutine character_substring_assign
+
+    ! Factory function for character substring
+    function create_character_substring(string_expr_index, start_index, end_index, line, column) result(node)
+        integer, intent(in) :: string_expr_index
+        integer, intent(in), optional :: start_index, end_index
+        integer, intent(in), optional :: line, column
+        type(character_substring_node) :: node
+        
+        node%string_expr_index = string_expr_index
+        if (present(start_index)) node%start_index = start_index
+        if (present(end_index)) node%end_index = end_index
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_character_substring
 
 end module ast_nodes_core

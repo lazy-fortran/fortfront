@@ -22,7 +22,7 @@ module ast_factory
     public :: push_cycle, push_exit
     public :: push_where, push_where_construct, push_where_construct_with_elsewhere
     public :: push_type_constructor, push_component_access
-    public :: push_complex_literal
+    public :: push_complex_literal, push_character_substring
     public :: push_allocate, push_deallocate
     public :: push_array_section
     public :: push_array_bounds, push_array_slice, push_range_expression
@@ -1313,6 +1313,33 @@ contains
         access_index = arena%size
 
     end function push_component_access
+
+    ! Create character substring node and add to stack
+    function push_character_substring(arena, string_expr_index, start_index, end_index, &
+                                     line, column, parent_index) result(substring_index)
+        use ast_nodes_core, only: character_substring_node, create_character_substring
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: string_expr_index
+        integer, intent(in), optional :: start_index, end_index
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: substring_index
+        type(character_substring_node) :: substring_node
+        
+        ! Validate string expression index
+        if (string_expr_index <= 0 .or. string_expr_index > arena%size) then
+            ! Create error node for invalid string expression
+            substring_index = push_literal(arena, "!ERROR: Invalid string for substring", &
+                                         LITERAL_STRING, line, column)
+            return
+        end if
+        
+        ! Create substring node
+        substring_node = create_character_substring(string_expr_index, start_index, end_index, &
+                                                   line, column)
+        
+        call arena%push(substring_node, "character_substring", parent_index)
+        substring_index = arena%size
+    end function push_character_substring
 
     ! Create complex literal node and add to stack
     function push_complex_literal(arena, real_index, imag_index, line, column, &
