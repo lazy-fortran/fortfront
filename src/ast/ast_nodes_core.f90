@@ -129,7 +129,7 @@ module ast_nodes_core
         integer :: start_index = -1     ! Start position expression (-1 if not specified)
         integer :: end_index = -1       ! End position expression (-1 if not specified)
         ! Resolution flag (set during semantic analysis)
-        logical :: is_character_substring = .false.  ! true if substring, false if array slice
+        logical :: is_character_substring = .false.  ! true if substring
     contains
         procedure :: accept => range_subscript_accept
         procedure :: to_json => range_subscript_to_json
@@ -584,7 +584,8 @@ contains
     end subroutine range_subscript_assign
 
     ! Factory function for range subscript
-    function create_range_subscript(base_expr_index, start_index, end_index, line, column) result(node)
+    function create_range_subscript(base_expr_index, start_index, end_index, &
+            line, column) result(node)
         integer, intent(in) :: base_expr_index
         integer, intent(in), optional :: start_index, end_index
         integer, intent(in), optional :: line, column

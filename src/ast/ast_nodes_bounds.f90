@@ -64,7 +64,7 @@ module ast_nodes_bounds
         integer :: bounds_indices(10)     ! Indices to array_bounds_node for each dimension
         integer :: num_dimensions = 0     ! Number of dimensions in slice
         ! Resolution flag (set during semantic analysis)
-        logical :: is_character_substring = .false.  ! true if substring, false if array slice
+        logical :: is_character_substring = .false.  ! true if substring
     contains
         procedure :: accept => array_slice_accept
         procedure :: to_json => array_slice_to_json

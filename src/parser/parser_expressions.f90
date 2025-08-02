@@ -801,19 +801,23 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                             ! For array slices (which could be character substrings),
                             ! handle nested subscript operation
                             block
-                                use ast_nodes_bounds, only: range_expression_node, array_slice_node
+                                use ast_nodes_bounds, only: range_expression_node, &
+                                    array_slice_node
                                 logical :: is_range_subscript
                                 
                                 is_range_subscript = .false.
-                                if (size(arg_indices) == 1 .and. arg_indices(1) > 0 .and. &
+                                if (size(arg_indices) == 1 .and. &
+                                    arg_indices(1) > 0 .and. &
                                     arg_indices(1) <= arena%size) then
-                                    select type (arg_node => arena%entries(arg_indices(1))%node)
+                                    select type (arg_node => &
+                                        arena%entries(arg_indices(1))%node)
                                     type is (range_expression_node)
-                                        ! Create nested range subscript using the array_slice
-                                        ! as the base expression
+                                        ! Create nested range subscript using the 
+                                        ! array_slice as the base expression
                                         expr_index = push_range_subscript(arena, &
                                             expr_index, arg_node%start_index, &
-                                            arg_node%end_index, paren%line, paren%column)
+                                            arg_node%end_index, paren%line, &
+                                            paren%column)
                                         is_range_subscript = .true.
                                     end select
                                 end if
