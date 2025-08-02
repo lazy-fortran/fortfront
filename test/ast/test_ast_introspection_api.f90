@@ -150,6 +150,10 @@ contains
         else
             print *, "  ✓ get_node_type_details: no type info (expected without semantic analysis)"
         end if
+
+        ! Test error bounds (negative indices) - these should be safe
+        type_kind = get_node_type_kind(arena, -1)
+        call get_node_type_details(arena, -999, type_kind, type_size, is_allocatable, is_pointer, found)
     end subroutine test_type_access_apis
 
 end program test_ast_introspection_api
