@@ -3,12 +3,13 @@ module parser_expressions_module
     use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, &
                           TK_OPERATOR, TK_KEYWORD
     use ast_core
-    use ast_nodes_core, only: component_access_node, identifier_node
+    use ast_nodes_core, only: component_access_node, identifier_node, &
+                               range_subscript_node
     use ast_factory, only: push_binary_op, push_literal, push_identifier, &
                            push_call_or_subscript, push_array_literal, &
                            push_range_expression, &
                            push_call_or_subscript_with_slice_detection, &
-                           push_component_access
+                           push_component_access, push_range_subscript
     use parser_state_module, only: parser_state_t, create_parser_state
     use codegen_core, only: generate_code_from_arena
     implicit none
@@ -375,15 +376,15 @@ contains
 
                     ! Create function call node with array slice detection
                     if (allocated(arg_indices)) then
-                        expr_index = push_call_or_subscript_with_slice_detection(arena, func_name, arg_indices, &
-                                                           current%line, current%column)
+                        expr_index = push_call_or_subscript_with_slice_detection(arena, &
+                            func_name, arg_indices, current%line, current%column)
                     else
                         ! For empty args, create empty function call
                         block
                             integer, allocatable :: empty_args(:)
                             allocate (empty_args(0))  ! Empty index array
-                            expr_index = push_call_or_subscript(arena, func_name, empty_args, &
-                                                               current%line, current%column)
+                            expr_index = push_call_or_subscript(arena, func_name, &
+                                empty_args, current%line, current%column)
                         end block
                     end if
                 else
@@ -757,7 +758,7 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                         paren = parser%consume()
                     end if
                     
-                    ! Create call_or_subscript node
+                    ! Create call_or_subscript node with slice detection
                     if (allocated(arg_indices)) then
                         ! Get the name to use for the call_or_subscript node
                         select type (node => arena%entries(expr_index)%node)
@@ -767,6 +768,69 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                         type is (identifier_node)
                             ! For identifiers, use the identifier name
                             name_for_call = node%name
+                        type is (range_subscript_node)
+                            ! For range subscripts, handle nested subscript operation
+                            block
+                                use ast_nodes_bounds, only: range_expression_node
+                                logical :: is_range_subscript
+                                
+                                is_range_subscript = .false.
+                                if (size(arg_indices) == 1 .and. arg_indices(1) > 0 .and. &
+                                    arg_indices(1) <= arena%size) then
+                                    select type (arg_node => arena%entries(arg_indices(1))%node)
+                                    type is (range_expression_node)
+                                        ! Create nested range subscript
+                                        expr_index = push_range_subscript(arena, &
+                                            expr_index, arg_node%start_index, &
+                                            arg_node%end_index, paren%line, paren%column)
+                                        is_range_subscript = .true.
+                                    end select
+                                end if
+                                
+                                if (is_range_subscript) then
+                                    deallocate(arg_indices)
+                                    cycle
+                                else
+                                    ! Not a range - can't handle other operations on &
+                                    ! range_subscript
+                                    deallocate(arg_indices)
+                                    exit
+                                end if
+                            end block
+                        type is (array_slice_node)
+                            ! For array slices (which could be character substrings),
+                            ! handle nested subscript operation
+                            block
+                                use ast_nodes_bounds, only: range_expression_node, &
+                                    array_slice_node
+                                logical :: is_range_subscript
+                                
+                                is_range_subscript = .false.
+                                if (size(arg_indices) == 1 .and. &
+                                    arg_indices(1) > 0 .and. &
+                                    arg_indices(1) <= arena%size) then
+                                    select type (arg_node => &
+                                        arena%entries(arg_indices(1))%node)
+                                    type is (range_expression_node)
+                                        ! Create nested range subscript using the 
+                                        ! array_slice as the base expression
+                                        expr_index = push_range_subscript(arena, &
+                                            expr_index, arg_node%start_index, &
+                                            arg_node%end_index, paren%line, &
+                                            paren%column)
+                                        is_range_subscript = .true.
+                                    end select
+                                end if
+                                
+                                if (is_range_subscript) then
+                                    deallocate(arg_indices)
+                                    cycle
+                                else
+                                    ! Not a range - can't handle other operations
+                                    deallocate(arg_indices)
+                                    exit
+                                end if
+                            end block
                         class default
                             ! For other expressions, we can't handle array indexing
                             deallocate(arg_indices)
@@ -800,13 +864,14 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                                     full_name = base_name // "%" // name_for_call
                                     
                                     ! Create call_or_subscript with full name
-                                    expr_index = push_call_or_subscript_with_slice_detection(arena, &
-                                        full_name, arg_indices, &
-                                        paren%line, paren%column)
+                                    expr_index = &
+                                        push_call_or_subscript_with_slice_detection(arena, &
+                                        full_name, arg_indices, paren%line, paren%column)
                                 end block
                             class default
                                 ! Standard case
-                                expr_index = push_call_or_subscript_with_slice_detection(arena, &
+                                expr_index = &
+                                    push_call_or_subscript_with_slice_detection(arena, &
                                     name_for_call, arg_indices, &
                                     paren%line, paren%column)
                             end select
