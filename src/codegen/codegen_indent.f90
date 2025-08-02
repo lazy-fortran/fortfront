@@ -60,7 +60,8 @@ contains
         extra = 0
         if (present(extra_indent)) extra = extra_indent
 
-        indent_str = repeat(active_indent_char, (current_indent_level + extra)*active_indent_size)
+        indent_str = repeat(active_indent_char, &
+                           (current_indent_level + extra)*active_indent_size)
         indented = ""
         start_pos = 1
 

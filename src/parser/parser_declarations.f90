@@ -40,7 +40,8 @@ contains
         is_target = .false.
         has_intent = .false.
 
-        ! Check for kind specification (e.g., real(8)) or derived type (e.g., type(point))
+        ! Check for kind specification (e.g., real(8)) or derived type (e.g., &
+        ! type(point))
         var_token = parser%peek()
         if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
             ! Consume '('
@@ -113,7 +114,8 @@ contains
             else
                 ! Error: expected number or identifier
                 decl_index = push_literal(arena, &
-                    "ERROR: Expected kind value or type name", LITERAL_STRING, line, column)
+                    "ERROR: Expected kind value or type name", LITERAL_STRING, &
+                    line, column)
                 return
             end if
         end if
@@ -128,16 +130,20 @@ contains
 
                 ! Parse attribute (handle allocatable, pointer, target, and intent)
                 var_token = parser%peek()
-                if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "allocatable") then
+                if (var_token%kind == TK_IDENTIFIER .and. &
+                    var_token%text == "allocatable") then
                     is_allocatable = .true.
                     var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "pointer") then
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "pointer") then
                     is_pointer = .true.
                     var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "target") then
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "target") then
                     is_target = .true.
                     var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "intent") then
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "intent") then
                     has_intent = .true.
                     var_token = parser%consume()  ! consume 'intent'
                     
@@ -153,12 +159,14 @@ contains
                         end if
                         
                         var_token = parser%peek()
-                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                        if (var_token%kind == TK_OPERATOR .and. &
+                            var_token%text == ")") then
                             var_token = parser%consume()  ! consume ')'
                         end if
                     end if
                 else
-                    ! Unknown attribute - consume it and handle complex attributes like intent(out)
+                    ! Unknown attribute - consume it and handle complex &
+                    ! attributes like intent(out)
                     var_token = parser%consume()
                     
                     ! If next token is '(', consume until we find matching ')'
@@ -169,7 +177,8 @@ contains
                         ! Consume tokens until we find ')'
                         do while (.not. parser%is_at_end())
                             var_token = parser%peek()
-                            if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            if (var_token%kind == TK_OPERATOR .and. &
+                                var_token%text == ")") then
                                 var_token = parser%consume()  ! consume ')'
                                 exit
                             end if
@@ -201,11 +210,13 @@ contains
             ! Create identifier node for the variable name
             block
                 integer :: var_id_index
-                var_id_index = push_identifier(arena, var_name, var_token%line, var_token%column)
+                var_id_index = push_identifier(arena, var_name, &
+                                                var_token%line, var_token%column)
             end block
         else
             ! Error: expected identifier
-            decl_index = push_literal(arena, "ERROR: Expected identifier", LITERAL_STRING, line, column)
+            decl_index = push_literal(arena, "ERROR: Expected identifier", &
+                                      LITERAL_STRING, line, column)
             return
         end if
 
@@ -226,7 +237,9 @@ contains
                 var_token = parser%consume()
             else
                 ! Error: expected )
-                decl_index = push_literal(arena, "ERROR: Expected ) after array dimensions", LITERAL_STRING, line, column)
+                decl_index = push_literal(arena, &
+                    "ERROR: Expected ) after array dimensions", LITERAL_STRING, &
+                    line, column)
                 return
             end if
         end if
@@ -249,16 +262,19 @@ contains
             if (has_kind .and. is_array) then
                 if (has_intent) then
                     decl_index = push_declaration(arena, type_name, var_name, &
-                               kind_value=kind_value, initializer_index=initializer_index, &
-                       dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                                      is_pointer=is_pointer, is_target=is_target, &
-                                      intent_value=intent, line=line, column=column)
+                        kind_value=kind_value, &
+                        initializer_index=initializer_index, &
+                        dimension_indices=dimension_indices, &
+                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                        is_target=is_target, intent_value=intent, &
+                        line=line, column=column)
                 else
                     decl_index = push_declaration(arena, type_name, var_name, &
-                               kind_value=kind_value, initializer_index=initializer_index, &
-                       dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                                                  is_pointer=is_pointer, is_target=is_target, &
-                                                  line=line, column=column)
+                        kind_value=kind_value, &
+                        initializer_index=initializer_index, &
+                        dimension_indices=dimension_indices, &
+                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                        is_target=is_target, line=line, column=column)
                 end if
             else if (has_kind) then
                 if (has_intent) then
@@ -300,7 +316,8 @@ contains
             end if
         end block
 
-        ! Handle additional variables in multi-variable declarations like "real :: a, b, c"
+        ! Handle additional variables in multi-variable declarations like &
+        ! "real :: a, b, c"
         do while (.not. parser%is_at_end())
             var_token = parser%peek()
             if (var_token%kind == TK_EOF) exit
@@ -341,10 +358,14 @@ contains
                                is_target=is_target, line=line, column=column)
                         end if
 
-                        ! Note: Currently the function only returns the first declaration index
-                        ! This means the additional declarations are created in the arena but
-                        ! the caller only gets the first one. This is a limitation of the current
-                        ! interface, but the declarations are still created and available in the arena.
+                        ! Note: Currently the function only returns the first &
+                        ! declaration index
+                        ! This means the additional declarations are created in &
+                        ! the arena but
+                        ! the caller only gets the first one. This is a limitation &
+                        ! of the current
+                        ! interface, but the declarations are still created and &
+                        ! available in the arena.
                     end block
                 else
                     ! Error: expected identifier after comma
@@ -610,13 +631,16 @@ contains
                 if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "allocatable") then
                     is_allocatable = .true.
                     var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "pointer") then
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "pointer") then
                     is_pointer = .true.
                     var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "target") then
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "target") then
                     is_target = .true.
                     var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. var_token%text == "intent") then
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "intent") then
                     has_intent = .true.
                     var_token = parser%consume()  ! consume 'intent'
                     
@@ -632,12 +656,14 @@ contains
                         end if
                         
                         var_token = parser%peek()
-                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                        if (var_token%kind == TK_OPERATOR .and. &
+                            var_token%text == ")") then
                             var_token = parser%consume()  ! consume ')'
                         end if
                     end if
                 else
-                    ! Unknown attribute - consume it and handle complex attributes like intent(out)
+                    ! Unknown attribute - consume it and handle complex &
+                    ! attributes like intent(out)
                     var_token = parser%consume()
                     
                     ! If next token is '(', consume until we find matching ')'
@@ -648,7 +674,8 @@ contains
                         ! Consume tokens until we find ')'
                         do while (.not. parser%is_at_end())
                             var_token = parser%peek()
-                            if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            if (var_token%kind == TK_OPERATOR .and. &
+                                var_token%text == ")") then
                                 var_token = parser%consume()  ! consume ')'
                                 exit
                             end if

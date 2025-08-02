@@ -128,10 +128,12 @@ contains
                 code = node%value
             end if
         case (LITERAL_REAL)
-            ! For real literals, conditionally add 'd0' suffix based on standardization setting
+            ! For real literals, conditionally add 'd0' suffix
+            ! based on standardization setting
             if (standardize_types_enabled) then
                 ! Ensure double precision by adding 'd0' suffix if needed
-                if (index(node%value, 'd') == 0 .and. index(node%value, 'D') == 0 .and. &
+                if (index(node%value, 'd') == 0 .and. &
+                    index(node%value, 'D') == 0 .and. &
                     index(node%value, '_') == 0) then
                     code = node%value//"d0"
                 else
@@ -307,8 +309,10 @@ contains
             code = ""
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
-                    if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
-                        stmt_code = generate_code_from_arena(arena, node%body_indices(i))
+                    if (node%body_indices(i) > 0 .and. &
+                        node%body_indices(i) <= arena%size) then
+                        stmt_code = generate_code_from_arena(arena, &
+                                                             node%body_indices(i))
                         if (len_trim(stmt_code) > 0) then
                             if (len(code) > 0) then
                                 code = code//new_line('A')
@@ -379,7 +383,8 @@ contains
                             has_var_declarations = .true.
                         end if
                     type is (parameter_declaration_node)
-                        ! Parameter declarations are handled like regular declarations in body
+                        ! Parameter declarations are handled like
+                        ! regular declarations in body
                         stmt_code = generate_code_from_arena(arena, child_indices(i))
                         if (len(stmt_code) > 0) then
                             if (len(declarations) > 0) then
@@ -400,7 +405,8 @@ contains
                         ! Subroutines go after contains, not in executable section
                         continue
                     type is (identifier_node)
-                        ! Skip standalone identifiers - they are not executable statements
+                        ! Skip standalone identifiers
+                        ! - they are not executable statements
                         continue
                     type is (comment_node)
                         ! Comments go in executable section
@@ -437,7 +443,8 @@ contains
 
         if (len(declarations) > 0) then
             code = code//indent_lines(declarations)//new_line('A')
-            ! Add blank line after declarations only if we have variable declarations and executable statements
+            ! Add blank line after declarations only if we have
+            ! variable declarations and executable statements
             if (has_var_declarations .and. has_executable) then
                 code = code//new_line('A')
             end if
@@ -499,7 +506,8 @@ contains
         code = code//"end program "//node%name
     end function generate_code_program
 
-    ! Generate code for call_or_subscript node (handles both function calls and array indexing)
+    ! Generate code for call_or_subscript node
+    ! (handles both function calls and array indexing)
     function generate_code_call_or_subscript(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(call_or_subscript_node), intent(in) :: node
@@ -514,7 +522,8 @@ contains
         ! Generate arguments
         args_code = ""
         if (allocated(node%arg_indices)) then
-            ! Check if this might be array slicing (single argument that's a binary op with ":")
+            ! Check if this might be array slicing
+            ! (single argument that's a binary op with ":")
             is_array_slice = .false.
             if (size(node%arg_indices) == 1 .and. node%arg_indices(1) > 0) then
                 select type (arg_node => arena%entries(node%arg_indices(1))%node)
@@ -672,11 +681,14 @@ contains
         code = "print "//node%format_spec
 
         ! Generate arguments
-        if (allocated(node%expression_indices) .and. size(node%expression_indices) > 0) then
+        if (allocated(node%expression_indices) .and. &
+            size(node%expression_indices) > 0) then
             do i = 1, size(node%expression_indices)
                 code = code//", "
-               if (node%expression_indices(i) > 0 .and. node%expression_indices(i) <= arena%size) then
-                    arg_code = generate_code_from_arena(arena, node%expression_indices(i))
+               if (node%expression_indices(i) > 0 .and. &
+                   node%expression_indices(i) <= arena%size) then
+                    arg_code = generate_code_from_arena(arena, &
+                                                       node%expression_indices(i))
                     code = code//arg_code
                 end if
             end do
@@ -761,10 +773,12 @@ contains
         end if
         
         ! Check if this is a single-line WHERE
-        if (allocated(node%where_body_indices) .and. size(node%where_body_indices) == 1 .and. &
+        if (allocated(node%where_body_indices) .and. &
+            size(node%where_body_indices) == 1 .and. &
             .not. allocated(node%elsewhere_clauses)) then
             ! Single-line WHERE
-            if (node%where_body_indices(1) > 0 .and. node%where_body_indices(1) <= arena%size) then
+            if (node%where_body_indices(1) > 0 .and. &
+                node%where_body_indices(1) <= arena%size) then
                 stmt_code = generate_code_from_arena(arena, node%where_body_indices(1))
                 ! Remove indentation from statement for single-line
                 stmt_code = adjustl(stmt_code)
@@ -782,8 +796,10 @@ contains
             ! Generate WHERE body
             if (allocated(node%where_body_indices)) then
                 do i = 1, size(node%where_body_indices)
-                    if (node%where_body_indices(i) > 0 .and. node%where_body_indices(i) <= arena%size) then
-                        stmt_code = generate_code_from_arena(arena, node%where_body_indices(i))
+                    if (node%where_body_indices(i) > 0 .and. &
+                        node%where_body_indices(i) <= arena%size) then
+                        stmt_code = generate_code_from_arena(arena, &
+                                                             node%where_body_indices(i))
                         code = code//new_line('A')//stmt_code
                     end if
                 end do
@@ -797,8 +813,10 @@ contains
                 do i = 1, size(node%elsewhere_clauses)
                     if (node%elsewhere_clauses(i)%mask_index > 0) then
                         ! ELSEWHERE with mask
-                        mask_code = generate_code_from_arena(arena, node%elsewhere_clauses(i)%mask_index)
-                        code = code//new_line('A')//with_indent("elsewhere ("//mask_code//")")
+                        mask_code = generate_code_from_arena(arena, &
+                                          node%elsewhere_clauses(i)%mask_index)
+                        code = code//new_line('A')// &
+                               with_indent("elsewhere ("//mask_code//")")
                     else
                         ! Final ELSEWHERE without mask
                         code = code//new_line('A')//with_indent("elsewhere")
@@ -810,8 +828,10 @@ contains
                         
                         do j = 1, size(node%elsewhere_clauses(i)%body_indices)
                             if (node%elsewhere_clauses(i)%body_indices(j) > 0 .and. &
-                                node%elsewhere_clauses(i)%body_indices(j) <= arena%size) then
-                                stmt_code = generate_code_from_arena(arena, node%elsewhere_clauses(i)%body_indices(j))
+                                node%elsewhere_clauses(i)%body_indices(j) &
+                                <= arena%size) then
+                                stmt_code = generate_code_from_arena(arena, &
+                                  node%elsewhere_clauses(i)%body_indices(j))
                                 code = code//new_line('A')//stmt_code
                             end if
                         end do
@@ -848,8 +868,10 @@ contains
             
             ! Add lower bound
             if (allocated(node%lower_bound_indices)) then
-                if (node%lower_bound_indices(i) > 0 .and. node%lower_bound_indices(i) <= arena%size) then
-                    index_spec = index_spec//generate_code_from_arena(arena, node%lower_bound_indices(i))
+                if (node%lower_bound_indices(i) > 0 .and. &
+                    node%lower_bound_indices(i) <= arena%size) then
+                    index_spec = index_spec// &
+                        generate_code_from_arena(arena, node%lower_bound_indices(i))
                 else
                     index_spec = index_spec//"1"
                 end if
@@ -861,8 +883,10 @@ contains
             
             ! Add upper bound
             if (allocated(node%upper_bound_indices)) then
-                if (node%upper_bound_indices(i) > 0 .and. node%upper_bound_indices(i) <= arena%size) then
-                    index_spec = index_spec//generate_code_from_arena(arena, node%upper_bound_indices(i))
+                if (node%upper_bound_indices(i) > 0 .and. &
+                    node%upper_bound_indices(i) <= arena%size) then
+                    index_spec = index_spec// &
+                        generate_code_from_arena(arena, node%upper_bound_indices(i))
                 else
                     index_spec = index_spec//"n"
                 end if
@@ -872,14 +896,17 @@ contains
             
             ! Add optional stride
             if (allocated(node%stride_indices)) then
-                if (node%stride_indices(i) > 0 .and. node%stride_indices(i) <= arena%size) then
-                    index_spec = index_spec//":"//generate_code_from_arena(arena, node%stride_indices(i))
+                if (node%stride_indices(i) > 0 .and. &
+                    node%stride_indices(i) <= arena%size) then
+                    index_spec = index_spec//":"// &
+                        generate_code_from_arena(arena, node%stride_indices(i))
                 end if
             end if
         end do
         
         ! Add optional mask
-        if (node%has_mask .and. node%mask_expr_index > 0 .and. node%mask_expr_index <= arena%size) then
+        if (node%has_mask .and. node%mask_expr_index > 0 .and. &
+            node%mask_expr_index <= arena%size) then
             mask_code = generate_code_from_arena(arena, node%mask_expr_index)
             index_spec = index_spec//", "//mask_code
         end if
@@ -892,7 +919,8 @@ contains
             call increase_indent()
             
             do j = 1, size(node%body_indices)
-                if (node%body_indices(j) > 0 .and. node%body_indices(j) <= arena%size) then
+                if (node%body_indices(j) > 0 .and. &
+                    node%body_indices(j) <= arena%size) then
                     stmt_code = generate_code_from_arena(arena, node%body_indices(j))
                     code = code//new_line('A')//stmt_code
                 end if
@@ -937,14 +965,16 @@ contains
         if (allocated(node%body_indices)) then
             do i = 1, size(node%body_indices)
                 if (i > 1) body_code = body_code//new_line('a')
-                body_code = body_code//with_indent(generate_code_from_arena(arena, node%body_indices(i)))
+                body_code = body_code//with_indent( &
+                    generate_code_from_arena(arena, node%body_indices(i)))
             end do
         end if
         call decrease_indent()
 
         ! Complete construct
         if (len_trim(body_code) > 0) then
-            code = code//new_line('a')//body_code//new_line('a')//with_indent("end associate")
+            code = code//new_line('a')//body_code//new_line('a')// &
+                   with_indent("end associate")
         else
             code = code//new_line('a')//with_indent("end associate")
         end if
@@ -976,7 +1006,8 @@ contains
                 end if
             case (TCHAR)
                 if (node%inferred_type%size > 0) then
-                    type_str = "character(len="//trim(adjustl(int_to_string(node%inferred_type%size)))//")"
+                    type_str = "character(len="// &
+                        trim(adjustl(int_to_string(node%inferred_type%size)))//")"
                 else
                     type_str = "character"
                 end if
@@ -1241,23 +1272,29 @@ contains
         ! Generate case blocks
         if (allocated(node%case_indices)) then
             do i = 1, size(node%case_indices)
-                if (node%case_indices(i) > 0 .and. node%case_indices(i) <= arena%size) then
+                if (node%case_indices(i) > 0 .and. &
+                    node%case_indices(i) <= arena%size) then
                     select type (case_node => arena%entries(node%case_indices(i))%node)
                     type is (case_block_node)
                         ! Generate case values
-                        if (allocated(case_node%value_indices) .and. size(case_node%value_indices) > 0) then
+                        if (allocated(case_node%value_indices) .and. &
+                            size(case_node%value_indices) > 0) then
                             case_code = "case ("
                             do j = 1, size(case_node%value_indices)
                                 if (j > 1) case_code = case_code//", "
                                 if (case_node%value_indices(j) > 0) then
-                                    case_code = case_code//generate_code_from_arena(arena, case_node%value_indices(j))
+                                    case_code = case_code// &
+                                        generate_code_from_arena(arena, &
+                                            case_node%value_indices(j))
                                 end if
                             end do
                             case_code = case_code//")"
                             code = code//with_indent(case_code)//new_line('a')
                         else
-                            ! This might be a default case - check if it's at the default_index
-                            if (node%default_index > 0 .and. node%case_indices(i) == node%default_index) then
+                            ! This might be a default case
+                            ! - check if it's at the default_index
+                            if (node%default_index > 0 .and. &
+                                node%case_indices(i) == node%default_index) then
                                 code = code//with_indent("case default")//new_line('a')
                             else
                                 code = code//with_indent("case (???)")//new_line('a')
@@ -1269,7 +1306,8 @@ contains
                         if (allocated(case_node%body_indices)) then
                             do j = 1, size(case_node%body_indices)
                                 if (case_node%body_indices(j) > 0) then
-                                    body_code = generate_code_from_arena(arena, case_node%body_indices(j))
+                                    body_code = generate_code_from_arena(arena, &
+                                                       case_node%body_indices(j))
                                     code = code//with_indent(body_code)//new_line('a')
                                 end if
                             end do
@@ -1301,7 +1339,8 @@ contains
                     if (allocated(default_node%body_indices)) then
                         do i = 1, size(default_node%body_indices)
                             if (default_node%body_indices(i) > 0) then
-                                body_code = generate_code_from_arena(arena, default_node%body_indices(i))
+                                body_code = generate_code_from_arena(arena, &
+                                               default_node%body_indices(i))
                                 code = code//with_indent(body_code)//new_line('a')
                             end if
                         end do
@@ -1366,7 +1405,8 @@ contains
         integer :: i
 
         ! Check if we have elements
-        if (.not. allocated(node%element_indices) .or. size(node%element_indices) == 0) then
+        if (.not. allocated(node%element_indices) .or. &
+            size(node%element_indices) == 0) then
             ! Empty array - use Fortran 2003 syntax
             code = "[integer ::]"
             return
@@ -1378,17 +1418,21 @@ contains
         ! Add each element
         do i = 1, size(node%element_indices)
             if (i > 1) code = code//", "
-            if (node%element_indices(i) > 0 .and. node%element_indices(i) <= arena%size) then
+            if (node%element_indices(i) > 0 .and. &
+                node%element_indices(i) <= arena%size) then
                 ! Check if this element is a do_loop_node (implied do)
                 if (allocated(arena%entries(node%element_indices(i))%node)) then
-                    select type (elem_node => arena%entries(node%element_indices(i))%node)
+                    select type (elem_node => &
+                                  arena%entries(node%element_indices(i))%node)
                     type is (do_loop_node)
                         ! Generate implied do syntax
-                        elem_code = generate_implied_do(arena, elem_node, node%element_indices(i))
+                        elem_code = generate_implied_do(arena, elem_node, &
+                                                        node%element_indices(i))
                         code = code//elem_code
                     class default
                         ! Regular element
-                        elem_code = generate_code_from_arena(arena, node%element_indices(i))
+                        elem_code = generate_code_from_arena(arena, &
+                                                           node%element_indices(i))
                         code = code//elem_code
                     end select
                 else
@@ -1436,7 +1480,8 @@ contains
         end if
         
         ! Build implied do syntax: (expr, var=start,end[,step])
-        code = "("//trim(expr_code)//", "//trim(node%var_name)//"="//trim(start_code)//","//trim(end_code)
+        code = "("//trim(expr_code)//", "//trim(node%var_name)//"="// &
+               trim(start_code)//","//trim(end_code)
         
         ! Add step if present
         if (node%step_expr_index > 0 .and. node%step_expr_index <= arena%size) then
@@ -1545,7 +1590,8 @@ contains
     end function build_param_name_with_dims
 
     ! Helper: Generate grouped declaration statement
-    function generate_grouped_declaration(type_name, kind_value, has_kind, intent, var_list) result(stmt)
+    function generate_grouped_declaration(type_name, kind_value, has_kind, &
+                                          intent, var_list) result(stmt)
         character(len=*), intent(in) :: type_name
         integer, intent(in) :: kind_value
         logical, intent(in) :: has_kind
@@ -1629,7 +1675,8 @@ contains
                         i = j  ! Skip processed declarations
 
                     type is (parameter_declaration_node)
-                        ! Handle parameter declarations (convert to regular declarations)
+                        ! Handle parameter declarations
+                        ! (convert to regular declarations)
                         group_type = node%type_name
                         group_kind = node%kind_value
                         group_has_kind = (node%kind_value > 0)
@@ -1651,7 +1698,8 @@ contains
                                     type is (parameter_declaration_node)
                                         ! Check if can be grouped
                                         if (can_group_parameters(node, next_node)) then
-                                            ! Build next parameter name with array specification
+                                            ! Build next parameter name
+                                            ! with array specification
                  var_list = var_list//", "//build_param_name_with_dims(arena, next_node)
                                             j = j + 1
                                         else
@@ -1712,7 +1760,8 @@ contains
         if (allocated(node%declaration_indices)) then
             do i = 1, size(node%declaration_indices)
                 if (node%declaration_indices(i) > 0) then
-                    stmt_code = generate_code_from_arena(arena, node%declaration_indices(i))
+                    stmt_code = generate_code_from_arena(arena, &
+                                                          node%declaration_indices(i))
                     if (len_trim(stmt_code) > 0) then
                         code = code//with_indent(stmt_code)//new_line('A')
                     end if
@@ -1721,14 +1770,16 @@ contains
         end if
         
         ! Process procedures
-        if (allocated(node%procedure_indices) .and. size(node%procedure_indices) > 0) then
+        if (allocated(node%procedure_indices) .and. &
+            size(node%procedure_indices) > 0) then
             ! Add contains statement
             code = code//"contains"//new_line('A')
             
             ! Generate procedures
             do i = 1, size(node%procedure_indices)
                 if (node%procedure_indices(i) > 0) then
-                    stmt_code = generate_code_from_arena(arena, node%procedure_indices(i))
+                    stmt_code = generate_code_from_arena(arena, &
+                                                          node%procedure_indices(i))
                     if (len_trim(stmt_code) > 0) then
                         code = code//with_indent(stmt_code)//new_line('A')
                     end if

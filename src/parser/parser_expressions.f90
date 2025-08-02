@@ -100,7 +100,8 @@ contains
                 
                 expr_index = push_range_expression(arena, expr_index, right_index, &
                                                   stride_index=stride_index, &
-                                                  line=op_token%line, column=op_token%column)
+                                                  line=op_token%line, &
+                                                  column=op_token%column)
             end block
             return
         end if
@@ -139,7 +140,8 @@ contains
                     
                     expr_index = push_range_expression(arena, expr_index, right_index, &
                                                       stride_index=stride_index, &
-                                                      line=op_token%line, column=op_token%column)
+                                                      line=op_token%line, &
+                                                  column=op_token%column)
                 end block
             end if
         end if
@@ -215,7 +217,9 @@ contains
                  op_token%text == "<" .or. op_token%text == ">")) then
                 op_token = parser%consume()
                 right_index = parse_member_access(parser, arena)
-                expr_index = push_binary_op(arena, expr_index, right_index, op_token%text, op_token%line, op_token%column)
+                expr_index = push_binary_op(arena, expr_index, right_index, &
+                                             op_token%text, op_token%line, &
+                                             op_token%column)
             else
                 exit
             end if
@@ -249,7 +253,9 @@ contains
        (op_token%text == "+" .or. op_token%text == "-" .or. op_token%text == "//")) then
                 op_token = parser%consume()
                 right_index = parse_factor(parser, arena)
-                expr_index = push_binary_op(arena, expr_index, right_index, op_token%text, op_token%line, op_token%column)
+                expr_index = push_binary_op(arena, expr_index, right_index, &
+                                             op_token%text, op_token%line, &
+                                             op_token%column)
             else
                 exit
             end if
@@ -272,7 +278,9 @@ contains
        (op_token%text == "*" .or. op_token%text == "/" .or. op_token%text == "**")) then
                 op_token = parser%consume()
                 right_index = parse_primary(parser, arena)
-                expr_index = push_binary_op(arena, expr_index, right_index, op_token%text, op_token%line, op_token%column)
+                expr_index = push_binary_op(arena, expr_index, right_index, &
+                                             op_token%text, op_token%line, &
+                                             op_token%column)
             else
                 exit
             end if
@@ -294,16 +302,19 @@ contains
             current = parser%consume()
             if (index(current%text, '.') > 0) then
                 ! Contains decimal point - classify as real
-         expr_index = push_literal(arena, current%text, LITERAL_REAL, current%line, current%column)
+         expr_index = push_literal(arena, current%text, LITERAL_REAL, &
+                                   current%line, current%column)
             else
                 ! No decimal point - classify as integer
-      expr_index = push_literal(arena, current%text, LITERAL_INTEGER, current%line, current%column)
+      expr_index = push_literal(arena, current%text, LITERAL_INTEGER, &
+                                 current%line, current%column)
             end if
 
         case (TK_STRING)
             ! Parse string literal
             current = parser%consume()
-       expr_index = push_literal(arena, current%text, LITERAL_STRING, current%line, current%column)
+       expr_index = push_literal(arena, current%text, LITERAL_STRING, &
+                                  current%line, current%column)
 
         case (TK_IDENTIFIER)
             ! Parse identifier or function call
@@ -376,7 +387,8 @@ contains
 
                     ! Create function call node with array slice detection
                     if (allocated(arg_indices)) then
-                        expr_index = push_call_or_subscript_with_slice_detection(arena, &
+                        expr_index = &
+                            push_call_or_subscript_with_slice_detection(arena, &
                             func_name, arg_indices, current%line, current%column)
                     else
                         ! For empty args, create empty function call
@@ -444,7 +456,9 @@ contains
                     if (current%text == "]") then
                         current = parser%consume()  ! consume ']'
                         allocate (element_indices(0))
-                        expr_index = push_array_literal(arena, element_indices, bracket_token%line, bracket_token%column)
+                        expr_index = push_array_literal(arena, element_indices, &
+                                                         bracket_token%line, &
+                                                         bracket_token%column)
                     else
                         ! Parse array elements
                         do
@@ -470,7 +484,8 @@ contains
                                 current = parser%consume()  ! consume ','
 
                                 ! Check for implied do loop: (expr, var=start,end)
-                                ! Peek ahead to see if next token is identifier followed by =
+                                ! Peek ahead to see if next token is identifier &
+                                ! followed by =
                                 block
                                     type(token_t) :: next1, next2
                                     integer :: saved_pos
@@ -488,7 +503,8 @@ contains
                                             ! This is an implied do loop!
                                             ! Parse: (expr, var=start,end[,step])
 
-                                            ! We already have the first expression in temp_indices(element_count)
+                                            ! We already have the first expression &
+                                            ! in temp_indices(element_count)
                                             ! next1 contains the loop variable name
                                             block
                                                character(len=:), allocatable :: loop_var
@@ -544,12 +560,14 @@ contains
                                                 end if
                                                 current = parser%consume()
 
-                                                ! Create a do_loop_node for the implied do
+                                                ! Create a do_loop_node for the &
+                                                ! implied do
                                                 block
                                                     use ast_factory, only: push_do_loop
                                                integer, allocatable :: body_idx_array(:)
 
-                                                    ! The body is the expression we already parsed
+                                                    ! The body is the &
+                                                    ! expression we already parsed
                                                     allocate (body_idx_array(1))
                                          body_idx_array(1) = temp_indices(element_count)
 
@@ -558,7 +576,8 @@ contains
                                                              step_idx, body_idx_array, &
                                    line=bracket_token%line, column=bracket_token%column)
 
-                                                    ! Create an array with the implied do loop as its element
+                                                    ! Create an array with the &
+                                                    ! implied do loop as its element
                                                     allocate (element_indices(1))
                                                     element_indices(1) = loop_expr_idx
                                expr_index = push_array_literal(arena, element_indices, &
@@ -587,7 +606,9 @@ contains
                         ! Copy to final array
                         allocate (element_indices(element_count))
                         element_indices = temp_indices(1:element_count)
-                        expr_index = push_array_literal(arena, element_indices, bracket_token%line, bracket_token%column)
+                        expr_index = push_array_literal(arena, element_indices, &
+                                                         bracket_token%line, &
+                                                         bracket_token%column)
                     end if
                 end block
             else if (current%text == ".not.") then
@@ -601,7 +622,8 @@ contains
                         ! Create unary NOT expression as binary op with false
                         block
                             integer :: false_index
-             false_index = push_literal(arena, ".false.", LITERAL_LOGICAL, op_token%line, op_token%column)
+             false_index = push_literal(arena, ".false.", LITERAL_LOGICAL, &
+                                         op_token%line, op_token%column)
                  expr_index = push_binary_op(arena, false_index, operand_index, ".not.")
                         end block
                     else
@@ -652,16 +674,20 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
             ! Handle logical constants
             current = parser%consume()
             if (current%text == ".true." .or. current%text == ".false.") then
-      expr_index = push_literal(arena, current%text, LITERAL_LOGICAL, current%line, current%column)
+      expr_index = push_literal(arena, current%text, LITERAL_LOGICAL, &
+                                 current%line, current%column)
             else
                 ! Other keywords - create error node
-      expr_index = push_literal(arena, "!ERROR: Unexpected keyword '"//current%text//"' in expression", &
+      expr_index = push_literal(arena, &
+          "!ERROR: Unexpected keyword '"//current%text//"' in expression", &
                                           LITERAL_STRING, current%line, current%column)
             end if
 
         case default
             ! Unrecognized token - create error node and skip
-      expr_index = push_literal(arena, "!ERROR: Unrecognized token in expression", LITERAL_STRING, current%line, current%column)
+      expr_index = push_literal(arena, &
+          "!ERROR: Unrecognized token in expression", LITERAL_STRING, &
+          current%line, current%column)
             current = parser%consume()
         end select
         
@@ -694,12 +720,14 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                     component_token = parser%peek()
                     if (component_token%kind == TK_IDENTIFIER) then
                         component_token = parser%consume()
-                        expr_index = push_component_access(arena, expr_index, component_token%text, &
+                        expr_index = push_component_access(arena, expr_index, &
+                                                              component_token%text, &
                                                          op_token%line, op_token%column)
                     else
                         ! Error: expected identifier after %
-                        expr_index = push_literal(arena, "!ERROR: Expected identifier after %", &
-                                                LITERAL_STRING, op_token%line, op_token%column)
+                        expr_index = push_literal(arena, &
+                            "!ERROR: Expected identifier after %", &
+                            LITERAL_STRING, op_token%line, op_token%column)
                         exit
                     end if
                 end block
@@ -734,7 +762,8 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                                 ! Parse additional arguments
                                 do
                                     op_token = parser%peek()
-                                    if (op_token%kind /= TK_OPERATOR .or. op_token%text /= ",") exit
+                                    if (op_token%kind /= TK_OPERATOR .or. &
+                                        op_token%text /= ",") exit
                                     
                                     ! Consume comma
                                     op_token = parser%consume()
@@ -775,14 +804,17 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                                 logical :: is_range_subscript
                                 
                                 is_range_subscript = .false.
-                                if (size(arg_indices) == 1 .and. arg_indices(1) > 0 .and. &
+                                if (size(arg_indices) == 1 .and. &
+                                    arg_indices(1) > 0 .and. &
                                     arg_indices(1) <= arena%size) then
-                                    select type (arg_node => arena%entries(arg_indices(1))%node)
+                                    select type (arg_node => &
+                                        arena%entries(arg_indices(1))%node)
                                     type is (range_expression_node)
                                         ! Create nested range subscript
                                         expr_index = push_range_subscript(arena, &
                                             expr_index, arg_node%start_index, &
-                                            arg_node%end_index, paren%line, paren%column)
+                                            arg_node%end_index, paren%line, &
+                                            paren%column)
                                         is_range_subscript = .true.
                                     end select
                                 end if
@@ -838,7 +870,8 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                         end select
                         
                         if (allocated(name_for_call)) then
-                            ! Special handling for component access followed by array indexing
+                            ! Special handling for component access followed &
+                            ! by array indexing
                             select type (node => arena%entries(expr_index)%node)
                             type is (component_access_node)
                                 ! Build the full qualified name
@@ -847,12 +880,16 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                                     
                                     ! Get the base name
                                     if (node%base_expr_index > 0) then
-                                        select type (base_node => arena%entries(node%base_expr_index)%node)
+                                        select type (base_node => &
+                                            arena%entries(node%base_expr_index)%node)
                                         type is (identifier_node)
                                             base_name = base_node%name
                                         type is (component_access_node)
-                                            ! Handle chained component access recursively
-                                            base_name = generate_code_from_arena(arena, node%base_expr_index)
+                                            ! Handle chained component access &
+                                            ! recursively
+                                            base_name = &
+                                                generate_code_from_arena(arena, &
+                                                node%base_expr_index)
                                         class default
                                             base_name = "__expr__"
                                         end select
@@ -865,8 +902,9 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                                     
                                     ! Create call_or_subscript with full name
                                     expr_index = &
-                                        push_call_or_subscript_with_slice_detection(arena, &
-                                        full_name, arg_indices, paren%line, paren%column)
+                                        push_call_or_subscript_with_slice_detection(&
+                                            arena, full_name, arg_indices, paren%line, &
+                                            paren%column)
                                 end block
                             class default
                                 ! Standard case
