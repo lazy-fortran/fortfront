@@ -87,6 +87,8 @@ module ast_nodes_core
         ! Intrinsic function identification
         logical :: is_intrinsic = .false.
         character(len=:), allocatable :: intrinsic_signature
+        ! Disambiguation flag (set during semantic analysis)
+        logical :: is_array_access = .false.  ! true if array indexing, false if function call
     contains
         procedure :: accept => call_or_subscript_accept
         procedure :: to_json => call_or_subscript_to_json
@@ -358,6 +360,9 @@ contains
             call json%add(parent, 'intrinsic_signature', this%intrinsic_signature)
         end if
         
+        ! Add disambiguation information
+        call json%add(parent, 'is_array_access', this%is_array_access)
+        
         ! Add arguments array
         call json%create_array(args_array, 'arguments')
         if (allocated(this%arg_indices)) then
@@ -384,6 +389,7 @@ contains
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
         lhs%is_intrinsic = rhs%is_intrinsic
+        lhs%is_array_access = rhs%is_array_access
         if (allocated(lhs%intrinsic_signature)) deallocate(lhs%intrinsic_signature)
         if (allocated(rhs%intrinsic_signature) .and. len_trim(rhs%intrinsic_signature) > 0) then
             lhs%intrinsic_signature = rhs%intrinsic_signature
