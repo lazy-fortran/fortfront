@@ -17,7 +17,7 @@ module parser_expressions_module
 
     ! Public expression parsing interface
     public :: parse_expression
-    public :: parse_range, parse_logical_or, parse_logical_and, parse_comparison
+    public :: parse_range, parse_logical_eqv, parse_logical_or, parse_logical_and, parse_comparison
     public :: parse_member_access, parse_term, parse_factor, parse_primary
 
 contains
@@ -42,7 +42,7 @@ contains
                     if (.not. (next_tok%kind == TK_OPERATOR .and. &
                              (next_tok%text == ")" .or. next_tok%text == "," .or. &
                               next_tok%text == "]" .or. next_tok%text == ";"))) then
-                        stride_index = parse_logical_or(parser, arena)
+                        stride_index = parse_logical_eqv(parser, arena)
                     end if
                 end if
             end if
@@ -83,7 +83,7 @@ contains
                     ! Check if next token is not a closing paren or comma
                     if (.not. (next_tok%kind == TK_OPERATOR .and. &
                                (next_tok%text == ")" .or. next_tok%text == ","))) then
-                        right_index = parse_logical_or(parser, arena)
+                        right_index = parse_logical_eqv(parser, arena)
                     else
                         ! Empty upper bound too (just :)
                         right_index = 0
@@ -107,7 +107,7 @@ contains
         end if
 
         ! Normal case: parse lower bound first
-        expr_index = parse_logical_or(parser, arena)
+        expr_index = parse_logical_eqv(parser, arena)
 
         ! Check for colon operator
         if (.not. parser%is_at_end()) then
@@ -123,7 +123,7 @@ contains
                         ! Check if next token is not a closing paren or comma
                         if (.not. (next_tok%kind == TK_OPERATOR .and. &
                                  (next_tok%text == ")" .or. next_tok%text == ","))) then
-                            right_index = parse_logical_or(parser, arena)
+                            right_index = parse_logical_eqv(parser, arena)
                         else
                             ! Empty upper bound (e.g., arr(2:))
                             right_index = 0
@@ -147,7 +147,34 @@ contains
         end if
     end function parse_range
 
-    ! Parse logical OR operators (lowest precedence)
+    ! Parse logical EQV/NEQV operators (lowest precedence)
+    function parse_logical_eqv(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+        integer :: right_index
+        type(token_t) :: op_token
+
+        expr_index = parse_logical_or(parser, arena)
+
+        do while (.not. parser%is_at_end())
+            op_token = parser%peek()
+            if (op_token%kind == TK_OPERATOR .and. &
+                (op_token%text == ".eqv." .or. op_token%text == ".neqv.")) then
+                op_token = parser%consume()  ! consume operator
+                right_index = parse_logical_or(parser, arena)
+                if (right_index > 0) then
+              expr_index = push_binary_op(arena, expr_index, right_index, op_token%text)
+                else
+                    exit
+                end if
+            else
+                exit
+            end if
+        end do
+    end function parse_logical_eqv
+
+    ! Parse logical OR operators
     function parse_logical_or(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -159,9 +186,7 @@ contains
 
         do while (.not. parser%is_at_end())
             op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. &
-                (op_token%text == ".or." .or. op_token%text == ".eqv." .or. &
-                 op_token%text == ".neqv.")) then
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == ".or.") then
                 op_token = parser%consume()  ! consume operator
                 right_index = parse_logical_and(parser, arena)
                 if (right_index > 0) then
