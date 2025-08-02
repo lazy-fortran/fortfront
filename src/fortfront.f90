@@ -44,8 +44,9 @@ module fortfront
                              TFUN, TARRAY, TVAR
     
     ! Re-export scope management
-    use scope_manager, only: scope_stack_t, SCOPE_GLOBAL, SCOPE_MODULE, SCOPE_FUNCTION, &
-                           SCOPE_SUBROUTINE, SCOPE_BLOCK, SCOPE_INTERFACE
+    use scope_manager, only: scope_stack_t, SCOPE_GLOBAL, SCOPE_MODULE, &
+                           SCOPE_FUNCTION, SCOPE_SUBROUTINE, SCOPE_BLOCK, &
+                           SCOPE_INTERFACE
     
     ! Re-export AST traversal and visitor functionality
     use ast_traversal, only: traverse_ast_visitor => traverse_ast, &
@@ -65,7 +66,9 @@ module fortfront
     ! Re-export intrinsic function registry (using renamed imports to avoid conflicts)
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
                                  registry_get_signature => get_intrinsic_signature, &
-                                 get_intrinsic_info, initialize_intrinsic_registry, intrinsic_signature_t
+                                 get_intrinsic_info, &
+                                 initialize_intrinsic_registry, &
+                                 intrinsic_signature_t
     
     implicit none
     public
@@ -626,10 +629,12 @@ contains
     end function get_node_as_function_def
     
     ! ===== TYPE-SAFE ACCESSOR FUNCTIONS =====
-    ! These functions provide safe access to node fields without exposing internal structure
+    ! These functions provide safe access to node fields without exposing &
+    ! internal structure
     
     ! Assignment node accessors
-    function get_assignment_indices(arena, node_index, target_index, value_index, operator) result(found)
+    function get_assignment_indices(arena, node_index, target_index, &
+                                     value_index, operator) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, intent(out) :: target_index, value_index
@@ -659,7 +664,8 @@ contains
     end function get_assignment_indices
     
     ! Binary operation accessors
-    function get_binary_op_info(arena, node_index, left_index, right_index, operator) result(found)
+    function get_binary_op_info(arena, node_index, left_index, right_index, &
+                                 operator) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, intent(out) :: left_index, right_index
@@ -774,7 +780,8 @@ contains
     end function get_call_info
     
     ! Array literal accessors
-    function get_array_literal_info(arena, node_index, element_indices, element_type) result(found)
+    function get_array_literal_info(arena, node_index, element_indices, &
+                                     element_type) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         integer, allocatable, intent(out) :: element_indices(:)
@@ -782,7 +789,8 @@ contains
         logical :: found
         
         found = .false.
-        ! element_indices and element_type are intent(out) - automatically deallocated on entry
+        ! element_indices and element_type are intent(out) - automatically &
+        ! deallocated on entry
         
         if (node_index > 0 .and. node_index <= arena%size) then
             if (allocated(arena%entries(node_index)%node)) then
@@ -837,8 +845,10 @@ contains
         end if
     end function get_program_info
     
-    ! Comprehensive declaration node accessor - provides access to ALL declaration details
-    function get_declaration_info(arena, node_index, var_names, type_spec, attributes) result(found)
+    ! Comprehensive declaration node accessor - provides access to ALL &
+    ! declaration details
+    function get_declaration_info(arena, node_index, var_names, type_spec, &
+                                   attributes) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: var_names(:)
@@ -855,7 +865,8 @@ contains
                 type is (declaration_node)
                     ! Get variable names
                     if (node%is_multi_declaration .and. allocated(node%var_names)) then
-                        allocate(character(len=len(node%var_names)) :: var_names(size(node%var_names)))
+                        allocate(character(len=len(node%var_names)) :: &
+                            var_names(size(node%var_names)))
                         var_names = node%var_names
                     else if (allocated(node%var_name)) then
                         allocate(character(len=len(node%var_name)) :: var_names(1))
@@ -921,7 +932,8 @@ contains
                 type is (declaration_node)
                     ! Variable names
                     if (node%is_multi_declaration .and. allocated(node%var_names)) then
-                        allocate(character(len=len(node%var_names)) :: var_names(size(node%var_names)))
+                        allocate(character(len=len(node%var_names)) :: &
+                            var_names(size(node%var_names)))
                         var_names = node%var_names
                     else if (allocated(node%var_name)) then
                         allocate(character(len=len(node%var_name)) :: var_names(1))

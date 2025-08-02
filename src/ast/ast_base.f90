@@ -20,7 +20,8 @@ module ast_base
     type, abstract, public :: ast_node
         integer :: line = 1
         integer :: column = 1
-        type(mono_type_t), allocatable :: inferred_type  ! Type information from semantic analysis
+        type(mono_type_t), allocatable :: inferred_type  ! Type information
+        ! from semantic analysis
     contains
         procedure(visit_interface), deferred :: accept
         procedure(to_json_interface), deferred :: to_json

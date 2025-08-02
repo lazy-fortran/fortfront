@@ -3,10 +3,11 @@ module parser_control_flow_module
     use lexer_core
     use ast_types, only: LITERAL_STRING
     use parser_state_module
-  use parser_expressions_module, only: parse_primary, parse_expression, parse_logical_or, &
-                                       parse_range
+  use parser_expressions_module, only: parse_primary, parse_expression, &
+                                       parse_logical_or, parse_range
     use parser_statements_module, only: parse_print_statement, parse_write_statement, &
-                                        parse_read_statement, parse_cycle_statement, parse_exit_statement
+                                        parse_read_statement, &
+                                        parse_cycle_statement, parse_exit_statement
     use parser_declarations_module, only: parse_declaration, parse_multi_declaration
     use ast_core
     use ast_factory, only: push_if, push_do_loop, push_do_while, push_select_case, &
@@ -283,7 +284,8 @@ contains
               stmt_tokens(stmt_end - stmt_start + 2)%line = parser%tokens(stmt_end)%line
       stmt_tokens(stmt_end - stmt_start + 2)%column = parser%tokens(stmt_end)%column + 1
 
-                    ! Parse the statement (may return multiple indices for multi-variable declarations)
+                    ! Parse the statement (may return multiple indices for &
+                    ! multi-variable declarations)
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: k
@@ -470,7 +472,8 @@ contains
               stmt_tokens(stmt_end - stmt_start + 2)%line = parser%tokens(stmt_end)%line
       stmt_tokens(stmt_end - stmt_start + 2)%column = parser%tokens(stmt_end)%column + 1
 
-                    ! Parse the statement (may return multiple indices for multi-variable declarations)
+                    ! Parse the statement (may return multiple indices for &
+                    ! multi-variable declarations)
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: k
@@ -616,7 +619,9 @@ contains
 
                                     if (remaining_count > 0) then
                                         allocate (value_tokens(remaining_count))
-                                        value_tokens = parser%tokens(parser%current_token:parser%current_token+remaining_count-1)
+                                        value_tokens = parser%tokens(&
+                                            parser%current_token:parser%current_token+&
+                                            remaining_count-1)
                                         ! Parse the value as a primary expression
                                         block
                                             integer :: value_index
@@ -859,7 +864,8 @@ contains
 
     end function parse_basic_statement_multi
 
-    ! Unified function for parsing statement bodies (used by if blocks, do while loops, etc.)
+    ! Unified function for parsing statement bodies (used by if blocks, &
+    ! do while loops, etc.)
     function parse_statement_body(parser, arena, end_keywords) result(body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -1022,7 +1028,8 @@ contains
               stmt_tokens(stmt_end - stmt_start + 2)%line = parser%tokens(stmt_end)%line
       stmt_tokens(stmt_end - stmt_start + 2)%column = parser%tokens(stmt_end)%column + 1
 
-                    ! Parse the statement (may return multiple indices for multi-variable declarations)
+                    ! Parse the statement (may return multiple indices for &
+                    ! multi-variable declarations)
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: n
@@ -1119,7 +1126,8 @@ contains
                     ! Extract remaining tokens
                     allocate(remaining_tokens(n))
                     do j = 1, n
-                        remaining_tokens(j) = parser%tokens(parser%current_token + j - 1)
+                        remaining_tokens(j) = parser%tokens(&
+                            parser%current_token + j - 1)
                     end do
                     
                     ! Parse statement
@@ -1192,16 +1200,19 @@ contains
                             if (n > 0) then
                                 allocate(stmt_tokens(n))
                                 do j = 1, n
-                                    stmt_tokens(j) = parser%tokens(parser%current_token + j - 1)
+                                    stmt_tokens(j) = parser%tokens(&
+                                        parser%current_token + j - 1)
                                 end do
                                 
-                                stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                                stmt_indices = &
+                                    parse_basic_statement_multi(stmt_tokens, arena)
                                 
                                 ! Add all parsed statements
                                 do k = 1, size(stmt_indices)
                                     if (stmt_indices(k) > 0) then
                                         body_count = body_count + 1
-                                        elsewhere_body_indices = [elsewhere_body_indices, stmt_indices(k)]
+                                        elsewhere_body_indices = &
+                                            [elsewhere_body_indices, stmt_indices(k)]
                                     end if
                                 end do
                                 
@@ -1337,7 +1348,8 @@ contains
                 token = parser%consume()
                 
                 ! Parse expression
-                expr_index = parse_expression(parser%tokens(parser%current_token:), arena)
+                expr_index = parse_expression(&
+                    parser%tokens(parser%current_token:), arena)
                 if (expr_index <= 0) then
                     deallocate(associations)
                     deallocate(body_indices)
@@ -1345,7 +1357,8 @@ contains
                     return
                 end if
                 
-                ! Advance parser position - for simple expressions like "a + b", consume 3 tokens
+                ! Advance parser position - for simple expressions like &
+                ! "a + b", consume 3 tokens
                 ! This is a simplified approach that works for basic expressions
                 block
                     integer :: tokens_to_consume
@@ -1364,7 +1377,8 @@ contains
                             if (current_token%text == "(") then
                                 depth = depth + 1
                             else if (current_token%text == ")") then
-                                if (depth == 0) exit  ! Found closing paren of association
+                                if (depth == 0) exit  ! Found closing paren &
+                                                       ! of association
                                 depth = depth - 1
                             else if (current_token%text == "," .and. depth == 0) then
                                 exit  ! Found comma at same level
@@ -1419,8 +1433,10 @@ contains
             ! Check for 'end associate'
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == "associate") then
+                    if (parser%tokens(parser%current_token + 1)%kind == &
+                        TK_KEYWORD .and. &
+                        parser%tokens(parser%current_token + 1)%text == &
+                        "associate") then
                         token = parser%consume()  ! consume 'end'
                         token = parser%consume()  ! consume 'associate'
                         exit
@@ -1476,7 +1492,8 @@ contains
                             if (parser%tokens(j)%kind == TK_IDENTIFIER .and. &
                                 parser%tokens(j + 1)%kind == TK_OPERATOR .and. &
                                 parser%tokens(j + 1)%text == "=" .and. &
-                                j > stmt_start + 2) then  ! Ensure it's not the first assignment
+                                j > stmt_start + 2) then  ! Ensure it's not &
+                                                           ! the first assignment
                                 stmt_end = j - 1
                                 exit
                             end if
@@ -1497,7 +1514,8 @@ contains
                         integer :: single_stmt_index
                         
                         ! Check if this is an ASSOCIATE construct
-                        if (size(stmt_tokens) > 0 .and. stmt_tokens(1)%kind == TK_KEYWORD .and. &
+                        if (size(stmt_tokens) > 0 .and. &
+                            stmt_tokens(1)%kind == TK_KEYWORD .and. &
                             stmt_tokens(1)%text == "associate") then
                             ! Parse as ASSOCIATE construct
                             block
@@ -1507,8 +1525,10 @@ contains
                             end block
                         else
                             ! Parse as basic statement
-                            stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
-                            if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
+                            stmt_indices = &
+                                parse_basic_statement_multi(stmt_tokens, arena)
+                            if (allocated(stmt_indices) .and. &
+                                size(stmt_indices) > 0) then
                                 single_stmt_index = stmt_indices(1)
                             else
                                 single_stmt_index = 0
@@ -1565,9 +1585,11 @@ contains
                 if (body_count > 0) then
                     allocate(final_body(body_count))
                     final_body = body_indices(1:body_count)
-                    assoc_index = push_associate(arena, final_assocs, final_body, line, column)
+                    assoc_index = push_associate(arena, final_assocs, &
+                                                  final_body, line, column)
                 else
-                    assoc_index = push_associate(arena, final_assocs, line=line, column=column)
+                    assoc_index = push_associate(arena, final_assocs, &
+                                                  line=line, column=column)
                 end if
             end block
         else

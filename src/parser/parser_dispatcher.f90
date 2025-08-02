@@ -12,7 +12,8 @@ module parser_dispatcher_module
                                         parse_module, parse_program_statement, &
                                         parse_stop_statement, parse_return_statement, &
                                         parse_cycle_statement, parse_exit_statement, &
-                                        parse_allocate_statement, parse_deallocate_statement
+                                        parse_allocate_statement, &
+                                        parse_deallocate_statement
     use parser_control_flow_module, only: parse_if, parse_do_loop, parse_select_case, &
                                          parse_where_construct, parse_associate
     use ast_core
@@ -168,9 +169,12 @@ contains
 
             ! Create assignment
             if (value_index > 0) then
-                stmt_index = push_assignment(arena, target_index, value_index, id_token%line, id_token%column)
+                stmt_index = push_assignment(arena, target_index, value_index, &
+                                              id_token%line, id_token%column)
             else
-                stmt_index = push_literal(arena, "! Error: missing value", LITERAL_STRING, id_token%line, id_token%column)
+                stmt_index = push_literal(arena, "! Error: missing value", &
+                                           LITERAL_STRING, id_token%line, &
+                                           id_token%column)
             end if
         else
             ! Not an assignment, treat as expression statement
