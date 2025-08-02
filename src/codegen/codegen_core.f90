@@ -2,6 +2,7 @@ module codegen_core
     use ast_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
     use ast_nodes_control, only: associate_node
+    use ast_nodes_data, only: intent_type_to_string
     use type_system_hm
     use string_types, only: string_t
     use codegen_indent
@@ -1566,7 +1567,7 @@ contains
 
         can_group = node1%type_name == node2%type_name .and. &
                     node1%kind_value == node2%kind_value .and. &
-                    node1%intent == node2%intent
+                    node1%intent_type == node2%intent_type
     end function can_group_parameters
 
     ! Helper: Build parameter name with array dimensions
@@ -1680,11 +1681,7 @@ contains
                         group_type = node%type_name
                         group_kind = node%kind_value
                         group_has_kind = (node%kind_value > 0)
-                        if (len_trim(node%intent) > 0) then
-                            group_intent = node%intent
-                        else
-                            group_intent = ""
-                        end if
+                        group_intent = intent_type_to_string(node%intent_type)
 
                         ! Build variable name with array specification
                         var_list = build_param_name_with_dims(arena, node)

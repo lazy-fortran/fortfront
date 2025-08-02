@@ -2,6 +2,7 @@ program test_frontend_parser_derived_types
     use lexer_core
     use ast_core
     use ast_factory
+    use ast_nodes_data, only: intent_type_to_string
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_statements_module, only: parse_typed_parameters
     implicit none
@@ -231,8 +232,9 @@ contains
                 print *, "ERROR in ", test_name, ": First param type should be 'type(vector)', got '", node1%type_name, "'"
                 return
             end if
-            if (node1%intent /= "in") then
-                print *, "ERROR in ", test_name, ": First param intent should be 'in', got '", node1%intent, "'"
+            if (intent_type_to_string(node1%intent_type) /= "in") then
+                print *, "ERROR in ", test_name, ": First param intent should be 'in', got '", &
+                         intent_type_to_string(node1%intent_type), "'"
                 return
             end if
         class default
