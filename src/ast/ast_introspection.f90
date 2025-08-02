@@ -18,7 +18,7 @@ module ast_introspection
     public :: get_node_type_id
     public :: get_node_source_location
     public :: has_semantic_info
-    public :: get_node_type_info_from_arena  ! Legacy (returns unallocated)
+    ! get_node_type_info_from_arena is now PRIVATE to prevent misuse
     
     ! New safe read-only type access functions
     public :: get_node_type_kind
@@ -234,7 +234,10 @@ contains
         end associate
     end subroutine get_node_type_details
 
-    ! Legacy function - now returns unallocated for safety
+    ! PRIVATE: Legacy function - always returns unallocated
+    ! This function is kept private to prevent accidental use.
+    ! Attempting to copy mono_type_t causes segfaults.
+    ! Use get_node_type_kind() or get_node_type_details() instead.
     function get_node_type_info_from_arena(arena, index) result(type_info)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
