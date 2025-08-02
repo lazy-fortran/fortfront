@@ -137,6 +137,10 @@ module fortfront
               has_semantic_info, &
               get_node_type_kind, get_node_type_details, &
               get_node_type_id_from_arena, get_node_source_location_from_arena
+    
+    ! Public AST navigation APIs for issue #19
+    public :: get_next_sibling, get_previous_sibling, get_block_statements, &
+              is_last_in_block, is_block_node
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
@@ -310,6 +314,51 @@ contains
             end if
         end if
     end function get_children
+
+    ! Get next sibling node in the same parent
+    function get_next_sibling(arena, node_index) result(next_sibling)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: next_sibling
+        
+        next_sibling = arena%get_next_sibling(node_index)
+    end function get_next_sibling
+
+    ! Get previous sibling node in the same parent
+    function get_previous_sibling(arena, node_index) result(prev_sibling)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: prev_sibling
+        
+        prev_sibling = arena%get_previous_sibling(node_index)
+    end function get_previous_sibling
+
+    ! Get all statements in a block (for block nodes like if, do, etc.)
+    function get_block_statements(arena, block_index) result(stmt_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: block_index
+        integer, allocatable :: stmt_indices(:)
+        
+        stmt_indices = arena%get_block_statements(block_index)
+    end function get_block_statements
+
+    ! Check if a statement is the last executable statement in its block
+    function is_last_in_block(arena, node_index) result(is_last)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: is_last
+        
+        is_last = arena%is_last_in_block(node_index)
+    end function is_last_in_block
+
+    ! Check if a node represents a block (contains statements)
+    function is_block_node(arena, node_index) result(is_block)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: is_block
+        
+        is_block = arena%is_block_node(node_index)
+    end function is_block_node
     
     ! Traverse AST with callback procedure
     subroutine traverse_ast(arena, root_index, callback, pre_order)
