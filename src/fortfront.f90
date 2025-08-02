@@ -49,7 +49,7 @@ module fortfront
                            SCOPE_INTERFACE
     
     ! Re-export AST introspection APIs for issue #12
-    use ast_introspection, only: get_node, get_node_type_id, has_semantic_info, &
+    use ast_introspection, only: visit_node_at, get_node_type_id, has_semantic_info, &
                                 get_node_type_info_from_arena, get_node_source_location, &
                                 get_node_type_kind, get_node_type_details, &
                                 get_node_type_id_from_arena, get_node_source_location_from_arena
@@ -109,7 +109,7 @@ module fortfront
               get_declaration_details, get_parameter_declaration_details
     
     ! Public AST introspection APIs for issue #12
-    public :: get_node, get_node_type_id, get_node_source_location, &
+    public :: visit_node_at, get_node_type_id, get_node_source_location, &
               has_semantic_info, get_node_type_info_from_arena, &
               get_node_type_kind, get_node_type_details, &
               get_node_type_id_from_arena, get_node_source_location_from_arena

@@ -6,6 +6,7 @@ module ast_traversal
     
     ! Public traversal procedures
     public :: traverse_ast, traverse_preorder, traverse_postorder
+    public :: visit_node  ! Added for ast_introspection
     
     ! Public node type checking functions
     public :: is_program_node, is_assignment_node, is_binary_op_node
