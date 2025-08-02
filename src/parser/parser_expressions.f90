@@ -159,7 +159,9 @@ contains
 
         do while (.not. parser%is_at_end())
             op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == ".or.") then
+            if (op_token%kind == TK_OPERATOR .and. &
+                (op_token%text == ".or." .or. op_token%text == ".eqv." .or. &
+                 op_token%text == ".neqv.")) then
                 op_token = parser%consume()  ! consume operator
                 right_index = parse_logical_and(parser, arena)
                 if (right_index > 0) then
