@@ -77,10 +77,10 @@ module semantic_query_api
         logical :: is_parameter = .false.
     end type symbol_info_t
 
-    ! Main query interface
+    ! Main query interface - using existing safe pattern with direct assignment
     type :: semantic_query_t
-        type(ast_arena_t), pointer :: arena => null()
-        type(semantic_context_t), pointer :: context => null()
+        type(ast_arena_t) :: arena
+        type(semantic_context_t) :: context
     contains
         procedure :: get_variable_info => query_get_variable_info
         procedure :: get_function_info => query_get_function_info
@@ -100,19 +100,20 @@ module semantic_query_api
 
 contains
 
-    ! Create semantic query interface
+    ! Create semantic query interface - using existing safe pattern
     function create_semantic_query(arena, context) result(query)
-        type(ast_arena_t), target, intent(in) :: arena
-        type(semantic_context_t), target, intent(in) :: context
+        type(ast_arena_t), intent(in) :: arena
+        type(semantic_context_t), intent(in) :: context
         type(semantic_query_t) :: query
 
-        query%arena => arena
-        query%context => context
+        ! Direct assignment like existing code
+        query%arena = arena
+        query%context = context
     end function create_semantic_query
 
     ! Get variable information by name
     function query_get_variable_info(this, var_name, var_info) result(success)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: var_name
         type(variable_info_t), intent(out) :: var_info
         logical :: success
@@ -152,7 +153,7 @@ contains
 
     ! Get function information by name
     function query_get_function_info(this, func_name, func_info) result(success)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: func_name
         type(function_info_t), intent(out) :: func_info
         logical :: success
@@ -190,7 +191,7 @@ contains
 
     ! Get type information by variable name
     function query_get_type_info_by_name(this, name, type_info) result(success)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         type(type_info_t), intent(out) :: type_info
         logical :: success
@@ -212,7 +213,7 @@ contains
 
     ! Get type information by AST node index
     function query_get_type_info_by_node(this, node_index, type_info) result(success)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         integer, intent(in) :: node_index
         type(type_info_t), intent(out) :: type_info
         logical :: success
@@ -231,7 +232,7 @@ contains
 
     ! Get current scope information
     function query_get_current_scope_info(this, scope_info) result(success)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         type(scope_info_t), intent(out) :: scope_info
         logical :: success
 
@@ -254,7 +255,7 @@ contains
 
     ! Check if variable is visible in current scope
     function query_is_variable_visible(this, var_name) result(visible)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: var_name
         logical :: visible
         type(poly_type_t), allocatable :: scheme
@@ -265,7 +266,7 @@ contains
 
     ! Check if symbol is defined
     function query_is_symbol_defined(this, symbol_name) result(defined)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: symbol_name
         logical :: defined
         type(poly_type_t), allocatable :: scheme
@@ -285,7 +286,7 @@ contains
 
     ! Get symbol type (variable, function, etc.)
     function query_get_symbol_type(this, symbol_name) result(symbol_type)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: symbol_name
         integer :: symbol_type
         type(poly_type_t), allocatable :: scheme
@@ -454,7 +455,7 @@ contains
     
     ! Get all symbols in current scope
     function query_get_symbols_in_scope(this, scope_type, symbols) result(success)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         integer, intent(in) :: scope_type
         type(symbol_info_t), allocatable, intent(out) :: symbols(:)
         logical :: success
@@ -501,7 +502,7 @@ contains
     
     ! Check if variable is used anywhere in scope
     function query_is_variable_used(this, var_name, scope_type) result(used)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: scope_type
         logical :: used
@@ -513,7 +514,7 @@ contains
     
     ! Get all unused variables in scope
     function query_get_unused_variables(this, scope_type, unused_vars) result(success)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         integer, intent(in) :: scope_type
         character(len=:), allocatable, intent(out) :: unused_vars(:)
         logical :: success
@@ -555,7 +556,7 @@ contains
     
     ! Get resolved type for identifier
     function query_get_identifier_type(this, identifier_name, type_info) result(success)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: identifier_name
         type(mono_type_t), optional, intent(out) :: type_info
         logical :: success
@@ -575,7 +576,7 @@ contains
     
     ! Check if identifier is defined (alias for is_symbol_defined)
     function query_is_identifier_defined(this, identifier_name) result(defined)
-        class(semantic_query_t), intent(in) :: this
+        class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: identifier_name
         logical :: defined
         
