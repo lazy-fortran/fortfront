@@ -8,7 +8,7 @@ module parser_expressions_module
                            push_call_or_subscript, push_array_literal, &
                            push_range_expression, &
                            push_call_or_subscript_with_slice_detection, &
-                           push_component_access
+                           push_component_access, push_character_substring
     use parser_state_module, only: parser_state_t, create_parser_state
     use codegen_core, only: generate_code_from_arena
     implicit none
@@ -757,7 +757,37 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                         paren = parser%consume()
                     end if
                     
-                    ! Create call_or_subscript node
+                    ! Check for character substring syntax (single range argument)
+                    if (allocated(arg_indices) .and. size(arg_indices) == 1) then
+                        ! Check if the single argument is a range expression
+                        block
+                            use ast_nodes_bounds, only: range_expression_node
+                            logical :: is_substring
+                            
+                            is_substring = .false.
+                            if (arg_indices(1) > 0 .and. arg_indices(1) <= arena%size) then
+                                select type (arg_node => arena%entries(arg_indices(1))%node)
+                                type is (range_expression_node)
+                                    ! This is a range expression - character substring syntax!
+                                    is_substring = .true.
+                                end select
+                            end if
+                            
+                            if (is_substring) then
+                                ! Create character substring node
+                                select type (arg_node => arena%entries(arg_indices(1))%node)
+                                type is (range_expression_node)
+                                    expr_index = push_character_substring(arena, expr_index, &
+                                        arg_node%start_index, arg_node%end_index, &
+                                        paren%line, paren%column)
+                                end select
+                                deallocate(arg_indices)
+                                cycle  ! Continue to next postfix operator
+                            end if
+                        end block
+                    end if
+                    
+                    ! Create call_or_subscript node (not a character substring)
                     if (allocated(arg_indices)) then
                         ! Get the name to use for the call_or_subscript node
                         select type (node => arena%entries(expr_index)%node)
