@@ -279,39 +279,43 @@ contains
             else if (has_kind) then
                 if (has_intent) then
                     decl_index = push_declaration(arena, type_name, var_name, &
-                               kind_value=kind_value, initializer_index=initializer_index, &
-                               is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                               is_target=is_target, intent_value=intent, line=line, column=column)
+                        kind_value=kind_value, initializer_index=initializer_index, &
+                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                        is_target=is_target, intent_value=intent, line=line, &
+                        column=column)
                 else
                     decl_index = push_declaration(arena, type_name, var_name, &
-                               kind_value=kind_value, initializer_index=initializer_index, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                               is_target=is_target, line=line, column=column)
+                        kind_value=kind_value, initializer_index=initializer_index, &
+                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                        is_target=is_target, line=line, column=column)
                 end if
             else if (is_array) then
                 if (has_intent) then
                     decl_index = push_declaration(arena, type_name, var_name, &
-                 initializer_index=initializer_index, dimension_indices=dimension_indices, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                               is_target=is_target, intent_value=intent, line=line, column=column)
+                        initializer_index=initializer_index, &
+                        dimension_indices=dimension_indices, &
+                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                        is_target=is_target, intent_value=intent, line=line, &
+                        column=column)
                 else
                     decl_index = push_declaration(arena, type_name, var_name, &
-                 initializer_index=initializer_index, dimension_indices=dimension_indices, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                               is_target=is_target, line=line, column=column)
+                        initializer_index=initializer_index, &
+                        dimension_indices=dimension_indices, &
+                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                        is_target=is_target, line=line, column=column)
                 end if
             else
                 if (has_intent) then
                     decl_index = push_declaration(arena, type_name, var_name, &
-                       initializer_index=initializer_index, is_allocatable=is_allocatable, &
-                                                  is_pointer=is_pointer, is_target=is_target, &
-                                      intent_value=intent, &
-                                                  line=line, column=column)
+                        initializer_index=initializer_index, &
+                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                        is_target=is_target, intent_value=intent, &
+                        line=line, column=column)
                 else
                     decl_index = push_declaration(arena, type_name, var_name, &
-                       initializer_index=initializer_index, is_allocatable=is_allocatable, &
-                                                  is_pointer=is_pointer, is_target=is_target, &
-                                                  line=line, column=column)
+                        initializer_index=initializer_index, &
+                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                        is_target=is_target, line=line, column=column)
                 end if
             end if
         end block
