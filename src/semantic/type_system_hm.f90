@@ -41,7 +41,8 @@ module type_system_hm
     type :: mono_type_t
         integer :: kind  ! TVAR, TINT, TREAL, etc.
         type(type_var_t) :: var  ! for TVAR
-        type(mono_type_t), allocatable :: args(:)  ! for TFUN (arg, result), TARRAY (element type)
+        type(mono_type_t), allocatable :: args(:)  ! for TFUN (arg, result),
+        ! TARRAY (element type)
         integer :: size  ! for TCHAR(len=size), TARRAY(size)
         type(allocation_info_t) :: alloc_info  ! Memory allocation attributes
     contains
@@ -859,7 +860,8 @@ contains
             if (this%names(i) /= name) then
                 new_env%count = new_env%count + 1
                 new_env%names(new_env%count) = this%names(i)
-                new_env%schemes(new_env%count) = this%schemes(i)  ! Assignment now does deep copy
+                new_env%schemes(new_env%count) = this%schemes(i)
+                ! Assignment now does deep copy
             end if
         end do
     end subroutine env_remove
@@ -900,7 +902,8 @@ contains
 
             do i = 1, this%count
                 copy%names(i) = this%names(i)
-                copy%schemes(i) = this%schemes(i)  ! Uses poly_type assignment (deep copy)
+                copy%schemes(i) = this%schemes(i)
+                ! Uses poly_type assignment (deep copy)
             end do
         end if
     end function env_deep_copy

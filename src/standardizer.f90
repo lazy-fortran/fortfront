@@ -19,7 +19,8 @@ module standardizer
 
     public :: standardize_ast
     public :: standardize_ast_json
-    public :: set_standardizer_type_standardization, get_standardizer_type_standardization
+    public :: set_standardizer_type_standardization, &
+              get_standardizer_type_standardization
 
 contains
 
@@ -41,7 +42,8 @@ contains
                     block
                         integer :: j
                         do j = 1, size(node%body_indices)
-                        if (node%body_indices(j) > 0 .and. node%body_indices(j) <= arena%size) then
+                        if (node%body_indices(j) > 0 .and. &
+                            node%body_indices(j) <= arena%size) then
                             call standardize_ast(arena, node%body_indices(j))
                         end if
                     end do
@@ -118,7 +120,8 @@ contains
         ! Standardize declarations in the module
         if (allocated(mod%declaration_indices)) then
             do i = 1, size(mod%declaration_indices)
-                if (mod%declaration_indices(i) > 0 .and. mod%declaration_indices(i) <= arena%size) then
+                if (mod%declaration_indices(i) > 0 .and. &
+                    mod%declaration_indices(i) <= arena%size) then
                     call standardize_ast(arena, mod%declaration_indices(i))
                 end if
             end do
@@ -127,7 +130,8 @@ contains
         ! Standardize procedures in the module
         if (allocated(mod%procedure_indices)) then
             do i = 1, size(mod%procedure_indices)
-                if (mod%procedure_indices(i) > 0 .and. mod%procedure_indices(i) <= arena%size) then
+                if (mod%procedure_indices(i) > 0 .and. &
+                    mod%procedure_indices(i) <= arena%size) then
                     call standardize_ast(arena, mod%procedure_indices(i))
                 end if
             end do
@@ -182,7 +186,8 @@ contains
             end if
         end do
 
-        ! Decision logic: if only functions/subroutines and use statements, it's likely a module
+        ! Decision logic: if only functions/subroutines and use statements, &
+        ! it's likely a module
         ! For now, keep it simple - presence of multiple procedures suggests module
         should_be_module = (has_functions .or. has_subroutines) .and. &
                    (count([has_functions, has_subroutines]) > 1 .or. has_use_statements)
@@ -411,7 +416,8 @@ contains
     end function find_declaration_insertion_point
 
     ! Generate and insert variable declarations from inferred types
-    subroutine generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
+    subroutine generate_and_insert_declarations(arena, prog, prog_index, &
+                                                 declaration_indices)
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(in) :: prog
         integer, intent(in) :: prog_index
@@ -470,7 +476,8 @@ contains
                 do i = 1, var_count
                     if (var_declared(i)) then
                         ! Check if this variable already has an explicit declaration
-                        if (.not. has_explicit_declaration(arena, prog, var_names(i))) then
+                        if (.not. has_explicit_declaration(arena, prog, &
+                                                            var_names(i))) then
                             actual_count = actual_count + 1
                         end if
                     end if
@@ -491,7 +498,8 @@ contains
                 do i = 1, var_count
                     if (var_declared(i)) then
                         ! Check if this variable already has an explicit declaration
-                        if (.not. has_explicit_declaration(arena, prog, var_names(i))) then
+                        if (.not. has_explicit_declaration(arena, prog, &
+                                                            var_names(i))) then
                             decl_idx = decl_idx + 1
                     ! Create declaration node
                     decl_node%type_name = trim(var_types(i))
@@ -503,7 +511,8 @@ contains
                         integer :: j
                         found_array_type = .false.
                         
-                        ! Search for the identifier node with this name to check its inferred type
+                        ! Search for the identifier node with this name to check &
+                        ! its inferred type
                         do j = 1, arena%size
                             if (allocated(arena%entries(j)%node)) then
                                 select type (node => arena%entries(j)%node)
@@ -514,7 +523,8 @@ contains
                                                 found_array_type = .true.
                                                 decl_node%is_array = .true.
                                                 ! Use fixed-size array if size is known
-                                                if (allocated(decl_node%dimension_indices)) &
+                                                if (allocated(&
+                                                    decl_node%dimension_indices)) &
                                                     deallocate(decl_node%dimension_indices)
                                                 allocate(decl_node%dimension_indices(1))
                                                 if (node%inferred_type%size > 0) then
@@ -523,12 +533,17 @@ contains
                                                         type(literal_node) :: size_literal
                                                         character(len=20) :: size_str
                                                         write(size_str, '(i0)') node%inferred_type%size
-                                                        size_literal = create_literal(trim(size_str), LITERAL_INTEGER, 1, 1)
-                                                        call arena%push(size_literal, "literal", prog_index)
+                                                        size_literal = &
+                                                            create_literal(trim(size_str), &
+                                                            LITERAL_INTEGER, 1, 1)
+                                                        call arena%push(&
+                                                            size_literal, &
+                                                            "literal", prog_index)
                                                         decl_node%dimension_indices(1) = arena%size
                                                     end block
                                                 else
-                                                    decl_node%dimension_indices(1) = 0  ! Allocatable dimension
+                                                    ! Allocatable dimension
+                                                    decl_node%dimension_indices(1) = 0
                                                 end if
                                                 exit
                                             end if
@@ -544,7 +559,8 @@ contains
                     end block
                     
                     ! If array with deferred shape, mark as allocatable
-                    if (decl_node%is_array .and. allocated(decl_node%dimension_indices)) then
+                    if (decl_node%is_array .and. &
+                        allocated(decl_node%dimension_indices)) then
                         if (size(decl_node%dimension_indices) > 0) then
                             if (decl_node%dimension_indices(1) == 0) then
                                 ! This is a deferred shape array, needs allocatable
@@ -571,7 +587,9 @@ contains
     end subroutine generate_and_insert_declarations
 
     ! Collect variables from any statement type
-    recursive subroutine collect_statement_vars(arena, stmt_index, var_names, var_types, var_declared, var_count, &
+    recursive subroutine collect_statement_vars(arena, stmt_index, var_names, &
+                                                var_types, var_declared, &
+                                                var_count, &
                                                 function_names, func_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
@@ -588,14 +606,18 @@ contains
 
         select type (stmt => arena%entries(stmt_index)%node)
         type is (declaration_node)
-            ! Mark this variable as already declared - don't generate implicit declaration
-            call mark_variable_declared(stmt%var_name, var_names, var_declared, var_count)
+            ! Mark this variable as already declared - don't generate implicit &
+            ! declaration
+            call mark_variable_declared(stmt%var_name, var_names, &
+                                         var_declared, var_count)
         type is (assignment_node)
-            call collect_assignment_vars(arena, stmt_index, var_names, var_types, var_declared, var_count, &
+            call collect_assignment_vars(arena, stmt_index, var_names, &
+                                          var_types, var_declared, var_count, &
                                          function_names, func_count)
         type is (do_loop_node)
             ! Collect loop variable
-            call add_variable(stmt%var_name, "integer", var_names, var_types, var_declared, var_count, &
+            call add_variable(stmt%var_name, "integer", var_names, var_types, &
+                              var_declared, var_count, &
                               function_names, func_count)
             ! Collect variables from body
             if (allocated(stmt%body_indices)) then
@@ -636,7 +658,8 @@ contains
     end subroutine collect_statement_vars
 
     ! Collect variables from assignment node
-    subroutine collect_assignment_vars(arena, assign_index, var_names, var_types, var_declared, var_count, &
+    subroutine collect_assignment_vars(arena, assign_index, var_names, &
+                                        var_types, var_declared, var_count, &
                                        function_names, func_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: assign_index
@@ -663,14 +686,17 @@ contains
                         var_type = "real(8)"  ! Default type
                         
                         ! Try to get type from the value expression
-                        if (assign%value_index > 0 .and. assign%value_index <= arena%size) then
+                        if (assign%value_index > 0 .and. &
+                            assign%value_index <= arena%size) then
                             if (allocated(arena%entries(assign%value_index)%node)) then
                                 ! Check if it's an array expression by structure
                                 if (is_array_expression(arena, assign%value_index)) then
                                     ! Try to determine array size if possible
-                                    var_type = get_array_var_type(arena, assign%value_index)
+                                    var_type = &
+                                        get_array_var_type(arena, assign%value_index)
                                 else
-                                    value_type => get_expression_type(arena, assign%value_index)
+                                    value_type => &
+                                        get_expression_type(arena, assign%value_index)
                                     if (associated(value_type)) then
                                         var_type = get_fortran_type_string(value_type)
                                     end if
@@ -679,8 +705,9 @@ contains
                         end if
                         
                         ! Now collect the variable with the determined type
-                        call collect_identifier_var_with_type(target, var_type, var_names, var_types, &
-                                                              var_declared, var_count, function_names, func_count)
+                        call collect_identifier_var_with_type(target, var_type, &
+                            var_names, var_types, var_declared, var_count, &
+                            function_names, func_count)
                     end select
                 end if
             end if
@@ -688,7 +715,8 @@ contains
     end subroutine collect_assignment_vars
 
     ! Collect variable from identifier node
-    subroutine collect_identifier_var(identifier, var_names, var_types, var_declared, var_count, &
+    subroutine collect_identifier_var(identifier, var_names, var_types, &
+                                       var_declared, var_count, &
                                       function_names, func_count)
         type(identifier_node), intent(in) :: identifier
         character(len=64), intent(inout) :: var_names(:)
@@ -728,7 +756,8 @@ contains
 
                 ! Determine type from inferred_type if available
                 if (allocated(identifier%inferred_type)) then
-                    var_types(var_count) = get_fortran_type_string(identifier%inferred_type)
+                    var_types(var_count) = &
+                        get_fortran_type_string(identifier%inferred_type)
                 else
                     var_types(var_count) = "real(8)"  ! Default type
                 end if
@@ -739,7 +768,9 @@ contains
     end subroutine collect_identifier_var
     
     ! Collect variable from identifier node with explicit type
-    subroutine collect_identifier_var_with_type(identifier, var_type, var_names, var_types, var_declared, &
+    subroutine collect_identifier_var_with_type(identifier, var_type, &
+                                                var_names, var_types, &
+                                                var_declared, &
                                                  var_count, function_names, func_count)
         type(identifier_node), intent(in) :: identifier
         character(len=*), intent(in) :: var_type
@@ -788,7 +819,8 @@ contains
     end subroutine collect_identifier_var_with_type
 
     ! Add a variable to the collection list
-    subroutine add_variable(var_name, var_type, var_names, var_types, var_declared, var_count, &
+    subroutine add_variable(var_name, var_type, var_names, var_types, &
+                            var_declared, var_count, &
                             function_names, func_count)
         character(len=*), intent(in) :: var_name
         character(len=*), intent(in) :: var_type
@@ -843,7 +875,8 @@ contains
         ! Find the variable if it exists and mark it as declared
         do i = 1, var_count
             if (trim(var_names(i)) == trim(var_name)) then
-                var_declared(i) = .false.  ! Mark as already declared - don't generate implicit declaration
+                var_declared(i) = .false.  ! Mark as already declared - don't &
+                                            ! generate implicit declaration
                 return
             end if
         end do
@@ -861,7 +894,8 @@ contains
         
         if (allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (prog%body_indices(i) > 0 .and. &
+                    prog%body_indices(i) <= arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
                         type is (declaration_node)
@@ -947,7 +981,8 @@ contains
             if (allocated(node%inferred_type)) then
                 expr_type => node%inferred_type
             else
-                ! If it's a subscript of an array, the result should be the element type or a subarray
+                ! If it's a subscript of an array, the result should be the &
+                ! element type or a subarray
                 ! For now, we'll check if it has a colon operator (array slice)
                 if (has_array_slice_args(arena, node)) then
                     ! This is an array slice, so result is an array
@@ -1031,7 +1066,8 @@ contains
         type is (array_literal_node)
             ! For array literals, we know the exact size
             if (allocated(node%element_indices)) then
-                write(var_type, '(a,i0,a)') "real(8), dimension(", size(node%element_indices), ")"
+                write(var_type, '(a,i0,a)') "real(8), dimension(", &
+                    size(node%element_indices), ")"
             end if
         type is (call_or_subscript_node)
             ! For array slices, try to calculate the size
@@ -1056,7 +1092,8 @@ contains
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
                     type is (declaration_node)
                         ! Standardize the type name (if enabled)
-                        if (stmt%type_name == "real" .and. standardizer_type_standardization_enabled) then
+                        if (stmt%type_name == "real" .and. &
+                            standardizer_type_standardization_enabled) then
                             stmt%type_name = "real"
                             stmt%has_kind = .true.
                             stmt%kind_value = 8
@@ -1137,7 +1174,8 @@ contains
         arena%entries(func_index)%node = func_def
     end subroutine standardize_function_def
 
-    ! Standardize function parameters by updating existing declarations or adding new ones
+    ! Standardize function parameters by updating existing declarations or &
+    ! adding new ones
     subroutine standardize_function_parameters(arena, func_def, func_index)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
@@ -1189,7 +1227,8 @@ contains
                             end do
 
                             if (is_param_decl) then
-                                ! Update the declaration to have intent(in) and preserve/enhance type
+                                ! Update the declaration to have intent(in) and &
+                                ! preserve/enhance type
                                 if (stmt%type_name == "real") then
                                     stmt%type_name = "real"
                                     stmt%has_kind = .true.

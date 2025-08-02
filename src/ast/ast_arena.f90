@@ -6,7 +6,7 @@ module ast_arena
     ! Stack entry for AST nodes  
     type :: ast_entry_t
         class(ast_node), allocatable :: node    ! The AST node itself
-        integer :: parent_index = 0             ! Index of parent node in stack (0 for root)
+        integer :: parent_index = 0    ! Index of parent node in stack (0 for root)
         integer :: depth = 0                    ! Depth in tree (0 for root)
         character(len=:), allocatable :: node_type  ! Type name for debugging
         integer, allocatable :: child_indices(:)    ! Indices of child nodes
@@ -201,7 +201,8 @@ contains
                 ! Find and remove this node from parent's children
                 do i = 1, this%entries(parent_idx)%child_count
                     if (this%entries(parent_idx)%child_indices(i) == this%size) then
-                        ! Shift remaining children left (only if there are elements to shift)
+                        ! Shift remaining children left
+                        ! (only if there are elements to shift)
                         if (i < this%entries(parent_idx)%child_count) then
                             do j = i, this%entries(parent_idx)%child_count - 1
                                 this%entries(parent_idx)%child_indices(j) = &
@@ -275,7 +276,8 @@ contains
             parent_index = this%entries(index)%parent_index
             if (parent_index > 0 .and. parent_index <= this%size) then
                 if (allocated(this%entries(parent_index)%node)) then
-                    ! Safe polymorphic copy - allocate(source=) handles all AST node types
+                    ! Safe polymorphic copy
+                    ! allocate(source=) handles all AST node types
                     allocate(parent_node, source=this%entries(parent_index)%node)
                 end if
             end if
@@ -354,7 +356,9 @@ contains
         if (parent_index > 0 .and. parent_index <= this%size) then
             if (allocated(this%entries(parent_index)%child_indices)) then
                 allocate(child_indices(this%entries(parent_index)%child_count))
-                child_indices = this%entries(parent_index)%child_indices(1:this%entries(parent_index)%child_count)
+                child_indices = &
+                    this%entries(parent_index)%child_indices( &
+                        1:this%entries(parent_index)%child_count)
             else
                 allocate(child_indices(0))
             end if
@@ -390,7 +394,8 @@ contains
             if (this%size > huge(this%size) - this%chunk_size / 2) then
                 new_capacity = this%initial_capacity
             else
-                new_capacity = max(this%size + this%chunk_size / 2, this%initial_capacity)
+                new_capacity = max(this%size + this%chunk_size / 2, &
+                                   this%initial_capacity)
             end if
             
             if (new_capacity < this%capacity) then

@@ -30,10 +30,12 @@ module ast_nodes_misc
     ! Allocate statement node
     type, extends(ast_node), public :: allocate_statement_node
         integer, allocatable :: var_indices(:)         ! Variables to allocate
-        integer, allocatable :: shape_indices(:)       ! Shape expressions for each variable
+        integer, allocatable :: shape_indices(:)       ! Shape expressions
+        ! for each variable
         integer :: stat_var_index = 0                  ! Optional stat variable index
         integer :: errmsg_var_index = 0                ! Optional errmsg variable index
-        integer :: source_expr_index = 0               ! Optional source expression index
+        integer :: source_expr_index = 0               ! Optional source
+        ! expression index
         integer :: mold_expr_index = 0                 ! Optional mold expression index
     contains
         procedure :: accept => allocate_statement_accept
@@ -58,8 +60,10 @@ module ast_nodes_misc
     type, extends(ast_node), public :: use_statement_node
         character(len=:), allocatable :: module_name
         type(string_t), allocatable :: only_list(:)       ! Optional only clause items
-        type(string_t), allocatable :: rename_list(:)     ! Optional rename mappings (new_name => old_name)
-        logical :: has_only = .false.                     ! Whether the only clause is present
+        type(string_t), allocatable :: rename_list(:)     ! Optional rename
+        ! mappings (new_name => old_name)
+        logical :: has_only = .false.                     ! Whether the only
+        ! clause is present
     contains
         procedure :: accept => use_statement_accept
         procedure :: to_json => use_statement_to_json
@@ -89,9 +93,12 @@ module ast_nodes_misc
     ! Interface block node
     type, extends(ast_node), public :: interface_block_node
         character(len=:), allocatable :: name         ! Interface name (optional)
-        character(len=:), allocatable :: kind         ! "interface", "generic", "operator", "assignment"
-        character(len=:), allocatable :: operator     ! Operator symbol (for operator interfaces)
-        integer, allocatable :: procedure_indices(:)  ! Procedure declaration arena indices
+        character(len=:), allocatable :: kind         ! "interface", "generic",
+        ! "operator", "assignment"
+        character(len=:), allocatable :: operator     ! Operator symbol
+        ! (for operator interfaces)
+        integer, allocatable :: procedure_indices(:)  ! Procedure declaration
+        ! arena indices
     contains
         procedure :: accept => interface_block_accept
         procedure :: to_json => interface_block_to_json
@@ -129,8 +136,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         lhs%real_index = rhs%real_index
@@ -153,10 +163,14 @@ contains
         call json%add(obj, 'type', 'allocate_statement')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
-        if (this%stat_var_index > 0) call json%add(obj, 'stat_var_index', this%stat_var_index)
-        if (this%errmsg_var_index > 0) call json%add(obj, 'errmsg_var_index', this%errmsg_var_index)
-        if (this%source_expr_index > 0) call json%add(obj, 'source_expr_index', this%source_expr_index)
-        if (this%mold_expr_index > 0) call json%add(obj, 'mold_expr_index', this%mold_expr_index)
+        if (this%stat_var_index > 0) call json%add(obj, 'stat_var_index', &
+            this%stat_var_index)
+        if (this%errmsg_var_index > 0) call json%add(obj, 'errmsg_var_index', &
+            this%errmsg_var_index)
+        if (this%source_expr_index > 0) call json%add(obj, 'source_expr_index', &
+            this%source_expr_index)
+        if (this%mold_expr_index > 0) call json%add(obj, 'mold_expr_index', &
+            this%mold_expr_index)
         call json%add(parent, obj)
     end subroutine allocate_statement_to_json
 
@@ -167,8 +181,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         if (allocated(rhs%var_indices)) then
@@ -203,8 +220,10 @@ contains
         call json%add(obj, 'type', 'deallocate_statement')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
-        if (this%stat_var_index > 0) call json%add(obj, 'stat_var_index', this%stat_var_index)
-        if (this%errmsg_var_index > 0) call json%add(obj, 'errmsg_var_index', this%errmsg_var_index)
+        if (this%stat_var_index > 0) call json%add(obj, 'stat_var_index', &
+            this%stat_var_index)
+        if (this%errmsg_var_index > 0) call json%add(obj, 'errmsg_var_index', &
+            this%errmsg_var_index)
         call json%add(parent, obj)
     end subroutine deallocate_statement_to_json
 
@@ -215,8 +234,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         if (allocated(rhs%var_indices)) then
@@ -244,7 +266,8 @@ contains
         call json%add(obj, 'type', 'use_statement')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
-        if (allocated(this%module_name)) call json%add(obj, 'module_name', this%module_name)
+        if (allocated(this%module_name)) call json%add(obj, 'module_name', &
+            this%module_name)
         call json%add(obj, 'has_only', this%has_only)
         call json%add(parent, obj)
     end subroutine use_statement_to_json
@@ -256,8 +279,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         if (allocated(rhs%module_name)) lhs%module_name = rhs%module_name
@@ -301,8 +327,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         if (allocated(rhs%filename)) lhs%filename = rhs%filename
@@ -334,8 +363,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
     end subroutine contains_assign
 
@@ -368,8 +400,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         if (allocated(rhs%name)) lhs%name = rhs%name
@@ -410,8 +445,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy comment text
         if (allocated(rhs%text)) lhs%text = rhs%text

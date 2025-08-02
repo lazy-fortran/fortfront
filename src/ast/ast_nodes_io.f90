@@ -22,13 +22,15 @@ module ast_nodes_io
 
     ! Write statement node
     type, extends(ast_node), public :: write_statement_node
-        character(len=:), allocatable :: unit_spec     ! Unit specifier (e.g., "10", "*")
+        character(len=:), allocatable :: unit_spec     ! Unit specifier
+        ! (e.g., "10", "*")
         character(len=:), allocatable :: format_spec   ! Optional format
         integer, allocatable :: arg_indices(:)         ! Arguments to write
         integer :: iostat_var_index = 0                 ! Optional iostat variable index
         integer :: err_label_index = 0                  ! Optional err label index
         integer :: end_label_index = 0                  ! Optional end label index
-        integer :: format_expr_index = 0                ! Optional runtime format expression
+        integer :: format_expr_index = 0                ! Optional runtime
+        ! format expression
         logical :: is_formatted = .false.               ! True if formatted I/O
     contains
         procedure :: accept => write_statement_accept
@@ -39,13 +41,15 @@ module ast_nodes_io
 
     ! Read statement node
     type, extends(ast_node), public :: read_statement_node
-        character(len=:), allocatable :: unit_spec     ! Unit specifier (e.g., "10", "*")
+        character(len=:), allocatable :: unit_spec     ! Unit specifier
+        ! (e.g., "10", "*")
         character(len=:), allocatable :: format_spec   ! Optional format
         integer, allocatable :: var_indices(:)         ! Variables to read into
         integer :: iostat_var_index = 0                 ! Optional iostat variable index
         integer :: err_label_index = 0                  ! Optional err label index
         integer :: end_label_index = 0                  ! Optional end label index
-        integer :: format_expr_index = 0                ! Optional runtime format expression
+        integer :: format_expr_index = 0                ! Optional runtime
+        ! format expression
         logical :: is_formatted = .false.               ! True if formatted I/O
     contains
         procedure :: accept => read_statement_accept
@@ -93,8 +97,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific fields
         if (allocated(rhs%expression_indices)) then
@@ -126,8 +133,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific fields
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
@@ -161,11 +171,16 @@ contains
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         if (allocated(this%unit_spec)) call json%add(obj, 'unit_spec', this%unit_spec)
-        if (allocated(this%format_spec)) call json%add(obj, 'format_spec', this%format_spec)
-        if (this%iostat_var_index > 0) call json%add(obj, 'iostat_var_index', this%iostat_var_index)
-        if (this%err_label_index > 0) call json%add(obj, 'err_label_index', this%err_label_index)
-        if (this%end_label_index > 0) call json%add(obj, 'end_label_index', this%end_label_index)
-        if (this%format_expr_index > 0) call json%add(obj, 'format_expr_index', this%format_expr_index)
+        if (allocated(this%format_spec)) call json%add(obj, 'format_spec', &
+            this%format_spec)
+        if (this%iostat_var_index > 0) call json%add(obj, 'iostat_var_index', &
+            this%iostat_var_index)
+        if (this%err_label_index > 0) call json%add(obj, 'err_label_index', &
+            this%err_label_index)
+        if (this%end_label_index > 0) call json%add(obj, 'end_label_index', &
+            this%end_label_index)
+        if (this%format_expr_index > 0) call json%add(obj, 'format_expr_index', &
+            this%format_expr_index)
         call json%add(obj, 'is_formatted', this%is_formatted)
         call json%add(parent, obj)
     end subroutine read_statement_to_json
@@ -177,8 +192,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific fields
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
@@ -211,13 +229,15 @@ contains
         call json%add(obj, 'type', 'format_descriptor')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
-        if (allocated(this%descriptor_type)) call json%add(obj, 'descriptor_type', this%descriptor_type)
+        if (allocated(this%descriptor_type)) call json%add(obj, &
+            'descriptor_type', this%descriptor_type)
         call json%add(obj, 'width', this%width)
         call json%add(obj, 'decimal_places', this%decimal_places)
         call json%add(obj, 'exponent_width', this%exponent_width)
         call json%add(obj, 'repeat_count', this%repeat_count)
         call json%add(obj, 'is_literal', this%is_literal)
-        if (allocated(this%literal_text)) call json%add(obj, 'literal_text', this%literal_text)
+        if (allocated(this%literal_text)) call json%add(obj, 'literal_text', &
+            this%literal_text)
         call json%add(parent, obj)
     end subroutine format_descriptor_to_json
 
@@ -228,8 +248,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific fields
         if (allocated(rhs%descriptor_type)) lhs%descriptor_type = rhs%descriptor_type
@@ -242,7 +265,8 @@ contains
     end subroutine format_descriptor_assign
 
     ! Factory functions
-    function create_print_statement(expression_indices, format_spec, line, column) result(node)
+    function create_print_statement(expression_indices, format_spec, &
+                                   line, column) result(node)
         integer, intent(in), optional :: expression_indices(:)
         character(len=*), intent(in), optional :: format_spec
         integer, intent(in), optional :: line, column

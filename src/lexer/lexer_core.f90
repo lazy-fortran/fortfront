@@ -40,12 +40,18 @@ module lexer_core
                                        "default     ", "type        ", "interface   ", &
                                        "operator    ", "module      ", "contains    ", &
                                        "only        ", "include     ", "elseif      ", &
-                                        "assignment  ", "intent      ", "in          ", &
-                                        "out         ", "inout       ", "stop        ", &
-                                        "return      ", "cycle       ", "exit        ", &
-                                        "where       ", "elsewhere   ", "optional    ", &
-                                        "present     ", "open        ", "close       ", &
-                                        "parameter   ", "allocate    ", "deallocate  ", &
+                                        "assignment  ", "intent      ", &
+                                        "in          ", &
+                                        "out         ", "inout       ", &
+                                        "stop        ", &
+                                        "return      ", "cycle       ", &
+                                        "exit        ", &
+                                        "where       ", "elsewhere   ", &
+                                        "optional    ", &
+                                        "present     ", "open        ", &
+                                        "close       ", &
+                                        "parameter   ", "allocate    ", &
+                                        "deallocate  ", &
                                         "forall      ", "associate   " &
                                         ]
 
@@ -98,7 +104,8 @@ contains
 
                 ! Comments - capture and emit as tokens
             else if (ch == '!') then
-                call scan_comment(source, pos, line_num, col_num, temp_tokens, token_count)
+                call scan_comment(source, pos, line_num, col_num, &
+                    temp_tokens, token_count)
 
                 ! Logical constants and operators (starting with '.')
             else if (ch == '.') then

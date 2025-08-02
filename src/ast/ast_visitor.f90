@@ -182,7 +182,8 @@ module ast_visitor
     public :: ast_visitor_t, debug_visitor_t
     public :: program_accept, assignment_accept, binary_op_accept
     public :: function_def_accept, subroutine_def_accept
-    public :: call_or_subscript_accept, subroutine_call_accept, identifier_accept, literal_accept
+    public :: call_or_subscript_accept, subroutine_call_accept, &
+              identifier_accept, literal_accept
     public :: use_statement_accept, include_statement_accept, print_statement_accept
     public :: declaration_accept, do_loop_accept, do_while_accept, if_accept
 public :: select_case_accept, derived_type_accept, interface_block_accept, module_accept
@@ -465,7 +466,8 @@ contains
         class(debug_visitor_t), intent(inout) :: this
         class(literal_node), intent(in) :: node
 
-        call append_debug(this, "literal: "//node%value//" kind="//int_to_string(node%literal_kind))
+        call append_debug(this, "literal: "//node%value//" kind="// &
+            int_to_string(node%literal_kind))
     end subroutine debug_visit_literal
 
     subroutine debug_visit_declaration(this, node)
@@ -481,7 +483,8 @@ contains
 
         call append_debug(this, "print_statement: "//node%format_spec)
         if (allocated(node%expression_indices)) then
-         call append_debug(this, "expression_indices: "//int_array_to_string(node%expression_indices))
+         call append_debug(this, "expression_indices: "// &
+            int_array_to_string(node%expression_indices))
         end if
     end subroutine debug_visit_print_statement
 

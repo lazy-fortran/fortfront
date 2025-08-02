@@ -2,7 +2,8 @@ module frontend
     ! fortfront - Core analysis frontend
     ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
     
-    use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE
+    use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
+                           TK_COMMENT, TK_NEWLINE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
@@ -168,16 +169,19 @@ contains
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, prog_index, error_msg)
         if (error_msg /= "") return
-       ! if (options%debug_ast) call debug_output_ast(tokens_json_file, arena, prog_index)
+       ! if (options%debug_ast) call debug_output_ast(tokens_json_file, &
+       !                                           arena, prog_index)
 
         ! Phase 3: Semantic Analysis (only for lazy fortran)
         ! Use the version with INTENT checking
         call analyze_program_with_checks(arena, prog_index)
-        ! if (options%debug_semantic) call debug_output_semantic(tokens_json_file, arena, prog_index)
+        ! if (options%debug_semantic) call debug_output_semantic( &
+        !                                    tokens_json_file, arena, prog_index)
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
         call standardize_ast(arena, prog_index)
-        ! if (options%debug_standardize) call debug_output_standardize(tokens_json_file, arena, prog_index)
+        ! if (options%debug_standardize) call debug_output_standardize( &
+        !                                       tokens_json_file, arena, prog_index)
 
         ! Phase 5: Code Generation
         call generate_fortran_code(arena, prog_index, code)
@@ -214,11 +218,13 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             sem_ctx = create_semantic_context()
             call analyze_program(sem_ctx, arena, prog_index)
         end block
-        ! if (options%debug_semantic) call debug_output_semantic(ast_json_file, arena, prog_index)
+        ! if (options%debug_semantic) call debug_output_semantic( &
+        !                                    ast_json_file, arena, prog_index)
 
         ! Phase 4: Standardization
         call standardize_ast(arena, prog_index)
-        ! if (options%debug_standardize) call debug_output_standardize(ast_json_file, arena, prog_index)
+        ! if (options%debug_standardize) call debug_output_standardize( &
+        !                                       ast_json_file, arena, prog_index)
 
         ! Phase 5: Code Generation
         call generate_fortran_code(arena, prog_index, code)
@@ -247,7 +253,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         arena = create_ast_arena()
         prog_index = push_literal(arena, "! Semantic JSON loading not implemented", &
                                  LITERAL_STRING, 1, 1)
-        ! if (options%debug_semantic) ! call debug_output_semantic(semantic_json_file, arena, prog_index)
+        ! if (options%debug_semantic) ! call debug_output_semantic( &
+        !                                     semantic_json_file, arena, prog_index)
 
         ! Phase 4: Code Generation (direct from annotated AST)
         call generate_fortran_code(arena, prog_index, code)
@@ -289,7 +296,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         allocate (body_indices(0))
         has_explicit_program_unit = .false.
 
-        ! Check if file starts with explicit 'program', 'module', 'function', or 'subroutine' statement
+        ! Check if file starts with explicit 'program', 'module', &
+        ! 'function', or 'subroutine' statement
         do i = 1, size(tokens)
             if (tokens(i)%kind == TK_KEYWORD) then
                 if (tokens(i)%text == "program" .or. tokens(i)%text == "module") then
@@ -349,7 +357,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 integer :: j
                 unit_has_content = .false.
                 do j = unit_start, unit_end
-                    if (tokens(j)%kind /= TK_EOF .and. tokens(j)%kind /= TK_NEWLINE .and. &
+                    if (tokens(j)%kind /= TK_EOF .and. &
+                        tokens(j)%kind /= TK_NEWLINE .and. &
                         tokens(j)%kind /= TK_COMMENT) then
                         unit_has_content = .true.
                         exit
@@ -363,7 +372,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 end if
             end block
             
-            ! Skip empty units, units with just EOF, or single-token keywords that are part of larger constructs
+            ! Skip empty units, units with just EOF, or single-token keywords
+            ! that are part of larger constructs
             if (unit_end >= unit_start .and. &
           .not. (unit_end == unit_start .and. tokens(unit_start)%kind == TK_EOF) .and. &
        .not. (unit_end == unit_start .and. tokens(unit_start)%kind == TK_KEYWORD .and. &
@@ -384,11 +394,13 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
 
                 ! Debug: Extracted tokens for do construct
 
-                    ! call log_verbose("parsing", "Extracted " // trim(adjustl(int_to_str(size(unit_tokens)))) // &
-                    !              " tokens for unit")
+                    ! call log_verbose("parsing", "Extracted " // &
+                    !      trim(adjustl(int_to_str(size(unit_tokens)))) // &
+                    !      " tokens for unit")
 
                 ! Parse the program unit
-                stmt_index = parse_program_unit(unit_tokens, arena, has_explicit_program_unit)
+                stmt_index = parse_program_unit(unit_tokens, arena, &
+                                               has_explicit_program_unit)
 
                 if (stmt_index > 0) then
                     ! Add to body indices
@@ -411,7 +423,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end do
 
         ! Create program node with collected body indices
-        ! Only wrap in implicit program if there's no explicit program unit (program/module/function/subroutine)
+        ! Only wrap in implicit program if there's no explicit program unit
+        ! (program/module/function/subroutine)
         if (.not. has_explicit_program_unit) then
             ! For lazy fortran, parse_all_statements already created the program node
             if (stmt_count > 0) then
@@ -504,9 +517,10 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 if (i /= start_pos) then
                     if (in_function .and. is_function_start(tokens, i)) then
                         nesting_level = nesting_level + 1
-                       ! call log_verbose("parsing", "Found nested function at token "// &
-                       !                trim(adjustl(int_to_str(i)))//", nesting level now: "// &
-                       !                          trim(adjustl(int_to_str(nesting_level))))
+                       ! call log_verbose("parsing", &
+                       !     "Found nested function at token "// &
+                       !      trim(adjustl(int_to_str(i)))//", nesting level now: "// &
+                       !      trim(adjustl(int_to_str(nesting_level))))
                     else if (in_subroutine .and. is_subroutine_start(tokens, i)) then
                         nesting_level = nesting_level + 1
                     else if (in_module .and. is_module_start(tokens, i)) then
@@ -524,8 +538,9 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 ! Check for end constructs
                 if (in_function .and. is_end_function(tokens, i)) then
                     nesting_level = nesting_level - 1
-               ! call log_verbose("parsing", "Found END FUNCTION, nesting level now: "// &
-               !                      trim(adjustl(int_to_str(nesting_level))))
+               ! call log_verbose("parsing", &
+               !      "Found END FUNCTION, nesting level now: "// &
+               !      trim(adjustl(int_to_str(nesting_level))))
                     unit_end = i + 1  ! Include both "end" and "function" tokens
                     i = i + 2  ! Skip both "end" and "function" tokens
                     ! Don't fall through to else block
@@ -660,7 +675,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             ! Program definition
             unit_index = parse_statement_dispatcher(tokens, arena)
         else
-            ! If we're in explicit program unit mode, don't create implicit program wrappers
+            ! If we're in explicit program unit mode, don't create
+            ! implicit program wrappers
             if (has_explicit_program) then
                 unit_index = 0
             else
@@ -671,7 +687,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     integer :: k
                     has_real_content = .false.
                     do k = 1, size(tokens)
-                        if (tokens(k)%kind /= TK_EOF .and. tokens(k)%kind /= TK_NEWLINE .and. &
+                        if (tokens(k)%kind /= TK_EOF .and. &
+                            tokens(k)%kind /= TK_NEWLINE .and. &
                             tokens(k)%kind /= TK_COMMENT) then
                             has_real_content = .true.
                             exit
@@ -738,8 +755,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             ! Debug: Show next token if available
             if (i <= size(tokens)) then
                 ! call log_verbose("parse_all", "Next token: '"//tokens(i)%text// &
-                !                "' (kind="//trim(adjustl(int_to_str(tokens(i)%kind)))// &
-                !               ", line="//trim(adjustl(int_to_str(tokens(i)%line)))//")")
+                !      "' (kind="//trim(adjustl(int_to_str(tokens(i)%kind)))// &
+                !      ", line="//trim(adjustl(int_to_str(tokens(i)%line)))//")")
             end if
 
             ! Check bounds

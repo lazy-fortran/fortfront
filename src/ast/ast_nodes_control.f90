@@ -22,7 +22,8 @@ module ast_nodes_control
     ! Case statement wrapper (temporary for parser compatibility)
     type, public :: case_wrapper
         character(len=:), allocatable :: case_type    ! "case", "case_default"
-        class(ast_node), allocatable :: value         ! Case value (optional for default)
+        class(ast_node), allocatable :: value         ! Case value (optional &
+                                                        ! for default)
         type(ast_node_wrapper), allocatable :: body(:) ! Case body
     end type case_wrapper
 
@@ -31,7 +32,8 @@ module ast_nodes_control
         integer :: condition_index = 0                ! If condition arena index
         integer, allocatable :: then_body_indices(:) ! Then body arena indices
         type(elseif_wrapper), allocatable :: elseif_blocks(:) ! Elseif blocks (optional)
-        integer, allocatable :: else_body_indices(:) ! Else body arena indices (optional)
+        integer, allocatable :: else_body_indices(:) ! Else body arena indices &
+                                                      ! (optional)
     contains
         procedure :: accept => if_accept
         procedure :: to_json => if_to_json
@@ -45,7 +47,8 @@ module ast_nodes_control
         character(len=:), allocatable :: label        ! Loop label (optional)
         integer :: start_expr_index = 0               ! Start expression arena index
         integer :: end_expr_index = 0                 ! End expression arena index
-        integer :: step_expr_index = 0                ! Step expression arena index (optional)
+        integer :: step_expr_index = 0                ! Step expression arena &
+                                                        ! index (optional)
         integer, allocatable :: body_indices(:)       ! Loop body arena indices
     contains
         procedure :: accept => do_loop_accept
@@ -104,7 +107,8 @@ module ast_nodes_control
     type, extends(ast_node), public :: select_case_node
         integer :: selector_index = 0                 ! Selector expression arena index
         integer, allocatable :: case_indices(:)       ! Case block arena indices
-        integer :: default_index = 0                  ! Default case arena index (optional)
+        integer :: default_index = 0                  ! Default case arena index &
+                                                        ! (optional)
     contains
         procedure :: accept => select_case_accept
         procedure :: to_json => select_case_to_json
@@ -202,7 +206,8 @@ module ast_nodes_control
 
     ! Stop statement node
     type, extends(ast_node), public :: stop_node
-        integer :: stop_code_index = 0                ! Optional stop code expression index
+        integer :: stop_code_index = 0                ! Optional stop code &
+                                                        ! expression index
         character(len=:), allocatable :: stop_message ! Optional stop message string
     contains
         procedure :: accept => stop_accept
@@ -264,6 +269,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific fields
         lhs%condition_index = rhs%condition_index
@@ -307,6 +314,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         lhs%var_name = rhs%var_name
@@ -338,8 +347,22 @@ contains
     subroutine do_while_assign(lhs, rhs)
         class(do_while_node), intent(inout) :: lhs
         class(do_while_node), intent(in) :: rhs
+        ! Copy base class components
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        end if
+        ! Copy specific components
         lhs%condition_index = rhs%condition_index
-        if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
+        if (allocated(rhs%body_indices)) then
+            if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
+            allocate(lhs%body_indices(size(rhs%body_indices)))
+            lhs%body_indices = rhs%body_indices
+        end if
     end subroutine do_while_assign
 
     ! Stub implementations for forall_node
@@ -390,6 +413,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         lhs%num_indices = rhs%num_indices
@@ -445,7 +470,8 @@ contains
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         call json%add(obj, 'selector_index', this%selector_index)
-        if (this%default_index > 0) call json%add(obj, 'default_index', this%default_index)
+        if (this%default_index > 0) call json%add(obj, 'default_index', &
+                                                   this%default_index)
         call json%add(parent, obj)
     end subroutine select_case_to_json
 
@@ -458,6 +484,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         lhs%selector_index = rhs%selector_index
@@ -498,6 +526,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Deep copy allocatable arrays
         if (allocated(rhs%value_indices)) then
@@ -542,6 +572,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         lhs%start_value = rhs%start_value
@@ -576,6 +608,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Deep copy allocatable array
         if (allocated(rhs%body_indices)) then
@@ -625,6 +659,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         lhs%mask_expr_index = rhs%mask_expr_index
         if (allocated(rhs%where_body_indices)) then
@@ -636,10 +672,13 @@ contains
             if (allocated(lhs%elsewhere_clauses)) deallocate(lhs%elsewhere_clauses)
             allocate(lhs%elsewhere_clauses(size(rhs%elsewhere_clauses)))
             do i = 1, size(rhs%elsewhere_clauses)
-                lhs%elsewhere_clauses(i)%mask_index = rhs%elsewhere_clauses(i)%mask_index
+                lhs%elsewhere_clauses(i)%mask_index = &
+                    rhs%elsewhere_clauses(i)%mask_index
                 if (allocated(rhs%elsewhere_clauses(i)%body_indices)) then
-                    allocate(lhs%elsewhere_clauses(i)%body_indices(size(rhs%elsewhere_clauses(i)%body_indices)))
-                    lhs%elsewhere_clauses(i)%body_indices = rhs%elsewhere_clauses(i)%body_indices
+                    allocate(lhs%elsewhere_clauses(i)%body_indices( &
+                        size(rhs%elsewhere_clauses(i)%body_indices)))
+                    lhs%elsewhere_clauses(i)%body_indices = &
+                        rhs%elsewhere_clauses(i)%body_indices
                 end if
             end do
         end if
@@ -675,6 +714,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine cycle_assign
@@ -707,6 +748,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine exit_assign
@@ -727,8 +770,10 @@ contains
         call json%add(obj, 'type', 'stop')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
-        if (this%stop_code_index > 0) call json%add(obj, 'stop_code_index', this%stop_code_index)
-        if (allocated(this%stop_message)) call json%add(obj, 'stop_message', this%stop_message)
+        if (this%stop_code_index > 0) call json%add(obj, 'stop_code_index', &
+                                                   this%stop_code_index)
+        if (allocated(this%stop_message)) call json%add(obj, 'stop_message', &
+                                                      this%stop_message)
         call json%add(parent, obj)
     end subroutine stop_to_json
 
@@ -740,6 +785,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         lhs%stop_code_index = rhs%stop_code_index
         if (allocated(rhs%stop_message)) lhs%stop_message = rhs%stop_message
@@ -772,6 +819,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
     end subroutine return_assign
 
@@ -828,6 +877,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
 
         ! Copy associations
@@ -846,7 +897,9 @@ contains
     end subroutine associate_assign
 
     ! Factory functions
-    function create_do_loop(var_name, start_expr_index, end_expr_index, step_expr_index, body_indices, line, column) result(node)
+    function create_do_loop(var_name, start_expr_index, end_expr_index, &
+                            step_expr_index, body_indices, line, column) &
+                            result(node)
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: start_expr_index, end_expr_index
         integer, intent(in), optional :: step_expr_index
@@ -887,7 +940,8 @@ contains
         if (present(column)) node%column = column
     end function create_do_while
 
-    function create_if(condition_index, then_body_indices, elseif_blocks, else_body_indices, line, column) result(node)
+    function create_if(condition_index, then_body_indices, elseif_blocks, &
+                       else_body_indices, line, column) result(node)
         integer, intent(in) :: condition_index
         integer, intent(in), optional :: then_body_indices(:)
         type(elseif_wrapper), intent(in), optional :: elseif_blocks(:)
@@ -919,7 +973,8 @@ contains
         if (present(column)) node%column = column
     end function create_if
 
-    function create_select_case(expr_index, case_indices, default_index, line, column) result(node)
+    function create_select_case(expr_index, case_indices, default_index, &
+                                line, column) result(node)
         integer, intent(in) :: expr_index
         integer, intent(in), optional :: case_indices(:)
         integer, intent(in), optional :: default_index
@@ -967,6 +1022,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         lhs%mask_expr_index = rhs%mask_expr_index
         lhs%assignment_index = rhs%assignment_index

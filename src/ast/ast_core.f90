@@ -17,13 +17,15 @@ module ast_core
     ! Re-export all node types
     use ast_nodes_core, only: program_node, assignment_node, &
                               pointer_assignment_node, identifier_node, literal_node, &
-                              binary_op_node, call_or_subscript_node, array_literal_node, &
+                              binary_op_node, call_or_subscript_node, &
+                              array_literal_node, &
                               create_pointer_assignment, create_array_literal
     use ast_nodes_control, only: if_node, do_loop_node, do_while_node, forall_node, &
                                  elseif_wrapper, case_wrapper, &
                                  select_case_node, case_block_node, case_range_node, &
                                  case_default_node, &
-                                 where_node, cycle_node, exit_node, stop_node, return_node, &
+                                 where_node, cycle_node, exit_node, &
+                                 stop_node, return_node, &
                                  create_do_loop, create_do_while, create_if, &
                                  create_select_case
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
@@ -45,7 +47,8 @@ module ast_core
                                 get_array_bounds_node, get_array_slice_node, &
                                 get_range_expression_node, get_array_operation_node, &
                                 array_bounds_t, array_spec_t, &
-                                NODE_ARRAY_BOUNDS, NODE_ARRAY_SLICE, NODE_RANGE_EXPRESSION, &
+                                NODE_ARRAY_BOUNDS, NODE_ARRAY_SLICE, &
+                                NODE_RANGE_EXPRESSION, &
                                 NODE_ARRAY_OPERATION
     
     implicit none
@@ -72,11 +75,13 @@ module ast_core
               deallocate_statement_node
     public :: use_statement_node, include_statement_node, contains_node, &
               interface_block_node, comment_node
-    public :: array_bounds_node, array_slice_node, range_expression_node, array_operation_node
+    public :: array_bounds_node, array_slice_node, range_expression_node, &
+              array_operation_node
     public :: get_array_bounds_node, get_array_slice_node, get_range_expression_node, &
               get_array_operation_node
     public :: array_bounds_t, array_spec_t
-    public :: NODE_ARRAY_BOUNDS, NODE_ARRAY_SLICE, NODE_RANGE_EXPRESSION, NODE_ARRAY_OPERATION
+    public :: NODE_ARRAY_BOUNDS, NODE_ARRAY_SLICE, NODE_RANGE_EXPRESSION, &
+              NODE_ARRAY_OPERATION
     ! Re-export factory functions
     public :: create_pointer_assignment, create_array_literal, &
               create_function_def, create_subroutine_def, &
@@ -379,7 +384,8 @@ contains
                 ! Create a single elsewhere clause without mask
                 allocate(node%elsewhere_clauses(1))
                 node%elsewhere_clauses(1)%mask_index = 0
-                allocate(node%elsewhere_clauses(1)%body_indices(size(elsewhere_body_indices)))
+                allocate(node%elsewhere_clauses(1)%body_indices(&
+                    size(elsewhere_body_indices)))
                 node%elsewhere_clauses(1)%body_indices = elsewhere_body_indices
             end if
         end if

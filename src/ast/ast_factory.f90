@@ -106,7 +106,8 @@ contains
         call_node = create_call_or_subscript(name, arg_indices, line, column)
         
         ! Set intrinsic function information efficiently
-        call get_intrinsic_info(name, call_node%is_intrinsic, call_node%intrinsic_signature)
+        call get_intrinsic_info(name, call_node%is_intrinsic, &
+            call_node%intrinsic_signature)
         
         call arena%push(call_node, "call_or_subscript", parent_index)
         call_index = arena%size
@@ -206,7 +207,8 @@ contains
     ! Create declaration node and add to stack
   function push_declaration(arena, type_name, var_name, kind_value, &
        dimension_indices, &
-       initializer_index, is_allocatable, is_pointer, is_target, intent_value, line, column, &
+       initializer_index, is_allocatable, is_pointer, is_target, &
+       intent_value, line, column, &
        parent_index) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name, var_name
@@ -1225,11 +1227,13 @@ contains
         ! Validate where body indices
         if (present(where_body_indices)) then
             do i = 1, size(where_body_indices)
-                if (where_body_indices(i) <= 0 .or. where_body_indices(i) > arena%size) then
+                if (where_body_indices(i) <= 0 .or. &
+                    where_body_indices(i) > arena%size) then
                     error stop "Invalid where body index in push_where"
                 end if
                 if (.not. allocated(arena%entries(where_body_indices(i))%node)) then
-                    error stop "Where body index references unallocated node in push_where"
+                    error stop "Where body index references unallocated node " // &
+                        "in push_where"
                 end if
             end do
         end if
@@ -1237,11 +1241,13 @@ contains
         ! Validate elsewhere body indices
         if (present(elsewhere_body_indices)) then
             do i = 1, size(elsewhere_body_indices)
-                if (elsewhere_body_indices(i) <= 0 .or. elsewhere_body_indices(i) > arena%size) then
+                if (elsewhere_body_indices(i) <= 0 .or. &
+                    elsewhere_body_indices(i) > arena%size) then
                     error stop "Invalid elsewhere body index in push_where"
                 end if
                 if (.not. allocated(arena%entries(elsewhere_body_indices(i))%node)) then
-                    error stop "Elsewhere body index references unallocated node in push_where"
+                    error stop "Elsewhere body index references unallocated " // &
+                        "node in push_where"
                 end if
             end do
         end if
@@ -1325,7 +1331,8 @@ contains
         ! Validate inputs
         if (object_index <= 0 .or. object_index > arena%size) then
             ! Create error node for invalid base
-            access_index = push_literal(arena, "!ERROR: Invalid base for component access", &
+            access_index = push_literal(arena, &
+                "!ERROR: Invalid base for component access", &
                                       LITERAL_STRING, line, column)
             return
         end if
@@ -1338,7 +1345,8 @@ contains
         end if
 
         ! Create proper component access node
-        access_node = create_component_access(object_index, component_name, line, column)
+        access_node = create_component_access(object_index, component_name, &
+            line, column)
 
         call arena%push(access_node, "component_access", parent_index)
         access_index = arena%size
@@ -1359,13 +1367,15 @@ contains
         ! Validate base expression index
         if (base_expr_index <= 0 .or. base_expr_index > arena%size) then
             ! Create error node for invalid base expression
-            subscript_index = push_literal(arena, "!ERROR: Invalid base for range subscript", &
+            subscript_index = push_literal(arena, &
+                "!ERROR: Invalid base for range subscript", &
                                          LITERAL_STRING, line, column)
             return
         end if
         
         ! Create range subscript node
-        subscript_node = create_range_subscript(base_expr_index, start_index, end_index, &
+        subscript_node = create_range_subscript(base_expr_index, start_index, &
+            end_index, &
                                                    line, column)
         
         call arena%push(subscript_node, "range_subscript", parent_index)
@@ -1619,8 +1629,8 @@ contains
     end function push_range_expression
 
     ! Create call or subscript with array slice detection
-    function push_call_or_subscript_with_slice_detection(arena, name, arg_indices, &
-                                                        line, column, parent_index) result(node_index)
+    function push_call_or_subscript_with_slice_detection(arena, name, &
+        arg_indices, line, column, parent_index) result(node_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in) :: arg_indices(:)
@@ -1648,7 +1658,8 @@ contains
             ! Semantic analysis will set is_character_substring flag for character types
             block
                 integer :: array_name_index
-                array_name_index = push_identifier(arena, name, line, column, parent_index)
+                array_name_index = push_identifier(arena, name, line, column, &
+                    parent_index)
                 node_index = push_array_slice(arena, array_name_index, &
                     arg_indices, size(arg_indices), line, column, parent_index)
             end block

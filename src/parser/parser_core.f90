@@ -1,23 +1,26 @@
 module parser_core
     use lexer_core
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_expressions_module, only: parse_expression, parse_logical_or, parse_logical_and, &
-          parse_comparison, parse_member_access, parse_term, parse_factor, parse_primary
-    use parser_statements_module, only: parse_function_definition, parse_subroutine_definition, &
+    use parser_expressions_module, only: parse_expression, parse_logical_or, &
+          parse_logical_and, parse_comparison, parse_member_access, parse_term, &
+          parse_factor, parse_primary
+    use parser_statements_module, only: parse_function_definition, &
+                                        parse_subroutine_definition, &
                                         parse_interface_block, parse_module
-    use parser_control_flow_module, only: parse_do_loop, parse_do_while, parse_select_case, parse_if, &
+    use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
+                                          parse_select_case, parse_if, &
                                           parse_if_condition, parse_if_body
     use parser_dispatcher_module, only: parse_statement_dispatcher
-    use ast_core, only: ast_node, ast_node_wrapper, ast_arena_t, create_ast_arena, assignment_node, binary_op_node, &
-             identifier_node, literal_node, call_or_subscript_node, function_def_node, &
-                        subroutine_def_node, print_statement_node, use_statement_node, &
-                include_statement_node, declaration_node, do_loop_node, do_while_node, &
-                        if_node, elseif_wrapper, select_case_node, case_wrapper, &
-                        derived_type_node, interface_block_node, module_node, &
-                        create_assignment, create_binary_op, create_identifier, &
-                        create_literal, create_call_or_subscript, create_function_def, &
-                        create_subroutine_def, create_print_statement, &
-                   create_use_statement, create_include_statement, create_declaration, &
+    use ast_core, only: ast_node, ast_node_wrapper, ast_arena_t, create_ast_arena, &
+             assignment_node, binary_op_node, identifier_node, literal_node, &
+             call_or_subscript_node, function_def_node, subroutine_def_node, &
+             print_statement_node, use_statement_node, include_statement_node, &
+             declaration_node, do_loop_node, do_while_node, if_node, elseif_wrapper, &
+             select_case_node, case_wrapper, derived_type_node, interface_block_node, &
+             module_node, create_assignment, create_binary_op, create_identifier, &
+             create_literal, create_call_or_subscript, create_function_def, &
+             create_subroutine_def, create_print_statement, create_use_statement, &
+             create_include_statement, create_declaration, &
                        create_do_loop, create_do_while, create_if, create_select_case, &
                         create_derived_type, create_interface_block, create_module, &
                         LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
@@ -31,9 +34,11 @@ module parser_core
 
 contains
 
-    ! REMOVED: parse_statement - use the arena-based version in parser_dispatcher_module instead
+    ! REMOVED: parse_statement - use the arena-based version in &
+    ! parser_dispatcher_module instead
 
-    ! REMOVED: parse_declaration - use the arena-based version in parser_declarations_module instead
+    ! REMOVED: parse_declaration - use the arena-based version in &
+    ! parser_declarations_module instead
 
     ! Parse array dimensions inside parentheses
     subroutine parse_array_dimensions(parser, dimensions)
@@ -97,15 +102,18 @@ contains
                    source=create_literal(first_number//":"//token%text, LITERAL_STRING))
                         else
                             ! Just first_number:
-                            allocate (temp_dims(dim_count)%node, source=create_literal(first_number//":", LITERAL_STRING))
+                            allocate (temp_dims(dim_count)%node, &
+                                source=create_literal(first_number//":", LITERAL_STRING))
                         end if
                     else
                         ! Just a fixed size dimension
-                        allocate (temp_dims(dim_count)%node, source=create_literal(first_number, LITERAL_INTEGER))
+                        allocate (temp_dims(dim_count)%node, &
+                            source=create_literal(first_number, LITERAL_INTEGER))
                     end if
                 end block
             else
-                ! More complex dimension expressions - for now, just consume as identifier
+                ! More complex dimension expressions - for now, just consume &
+                ! as identifier
                 token = parser%consume()
  allocate (temp_dims(dim_count)%node, source=create_literal(token%text, LITERAL_STRING))
             end if
@@ -128,13 +136,18 @@ contains
 
     end subroutine parse_array_dimensions
 
-    ! REMOVED: parse_derived_type - use the arena-based version in parser_declarations_module instead
-    ! REMOVED: parse_derived_type_parameters - use the arena-based version in parser_declarations_module instead
+    ! REMOVED: parse_derived_type - use the arena-based version in &
+    ! parser_declarations_module instead
+    ! REMOVED: parse_derived_type_parameters - use the arena-based version &
+    ! in parser_declarations_module instead
 
-    ! REMOVED: parse_print_statement - use the arena-based version in parser_statements_module instead
+    ! REMOVED: parse_print_statement - use the arena-based version in &
+    ! parser_statements_module instead
 
-    ! REMOVED: parse_use_statement - use the arena-based version in parser_statements_module instead
-    ! REMOVED: parse_include_statement - use the arena-based version in parser_statements_module instead
+    ! REMOVED: parse_use_statement - use the arena-based version in &
+    ! parser_statements_module instead
+    ! REMOVED: parse_include_statement - use the arena-based version in &
+    ! parser_statements_module instead
 
     ! Parse do loop: do var = start, end [, step]
 

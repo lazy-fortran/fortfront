@@ -114,7 +114,8 @@ contains
     end subroutine subroutine_call_assign
 
     ! Factory functions
-    function create_function_def(name, param_indices, return_type, body_indices, line, column) result(node)
+    function create_function_def(name, param_indices, return_type, &
+                                body_indices, line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         character(len=*), intent(in) :: return_type
@@ -138,7 +139,8 @@ contains
         if (present(column)) node%column = column
     end function create_function_def
 
-    function create_subroutine_def(name, param_indices, body_indices, line, column) result(node)
+    function create_subroutine_def(name, param_indices, body_indices, &
+                                  line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         integer, intent(in), optional :: body_indices(:)
