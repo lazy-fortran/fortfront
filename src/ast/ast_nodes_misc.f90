@@ -136,8 +136,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         lhs%real_index = rhs%real_index
@@ -178,8 +181,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         if (allocated(rhs%var_indices)) then
@@ -228,8 +234,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         if (allocated(rhs%var_indices)) then
@@ -270,8 +279,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         if (allocated(rhs%module_name)) lhs%module_name = rhs%module_name
@@ -315,8 +327,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         if (allocated(rhs%filename)) lhs%filename = rhs%filename
@@ -348,8 +363,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
     end subroutine contains_assign
 
@@ -382,8 +400,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy specific components
         if (allocated(rhs%name)) lhs%name = rhs%name
@@ -424,8 +445,11 @@ contains
         lhs%line = rhs%line
         lhs%column = rhs%column
         if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy comment text
         if (allocated(rhs%text)) lhs%text = rhs%text
