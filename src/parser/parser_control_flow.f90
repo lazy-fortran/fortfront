@@ -1330,6 +1330,7 @@ contains
                 ! Expect '=>'
                 token = parser%peek()
                 if (token%kind /= TK_OPERATOR .or. token%text /= "=>") then
+                    deallocate(associations)
                     assoc_index = 0
                     return
                 end if
@@ -1338,6 +1339,8 @@ contains
                 ! Parse expression
                 expr_index = parse_expression(parser%tokens(parser%current_token:), arena)
                 if (expr_index <= 0) then
+                    deallocate(associations)
+                    deallocate(body_indices)
                     assoc_index = 0
                     return
                 end if
@@ -1383,9 +1386,7 @@ contains
                         type(association_t), allocatable :: temp(:)
                         allocate(temp(size(associations) * 2))
                         temp(1:size(associations)) = associations
-                        deallocate(associations)
-                        allocate(associations(size(temp)))
-                        associations = temp
+                        call move_alloc(temp, associations)
                     end block
                 end if
                 
@@ -1402,6 +1403,7 @@ contains
                 token = parser%consume()
                 exit
             else
+                deallocate(associations)
                 assoc_index = 0
                 return
             end if
