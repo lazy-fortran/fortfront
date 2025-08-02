@@ -1,6 +1,12 @@
 module ast_core
     ! Compatibility module that re-exports all AST modules
     ! This allows existing code to continue working during the transition
+    !
+    ! WARNING: AST Node Copying is STRICTLY FORBIDDEN
+    ! ===============================================
+    ! Do NOT create any functions that copy AST nodes. Nodes contain
+    ! complex allocatable components that will cause segmentation faults
+    ! and memory corruption if copied. Use ONLY the visitor pattern.
     
     use type_system_hm, only: mono_type_t
     use intrinsic_registry, only: get_intrinsic_info
