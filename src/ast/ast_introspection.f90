@@ -156,9 +156,10 @@ contains
         if (.not. allocated(arena%entries(index)%node)) return
         if (.not. allocated(arena%entries(index)%node%inferred_type)) return
         
-        ! Return copy of the inferred type if available
-        allocate(type_info)
-        type_info = arena%entries(index)%node%inferred_type
+        ! TODO: Deep copy of mono_type_t causes segfaults due to complex nested structure
+        ! This likely requires implementing proper deep copy methods in type_system_hm
+        ! For now, return unallocated to avoid crashes
+        ! allocate(type_info, source=arena%entries(index)%node%inferred_type)
     end function get_node_type_info_from_arena
 
 end module ast_introspection

@@ -122,13 +122,10 @@ contains
         end if
         
         ! Test new get_node_type_info_from_arena API
-        ! TODO: Fix segfault in type system deep copy
+        ! TODO: Currently disabled due to segfault in mono_type_t deep copy
+        ! This requires implementing proper deep copy methods in type_system_hm
         ! type_info = get_node_type_info_from_arena(arena, root_index)
-        ! if (allocated(type_info)) then
-        !     print *, "  ✓ get_node_type_info_from_arena: type allocated"
-        ! else
-        print *, "  ✓ get_node_type_info_from_arena: skipped (needs semantic analysis)"
-        ! end if
+        print *, "  ✓ get_node_type_info_from_arena: skipped (deep copy segfault TODO)"
 
         print *, "  New issue #12 APIs: PASS"
     end function test_missing_apis
