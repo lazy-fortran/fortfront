@@ -1,11 +1,13 @@
 module parser_expressions_module
     use iso_fortran_env, only: error_unit
-    use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
+    use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, &
+                          TK_OPERATOR, TK_KEYWORD
     use ast_core
     use ast_nodes_core, only: component_access_node, identifier_node
     use ast_factory, only: push_binary_op, push_literal, push_identifier, &
                            push_call_or_subscript, push_array_literal, &
-                           push_range_expression, push_call_or_subscript_with_slice_detection, &
+                           push_range_expression, &
+                           push_call_or_subscript_with_slice_detection, &
                            push_component_access
     use parser_state_module, only: parser_state_t, create_parser_state
     use codegen_core, only: generate_code_from_arena
