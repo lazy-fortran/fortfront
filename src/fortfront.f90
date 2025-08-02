@@ -5,6 +5,26 @@ module fortfront
     ! - AST Construction and Arena Management
     ! - Semantic Analysis with Type Inference
     ! - Code Generation
+    !
+    ! IMPORTANT: AST Node Access Policy
+    ! =================================
+    ! AST nodes MUST NOT be copied due to complex allocatable components
+    ! that can cause memory corruption and segmentation faults.
+    ! 
+    ! USE ONLY the visitor pattern for safe node access:
+    !   - visit_node_at() for visiting nodes by index
+    !   - AST traversal functions with custom visitors
+    !
+    ! DO NOT attempt to:
+    !   - Copy nodes with allocate(source=...)
+    !   - Create functions that return node copies
+    !   - Perform shallow copies of nodes
+    !
+    ! For read-only access to node properties, use:
+    !   - get_node_type_id_from_arena()
+    !   - get_node_source_location_from_arena()
+    !   - get_node_type_kind()
+    !   - get_node_type_details()
     
     ! Re-export core pipeline functionality
     use frontend, only: lex_source, parse_tokens, analyze_semantics, &
@@ -47,6 +67,12 @@ module fortfront
     use scope_manager, only: scope_stack_t, SCOPE_GLOBAL, SCOPE_MODULE, &
                            SCOPE_FUNCTION, SCOPE_SUBROUTINE, SCOPE_BLOCK, &
                            SCOPE_INTERFACE
+    
+    ! Re-export AST introspection APIs for issue #12
+    use ast_introspection, only: visit_node_at, get_node_type_id, has_semantic_info, &
+                                get_node_source_location, &
+                                get_node_type_kind, get_node_type_details, &
+                                get_node_type_id_from_arena, get_node_source_location_from_arena
     
     ! Re-export AST traversal and visitor functionality
     use ast_traversal, only: traverse_ast_visitor => traverse_ast, &
@@ -101,6 +127,12 @@ module fortfront
               get_literal_value, get_call_info, get_array_literal_info, &
               get_program_info, get_declaration_info, get_parameter_declaration_info, &
               get_declaration_details, get_parameter_declaration_details
+    
+    ! Public AST introspection APIs for issue #12
+    public :: visit_node_at, get_node_type_id, get_node_source_location, &
+              has_semantic_info, &
+              get_node_type_kind, get_node_type_details, &
+              get_node_type_id_from_arena, get_node_source_location_from_arena
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
