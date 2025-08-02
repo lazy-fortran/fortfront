@@ -5,7 +5,8 @@ module ast_nodes_bounds
     implicit none
     private
 
-    public :: array_bounds_node, array_slice_node, range_expression_node, array_operation_node
+    public :: array_bounds_node, array_slice_node, range_expression_node, &
+              array_operation_node
     public :: get_array_bounds_node, get_array_slice_node, get_range_expression_node, &
               get_array_operation_node
     public :: array_bounds_t, array_spec_t
@@ -44,9 +45,12 @@ module ast_nodes_bounds
     ! Represents array bounds information (lower:upper:stride)
     type, extends(ast_node) :: array_bounds_node
         integer :: node_type = NODE_ARRAY_BOUNDS
-        integer :: lower_bound_index = -1  ! Index to lower bound expression (-1 if implicit)
-        integer :: upper_bound_index = -1  ! Index to upper bound expression (-1 if implicit)
-        integer :: stride_index = -1       ! Index to stride expression (-1 if no stride)
+        integer :: lower_bound_index = -1  ! Index to lower bound expression
+        ! (-1 if implicit)
+        integer :: upper_bound_index = -1  ! Index to upper bound expression
+        ! (-1 if implicit)
+        integer :: stride_index = -1       ! Index to stride expression
+        ! (-1 if no stride)
         logical :: is_assumed_shape = .false.  ! True for (:) bounds
         logical :: is_deferred_shape = .false. ! True for allocatable/pointer arrays
         logical :: is_assumed_size = .false.   ! True for (*) last dimension
@@ -61,7 +65,8 @@ module ast_nodes_bounds
     type, extends(ast_node) :: array_slice_node
         integer :: node_type = NODE_ARRAY_SLICE
         integer :: array_index            ! Index to array expression being sliced
-        integer :: bounds_indices(10)     ! Indices to array_bounds_node for each dimension
+        integer :: bounds_indices(10)     ! Indices to array_bounds_node
+        ! for each dimension
         integer :: num_dimensions = 0     ! Number of dimensions in slice
         ! Resolution flag (set during semantic analysis)
         logical :: is_character_substring = .false.  ! true if substring

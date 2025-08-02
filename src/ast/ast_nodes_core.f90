@@ -60,7 +60,8 @@ module ast_nodes_core
     ! Literal node
     type, extends(ast_node), public :: literal_node
         character(len=:), allocatable :: value
-        character(len=:), allocatable :: literal_type  ! "integer", "real", "character", etc.
+        character(len=:), allocatable :: literal_type  ! "integer", "real",
+        ! "character", etc.
         integer :: literal_kind = 0  ! INTEGER_LITERAL, REAL_LITERAL, etc.
     contains
         procedure :: accept => literal_accept
@@ -89,7 +90,8 @@ module ast_nodes_core
         logical :: is_intrinsic = .false.
         character(len=:), allocatable :: intrinsic_signature
         ! Disambiguation flag (set during semantic analysis)
-        logical :: is_array_access = .false.  ! true if array indexing, false if function call
+        logical :: is_array_access = .false.  ! true if array indexing,
+        ! false if function call
     contains
         procedure :: accept => call_or_subscript_accept
         procedure :: to_json => call_or_subscript_to_json
@@ -126,7 +128,8 @@ module ast_nodes_core
     ! This ambiguity is resolved during semantic analysis
     type, extends(ast_node), public :: range_subscript_node
         integer :: base_expr_index      ! The expression being subscripted
-        integer :: start_index = -1     ! Start position expression (-1 if not specified)
+        integer :: start_index = -1     ! Start position expression
+        ! (-1 if not specified)
         integer :: end_index = -1       ! End position expression (-1 if not specified)
         ! Resolution flag (set during semantic analysis)
         logical :: is_character_substring = .false.  ! true if substring
@@ -386,7 +389,8 @@ contains
         
         ! Add intrinsic information
         call json%add(parent, 'is_intrinsic', this%is_intrinsic)
-        if (allocated(this%intrinsic_signature) .and. len_trim(this%intrinsic_signature) > 0) then
+        if (allocated(this%intrinsic_signature) .and. &
+            len_trim(this%intrinsic_signature) > 0) then
             call json%add(parent, 'intrinsic_signature', this%intrinsic_signature)
         end if
         
@@ -421,7 +425,8 @@ contains
         lhs%is_intrinsic = rhs%is_intrinsic
         lhs%is_array_access = rhs%is_array_access
         if (allocated(lhs%intrinsic_signature)) deallocate(lhs%intrinsic_signature)
-        if (allocated(rhs%intrinsic_signature) .and. len_trim(rhs%intrinsic_signature) > 0) then
+        if (allocated(rhs%intrinsic_signature) .and. &
+            len_trim(rhs%intrinsic_signature) > 0) then
             lhs%intrinsic_signature = rhs%intrinsic_signature
         end if
     end subroutine call_or_subscript_assign
@@ -456,7 +461,8 @@ contains
     end subroutine array_literal_assign
 
     ! Factory functions
-    function create_pointer_assignment(pointer_index, target_index, line, column) result(node)
+    function create_pointer_assignment(pointer_index, target_index, &
+                                      line, column) result(node)
         integer, intent(in) :: pointer_index
         integer, intent(in) :: target_index
         integer, intent(in), optional :: line, column
@@ -524,7 +530,8 @@ contains
     end subroutine component_access_assign
 
     ! Factory function for component access
-    function create_component_access(base_expr_index, component_name, line, column) result(node)
+    function create_component_access(base_expr_index, component_name, &
+                                    line, column) result(node)
         integer, intent(in) :: base_expr_index
         character(len=*), intent(in) :: component_name
         integer, intent(in), optional :: line, column

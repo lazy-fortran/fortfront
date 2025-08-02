@@ -66,7 +66,8 @@ contains
                     if (allocated(arena%entries(node%param_indices(i))%node)) then
                         select type (param => arena%entries(node%param_indices(i))%node)
                         type is (parameter_declaration_node)
-                            call ctx%param_tracker%add_parameter(param%name, param%intent)
+                            call ctx%param_tracker%add_parameter(param%name, &
+                                param%intent)
                         end select
                     end if
                 end do
@@ -93,7 +94,8 @@ contains
                     if (allocated(arena%entries(node%param_indices(i))%node)) then
                         select type (param => arena%entries(node%param_indices(i))%node)
                         type is (parameter_declaration_node)
-                            call ctx%param_tracker%add_parameter(param%name, param%intent)
+                            call ctx%param_tracker%add_parameter(param%name, &
+                                param%intent)
                         end select
                     end if
                 end do
@@ -149,7 +151,8 @@ contains
                 do i = 1, size(node%elsewhere_clauses)
                     if (allocated(node%elsewhere_clauses(i)%body_indices)) then
                         do j = 1, size(node%elsewhere_clauses(i)%body_indices)
-                            call check_all_assignments(ctx, arena, node%elsewhere_clauses(i)%body_indices(j))
+                            call check_all_assignments(ctx, arena, &
+                                node%elsewhere_clauses(i)%body_indices(j))
                         end do
                     end if
                 end do

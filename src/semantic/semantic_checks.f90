@@ -36,11 +36,13 @@ contains
                     var_name = target%name
                     
                     ! Check if variable is a parameter with intent
-                    call check_parameter_intent(ctx, var_name, is_parameter, intent_attr)
+                    call check_parameter_intent(ctx, var_name, is_parameter, &
+                        intent_attr)
                     
                     if (is_parameter .and. allocated(intent_attr)) then
                         if (intent_attr == "in") then
-                            error_msg = "Cannot modify INTENT(IN) parameter: " // var_name
+                            error_msg = "Cannot modify INTENT(IN) parameter: " // &
+                                var_name
                         end if
                     end if
                 end select

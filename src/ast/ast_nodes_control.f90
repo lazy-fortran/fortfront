@@ -22,7 +22,8 @@ module ast_nodes_control
     ! Case statement wrapper (temporary for parser compatibility)
     type, public :: case_wrapper
         character(len=:), allocatable :: case_type    ! "case", "case_default"
-        class(ast_node), allocatable :: value         ! Case value (optional for default)
+        class(ast_node), allocatable :: value         ! Case value (optional &
+                                                        ! for default)
         type(ast_node_wrapper), allocatable :: body(:) ! Case body
     end type case_wrapper
 
@@ -31,7 +32,8 @@ module ast_nodes_control
         integer :: condition_index = 0                ! If condition arena index
         integer, allocatable :: then_body_indices(:) ! Then body arena indices
         type(elseif_wrapper), allocatable :: elseif_blocks(:) ! Elseif blocks (optional)
-        integer, allocatable :: else_body_indices(:) ! Else body arena indices (optional)
+        integer, allocatable :: else_body_indices(:) ! Else body arena indices &
+                                                      ! (optional)
     contains
         procedure :: accept => if_accept
         procedure :: to_json => if_to_json
@@ -45,7 +47,8 @@ module ast_nodes_control
         character(len=:), allocatable :: label        ! Loop label (optional)
         integer :: start_expr_index = 0               ! Start expression arena index
         integer :: end_expr_index = 0                 ! End expression arena index
-        integer :: step_expr_index = 0                ! Step expression arena index (optional)
+        integer :: step_expr_index = 0                ! Step expression arena &
+                                                        ! index (optional)
         integer, allocatable :: body_indices(:)       ! Loop body arena indices
     contains
         procedure :: accept => do_loop_accept
@@ -104,7 +107,8 @@ module ast_nodes_control
     type, extends(ast_node), public :: select_case_node
         integer :: selector_index = 0                 ! Selector expression arena index
         integer, allocatable :: case_indices(:)       ! Case block arena indices
-        integer :: default_index = 0                  ! Default case arena index (optional)
+        integer :: default_index = 0                  ! Default case arena index &
+                                                        ! (optional)
     contains
         procedure :: accept => select_case_accept
         procedure :: to_json => select_case_to_json
@@ -202,7 +206,8 @@ module ast_nodes_control
 
     ! Stop statement node
     type, extends(ast_node), public :: stop_node
-        integer :: stop_code_index = 0                ! Optional stop code expression index
+        integer :: stop_code_index = 0                ! Optional stop code &
+                                                        ! expression index
         character(len=:), allocatable :: stop_message ! Optional stop message string
     contains
         procedure :: accept => stop_accept
@@ -445,7 +450,8 @@ contains
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         call json%add(obj, 'selector_index', this%selector_index)
-        if (this%default_index > 0) call json%add(obj, 'default_index', this%default_index)
+        if (this%default_index > 0) call json%add(obj, 'default_index', &
+                                                   this%default_index)
         call json%add(parent, obj)
     end subroutine select_case_to_json
 
@@ -636,10 +642,13 @@ contains
             if (allocated(lhs%elsewhere_clauses)) deallocate(lhs%elsewhere_clauses)
             allocate(lhs%elsewhere_clauses(size(rhs%elsewhere_clauses)))
             do i = 1, size(rhs%elsewhere_clauses)
-                lhs%elsewhere_clauses(i)%mask_index = rhs%elsewhere_clauses(i)%mask_index
+                lhs%elsewhere_clauses(i)%mask_index = &
+                    rhs%elsewhere_clauses(i)%mask_index
                 if (allocated(rhs%elsewhere_clauses(i)%body_indices)) then
-                    allocate(lhs%elsewhere_clauses(i)%body_indices(size(rhs%elsewhere_clauses(i)%body_indices)))
-                    lhs%elsewhere_clauses(i)%body_indices = rhs%elsewhere_clauses(i)%body_indices
+                    allocate(lhs%elsewhere_clauses(i)%body_indices( &
+                        size(rhs%elsewhere_clauses(i)%body_indices)))
+                    lhs%elsewhere_clauses(i)%body_indices = &
+                        rhs%elsewhere_clauses(i)%body_indices
                 end if
             end do
         end if
@@ -727,8 +736,10 @@ contains
         call json%add(obj, 'type', 'stop')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
-        if (this%stop_code_index > 0) call json%add(obj, 'stop_code_index', this%stop_code_index)
-        if (allocated(this%stop_message)) call json%add(obj, 'stop_message', this%stop_message)
+        if (this%stop_code_index > 0) call json%add(obj, 'stop_code_index', &
+                                                   this%stop_code_index)
+        if (allocated(this%stop_message)) call json%add(obj, 'stop_message', &
+                                                      this%stop_message)
         call json%add(parent, obj)
     end subroutine stop_to_json
 
@@ -846,7 +857,9 @@ contains
     end subroutine associate_assign
 
     ! Factory functions
-    function create_do_loop(var_name, start_expr_index, end_expr_index, step_expr_index, body_indices, line, column) result(node)
+    function create_do_loop(var_name, start_expr_index, end_expr_index, &
+                            step_expr_index, body_indices, line, column) &
+                            result(node)
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: start_expr_index, end_expr_index
         integer, intent(in), optional :: step_expr_index
@@ -887,7 +900,8 @@ contains
         if (present(column)) node%column = column
     end function create_do_while
 
-    function create_if(condition_index, then_body_indices, elseif_blocks, else_body_indices, line, column) result(node)
+    function create_if(condition_index, then_body_indices, elseif_blocks, &
+                       else_body_indices, line, column) result(node)
         integer, intent(in) :: condition_index
         integer, intent(in), optional :: then_body_indices(:)
         type(elseif_wrapper), intent(in), optional :: elseif_blocks(:)
@@ -919,7 +933,8 @@ contains
         if (present(column)) node%column = column
     end function create_if
 
-    function create_select_case(expr_index, case_indices, default_index, line, column) result(node)
+    function create_select_case(expr_index, case_indices, default_index, &
+                                line, column) result(node)
         integer, intent(in) :: expr_index
         integer, intent(in), optional :: case_indices(:)
         integer, intent(in), optional :: default_index

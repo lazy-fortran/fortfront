@@ -12,21 +12,29 @@ module ast_nodes_data
     ! Declaration node
     type, extends(ast_node), public :: declaration_node
         character(len=:), allocatable :: type_name     ! real, integer, etc.
-        character(len=:), allocatable :: var_name      ! Variable name (for single declarations)
-        character(len=:), allocatable :: var_names(:)  ! Variable names (for multi declarations)
-        logical :: is_multi_declaration = .false.      ! Whether this declares multiple variables
-        integer :: kind_value                          ! Kind parameter (e.g., 8 for real(8))
+        character(len=:), allocatable :: var_name      ! Variable name
+        ! (for single declarations)
+        character(len=:), allocatable :: var_names(:)  ! Variable names
+        ! (for multi declarations)
+        logical :: is_multi_declaration = .false.      ! Whether this
+        ! declares multiple variables
+        integer :: kind_value                          ! Kind parameter
+        ! (e.g., 8 for real(8))
         logical :: has_kind                            ! Whether kind was specified
         character(len=:), allocatable :: intent        ! in, out, inout (for parameters)
         logical :: has_intent = .false.                ! Whether intent was specified
         integer :: initializer_index = 0              ! Initializer index (stack-based)
         logical :: has_initializer = .false.          ! Whether initializer is present
         ! Array dimension support
-        logical :: is_array = .false.                  ! Whether this is an array declaration
+        logical :: is_array = .false.                  ! Whether this is
+        ! an array declaration
         integer, allocatable :: dimension_indices(:)  ! Dimension indices (stack-based)
-        logical :: is_allocatable = .false.           ! Whether allocatable attribute is present
-        logical :: is_pointer = .false.                ! Whether pointer attribute is present
-        logical :: is_target = .false.                 ! Whether target attribute is present
+        logical :: is_allocatable = .false.           ! Whether allocatable
+        ! attribute is present
+        logical :: is_pointer = .false.                ! Whether pointer
+        ! attribute is present
+        logical :: is_target = .false.                 ! Whether target
+        ! attribute is present
     contains
         procedure :: accept => declaration_accept
         procedure :: to_json => declaration_to_json
@@ -38,12 +46,14 @@ module ast_nodes_data
     type, extends(ast_node), public :: parameter_declaration_node
         character(len=:), allocatable :: name          ! Parameter name
         character(len=:), allocatable :: type_name     ! real, integer, etc.
-        integer :: kind_value                          ! Kind parameter (e.g., 8 for real(8))
+        integer :: kind_value                          ! Kind parameter
+        ! (e.g., 8 for real(8))
         logical :: has_kind                            ! Whether kind was specified
         character(len=:), allocatable :: intent        ! in, out, inout
         logical :: has_intent                          ! Whether intent was specified
         ! Array dimension support
-        logical :: is_array = .false.                  ! Whether this is an array parameter
+        logical :: is_array = .false.                  ! Whether this is
+        ! an array parameter
         integer, allocatable :: dimension_indices(:)   ! Dimension indices (stack-based)
     contains
         procedure :: accept => parameter_declaration_accept
@@ -55,9 +65,12 @@ module ast_nodes_data
     ! Module node
     type, extends(ast_node), public :: module_node
         character(len=:), allocatable :: name         ! Module name
-        integer, allocatable :: declaration_indices(:) ! Module declaration arena indices
-        integer, allocatable :: procedure_indices(:)   ! Module procedure arena indices (after contains)
-        logical :: has_contains = .false.             ! Whether module has a contains section
+        integer, allocatable :: declaration_indices(:) ! Module declaration
+        ! arena indices
+        integer, allocatable :: procedure_indices(:)   ! Module procedure
+        ! arena indices (after contains)
+        logical :: has_contains = .false.             ! Whether module has
+        ! a contains section
     contains
         procedure :: accept => module_accept
         procedure :: to_json => module_to_json
@@ -210,8 +223,10 @@ contains
     end subroutine derived_type_assign
 
     ! Factory functions
-    function create_declaration(type_name, var_name, kind_value, initializer_index, dimension_indices, &
-                               is_allocatable, is_pointer, is_target, line, column) result(node)
+    function create_declaration(type_name, var_name, kind_value, &
+                               initializer_index, dimension_indices, &
+                               is_allocatable, is_pointer, is_target, &
+                               line, column) result(node)
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_name
         integer, intent(in), optional :: kind_value
@@ -256,7 +271,8 @@ contains
         if (present(column)) node%column = column
     end function create_declaration
 
-    function create_derived_type(name, component_indices, param_indices, line, column) result(node)
+    function create_derived_type(name, component_indices, param_indices, &
+                                line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: component_indices(:)
         integer, intent(in), optional :: param_indices(:)

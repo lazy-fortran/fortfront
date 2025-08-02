@@ -15,6 +15,7 @@ module ast_types
     public :: ast_arena_t, ast_arena_stats_t
     public :: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     public :: create_ast_arena, create_program, create_assignment, create_binary_op
-    public :: create_call_or_subscript, create_subroutine_call, create_identifier, create_literal
+    public :: create_call_or_subscript, create_subroutine_call, &
+              create_identifier, create_literal
 
 end module ast_types

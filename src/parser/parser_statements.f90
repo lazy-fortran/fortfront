@@ -45,7 +45,8 @@ contains
             module_name = token%text
         else
             ! Invalid use statement - return placeholder
-            stmt_index = push_literal(arena, "! Invalid use statement", LITERAL_STRING, token%line, token%column)
+            stmt_index = push_literal(arena, "! Invalid use statement", &
+                                       LITERAL_STRING, token%line, token%column)
             return
         end if
 
@@ -206,7 +207,8 @@ contains
         ! Expect opening parenthesis
         token = parser%consume()
         if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
-            write(error_unit, *) "Error: Expected '(' after 'write' at line ", token%line
+            write(error_unit, *) "Error: Expected '(' after 'write' at line ", &
+                token%line
             write_index = 0
             return
         end if
@@ -223,7 +225,9 @@ contains
             unit_spec = token%text
             token = parser%consume()
         else
-            write(error_unit, *) "Error: Expected unit specifier in write statement at line ", token%line
+            write(error_unit, *) &
+                "Error: Expected unit specifier in write statement at line ", &
+                token%line
             write_index = 0
             return
         end if
@@ -249,7 +253,9 @@ contains
         ! Expect closing parenthesis
         token = parser%consume()
         if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
-            write(error_unit, *) "Error: Expected ')' after write unit and format at line ", token%line
+            write(error_unit, *) &
+                "Error: Expected ')' after write unit and format at line ", &
+                token%line
             write_index = 0
             return
         end if
@@ -288,7 +294,8 @@ contains
         end if
 
         ! Create write statement node with parsed arguments
-        write_index = push_write_statement(arena, unit_spec, arg_indices, format_spec, line, column)
+        write_index = push_write_statement(arena, unit_spec, arg_indices, &
+                                            format_spec, line, column)
 
     end function parse_write_statement
     
@@ -328,7 +335,9 @@ contains
             unit_spec = token%text
             token = parser%consume()
         else
-            write(error_unit, *) "Error: Expected unit specifier in read statement at line ", token%line
+            write(error_unit, *) &
+                "Error: Expected unit specifier in read statement at line ", &
+                token%line
             read_index = 0
             return
         end if
@@ -354,7 +363,9 @@ contains
         ! Expect closing parenthesis
         token = parser%consume()
         if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
-            write(error_unit, *) "Error: Expected ')' after read unit and format at line ", token%line
+            write(error_unit, *) &
+                "Error: Expected ')' after read unit and format at line ", &
+                token%line
             read_index = 0
             return
         end if
@@ -393,7 +404,8 @@ contains
         end if
 
         ! Create read statement node with parsed variables
-        read_index = push_read_statement(arena, unit_spec, var_indices, format_spec, line, column)
+        read_index = push_read_statement(arena, unit_spec, var_indices, &
+                                          format_spec, line, column)
 
     end function parse_read_statement
     
@@ -715,7 +727,9 @@ contains
 
         ! Create derived type node
         if (has_parameters .and. allocated(param_indices)) then
-            type_index = push_derived_type(arena, type_name, param_indices=param_indices, line=line, column=column)
+            type_index = push_derived_type(arena, type_name, &
+                                            param_indices=param_indices, &
+                                            line=line, column=column)
         else
             type_index = push_derived_type(arena, type_name, line=line, column=column)
         end if
@@ -746,16 +760,19 @@ contains
             ! Parse a single parameter
             if (token%kind == TK_IDENTIFIER) then
                 token = parser%consume()
-                param_indices = [param_indices, push_identifier(arena, token%text, token%line, token%column)]
+                param_indices = [param_indices, push_identifier(arena, &
+                    token%text, token%line, token%column)]
                 param_count = param_count + 1
             else if (token%kind == TK_NUMBER) then
                 token = parser%consume()
-                param_indices = [param_indices, push_literal(arena, token%text, LITERAL_INTEGER, token%line, token%column)]
+                param_indices = [param_indices, push_literal(arena, &
+                    token%text, LITERAL_INTEGER, token%line, token%column)]
                 param_count = param_count + 1
             else
                 ! Unknown parameter type - consume it as identifier
                 token = parser%consume()
-                param_indices = [param_indices, push_identifier(arena, token%text, token%line, token%column)]
+                param_indices = [param_indices, push_identifier(arena, &
+                    token%text, token%line, token%column)]
                 param_count = param_count + 1
             end if
 
@@ -820,12 +837,14 @@ contains
                 column = token%column
                 token = parser%consume()
 
-                ! Check for kind specification (e.g., real(8)) or type specification (e.g., type(name))
+                ! Check for kind specification (e.g., real(8)) or type &
+                ! specification (e.g., type(name))
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "(") then
                     token = parser%consume()  ! consume '('
 
-                    ! For type keywords, parse the complete type expression including nested parentheses
+                    ! For type keywords, parse the complete type expression &
+                    ! including nested parentheses
                     if (current_type == "type") then
                         type_expr = ""
                         paren_count = 1  ! We already consumed the opening parenthesis
@@ -850,7 +869,8 @@ contains
 
                         current_type = current_type//"("//type_expr//")"
                     else
-                        ! For non-type keywords, expect a simple number for kind specification
+                        ! For non-type keywords, expect a simple number for &
+                        ! kind specification
                         token = parser%peek()
                         if (token%kind == TK_NUMBER) then
                             read (token%text, *) current_kind
@@ -872,7 +892,9 @@ contains
 
                     ! Check for intent
                     token = parser%peek()
-                    if ((token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) .and. token%text == "intent") then
+                    if ((token%kind == TK_KEYWORD .or. &
+                         token%kind == TK_IDENTIFIER) .and. &
+                        token%text == "intent") then
                         token = parser%consume()  ! consume 'intent'
 
                         token = parser%peek()
@@ -880,7 +902,8 @@ contains
                             token = parser%consume()  ! consume '('
 
                             token = parser%peek()
-                            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
+                            if (token%kind == TK_KEYWORD .or. &
+                                token%kind == TK_IDENTIFIER) then
                                 if (token%text == "in") then
                                     current_intent = 1
                                 else if (token%text == "out") then
@@ -913,7 +936,8 @@ contains
                                 token = parser%consume()
                             end do
                         end if
-                    else if (token%kind == TK_KEYWORD .and. token%text == "optional") then
+                    else if (token%kind == TK_KEYWORD .and. &
+                             token%text == "optional") then
                         ! Mark current type as optional (stored with intent value 4)
                         current_intent = 4  ! Using 4 to indicate optional
                         token = parser%consume()
@@ -957,7 +981,8 @@ contains
                                         exit
                                     end if
 
-                                    ! Parse dimension expression (for now, create identifier or literal nodes)
+                                    ! Parse dimension expression (for now, create &
+                                    ! identifier or literal nodes)
                              if (token%kind == TK_OPERATOR .and. token%text == ":") then
                                         ! Assumed shape (:)
                                         block
@@ -1061,7 +1086,8 @@ contains
 
             else if (token%kind == TK_IDENTIFIER .and. .not. parsing_type_spec) then
                 ! Simple parameter without explicit type
-                param_indices = [param_indices, push_identifier(arena, token%text, token%line, token%column)]
+                param_indices = [param_indices, push_identifier(arena, &
+                    token%text, token%line, token%column)]
                 param_count = param_count + 1
                 token = parser%consume()
             else
@@ -1103,7 +1129,8 @@ contains
             token = parser%consume()
         else
             ! Error - not a function definition
-            func_index = push_literal(arena, "! Error: Expected function keyword", LITERAL_STRING, 1, 1)
+            func_index = push_literal(arena, &
+                "! Error: Expected function keyword", LITERAL_STRING, 1, 1)
             return
         end if
 
@@ -1156,7 +1183,8 @@ contains
                             type(token_t) :: next_token
                             next_token = parser%tokens(parser%current_token + 1)
              if (next_token%kind == TK_KEYWORD .and. next_token%text == "function") then
-                                ! Consume "end function" and any trailing tokens on same line
+                                ! Consume "end function" and any trailing &
+                                ! tokens on same line
                                 token = parser%consume()  ! consume "end"
                                 token = parser%consume()  ! consume "function"
 
@@ -1197,7 +1225,8 @@ contains
                     cycle
                 end if
 
-                ! Collect tokens for the current statement (until newline or end of line)
+                ! Collect tokens for the current statement (until newline &
+                ! or end of line)
                 stmt_start = parser%current_token
                 i = stmt_start
                 do while (i <= size(parser%tokens))
@@ -1215,7 +1244,8 @@ contains
                     stmt_tokens(i - stmt_start + 1)%line = parser%tokens(i - 1)%line
                 stmt_tokens(i - stmt_start + 1)%column = parser%tokens(i - 1)%column + 1
 
-                    ! Parse the statement (may return multiple indices for multi-variable declarations)
+                    ! Parse the statement (may return multiple indices for &
+                    ! multi-variable declarations)
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: j
@@ -1249,7 +1279,9 @@ contains
         end if
 
         ! Create function definition node with body_indices from parsed function body
-        func_index = push_function_def(arena, func_name, param_indices, return_type_str, body_indices, line, column)
+        func_index = push_function_def(arena, func_name, param_indices, &
+                                       return_type_str, body_indices, line, &
+                                       column)
 
     end function parse_function_definition
 
@@ -1332,7 +1364,8 @@ contains
                     end if
                 end if
 
-                ! Collect tokens for the current statement (until newline or end of line)
+                ! Collect tokens for the current statement (until newline &
+                ! or end of line)
                 stmt_start = parser%current_token
                 i = stmt_start
                 do while (i <= size(parser%tokens))
@@ -1350,7 +1383,8 @@ contains
                     stmt_tokens(i - stmt_start + 1)%line = parser%tokens(i - 1)%line
                 stmt_tokens(i - stmt_start + 1)%column = parser%tokens(i - 1)%column + 1
 
-                    ! Parse the statement (may return multiple indices for multi-variable declarations)
+                    ! Parse the statement (may return multiple indices for &
+                    ! multi-variable declarations)
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: j
@@ -1377,7 +1411,8 @@ contains
         end block
 
         ! Create subroutine node with collected parameters and body
-        sub_index = push_subroutine_def(arena, sub_name, param_indices, body_indices, line, column)
+        sub_index = push_subroutine_def(arena, sub_name, param_indices, &
+                                         body_indices, line, column)
 
     end function parse_subroutine_definition
 
@@ -1470,7 +1505,8 @@ contains
         block
             integer, allocatable :: procedure_indices(:)
             character(len=:), allocatable :: interface_name
-            ! For now, use empty procedure list until full interface parsing is implemented
+            ! For now, use empty procedure list until full interface parsing &
+            ! is implemented
             allocate (procedure_indices(0))
             if (allocated(name)) then
                 interface_name = name
@@ -1479,7 +1515,8 @@ contains
             else
                 interface_name = ""
             end if
-            interface_index = push_interface_block(arena, interface_name, procedure_indices, line, column)
+            interface_index = push_interface_block(arena, interface_name, &
+                                                    procedure_indices, line, column)
         end block
 
     end function parse_interface_block
@@ -1543,7 +1580,9 @@ contains
                     token = parser%peek()
                     if (token%kind == TK_KEYWORD .and. token%text == "none") then
                         token = parser%consume()  ! consume 'none'
-                        stmt_index = push_literal(arena, "implicit none", LITERAL_STRING, token%line, token%column)
+                        stmt_index = push_literal(arena, "implicit none", &
+                                                   LITERAL_STRING, token%line, &
+                                                   token%column)
                         declaration_indices = [declaration_indices, stmt_index]
                     end if
                 else if (token%kind == TK_KEYWORD .and. &
@@ -1630,7 +1669,8 @@ contains
             if (.not. allocated(procedure_indices)) then
                 allocate(procedure_indices(0))
             end if
-            mod_node = create_module(name, declaration_indices=declaration_indices, line=line, column=column)
+            mod_node = create_module(name, &
+                declaration_indices=declaration_indices, line=line, column=column)
             mod_node%has_contains = has_contains
             if (allocated(procedure_indices)) then
                 mod_node%procedure_indices = procedure_indices
@@ -1689,7 +1729,9 @@ contains
                             expr_tokens = tokens(parser%current_token:)
                             value_index = parse_expression(expr_tokens, arena)
                             if (value_index > 0) then
-                                stmt_index = push_assignment(arena, target_index, value_index, id_token%line, id_token%column)
+                                stmt_index = push_assignment(arena, &
+                                    target_index, value_index, id_token%line, &
+                                    id_token%column)
                             end if
                         end if
                     end block
@@ -1852,7 +1894,9 @@ contains
                             value_index = parse_range(parser, arena)
                             
                             if (value_index > 0) then
-                                stmt_index = push_assignment(arena, target_index, value_index, id_token%line, id_token%column)
+                                stmt_index = push_assignment(arena, &
+                                    target_index, value_index, id_token%line, &
+                                    id_token%column)
                             else
                                 stmt_index = 0
                             end if

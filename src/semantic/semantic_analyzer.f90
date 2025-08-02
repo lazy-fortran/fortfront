@@ -136,7 +136,8 @@ contains
 
         if (allocated(prog%body_indices)) then
             ! This is an arena-based program node but called without arena
-            ! For now, skip analysis - this should be updated to use analyze_program_arena
+            ! For now, skip analysis - this should be updated to use &
+            ! analyze_program_arena
             return
         end if
     end subroutine analyze_program_node
@@ -151,10 +152,12 @@ contains
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
 
-        ! DEBUG: print *, "infer_and_store_type for node", node_index, "type:", trim(arena%entries(node_index)%node_type)
+        ! DEBUG: print *, "infer_and_store_type for node", node_index, "type:", &
+        !        trim(arena%entries(node_index)%node_type)
         inferred = ctx%infer_stmt(arena, node_index)
 
-        ! Store the inferred type in the AST node (assignment now does deep copy automatically)
+        ! Store the inferred type in the AST node (assignment now does deep &
+        ! copy automatically)
         if (.not. allocated(arena%entries(node_index)%node%inferred_type)) then
             allocate (arena%entries(node_index)%node%inferred_type)
         end if
@@ -235,7 +238,8 @@ contains
                     if (.not. is_assignable(typ, target_type)) then
                         ! Type error - for now, just continue with inference
                         ! In a full implementation, we would report an error
-                        ! error stop type_error(target_type, typ, "assignment to " // var_name)
+                        ! error stop type_error(target_type, typ, &
+                        !              "assignment to " // var_name)
                     end if
 
                     ! Use the existing type for consistency
@@ -252,7 +256,8 @@ contains
                 target%inferred_type = typ
 
                 ! If new variable, add to environment (TEMPORARY: should be error)
-                ! TODO: Re-enable strict checking after fixing parser multi-variable declaration bug
+                ! TODO: Re-enable strict checking after fixing parser &
+                ! multi-variable declaration bug
                 if (.not. allocated(existing_scheme)) then
                     scheme = ctx%generalize(typ)
                     call ctx%scopes%define(var_name, scheme)
@@ -298,15 +303,18 @@ contains
                 logical :: is_known_array
                 type(poly_type_t), allocatable :: sym_scheme
 
-                ! Simple heuristic: if any argument contains a colon operator, it's array slicing
+                ! Simple heuristic: if any argument contains a colon operator,
+                ! it's array slicing
                 is_array_slice = .false.
 
                 ! Check for array slicing pattern (contains : operator)
                 if (allocated(expr%arg_indices)) then
                     do i = 1, size(expr%arg_indices)
-                        if (expr%arg_indices(i) > 0 .and. expr%arg_indices(i) <= arena%size) then
+                        if (expr%arg_indices(i) > 0 .and. &
+                            expr%arg_indices(i) <= arena%size) then
                             if (allocated(arena%entries(expr%arg_indices(i))%node)) then
-                                select type (arg_node => arena%entries(expr%arg_indices(i))%node)
+                                select type (arg_node => &
+                                    arena%entries(expr%arg_indices(i))%node)
                                 type is (range_expression_node)
                                     is_array_slice = .true.
                                     exit
@@ -338,8 +346,10 @@ contains
                     ! For array access, return the element type
                     if (is_known_array .and. allocated(sym_scheme)) then
                         if (sym_scheme%mono%kind == TARRAY .and. &
-                            allocated(sym_scheme%mono%args) .and. size(sym_scheme%mono%args) > 0) then
-                            typ = sym_scheme%mono%args(1)  ! First arg is element type (deep copy via assignment)
+                            allocated(sym_scheme%mono%args) .and. &
+                            size(sym_scheme%mono%args) > 0) then
+                            typ = sym_scheme%mono%args(1)  ! First arg is element type
+                            ! (deep copy via assignment)
                         else
                             typ = create_mono_type(TVAR, var=this%fresh_type_var())
                         end if
@@ -467,15 +477,19 @@ contains
                     
                     ! Propagate allocation attributes from operands
                     ! Result is allocatable if either operand is allocatable
-                    result_typ%alloc_info%is_allocatable = left_typ%alloc_info%is_allocatable .or. &
-                                                           right_typ%alloc_info%is_allocatable
+                    result_typ%alloc_info%is_allocatable = &
+                        left_typ%alloc_info%is_allocatable .or. &
+                        right_typ%alloc_info%is_allocatable
                     ! Result involves pointers if either operand is a pointer
-                    result_typ%alloc_info%is_pointer = left_typ%alloc_info%is_pointer .or. &
-                                                       right_typ%alloc_info%is_pointer
+                    result_typ%alloc_info%is_pointer = &
+                        left_typ%alloc_info%is_pointer .or. &
+                        right_typ%alloc_info%is_pointer
                     ! Result needs allocation check if either operand does
                     result_typ%alloc_info%needs_allocation_check = &
-                        left_typ%alloc_info%is_allocatable .or. right_typ%alloc_info%is_allocatable .or. &
-                        left_typ%alloc_info%is_pointer .or. right_typ%alloc_info%is_pointer
+                        left_typ%alloc_info%is_allocatable .or. &
+                        right_typ%alloc_info%is_allocatable .or. &
+                        left_typ%alloc_info%is_pointer .or. &
+                        right_typ%alloc_info%is_pointer
                 else
                     ! For type variables, unify as before
                     result_typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
@@ -697,7 +711,8 @@ contains
         ! Both are concrete types
         if (t1_subst%kind /= t2_subst%kind) then
 
-            ! Special case: trying to unify integer with function type likely means array subscripting
+            ! Special case: trying to unify integer with function type
+            ! likely means array subscripting
             if ((t1_subst%kind == TINT .and. t2_subst%kind == TFUN) .or. &
                 (t1_subst%kind == TFUN .and. t2_subst%kind == TINT)) then
                 ! Return empty substitution to continue
@@ -713,7 +728,8 @@ contains
                 error stop "Type mismatch: cannot unify "// &
                     t1_subst%to_string()//" with "//t2_subst%to_string()
             else
-                print *, "ERROR: Invalid type kinds in unify_types: ", t1_subst%kind, " and ", t2_subst%kind
+                print *, "ERROR: Invalid type kinds in unify_types: ", &
+                    t1_subst%kind, " and ", t2_subst%kind
                 error stop "Type mismatch: invalid type kinds"
             end if
         end if
@@ -1227,7 +1243,8 @@ contains
             call ctx%scopes%lookup(decl%var_name, existing_scheme)
 
             if (allocated(existing_scheme)) then
-                ! Variable already declared - this might be a redeclaration of a parameter
+                ! Variable already declared - this might be a redeclaration
+                ! of a parameter
                 ! For explicit function parameters, we need to unify the types
                 block
                     type(mono_type_t) :: existing_typ
@@ -1624,7 +1641,8 @@ contains
         logical :: all_same_type
 
         ! If no elements, default to integer array
-        if (.not. allocated(arr_node%element_indices) .or. size(arr_node%element_indices) == 0) then
+        if (.not. allocated(arr_node%element_indices) .or. &
+            size(arr_node%element_indices) == 0) then
             allocate (array_args(1))
             array_args(1) = create_mono_type(TINT)
             typ = create_mono_type(TARRAY, args=array_args)
@@ -1788,7 +1806,8 @@ contains
     end subroutine validate_array_access_bounds
 
     ! Check shape conformance between arrays
-    logical function check_array_shape_conformance(ctx, spec1, spec2) result(conformable)
+    logical function check_array_shape_conformance(ctx, spec1, spec2) &
+        result(conformable)
         class(semantic_context_t), intent(inout) :: ctx
         type(array_spec_t), intent(in) :: spec1, spec2
         integer :: i
@@ -1808,11 +1827,14 @@ contains
         if (allocated(spec1%bounds) .and. allocated(spec2%bounds)) then
             do i = 1, spec1%rank
                 ! For compile-time constant bounds, check exact sizes
-                if (spec1%bounds(i)%is_constant_lower .and. spec1%bounds(i)%is_constant_upper .and. &
-                    spec2%bounds(i)%is_constant_lower .and. spec2%bounds(i)%is_constant_upper) then
+                if (spec1%bounds(i)%is_constant_lower .and. &
+                    spec1%bounds(i)%is_constant_upper .and. &
+                    spec2%bounds(i)%is_constant_lower .and. &
+                    spec2%bounds(i)%is_constant_upper) then
                     
                     if ((spec1%bounds(i)%const_upper - spec1%bounds(i)%const_lower) /= &
-                        (spec2%bounds(i)%const_upper - spec2%bounds(i)%const_lower)) then
+                        (spec2%bounds(i)%const_upper - &
+                         spec2%bounds(i)%const_lower)) then
                         return  ! Different sizes, not conformable
                     end if
                 else

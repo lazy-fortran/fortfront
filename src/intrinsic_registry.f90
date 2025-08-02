@@ -36,7 +36,8 @@ contains
         if (.not. allocated(intrinsic_functions)) return
 
         do i = 1, size(intrinsic_functions)
-            if (trim(to_lower(intrinsic_functions(i)%name)) == trim(to_lower(name))) then
+            if (trim(to_lower(intrinsic_functions(i)%name)) == &
+                trim(to_lower(name))) then
                 is_intrinsic = .true.
                 signature = intrinsic_functions(i)%return_type // "(" // &
                            intrinsic_functions(i)%arg_types // ")"

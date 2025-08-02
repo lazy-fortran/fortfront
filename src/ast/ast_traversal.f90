@@ -181,12 +181,14 @@ contains
             call traverse_node(arena, n%condition_index, visitor, is_preorder)
             if (allocated(n%then_body_indices)) then
                 do i = 1, size(n%then_body_indices)
-                    call traverse_node(arena, n%then_body_indices(i), visitor, is_preorder)
+                    call traverse_node(arena, n%then_body_indices(i), visitor, &
+                        is_preorder)
                 end do
             end if
             if (allocated(n%else_body_indices)) then
                 do i = 1, size(n%else_body_indices)
-                    call traverse_node(arena, n%else_body_indices(i), visitor, is_preorder)
+                    call traverse_node(arena, n%else_body_indices(i), visitor, &
+                        is_preorder)
                 end do
             end if
             
@@ -224,33 +226,38 @@ contains
         type is (module_node)
             if (allocated(n%declaration_indices)) then
                 do i = 1, size(n%declaration_indices)
-                    call traverse_node(arena, n%declaration_indices(i), visitor, is_preorder)
+                    call traverse_node(arena, n%declaration_indices(i), visitor, &
+                        is_preorder)
                 end do
             end if
             if (allocated(n%procedure_indices)) then
                 do i = 1, size(n%procedure_indices)
-                    call traverse_node(arena, n%procedure_indices(i), visitor, is_preorder)
+                    call traverse_node(arena, n%procedure_indices(i), visitor, &
+                        is_preorder)
                 end do
             end if
             
         type is (derived_type_node)
             if (allocated(n%component_indices)) then
                 do i = 1, size(n%component_indices)
-                    call traverse_node(arena, n%component_indices(i), visitor, is_preorder)
+                    call traverse_node(arena, n%component_indices(i), visitor, &
+                        is_preorder)
                 end do
             end if
             
         type is (interface_block_node)
             if (allocated(n%procedure_indices)) then
                 do i = 1, size(n%procedure_indices)
-                    call traverse_node(arena, n%procedure_indices(i), visitor, is_preorder)
+                    call traverse_node(arena, n%procedure_indices(i), visitor, &
+                        is_preorder)
                 end do
             end if
             
         type is (print_statement_node)
             if (allocated(n%expression_indices)) then
                 do i = 1, size(n%expression_indices)
-                    call traverse_node(arena, n%expression_indices(i), visitor, is_preorder)
+                    call traverse_node(arena, n%expression_indices(i), visitor, &
+                        is_preorder)
                 end do
             end if
         end select

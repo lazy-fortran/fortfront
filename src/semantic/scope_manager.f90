@@ -15,7 +15,8 @@ module scope_manager
     integer, parameter, public :: SCOPE_BLOCK = 5     ! if/do/etc blocks
     integer, parameter, public :: SCOPE_INTERFACE = 6
 
-    ! Single scope with its own environment (no parent pointer - stack handles hierarchy)
+    ! Single scope with its own environment
+    ! (no parent pointer - stack handles hierarchy)
     type :: scope_t
         integer :: scope_type = SCOPE_GLOBAL
         character(len=:), allocatable :: name  ! e.g., module name, function name
@@ -231,7 +232,8 @@ contains
             if (allocated(this%scopes(this%depth)%env%names)) then
                 deallocate (this%scopes(this%depth)%env%names)
             end if
-            allocate(character(len=256) :: this%scopes(this%depth)%env%names(new_scope%env%capacity))
+            allocate(character(len=256) :: &
+                     this%scopes(this%depth)%env%names(new_scope%env%capacity))
             do j = 1, new_scope%env%count
                 this%scopes(this%depth)%env%names(j) = new_scope%env%names(j)
             end do
@@ -242,7 +244,8 @@ contains
             end if
             allocate (this%scopes(this%depth)%env%schemes(new_scope%env%capacity))
             if (new_scope%env%count > 0) then
-                this%scopes(this%depth)%env%schemes(1:new_scope%env%count) = new_scope%env%schemes(1:new_scope%env%count)
+                this%scopes(this%depth)%env%schemes(1:new_scope%env%count) = &
+                    new_scope%env%schemes(1:new_scope%env%count)
             end if
         end if
 
