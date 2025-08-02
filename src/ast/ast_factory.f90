@@ -1291,6 +1291,21 @@ contains
         integer :: access_index
         type(component_access_node) :: access_node
 
+        ! Validate inputs
+        if (object_index <= 0 .or. object_index > arena%size) then
+            ! Create error node for invalid base
+            access_index = push_literal(arena, "!ERROR: Invalid base for component access", &
+                                      LITERAL_STRING, line, column)
+            return
+        end if
+
+        if (len_trim(component_name) == 0) then
+            ! Create error node for empty component name
+            access_index = push_literal(arena, "!ERROR: Empty component name", &
+                                      LITERAL_STRING, line, column)
+            return
+        end if
+
         ! Create proper component access node
         access_node = create_component_access(object_index, component_name, line, column)
 

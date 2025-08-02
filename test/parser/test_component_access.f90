@@ -24,6 +24,7 @@ program test_component_access
     all_passed = all_passed .and. test_component_with_array_access()
     all_passed = all_passed .and. test_full_program_component_access()
     all_passed = all_passed .and. test_complex_expressions()
+    all_passed = all_passed .and. test_error_cases()
     
     if (all_passed) then
         print *, 'All component access tests passed!'
@@ -377,5 +378,100 @@ contains
         end block
         
     end function test_complex_expressions
+
+    logical function test_error_cases()
+        test_error_cases = .true.
+        print *, 'Testing error cases...'
+        
+        ! Test missing identifier after %
+        block
+            character(len=:), allocatable :: source, code, error_msg
+            type(token_t), allocatable :: tokens(:)
+            type(ast_arena_t) :: arena
+            integer :: expr_index
+            
+            source = "obj%"
+            
+            ! Lex
+            call lex_source(source, tokens, error_msg)
+            if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+                print *, '  PASS: Lexing detects error: ', trim(error_msg)
+            else
+                ! Parse
+                arena = create_ast_arena()
+                expr_index = parse_expression(tokens, arena)
+                
+                if (expr_index > 0) then
+                    code = generate_code_from_arena(arena, expr_index)
+                    if (index(code, "ERROR") > 0) then
+                        print *, '  PASS: Parser creates error node for missing identifier'
+                    else
+                        print *, '  FAIL: No error for missing identifier after %: ', code
+                        test_error_cases = .false.
+                    end if
+                else
+                    print *, '  FAIL: Parser failed on missing identifier'
+                    test_error_cases = .false.
+                end if
+            end if
+        end block
+        
+        ! Test % followed by non-identifier
+        block
+            character(len=:), allocatable :: source, code, error_msg
+            type(token_t), allocatable :: tokens(:)
+            type(ast_arena_t) :: arena
+            integer :: expr_index
+            
+            source = "obj%123"
+            
+            ! Lex
+            call lex_source(source, tokens, error_msg)
+            if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+                print *, '  INFO: Lexing error: ', trim(error_msg)
+            end if
+            
+            ! Parse
+            arena = create_ast_arena()
+            expr_index = parse_expression(tokens, arena)
+            
+            if (expr_index > 0) then
+                code = generate_code_from_arena(arena, expr_index)
+                if (index(code, "ERROR") > 0 .or. index(code, "obj%") == 0) then
+                    print *, '  PASS: Parser handles % followed by number'
+                else
+                    print *, '  INFO: Generated code: ', code
+                end if
+            end if
+        end block
+        
+        ! Test invalid base expression in codegen
+        block
+            type(ast_arena_t) :: arena
+            type(component_access_node) :: comp_node
+            character(len=:), allocatable :: code
+            integer :: node_index
+            
+            ! Create arena and add component access with invalid base
+            arena = create_ast_arena()
+            comp_node%base_expr_index = 999  ! Invalid index
+            comp_node%component_name = "field"
+            comp_node%line = 1
+            comp_node%column = 1
+            
+            call arena%push(comp_node, "component_access")
+            node_index = arena%size
+            
+            ! Generate code
+            code = generate_code_from_arena(arena, node_index)
+            if (index(code, "invalid_base") > 0) then
+                print *, '  PASS: Codegen handles invalid base index'
+            else
+                print *, '  FAIL: No error for invalid base index: ', code
+                test_error_cases = .false.
+            end if
+        end block
+        
+    end function test_error_cases
 
 end program test_component_access

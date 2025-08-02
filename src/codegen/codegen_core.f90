@@ -236,7 +236,7 @@ contains
         if (node%base_expr_index > 0 .and. node%base_expr_index <= arena%size) then
             base_code = generate_code_from_arena(arena, node%base_expr_index)
         else
-            base_code = ""
+            base_code = "<invalid_base>"
         end if
 
         ! Combine base expression with component name
