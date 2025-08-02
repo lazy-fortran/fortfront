@@ -1,5 +1,6 @@
 module codegen_core
     use ast_core
+    use ast_nodes_core, only: component_access_node
     use type_system_hm
     use string_types, only: string_t
     use codegen_indent
@@ -37,6 +38,8 @@ contains
             code = generate_code_assignment(arena, node, node_index)
         type is (binary_op_node)
             code = generate_code_binary_op(arena, node, node_index)
+        type is (component_access_node)
+            code = generate_code_component_access(arena, node, node_index)
         type is (program_node)
             code = generate_code_program(arena, node, node_index)
         type is (call_or_subscript_node)
@@ -220,6 +223,30 @@ contains
             code = left_code//" "//node%operator//" "//right_code
         end if
     end function generate_code_binary_op
+
+    ! Generate code for component access node
+    function generate_code_component_access(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(component_access_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: base_code
+
+        ! Generate code for base expression
+        if (node%base_expr_index > 0 .and. node%base_expr_index <= arena%size) then
+            base_code = generate_code_from_arena(arena, node%base_expr_index)
+        else
+            base_code = "<invalid_base>"
+        end if
+
+        ! Combine base expression with component name
+        if (allocated(node%component_name)) then
+            code = base_code // "%" // node%component_name
+        else
+            code = base_code // "%<missing_component>"
+        end if
+
+    end function generate_code_component_access
 
     ! Generate code for program node
     function generate_code_program(arena, node, node_index) result(code)
