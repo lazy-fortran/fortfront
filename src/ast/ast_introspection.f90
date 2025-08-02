@@ -7,51 +7,6 @@ module ast_introspection
     implicit none
     private
 
-    ! Import source location type from existing definitions
-    ! Note: source_location_t is already defined in fortfront.f90
-
-    ! Node type constants (re-export from fortfront for consistency)
-    integer, parameter, public :: NODE_PROGRAM = 1
-    integer, parameter, public :: NODE_FUNCTION_DEF = 2
-    integer, parameter, public :: NODE_ASSIGNMENT = 3
-    integer, parameter, public :: NODE_BINARY_OP = 4
-    integer, parameter, public :: NODE_IDENTIFIER = 5
-    integer, parameter, public :: NODE_LITERAL = 6
-    integer, parameter, public :: NODE_ARRAY_LITERAL = 7
-    integer, parameter, public :: NODE_CALL_OR_SUBSCRIPT = 8
-    integer, parameter, public :: NODE_SUBROUTINE_DEF = 9
-    integer, parameter, public :: NODE_SUBROUTINE_CALL = 10
-    integer, parameter, public :: NODE_DECLARATION = 11
-    integer, parameter, public :: NODE_PARAMETER_DECLARATION = 12
-    integer, parameter, public :: NODE_IF = 13
-    integer, parameter, public :: NODE_DO_LOOP = 14
-    integer, parameter, public :: NODE_DO_WHILE = 15
-    integer, parameter, public :: NODE_SELECT_CASE = 16
-    integer, parameter, public :: NODE_CASE_BLOCK = 17
-    integer, parameter, public :: NODE_MODULE = 18
-    integer, parameter, public :: NODE_USE_STATEMENT = 19
-    integer, parameter, public :: NODE_PRINT_STATEMENT = 20
-    integer, parameter, public :: NODE_WRITE_STATEMENT = 21
-    integer, parameter, public :: NODE_READ_STATEMENT = 22
-    integer, parameter, public :: NODE_ALLOCATE_STATEMENT = 23
-    integer, parameter, public :: NODE_DEALLOCATE_STATEMENT = 24
-    integer, parameter, public :: NODE_STOP = 25
-    integer, parameter, public :: NODE_RETURN = 26
-    integer, parameter, public :: NODE_CYCLE = 27
-    integer, parameter, public :: NODE_EXIT = 28
-    integer, parameter, public :: NODE_WHERE = 29
-    integer, parameter, public :: NODE_INTERFACE_BLOCK = 30
-    integer, parameter, public :: NODE_DERIVED_TYPE = 31
-    integer, parameter, public :: NODE_POINTER_ASSIGNMENT = 32
-    integer, parameter, public :: NODE_FORALL = 33
-    integer, parameter, public :: NODE_CASE_RANGE = 34
-    integer, parameter, public :: NODE_CASE_DEFAULT = 35
-    integer, parameter, public :: NODE_COMPLEX_LITERAL = 36
-    integer, parameter, public :: NODE_INCLUDE_STATEMENT = 37
-    integer, parameter, public :: NODE_CONTAINS = 38
-    integer, parameter, public :: NODE_FORMAT_DESCRIPTOR = 39
-    integer, parameter, public :: NODE_UNKNOWN = 99
-
     ! Public API functions from issue #12
     public :: get_node
     public :: get_node_type_id
@@ -82,88 +37,88 @@ contains
         class(ast_node), intent(in) :: node
         integer :: type_id
 
-        ! Use select type to determine node type
+        ! Use select type to determine node type and return standard constants
         select type (node)
         type is (program_node)
-            type_id = NODE_PROGRAM
+            type_id = 1
         type is (function_def_node)
-            type_id = NODE_FUNCTION_DEF
+            type_id = 2
         type is (assignment_node)
-            type_id = NODE_ASSIGNMENT
+            type_id = 3
         type is (binary_op_node)
-            type_id = NODE_BINARY_OP
+            type_id = 4
         type is (identifier_node)
-            type_id = NODE_IDENTIFIER
+            type_id = 5
         type is (literal_node)
-            type_id = NODE_LITERAL
+            type_id = 6
         type is (array_literal_node)
-            type_id = NODE_ARRAY_LITERAL
+            type_id = 7
         type is (call_or_subscript_node)
-            type_id = NODE_CALL_OR_SUBSCRIPT
+            type_id = 8
         type is (subroutine_def_node)
-            type_id = NODE_SUBROUTINE_DEF
+            type_id = 9
         type is (subroutine_call_node)
-            type_id = NODE_SUBROUTINE_CALL
+            type_id = 10
         type is (declaration_node)
-            type_id = NODE_DECLARATION
+            type_id = 11
         type is (parameter_declaration_node)
-            type_id = NODE_PARAMETER_DECLARATION
+            type_id = 12
         type is (if_node)
-            type_id = NODE_IF
+            type_id = 13
         type is (do_loop_node)
-            type_id = NODE_DO_LOOP
+            type_id = 14
         type is (do_while_node)
-            type_id = NODE_DO_WHILE
+            type_id = 15
         type is (select_case_node)
-            type_id = NODE_SELECT_CASE
+            type_id = 16
         type is (case_block_node)
-            type_id = NODE_CASE_BLOCK
+            type_id = 17
         type is (module_node)
-            type_id = NODE_MODULE
+            type_id = 18
         type is (use_statement_node)
-            type_id = NODE_USE_STATEMENT
+            type_id = 19
         type is (print_statement_node)
-            type_id = NODE_PRINT_STATEMENT
+            type_id = 20
         type is (write_statement_node)
-            type_id = NODE_WRITE_STATEMENT
+            type_id = 21
         type is (read_statement_node)
-            type_id = NODE_READ_STATEMENT
+            type_id = 22
         type is (allocate_statement_node)
-            type_id = NODE_ALLOCATE_STATEMENT
+            type_id = 23
         type is (deallocate_statement_node)
-            type_id = NODE_DEALLOCATE_STATEMENT
+            type_id = 24
         type is (stop_node)
-            type_id = NODE_STOP
+            type_id = 25
         type is (return_node)
-            type_id = NODE_RETURN
+            type_id = 26
         type is (cycle_node)
-            type_id = NODE_CYCLE
+            type_id = 27
         type is (exit_node)
-            type_id = NODE_EXIT
+            type_id = 28
         type is (where_node)
-            type_id = NODE_WHERE
+            type_id = 29
         type is (interface_block_node)
-            type_id = NODE_INTERFACE_BLOCK
+            type_id = 30
         type is (derived_type_node)
-            type_id = NODE_DERIVED_TYPE
+            type_id = 31
         type is (pointer_assignment_node)
-            type_id = NODE_POINTER_ASSIGNMENT
+            type_id = 32
         type is (forall_node)
-            type_id = NODE_FORALL
+            type_id = 33
         type is (case_range_node)
-            type_id = NODE_CASE_RANGE
+            type_id = 34
         type is (case_default_node)
-            type_id = NODE_CASE_DEFAULT
+            type_id = 35
         type is (complex_literal_node)
-            type_id = NODE_COMPLEX_LITERAL
+            type_id = 36
         type is (include_statement_node)
-            type_id = NODE_INCLUDE_STATEMENT
+            type_id = 37
         type is (contains_node)
-            type_id = NODE_CONTAINS
+            type_id = 38
         type is (format_descriptor_node)
-            type_id = NODE_FORMAT_DESCRIPTOR
+            type_id = 39
         class default
-            type_id = NODE_UNKNOWN
+            type_id = 99
         end select
     end function get_node_type_id
 
