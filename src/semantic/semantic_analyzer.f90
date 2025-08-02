@@ -13,6 +13,7 @@ module semantic_analyzer
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 range_expression_node, get_array_slice_node
     use parameter_tracker
+    use expression_temporary_tracker_module
     implicit none
     private
 
@@ -27,6 +28,7 @@ module semantic_analyzer
         integer :: next_var_id = 0
         type(substitution_t) :: subst
         type(parameter_tracker_t) :: param_tracker  ! Track parameter attributes
+        type(temp_tracker_t) :: temp_tracker  ! Track expression temporaries
     contains
         procedure :: infer => infer_type
         procedure :: infer_stmt => infer_statement_type
@@ -57,6 +59,9 @@ contains
 
         ! Initialize hierarchical scope stack
         ctx%scopes = create_scope_stack()
+
+        ! Initialize expression temporary tracker
+        ctx%temp_tracker = create_temp_tracker()
 
         ! Initialize legacy flat environment
         ctx%env%count = 0
@@ -559,7 +564,57 @@ contains
         end select
 
         typ = ctx%apply_subst_to_type(result_typ)
+        
+        ! Track temporary for this binary operation if needed
+        ! Complex expressions like (a + b) * (c + d) need temporaries
+        if (needs_temporary(binop%operator)) then
+            block
+                integer :: temp_id
+                character(len=32) :: type_str
+                integer :: size_bytes
+                
+                ! Determine type string and size
+                select case (result_typ%kind)
+                case (TINT)
+                    type_str = "integer"
+                    size_bytes = 4
+                case (TREAL)
+                    type_str = "real"
+                    size_bytes = 4
+                case (TLOGICAL)
+                    type_str = "logical"
+                    size_bytes = 4
+                case (TCHAR)
+                    type_str = "character"
+                    size_bytes = result_typ%size
+                case default
+                    type_str = "unknown"
+                    size_bytes = 4
+                end select
+                
+                ! Allocate temporary
+                temp_id = ctx%temp_tracker%allocate_temp(type_str, size_bytes, &
+                                                        binop_index)
+                
+                ! Mark this expression as using this temporary
+                call ctx%temp_tracker%mark_expr_temps(binop_index, [temp_id])
+            end block
+        end if
     end function infer_binary_op
+    
+    ! Check if an operator needs a temporary variable
+    function needs_temporary(operator) result(needs_temp)
+        character(len=*), intent(in) :: operator
+        logical :: needs_temp
+        
+        ! Most arithmetic operations need temporaries for intermediate results
+        select case (trim(operator))
+        case ("+", "-", "*", "/", "**", "//")
+            needs_temp = .true.
+        case default
+            needs_temp = .false.
+        end select
+    end function needs_temporary
 
     ! Infer type of function call
     function infer_function_call(ctx, arena, call_node) result(typ)
@@ -1621,6 +1676,7 @@ contains
         copy%scopes = this%scopes        ! Uses scope_stack_t assignment (deep copy)
         copy%next_var_id = this%next_var_id
         copy%subst = this%subst          ! Uses substitution_t assignment (deep copy)
+        copy%temp_tracker = this%temp_tracker  ! Uses temp_tracker_t assignment (deep copy)
     end function semantic_context_deep_copy
 
     subroutine semantic_context_assign(lhs, rhs)
@@ -1631,6 +1687,7 @@ contains
         lhs%scopes = rhs%scopes          ! Uses scope_stack_t assignment (deep copy)
         lhs%next_var_id = rhs%next_var_id
         lhs%subst = rhs%subst            ! Uses substitution_t assignment (deep copy)
+        lhs%temp_tracker = rhs%temp_tracker  ! Uses temp_tracker_t assignment (deep copy)
     end subroutine semantic_context_assign
 
     ! Infer type of array literal
