@@ -141,9 +141,11 @@ This document lists all open GitHub issues prioritized by architectural impact a
 
 ## 🔵 Analysis and Optimization Features
 
-### #26 - Add expression temporary tracking for optimization
+### 🚧 #26 - Add expression temporary tracking for optimization
 **Priority: Low** | **Impact: Optimization** | **Effort: High**
+- **Status**: 🚧 **IN PROGRESS** - Working on expression temporary tracking
 - **Description**: Track temporary variables for memory optimization
+- **Branch**: feature/26-expression-temporary-tracking
 
 ### 🚧 #20 - Include parameter attributes (optional, intent) in AST nodes
 **Priority: Low** | **Impact: AST Enhancement** | **Effort: Low**
@@ -152,12 +154,13 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Description**: Add parameter metadata to AST nodes
 - **Branch**: feature/20-parameter-attributes
 
-### 🚧 #19 - Need clearer block boundaries and sibling relationships in AST
+### ✅ #19 - Need clearer block boundaries and sibling relationships in AST
 **Priority: Low** | **Impact: API Enhancement** | **Effort: Medium**
-- **Status**: 🚧 **IN PROGRESS** - Working on block boundaries and sibling relationships
+- **Status**: ✅ **COMPLETED** - Block boundaries and sibling relationships implemented (PR #58)
 - **Labels**: enhancement
 - **Description**: Improve AST navigation capabilities
-- **Branch**: feature/19-block-boundaries-sibling-relationships
+- **Implementation**: Added get_next_sibling, get_previous_sibling, get_block_statements, is_last_in_block, is_block_node
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### #18 - Need call graph construction for unused procedure detection
 **Priority: Low** | **Impact: Analysis Feature** | **Effort: High**

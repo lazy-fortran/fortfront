@@ -59,6 +59,7 @@ module fortfront
     
     ! Re-export semantic analyzer functionality
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
+    use expression_temporary_tracker_module, only: temp_info_t
     
     ! Re-export lexer token type
     use lexer_core, only: token_t, tokenize_core
@@ -121,6 +122,17 @@ module fortfront
         integer :: symbol_count = 0
     end type scope_info_t
     
+    ! Expression temporary information
+    type :: expression_temp_info_t
+        integer :: temp_id = -1
+        character(len=:), allocatable :: type_name
+        integer :: size_bytes = 0
+        integer :: created_at_node = 0
+        integer :: released_at_node = -1
+        logical :: is_active = .false.
+        logical :: is_reusable = .true.
+    end type expression_temp_info_t
+    
     ! Public symbol table interface functions
     public :: symbol_info_t, symbol_reference_t, scope_info_t
     public :: get_symbol_info, get_symbols_in_scope, get_symbol_references, &
@@ -141,6 +153,11 @@ module fortfront
     ! Public AST navigation APIs for issue #19
     public :: get_next_sibling, get_previous_sibling, get_block_statements, &
               is_last_in_block, is_block_node
+    
+    ! Public expression temporary tracking APIs for issue #26
+    public :: expression_temp_info_t, get_expression_temporaries, &
+              get_temporary_info, get_active_temporary_count, &
+              get_total_temporary_count
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
@@ -1692,5 +1709,60 @@ contains
             attributes(i) = "initialized"
         end if
     end subroutine build_declaration_attributes
+
+    ! ========================================================================
+    ! Expression Temporary Tracking Functions (Issue #26)
+    ! ========================================================================
+    
+    ! Get list of temporary IDs for an expression node
+    function get_expression_temporaries(ctx, expr_node_index) result(temp_ids)
+        type(semantic_context_t), intent(in) :: ctx
+        integer, intent(in) :: expr_node_index
+        integer, allocatable :: temp_ids(:)
+        
+        if (ctx%temp_tracker%active_count >= 0) then
+            temp_ids = ctx%temp_tracker%get_temps_for_expr(expr_node_index)
+        else
+            allocate(temp_ids(0))
+        end if
+    end function get_expression_temporaries
+    
+    ! Get information about a specific temporary
+    function get_temporary_info(ctx, temp_id) result(temp_info)
+        type(semantic_context_t), intent(in) :: ctx
+        integer, intent(in) :: temp_id
+        type(expression_temp_info_t) :: temp_info
+        type(temp_info_t) :: internal_info
+        
+        ! Get internal temporary info
+        internal_info = ctx%temp_tracker%get_temp_info(temp_id)
+        
+        ! Convert to public type
+        temp_info%temp_id = internal_info%temp_id
+        if (allocated(internal_info%type_info)) then
+            temp_info%type_name = internal_info%type_info
+        end if
+        temp_info%size_bytes = internal_info%size_in_bytes
+        temp_info%created_at_node = internal_info%created_at_node
+        temp_info%released_at_node = internal_info%released_at_node
+        temp_info%is_active = internal_info%is_active
+        temp_info%is_reusable = internal_info%is_reusable
+    end function get_temporary_info
+    
+    ! Get count of currently active temporaries
+    function get_active_temporary_count(ctx) result(count)
+        type(semantic_context_t), intent(in) :: ctx
+        integer :: count
+        
+        count = ctx%temp_tracker%get_active_count()
+    end function get_active_temporary_count
+    
+    ! Get total count of temporaries allocated
+    function get_total_temporary_count(ctx) result(count)
+        type(semantic_context_t), intent(in) :: ctx
+        integer :: count
+        
+        count = ctx%temp_tracker%get_total_count()
+    end function get_total_temporary_count
 
 end module fortfront
