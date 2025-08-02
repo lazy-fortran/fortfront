@@ -3,6 +3,7 @@ program test_parser_expressions_comprehensive
                         array_literal_node, call_or_subscript_node, literal_node, &
                         identifier_node, LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
                         LITERAL_LOGICAL, create_call_or_subscript
+    use ast_nodes_core, only: component_access_node
     use ast_factory
     use parser_expressions_module
     use lexer_core
@@ -719,15 +720,23 @@ contains
                 test_member_access = .false.
             else
                 select type (node => arena%entries(expr_index)%node)
-                class is (binary_op_node)
+                type is (component_access_node)
+                    if (node%component_name == "field") then
+                        print *, '  OK: "obj%field" parsed as component access'
+                    else
+                        print *, '  FAIL: Expected component name "field", got: ', node%component_name
+                        test_member_access = .false.
+                    end if
+                type is (binary_op_node)
+                    ! Backward compatibility - some parsers might still use binary op
                     if (node%operator == "%") then
-                        print *, '  OK: "obj%field" parsed as member access'
+                        print *, '  OK: "obj%field" parsed as member access (legacy)'
                     else
                         print *, '  FAIL: Expected % operator'
                         test_member_access = .false.
                     end if
                 class default
-                    print *, '  FAIL: Expected binary op for member access'
+                    print *, '  FAIL: Expected component_access_node for member access'
                     test_member_access = .false.
                 end select
             end if

@@ -1283,22 +1283,16 @@ contains
     ! Create component access node and add to stack
     function push_component_access(arena, object_index, component_name, &
                                   line, column, parent_index) result(access_index)
+        use ast_nodes_core, only: component_access_node, create_component_access
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: object_index
         character(len=*), intent(in) :: component_name
         integer, intent(in), optional :: line, column, parent_index
         integer :: access_index
-        type(binary_op_node) :: access_node
+        type(component_access_node) :: access_node
 
-        ! Component access is treated as a special binary operation: object % component
-        access_node%left_index = object_index
-        ! Create a temporary identifier for the component name
-        access_node%right_index = push_identifier(arena, component_name, &
-                                                 parent_index=parent_index)
-        access_node%operator = "%"
-
-        if (present(line)) access_node%line = line
-        if (present(column)) access_node%column = column
+        ! Create proper component access node
+        access_node = create_component_access(object_index, component_name, line, column)
 
         call arena%push(access_node, "component_access", parent_index)
         access_index = arena%size

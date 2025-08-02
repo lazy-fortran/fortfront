@@ -5,7 +5,7 @@ module ast_nodes_core
     private
 
     ! Public factory functions
-    public :: create_pointer_assignment, create_array_literal
+    public :: create_pointer_assignment, create_array_literal, create_component_access
 
     ! Core AST node types used by all Fortran dialects
 
@@ -106,6 +106,18 @@ module ast_nodes_core
         procedure :: assign => array_literal_assign
         generic :: assignment(=) => assign
     end type array_literal_node
+
+    ! Component access node for % operator
+    type, extends(ast_node), public :: component_access_node
+        integer :: base_expr_index      ! The structure/derived type expression
+        character(len=:), allocatable :: component_name  ! Name of the component
+        ! For chained access (a%b%c), base_expr can be another component_access_node
+    contains
+        procedure :: accept => component_access_accept
+        procedure :: to_json => component_access_to_json
+        procedure :: assign => component_access_assign
+        generic :: assignment(=) => assign
+    end type component_access_node
 
 contains
 
@@ -446,5 +458,64 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_array_literal
+
+    ! Stub implementations for component_access_node
+    subroutine component_access_accept(this, visitor)
+        class(component_access_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine component_access_accept
+
+    subroutine component_access_to_json(this, json, parent)
+        class(component_access_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: base_expr
+        
+        ! Add type field
+        call json%add(parent, 'type', 'component_access')
+        
+        ! Add base expression index
+        call json%add(parent, 'base_expr_index', this%base_expr_index)
+        
+        ! Add component name
+        if (allocated(this%component_name)) then
+            call json%add(parent, 'component_name', this%component_name)
+        else
+            call json%add(parent, 'component_name', '')
+        end if
+    end subroutine component_access_to_json
+
+    subroutine component_access_assign(lhs, rhs)
+        class(component_access_node), intent(inout) :: lhs
+        class(component_access_node), intent(in) :: rhs
+        
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type, source=rhs%inferred_type)
+        end if
+        
+        ! Copy derived class fields
+        lhs%base_expr_index = rhs%base_expr_index
+        if (allocated(rhs%component_name)) then
+            lhs%component_name = rhs%component_name
+        end if
+    end subroutine component_access_assign
+
+    ! Factory function for component access
+    function create_component_access(base_expr_index, component_name, line, column) result(node)
+        integer, intent(in) :: base_expr_index
+        character(len=*), intent(in) :: component_name
+        integer, intent(in), optional :: line, column
+        type(component_access_node) :: node
+        
+        node%base_expr_index = base_expr_index
+        node%component_name = component_name
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_component_access
 
 end module ast_nodes_core
