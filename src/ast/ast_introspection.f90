@@ -30,22 +30,28 @@ module ast_introspection
 
 contains
 
-    ! Get node by index from arena (issue #12 requirement)
+    ! Safe node access using visitor pattern (issue #12 requirement)
     ! 
-    ! IMPORTANT: Due to Fortran limitations, this function cannot return a pointer
-    ! or safe copy of the node. Instead, it provides a callback mechanism using
-    ! the visitor pattern for safe node access.
+    ! CRITICAL: Node Copying is FORBIDDEN
+    ! ===================================
+    ! AST nodes contain complex allocatable components (particularly recursive
+    ! mono_type_t structures) that CANNOT be safely copied. Attempting to copy
+    ! nodes will result in:
+    !   - Segmentation faults
+    !   - Double-free errors
+    !   - Memory corruption
     !
-    ! RECOMMENDED APPROACH:
-    ! Use visit_node_at() with a custom visitor to safely access node properties:
+    ! This function provides the ONLY safe way to access nodes by using the
+    ! visitor pattern, which avoids all copying.
     !
+    ! Usage:
     !   type(my_visitor_t) :: visitor
     !   call visit_node_at(arena, index, visitor)
     !
-    ! For simple introspection, use the direct accessor functions:
-    ! - get_node_type_id_from_arena() for node type identification
-    ! - get_node_source_location_from_arena() for source location
-    ! - get_node_type_kind() and get_node_type_details() for type information
+    ! For read-only access to specific properties, use:
+    !   - get_node_type_id_from_arena() for node type identification
+    !   - get_node_source_location_from_arena() for source location
+    !   - get_node_type_kind() and get_node_type_details() for type information
     !
     subroutine visit_node_at(arena, index, visitor)
         use ast_visitor

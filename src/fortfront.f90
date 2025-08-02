@@ -5,6 +5,26 @@ module fortfront
     ! - AST Construction and Arena Management
     ! - Semantic Analysis with Type Inference
     ! - Code Generation
+    !
+    ! IMPORTANT: AST Node Access Policy
+    ! =================================
+    ! AST nodes MUST NOT be copied due to complex allocatable components
+    ! that can cause memory corruption and segmentation faults.
+    ! 
+    ! USE ONLY the visitor pattern for safe node access:
+    !   - visit_node_at() for visiting nodes by index
+    !   - AST traversal functions with custom visitors
+    !
+    ! DO NOT attempt to:
+    !   - Copy nodes with allocate(source=...)
+    !   - Create functions that return node copies
+    !   - Perform shallow copies of nodes
+    !
+    ! For read-only access to node properties, use:
+    !   - get_node_type_id_from_arena()
+    !   - get_node_source_location_from_arena()
+    !   - get_node_type_kind()
+    !   - get_node_type_details()
     
     ! Re-export core pipeline functionality
     use frontend, only: lex_source, parse_tokens, analyze_semantics, &
