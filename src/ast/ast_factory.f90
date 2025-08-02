@@ -1622,7 +1622,8 @@ contains
                         integer :: name_index
                         name_index = push_identifier(arena, name, line, column, parent_index)
                         node_index = push_character_substring(arena, name_index, &
-                            node%start_index, node%end_index, line, column, parent_index)
+                            node%start_index, node%end_index, line, column, &
+                            parent_index)
                     end block
                 end select
             else
@@ -1630,8 +1631,8 @@ contains
                 block
                     integer :: array_name_index
                     array_name_index = push_identifier(arena, name, line, column, parent_index)
-                    node_index = push_array_slice(arena, array_name_index, arg_indices, &
-                                                size(arg_indices), line, column, parent_index)
+                    node_index = push_array_slice(arena, array_name_index, &
+                        arg_indices, size(arg_indices), line, column, parent_index)
                 end block
             end if
         else
