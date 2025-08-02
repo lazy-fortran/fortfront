@@ -4,8 +4,18 @@ module ast_nodes_data
     implicit none
     private
 
+    ! Public constants for parameter intent
+    public :: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
+    integer, parameter :: INTENT_NONE = 0
+    integer, parameter :: INTENT_IN = 1
+    integer, parameter :: INTENT_OUT = 2
+    integer, parameter :: INTENT_INOUT = 3
+
     ! Public factory functions
     public :: create_declaration, create_derived_type
+    
+    ! Public utility functions
+    public :: intent_type_to_string
 
     ! Data structure AST nodes
 
@@ -49,8 +59,8 @@ module ast_nodes_data
         integer :: kind_value                          ! Kind parameter
         ! (e.g., 8 for real(8))
         logical :: has_kind                            ! Whether kind was specified
-        character(len=:), allocatable :: intent        ! in, out, inout
-        logical :: has_intent                          ! Whether intent was specified
+        integer :: intent_type = INTENT_NONE          ! INTENT_IN/OUT/INOUT
+        logical :: is_optional = .false.              ! Whether parameter is optional
         ! Array dimension support
         logical :: is_array = .false.                  ! Whether this is
         ! an array parameter
@@ -153,7 +163,37 @@ contains
         class(parameter_declaration_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
+        type(json_value), pointer :: node, intent_str
+        character(len=:), allocatable :: intent_name
+        
+        call json%create_object(node, '')
+        call json%add(parent, node)
+        
+        call json%add(node, 'type', 'parameter_declaration')
+        call json%add(node, 'name', this%name)
+        call json%add(node, 'type_name', this%type_name)
+        call json%add(node, 'kind_value', this%kind_value)
+        call json%add(node, 'has_kind', this%has_kind)
+        call json%add(node, 'is_optional', this%is_optional)
+        call json%add(node, 'is_array', this%is_array)
+        
+        ! Add intent as a readable string (single field for clarity)
+        select case (this%intent_type)
+        case (INTENT_NONE)
+            intent_name = ''
+        case (INTENT_IN)
+            intent_name = 'in'
+        case (INTENT_OUT)
+            intent_name = 'out'
+        case (INTENT_INOUT)
+            intent_name = 'inout'
+        case default
+            intent_name = 'unknown'
+        end select
+        call json%add(node, 'intent', intent_name)
+        
+        call json%add(node, 'line', this%line)
+        call json%add(node, 'column', this%column)
     end subroutine parameter_declaration_to_json
 
     subroutine parameter_declaration_assign(lhs, rhs)
@@ -174,8 +214,8 @@ contains
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
         lhs%kind_value = rhs%kind_value
         lhs%has_kind = rhs%has_kind
-        if (allocated(rhs%intent)) lhs%intent = rhs%intent
-        lhs%has_intent = rhs%has_intent
+        lhs%intent_type = rhs%intent_type
+        lhs%is_optional = rhs%is_optional
         lhs%is_array = rhs%is_array
         if (allocated(rhs%dimension_indices)) then
             if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
@@ -342,5 +382,24 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_derived_type
+
+    ! Utility function to convert intent_type to string
+    function intent_type_to_string(intent_type) result(intent_str)
+        integer, intent(in) :: intent_type
+        character(len=:), allocatable :: intent_str
+        
+        select case (intent_type)
+        case (INTENT_NONE)
+            intent_str = ""
+        case (INTENT_IN)
+            intent_str = "in"
+        case (INTENT_OUT)
+            intent_str = "out"
+        case (INTENT_INOUT)
+            intent_str = "inout"
+        case default
+            intent_str = ""
+        end select
+    end function intent_type_to_string
 
 end module ast_nodes_data

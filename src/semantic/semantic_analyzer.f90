@@ -9,6 +9,7 @@ module semantic_analyzer
     use scope_manager
     use type_checker
     use ast_core
+    use ast_nodes_data, only: intent_type_to_string
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 range_expression_node, get_array_slice_node
     use parameter_tracker
@@ -1310,7 +1311,9 @@ contains
                       create_poly_type(forall_vars=[type_var_t::], mono=param_types(i)))
                     type is (parameter_declaration_node)
                         ! Track parameter with intent
-                        call ctx%param_tracker%add_parameter(param%name, param%intent)
+                        call ctx%param_tracker%add_parameter(param%name, &
+                                                     intent_type_to_string(param%intent_type), &
+                                                     param%is_optional)
                         call ctx%scopes%define(param%name, &
                       create_poly_type(forall_vars=[type_var_t::], mono=param_types(i)))
                     end select
@@ -1399,7 +1402,9 @@ contains
                                  mono=create_mono_type(TVAR, var=ctx%fresh_type_var())))
                     type is (parameter_declaration_node)
                         ! Track parameter with intent
-                        call ctx%param_tracker%add_parameter(param%name, param%intent)
+                        call ctx%param_tracker%add_parameter(param%name, &
+                                                     intent_type_to_string(param%intent_type), &
+                                                     param%is_optional)
                         call ctx%scopes%define(param%name, &
                                           create_poly_type(forall_vars=[type_var_t::], &
                                  mono=create_mono_type(TVAR, var=ctx%fresh_type_var())))

@@ -799,6 +799,7 @@ contains
         logical :: parsing_type_spec
         character(len=:), allocatable :: current_type, current_kind_str
         integer :: current_kind, current_intent
+        logical :: current_is_optional
         integer, allocatable :: temp_params(:)
         integer :: line, column
         character(len=:), allocatable :: type_expr
@@ -833,6 +834,7 @@ contains
                 current_type = token%text
                 current_kind = 0
                 current_intent = 0
+                current_is_optional = .false.
                 line = token%line
                 column = token%column
                 token = parser%consume()
@@ -938,8 +940,8 @@ contains
                         end if
                     else if (token%kind == TK_KEYWORD .and. &
                              token%text == "optional") then
-                        ! Mark current type as optional (stored with intent value 4)
-                        current_intent = 4  ! Using 4 to indicate optional
+                        ! Mark current type as optional
+                        current_is_optional = .true.
                         token = parser%consume()
                     end if
                 end if
@@ -1037,10 +1039,11 @@ contains
                             if (dim_count > 0) then
              param_index = push_parameter_declaration(arena, param_name, current_type, &
                                                          current_kind, current_intent, &
-                                                              dim_indices, line, column)
+                                                         current_is_optional, dim_indices, line, column)
                             else
              param_index = push_parameter_declaration(arena, param_name, current_type, &
                                                          current_kind, current_intent, &
+                                                         current_is_optional, &
                                                                line=line, column=column)
                             end if
                             temp_params = [temp_params, param_index]

@@ -3,6 +3,7 @@ module semantic_analyzer_with_checks
     use semantic_checks
     use ast_core
     use ast_nodes_control, only: where_node, forall_node
+    use ast_nodes_data, only: intent_type_to_string
     implicit none
     private
     
@@ -67,7 +68,8 @@ contains
                         select type (param => arena%entries(node%param_indices(i))%node)
                         type is (parameter_declaration_node)
                             call ctx%param_tracker%add_parameter(param%name, &
-                                param%intent)
+                                intent_type_to_string(param%intent_type), &
+                                param%is_optional)
                         end select
                     end if
                 end do
@@ -95,7 +97,8 @@ contains
                         select type (param => arena%entries(node%param_indices(i))%node)
                         type is (parameter_declaration_node)
                             call ctx%param_tracker%add_parameter(param%name, &
-                                param%intent)
+                                intent_type_to_string(param%intent_type), &
+                                param%is_optional)
                         end select
                     end if
                 end do

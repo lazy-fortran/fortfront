@@ -2,6 +2,7 @@ program test_frontend_parser_array_params
     use lexer_core
     use ast_core
     use ast_factory
+    use ast_nodes_data, only: intent_type_to_string
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_statements_module, only: parse_typed_parameters
     implicit none
@@ -80,8 +81,9 @@ contains
                     print *, "ERROR in ", test_name, ": First param kind should be 8, got ", node1%kind_value
                     return
                 end if
-                if (node1%intent /= "") then
-                    print *, "ERROR in ", test_name, ": First param intent should be empty, got '", node1%intent, "'"
+                if (intent_type_to_string(node1%intent_type) /= "") then
+                    print *, "ERROR in ", test_name, ": First param intent should be empty, got '", &
+                             intent_type_to_string(node1%intent_type), "'"
                     return
                 end if
                 if (.not. node1%is_array) then
