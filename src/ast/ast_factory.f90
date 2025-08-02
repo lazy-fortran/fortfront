@@ -1595,7 +1595,7 @@ contains
         integer, intent(in) :: arg_indices(:)
         integer, intent(in), optional :: line, column, parent_index
         integer :: node_index
-        logical :: has_slice
+        logical :: has_slice, is_likely_substring
         integer :: i
         
         ! Check if any argument is a range expression (array slice)
@@ -1613,15 +1613,60 @@ contains
         end do
         
         if (has_slice) then
-            ! Has range expressions - create array slice
-            ! TODO: In semantic analysis phase, convert to character_substring_node
-            ! when the base is known to be a character type
-            block
-                integer :: array_name_index
-                array_name_index = push_identifier(arena, name, line, column, parent_index)
-                node_index = push_array_slice(arena, array_name_index, &
-                    arg_indices, size(arg_indices), line, column, parent_index)
-            end block
+            ! Check if this might be a character substring
+            is_likely_substring = .false.
+            
+            ! Heuristic: single range argument with string-like identifier names
+            if (size(arg_indices) == 1) then
+                select type (node => arena%entries(arg_indices(1))%node)
+                type is (range_expression_node)
+                    ! Check if name suggests string variable
+                    block
+                        character(len=:), allocatable :: lower_name
+                        integer :: i
+                        
+                        ! Simple lowercase conversion
+                        lower_name = name
+                        do i = 1, len(lower_name)
+                            if (lower_name(i:i) >= 'A' .and. lower_name(i:i) <= 'Z') then
+                                lower_name(i:i) = achar(iachar(lower_name(i:i)) + 32)
+                            end if
+                        end do
+                        
+                        if (index(lower_name, 'str') > 0 .or. &
+                            index(lower_name, 'string') > 0 .or. &
+                            index(lower_name, 'char') > 0 .or. &
+                            index(lower_name, 'name') > 0 .or. &
+                            index(lower_name, 'text') > 0 .or. &
+                            index(lower_name, 'msg') > 0 .or. &
+                            index(lower_name, 'line') > 0) then
+                            is_likely_substring = .true.
+                        end if
+                    end block
+                end select
+            end if
+            
+            if (is_likely_substring) then
+                ! Create character substring node
+                select type (node => arena%entries(arg_indices(1))%node)
+                type is (range_expression_node)
+                    block
+                        integer :: name_index
+                        name_index = push_identifier(arena, name, line, column, parent_index)
+                        node_index = push_character_substring(arena, name_index, &
+                            node%start_index, node%end_index, line, column, &
+                            parent_index)
+                    end block
+                end select
+            else
+                ! Create array slice node  
+                block
+                    integer :: array_name_index
+                    array_name_index = push_identifier(arena, name, line, column, parent_index)
+                    node_index = push_array_slice(arena, array_name_index, &
+                        arg_indices, size(arg_indices), line, column, parent_index)
+                end block
+            end if
         else
             ! Regular function call or array indexing
             node_index = push_call_or_subscript(arena, name, arg_indices, &
