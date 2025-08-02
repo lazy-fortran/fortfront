@@ -92,16 +92,23 @@ contains
             return
         end if
 
-        ! Test new get_node API (currently disabled)
-        ! NOTE: Commented out due to compiler issues with polymorphic allocatables
-        ! node = get_node(arena, root_index)
-        ! if (allocated(node)) then
-        !     print *, "  ✗ get_node: unexpectedly allocated (should be disabled)"
-        !     test_missing_apis = .false.
-        ! else
-        !     print *, "  ✓ get_node: correctly returns unallocated (disabled for safety)"
-        ! end if
-        print *, "  ✓ get_node: skipped (disabled due to segfault issues)"
+        ! Test new get_node API (returns shallow copy)
+        block
+            class(ast_node), allocatable :: node_copy
+            node_copy = get_node(arena, root_index)
+            if (allocated(node_copy)) then
+                print *, "  ✓ get_node: returned valid node copy"
+                type_id = get_node_type_id(node_copy)
+                print *, "    Node type ID:", type_id
+                
+                ! Test has_semantic_info with the copy
+                has_info = has_semantic_info(node_copy)
+                print *, "    Has semantic info:", has_info, "(should be false - shallow copy)"
+            else
+                print *, "  ✗ get_node: failed to return node"
+                test_missing_apis = .false.
+            end if
+        end block
         
         ! Test new safe arena-based APIs
         type_id = get_node_type_id_from_arena(arena, root_index)
