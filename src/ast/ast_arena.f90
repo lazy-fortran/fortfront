@@ -35,6 +35,11 @@ module ast_arena
         procedure :: traverse_depth => ast_arena_traverse_depth
         procedure :: find_by_type => ast_arena_find_by_type
         procedure :: get_children => ast_arena_get_children
+        procedure :: get_next_sibling => ast_arena_get_next_sibling
+        procedure :: get_previous_sibling => ast_arena_get_previous_sibling
+        procedure :: get_block_statements => ast_arena_get_block_statements
+        procedure :: is_last_in_block => ast_arena_is_last_in_block
+        procedure :: is_block_node => ast_arena_is_block_node
         procedure :: get_stats => ast_arena_get_stats
         procedure :: clear => ast_arena_clear
         procedure :: add_child => ast_arena_add_child
@@ -366,6 +371,110 @@ contains
             allocate(child_indices(0))
         end if
     end function ast_arena_get_children
+
+    ! Get next sibling node in the same parent
+    function ast_arena_get_next_sibling(this, node_index) result(next_sibling)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: node_index
+        integer :: next_sibling
+        integer :: parent_idx, i
+        integer, allocatable :: siblings(:)
+        
+        next_sibling = 0
+        
+        if (node_index <= 0 .or. node_index > this%size) return
+        
+        parent_idx = this%entries(node_index)%parent_index
+        if (parent_idx <= 0) return  ! No parent = no siblings
+        
+        siblings = this%get_children(parent_idx)
+        
+        ! Find current node in parent's children and return next one
+        do i = 1, size(siblings)
+            if (siblings(i) == node_index .and. i < size(siblings)) then
+                next_sibling = siblings(i + 1)
+                exit
+            end if
+        end do
+    end function ast_arena_get_next_sibling
+
+    ! Get previous sibling node in the same parent
+    function ast_arena_get_previous_sibling(this, node_index) result(prev_sibling)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: node_index
+        integer :: prev_sibling
+        integer :: parent_idx, i
+        integer, allocatable :: siblings(:)
+        
+        prev_sibling = 0
+        
+        if (node_index <= 0 .or. node_index > this%size) return
+        
+        parent_idx = this%entries(node_index)%parent_index
+        if (parent_idx <= 0) return  ! No parent = no siblings
+        
+        siblings = this%get_children(parent_idx)
+        
+        ! Find current node in parent's children and return previous one
+        do i = 1, size(siblings)
+            if (siblings(i) == node_index .and. i > 1) then
+                prev_sibling = siblings(i - 1)
+                exit
+            end if
+        end do
+    end function ast_arena_get_previous_sibling
+
+    ! Get all statements in a block (for block nodes like if, do, etc.)
+    function ast_arena_get_block_statements(this, block_index) result(stmt_indices)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: block_index
+        integer, allocatable :: stmt_indices(:)
+        
+        ! Default: return children of the block node
+        stmt_indices = this%get_children(block_index)
+    end function ast_arena_get_block_statements
+
+    ! Check if a statement is the last executable statement in its block
+    function ast_arena_is_last_in_block(this, node_index) result(is_last)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: node_index
+        logical :: is_last
+        integer :: next_idx
+        
+        is_last = .false.
+        next_idx = this%get_next_sibling(node_index)
+        
+        ! If no next sibling, this is the last statement in the block
+        is_last = (next_idx == 0)
+    end function ast_arena_is_last_in_block
+
+    ! Check if a node represents a block (contains statements)
+    function ast_arena_is_block_node(this, node_index) result(is_block)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: node_index
+        logical :: is_block
+        character(len=:), allocatable :: node_type
+        
+        is_block = .false.
+        
+        if (node_index <= 0 .or. node_index > this%size) return
+        
+        if (allocated(this%entries(node_index)%node_type)) then
+            node_type = this%entries(node_index)%node_type
+            
+            ! Check for known block types (using actual arena node type strings)
+            is_block = (node_type == "if_statement" .or. &
+                       node_type == "do_loop" .or. &
+                       node_type == "do_while" .or. &
+                       node_type == "forall" .or. &
+                       node_type == "where" .or. &
+                       node_type == "select_case" .or. &
+                       node_type == "function_def" .or. &
+                       node_type == "subroutine_def" .or. &
+                       node_type == "program" .or. &
+                       node_type == "module")
+        end if
+    end function ast_arena_is_block_node
 
     function ast_arena_get_stats(this) result(stats)
         class(ast_arena_t), intent(in) :: this
