@@ -179,10 +179,11 @@ This document lists all open GitHub issues prioritized by architectural impact a
 
 ## 🟣 Simple Fixes
 
-### #36 - Parser does not handle .eqv. and .neqv. logical operators correctly
+### 🚧 #36 - Parser does not handle .eqv. and .neqv. logical operators correctly
 **Priority: Low** | **Impact: Parser Bug** | **Effort: Low**
+- **Status**: 🚧 **IN PROGRESS** - Working on .eqv. and .neqv. logical operators
 - **Description**: Add support for equivalence operators
-- **Status**: Tests disabled, implementation needed
+- **Branch**: feature/36-eqv-neqv-operators
 
 ---
 
