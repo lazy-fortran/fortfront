@@ -232,9 +232,9 @@ contains
             type is (character_substring_node)
                 test_passed = .true.
                 code = generate_code_from_arena(arena, expr_index)
-                if (code /= "str(i + 1:j * 2)") then
+                if (code /= "str(i + 1:j*2)") then
                     print *, "FAIL: ", trim(test_name), " - incorrect code generation"
-                    print *, "  Expected: str(i + 1:j * 2)"
+                    print *, "  Expected: str(i + 1:j*2)"
                     print *, "  Got: ", code
                     test_passed = .false.
                 end if

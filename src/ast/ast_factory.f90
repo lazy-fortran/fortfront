@@ -1613,14 +1613,27 @@ contains
         end do
         
         if (has_slice) then
-            ! Create array slice node
-            ! First push identifier for array name
-            block
-                integer :: array_name_index
-                array_name_index = push_identifier(arena, name, line, column, parent_index)
-                node_index = push_array_slice(arena, array_name_index, arg_indices, &
-                                            size(arg_indices), line, column, parent_index)
-            end block
+            ! Check if single range argument - likely character substring
+            if (size(arg_indices) == 1) then
+                ! Single range argument on simple name - create character substring node
+                select type (node => arena%entries(arg_indices(1))%node)
+                type is (range_expression_node)
+                    block
+                        integer :: name_index
+                        name_index = push_identifier(arena, name, line, column, parent_index)
+                        node_index = push_character_substring(arena, name_index, &
+                            node%start_index, node%end_index, line, column, parent_index)
+                    end block
+                end select
+            else
+                ! Multiple arguments with ranges OR complex names - array slice
+                block
+                    integer :: array_name_index
+                    array_name_index = push_identifier(arena, name, line, column, parent_index)
+                    node_index = push_array_slice(arena, array_name_index, arg_indices, &
+                                                size(arg_indices), line, column, parent_index)
+                end block
+            end if
         else
             ! Regular function call or array indexing
             node_index = push_call_or_subscript(arena, name, arg_indices, &
