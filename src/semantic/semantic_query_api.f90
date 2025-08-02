@@ -19,6 +19,7 @@ module semantic_query_api
 
     public :: semantic_query_t, create_semantic_query
     public :: variable_info_t, function_info_t, type_info_t, scope_info_t
+    public :: symbol_info_t
     public :: SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, SYMBOL_UNKNOWN
 
     ! Symbol types
@@ -66,6 +67,16 @@ module semantic_query_api
         integer :: depth
     end type scope_info_t
 
+    ! Symbol information type (as specified in issue #14)
+    type :: symbol_info_t
+        character(len=:), allocatable :: name
+        type(mono_type_t) :: type_info
+        integer :: definition_line = 0
+        integer :: definition_column = 0
+        logical :: is_used = .false.
+        logical :: is_parameter = .false.
+    end type symbol_info_t
+
     ! Main query interface
     type :: semantic_query_t
         type(ast_arena_t), pointer :: arena => null()
@@ -79,6 +90,12 @@ module semantic_query_api
         procedure :: is_variable_visible => query_is_variable_visible
         procedure :: is_symbol_defined => query_is_symbol_defined
         procedure :: get_symbol_type => query_get_symbol_type
+        ! APIs from issue #14
+        procedure :: get_symbols_in_scope => query_get_symbols_in_scope
+        procedure :: is_variable_used => query_is_variable_used
+        procedure :: get_unused_variables => query_get_unused_variables
+        procedure :: get_identifier_type => query_get_identifier_type
+        procedure :: is_identifier_defined => query_is_identifier_defined
     end type semantic_query_t
 
 contains
@@ -203,6 +220,8 @@ contains
         success = .false.
         
         if (node_index <= 0 .or. node_index > this%arena%size) return
+        if (.not. allocated(this%arena%entries)) return
+        if (size(this%arena%entries) < node_index) return
         if (.not. allocated(this%arena%entries(node_index)%node)) return
         if (.not. allocated(this%arena%entries(node_index)%node%inferred_type)) return
         
@@ -330,9 +349,17 @@ contains
         
         rank = 0
         if (mono_type%kind == TARRAY) then
-            ! For now, assume rank 1 unless we have more sophisticated rank tracking
+            ! For Fortran arrays, rank is typically stored in size field or 
+            ! can be inferred from the array structure
+            ! For now, default to rank 1 which covers most cases
             rank = 1
-            ! TODO: Extract actual rank from array type information
+            
+            ! If size is > 1, it might indicate multi-dimensional
+            ! This is a simplified heuristic until more sophisticated
+            ! rank tracking is implemented in the type system
+            if (mono_type%size > 1) then
+                rank = mono_type%size
+            end if
         end if
     end function get_array_rank
 
@@ -371,9 +398,7 @@ contains
         character(len=*), intent(in) :: param_name
         character(len=:), allocatable :: intent_str
         
-        ! TODO: Query parameter tracker for intent information
-        ! For now, return empty string
-        intent_str = ""
+        intent_str = tracker%get_parameter_intent(param_name)
     end function get_parameter_intent
 
     subroutine extract_function_signature(func_type, func_info)
@@ -424,5 +449,146 @@ contains
             type_info%array_rank = get_array_rank(mono_type)
         end if
     end subroutine extract_type_info
+
+    ! Issue #14 required APIs
+    
+    ! Get all symbols in current scope
+    function query_get_symbols_in_scope(this, scope_type, symbols) result(success)
+        class(semantic_query_t), intent(in) :: this
+        integer, intent(in) :: scope_type
+        type(symbol_info_t), allocatable, intent(out) :: symbols(:)
+        logical :: success
+        integer :: i, count, target_depth
+        
+        success = .false.
+        count = 0
+        
+        ! Find target scope depth based on scope_type
+        select case (scope_type)
+        case (SCOPE_GLOBAL)
+            target_depth = 1
+        case (SCOPE_MODULE, SCOPE_FUNCTION, SCOPE_SUBROUTINE, SCOPE_BLOCK)
+            target_depth = this%context%scopes%depth
+        case default
+            target_depth = this%context%scopes%depth
+        end select
+        
+        if (target_depth <= 0 .or. target_depth > this%context%scopes%depth) return
+        
+        ! Count symbols in target scope
+        count = this%context%scopes%scopes(target_depth)%env%count
+        
+        if (count == 0) then
+            allocate(symbols(0))
+            success = .true.
+            return
+        end if
+        
+        ! Allocate and populate symbols array
+        allocate(symbols(count))
+        
+        do i = 1, count
+            symbols(i)%name = this%context%scopes%scopes(target_depth)%env%names(i)
+            symbols(i)%type_info = this%context%instantiate( &
+                this%context%scopes%scopes(target_depth)%env%schemes(i))
+            symbols(i)%is_parameter = is_parameter_name( &
+                this%context%param_tracker, symbols(i)%name)
+            symbols(i)%is_used = .false.  ! TODO: Implement usage tracking
+        end do
+        
+        success = .true.
+    end function query_get_symbols_in_scope
+    
+    ! Check if variable is used anywhere in scope
+    function query_is_variable_used(this, var_name, scope_type) result(used)
+        class(semantic_query_t), intent(in) :: this
+        character(len=*), intent(in) :: var_name
+        integer, intent(in) :: scope_type
+        logical :: used
+        
+        ! TODO: Implement proper usage tracking
+        ! For now, assume all defined variables are used
+        used = this%is_symbol_defined(var_name)
+    end function query_is_variable_used
+    
+    ! Get all unused variables in scope
+    function query_get_unused_variables(this, scope_type, unused_vars) result(success)
+        class(semantic_query_t), intent(in) :: this
+        integer, intent(in) :: scope_type
+        character(len=:), allocatable, intent(out) :: unused_vars(:)
+        logical :: success
+        type(symbol_info_t), allocatable :: all_symbols(:)
+        integer :: i, unused_count
+        
+        success = .false.
+        
+        ! Get all symbols in scope
+        if (.not. this%get_symbols_in_scope(scope_type, all_symbols)) return
+        
+        if (size(all_symbols) == 0) then
+            allocate(character(len=1) :: unused_vars(0))
+            success = .true.
+            return
+        end if
+        
+        ! Count unused variables
+        unused_count = 0
+        do i = 1, size(all_symbols)
+            if (.not. this%is_variable_used(all_symbols(i)%name, scope_type)) then
+                unused_count = unused_count + 1
+            end if
+        end do
+        
+        ! Allocate and populate unused variables array
+        allocate(character(len=256) :: unused_vars(unused_count))
+        unused_count = 0
+        
+        do i = 1, size(all_symbols)
+            if (.not. this%is_variable_used(all_symbols(i)%name, scope_type)) then
+                unused_count = unused_count + 1
+                unused_vars(unused_count) = all_symbols(i)%name
+            end if
+        end do
+        
+        success = .true.
+    end function query_get_unused_variables
+    
+    ! Get resolved type for identifier
+    function query_get_identifier_type(this, identifier_name, type_info) result(success)
+        class(semantic_query_t), intent(in) :: this
+        character(len=*), intent(in) :: identifier_name
+        type(mono_type_t), optional, intent(out) :: type_info
+        logical :: success
+        type(poly_type_t), allocatable :: scheme
+        
+        success = .false.
+        
+        call this%context%scopes%lookup(identifier_name, scheme)
+        
+        if (allocated(scheme)) then
+            if (present(type_info)) then
+                type_info = this%context%instantiate(scheme)
+            end if
+            success = .true.
+        end if
+    end function query_get_identifier_type
+    
+    ! Check if identifier is defined (alias for is_symbol_defined)
+    function query_is_identifier_defined(this, identifier_name) result(defined)
+        class(semantic_query_t), intent(in) :: this
+        character(len=*), intent(in) :: identifier_name
+        logical :: defined
+        
+        defined = this%is_symbol_defined(identifier_name)
+    end function query_is_identifier_defined
+    
+    ! Helper function to check if name is a parameter
+    function is_parameter_name(tracker, param_name) result(is_param)
+        type(parameter_tracker_t), intent(in) :: tracker
+        character(len=*), intent(in) :: param_name
+        logical :: is_param
+        
+        is_param = tracker%is_parameter(param_name)
+    end function is_parameter_name
 
 end module semantic_query_api

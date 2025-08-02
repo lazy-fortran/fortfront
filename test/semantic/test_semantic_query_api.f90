@@ -5,6 +5,7 @@ program test_semantic_query_api
     use ast_core
     use frontend, only: lex_source, parse_tokens
     use lexer_core, only: token_t
+    use scope_manager, only: SCOPE_GLOBAL, SCOPE_FUNCTION
     implicit none
 
     logical :: all_passed = .true.
@@ -27,40 +28,36 @@ contains
         character(len=*), parameter :: source = "x = 1"
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
-        integer :: prog_index
         type(semantic_context_t) :: ctx
         type(semantic_query_t) :: query
+        integer :: root_index
         character(len=:), allocatable :: error_msg
-
+        logical :: defined
+        
         test_basic_functionality = .true.
         print *, "Testing basic semantic query functionality..."
 
-        ! Tokenize
+        ! Initialize arena and context
+        arena = create_ast_arena()
+        ctx = create_semantic_context()
+        
+        ! Lex, parse, and analyze
         call lex_source(source, tokens, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            print *, "FAIL: Tokenization failed: ", error_msg
-            test_basic_functionality = .false.
-            return
+            error stop "Lexing failed: " // error_msg
         end if
-
-        ! Parse
-        arena = create_ast_arena()
-        call parse_tokens(tokens, arena, prog_index, error_msg)
+        
+        call parse_tokens(tokens, arena, root_index, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-            print *, "FAIL: Parsing failed: ", error_msg
-            test_basic_functionality = .false.
-            return
+            error stop "Parsing failed: " // error_msg
         end if
-
-        ! Semantic analysis
-        ctx = create_semantic_context()
-        call analyze_program(ctx, arena, prog_index)
-
-        ! Create query interface
+        
+        call analyze_program(ctx, arena, root_index)
+        
+        ! Create query interface - NOTE: We need arena and ctx to remain in scope
         query = create_semantic_query(arena, ctx)
 
         ! Test that query interface was created successfully
-        ! For now, just verify the pointers are associated
         if (.not. associated(query%arena)) then
             print *, "FAIL: Query arena pointer not associated"
             test_basic_functionality = .false.
@@ -72,8 +69,16 @@ contains
             test_basic_functionality = .false.
             return
         end if
+        
+        ! Test simple symbol definition check for intrinsic
+        defined = query%is_symbol_defined("sin")
+        if (.not. defined) then
+            print *, "INFO: Symbol 'sin' not found (this is expected for simple semantic context)"
+        else
+            print *, "INFO: Symbol 'sin' found as intrinsic"
+        end if
 
-        print *, "PASS: Basic semantic query functionality"
+        print *, "  Basic functionality: PASS"
     end function test_basic_functionality
 
 end program test_semantic_query_api
