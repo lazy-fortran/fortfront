@@ -1312,8 +1312,8 @@ contains
                     type is (parameter_declaration_node)
                         ! Track parameter with intent
                         call ctx%param_tracker%add_parameter(param%name, &
-                                                     intent_type_to_string(param%intent_type), &
-                                                     param%is_optional)
+                            intent_type_to_string(param%intent_type), &
+                            param%is_optional)
                         call ctx%scopes%define(param%name, &
                       create_poly_type(forall_vars=[type_var_t::], mono=param_types(i)))
                     end select
@@ -1403,8 +1403,8 @@ contains
                     type is (parameter_declaration_node)
                         ! Track parameter with intent
                         call ctx%param_tracker%add_parameter(param%name, &
-                                                     intent_type_to_string(param%intent_type), &
-                                                     param%is_optional)
+                            intent_type_to_string(param%intent_type), &
+                            param%is_optional)
                         call ctx%scopes%define(param%name, &
                                           create_poly_type(forall_vars=[type_var_t::], &
                                  mono=create_mono_type(TVAR, var=ctx%fresh_type_var())))

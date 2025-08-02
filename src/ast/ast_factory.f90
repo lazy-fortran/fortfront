@@ -371,8 +371,9 @@ contains
     end function push_multi_declaration
 
     ! Create parameter declaration node and add to stack
- function push_parameter_declaration(arena, name, type_name, kind_value, intent_value, &
-                      is_optional, dimension_indices, line, column, parent_index) result(param_index)
+ function push_parameter_declaration(arena, name, type_name, kind_value, &
+                      intent_value, is_optional, dimension_indices, line, column, &
+                      parent_index) result(param_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name, type_name
         integer, intent(in), optional :: kind_value, intent_value

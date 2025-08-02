@@ -152,10 +152,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Description**: Add parameter metadata to AST nodes
 - **Branch**: feature/20-parameter-attributes
 
-### #19 - Need clearer block boundaries and sibling relationships in AST
+### 🚧 #19 - Need clearer block boundaries and sibling relationships in AST
 **Priority: Low** | **Impact: API Enhancement** | **Effort: Medium**
+- **Status**: 🚧 **IN PROGRESS** - Working on block boundaries and sibling relationships
 - **Labels**: enhancement
 - **Description**: Improve AST navigation capabilities
+- **Branch**: feature/19-block-boundaries-sibling-relationships
 
 ### #18 - Need call graph construction for unused procedure detection
 **Priority: Low** | **Impact: Analysis Feature** | **Effort: High**
@@ -179,11 +181,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 
 ## 🟣 Simple Fixes
 
-### 🚧 #36 - Parser does not handle .eqv. and .neqv. logical operators correctly
+### ✅ #36 - Parser does not handle .eqv. and .neqv. logical operators correctly
 **Priority: Low** | **Impact: Parser Bug** | **Effort: Low**
-- **Status**: 🚧 **IN PROGRESS** - Working on .eqv. and .neqv. logical operators
+- **Status**: ✅ **COMPLETED** - .eqv. and .neqv. logical operators implemented (PR #57)
 - **Description**: Add support for equivalence operators
-- **Branch**: feature/36-eqv-neqv-operators
+- **Implementation**: Added parse_logical_eqv function with correct precedence hierarchy
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ---
 
