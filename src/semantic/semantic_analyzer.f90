@@ -608,6 +608,9 @@ contains
         logical :: needs_temp
         
         ! Most arithmetic operations need temporaries for intermediate results
+        ! Note: This is intentionally conservative - we track all potential
+        ! temporaries to enable optimization analysis. Later optimization
+        ! passes can eliminate unnecessary temporaries based on context.
         select case (trim(operator))
         case ("+", "-", "*", "/", "**", "//")
             needs_temp = .true.

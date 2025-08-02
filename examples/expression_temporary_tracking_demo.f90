@@ -40,12 +40,24 @@ contains
         stmt_index = parse_statement_dispatcher(tokens, arena)
         
         if (stmt_index <= 0) then
-            print *, "Error: Failed to parse expression"
+            write(error_unit, '(A)') "Error: Failed to parse expression"
+            write(error_unit, '(A,A)') "Input: ", source
             return
         end if
         
         ! Run semantic analysis to generate temporary tracking
-        call analyze_program_impl(ctx, arena, stmt_index)
+        block
+            use iso_fortran_env, only: error_unit
+            
+            ! Protect against potential semantic analysis errors
+            call analyze_program_impl(ctx, arena, stmt_index)
+            
+            ! Check if semantic analysis succeeded (basic check)
+            if (arena%size <= 0) then
+                write(error_unit, '(A)') &
+                    "Warning: Semantic analysis may have failed"
+            end if
+        end block
         
         ! Display temporary statistics
         print *, "Temporary Variable Statistics:"
@@ -111,14 +123,22 @@ contains
         ! Statement 1
         call tokenize_core("x = a + b", tokens)
         stmt_index = parse_statement_dispatcher(tokens, arena)
-        if (stmt_index > 0) call analyze_program_impl(ctx, arena, stmt_index)
+        if (stmt_index > 0) then
+            call analyze_program_impl(ctx, arena, stmt_index)
+        else
+            write(error_unit, '(A)') "Warning: Failed to parse statement 1"
+        end if
         temps_before = get_total_temporary_count(ctx)
         print *, "After statement 1: ", temps_before, " temporaries allocated"
         
         ! Statement 2 (similar type, could reuse)
         call tokenize_core("y = c + d", tokens)
         stmt_index = parse_statement_dispatcher(tokens, arena)
-        if (stmt_index > 0) call analyze_program_impl(ctx, arena, stmt_index)
+        if (stmt_index > 0) then
+            call analyze_program_impl(ctx, arena, stmt_index)
+        else
+            write(error_unit, '(A)') "Warning: Failed to parse statement 2"
+        end if
         temps_after = get_total_temporary_count(ctx)
         
         if (temps_after > temps_before) then
@@ -132,7 +152,11 @@ contains
         ! Statement 3
         call tokenize_core("z = x * y", tokens)
         stmt_index = parse_statement_dispatcher(tokens, arena)
-        if (stmt_index > 0) call analyze_program_impl(ctx, arena, stmt_index)
+        if (stmt_index > 0) then
+            call analyze_program_impl(ctx, arena, stmt_index)
+        else
+            write(error_unit, '(A)') "Warning: Failed to parse statement 3"
+        end if
         print *, "After statement 3: ", get_total_temporary_count(ctx), &
                  " temporaries total"
         print *, "Currently active: ", get_active_temporary_count(ctx)

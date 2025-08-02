@@ -271,11 +271,15 @@ contains
         ! Look for inactive temporary with matching type and size
         do i = 1, size(this%temporaries)
             if (.not. this%temporaries(i)%is_active .and. &
-                this%temporaries(i)%is_reusable .and. &
-                this%temporaries(i)%type_info == type_info .and. &
-                this%temporaries(i)%size_in_bytes == size_bytes) then
-                temp_id = this%temporaries(i)%temp_id
-                exit
+                this%temporaries(i)%is_reusable) then
+                ! Check type_info is allocated before comparison
+                if (allocated(this%temporaries(i)%type_info)) then
+                    if (this%temporaries(i)%type_info == type_info .and. &
+                        this%temporaries(i)%size_in_bytes == size_bytes) then
+                        temp_id = this%temporaries(i)%temp_id
+                        exit
+                    end if
+                end if
             end if
         end do
 
