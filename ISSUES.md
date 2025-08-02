@@ -122,10 +122,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Description**: Document how to properly identify AST node types
 - **Branch**: feature/34-document-node-type-identification
 
-### #14 - Missing Public API for Semantic Information Queries
+### 🚧 #14 - Missing Public API for Semantic Information Queries
 **Priority: Medium** | **Impact: API Design** | **Effort: Medium**
+- **Status**: 🚧 **IN PROGRESS** - Working on semantic information query API
 - **Labels**: enhancement
 - **Description**: Expose semantic analysis results through API
+- **Branch**: feature/14-semantic-info-api
 
 ### #12 - Missing AST Node Introspection APIs for Static Analysis
 **Priority: Medium** | **Impact: API Design** | **Effort: Medium**
