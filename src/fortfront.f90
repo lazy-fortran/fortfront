@@ -50,7 +50,8 @@ module fortfront
     
     ! Re-export AST introspection APIs for issue #12
     use ast_introspection, only: get_node, get_node_type_id, has_semantic_info, &
-                                get_node_type_info_from_arena, get_node_source_location
+                                get_node_type_info_from_arena, get_node_source_location, &
+                                get_node_type_kind, get_node_type_details
     
     ! Re-export AST traversal and visitor functionality
     use ast_traversal, only: traverse_ast_visitor => traverse_ast, &
@@ -108,7 +109,8 @@ module fortfront
     
     ! Public AST introspection APIs for issue #12
     public :: get_node, get_node_type_id, get_node_source_location, &
-              has_semantic_info, get_node_type_info_from_arena
+              has_semantic_info, get_node_type_info_from_arena, &
+              get_node_type_kind, get_node_type_details
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
