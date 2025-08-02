@@ -2,10 +2,13 @@ module parser_expressions_module
     use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
     use ast_core
+    use ast_nodes_core, only: component_access_node, identifier_node
     use ast_factory, only: push_binary_op, push_literal, push_identifier, &
                            push_call_or_subscript, push_array_literal, &
-                           push_range_expression, push_call_or_subscript_with_slice_detection
+                           push_range_expression, push_call_or_subscript_with_slice_detection, &
+                           push_component_access
     use parser_state_module, only: parser_state_t, create_parser_state
+    use codegen_core, only: generate_code_from_arena
     implicit none
     private
 
@@ -221,21 +224,10 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        integer :: right_index
-        type(token_t) :: op_token
 
+        ! Note: % operator is now handled as a postfix operator in parse_primary
+        ! This function just passes through to parse_term for backward compatibility
         expr_index = parse_term(parser, arena)
-
-        do while (.not. parser%is_at_end())
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == "%") then
-                op_token = parser%consume()
-                right_index = parse_term(parser, arena)
-                expr_index = push_binary_op(arena, expr_index, right_index, op_token%text, op_token%line, op_token%column)
-            else
-                exit
-            end if
-        end do
     end function parse_member_access
 
     ! Parse addition and subtraction
@@ -669,6 +661,159 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
       expr_index = push_literal(arena, "!ERROR: Unrecognized token in expression", LITERAL_STRING, current%line, current%column)
             current = parser%consume()
         end select
+        
+        ! Now handle postfix operators (%, (), etc.) on the primary expression
+        if (expr_index > 0) then
+            expr_index = parse_postfix_ops(parser, arena, expr_index)
+        end if
     end function parse_primary
+    
+    ! Parse postfix operators on an expression
+    function parse_postfix_ops(parser, arena, base_expr) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: base_expr
+        integer :: expr_index
+        type(token_t) :: op_token
+        
+        expr_index = base_expr
+        
+        ! Handle postfix operators in a loop
+        do while (.not. parser%is_at_end())
+            op_token = parser%peek()
+            
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == "%") then
+                ! Component access
+                op_token = parser%consume()  ! consume '%'
+                
+                block
+                    type(token_t) :: component_token
+                    component_token = parser%peek()
+                    if (component_token%kind == TK_IDENTIFIER) then
+                        component_token = parser%consume()
+                        expr_index = push_component_access(arena, expr_index, component_token%text, &
+                                                         op_token%line, op_token%column)
+                    else
+                        ! Error: expected identifier after %
+                        exit
+                    end if
+                end block
+                
+            else if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
+                ! Array indexing or function call on the expression result
+                ! NOTE: This is a partial implementation. Full support for
+                ! expressions like matrix%data(i,j) requires AST restructuring
+                block
+                    integer, allocatable :: arg_indices(:)
+                    type(token_t) :: paren
+                    integer :: arg_count
+                    character(len=:), allocatable :: name_for_call
+                    
+                    arg_count = 0
+                    
+                    ! Consume opening paren
+                    paren = parser%consume()
+                    
+                    ! Parse arguments
+                    op_token = parser%peek()
+                    if (op_token%kind /= TK_OPERATOR .or. op_token%text /= ")") then
+                        ! Parse first argument
+                        block
+                            integer :: arg_index
+                            arg_index = parse_range(parser, arena)
+                            if (arg_index > 0) then
+                                arg_count = 1
+                                allocate (arg_indices(1))
+                                arg_indices(1) = arg_index
+                                
+                                ! Parse additional arguments
+                                do
+                                    op_token = parser%peek()
+                                    if (op_token%kind /= TK_OPERATOR .or. op_token%text /= ",") exit
+                                    
+                                    ! Consume comma
+                                    op_token = parser%consume()
+                                    
+                                    ! Parse next argument
+                                    arg_index = parse_range(parser, arena)
+                                    if (arg_index > 0) then
+                                        arg_indices = [arg_indices, arg_index]
+                                        arg_count = arg_count + 1
+                                    else
+                                        exit
+                                    end if
+                                end do
+                            end if
+                        end block
+                    end if
+                    
+                    ! Consume closing paren if present
+                    op_token = parser%peek()
+                    if (op_token%kind == TK_OPERATOR .and. op_token%text == ")") then
+                        paren = parser%consume()
+                    end if
+                    
+                    ! Create call_or_subscript node
+                    if (allocated(arg_indices)) then
+                        ! Get the name to use for the call_or_subscript node
+                        select type (node => arena%entries(expr_index)%node)
+                        type is (component_access_node)
+                            ! For component access, use the component name
+                            name_for_call = node%component_name
+                        type is (identifier_node)
+                            ! For identifiers, use the identifier name
+                            name_for_call = node%name
+                        class default
+                            ! For other expressions, we can't handle array indexing
+                            deallocate(arg_indices)
+                            exit
+                        end select
+                        
+                        if (allocated(name_for_call)) then
+                            ! Special handling for component access followed by array indexing
+                            select type (node => arena%entries(expr_index)%node)
+                            type is (component_access_node)
+                                ! Build the full qualified name
+                                block
+                                    character(len=:), allocatable :: base_name, full_name
+                                    
+                                    ! Get the base name
+                                    if (node%base_expr_index > 0) then
+                                        select type (base_node => arena%entries(node%base_expr_index)%node)
+                                        type is (identifier_node)
+                                            base_name = base_node%name
+                                        type is (component_access_node)
+                                            ! Handle chained component access recursively
+                                            base_name = generate_code_from_arena(arena, node%base_expr_index)
+                                        class default
+                                            base_name = "__expr__"
+                                        end select
+                                    else
+                                        base_name = "__expr__"
+                                    end if
+                                    
+                                    ! Build full qualified name
+                                    full_name = base_name // "%" // name_for_call
+                                    
+                                    ! Create call_or_subscript with full name
+                                    expr_index = push_call_or_subscript_with_slice_detection(arena, &
+                                        full_name, arg_indices, &
+                                        paren%line, paren%column)
+                                end block
+                            class default
+                                ! Standard case
+                                expr_index = push_call_or_subscript_with_slice_detection(arena, &
+                                    name_for_call, arg_indices, &
+                                    paren%line, paren%column)
+                            end select
+                        end if
+                    end if
+                end block
+            else
+                ! No more postfix operators
+                exit
+            end if
+        end do
+    end function parse_postfix_ops
 
 end module parser_expressions_module
