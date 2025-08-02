@@ -445,7 +445,8 @@ contains
             type_info%character_length = mono_type%size
         end if
         
-        if (type_info%is_array .and. allocated(mono_type%args) .and. size(mono_type%args) > 0) then
+        if (type_info%is_array .and. allocated(mono_type%args) .and. &
+            size(mono_type%args) > 0) then
             type_info%array_element_type = get_type_name(mono_type%args(1))
             type_info%array_rank = get_array_rank(mono_type)
         end if

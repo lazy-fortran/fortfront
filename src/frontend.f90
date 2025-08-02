@@ -163,29 +163,21 @@ contains
 
         ! Read tokens from JSON
         tokens = json_read_tokens_from_file(tokens_json_file)
-        ! if (options%debug_tokens) call debug_output_tokens(tokens_json_file, tokens)
 
         ! Phase 2: Parsing
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, prog_index, error_msg)
         if (error_msg /= "") return
-       ! if (options%debug_ast) call debug_output_ast(tokens_json_file, &
-       !                                           arena, prog_index)
 
         ! Phase 3: Semantic Analysis (only for lazy fortran)
         ! Use the version with INTENT checking
         call analyze_program_with_checks(arena, prog_index)
-        ! if (options%debug_semantic) call debug_output_semantic( &
-        !                                    tokens_json_file, arena, prog_index)
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
         call standardize_ast(arena, prog_index)
-        ! if (options%debug_standardize) call debug_output_standardize( &
-        !                                       tokens_json_file, arena, prog_index)
 
         ! Phase 5: Code Generation
         call generate_fortran_code(arena, prog_index, code)
-        ! if (options%debug_codegen) call debug_output_codegen(tokens_json_file, code)
 
         ! Write output (only if not in compile mode - backend handles file creation)
         if (allocated(options%output_file) .and. allocated(options%output_file)) then
@@ -209,7 +201,6 @@ contains
         ! Read AST from JSON - simplified for now
         arena = create_ast_arena()
 prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRING, 1, 1)
-        ! if (options%debug_ast) call debug_output_ast(ast_json_file, arena, prog_index)
 
         ! Phase 3: Semantic Analysis
         ! Note: This path doesn't use INTENT checking since it's for testing
@@ -218,17 +209,12 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             sem_ctx = create_semantic_context()
             call analyze_program(sem_ctx, arena, prog_index)
         end block
-        ! if (options%debug_semantic) call debug_output_semantic( &
-        !                                    ast_json_file, arena, prog_index)
 
         ! Phase 4: Standardization
         call standardize_ast(arena, prog_index)
-        ! if (options%debug_standardize) call debug_output_standardize( &
-        !                                       ast_json_file, arena, prog_index)
 
         ! Phase 5: Code Generation
         call generate_fortran_code(arena, prog_index, code)
-        ! if (options%debug_codegen) call debug_output_codegen(ast_json_file, code)
 
         ! Write output (only if not in compile mode - backend handles file creation)
         if (allocated(options%output_file) .and. allocated(options%output_file)) then
@@ -253,12 +239,9 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         arena = create_ast_arena()
         prog_index = push_literal(arena, "! Semantic JSON loading not implemented", &
                                  LITERAL_STRING, 1, 1)
-        ! if (options%debug_semantic) ! call debug_output_semantic( &
-        !                                     semantic_json_file, arena, prog_index)
 
         ! Phase 4: Code Generation (direct from annotated AST)
         call generate_fortran_code(arena, prog_index, code)
-        ! if (options%debug_codegen) call debug_output_codegen(semantic_json_file, code)
 
         ! Write output (only if not in compile mode - backend handles file creation)
         if (allocated(options%output_file) .and. allocated(options%output_file)) then
