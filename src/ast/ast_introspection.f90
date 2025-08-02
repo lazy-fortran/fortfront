@@ -21,18 +21,24 @@ module ast_introspection
 contains
 
     ! Get node by index from arena (issue #12 requirement)
+    ! 
+    ! MEMORY MANAGEMENT NOTE: This function returns an allocated copy of the node.
+    ! The caller is responsible for ensuring the returned node is deallocated when
+    ! no longer needed. This follows standard Fortran allocatable semantics.
+    ! Check allocated(node) before use. Fortran will automatically deallocate
+    ! when the variable goes out of scope.
     function get_node(arena, index) result(node)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         class(ast_node), allocatable :: node
 
-        ! Bounds checking
+        ! Bounds checking - returns unallocated on invalid input
         if (index <= 0 .or. index > arena%size) return
         if (.not. allocated(arena%entries)) return
         if (size(arena%entries) < index) return
         if (.not. allocated(arena%entries(index)%node)) return
         
-        ! Return copy of the node
+        ! Return deep copy of the node (caller owns memory)
         allocate(node, source=arena%entries(index)%node)
     end function get_node
 
