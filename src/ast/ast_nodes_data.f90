@@ -174,14 +174,13 @@ contains
         call json%add(node, 'type_name', this%type_name)
         call json%add(node, 'kind_value', this%kind_value)
         call json%add(node, 'has_kind', this%has_kind)
-        call json%add(node, 'intent_type', this%intent_type)
         call json%add(node, 'is_optional', this%is_optional)
         call json%add(node, 'is_array', this%is_array)
         
-        ! Add intent as a readable string
+        ! Add intent as a readable string (single field for clarity)
         select case (this%intent_type)
         case (INTENT_NONE)
-            intent_name = 'none'
+            intent_name = ''
         case (INTENT_IN)
             intent_name = 'in'
         case (INTENT_OUT)
@@ -191,7 +190,7 @@ contains
         case default
             intent_name = 'unknown'
         end select
-        call json%add(node, 'intent_name', intent_name)
+        call json%add(node, 'intent', intent_name)
         
         call json%add(node, 'line', this%line)
         call json%add(node, 'column', this%column)

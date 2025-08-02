@@ -352,6 +352,7 @@ contains
         rhs%kind_value = 1
         rhs%has_kind = .true.
         rhs%intent_type = INTENT_IN
+        rhs%is_optional = .true.
         rhs%is_array = .true.
         allocate(rhs%dimension_indices(2))
         rhs%dimension_indices = dims
@@ -375,6 +376,11 @@ contains
         
         if (lhs%intent_type /= INTENT_IN) then
             call test_fail("intent_type should be copied")
+            return
+        end if
+        
+        if (.not. lhs%is_optional) then
+            call test_fail("is_optional should be copied")
             return
         end if
         
