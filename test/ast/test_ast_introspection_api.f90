@@ -73,7 +73,6 @@ contains
         integer :: type_id
         integer :: line, column
         logical :: has_info
-        type(mono_type_t), allocatable :: type_info
         
         test_missing_apis = .true.
         print *, "Testing new issue #12 APIs..."
@@ -121,13 +120,36 @@ contains
             print *, "  ✓ has_semantic_info: ", has_info
         end if
         
-        ! Test new get_node_type_info_from_arena API
-        ! TODO: Currently disabled due to segfault in mono_type_t deep copy
-        ! This requires implementing proper deep copy methods in type_system_hm
-        ! type_info = get_node_type_info_from_arena(arena, root_index)
-        print *, "  ✓ get_node_type_info_from_arena: skipped (deep copy segfault TODO)"
+        ! Test new safe read-only type access APIs
+        call test_type_access_apis(arena, root_index)
+        
+        ! Legacy get_node_type_info_from_arena is disabled due to segfaults
+        print *, "  ✓ get_node_type_info_from_arena: disabled (use safe alternatives above)"
 
         print *, "  New issue #12 APIs: PASS"
     end function test_missing_apis
+
+    ! Test the new safe read-only type access functions
+    subroutine test_type_access_apis(arena, node_index)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: type_kind, type_size
+        logical :: is_allocatable, is_pointer, found
+        
+        ! Test get_node_type_kind
+        type_kind = get_node_type_kind(arena, node_index)
+        print *, "  ✓ get_node_type_kind: ", type_kind, "(0=no type, >0=type kind)"
+        
+        ! Test get_node_type_details  
+        call get_node_type_details(arena, node_index, type_kind, type_size, &
+                                 is_allocatable, is_pointer, found)
+        if (found) then
+            print *, "  ✓ get_node_type_details: found type info"
+            print *, "    kind=", type_kind, " size=", type_size
+            print *, "    allocatable=", is_allocatable, " pointer=", is_pointer
+        else
+            print *, "  ✓ get_node_type_details: no type info (expected without semantic analysis)"
+        end if
+    end subroutine test_type_access_apis
 
 end program test_ast_introspection_api
