@@ -697,6 +697,8 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                                                          op_token%line, op_token%column)
                     else
                         ! Error: expected identifier after %
+                        expr_index = push_literal(arena, "!ERROR: Expected identifier after %", &
+                                                LITERAL_STRING, op_token%line, op_token%column)
                         exit
                     end if
                 end block
