@@ -3,7 +3,8 @@ module parser_expressions_module
     use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, &
                           TK_OPERATOR, TK_KEYWORD
     use ast_core
-    use ast_nodes_core, only: component_access_node, identifier_node, character_substring_node
+    use ast_nodes_core, only: component_access_node, identifier_node, &
+                               character_substring_node
     use ast_factory, only: push_binary_op, push_literal, push_identifier, &
                            push_call_or_subscript, push_array_literal, &
                            push_range_expression, &
@@ -375,15 +376,15 @@ contains
 
                     ! Create function call node with array slice detection
                     if (allocated(arg_indices)) then
-                        expr_index = push_call_or_subscript_with_slice_detection(arena, func_name, arg_indices, &
-                                                           current%line, current%column)
+                        expr_index = push_call_or_subscript_with_slice_detection(arena, &
+                            func_name, arg_indices, current%line, current%column)
                     else
                         ! For empty args, create empty function call
                         block
                             integer, allocatable :: empty_args(:)
                             allocate (empty_args(0))  ! Empty index array
-                            expr_index = push_call_or_subscript(arena, func_name, empty_args, &
-                                                               current%line, current%column)
+                            expr_index = push_call_or_subscript(arena, func_name, &
+                                empty_args, current%line, current%column)
                         end block
                     end if
                 else
@@ -774,13 +775,14 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                                 logical :: is_range_substring
                                 
                                 is_range_substring = .false.
-                                if (size(arg_indices) == 1 .and. arg_indices(1) > 0 .and. arg_indices(1) <= arena%size) then
+                                if (size(arg_indices) == 1 .and. arg_indices(1) > 0 .and. &
+                                    arg_indices(1) <= arena%size) then
                                     select type (arg_node => arena%entries(arg_indices(1))%node)
                                     type is (range_expression_node)
                                         ! Create nested character substring
-                                        expr_index = push_character_substring(arena, expr_index, &
-                                            arg_node%start_index, arg_node%end_index, &
-                                            paren%line, paren%column)
+                                        expr_index = push_character_substring(arena, &
+                                            expr_index, arg_node%start_index, &
+                                            arg_node%end_index, paren%line, paren%column)
                                         is_range_substring = .true.
                                     end select
                                 end if
@@ -789,7 +791,8 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                                     deallocate(arg_indices)
                                     cycle
                                 else
-                                    ! Not a range - can't handle other operations on character_substring
+                                    ! Not a range - can't handle other operations on &
+                                    ! character_substring
                                     deallocate(arg_indices)
                                     exit
                                 end if
@@ -827,13 +830,14 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
                                     full_name = base_name // "%" // name_for_call
                                     
                                     ! Create call_or_subscript with full name
-                                    expr_index = push_call_or_subscript_with_slice_detection(arena, &
-                                        full_name, arg_indices, &
-                                        paren%line, paren%column)
+                                    expr_index = &
+                                        push_call_or_subscript_with_slice_detection(arena, &
+                                        full_name, arg_indices, paren%line, paren%column)
                                 end block
                             class default
                                 ! Standard case
-                                expr_index = push_call_or_subscript_with_slice_detection(arena, &
+                                expr_index = &
+                                    push_call_or_subscript_with_slice_detection(arena, &
                                     name_for_call, arg_indices, &
                                     paren%line, paren%column)
                             end select
