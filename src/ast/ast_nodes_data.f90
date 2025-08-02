@@ -110,8 +110,21 @@ contains
     subroutine declaration_assign(lhs, rhs)
         class(declaration_node), intent(inout) :: lhs
         class(declaration_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        end if
+        ! Copy derived class fields
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
         if (allocated(rhs%var_name)) lhs%var_name = rhs%var_name
+        if (allocated(rhs%var_names)) lhs%var_names = rhs%var_names
+        lhs%is_multi_declaration = rhs%is_multi_declaration
         lhs%kind_value = rhs%kind_value
         lhs%has_kind = rhs%has_kind
         if (allocated(rhs%intent)) lhs%intent = rhs%intent
@@ -146,6 +159,17 @@ contains
     subroutine parameter_declaration_assign(lhs, rhs)
         class(parameter_declaration_node), intent(inout) :: lhs
         class(parameter_declaration_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        end if
+        ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
         lhs%kind_value = rhs%kind_value
@@ -177,7 +201,18 @@ contains
     subroutine module_assign(lhs, rhs)
         class(module_node), intent(inout) :: lhs
         class(module_node), intent(in) :: rhs
-        lhs%name = rhs%name
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        end if
+        ! Copy derived class fields
+        if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%declaration_indices)) then
             if (allocated(lhs%declaration_indices)) deallocate(lhs%declaration_indices)
             allocate(lhs%declaration_indices(size(rhs%declaration_indices)))
@@ -208,6 +243,17 @@ contains
     subroutine derived_type_assign(lhs, rhs)
         class(derived_type_node), intent(inout) :: lhs
         class(derived_type_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        end if
+        ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%component_indices)) then
             if (allocated(lhs%component_indices)) deallocate(lhs%component_indices)
