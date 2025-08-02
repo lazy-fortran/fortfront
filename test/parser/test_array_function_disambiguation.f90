@@ -141,7 +141,8 @@ contains
                     end do
                     
                     if (.not. found_array_access) then
-                        print *, '  INFO: No arr(5) node found (implementation pending)'
+                        print *, '  FAIL: No arr(5) node found - disambiguation not working'
+                        test_semantic_array_disambiguation = .false.
                     end if
                 end block
             else
@@ -217,7 +218,8 @@ contains
                     end do
                     
                     if (.not. found_function_call) then
-                        print *, '  INFO: No sin(1.0) node found (implementation pending)'
+                        print *, '  FAIL: No sin(1.0) node found - disambiguation not working'
+                        test_semantic_function_disambiguation = .false.
                     end if
                 end block
             else

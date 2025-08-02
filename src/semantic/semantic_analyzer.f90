@@ -321,10 +321,13 @@ contains
                 call this%scopes%lookup(expr%name, sym_scheme)
                 if (allocated(sym_scheme)) then
                     ! Check if the type is an array type
-                    select case (sym_scheme%mono%kind)
-                    case (TARRAY)
-                        is_known_array = .true.
-                    end select
+                    ! Safety check: ensure mono type is properly initialized
+                    if (sym_scheme%mono%kind > 0) then
+                        select case (sym_scheme%mono%kind)
+                        case (TARRAY)
+                            is_known_array = .true.
+                        end select
+                    end if
                 end if
 
                 ! Set the disambiguation flag
@@ -333,9 +336,10 @@ contains
                 ! Handle type inference based on what it is
                 if (expr%is_array_access) then
                     ! For array access, return the element type
-                    if (is_known_array .and. sym_scheme%mono%kind == TARRAY) then
-                        if (allocated(sym_scheme%mono%args) .and. size(sym_scheme%mono%args) > 0) then
-                            typ = sym_scheme%mono%args(1)  ! First arg is element type
+                    if (is_known_array .and. allocated(sym_scheme)) then
+                        if (sym_scheme%mono%kind == TARRAY .and. &
+                            allocated(sym_scheme%mono%args) .and. size(sym_scheme%mono%args) > 0) then
+                            typ = sym_scheme%mono%args(1)  ! First arg is element type (deep copy via assignment)
                         else
                             typ = create_mono_type(TVAR, var=this%fresh_type_var())
                         end if
