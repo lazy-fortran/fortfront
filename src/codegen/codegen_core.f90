@@ -1,6 +1,7 @@
 module codegen_core
     use ast_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
+    use ast_nodes_control, only: associate_node
     use type_system_hm
     use string_types, only: string_t
     use codegen_indent
@@ -84,6 +85,8 @@ contains
             code = generate_code_where(arena, node, node_index)
         type is (forall_node)
             code = generate_code_forall(arena, node, node_index)
+        type is (associate_node)
+            code = generate_code_associate(arena, node, node_index)
         type is (module_node)
             code = generate_code_module(arena, node, node_index)
         type is (comment_node)
@@ -900,6 +903,52 @@ contains
         
         code = code//new_line('A')//with_indent("end forall")
     end function generate_code_forall
+
+    ! Generate code for ASSOCIATE construct
+    function generate_code_associate(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(associate_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: assoc_list, body_code
+        integer :: i
+
+        ! Build association list
+        assoc_list = ""
+        if (allocated(node%associations)) then
+            do i = 1, size(node%associations)
+                if (i > 1) assoc_list = assoc_list//", "
+                assoc_list = assoc_list//trim(node%associations(i)%name)//" => "
+                
+                ! Generate expression code
+                if (node%associations(i)%expr_index > 0) then
+                    assoc_list = assoc_list//generate_code_from_arena(arena, &
+                                                node%associations(i)%expr_index)
+                end if
+            end do
+        end if
+
+        ! Start ASSOCIATE construct
+        code = "associate ("//assoc_list//")"
+
+        ! Generate body code
+        call increase_indent()
+        body_code = ""
+        if (allocated(node%body_indices)) then
+            do i = 1, size(node%body_indices)
+                if (i > 1) body_code = body_code//new_line('a')
+                body_code = body_code//with_indent(generate_code_from_arena(arena, node%body_indices(i)))
+            end do
+        end if
+        call decrease_indent()
+
+        ! Complete construct
+        if (len_trim(body_code) > 0) then
+            code = code//new_line('a')//body_code//new_line('a')//with_indent("end associate")
+        else
+            code = code//new_line('a')//with_indent("end associate")
+        end if
+    end function generate_code_associate
 
     ! Generate code for declaration
     function generate_code_declaration(arena, node, node_index) result(code)

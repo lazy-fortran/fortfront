@@ -9,6 +9,7 @@ module ast_nodes_control
 
     ! Public factory functions
     public :: create_do_loop, create_do_while, create_if, create_select_case
+    public :: create_associate
 
     ! Control flow AST nodes
 
@@ -219,6 +220,23 @@ module ast_nodes_control
         procedure :: assign => return_assign
         generic :: assignment(=) => assign
     end type return_node
+
+    ! Association type for ASSOCIATE construct
+    type, public :: association_t
+        character(len=:), allocatable :: name     ! Associate name
+        integer :: expr_index = 0                 ! Expression index in arena
+    end type association_t
+
+    ! ASSOCIATE construct node
+    type, extends(ast_node), public :: associate_node
+        type(association_t), allocatable :: associations(:)  ! List of associations
+        integer, allocatable :: body_indices(:)              ! Body statement indices
+    contains
+        procedure :: accept => associate_accept
+        procedure :: to_json => associate_to_json
+        procedure :: assign => associate_assign
+        generic :: assignment(=) => assign
+    end type associate_node
 
 contains
 
@@ -757,6 +775,76 @@ contains
         end if
     end subroutine return_assign
 
+    ! ASSOCIATE node implementations
+    subroutine associate_accept(this, visitor)
+        class(associate_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+    end subroutine associate_accept
+
+    subroutine associate_to_json(this, json, parent)
+        class(associate_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj, assoc_array, assoc_obj, body_array
+        integer :: i
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'associate')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+
+        ! Add associations array
+        if (allocated(this%associations)) then
+            call json%create_array(assoc_array, 'associations')
+            do i = 1, size(this%associations)
+                call json%create_object(assoc_obj, '')
+                call json%add(assoc_obj, 'name', this%associations(i)%name)
+                call json%add(assoc_obj, 'expr_index', this%associations(i)%expr_index)
+                call json%add(assoc_array, assoc_obj)
+            end do
+            call json%add(obj, assoc_array)
+        end if
+
+        ! Add body indices
+        if (allocated(this%body_indices)) then
+            call json%create_array(body_array, 'body_indices')
+            do i = 1, size(this%body_indices)
+                call json%add(body_array, '', this%body_indices(i))
+            end do
+            call json%add(obj, body_array)
+        end if
+
+        call json%add(parent, obj)
+    end subroutine associate_to_json
+
+    subroutine associate_assign(lhs, rhs)
+        class(associate_node), intent(inout) :: lhs
+        class(associate_node), intent(in) :: rhs
+        integer :: i
+
+        ! Copy base fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        end if
+
+        ! Copy associations
+        if (allocated(rhs%associations)) then
+            allocate(lhs%associations(size(rhs%associations)))
+            do i = 1, size(rhs%associations)
+                lhs%associations(i)%name = rhs%associations(i)%name
+                lhs%associations(i)%expr_index = rhs%associations(i)%expr_index
+            end do
+        end if
+
+        ! Copy body indices
+        if (allocated(rhs%body_indices)) then
+            lhs%body_indices = rhs%body_indices
+        end if
+    end subroutine associate_assign
+
     ! Factory functions
     function create_do_loop(var_name, start_expr_index, end_expr_index, step_expr_index, body_indices, line, column) result(node)
         character(len=*), intent(in) :: var_name
@@ -883,5 +971,26 @@ contains
         lhs%mask_expr_index = rhs%mask_expr_index
         lhs%assignment_index = rhs%assignment_index
     end subroutine where_stmt_assign
+
+    ! Factory function for ASSOCIATE node
+    function create_associate(associations, body_indices, line, column) result(node)
+        type(association_t), intent(in) :: associations(:)
+        integer, intent(in), optional :: body_indices(:)
+        integer, intent(in), optional :: line, column
+        type(associate_node) :: node
+
+        if (size(associations) > 0) then
+            node%associations = associations
+        end if
+
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                node%body_indices = body_indices
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_associate
 
 end module ast_nodes_control

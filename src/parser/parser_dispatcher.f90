@@ -13,7 +13,8 @@ module parser_dispatcher_module
                                         parse_stop_statement, parse_return_statement, &
                                         parse_cycle_statement, parse_exit_statement, &
                                         parse_allocate_statement, parse_deallocate_statement
-    use parser_control_flow_module
+    use parser_control_flow_module, only: parse_if, parse_do_loop, parse_select_case, &
+                                         parse_where_construct, parse_associate
     use ast_core
     use ast_factory
     use parser_expressions_module, only: parse_expression, parse_range
@@ -86,6 +87,8 @@ contains
                 stmt_index = parse_cycle_statement(parser, arena)
             case ("exit")
                 stmt_index = parse_exit_statement(parser, arena)
+            case ("associate")
+                stmt_index = parse_associate(parser, arena)
             case default
                 stmt_index = parse_as_expression(tokens, arena)
             end select

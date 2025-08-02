@@ -99,15 +99,18 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Description**: Specific node type for derived type component access
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### 🚧 #25 - Add character substring AST node support
+### ✅ #25 - Add character substring AST node support
 **Priority: Medium** | **Impact: AST Design** | **Effort: Low**
-- **Status**: 🚧 **IN PROGRESS** - Working on character substring AST node
+- **Status**: ✅ **COMPLETED** - Character substring support implemented using range_subscript_node (PR #51)
 - **Description**: Handle character substring operations
-- **Branch**: feature/25-character-substring-node
+- **Implementation**: Created range_subscript_node for parse-time ambiguity, added is_character_substring flag
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #23 - Add ASSOCIATE construct AST node support
+### 🚧 #23 - Add ASSOCIATE construct AST node support
 **Priority: Medium** | **Impact: AST Design** | **Effort: Medium**
+- **Status**: 🚧 **IN PROGRESS** - Working on ASSOCIATE construct AST node
 - **Description**: Support ASSOCIATE construct parsing
+- **Branch**: feature/23-associate-construct-ast
 
 ## 🟢 API and Documentation Improvements
 

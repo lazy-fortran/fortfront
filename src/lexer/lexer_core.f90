@@ -30,7 +30,7 @@ module lexer_core
     public :: token_type_name
 
     ! Keywords list
-    character(len=20), dimension(52) :: keywords = [ &
+    character(len=20), dimension(53) :: keywords = [ &
                        "program     ", "end         ", "function    ", "subroutine  ", &
                        "if          ", "then        ", "else        ", "endif       ", &
                        "do          ", "while       ", "implicit    ", "none        ", &
@@ -46,7 +46,7 @@ module lexer_core
                                         "where       ", "elsewhere   ", "optional    ", &
                                         "present     ", "open        ", "close       ", &
                                         "parameter   ", "allocate    ", "deallocate  ", &
-                                        "forall      " &
+                                        "forall      ", "associate   " &
                                         ]
 
 contains
@@ -350,7 +350,7 @@ contains
             if (two_char == "==" .or. two_char == "/=" .or. &
                 two_char == "<=" .or. two_char == ">=" .or. &
                 two_char == "::" .or. two_char == "**" .or. &
-                two_char == "//") then
+                two_char == "//" .or. two_char == "=>") then
 
                 token_count = token_count + 1
                 if (token_count > size(tokens)) then

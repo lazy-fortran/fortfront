@@ -10,6 +10,7 @@ module ast_factory
     public :: push_derived_type, push_declaration, push_multi_declaration, &
               push_parameter_declaration
     public :: push_if, push_do_loop, push_do_while, push_forall, push_select_case
+    public :: push_associate
     public :: push_case_block, push_case_range, push_case_default, &
               push_select_case_with_default
     public :: push_use_statement, push_include_statement, push_print_statement, &
@@ -557,6 +558,36 @@ contains
         while_index = arena%size
 
     end function push_do_while
+
+    ! Create ASSOCIATE construct node and add to stack
+    function push_associate(arena, associations, body_indices, line, column, &
+                           parent_index) result(assoc_index)
+        use ast_nodes_control, only: associate_node, association_t
+        type(ast_arena_t), intent(inout) :: arena
+        type(association_t), intent(in) :: associations(:)
+        integer, intent(in), optional :: body_indices(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: assoc_index
+        type(associate_node) :: assoc
+
+        ! Set associations
+        if (size(associations) > 0) then
+            assoc%associations = associations
+        end if
+
+        ! Set body indices
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) then
+                assoc%body_indices = body_indices
+            end if
+        end if
+
+        if (present(line)) assoc%line = line
+        if (present(column)) assoc%column = column
+
+        call arena%push(assoc, "associate", parent_index)
+        assoc_index = arena%size
+    end function push_associate
 
     ! Create forall construct node and add to stack
     function push_forall(arena, index_var, start_index, end_index, step_index, &
