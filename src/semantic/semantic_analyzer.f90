@@ -1726,6 +1726,15 @@ contains
         if (slice_node%array_index > 0 .and. slice_node%array_index <= arena%size) then
             array_type = ctx%infer(arena, slice_node%array_index)
             
+            ! Check if this is actually a character substring operation
+            if (array_type%kind == TCHAR) then
+                ! This is a character substring, not an array slice!
+                ! Set the flag to indicate this is a character substring
+                call set_character_substring_flag(arena, slice_node)
+                typ = create_mono_type(TCHAR)  ! Result is also character
+                return
+            end if
+            
             ! Validate this is actually an array type
             if (array_type%kind == TARRAY .and. allocated(array_type%args)) then
                 element_type = array_type%args(1)
@@ -1853,5 +1862,35 @@ contains
         dummy_ctx = create_semantic_context()
         conformable = dummy_ctx%check_conformance(spec1, spec2)
     end function check_shape_conformance
+    
+    ! Set character substring flag on array_slice_node
+    subroutine set_character_substring_flag(arena, slice_node)
+        type(ast_arena_t), intent(inout) :: arena
+        type(array_slice_node), intent(in) :: slice_node
+        integer :: node_index, i
+        
+        ! Find the index of this node in the arena
+        node_index = 0
+        do i = 1, arena%size
+            if (allocated(arena%entries(i)%node)) then
+                select type (node => arena%entries(i)%node)
+                type is (array_slice_node)
+                    if (node%array_index == slice_node%array_index .and. &
+                        node%num_dimensions == slice_node%num_dimensions) then
+                        node_index = i
+                        exit
+                    end if
+                end select
+            end if
+        end do
+        
+        if (node_index > 0) then
+            ! Set the character substring flag
+            select type (node => arena%entries(node_index)%node)
+            type is (array_slice_node)
+                node%is_character_substring = .true.
+            end select
+        end if
+    end subroutine set_character_substring_flag
 
 end module semantic_analyzer

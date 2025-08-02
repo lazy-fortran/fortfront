@@ -93,15 +93,17 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Implementation**: Added boolean flag to call_or_subscript_node, set during semantic analysis
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### 🚧 #24 - Add dedicated component access AST node for % operator
+### ✅ #24 - Add dedicated component access AST node for % operator
 **Priority: Medium** | **Impact: AST Design** | **Effort: Low**
-- **Status**: 🚧 **IN PROGRESS** - Working on dedicated component_access_node implementation
+- **Status**: ✅ **COMPLETED** - Dedicated component_access_node implemented (PR #50)
 - **Description**: Specific node type for derived type component access
-- **Branch**: feature/24-component-access-node
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #25 - Add character substring AST node support
+### 🚧 #25 - Add character substring AST node support
 **Priority: Medium** | **Impact: AST Design** | **Effort: Low**
+- **Status**: 🚧 **IN PROGRESS** - Working on character substring AST node
 - **Description**: Handle character substring operations
+- **Branch**: feature/25-character-substring-node
 
 ### #23 - Add ASSOCIATE construct AST node support
 **Priority: Medium** | **Impact: AST Design** | **Effort: Medium**

@@ -56,11 +56,15 @@ module ast_nodes_bounds
     end type array_bounds_node
 
     ! Represents array slice operation arr(bounds1, bounds2, ...)
+    ! Note: For single-dimension slices on character types, this could represent
+    ! a character substring operation rather than array slicing
     type, extends(ast_node) :: array_slice_node
         integer :: node_type = NODE_ARRAY_SLICE
         integer :: array_index            ! Index to array expression being sliced
         integer :: bounds_indices(10)     ! Indices to array_bounds_node for each dimension
         integer :: num_dimensions = 0     ! Number of dimensions in slice
+        ! Resolution flag (set during semantic analysis)
+        logical :: is_character_substring = .false.  ! true if substring
     contains
         procedure :: accept => array_slice_accept
         procedure :: to_json => array_slice_to_json
@@ -206,10 +210,13 @@ contains
         type(json_value), pointer :: bounds_array, bounds_item
         integer :: i
         
-        call json%create_object(parent, "array_slice")
+        if (.not. associated(parent)) then
+            call json%create_object(parent, "array_slice")
+        end if
         call json%add(parent, "node_type", "array_slice")
         call json%add(parent, "array_index", this%array_index)
         call json%add(parent, "num_dimensions", this%num_dimensions)
+        call json%add(parent, "is_character_substring", this%is_character_substring)
         
         call json%create_array(bounds_array, "bounds_indices")
         do i = 1, this%num_dimensions

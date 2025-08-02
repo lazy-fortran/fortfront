@@ -1,6 +1,6 @@
 module codegen_core
     use ast_core
-    use ast_nodes_core, only: component_access_node
+    use ast_nodes_core, only: component_access_node, range_subscript_node
     use type_system_hm
     use string_types, only: string_t
     use codegen_indent
@@ -40,6 +40,8 @@ contains
             code = generate_code_binary_op(arena, node, node_index)
         type is (component_access_node)
             code = generate_code_component_access(arena, node, node_index)
+        type is (range_subscript_node)
+            code = generate_code_range_subscript(arena, node, node_index)
         type is (program_node)
             code = generate_code_program(arena, node, node_index)
         type is (call_or_subscript_node)
@@ -247,6 +249,40 @@ contains
         end if
 
     end function generate_code_component_access
+
+    ! Generate code for range subscript node (array slice or character substring)
+    function generate_code_range_subscript(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(range_subscript_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: base_code, start_code, end_code
+        
+        ! Generate code for base expression
+        if (node%base_expr_index > 0 .and. node%base_expr_index <= arena%size) then
+            base_code = generate_code_from_arena(arena, node%base_expr_index)
+        else
+            base_code = "<invalid_base>"
+        end if
+        
+        ! Generate start position code
+        if (node%start_index > 0 .and. node%start_index <= arena%size) then
+            start_code = generate_code_from_arena(arena, node%start_index)
+        else
+            start_code = ""  ! Empty means from beginning
+        end if
+        
+        ! Generate end position code
+        if (node%end_index > 0 .and. node%end_index <= arena%size) then
+            end_code = generate_code_from_arena(arena, node%end_index)
+        else
+            end_code = ""  ! Empty means to end
+        end if
+        
+        ! Build range subscript expression (same syntax for array slice and substring)
+        code = base_code // "(" // start_code // ":" // end_code // ")"
+        
+    end function generate_code_range_subscript
 
     ! Generate code for program node
     function generate_code_program(arena, node, node_index) result(code)

@@ -22,7 +22,7 @@ module ast_factory
     public :: push_cycle, push_exit
     public :: push_where, push_where_construct, push_where_construct_with_elsewhere
     public :: push_type_constructor, push_component_access
-    public :: push_complex_literal
+    public :: push_complex_literal, push_range_subscript
     public :: push_allocate, push_deallocate
     public :: push_array_section
     public :: push_array_bounds, push_array_slice, push_range_expression
@@ -1314,6 +1314,33 @@ contains
 
     end function push_component_access
 
+    ! Create range subscript node (for array slices or character substrings)
+    function push_range_subscript(arena, base_expr_index, start_index, end_index, &
+                                     line, column, parent_index) result(subscript_index)
+        use ast_nodes_core, only: range_subscript_node, create_range_subscript
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: base_expr_index
+        integer, intent(in), optional :: start_index, end_index
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: subscript_index
+        type(range_subscript_node) :: subscript_node
+        
+        ! Validate base expression index
+        if (base_expr_index <= 0 .or. base_expr_index > arena%size) then
+            ! Create error node for invalid base expression
+            subscript_index = push_literal(arena, "!ERROR: Invalid base for range subscript", &
+                                         LITERAL_STRING, line, column)
+            return
+        end if
+        
+        ! Create range subscript node
+        subscript_node = create_range_subscript(base_expr_index, start_index, end_index, &
+                                                   line, column)
+        
+        call arena%push(subscript_node, "range_subscript", parent_index)
+        subscript_index = arena%size
+    end function push_range_subscript
+
     ! Create complex literal node and add to stack
     function push_complex_literal(arena, real_index, imag_index, line, column, &
                                  parent_index) result(complex_index)
@@ -1586,13 +1613,13 @@ contains
         end do
         
         if (has_slice) then
-            ! Create array slice node
-            ! First push identifier for array name
+            ! Always create array slice at parse time
+            ! Semantic analysis will set is_character_substring flag for character types
             block
                 integer :: array_name_index
                 array_name_index = push_identifier(arena, name, line, column, parent_index)
-                node_index = push_array_slice(arena, array_name_index, arg_indices, &
-                                            size(arg_indices), line, column, parent_index)
+                node_index = push_array_slice(arena, array_name_index, &
+                    arg_indices, size(arg_indices), line, column, parent_index)
             end block
         else
             ! Regular function call or array indexing
