@@ -64,11 +64,8 @@ jobs:
         fpm --version
         python3 --version
 
-    - name: Clean build cache
-      run: fpm clean --all
-      
-    - name: Run all tests with coverage
-      run: fpm test --profile debug --flag "-cpp -fprofile-arcs -ftest-coverage -g"
+    - name: Run all tests
+      run: fpm test
 
     - name: Generate coverage report
       run: |
