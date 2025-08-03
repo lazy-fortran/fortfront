@@ -98,7 +98,7 @@ contains
         integer :: root_index, condition_index
         type(variable_usage_info_t) :: usage_info
         integer :: i
-        logical :: found_x, found_y
+        logical :: found_x, found_y, found_z
         
         print *, "Testing binary operation tracking..."
         
@@ -147,13 +147,14 @@ contains
         ! Check that we found x, y, z
         found_x = .false.
         found_y = .false.
+        found_z = .false.
         do i = 1, size(usage_info%variable_names)
             if (usage_info%variable_names(i) == "x") found_x = .true.
             if (usage_info%variable_names(i) == "y") found_y = .true.
-            if (usage_info%variable_names(i) == "z") found_x = .true.
+            if (usage_info%variable_names(i) == "z") found_z = .true.
         end do
         
-        if (.not. (found_x .and. found_y)) then
+        if (.not. (found_x .and. found_y .and. found_z)) then
             print *, "FAILED: Did not find expected variables x, y, z"
             print *, "Found:", (usage_info%variable_names(i), i=1,size(usage_info%variable_names))
             all_tests_passed = .false.

@@ -103,7 +103,6 @@ contains
         type(variable_usage_info_t), intent(inout) :: info
         
         character(len=:), allocatable :: var_name
-        integer :: i, existing_index
         
         ! Get variable name from identifier node
         select type (node => arena%entries(node_index)%node)
@@ -113,61 +112,12 @@ contains
             return
         end select
         
-        ! Check if variable already exists in the list
-        existing_index = 0
-        if (allocated(info%variable_names)) then
-            do i = 1, size(info%variable_names)
-                if (info%variable_names(i) == var_name) then
-                    existing_index = i
-                    exit
-                end if
-            end do
-        end if
-        
-        if (existing_index > 0) then
-            ! Increment existing count
-            info%usage_counts(existing_index) = info%usage_counts(existing_index) + 1
-        else
-            ! Add new variable
-            if (.not. allocated(info%variable_names)) then
-                ! First variable - allocate new arrays
-                allocate(character(len=len(var_name)) :: info%variable_names(1))
-                info%variable_names(1) = var_name
-                allocate(info%usage_counts(1))
-                info%usage_counts(1) = 1
-                allocate(info%node_indices(1))
-                info%node_indices(1) = node_index
-            else
-                ! Extend existing arrays
-                block
-                    character(len=:), allocatable :: temp_names(:)
-                    integer, allocatable :: temp_counts(:), temp_indices(:)
-                    integer :: n
-                    
-                    n = size(info%variable_names)
-                    allocate(character(len=max(len(info%variable_names), len(var_name))) :: temp_names(n+1))
-                    allocate(temp_counts(n+1))
-                    allocate(temp_indices(n+1))
-                    
-                    temp_names(1:n) = info%variable_names
-                    temp_names(n+1) = var_name
-                    temp_counts(1:n) = info%usage_counts
-                    temp_counts(n+1) = 1
-                    temp_indices(1:n) = info%node_indices
-                    temp_indices(n+1) = node_index
-                    
-                    call move_alloc(temp_names, info%variable_names)
-                    call move_alloc(temp_counts, info%usage_counts)
-                    call move_alloc(temp_indices, info%node_indices)
-                end block
-            end if
-        end if
-        
-        info%total_count = info%total_count + 1
+        ! Use common helper
+        call add_variable_to_info_common(var_name, node_index, info)
     end subroutine add_identifier_to_info
 
-    ! Add a string-based variable name to the usage info
-    subroutine add_string_to_info(var_name, node_index, info)
+    ! Common helper to add a variable name to usage info
+    subroutine add_variable_to_info_common(var_name, node_index, info)
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
@@ -225,6 +175,16 @@ contains
         end if
         
         info%total_count = info%total_count + 1
+    end subroutine add_variable_to_info_common
+
+    ! Add a string-based variable name to the usage info
+    subroutine add_string_to_info(var_name, node_index, info)
+        character(len=*), intent(in) :: var_name
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        ! Use common helper
+        call add_variable_to_info_common(var_name, node_index, info)
     end subroutine add_string_to_info
 
     ! Process binary operation children
@@ -328,7 +288,7 @@ contains
         
         info = get_variables_in_expression(arena, root_index)
         
-        if (size(info%variable_names) > 0) then
+        if (allocated(info%variable_names) .and. size(info%variable_names) > 0) then
             identifiers = info%variable_names
         else
             allocate(character(len=0) :: identifiers(0))
@@ -392,6 +352,32 @@ contains
                     end block
                 end if
             end select
+        case ("array_slice")
+            select type (node => arena%entries(node_index)%node)
+            type is (array_slice_node)
+                ! Process array name
+                if (node%array_index > 0) then
+                    call visit_nodes_recursive(arena, node%array_index, visitor, user_data)
+                end if
+                
+                ! Process slice bounds
+                block
+                    integer :: i
+                    do i = 1, node%num_dimensions
+                        if (node%bounds_indices(i) > 0) then
+                            call visit_nodes_recursive(arena, node%bounds_indices(i), visitor, user_data)
+                        end if
+                    end do
+                end block
+            end select
+        case ("component_access")
+            select type (node => arena%entries(node_index)%node)
+            type is (component_access_node)
+                ! Process the base expression (structure/derived type)
+                if (node%base_expr_index > 0) then
+                    call visit_nodes_recursive(arena, node%base_expr_index, visitor, user_data)
+                end if
+            end select
         end select
     end subroutine visit_nodes_recursive
 
@@ -408,12 +394,14 @@ contains
         used = .false.
         info = get_variables_in_expression(arena, expr_index)
         
-        do i = 1, size(info%variable_names)
-            if (info%variable_names(i) == var_name) then
-                used = .true.
-                exit
-            end if
-        end do
+        if (allocated(info%variable_names)) then
+            do i = 1, size(info%variable_names)
+                if (info%variable_names(i) == var_name) then
+                    used = .true.
+                    exit
+                end if
+            end do
+        end if
     end function is_variable_used_in_expression
 
     ! Count how many times a variable is used in an expression
@@ -429,12 +417,14 @@ contains
         count = 0
         info = get_variables_in_expression(arena, expr_index)
         
-        do i = 1, size(info%variable_names)
-            if (info%variable_names(i) == var_name) then
-                count = info%usage_counts(i)
-                exit
-            end if
-        end do
+        if (allocated(info%variable_names)) then
+            do i = 1, size(info%variable_names)
+                if (info%variable_names(i) == var_name) then
+                    count = info%usage_counts(i)
+                    exit
+                end if
+            end do
+        end if
     end function count_variable_usage
 
 end module variable_usage_tracker_module
