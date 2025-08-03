@@ -644,13 +644,16 @@ contains
             
             ! Initialize parameter map from parameter names
             do i = 1, param_count
+                ! Initialize entry
+                param_map(i)%name = ""
+                param_map(i)%intent_str = ""
+                param_map(i)%is_optional = .false.
+                
                 if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
                     if (allocated(arena%entries(node%param_indices(i))%node)) then
                         select type (param_node => arena%entries(node%param_indices(i))%node)
                         type is (identifier_node)
                             param_map(i)%name = param_node%name
-                            param_map(i)%intent_str = ""
-                            param_map(i)%is_optional = .false.
                         end select
                     end if
                 end if
@@ -739,13 +742,16 @@ contains
             
             ! Initialize parameter map from parameter names
             do i = 1, param_count
+                ! Initialize entry
+                param_map(i)%name = ""
+                param_map(i)%intent_str = ""
+                param_map(i)%is_optional = .false.
+                
                 if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
                     if (allocated(arena%entries(node%param_indices(i))%node)) then
                         select type (param_node => arena%entries(node%param_indices(i))%node)
                         type is (identifier_node)
                             param_map(i)%name = param_node%name
-                            param_map(i)%intent_str = ""
-                            param_map(i)%is_optional = .false.
                         end select
                     end if
                 end if
@@ -1779,14 +1785,14 @@ contains
                         ! Look ahead for more declarations of same type
                         j = i + 1
                         do while (j <= size(body_indices))
-                       if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                            if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
                                 if (allocated(arena%entries(body_indices(j))%node)) then
-                          select type (next_node => arena%entries(body_indices(j))%node)
+                                    select type (next_node => arena%entries(body_indices(j))%node)
                                     type is (declaration_node)
                                         ! Check if can be grouped
-                                       if (can_group_declarations(node, next_node)) then
+                                        if (can_group_declarations(node, next_node)) then
                                             ! Add to group
-                                     var_list = var_list//", "//trim(next_node%var_name)
+                                            var_list = var_list//", "//trim(next_node%var_name)
                                             j = j + 1
                                         else
                                             exit
@@ -1803,8 +1809,8 @@ contains
                         end do
 
                         ! Generate grouped declaration with optional attribute if present
-                      stmt_code = generate_grouped_declaration(group_type, group_kind, &
-                                                 group_has_kind, group_intent, var_list, node%is_optional)
+                        stmt_code = generate_grouped_declaration(group_type, group_kind, &
+                                                                 group_has_kind, group_intent, var_list, node%is_optional)
 
                         code = code//indent//stmt_code//new_line('a')
                         i = j  ! Skip processed declarations
@@ -1824,15 +1830,15 @@ contains
                         ! Look ahead for more parameter declarations of same type
                         j = i + 1
                         do while (j <= size(body_indices))
-                       if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                            if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
                                 if (allocated(arena%entries(body_indices(j))%node)) then
-                          select type (next_node => arena%entries(body_indices(j))%node)
+                                    select type (next_node => arena%entries(body_indices(j))%node)
                                     type is (parameter_declaration_node)
                                         ! Check if can be grouped
                                         if (can_group_parameters(node, next_node)) then
                                             ! Build next parameter name
                                             ! with array specification
-                 var_list = var_list//", "//build_param_name_with_dims(arena, next_node)
+                                            var_list = var_list//", "//build_param_name_with_dims(arena, next_node)
                                             j = j + 1
                                         else
                                             exit
@@ -1849,8 +1855,8 @@ contains
                         end do
 
                         ! Generate grouped parameter declaration
-                      stmt_code = generate_grouped_declaration(group_type, group_kind, &
-                                            group_has_kind, group_intent, var_list, group_is_optional)
+                        stmt_code = generate_grouped_declaration(group_type, group_kind, &
+                                                                 group_has_kind, group_intent, var_list, group_is_optional)
 
                         code = code//indent//stmt_code//new_line('a')
                         i = j  ! Skip processed parameter declarations
@@ -1920,14 +1926,14 @@ contains
                         ! Look ahead for more declarations of same type
                         j = i + 1
                         do while (j <= size(body_indices))
-                       if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                            if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
                                 if (allocated(arena%entries(body_indices(j))%node)) then
-                          select type (next_node => arena%entries(body_indices(j))%node)
+                                    select type (next_node => arena%entries(body_indices(j))%node)
                                     type is (declaration_node)
                                         ! Check if can be grouped
-                                       if (can_group_declarations_with_params(node, next_node, param_map)) then
+                                        if (can_group_declarations_with_params(node, next_node, param_map)) then
                                             ! Add to group
-                                     var_list = var_list//", "//trim(next_node%var_name)
+                                            var_list = var_list//", "//trim(next_node%var_name)
                                             j = j + 1
                                         else
                                             exit
@@ -1944,8 +1950,8 @@ contains
                         end do
 
                         ! Generate grouped declaration with parameter attributes if present
-                      stmt_code = generate_grouped_declaration(group_type, group_kind, &
-                                                 group_has_kind, group_intent, var_list, group_is_optional)
+                        stmt_code = generate_grouped_declaration(group_type, group_kind, &
+                                                                 group_has_kind, group_intent, var_list, group_is_optional)
 
                         code = code//indent//stmt_code//new_line('a')
                         i = j  ! Skip processed declarations
@@ -1962,9 +1968,9 @@ contains
 
                         j = i + 1
                         do while (j <= size(body_indices))
-                       if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                            if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
                                 if (allocated(arena%entries(body_indices(j))%node)) then
-                          select type (next_node => arena%entries(body_indices(j))%node)
+                                    select type (next_node => arena%entries(body_indices(j))%node)
                                     type is (parameter_declaration_node)
                                         if (can_group_parameters(node, next_node)) then
                                             var_list = var_list//", "//build_param_name_with_dims(arena, next_node)
@@ -1984,7 +1990,7 @@ contains
                         end do
 
                         stmt_code = generate_grouped_declaration(group_type, group_kind, &
-                                                 group_has_kind, group_intent, var_list, group_is_optional)
+                                                                 group_has_kind, group_intent, var_list, group_is_optional)
 
                         code = code//indent//stmt_code//new_line('a')
                         i = j
