@@ -38,6 +38,8 @@ module call_graph_module
         type(call_edge_t), allocatable :: calls(:)
         integer :: proc_count = 0
         integer :: call_count = 0
+        integer :: proc_capacity = 0
+        integer :: call_capacity = 0
     contains
         procedure :: add_proc => graph_add_procedure
         procedure :: add_call_edge => graph_add_call
@@ -57,8 +59,11 @@ contains
     ! Create a new empty call graph
     function create_call_graph() result(graph)
         type(call_graph_t) :: graph
-        allocate(graph%procedures(0))
-        allocate(graph%calls(0))
+        ! Initialize with small capacity to avoid immediate reallocation
+        graph%proc_capacity = 16
+        graph%call_capacity = 16
+        allocate(graph%procedures(graph%proc_capacity))
+        allocate(graph%calls(graph%call_capacity))
         graph%proc_count = 0
         graph%call_count = 0
     end function create_call_graph
@@ -101,14 +106,21 @@ contains
         if (present(is_intrinsic)) new_proc%is_intrinsic = is_intrinsic
         if (present(is_external)) new_proc%is_external = is_external
         
-        ! Expand procedures array
-        allocate(temp_procs(graph%proc_count + 1))
-        if (graph%proc_count > 0) then
-            temp_procs(1:graph%proc_count) = graph%procedures
+        ! Expand procedures array if needed
+        if (graph%proc_count >= graph%proc_capacity) then
+            ! Grow capacity by 50% or at least 16 elements
+            graph%proc_capacity = max(graph%proc_capacity + graph%proc_capacity/2, &
+                                     graph%proc_capacity + 16, 16)
+            allocate(temp_procs(graph%proc_capacity))
+            if (graph%proc_count > 0) then
+                temp_procs(1:graph%proc_count) = graph%procedures
+            end if
+            call move_alloc(temp_procs, graph%procedures)
         end if
-        temp_procs(graph%proc_count + 1) = new_proc
-        call move_alloc(temp_procs, graph%procedures)
+        
+        ! Add new procedure
         graph%proc_count = graph%proc_count + 1
+        graph%procedures(graph%proc_count) = new_proc
     end subroutine add_procedure
 
     ! Add a call from one procedure to another
@@ -129,14 +141,21 @@ contains
         new_call%line = line
         new_call%column = column
         
-        ! Expand calls array
-        allocate(temp_calls(graph%call_count + 1))
-        if (graph%call_count > 0) then
-            temp_calls(1:graph%call_count) = graph%calls
+        ! Expand calls array if needed
+        if (graph%call_count >= graph%call_capacity) then
+            ! Grow capacity by 50% or at least 16 elements
+            graph%call_capacity = max(graph%call_capacity + graph%call_capacity/2, &
+                                     graph%call_capacity + 16, 16)
+            allocate(temp_calls(graph%call_capacity))
+            if (graph%call_count > 0) then
+                temp_calls(1:graph%call_count) = graph%calls
+            end if
+            call move_alloc(temp_calls, graph%calls)
         end if
-        temp_calls(graph%call_count + 1) = new_call
-        call move_alloc(temp_calls, graph%calls)
+        
+        ! Add new call
         graph%call_count = graph%call_count + 1
+        graph%calls(graph%call_count) = new_call
     end subroutine add_call
 
     ! Find all procedures that are never called
@@ -686,11 +705,13 @@ contains
         
         dst%proc_count = src%proc_count
         dst%call_count = src%call_count
+        dst%proc_capacity = src%proc_capacity
+        dst%call_capacity = src%call_capacity
         
         ! Deep copy procedures
         if (allocated(src%procedures)) then
-            allocate(dst%procedures(size(src%procedures)))
-            do i = 1, size(src%procedures)
+            allocate(dst%procedures(dst%proc_capacity))
+            do i = 1, dst%proc_count
                 if (allocated(src%procedures(i)%name)) then
                     dst%procedures(i)%name = src%procedures(i)%name
                 end if
@@ -705,8 +726,8 @@ contains
         
         ! Deep copy calls
         if (allocated(src%calls)) then
-            allocate(dst%calls(size(src%calls)))
-            do i = 1, size(src%calls)
+            allocate(dst%calls(dst%call_capacity))
+            do i = 1, dst%call_count
                 if (allocated(src%calls(i)%caller)) then
                     dst%calls(i)%caller = src%calls(i)%caller
                 end if
