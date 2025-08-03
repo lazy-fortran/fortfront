@@ -98,7 +98,7 @@ module fortfront
     use call_graph_module, only: call_graph_t, create_call_graph, &
                                procedure_info_t, call_edge_t, &
                                get_all_procedures, find_unused_procedures, &
-                               get_callers, get_callees, &
+                               get_callers, get_callees, find_recursive_cycles, &
                                cg_is_procedure_used => is_procedure_used
     use call_graph_builder_module, only: build_call_graph
     
@@ -171,7 +171,8 @@ module fortfront
     public :: call_graph_t, build_call_graph_from_arena, &
               get_unused_procedures, get_procedure_callers, &
               get_procedure_callees, is_procedure_used, &
-              get_all_procedures_in_graph, get_call_edges
+              get_all_procedures_in_graph, get_call_edges, &
+              get_recursive_cycles
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
@@ -1847,5 +1848,13 @@ contains
             allocate(edges(0))
         end if
     end function get_call_edges
+    
+    ! Get recursive cycles in the call graph
+    function get_recursive_cycles(graph) result(cycles)
+        type(call_graph_t), intent(in) :: graph
+        character(len=:), allocatable :: cycles(:)
+        
+        cycles = find_recursive_cycles(graph)
+    end function get_recursive_cycles
 
 end module fortfront

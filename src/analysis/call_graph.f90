@@ -9,7 +9,7 @@ module call_graph_module
     public :: call_graph_t, procedure_info_t, call_edge_t, create_call_graph
     public :: add_procedure, add_call, find_unused_procedures
     public :: get_callers, get_callees, is_procedure_used
-    public :: get_all_procedures, get_call_count
+    public :: get_all_procedures, get_call_count, find_recursive_cycles
     public :: print_call_graph, build_call_graph_from_ast
 
     ! Type to represent a procedure in the call graph
@@ -592,6 +592,84 @@ contains
         
         unused_names = find_unused_procedures(this)
     end function graph_find_unused_procedures
+
+    ! Find recursive cycles in the call graph
+    function find_recursive_cycles(graph) result(cycles)
+        type(call_graph_t), intent(in) :: graph
+        character(len=:), allocatable :: cycles(:)
+        
+        character(len=256), allocatable :: temp_cycles(:)
+        logical, allocatable :: visited(:), in_stack(:)
+        integer :: cycle_count, i
+        
+        allocate(visited(graph%proc_count))
+        allocate(in_stack(graph%proc_count))
+        allocate(temp_cycles(graph%proc_count))
+        
+        visited = .false.
+        in_stack = .false.
+        cycle_count = 0
+        
+        ! Use depth-first search to detect cycles
+        do i = 1, graph%proc_count
+            if (.not. visited(i)) then
+                call dfs_cycle_detect(graph, i, visited, in_stack, &
+                                    temp_cycles, cycle_count)
+            end if
+        end do
+        
+        ! Convert to properly sized result
+        if (cycle_count > 0) then
+            allocate(character(len=maxval(len_trim(temp_cycles(1:cycle_count)))) :: &
+                     cycles(cycle_count))
+            do i = 1, cycle_count
+                cycles(i) = trim(temp_cycles(i))
+            end do
+        else
+            allocate(character(len=1) :: cycles(0))
+        end if
+    end function find_recursive_cycles
+    
+    ! Helper for cycle detection using DFS
+    recursive subroutine dfs_cycle_detect(graph, proc_idx, visited, in_stack, &
+                                        cycles, cycle_count)
+        type(call_graph_t), intent(in) :: graph
+        integer, intent(in) :: proc_idx
+        logical, intent(inout) :: visited(:), in_stack(:)
+        character(len=256), intent(inout) :: cycles(:)
+        integer, intent(inout) :: cycle_count
+        
+        integer :: i, callee_idx
+        
+        visited(proc_idx) = .true.
+        in_stack(proc_idx) = .true.
+        
+        ! Check all callees of this procedure
+        do i = 1, graph%call_count
+            if (graph%calls(i)%caller == graph%procedures(proc_idx)%name) then
+                ! Find callee index
+                callee_idx = 0
+                do callee_idx = 1, graph%proc_count
+                    if (graph%procedures(callee_idx)%name == graph%calls(i)%callee) then
+                        exit
+                    end if
+                end do
+                
+                if (callee_idx > 0 .and. callee_idx <= graph%proc_count) then
+                    if (in_stack(callee_idx)) then
+                        ! Found a cycle
+                        cycle_count = cycle_count + 1
+                        cycles(cycle_count) = graph%procedures(proc_idx)%name
+                    else if (.not. visited(callee_idx)) then
+                        call dfs_cycle_detect(graph, callee_idx, visited, in_stack, &
+                                            cycles, cycle_count)
+                    end if
+                end if
+            end if
+        end do
+        
+        in_stack(proc_idx) = .false.
+    end subroutine dfs_cycle_detect
 
     subroutine graph_print_call_graph(this, unit)
         class(call_graph_t), intent(in) :: this

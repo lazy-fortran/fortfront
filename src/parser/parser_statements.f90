@@ -18,6 +18,7 @@ module parser_statements_module
     public :: parse_stop_statement, parse_return_statement
     public :: parse_cycle_statement, parse_exit_statement
     public :: parse_allocate_statement, parse_deallocate_statement
+    public :: parse_call_statement
 
 contains
 
@@ -1703,6 +1704,11 @@ contains
                 ! Use multi-declaration parser
                 stmt_indices = parse_multi_declaration(parser, arena)
                 return
+            else if (first_token%text == "call") then
+                ! Parse call statement
+                allocate (stmt_indices(1))
+                stmt_indices(1) = parse_call_statement(parser, arena)
+                return
             end if
         end if
 
@@ -1873,6 +1879,16 @@ contains
                         stmt_index = parse_allocate_statement(parser, arena)
                     case ("deallocate")
                         stmt_index = parse_deallocate_statement(parser, arena)
+                    case ("contains")
+                        ! Skip contains keyword but continue parsing following procedures
+                        token = parser%consume()
+                        stmt_index = 0
+                    case ("subroutine")
+                        stmt_index = parse_subroutine_definition(parser, arena)
+                    case ("function")
+                        stmt_index = parse_function_definition(parser, arena)
+                    case ("call")
+                        stmt_index = parse_call_statement(parser, arena)
                     case default
                         ! Skip unknown keywords
                         token = parser%consume()
@@ -2107,5 +2123,89 @@ contains
             end if
         end if
     end subroutine parse_allocate_variable
+
+    ! Parse call statement: call subroutine_name(args)
+    function parse_call_statement(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: token
+        character(len=:), allocatable :: subroutine_name
+        integer, allocatable :: arg_indices(:)
+        integer :: line, column
+
+        ! Consume 'call' keyword
+        token = parser%consume()
+        line = token%line
+        column = token%column
+
+        ! Get subroutine name
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            token = parser%consume()
+            subroutine_name = token%text
+
+            ! Check for arguments
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                ! Parse arguments
+                call parse_call_arguments(parser, arena, arg_indices)
+            else
+                ! No arguments
+                allocate (arg_indices(0))
+            end if
+
+            ! Create call node
+            stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, &
+                                              line, column)
+        else
+            ! Error: expected subroutine name
+            stmt_index = push_literal(arena, "! Error: expected subroutine name after 'call'", &
+                                      LITERAL_STRING, line, column)
+        end if
+
+    end function parse_call_statement
+    
+    ! Helper subroutine to parse call arguments
+    subroutine parse_call_arguments(parser, arena, arg_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(out) :: arg_indices(:)
+        type(token_t) :: token
+        integer :: arg_index
+        
+        allocate(arg_indices(0))
+        
+        ! Consume opening parenthesis
+        token = parser%consume()
+        
+        ! Parse arguments
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()  ! consume ')'
+                exit
+            end if
+            
+            ! Parse argument expression
+            arg_index = parse_range(parser, arena)
+            if (arg_index > 0) then
+                arg_indices = [arg_indices, arg_index]
+            end if
+            
+            ! Check for comma (more arguments)
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()  ! consume ','
+                cycle
+            else if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()  ! consume ')'
+                exit
+            else
+                ! Unexpected token - try to continue
+                exit
+            end if
+        end do
+    end subroutine parse_call_arguments
 
 end module parser_statements_module
