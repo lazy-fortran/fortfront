@@ -996,26 +996,26 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: index_spec, mask_code, stmt_code
-        integer :: i, j
+        integer :: idx, body_idx
         
         ! Build index specifications
         index_spec = ""
-        do i = 1, node%num_indices
-            if (i > 1) index_spec = index_spec//", "
+        do idx = 1, node%num_indices
+            if (idx > 1) index_spec = index_spec//", "
             
             ! Add index name
             if (allocated(node%index_names)) then
-                index_spec = index_spec//trim(node%index_names(i))//"="
+                index_spec = index_spec//trim(node%index_names(idx))//"="
             else
-                index_spec = index_spec//"i"//trim(adjustl(int_to_string(i)))//"="
+                index_spec = index_spec//"i"//trim(adjustl(int_to_string(idx)))//"="
             end if
             
             ! Add lower bound
             if (allocated(node%lower_bound_indices)) then
-                if (node%lower_bound_indices(i) > 0 .and. &
-                    node%lower_bound_indices(i) <= arena%size) then
+                if (node%lower_bound_indices(idx) > 0 .and. &
+                    node%lower_bound_indices(idx) <= arena%size) then
                     index_spec = index_spec// &
-                        generate_code_from_arena(arena, node%lower_bound_indices(i))
+                        generate_code_from_arena(arena, node%lower_bound_indices(idx))
                 else
                     index_spec = index_spec//"1"
                 end if
@@ -1027,10 +1027,10 @@ contains
             
             ! Add upper bound
             if (allocated(node%upper_bound_indices)) then
-                if (node%upper_bound_indices(i) > 0 .and. &
-                    node%upper_bound_indices(i) <= arena%size) then
+                if (node%upper_bound_indices(idx) > 0 .and. &
+                    node%upper_bound_indices(idx) <= arena%size) then
                     index_spec = index_spec// &
-                        generate_code_from_arena(arena, node%upper_bound_indices(i))
+                        generate_code_from_arena(arena, node%upper_bound_indices(idx))
                 else
                     index_spec = index_spec//"n"
                 end if
@@ -1040,10 +1040,10 @@ contains
             
             ! Add optional stride
             if (allocated(node%stride_indices)) then
-                if (node%stride_indices(i) > 0 .and. &
-                    node%stride_indices(i) <= arena%size) then
+                if (node%stride_indices(idx) > 0 .and. &
+                    node%stride_indices(idx) <= arena%size) then
                     index_spec = index_spec//":"// &
-                        generate_code_from_arena(arena, node%stride_indices(i))
+                        generate_code_from_arena(arena, node%stride_indices(idx))
                 end if
             end if
         end do
@@ -1062,10 +1062,10 @@ contains
         if (allocated(node%body_indices)) then
             call increase_indent()
             
-            do j = 1, size(node%body_indices)
-                if (node%body_indices(j) > 0 .and. &
-                    node%body_indices(j) <= arena%size) then
-                    stmt_code = generate_code_from_arena(arena, node%body_indices(j))
+            do body_idx = 1, size(node%body_indices)
+                if (node%body_indices(body_idx) > 0 .and. &
+                    node%body_indices(body_idx) <= arena%size) then
+                    stmt_code = generate_code_from_arena(arena, node%body_indices(body_idx))
                     code = code//new_line('A')//stmt_code
                 end if
             end do
