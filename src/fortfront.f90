@@ -127,7 +127,8 @@ module fortfront
         is_cache_valid, get_cache_stats, &
         release_ast_memory, compact_arena, get_memory_stats, &
         update_ast_range, supports_incremental_update, &
-        lock_arena, unlock_arena, is_arena_locked
+        lock_arena, unlock_arena, is_arena_locked, &
+        deep_copy_arena, deep_copy_semantic_context, compute_arena_hash
     
     ! Re-export intrinsic function registry (using renamed imports to avoid conflicts)
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
@@ -222,7 +223,8 @@ module fortfront
               is_cache_valid, get_cache_stats, &
               release_ast_memory, compact_arena, get_memory_stats, &
               update_ast_range, supports_incremental_update, &
-              lock_arena, unlock_arena, is_arena_locked
+              lock_arena, unlock_arena, is_arena_locked, &
+              deep_copy_arena, deep_copy_semantic_context, compute_arena_hash
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
