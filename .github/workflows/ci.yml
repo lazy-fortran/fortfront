@@ -66,6 +66,8 @@ jobs:
 
     - name: Run all tests with coverage
       run: |
+        # Clean build to avoid cache issues with coverage flags
+        fpm clean --all
         # Run all tests with coverage flags (this will build and test)
         fpm test --profile debug --flag "-cpp -fprofile-arcs -ftest-coverage -g"
 
