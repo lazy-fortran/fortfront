@@ -141,11 +141,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 
 ## 🔵 Analysis and Optimization Features
 
-### 🚧 #26 - Add expression temporary tracking for optimization
+### ✅ #26 - Add expression temporary tracking for optimization
 **Priority: Low** | **Impact: Optimization** | **Effort: High**
-- **Status**: 🚧 **IN PROGRESS** - Working on expression temporary tracking
+- **Status**: ✅ **COMPLETED** - Expression temporary tracking implemented (PR #59)
 - **Description**: Track temporary variables for memory optimization
-- **Branch**: feature/26-expression-temporary-tracking
+- **Implementation**: Added temp_tracker_t, integrated with semantic analysis, public API functions
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### 🚧 #20 - Include parameter attributes (optional, intent) in AST nodes
 **Priority: Low** | **Impact: AST Enhancement** | **Effort: Low**
@@ -162,10 +163,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Implementation**: Added get_next_sibling, get_previous_sibling, get_block_statements, is_last_in_block, is_block_node
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #18 - Need call graph construction for unused procedure detection
+### 🚧 #18 - Need call graph construction for unused procedure detection
 **Priority: Low** | **Impact: Analysis Feature** | **Effort: High**
+- **Status**: 🚧 **IN PROGRESS** - Working on call graph construction
 - **Labels**: enhancement
 - **Description**: Build call graphs for static analysis
+- **Branch**: feature/18-call-graph-construction
 
 ### #17 - Need control flow graph API for reachability analysis
 **Priority: Low** | **Impact: Analysis Feature** | **Effort: High**
