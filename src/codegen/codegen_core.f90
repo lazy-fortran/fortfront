@@ -2,12 +2,19 @@ module codegen_core
     use ast_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
     use ast_nodes_control, only: associate_node
-    use ast_nodes_data, only: intent_type_to_string
+    use ast_nodes_data, only: intent_type_to_string, INTENT_NONE
     use type_system_hm
     use string_types, only: string_t
     use codegen_indent
     implicit none
     private
+
+    ! Type for storing parameter information during codegen
+    type :: parameter_info_t
+        character(len=:), allocatable :: name
+        character(len=:), allocatable :: intent_str
+        logical :: is_optional
+    end type parameter_info_t
 
     ! Context for function indentation
     logical :: context_has_executable_before_contains = .false.
@@ -660,10 +667,40 @@ contains
             code = code//"()"
         end if
         code = code//new_line('a')
-        ! Generate body with indentation and declaration grouping
-        if (allocated(node%body_indices)) then
-            code = code//generate_grouped_body(arena, node%body_indices, "    ")
-        end if
+        
+        ! Build parameter map from parameter declarations
+        block
+            type(parameter_info_t), allocatable :: param_map(:)
+            integer :: param_count, map_idx
+            
+            param_count = 0
+            if (allocated(node%param_indices)) param_count = size(node%param_indices)
+            
+            allocate(param_map(param_count))
+            
+            do i = 1, param_count
+                if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(node%param_indices(i))%node)) then
+                        select type (param_node => arena%entries(node%param_indices(i))%node)
+                        type is (parameter_declaration_node)
+                            param_map(i)%name = param_node%name
+                            param_map(i)%intent_str = intent_type_to_string(param_node%intent_type)
+                            param_map(i)%is_optional = param_node%is_optional
+                        type is (identifier_node)
+                            ! Parameter is just an identifier - no attributes available
+                            param_map(i)%name = param_node%name
+                            param_map(i)%intent_str = ""
+                            param_map(i)%is_optional = .false.
+                        end select
+                    end if
+                end if
+            end do
+            
+            ! Generate body with indentation, declaration grouping, and parameter mapping
+            if (allocated(node%body_indices)) then
+                code = code//generate_grouped_body_with_params(arena, node%body_indices, "    ", param_map)
+            end if
+        end block
 
         ! End subroutine
         code = code//"end subroutine "//node%name
@@ -1557,7 +1594,8 @@ contains
                     node1%has_kind .eqv. node2%has_kind .and. &
                     ((node1%has_intent .and. node2%has_intent .and. &
                       node1%intent == node2%intent) .or. &
-                     (.not. node1%has_intent .and. .not. node2%has_intent))
+                     (.not. node1%has_intent .and. .not. node2%has_intent)) .and. &
+                    node1%is_optional .eqv. node2%is_optional
     end function can_group_declarations
 
     ! Helper: Check if two parameter declarations can be grouped together
@@ -1567,7 +1605,8 @@ contains
 
         can_group = node1%type_name == node2%type_name .and. &
                     node1%kind_value == node2%kind_value .and. &
-                    node1%intent_type == node2%intent_type
+                    node1%intent_type == node2%intent_type .and. &
+                    node1%is_optional .eqv. node2%is_optional
     end function can_group_parameters
 
     ! Helper: Build parameter name with array dimensions
@@ -1592,13 +1631,18 @@ contains
 
     ! Helper: Generate grouped declaration statement
     function generate_grouped_declaration(type_name, kind_value, has_kind, &
-                                          intent, var_list) result(stmt)
+                                          intent, var_list, is_optional) result(stmt)
         character(len=*), intent(in) :: type_name
         integer, intent(in) :: kind_value
         logical, intent(in) :: has_kind
         character(len=*), intent(in) :: intent
         character(len=*), intent(in) :: var_list
+        logical, intent(in), optional :: is_optional
         character(len=:), allocatable :: stmt
+        logical :: opt_flag
+
+        opt_flag = .false.
+        if (present(is_optional)) opt_flag = is_optional
 
         stmt = type_name
         if (has_kind) then
@@ -1606,6 +1650,9 @@ contains
         end if
         if (len_trim(intent) > 0) then
             stmt = stmt//", intent("//intent//")"
+        end if
+        if (opt_flag) then
+            stmt = stmt//", optional"
         end if
         stmt = stmt//" :: "//var_list
     end function generate_grouped_declaration
@@ -1621,7 +1668,7 @@ contains
         logical :: in_declaration_group
         character(len=:), allocatable :: group_type, group_intent, var_list
         integer :: group_kind
-        logical :: group_has_kind
+        logical :: group_has_kind, group_is_optional
 
         code = ""
         i = 1
@@ -1668,9 +1715,9 @@ contains
                             end if
                         end do
 
-                        ! Generate grouped declaration
+                        ! Generate grouped declaration with optional attribute if present
                       stmt_code = generate_grouped_declaration(group_type, group_kind, &
-                                                 group_has_kind, group_intent, var_list)
+                                                 group_has_kind, group_intent, var_list, node%is_optional)
 
                         code = code//indent//stmt_code//new_line('a')
                         i = j  ! Skip processed declarations
@@ -1682,6 +1729,7 @@ contains
                         group_kind = node%kind_value
                         group_has_kind = (node%kind_value > 0)
                         group_intent = intent_type_to_string(node%intent_type)
+                        group_is_optional = node%is_optional
 
                         ! Build variable name with array specification
                         var_list = build_param_name_with_dims(arena, node)
@@ -1715,7 +1763,7 @@ contains
 
                         ! Generate grouped parameter declaration
                       stmt_code = generate_grouped_declaration(group_type, group_kind, &
-                                                 group_has_kind, group_intent, var_list)
+                                            group_has_kind, group_intent, var_list, group_is_optional)
 
                         code = code//indent//stmt_code//new_line('a')
                         i = j  ! Skip processed parameter declarations
@@ -1736,6 +1784,203 @@ contains
 
         ! Keep trailing newline - it will be handled by caller if needed
     end function generate_grouped_body
+
+    ! Generate function/subroutine body with grouped declarations and parameter mapping
+    function generate_grouped_body_with_params(arena, body_indices, indent, param_map) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        character(len=*), intent(in) :: indent
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: stmt_code
+        integer :: i, j, group_start, param_idx
+        logical :: in_declaration_group
+        character(len=:), allocatable :: group_type, group_intent, var_list
+        integer :: group_kind
+        logical :: group_has_kind, group_is_optional
+
+        code = ""
+        i = 1
+
+        do while (i <= size(body_indices))
+            if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(body_indices(i))%node)) then
+                    select type (node => arena%entries(body_indices(i))%node)
+                    type is (declaration_node)
+                        ! Start of declaration group
+                        group_type = node%type_name
+                        group_kind = node%kind_value
+                        group_has_kind = node%has_kind
+                        
+                        ! Check if this variable is a parameter
+                        param_idx = find_parameter_info(param_map, node%var_name)
+                        if (param_idx > 0) then
+                            ! Use parameter attributes
+                            group_intent = param_map(param_idx)%intent_str
+                            group_is_optional = param_map(param_idx)%is_optional
+                        else
+                            ! Use declaration attributes
+                            if (node%has_intent) then
+                                group_intent = node%intent
+                            else
+                                group_intent = ""
+                            end if
+                            group_is_optional = node%is_optional
+                        end if
+                        
+                        var_list = trim(node%var_name)
+
+                        ! Look ahead for more declarations of same type
+                        j = i + 1
+                        do while (j <= size(body_indices))
+                       if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                                if (allocated(arena%entries(body_indices(j))%node)) then
+                          select type (next_node => arena%entries(body_indices(j))%node)
+                                    type is (declaration_node)
+                                        ! Check if can be grouped
+                                       if (can_group_declarations_with_params(node, next_node, param_map)) then
+                                            ! Add to group
+                                     var_list = var_list//", "//trim(next_node%var_name)
+                                            j = j + 1
+                                        else
+                                            exit
+                                        end if
+                                    class default
+                                        exit
+                                    end select
+                                else
+                                    exit
+                                end if
+                            else
+                                exit
+                            end if
+                        end do
+
+                        ! Generate grouped declaration with parameter attributes if present
+                      stmt_code = generate_grouped_declaration(group_type, group_kind, &
+                                                 group_has_kind, group_intent, var_list, group_is_optional)
+
+                        code = code//indent//stmt_code//new_line('a')
+                        i = j  ! Skip processed declarations
+
+                    type is (parameter_declaration_node)
+                        ! Handle parameter declarations the same as before
+                        group_type = node%type_name
+                        group_kind = node%kind_value
+                        group_has_kind = (node%kind_value > 0)
+                        group_intent = intent_type_to_string(node%intent_type)
+                        group_is_optional = node%is_optional
+
+                        var_list = build_param_name_with_dims(arena, node)
+
+                        j = i + 1
+                        do while (j <= size(body_indices))
+                       if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                                if (allocated(arena%entries(body_indices(j))%node)) then
+                          select type (next_node => arena%entries(body_indices(j))%node)
+                                    type is (parameter_declaration_node)
+                                        if (can_group_parameters(node, next_node)) then
+                                            var_list = var_list//", "//build_param_name_with_dims(arena, next_node)
+                                            j = j + 1
+                                        else
+                                            exit
+                                        end if
+                                    class default
+                                        exit
+                                    end select
+                                else
+                                    exit
+                                end if
+                            else
+                                exit
+                            end if
+                        end do
+
+                        stmt_code = generate_grouped_declaration(group_type, group_kind, &
+                                                 group_has_kind, group_intent, var_list, group_is_optional)
+
+                        code = code//indent//stmt_code//new_line('a')
+                        i = j
+
+                    class default
+                        ! Generate other statements normally
+                        stmt_code = generate_code_from_arena(arena, body_indices(i))
+                        if (len_trim(stmt_code) > 0) then
+                            code = code//indent//stmt_code//new_line('a')
+                        end if
+                        i = i + 1
+                    end select
+                else
+                    i = i + 1
+                end if
+            else
+                i = i + 1
+            end if
+        end do
+    end function generate_grouped_body_with_params
+    
+    ! Find parameter information by name
+    function find_parameter_info(param_map, var_name) result(param_idx)
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=*), intent(in) :: var_name
+        integer :: param_idx
+        integer :: i
+        
+        param_idx = 0
+        do i = 1, size(param_map)
+            if (allocated(param_map(i)%name) .and. param_map(i)%name == var_name) then
+                param_idx = i
+                return
+            end if
+        end do
+    end function find_parameter_info
+    
+    ! Check if declarations can be grouped considering parameter attributes
+    function can_group_declarations_with_params(node1, node2, param_map) result(can_group)
+        type(declaration_node), intent(in) :: node1, node2
+        type(parameter_info_t), intent(in) :: param_map(:)
+        logical :: can_group
+        integer :: param_idx1, param_idx2
+        character(len=:), allocatable :: intent1, intent2
+        logical :: optional1, optional2
+        
+        ! First check basic grouping criteria
+        can_group = can_group_declarations(node1, node2)
+        if (.not. can_group) return
+        
+        ! Get parameter attributes for both variables
+        param_idx1 = find_parameter_info(param_map, node1%var_name)
+        param_idx2 = find_parameter_info(param_map, node2%var_name)
+        
+        ! Determine effective intent and optional for node1
+        if (param_idx1 > 0) then
+            intent1 = param_map(param_idx1)%intent_str
+            optional1 = param_map(param_idx1)%is_optional
+        else
+            if (node1%has_intent) then
+                intent1 = node1%intent
+            else
+                intent1 = ""
+            end if
+            optional1 = node1%is_optional
+        end if
+        
+        ! Determine effective intent and optional for node2
+        if (param_idx2 > 0) then
+            intent2 = param_map(param_idx2)%intent_str
+            optional2 = param_map(param_idx2)%is_optional
+        else
+            if (node2%has_intent) then
+                intent2 = node2%intent
+            else
+                intent2 = ""
+            end if
+            optional2 = node2%is_optional
+        end if
+        
+        ! Check if intent and optional attributes match
+        can_group = (intent1 == intent2) .and. (optional1 .eqv. optional2)
+    end function can_group_declarations_with_params
 
     ! Generate code for module node
     function generate_code_module(arena, node, node_index) result(code)
