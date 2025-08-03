@@ -48,9 +48,48 @@ ast_node (abstract base)
 
 ## Primary Identification Patterns
 
-### 1. `select type` with `type is` (Recommended)
+### 1. Type Constants and Helper Functions (Recommended for Issue #34)
 
-This is the **primary and recommended** pattern for type identification:
+The fortfront public API provides integer constants and helper functions for efficient node type identification:
+
+```fortran
+use fortfront
+
+! Using node type constants
+if (get_node_type(arena, index) == NODE_ASSIGNMENT) then
+    ! Process assignment
+end if
+
+! Using direct node type identification  
+class(ast_node), allocatable :: node
+node = arena%entries(index)%node
+if (get_node_type_id(node) == NODE_ASSIGNMENT) then
+    ! Process assignment
+end if
+```
+
+**Available Constants:**
+- `NODE_PROGRAM`, `NODE_ASSIGNMENT`, `NODE_BINARY_OP`
+- `NODE_IDENTIFIER`, `NODE_LITERAL`, `NODE_ARRAY_LITERAL`
+- `NODE_CALL_OR_SUBSCRIPT`, `NODE_FUNCTION_DEF`, `NODE_SUBROUTINE_DEF`
+- `NODE_DECLARATION`, `NODE_PARAMETER_DECLARATION`
+- `NODE_IF`, `NODE_DO_LOOP`, `NODE_DO_WHILE`, `NODE_SELECT_CASE`
+- `NODE_MODULE`, `NODE_USE_STATEMENT`, `NODE_PRINT_STATEMENT`
+- `NODE_COMMENT`, `NODE_WHERE`, `NODE_FORALL` and more...
+
+**Helper Functions:**
+- `get_node_type_id(node)` - Get type constant from node object
+- `get_node_type(arena, index)` - Get type constant from arena index
+
+**Advantages:**
+- O(1) integer comparison - fastest method
+- Consistent API across all tools
+- No risk of typos in type names
+- Future-proof for new node types
+
+### 2. `select type` with `type is` (Alternative Pattern)
+
+This is an alternative pattern for type identification:
 
 ```fortran
 use ast_core
