@@ -25,7 +25,8 @@ contains
         type(token_t) :: type_token, var_token
         character(len=:), allocatable :: type_name, var_name
         integer :: line, column, kind_value
-        logical :: has_kind, is_array, is_allocatable, is_pointer, is_target, has_intent, is_optional
+        logical :: has_kind, is_array, is_allocatable, is_pointer, is_target
+        logical :: has_intent, is_optional
         character(len=:), allocatable :: intent
         integer, allocatable :: dimension_indices(:)
 
@@ -348,54 +349,85 @@ contains
                         integer :: additional_decl_index
                         if (has_kind .and. is_array) then
                             if (has_intent) then
-                                additional_decl_index = push_declaration(arena, type_name, var_name, &
-                                    kind_value=kind_value, dimension_indices=dimension_indices, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                additional_decl_index = push_declaration( &
+                                    arena, type_name, var_name, &
+                                    kind_value=kind_value, &
+                                    dimension_indices=dimension_indices, &
+                                    is_allocatable=is_allocatable, &
+                                    is_pointer=is_pointer, &
                                     is_target=is_target, intent_value=intent, &
-                                    is_optional=is_optional, line=line, column=column)
+                                    is_optional=is_optional, &
+                                    line=line, column=column)
                             else
-                                additional_decl_index = push_declaration(arena, type_name, var_name, &
-                                    kind_value=kind_value, dimension_indices=dimension_indices, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, is_optional=is_optional, &
+                                additional_decl_index = push_declaration( &
+                                    arena, type_name, var_name, &
+                                    kind_value=kind_value, &
+                                    dimension_indices=dimension_indices, &
+                                    is_allocatable=is_allocatable, &
+                                    is_pointer=is_pointer, &
+                                    is_target=is_target, &
+                                    is_optional=is_optional, &
                                     line=line, column=column)
                             end if
                         else if (has_kind) then
                             if (has_intent) then
-                                additional_decl_index = push_declaration(arena, type_name, var_name, &
-                                    kind_value=kind_value, is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, is_target=is_target, &
-                                    intent_value=intent, is_optional=is_optional, &
+                                additional_decl_index = push_declaration( &
+                                    arena, type_name, var_name, &
+                                    kind_value=kind_value, &
+                                    is_allocatable=is_allocatable, &
+                                    is_pointer=is_pointer, &
+                                    is_target=is_target, &
+                                    intent_value=intent, &
+                                    is_optional=is_optional, &
                                     line=line, column=column)
                             else
-                                additional_decl_index = push_declaration(arena, type_name, var_name, &
-                                    kind_value=kind_value, is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, is_target=is_target, &
-                                    is_optional=is_optional, line=line, column=column)
+                                additional_decl_index = push_declaration( &
+                                    arena, type_name, var_name, &
+                                    kind_value=kind_value, &
+                                    is_allocatable=is_allocatable, &
+                                    is_pointer=is_pointer, &
+                                    is_target=is_target, &
+                                    is_optional=is_optional, &
+                                    line=line, column=column)
                             end if
                         else if (is_array) then
                             if (has_intent) then
-                                additional_decl_index = push_declaration(arena, type_name, var_name, &
-                                    dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, is_target=is_target, &
-                                    intent_value=intent, is_optional=is_optional, &
+                                additional_decl_index = push_declaration( &
+                                    arena, type_name, var_name, &
+                                    dimension_indices=dimension_indices, &
+                                    is_allocatable=is_allocatable, &
+                                    is_pointer=is_pointer, &
+                                    is_target=is_target, &
+                                    intent_value=intent, &
+                                    is_optional=is_optional, &
                                     line=line, column=column)
                             else
-                                additional_decl_index = push_declaration(arena, type_name, var_name, &
-                                    dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, is_target=is_target, &
-                                    is_optional=is_optional, line=line, column=column)
+                                additional_decl_index = push_declaration( &
+                                    arena, type_name, var_name, &
+                                    dimension_indices=dimension_indices, &
+                                    is_allocatable=is_allocatable, &
+                                    is_pointer=is_pointer, &
+                                    is_target=is_target, &
+                                    is_optional=is_optional, &
+                                    line=line, column=column)
                             end if
                         else
                             if (has_intent) then
-                                additional_decl_index = push_declaration(arena, type_name, var_name, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, intent_value=intent, &
-                                    is_optional=is_optional, line=line, column=column)
+                                additional_decl_index = push_declaration( &
+                                    arena, type_name, var_name, &
+                                    is_allocatable=is_allocatable, &
+                                    is_pointer=is_pointer, &
+                                    is_target=is_target, &
+                                    intent_value=intent, &
+                                    is_optional=is_optional, &
+                                    line=line, column=column)
                             else
-                                additional_decl_index = push_declaration(arena, type_name, var_name, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, is_optional=is_optional, &
+                                additional_decl_index = push_declaration( &
+                                    arena, type_name, var_name, &
+                                    is_allocatable=is_allocatable, &
+                                    is_pointer=is_pointer, &
+                                    is_target=is_target, &
+                                    is_optional=is_optional, &
                                     line=line, column=column)
                             end if
                         end if
@@ -685,7 +717,8 @@ contains
         type(token_t) :: type_token, var_token, token
         character(len=:), allocatable :: type_name
         integer :: line, column, kind_value
-        logical :: has_kind, is_allocatable, is_pointer, is_target, has_intent, is_optional
+        logical :: has_kind, is_allocatable, is_pointer, is_target
+        logical :: has_intent, is_optional
         character(len=:), allocatable :: intent
         integer :: decl_count, decl_index
         character(len=:), allocatable :: var_name

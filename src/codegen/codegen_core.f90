@@ -650,9 +650,11 @@ contains
                 param_map(i)%intent_str = ""
                 param_map(i)%is_optional = .false.
                 
-                if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
+                if (node%param_indices(i) > 0 .and. &
+                    node%param_indices(i) <= arena%size) then
                     if (allocated(arena%entries(node%param_indices(i))%node)) then
-                        select type (param_node => arena%entries(node%param_indices(i))%node)
+                        select type (param_node => &
+                                     arena%entries(node%param_indices(i))%node)
                         type is (identifier_node)
                             param_map(i)%name = param_node%name
                         end select
@@ -663,15 +665,18 @@ contains
             ! Find parameter attributes in body declarations
             if (allocated(node%body_indices)) then
                 do j = 1, size(node%body_indices)
-                    if (node%body_indices(j) > 0 .and. node%body_indices(j) <= arena%size) then
+                    if (node%body_indices(j) > 0 .and. &
+                        node%body_indices(j) <= arena%size) then
                         if (allocated(arena%entries(node%body_indices(j))%node)) then
-                            select type (body_node => arena%entries(node%body_indices(j))%node)
+                            select type (body_node => &
+                                         arena%entries(node%body_indices(j))%node)
                             type is (parameter_declaration_node)
                                 ! Find matching parameter in param_map
                                 do i = 1, param_count
                                     if (allocated(param_map(i)%name) .and. &
                                         param_map(i)%name == body_node%name) then
-                                        param_map(i)%intent_str = intent_type_to_string(body_node%intent_type)
+                                        param_map(i)%intent_str = &
+                                            intent_type_to_string(body_node%intent_type)
                                         param_map(i)%is_optional = body_node%is_optional
                                     end if
                                 end do
@@ -694,7 +699,8 @@ contains
             
             ! Generate body with indentation, declaration grouping, and parameter mapping
             if (allocated(node%body_indices)) then
-                code = code//generate_grouped_body_with_params(arena, node%body_indices, "    ", param_map)
+                code = code//generate_grouped_body_with_params(arena, &
+                                    node%body_indices, "    ", param_map)
             end if
         end block
 
@@ -748,9 +754,11 @@ contains
                 param_map(i)%intent_str = ""
                 param_map(i)%is_optional = .false.
                 
-                if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
+                if (node%param_indices(i) > 0 .and. &
+                    node%param_indices(i) <= arena%size) then
                     if (allocated(arena%entries(node%param_indices(i))%node)) then
-                        select type (param_node => arena%entries(node%param_indices(i))%node)
+                        select type (param_node => &
+                                     arena%entries(node%param_indices(i))%node)
                         type is (identifier_node)
                             param_map(i)%name = param_node%name
                         end select
@@ -761,15 +769,18 @@ contains
             ! Find parameter attributes in body declarations
             if (allocated(node%body_indices)) then
                 do j = 1, size(node%body_indices)
-                    if (node%body_indices(j) > 0 .and. node%body_indices(j) <= arena%size) then
+                    if (node%body_indices(j) > 0 .and. &
+                        node%body_indices(j) <= arena%size) then
                         if (allocated(arena%entries(node%body_indices(j))%node)) then
-                            select type (body_node => arena%entries(node%body_indices(j))%node)
+                            select type (body_node => &
+                                         arena%entries(node%body_indices(j))%node)
                             type is (parameter_declaration_node)
                                 ! Find matching parameter in param_map
                                 do i = 1, param_count
                                     if (allocated(param_map(i)%name) .and. &
                                         param_map(i)%name == body_node%name) then
-                                        param_map(i)%intent_str = intent_type_to_string(body_node%intent_type)
+                                        param_map(i)%intent_str = &
+                                            intent_type_to_string(body_node%intent_type)
                                         param_map(i)%is_optional = body_node%is_optional
                                     end if
                                 end do
@@ -792,7 +803,8 @@ contains
             
             ! Generate body with indentation, declaration grouping, and parameter mapping
             if (allocated(node%body_indices)) then
-                code = code//generate_grouped_body_with_params(arena, node%body_indices, "    ", param_map)
+                code = code//generate_grouped_body_with_params(arena, &
+                                    node%body_indices, "    ", param_map)
             end if
         end block
 

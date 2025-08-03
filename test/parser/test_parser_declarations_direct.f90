@@ -1,5 +1,5 @@
 program test_parser_declarations_direct
-    use parser_declarations, only: parse_declaration, parse_derived_type_def
+    use parser_declarations, only: parse_declaration, parse_derived_type_def, parse_multi_declaration
     use parser_state_module
     use lexer_core
     use ast_core
