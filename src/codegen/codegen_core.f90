@@ -671,6 +671,24 @@ contains
                                         param_map(i)%is_optional = body_node%is_optional
                                     end if
                                 end do
+                            type is (declaration_node)
+                                ! Check if this declaration has intent and matches a parameter
+                                print *, "DEBUG: Found declaration_node for ", trim(body_node%var_name), &
+                                       " has_intent=", body_node%has_intent, &
+                                       " is_optional=", body_node%is_optional
+                                if (body_node%has_intent) then
+                                    print *, "DEBUG: Intent value: ", trim(body_node%intent)
+                                    do i = 1, param_count
+                                        if (allocated(param_map(i)%name) .and. &
+                                            param_map(i)%name == body_node%var_name) then
+                                            param_map(i)%intent_str = body_node%intent
+                                            param_map(i)%is_optional = body_node%is_optional
+                                            print *, "DEBUG: Updated param ", trim(param_map(i)%name), &
+                                                   " with intent=", trim(param_map(i)%intent_str), &
+                                                   " optional=", param_map(i)%is_optional
+                                        end if
+                                    end do
+                                end if
                             end select
                         end if
                     end if
@@ -755,6 +773,24 @@ contains
                                         param_map(i)%is_optional = body_node%is_optional
                                     end if
                                 end do
+                            type is (declaration_node)
+                                ! Check if this declaration has intent and matches a parameter
+                                print *, "DEBUG: Found declaration_node for ", trim(body_node%var_name), &
+                                       " has_intent=", body_node%has_intent, &
+                                       " is_optional=", body_node%is_optional
+                                if (body_node%has_intent) then
+                                    print *, "DEBUG: Intent value: ", trim(body_node%intent)
+                                    do i = 1, param_count
+                                        if (allocated(param_map(i)%name) .and. &
+                                            param_map(i)%name == body_node%var_name) then
+                                            param_map(i)%intent_str = body_node%intent
+                                            param_map(i)%is_optional = body_node%is_optional
+                                            print *, "DEBUG: Updated param ", trim(param_map(i)%name), &
+                                                   " with intent=", trim(param_map(i)%intent_str), &
+                                                   " optional=", param_map(i)%is_optional
+                                        end if
+                                    end do
+                                end if
                             end select
                         end if
                     end if
