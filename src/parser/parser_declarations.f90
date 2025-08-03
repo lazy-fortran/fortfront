@@ -4,6 +4,7 @@ module parser_declarations
     use ast_arena, only: ast_arena_t
     use ast_types, only: LITERAL_STRING
     use ast_nodes_data, only: INTENT_IN, INTENT_OUT, INTENT_INOUT
+    use parser_expressions_module, only: parse_expression, parse_comparison, parse_range
     implicit none
     private
 
@@ -91,7 +92,7 @@ contains
                         if (paren_count > 0) then
                             type_spec = type_spec//var_token%text
                         end if
-                    end if
+                    end do
 
                     type_name = type_name//"("//type_spec//")"
                 end block
@@ -424,7 +425,6 @@ contains
     ! Parse array dimensions helper
     subroutine parse_array_dimensions(parser, arena, dimension_indices)
         use ast_factory, only: push_literal
-        use parser_expressions_module, only: parse_expression
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: dimension_indices(:)
@@ -466,7 +466,7 @@ contains
                 ! Parse lower bound (if any) and upper bound
 
                 ! Try to parse a dimension expression
-                lower_bound_index = parse_expression(parser, arena)
+                lower_bound_index = parse_range(parser, arena)
 
                 ! Check if we have : for range specification
                 token = parser%peek()
@@ -474,7 +474,7 @@ contains
                     token = parser%consume()
 
                     ! Parse upper bound
-                    upper_bound_index = parse_expression(parser, arena)
+                    upper_bound_index = parse_range(parser, arena)
 
                     ! For now, store the upper bound as the dimension
                     ! In a full implementation, we'd create a range node
@@ -561,15 +561,20 @@ contains
 
             ! Check for "end type"
             if (token%kind == TK_IDENTIFIER .and. token%text == "end") then
-                token = parser%consume()
-                token = parser%peek()
-                if (token%kind == TK_IDENTIFIER .and. token%text == "type") then
-                    token = parser%consume()
-                    exit
-                else
-                    ! Put "end" back if it's not "end type"
-                    call parser%put_back()
-                end if
+                ! Don't consume "end" yet, check if next is "type"
+                block
+                    type(parser_state_t) :: saved_state
+                    saved_state = parser
+                    token = parser%consume()  ! consume "end"
+                    token = parser%peek()
+                    if (token%kind == TK_IDENTIFIER .and. token%text == "type") then
+                        token = parser%consume()  ! consume "type"
+                        exit
+                    else
+                        ! Restore state before "end" was consumed
+                        parser = saved_state
+                    end if
+                end block
             end if
 
             ! Parse component declaration
