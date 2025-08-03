@@ -163,17 +163,20 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Implementation**: Added get_next_sibling, get_previous_sibling, get_block_statements, is_last_in_block, is_block_node
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### 🚧 #18 - Need call graph construction for unused procedure detection
+### ✅ #18 - Need call graph construction for unused procedure detection
 **Priority: Low** | **Impact: Analysis Feature** | **Effort: High**
-- **Status**: 🚧 **IN PROGRESS** - Working on call graph construction
+- **Status**: ✅ **COMPLETED** - Call graph construction and unused procedure detection implemented (PR #60)
 - **Labels**: enhancement
 - **Description**: Build call graphs for static analysis
-- **Branch**: feature/18-call-graph-construction
+- **Implementation**: Added call_graph_t, call_graph_builder, 6 public API functions, comprehensive test suite
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #17 - Need control flow graph API for reachability analysis
+### 🚧 #17 - Need control flow graph API for reachability analysis
 **Priority: Low** | **Impact: Analysis Feature** | **Effort: High**
+- **Status**: 🚧 **IN PROGRESS** - Implementing control flow graph and reachability analysis
 - **Labels**: enhancement
 - **Description**: Provide control flow analysis capabilities
+- **Branch**: feature/17-control-flow-graph
 
 ### #16 - Need API to track variable usage within expression subtrees
 **Priority: Low** | **Impact: Analysis Feature** | **Effort: Medium**
