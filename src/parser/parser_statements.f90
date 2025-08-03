@@ -1429,6 +1429,7 @@ contains
         if (allocated(param_indices) .and. allocated(body_indices)) then
             block
                 use ast_nodes_data, only: parameter_declaration_node, declaration_node
+                use ast_nodes_core, only: identifier_node
                 integer :: param_idx, body_idx
                 
                 ! Iterate through each parameter
@@ -1439,6 +1440,74 @@ contains
                             ! Get parameter node
                             select type (param_node => &
                                         arena%entries(param_indices(param_idx))%node)
+                            type is (identifier_node)
+                                ! Convert identifier_node to parameter_declaration_node
+                                ! This handles the ambiguous case elegantly
+                                block
+                                    type(parameter_declaration_node) :: new_param_node
+                                    logical :: name_matches
+                                    integer :: name_idx
+                                    
+                                    ! Initialize new parameter node with identifier info
+                                    new_param_node%name = param_node%name
+                                    new_param_node%type_name = ""  ! Will be filled from body
+                                    new_param_node%intent_type = 0  ! No intent by default
+                                    new_param_node%is_optional = .false.
+                                    new_param_node%line = param_node%line
+                                    new_param_node%column = param_node%column
+                                    
+                                    ! Search body for matching declaration to fill attributes
+                                    do body_idx = 1, size(body_indices)
+                                        if (body_indices(body_idx) > 0 .and. &
+                                            body_indices(body_idx) <= arena%size) then
+                                            if (allocated(arena%entries(body_indices(body_idx))%node)) then
+                                                select type (body_node => &
+                                                            arena%entries(body_indices(body_idx))%node)
+                                                type is (declaration_node)
+                                                    name_matches = .false.
+                                                    
+                                                    ! Check single declaration
+                                                    if (allocated(body_node%var_name)) then
+                                                        if (new_param_node%name == body_node%var_name) then
+                                                            name_matches = .true.
+                                                        end if
+                                                    end if
+                                                    
+                                                    ! Check multi-declaration var_names array
+                                                    if (.not. name_matches .and. allocated(body_node%var_names)) then
+                                                        do name_idx = 1, size(body_node%var_names)
+                                                            if (new_param_node%name == trim(body_node%var_names(name_idx))) then
+                                                                name_matches = .true.
+                                                                exit
+                                                            end if
+                                                        end do
+                                                    end if
+                                                    
+                                                    if (name_matches) then
+                                                        ! Fill attributes from body declaration
+                                                        new_param_node%type_name = body_node%type_name
+                                                        if (body_node%has_intent) then
+                                                            if (body_node%intent == "in") then
+                                                                new_param_node%intent_type = 1  ! INTENT_IN
+                                                            else if (body_node%intent == "out") then
+                                                                new_param_node%intent_type = 2  ! INTENT_OUT
+                                                            else if (body_node%intent == "inout") then
+                                                                new_param_node%intent_type = 3  ! INTENT_INOUT
+                                                            end if
+                                                        end if
+                                                        new_param_node%is_optional = body_node%is_optional
+                                                        exit  ! Found matching declaration
+                                                    end if
+                                                end select
+                                            end if
+                                        end if
+                                    end do
+                                    
+                                    ! Replace the identifier_node with parameter_declaration_node in arena
+                                    deallocate(arena%entries(param_indices(param_idx))%node)
+                                    allocate(arena%entries(param_indices(param_idx))%node, source=new_param_node)
+                                end block
+                                
                             type is (parameter_declaration_node)
                                 ! Search body for matching declaration
                                 do body_idx = 1, size(body_indices)
