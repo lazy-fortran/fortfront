@@ -165,6 +165,10 @@ contains
     end subroutine test_get_node_type_id_function
 
     subroutine test_comment_node_support()
+        use ast_nodes_misc, only: comment_node
+        type(comment_node) :: test_comment
+        integer :: type_id
+        
         print *, "Testing comment node support..."
         
         ! Test that NODE_COMMENT constant is defined
@@ -174,8 +178,15 @@ contains
             return
         end if
         
-        ! Note: We would need to create a comment node to fully test this,
-        ! but for now we just verify the constant exists
+        ! Test get_node_type_id with actual comment node
+        test_comment%text = "! This is a test comment"
+        type_id = get_node_type_id(test_comment)
+        if (type_id /= NODE_COMMENT) then
+            print *, "FAILED: get_node_type_id does not correctly identify comment nodes"
+            all_tests_passed = .false.
+            return
+        end if
+        
         print *, "PASSED: Comment node support test"
     end subroutine test_comment_node_support
 
