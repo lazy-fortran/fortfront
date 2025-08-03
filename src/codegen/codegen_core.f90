@@ -1189,6 +1189,16 @@ contains
         if (node%is_optional) then
             code = code//", optional"
         end if
+        
+        ! Add pointer if present
+        if (node%is_pointer) then
+            code = code//", pointer"
+        end if
+        
+        ! Add target if present
+        if (node%is_target) then
+            code = code//", target"
+        end if
 
         ! Add variable names - handle both single and multi declarations
         code = code//" :: "

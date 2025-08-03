@@ -69,10 +69,25 @@ contains
             if (allocated(arena%entries(i)%node)) then
                 select type(node => arena%entries(i)%node)
                 type is (declaration_node)
-                    if (node%var_name == "p" .and. node%is_pointer) then
-                        found_pointer = .true.
-                        print *, "    PASS: Declaration has pointer attribute"
-                    end if
+                    ! Check both single and multi-declaration formats
+                    block
+                        logical :: name_matches
+                        name_matches = .false.
+                        if (node%var_name == "p") then
+                            name_matches = .true.
+                        else if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                            if (size(node%var_names) >= 1) then
+                                if (node%var_names(1) == "p") then
+                                    name_matches = .true.
+                                end if
+                            end if
+                        end if
+                        
+                        if (name_matches .and. node%is_pointer) then
+                            found_pointer = .true.
+                            print *, "    PASS: Declaration has pointer attribute"
+                        end if
+                    end block
                 end select
             end if
         end do
@@ -317,10 +332,25 @@ contains
             if (allocated(arena%entries(i)%node)) then
                 select type(node => arena%entries(i)%node)
                 type is (declaration_node)
-                    if (node%var_name == "t" .and. node%is_target) then
-                        found_target = .true.
-                        print *, "    PASS: Declaration has target attribute"
-                    end if
+                    ! Check both single and multi-declaration formats
+                    block
+                        logical :: name_matches
+                        name_matches = .false.
+                        if (node%var_name == "t") then
+                            name_matches = .true.
+                        else if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                            if (size(node%var_names) >= 1) then
+                                if (node%var_names(1) == "t") then
+                                    name_matches = .true.
+                                end if
+                            end if
+                        end if
+                        
+                        if (name_matches .and. node%is_target) then
+                            found_target = .true.
+                            print *, "    PASS: Declaration has target attribute"
+                        end if
+                    end block
                 end select
             end if
         end do
