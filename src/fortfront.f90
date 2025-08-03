@@ -660,6 +660,7 @@ contains
     ! Get node type ID using polymorphic node type checking
     ! This is the recommended helper function from issue #34
     function get_node_type_id(node) result(type_id)
+        use iso_fortran_env, only: error_unit
         class(ast_node), intent(in) :: node
         integer :: type_id
         
@@ -745,6 +746,8 @@ contains
         type is (comment_node)
             type_id = NODE_COMMENT
         class default
+            ! Log warning for debugging purposes
+            write(error_unit, '(A)') "Warning: Unknown node type encountered in get_node_type_id"
             type_id = NODE_UNKNOWN
         end select
     end function get_node_type_id
