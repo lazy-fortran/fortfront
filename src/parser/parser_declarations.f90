@@ -1,5 +1,5 @@
 module parser_declarations
-    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD
     use parser_state_module, only: parser_state_t
     use ast_arena, only: ast_arena_t
     use ast_types, only: LITERAL_STRING
@@ -138,7 +138,7 @@ contains
                          var_token%text == "target") then
                     is_target = .true.
                     var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. &
+                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "intent") then
                     has_intent = .true.
                     var_token = parser%consume()  ! consume 'intent'
@@ -149,7 +149,7 @@ contains
                         var_token = parser%consume()  ! consume '('
                         
                         var_token = parser%peek()
-                        if (var_token%kind == TK_IDENTIFIER) then
+                        if (var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) then
                             intent = var_token%text
                             var_token = parser%consume()  ! consume intent value
                         end if
@@ -160,7 +160,7 @@ contains
                             var_token = parser%consume()  ! consume ')'
                         end if
                     end if
-                else if (var_token%kind == TK_IDENTIFIER .and. &
+                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "optional") then
                     is_optional = .true.
                     var_token = parser%consume()
@@ -789,7 +789,7 @@ contains
                          var_token%text == "target") then
                     is_target = .true.
                     var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. &
+                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "intent") then
                     has_intent = .true.
                     var_token = parser%consume()  ! consume 'intent'
@@ -800,7 +800,7 @@ contains
                         var_token = parser%consume()  ! consume '('
                         
                         var_token = parser%peek()
-                        if (var_token%kind == TK_IDENTIFIER) then
+                        if (var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) then
                             intent = var_token%text
                             var_token = parser%consume()  ! consume intent value
                         end if
@@ -811,7 +811,7 @@ contains
                             var_token = parser%consume()  ! consume ')'
                         end if
                     end if
-                else if (var_token%kind == TK_IDENTIFIER .and. &
+                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "optional") then
                     is_optional = .true.
                     var_token = parser%consume()
