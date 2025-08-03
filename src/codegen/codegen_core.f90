@@ -631,10 +631,57 @@ contains
         end if
         code = code//new_line('a')
 
-        ! Generate body with indentation and declaration grouping
-        if (allocated(node%body_indices)) then
-            code = code//generate_grouped_body(arena, node%body_indices, "    ")
-        end if
+        ! Build parameter map by matching parameter names to body declarations
+        block
+            type(parameter_info_t), allocatable :: param_map(:)
+            integer :: param_count, map_idx, j
+            character(len=:), allocatable :: param_name
+            
+            param_count = 0
+            if (allocated(node%param_indices)) param_count = size(node%param_indices)
+            
+            allocate(param_map(param_count))
+            
+            ! Initialize parameter map from parameter names
+            do i = 1, param_count
+                if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(node%param_indices(i))%node)) then
+                        select type (param_node => arena%entries(node%param_indices(i))%node)
+                        type is (identifier_node)
+                            param_map(i)%name = param_node%name
+                            param_map(i)%intent_str = ""
+                            param_map(i)%is_optional = .false.
+                        end select
+                    end if
+                end if
+            end do
+            
+            ! Find parameter attributes in body declarations
+            if (allocated(node%body_indices)) then
+                do j = 1, size(node%body_indices)
+                    if (node%body_indices(j) > 0 .and. node%body_indices(j) <= arena%size) then
+                        if (allocated(arena%entries(node%body_indices(j))%node)) then
+                            select type (body_node => arena%entries(node%body_indices(j))%node)
+                            type is (parameter_declaration_node)
+                                ! Find matching parameter in param_map
+                                do i = 1, param_count
+                                    if (allocated(param_map(i)%name) .and. &
+                                        param_map(i)%name == body_node%name) then
+                                        param_map(i)%intent_str = intent_type_to_string(body_node%intent_type)
+                                        param_map(i)%is_optional = body_node%is_optional
+                                    end if
+                                end do
+                            end select
+                        end if
+                    end if
+                end do
+            end if
+            
+            ! Generate body with indentation, declaration grouping, and parameter mapping
+            if (allocated(node%body_indices)) then
+                code = code//generate_grouped_body_with_params(arena, node%body_indices, "    ", param_map)
+            end if
+        end block
 
         ! End function
         code = code//"end function "//node%name
@@ -668,26 +715,23 @@ contains
         end if
         code = code//new_line('a')
         
-        ! Build parameter map from parameter declarations
+        ! Build parameter map by matching parameter names to body declarations  
         block
             type(parameter_info_t), allocatable :: param_map(:)
-            integer :: param_count, map_idx
+            integer :: param_count, map_idx, j
+            character(len=:), allocatable :: param_name
             
             param_count = 0
             if (allocated(node%param_indices)) param_count = size(node%param_indices)
             
             allocate(param_map(param_count))
             
+            ! Initialize parameter map from parameter names
             do i = 1, param_count
                 if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
                     if (allocated(arena%entries(node%param_indices(i))%node)) then
                         select type (param_node => arena%entries(node%param_indices(i))%node)
-                        type is (parameter_declaration_node)
-                            param_map(i)%name = param_node%name
-                            param_map(i)%intent_str = intent_type_to_string(param_node%intent_type)
-                            param_map(i)%is_optional = param_node%is_optional
                         type is (identifier_node)
-                            ! Parameter is just an identifier - no attributes available
                             param_map(i)%name = param_node%name
                             param_map(i)%intent_str = ""
                             param_map(i)%is_optional = .false.
@@ -695,6 +739,27 @@ contains
                     end if
                 end if
             end do
+            
+            ! Find parameter attributes in body declarations
+            if (allocated(node%body_indices)) then
+                do j = 1, size(node%body_indices)
+                    if (node%body_indices(j) > 0 .and. node%body_indices(j) <= arena%size) then
+                        if (allocated(arena%entries(node%body_indices(j))%node)) then
+                            select type (body_node => arena%entries(node%body_indices(j))%node)
+                            type is (parameter_declaration_node)
+                                ! Find matching parameter in param_map
+                                do i = 1, param_count
+                                    if (allocated(param_map(i)%name) .and. &
+                                        param_map(i)%name == body_node%name) then
+                                        param_map(i)%intent_str = intent_type_to_string(body_node%intent_type)
+                                        param_map(i)%is_optional = body_node%is_optional
+                                    end if
+                                end do
+                            end select
+                        end if
+                    end if
+                end do
+            end if
             
             ! Generate body with indentation, declaration grouping, and parameter mapping
             if (allocated(node%body_indices)) then
