@@ -1,5 +1,5 @@
 program test_parser_declarations_direct
-    use parser_declarations_module
+    use parser_declarations, only: parse_declaration, parse_derived_type_def
     use parser_state_module
     use lexer_core
     use ast_core
@@ -160,7 +160,7 @@ contains
         
         arena = create_ast_arena()
         parser = create_parser_state(tokens)
-        type_idx = parse_derived_type(parser, arena)
+        type_idx = parse_derived_type_def(parser, arena)
         
         if (type_idx > 0) then
             call test_pass()
