@@ -121,6 +121,14 @@ module fortfront
         get_identifiers_in_subtree, visit_expression_nodes, &
         is_variable_used_in_expression, count_variable_usage
     
+    ! Performance optimization for issue #15
+    use ast_performance_module, only: ast_cache_entry_t, memory_stats_t, &
+        cache_ast, load_cached_ast, clear_ast_cache, &
+        is_cache_valid, get_cache_stats, &
+        release_ast_memory, compact_arena, get_memory_stats, &
+        update_ast_range, supports_incremental_update, &
+        lock_arena, unlock_arena, is_arena_locked
+    
     ! Re-export intrinsic function registry (using renamed imports to avoid conflicts)
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
                                  registry_get_signature => get_intrinsic_signature, &
@@ -207,6 +215,14 @@ module fortfront
               create_variable_usage_info, get_variables_in_expression, &
               get_identifiers_in_subtree, visit_expression_nodes, &
               is_variable_used_in_expression, count_variable_usage
+    
+    ! Public performance optimization APIs for issue #15
+    public :: ast_cache_entry_t, memory_stats_t, &
+              cache_ast, load_cached_ast, clear_ast_cache, &
+              is_cache_valid, get_cache_stats, &
+              release_ast_memory, compact_arena, get_memory_stats, &
+              update_ast_range, supports_incremental_update, &
+              lock_arena, unlock_arena, is_arena_locked
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
