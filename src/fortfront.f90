@@ -186,6 +186,9 @@ module fortfront
               get_node_type_kind, get_node_type_details, &
               get_node_type_id_from_arena, get_node_source_location_from_arena
     
+    ! Public node type identification functions for issue #34
+    public :: get_node_type
+    
     ! Public AST navigation APIs for issue #19
     public :: get_next_sibling, get_previous_sibling, get_block_statements, &
               is_last_in_block, is_block_node
@@ -265,6 +268,7 @@ module fortfront
     integer, parameter :: NODE_INCLUDE_STATEMENT = 37
     integer, parameter :: NODE_CONTAINS = 38
     integer, parameter :: NODE_FORMAT_DESCRIPTOR = 39
+    integer, parameter :: NODE_COMMENT = 40
     integer, parameter :: NODE_UNKNOWN = 99
     
     ! Additional facade-specific types and procedures
@@ -653,6 +657,7 @@ contains
         end if
     end function compute_depth
     
+
     ! Get node type as integer constant
     function get_node_type(arena, node_index) result(node_type)
         type(ast_arena_t), intent(in) :: arena
@@ -745,6 +750,8 @@ contains
             node_type = NODE_CONTAINS
         case ("format_descriptor_node", "format_descriptor")
             node_type = NODE_FORMAT_DESCRIPTOR
+        case ("comment_node", "comment")
+            node_type = NODE_COMMENT
         end select
     end function get_node_type
     

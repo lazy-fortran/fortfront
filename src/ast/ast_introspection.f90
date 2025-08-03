@@ -75,91 +75,97 @@ contains
 
     ! Get node type identifier (issue #12 requirement)
     function get_node_type_id(node) result(type_id)
+        use iso_fortran_env, only: error_unit
         class(ast_node), intent(in) :: node
         integer :: type_id
 
         ! Use select type to determine node type and return standard constants
+        ! These constants match those defined in fortfront.f90
         select type (node)
         type is (program_node)
-            type_id = 1
+            type_id = 1   ! NODE_PROGRAM
         type is (function_def_node)
-            type_id = 2
+            type_id = 2   ! NODE_FUNCTION_DEF
         type is (assignment_node)
-            type_id = 3
+            type_id = 3   ! NODE_ASSIGNMENT
         type is (binary_op_node)
-            type_id = 4
+            type_id = 4   ! NODE_BINARY_OP
         type is (identifier_node)
-            type_id = 5
+            type_id = 5   ! NODE_IDENTIFIER
         type is (literal_node)
-            type_id = 6
+            type_id = 6   ! NODE_LITERAL
         type is (array_literal_node)
-            type_id = 7
+            type_id = 7   ! NODE_ARRAY_LITERAL
         type is (call_or_subscript_node)
-            type_id = 8
+            type_id = 8   ! NODE_CALL_OR_SUBSCRIPT
         type is (subroutine_def_node)
-            type_id = 9
+            type_id = 9   ! NODE_SUBROUTINE_DEF
         type is (subroutine_call_node)
-            type_id = 10
+            type_id = 10  ! NODE_SUBROUTINE_CALL
         type is (declaration_node)
-            type_id = 11
+            type_id = 11  ! NODE_DECLARATION
         type is (parameter_declaration_node)
-            type_id = 12
+            type_id = 12  ! NODE_PARAMETER_DECLARATION
         type is (if_node)
-            type_id = 13
+            type_id = 13  ! NODE_IF
         type is (do_loop_node)
-            type_id = 14
+            type_id = 14  ! NODE_DO_LOOP
         type is (do_while_node)
-            type_id = 15
+            type_id = 15  ! NODE_DO_WHILE
         type is (select_case_node)
-            type_id = 16
+            type_id = 16  ! NODE_SELECT_CASE
         type is (case_block_node)
-            type_id = 17
+            type_id = 17  ! NODE_CASE_BLOCK
         type is (module_node)
-            type_id = 18
+            type_id = 18  ! NODE_MODULE
         type is (use_statement_node)
-            type_id = 19
+            type_id = 19  ! NODE_USE_STATEMENT
         type is (print_statement_node)
-            type_id = 20
+            type_id = 20  ! NODE_PRINT_STATEMENT
         type is (write_statement_node)
-            type_id = 21
+            type_id = 21  ! NODE_WRITE_STATEMENT
         type is (read_statement_node)
-            type_id = 22
+            type_id = 22  ! NODE_READ_STATEMENT
         type is (allocate_statement_node)
-            type_id = 23
+            type_id = 23  ! NODE_ALLOCATE_STATEMENT
         type is (deallocate_statement_node)
-            type_id = 24
+            type_id = 24  ! NODE_DEALLOCATE_STATEMENT
         type is (stop_node)
-            type_id = 25
+            type_id = 25  ! NODE_STOP
         type is (return_node)
-            type_id = 26
+            type_id = 26  ! NODE_RETURN
         type is (cycle_node)
-            type_id = 27
+            type_id = 27  ! NODE_CYCLE
         type is (exit_node)
-            type_id = 28
+            type_id = 28  ! NODE_EXIT
         type is (where_node)
-            type_id = 29
+            type_id = 29  ! NODE_WHERE
         type is (interface_block_node)
-            type_id = 30
+            type_id = 30  ! NODE_INTERFACE_BLOCK
         type is (derived_type_node)
-            type_id = 31
+            type_id = 31  ! NODE_DERIVED_TYPE
         type is (pointer_assignment_node)
-            type_id = 32
+            type_id = 32  ! NODE_POINTER_ASSIGNMENT
         type is (forall_node)
-            type_id = 33
+            type_id = 33  ! NODE_FORALL
         type is (case_range_node)
-            type_id = 34
+            type_id = 34  ! NODE_CASE_RANGE
         type is (case_default_node)
-            type_id = 35
+            type_id = 35  ! NODE_CASE_DEFAULT
         type is (complex_literal_node)
-            type_id = 36
+            type_id = 36  ! NODE_COMPLEX_LITERAL
         type is (include_statement_node)
-            type_id = 37
+            type_id = 37  ! NODE_INCLUDE_STATEMENT
         type is (contains_node)
-            type_id = 38
+            type_id = 38  ! NODE_CONTAINS
         type is (format_descriptor_node)
-            type_id = 39
+            type_id = 39  ! NODE_FORMAT_DESCRIPTOR
+        type is (comment_node)
+            type_id = 40  ! NODE_COMMENT
         class default
-            type_id = 99
+            ! Log warning for debugging purposes
+            write(error_unit, '(A)') "Warning: Unknown node type encountered in get_node_type_id"
+            type_id = 99  ! NODE_UNKNOWN
         end select
     end function get_node_type_id
 
