@@ -1,0 +1,678 @@
+[  0%]               codegen_core.f90
+[  0%]               codegen_core.f90  done.
+[  0%]         parser_expressions.f90
+[  0%]         parser_expressions.f90  done.
+[  0%] test_frontend_codegen_paramete
+[  0%] test_frontend_codegen_paramete  done.
+[  0%] test_standardization_integrati
+[  1%] test_standardization_integrati  done.
+[  1%] test_where_forall_enhanced.f90
+[  1%] test_where_forall_enhanced.f90  done.
+[  1%]  test_range_subscript_node.f90
+[  1%]  test_range_subscript_node.f90  done.
+[  1%] test_range_subscript_errors.f9
+[  2%] test_range_subscript_errors.f9  done.
+[  2%]      test_param_body_order.f90
+[  2%]      test_param_body_order.f90  done.
+[  2%]  test_param_order_explicit.f90
+[  2%]  test_param_order_explicit.f90  done.
+[  2%] test_codegen_core_comprehensiv
+[  3%] test_codegen_core_comprehensiv  done.
+[  3%] test_frontend_codegen_expressi
+[  3%] test_frontend_codegen_expressi  done.
+[  3%] test_frontend_codegen_program.
+[  3%] test_frontend_codegen_program.  done.
+[  3%]  test_frontend_codegen_api.f90
+[  4%]  test_frontend_codegen_api.f90  done.
+[  4%]  test_where_forall_codegen.f90
+[  4%]  test_where_forall_codegen.f90  done.
+[  4%] test_frontend_codegen_allocata
+[  4%] test_frontend_codegen_allocata  done.
+[  4%] test_frontend_codegen_basic.f9
+[  4%] test_frontend_codegen_basic.f9  done.
+[  4%]   test_codegen_core_direct.f90
+[  5%]   test_codegen_core_direct.f90  done.
+[  5%] test_frontend_codegen_type_dec
+[  5%] test_frontend_codegen_type_dec  done.
+[  5%] test_frontend_codegen_program_
+[  5%] test_frontend_codegen_program_  done.
+[  5%] test_frontend_codegen_assignme
+[  6%] test_frontend_codegen_assignme  done.
+[  6%] test_frontend_codegen_array_li
+[  6%] test_frontend_codegen_array_li  done.
+[  6%]        parser_declarations.f90
+[  6%]        parser_declarations.f90  done.
+[  6%] test_parser_expressions_direct
+[  7%] test_parser_expressions_direct  done.
+[  7%] test_parser_array_features.f90
+[  7%] test_parser_array_features.f90  done.
+[  7%]    test_parser_core_direct.f90
+[  7%]    test_parser_core_direct.f90  done.
+[  7%]          test_array_stride.f90
+[  8%]          test_array_stride.f90  done.
+[  8%] test_parser_expressions_compre
+[  8%] test_parser_expressions_compre  done.
+[  8%]          parser_statements.f90
+[  8%]          parser_statements.f90  done.
+[  8%] test_multi_variable_declaratio
+[  9%] test_multi_variable_declaratio  done.
+[  9%] test_parser_declarations_direc
+[  9%] test_parser_declarations_direc  done.
+[  9%]      test_parse_multi_decl.f90
+[  9%]      test_parse_multi_decl.f90  done.
+[  9%]        parser_control_flow.f90
+[  9%]        parser_control_flow.f90  done.
+[  9%] test_frontend_parser_param_nod
+[ 10%] test_frontend_parser_param_nod  done.
+[ 10%] test_frontend_parser_explicit_
+[ 10%] test_frontend_parser_explicit_  done.
+[ 10%] test_frontend_parser_array_par
+[ 10%] test_frontend_parser_array_par  done.
+[ 10%] test_frontend_parser_derived_t
+[ 11%] test_frontend_parser_derived_t  done.
+[ 11%] test_cycle_exit_statements.f90
+[ 11%] test_cycle_exit_statements.f90  done.
+[ 11%] test_parser_statements_direct.
+[ 11%] test_parser_statements_direct.  done.
+[ 11%]          parser_dispatcher.f90
+[ 12%]          parser_dispatcher.f90  done.
+[ 12%] test_parser_control_flow_direc
+[ 12%] test_parser_control_flow_direc  done.
+[ 12%]                parser_core.f90
+[ 12%]                parser_core.f90  done.
+[ 12%] test_frontend_semantic_array_t
+[ 13%] test_frontend_semantic_array_t  done.
+[ 13%] test_frontend_semantic_basic_t
+[ 13%] test_frontend_semantic_basic_t  done.
+[ 13%] test_array_literal_type_infere
+[ 13%] test_array_literal_type_infere  done.
+[ 13%] test_frontend_semantic_express
+[ 13%] test_frontend_semantic_express  done.
+[ 13%] test_frontend_parser_if_statem
+[ 14%] test_frontend_parser_if_statem  done.
+[ 14%]   test_associate_construct.f90
+[ 14%]   test_associate_construct.f90  done.
+[ 14%] test_frontend_parser_do_loops.
+[ 14%] test_frontend_parser_do_loops.  done.
+[ 14%] test_parser_dispatcher_direct.
+[ 15%] test_parser_dispatcher_direct.  done.
+[ 15%]                   frontend.f90
+[ 15%]                   frontend.f90  done.
+[ 15%]      test_where_forall_ast.f90
+[ 15%]      test_where_forall_ast.f90  done.
+[ 15%] test_frontend_parser_do_while.
+[ 16%] test_frontend_parser_do_while.  done.
+[ 16%]                  fortfront.f90
+[ 16%]                  fortfront.f90  done.
+[ 16%]                  fortfront.f90
+[ 16%]                  fortfront.f90  done.
+[ 16%] test_parameter_attributes_simp
+[ 17%] test_parameter_attributes_simp  done.
+[ 17%]    test_standardizer_debug.f90
+[ 17%]    test_standardizer_debug.f90  done.
+[ 17%] test_array_features_pipeline.f
+[ 17%] test_array_features_pipeline.f  done.
+[ 17%]   test_standardizer_arrays.f90
+[ 18%]   test_standardizer_arrays.f90  done.
+[ 18%] test_array_slicing_codegen.f90
+[ 18%] test_array_slicing_codegen.f90  done.
+[ 18%] test_parameter_attributes_subr
+[ 18%] test_parameter_attributes_subr  done.
+[ 18%]     test_array_literal_e2e.f90
+[ 18%]     test_array_literal_e2e.f90  done.
+[ 18%] test_frontend_full_explicit_pa
+[ 19%] test_frontend_full_explicit_pa  done.
+[ 19%]      test_intrinsic_parser.f90
+[ 19%]      test_intrinsic_parser.f90  done.
+[ 19%] test_string_transformation.f90
+[ 19%] test_string_transformation.f90  done.
+[ 19%]       test_semantic_simple.f90
+[ 20%]       test_semantic_simple.f90  done.
+[ 20%] test_semantic_analysis_green.f
+[ 20%] test_semantic_analysis_green.f  done.
+[ 20%]    test_semantic_query_api.f90
+[ 20%]    test_semantic_query_api.f90  done.
+[ 20%]  test_type_inference_green.f90
+[ 21%]  test_type_inference_green.f90  done.
+[ 21%] test_allocatable_propagation.f
+[ 21%] test_allocatable_propagation.f  done.
+[ 21%] test_type_inference_edge_cases
+[ 21%] test_type_inference_edge_cases  done.
+[ 21%]   test_pointer_propagation.f90
+[ 22%]   test_pointer_propagation.f90  done.
+[ 22%] test_undeclared_variable_error
+[ 22%] test_undeclared_variable_error  done.
+[ 22%] test_intent_semantic_check.f90
+[ 22%] test_intent_semantic_check.f90  done.
+[ 22%]  test_semantic_type_errors.f90
+[ 22%]  test_semantic_type_errors.f90  done.
+[ 22%] test_semantic_preservation.f90
+[ 23%] test_semantic_preservation.f90  done.
+[ 23%]      test_component_access.f90
+[ 23%]      test_component_access.f90  done.
+[ 23%]      test_multi_attributes.f90
+[ 23%]      test_multi_attributes.f90  done.
+[ 23%]   test_character_substring.f90
+[ 24%]   test_character_substring.f90  done.
+[ 24%] test_frontend_parser_do_loop.f
+[ 24%] test_frontend_parser_do_loop.f  done.
+[ 24%]        test_error_recovery.f90
+[ 24%]        test_error_recovery.f90  done.
+[ 24%] test_array_function_disambigua
+[ 25%] test_array_function_disambigua  done.
+[ 25%] test_frontend_codegen_no_dupli
+[ 25%] test_frontend_codegen_no_dupli  done.
+[ 25%]        test_output_quality.f90
+[ 25%]        test_output_quality.f90  done.
+[ 25%]       test_array_slice_red.f90
+[ 26%]       test_array_slice_red.f90  done.
+[ 26%]         test_codegen_green.f90
+[ 26%]         test_codegen_green.f90  done.
+[ 26%]   test_standardization_red.f90
+[ 26%]   test_standardization_red.f90  done.
+[ 26%]                 libfortfront.a
+[ 27%]                 libfortfront.a  done.
+[ 27%] test_fortfront_arena_debug.f90
+[ 27%] test_fortfront_arena_debug.f90  done.
+[ 27%] test_lazy_standard_fortran.f90
+[ 27%] test_lazy_standard_fortran.f90  done.
+[ 27%] test_fortfront_integration.f90
+[ 27%] test_fortfront_integration.f90  done.
+[ 27%] test_parameter_attributes_ast.
+[ 28%] test_parameter_attributes_ast.  done.
+[ 28%] test_fortfront_semantic_api.f9
+[ 28%] test_fortfront_semantic_api.f9  done.
+[ 28%]    test_fortfront_type_api.f90
+[ 28%]    test_fortfront_type_api.f90  done.
+[ 28%]      test_simplified_arena.f90
+[ 29%]      test_simplified_arena.f90  done.
+[ 29%]   test_fortfront_arena_api.f90
+[ 29%]   test_fortfront_arena_api.f90  done.
+[ 29%]       test_ast_performance.f90
+[ 29%]       test_ast_performance.f90  done.
+[ 29%] test_fortfront_api_parsing.f90
+[ 30%] test_fortfront_api_parsing.f90  done.
+[ 30%]    test_fortfront_api_json.f90
+[ 30%]    test_fortfront_api_json.f90  done.
+[ 30%] test_fortfront_api_codegen.f90
+[ 30%] test_fortfront_api_codegen.f90  done.
+[ 30%]   test_fortfront_api_arena.f90
+[ 31%]   test_fortfront_api_arena.f90  done.
+[ 31%] test_fortfront_api_lexical.f90
+[ 31%] test_fortfront_api_lexical.f90  done.
+[ 31%]    test_intrinsic_coverage.f90
+[ 31%]    test_intrinsic_coverage.f90  done.
+[ 31%]      test_symbol_table_api.f90
+[ 31%]      test_symbol_table_api.f90  done.
+[ 31%] test_node_type_identification.
+[ 32%] test_node_type_identification.  done.
+[ 32%] test_intrinsic_identification.
+[ 32%] test_intrinsic_identification.  done.
+[ 32%] test_fortfront_api_integration
+[ 32%] test_fortfront_api_integration  done.
+[ 32%] test_fortfront_api_semantic.f9
+[ 33%] test_fortfront_api_semantic.f9  done.
+[ 33%]  test_ast_traversal_simple.f90
+[ 33%]  test_ast_traversal_simple.f90  done.
+[ 33%]      test_visitor_coverage.f90
+[ 33%]      test_visitor_coverage.f90  done.
+[ 33%] test_ast_traversal_comprehensi
+[ 34%] test_ast_traversal_comprehensi  done.
+[ 34%] test_node_accessor_functions.f
+[ 34%] test_node_accessor_functions.f  done.
+[ 34%]         test_ast_traversal.f90
+[ 34%]         test_ast_traversal.f90  done.
+[ 34%] test_fortfront_api_transform.f
+[ 35%] test_fortfront_api_transform.f  done.
+[ 35%] test_expression_temporary_trac
+[ 35%] test_expression_temporary_trac  done.
+[ 35%] test_ast_introspection_final_c
+[ 35%] test_ast_introspection_final_c  done.
+[ 35%] test_block_boundaries_sibling_
+[ 36%] test_block_boundaries_sibling_  done.
+[ 36%] test_ast_introspection_complet
+[ 36%] test_ast_introspection_complet  done.
+[ 36%] test_ast_introspection_api.f90
+[ 36%] test_ast_introspection_api.f90  done.
+[ 36%] test_ast_semantic_introspectio
+[ 36%] test_ast_semantic_introspectio  done.
+[ 36%] test_ast_introspection_coverag
+[ 37%] test_ast_introspection_coverag  done.
+[ 37%] test_allocate_deallocate_parsi
+[ 37%] test_allocate_deallocate_parsi  done.
+[ 37%] test_issue_5_multi_var_declara
+[ 37%] test_issue_5_multi_var_declara  done.
+[ 37%]    test_control_flow_graph.f90
+[ 38%]    test_control_flow_graph.f90  done.
+[ 38%]            test_call_graph.f90
+[ 38%]            test_call_graph.f90  done.
+[ 38%] test_variable_usage_tracker.f9
+[ 38%] test_variable_usage_tracker.f9  done.
+[ 38%] test_issue_7_comment_preservat
+[ 39%] test_issue_7_comment_preservat  done.
+[ 39%] test_issue_6_assignment_codege
+[ 39%] test_issue_6_assignment_codege  done.
+[ 39%] test_issue_8_configurable_form
+[ 39%] test_issue_8_configurable_form  done.
+[ 39%] test_issue_9_type_specifier_pr
+[ 40%] test_issue_9_type_specifier_pr  done.
+[ 40%] test_issue_10_disable_type_sta
+[ 40%] test_issue_10_disable_type_sta  done.
+[ 40%] test_issue_4_duplicate_program
+[ 40%] test_issue_4_duplicate_program  done.
+[ 40%]                      fortfront
+[ 40%]                      fortfront  done.
+[ 40%]     test_fortfront_arena_debug
+[ 41%]     test_fortfront_arena_debug  done.
+[ 41%] test_frontend_parser_param_nod
+[ 41%] test_frontend_parser_param_nod  done.
+[ 41%] test_parameter_attributes_simp
+[ 41%] test_parameter_attributes_simp  done.
+[ 41%]    test_stop_return_statements
+[ 42%]    test_stop_return_statements  done.
+[ 42%]      test_json_reader_coverage
+[ 42%]      test_json_reader_coverage  done.
+[ 42%]     test_lazy_standard_fortran
+[ 42%]     test_lazy_standard_fortran  done.
+[ 42%]           test_where_construct
+[ 43%]           test_where_construct  done.
+[ 43%]        test_standardizer_debug
+[ 43%]        test_standardizer_debug  done.
+[ 43%]     test_fortfront_integration
+[ 43%]     test_fortfront_integration  done.
+[ 43%] test_frontend_codegen_paramete
+[ 44%] test_frontend_codegen_paramete  done.
+[ 44%] test_frontend_parser_explicit_
+[ 44%] test_frontend_parser_explicit_  done.
+[ 44%]   test_array_features_pipeline
+[ 44%]   test_array_features_pipeline  done.
+[ 44%]         test_string_intrinsics
+[ 45%]         test_string_intrinsics  done.
+[ 45%]           test_string_handling
+[ 45%]           test_string_handling  done.
+[ 45%]       test_standardizer_arrays
+[ 45%]       test_standardizer_arrays  done.
+[ 45%]             test_io_statements
+[ 45%]             test_io_statements  done.
+[ 45%] test_frontend_parser_array_par
+[ 46%] test_frontend_parser_array_par  done.
+[ 46%]  test_parameter_attributes_ast
+[ 46%]  test_parameter_attributes_ast  done.
+[ 46%]    test_fortfront_semantic_api
+[ 46%]    test_fortfront_semantic_api  done.
+[ 46%]     test_array_slicing_codegen
+[ 47%]     test_array_slicing_codegen  done.
+[ 47%]        test_fortfront_type_api
+[ 47%]        test_fortfront_type_api  done.
+[ 47%] test_parameter_attributes_subr
+[ 47%] test_parameter_attributes_subr  done.
+[ 47%]        test_windows_diagnostic
+[ 48%]        test_windows_diagnostic  done.
+[ 48%]   test_advanced_type_inference
+[ 48%]   test_advanced_type_inference  done.
+[ 48%]           test_optional_params
+[ 48%]           test_optional_params  done.
+[ 48%]              test_json_modules
+[ 49%]              test_json_modules  done.
+[ 49%]                test_cycle_exit
+[ 49%]                test_cycle_exit  done.
+[ 49%]       test_windows_memory_safe
+[ 49%]       test_windows_memory_safe  done.
+[ 49%]       test_intrinsic_functions
+[ 50%]       test_intrinsic_functions  done.
+[ 50%]          test_deferred_strings
+[ 50%]          test_deferred_strings  done.
+[ 50%] test_standardization_integrati
+[ 50%] test_standardization_integrati  done.
+[ 50%]          test_simplified_arena
+[ 50%]          test_simplified_arena  done.
+[ 50%]         test_array_literal_e2e
+[ 51%]         test_array_literal_e2e  done.
+[ 51%]       test_parameter_constants
+[ 51%]       test_parameter_constants  done.
+[ 51%]          test_intent_attribute
+[ 51%]          test_intent_attribute  done.
+[ 51%]       test_fortfront_arena_api
+[ 52%]       test_fortfront_arena_api  done.
+[ 52%] test_frontend_full_explicit_pa
+[ 52%] test_frontend_full_explicit_pa  done.
+[ 52%] test_frontend_parser_derived_t
+[ 52%] test_frontend_parser_derived_t  done.
+[ 52%]    test_implied_do_constructor
+[ 53%]    test_implied_do_constructor  done.
+[ 53%]        test_intrinsic_registry
+[ 53%]        test_intrinsic_registry  done.
+[ 53%]          test_intrinsic_parser
+[ 53%]          test_intrinsic_parser  done.
+[ 53%]             test_intrinsic_ast
+[ 54%]             test_intrinsic_ast  done.
+[ 54%]           test_ast_performance
+[ 54%]           test_ast_performance  done.
+[ 54%]     test_fortfront_api_parsing
+[ 54%]     test_fortfront_api_parsing  done.
+[ 54%]        test_fortfront_api_json
+[ 54%]        test_fortfront_api_json  done.
+[ 54%]     test_fortfront_api_codegen
+[ 55%]     test_fortfront_api_codegen  done.
+[ 55%]       test_fortfront_api_arena
+[ 55%]       test_fortfront_api_arena  done.
+[ 55%]     test_fortfront_api_lexical
+[ 55%]     test_fortfront_api_lexical  done.
+[ 55%]        test_intrinsic_coverage
+[ 56%]        test_intrinsic_coverage  done.
+[ 56%]          test_symbol_table_api
+[ 56%]          test_symbol_table_api  done.
+[ 56%]          test_intrinsic_simple
+[ 56%]          test_intrinsic_simple  done.
+[ 56%]  test_node_type_identification
+[ 57%]  test_node_type_identification  done.
+[ 57%]  test_intrinsic_identification
+[ 57%]  test_intrinsic_identification  done.
+[ 57%] test_fortfront_api_integration
+[ 57%] test_fortfront_api_integration  done.
+[ 57%]    test_fortfront_api_semantic
+[ 58%]    test_fortfront_api_semantic  done.
+[ 58%]      test_ast_traversal_simple
+[ 58%]      test_ast_traversal_simple  done.
+[ 58%]          test_visitor_coverage
+[ 58%]          test_visitor_coverage  done.
+[ 58%] test_ast_traversal_comprehensi
+[ 59%] test_ast_traversal_comprehensi  done.
+[ 59%]   test_node_accessor_functions
+[ 59%]   test_node_accessor_functions  done.
+[ 59%]             test_ast_traversal
+[ 59%]             test_ast_traversal  done.
+[ 59%]   test_fortfront_api_transform
+[ 59%]   test_fortfront_api_transform  done.
+[ 59%]     test_string_transformation
+[ 60%]     test_string_transformation  done.
+[ 60%] test_type_system_comprehensive
+[ 60%] test_type_system_comprehensive  done.
+[ 60%] test_frontend_semantic_array_t
+[ 60%] test_frontend_semantic_array_t  done.
+[ 60%]           test_semantic_simple
+[ 61%]           test_semantic_simple  done.
+[ 61%]   test_semantic_analysis_green
+[ 61%]   test_semantic_analysis_green  done.
+[ 61%] test_semantic_context_creation
+[ 61%] test_semantic_context_creation  done.
+[ 61%]       test_scope_manager_basic
+[ 62%]       test_scope_manager_basic  done.
+[ 62%]  test_parameter_tracker_direct
+[ 62%]  test_parameter_tracker_direct  done.
+[ 62%]     test_semantic_where_forall
+[ 62%]     test_semantic_where_forall  done.
+[ 62%] test_frontend_semantic_basic_t
+[ 63%] test_frontend_semantic_basic_t  done.
+[ 63%] test_expression_temporary_trac
+[ 63%] test_expression_temporary_trac  done.
+[ 63%]      test_scope_manager_direct
+[ 63%]      test_scope_manager_direct  done.
+[ 63%]        test_semantic_query_api
+[ 63%]        test_semantic_query_api  done.
+[ 63%] test_array_literal_type_infere
+[ 64%] test_array_literal_type_infere  done.
+[ 64%] test_frontend_semantic_express
+[ 64%] test_frontend_semantic_express  done.
+[ 64%]      test_type_inference_green
+[ 64%]      test_type_inference_green  done.
+[ 64%] test_character_substring_seman
+[ 65%] test_character_substring_seman  done.
+[ 65%]   test_allocatable_propagation
+[ 65%]   test_allocatable_propagation  done.
+[ 65%] test_type_inference_edge_cases
+[ 65%] test_type_inference_edge_cases  done.
+[ 65%]       test_type_checker_direct
+[ 66%]       test_type_checker_direct  done.
+[ 66%]       test_pointer_propagation
+[ 66%]       test_pointer_propagation  done.
+[ 66%] test_undeclared_variable_error
+[ 66%] test_undeclared_variable_error  done.
+[ 66%]           test_semantic_direct
+[ 67%]           test_semantic_direct  done.
+[ 67%]             test_scope_pattern
+[ 67%]             test_scope_pattern  done.
+[ 67%]       test_minimal_type_system
+[ 67%]       test_minimal_type_system  done.
+[ 67%] test_semantic_context_componen
+[ 68%] test_semantic_context_componen  done.
+[ 68%]    test_function_type_creation
+[ 68%]    test_function_type_creation  done.
+[ 68%]        test_type_system_direct
+[ 68%]        test_type_system_direct  done.
+[ 68%]    test_exact_semantic_context
+[ 68%]    test_exact_semantic_context  done.
+[ 68%] test_frontend_semantic_minimal
+[ 69%] test_frontend_semantic_minimal  done.
+[ 69%] test_minimal_ast_inferred_type
+[ 69%] test_minimal_ast_inferred_type  done.
+[ 69%]     test_intent_semantic_check
+[ 69%]     test_intent_semantic_check  done.
+[ 69%]      test_semantic_type_errors
+[ 70%]      test_semantic_type_errors  done.
+[ 70%]      test_lexer_error_handling
+[ 70%]      test_lexer_error_handling  done.
+[ 70%]        test_frontend_lexer_api
+[ 70%]        test_frontend_lexer_api  done.
+[ 70%]    test_frontend_lexer_numbers
+[ 71%]    test_frontend_lexer_numbers  done.
+[ 71%]              test_lexer_direct
+[ 71%]              test_lexer_direct  done.
+[ 71%]   test_frontend_lexer_keywords
+[ 71%]   test_frontend_lexer_keywords  done.
+[ 71%]  test_frontend_lexer_operators
+[ 72%]  test_frontend_lexer_operators  done.
+[ 72%]         test_lexer_core_direct
+[ 72%]         test_lexer_core_direct  done.
+[ 72%] test_ast_introspection_final_c
+[ 72%] test_ast_introspection_final_c  done.
+[ 72%]            test_associate_node
+[ 72%]            test_associate_node  done.
+[ 72%]     test_where_forall_coverage
+[ 73%]     test_where_forall_coverage  done.
+[ 73%]     test_semantic_preservation
+[ 73%]     test_semantic_preservation  done.
+[ 73%]     test_where_forall_enhanced
+[ 73%]     test_where_forall_enhanced  done.
+[ 73%]   test_ast_nodes_misc_coverage
+[ 74%]   test_ast_nodes_misc_coverage  done.
+[ 74%]    test_ast_core_comprehensive
+[ 74%]    test_ast_core_comprehensive  done.
+[ 74%]         test_ast_base_coverage
+[ 74%]         test_ast_base_coverage  done.
+[ 74%]           test_ast_core_direct
+[ 75%]           test_ast_core_direct  done.
+[ 75%] test_block_boundaries_sibling_
+[ 75%] test_block_boundaries_sibling_  done.
+[ 75%] test_ast_introspection_complet
+[ 75%] test_ast_introspection_complet  done.
+[ 75%]     test_ast_introspection_api
+[ 76%]     test_ast_introspection_api  done.
+[ 76%] test_ast_nodes_control_coverag
+[ 76%] test_ast_nodes_control_coverag  done.
+[ 76%]      test_where_forall_factory
+[ 76%]      test_where_forall_factory  done.
+[ 76%]     test_ast_nodes_io_coverage
+[ 77%]     test_ast_nodes_io_coverage  done.
+[ 77%]   test_ast_nodes_data_coverage
+[ 77%]   test_ast_nodes_data_coverage  done.
+[ 77%] test_array_slice_substring_fla
+[ 77%] test_array_slice_substring_fla  done.
+[ 77%]          test_where_forall_ast
+[ 77%]          test_where_forall_ast  done.
+[ 77%] test_ast_semantic_introspectio
+[ 78%] test_ast_semantic_introspectio  done.
+[ 78%] test_where_forall_json_methods
+[ 78%] test_where_forall_json_methods  done.
+[ 78%] test_ast_introspection_coverag
+[ 78%] test_ast_introspection_coverag  done.
+[ 78%]     test_ast_modular_structure
+[ 79%]     test_ast_modular_structure  done.
+[ 79%]        test_ast_factory_direct
+[ 79%]        test_ast_factory_direct  done.
+[ 79%]      test_range_subscript_node
+[ 79%]      test_range_subscript_node  done.
+[ 79%]        test_arena_stub_methods
+[ 80%]        test_arena_stub_methods  done.
+[ 80%]     test_ast_operations_direct
+[ 80%]     test_ast_operations_direct  done.
+[ 80%]   test_where_forall_validation
+[ 80%]   test_where_forall_validation  done.
+[ 80%]        test_json_writer_direct
+[ 81%]        test_json_writer_direct  done.
+[ 81%]        test_json_reader_direct
+[ 81%]        test_json_reader_direct  done.
+[ 81%] test_json_reader_comprehensive
+[ 81%] test_json_reader_comprehensive  done.
+[ 81%] test_parser_expressions_direct
+[ 81%] test_parser_expressions_direct  done.
+[ 81%] test_multi_variable_declaratio
+[ 82%] test_multi_variable_declaratio  done.
+[ 82%]     test_parser_array_features
+[ 82%]     test_parser_array_features  done.
+[ 82%]          test_component_access
+[ 82%]          test_component_access  done.
+[ 82%]     test_cycle_exit_statements
+[ 83%]     test_cycle_exit_statements  done.
+[ 83%] test_allocate_deallocate_parsi
+[ 83%] test_allocate_deallocate_parsi  done.
+[ 83%] test_parser_declarations_direc
+[ 83%] test_parser_declarations_direc  done.
+[ 83%] test_frontend_parser_if_statem
+[ 84%] test_frontend_parser_if_statem  done.
+[ 84%]       test_associate_construct
+[ 84%]       test_associate_construct  done.
+[ 84%]         test_cycle_exit_simple
+[ 84%]         test_cycle_exit_simple  done.
+[ 84%]     test_parser_error_recovery
+[ 85%]     test_parser_error_recovery  done.
+[ 85%]         test_parser_edge_cases
+[ 85%]         test_parser_edge_cases  done.
+[ 85%]          test_multi_attributes
+[ 85%]          test_multi_attributes  done.
+[ 85%]       test_character_substring
+[ 86%]       test_character_substring  done.
+[ 86%]          test_parse_multi_decl
+[ 86%]          test_parse_multi_decl  done.
+[ 86%]   test_frontend_parser_do_loop
+[ 86%]   test_frontend_parser_do_loop  done.
+[ 86%] test_parser_control_flow_direc
+[ 86%] test_parser_control_flow_direc  done.
+[ 86%]  test_frontend_parser_do_while
+[ 87%]  test_frontend_parser_do_while  done.
+[ 87%]    test_range_subscript_errors
+[ 87%]    test_range_subscript_errors  done.
+[ 87%]          test_param_body_order
+[ 87%]          test_param_body_order  done.
+[ 87%]  test_parser_statements_direct
+[ 88%]  test_parser_statements_direct  done.
+[ 88%]      test_param_order_explicit
+[ 88%]      test_param_order_explicit  done.
+[ 88%]        test_parser_core_direct
+[ 88%]        test_parser_core_direct  done.
+[ 88%]              test_array_stride
+[ 89%]              test_array_stride  done.
+[ 89%]            test_error_recovery
+[ 89%]            test_error_recovery  done.
+[ 89%]  test_frontend_parser_do_loops
+[ 89%]  test_frontend_parser_do_loops  done.
+[ 89%] test_issue_5_multi_var_declara
+[ 90%] test_issue_5_multi_var_declara  done.
+[ 90%] test_array_function_disambigua
+[ 90%] test_array_function_disambigua  done.
+[ 90%]  test_parser_dispatcher_direct
+[ 90%]  test_parser_dispatcher_direct  done.
+[ 90%] test_parser_expressions_compre
+[ 90%] test_parser_expressions_compre  done.
+[ 90%]        test_control_flow_graph
+[ 91%]        test_control_flow_graph  done.
+[ 91%]                test_call_graph
+[ 91%]                test_call_graph  done.
+[ 91%]    test_variable_usage_tracker
+[ 91%]    test_variable_usage_tracker  done.
+[ 91%] test_codegen_core_comprehensiv
+[ 92%] test_codegen_core_comprehensiv  done.
+[ 92%] test_issue_7_comment_preservat
+[ 92%] test_issue_7_comment_preservat  done.
+[ 92%] test_frontend_codegen_expressi
+[ 92%] test_frontend_codegen_expressi  done.
+[ 92%] test_issue_6_assignment_codege
+[ 93%] test_issue_6_assignment_codege  done.
+[ 93%]  test_frontend_codegen_program
+[ 93%]  test_frontend_codegen_program  done.
+[ 93%] test_issue_8_configurable_form
+[ 93%] test_issue_8_configurable_form  done.
+[ 93%] test_issue_9_type_specifier_pr
+[ 94%] test_issue_9_type_specifier_pr  done.
+[ 94%] test_frontend_codegen_no_dupli
+[ 94%] test_frontend_codegen_no_dupli  done.
+[ 94%]            test_output_quality
+[ 94%]            test_output_quality  done.
+[ 94%]      test_frontend_codegen_api
+[ 95%]      test_frontend_codegen_api  done.
+[ 95%]     test_codegen_comprehensive
+[ 95%]     test_codegen_comprehensive  done.
+[ 95%] test_issue_10_disable_type_sta
+[ 95%] test_issue_10_disable_type_sta  done.
+[ 95%]           test_array_slice_red
+[ 95%]           test_array_slice_red  done.
+[ 95%]      test_where_forall_codegen
+[ 96%]      test_where_forall_codegen  done.
+[ 96%] test_frontend_codegen_allocata
+[ 96%] test_frontend_codegen_allocata  done.
+[ 96%]    test_frontend_codegen_basic
+[ 96%]    test_frontend_codegen_basic  done.
+[ 96%] test_issue_4_duplicate_program
+[ 97%] test_issue_4_duplicate_program  done.
+[ 97%]       test_codegen_core_direct
+[ 97%]       test_codegen_core_direct  done.
+[ 97%] test_frontend_codegen_type_dec
+[ 97%] test_frontend_codegen_type_dec  done.
+[ 97%] test_frontend_codegen_program_
+[ 98%] test_frontend_codegen_program_  done.
+[ 98%] test_frontend_codegen_assignme
+[ 98%] test_frontend_codegen_assignme  done.
+[ 98%]             test_codegen_green
+[ 98%]             test_codegen_green  done.
+[ 98%] test_frontend_codegen_array_li
+[ 99%] test_frontend_codegen_array_li  done.
+[ 99%]     test_codegen_indent_direct
+[ 99%]     test_codegen_indent_direct  done.
+[ 99%]           test_cli_integration
+[ 99%]           test_cli_integration  done.
+[ 99%]       test_standardization_red
+[100%]       test_standardization_red  done.
+[100%] Project compiled successfully.
+STOP 1
+ === Testing Parameter Attributes in Subroutine ===
+
+ DEBUG: Empty var_name for declaration node
+   Type: integer
+   Has intent:  F
+   Is optional:  F
+ DEBUG: Empty var_name for declaration node
+   Type: integer
+   Has intent:  F
+   Is optional:  F
+ DEBUG: Empty var_name for declaration node
+   Type: integer
+   Has intent:  F
+   Is optional:  F
+ Generated code:
+ =================
+ program main
+    implicit none
+contains
+    subroutine test(required, opt, output)
+        ! Unparsed statement
+        output = required*2
+    end subroutine test
+end program main
+ =================
+ FAIL: intent(in) not preserved
+ FAIL: intent(out) not preserved
+ FAIL: optional not preserved
+ FAIL: Subroutine parameter tests failed
+<ERROR> Execution for object " test_parameter_attributes_subroutine " returned exit code  1
+<ERROR> *cmd_run*:stopping due to failed executions
+STOP 1

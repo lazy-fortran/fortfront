@@ -47,7 +47,10 @@ contains
             passed = .false.
         else
             print *, "Generated code:"
+            print *, "================="
             print *, trim(generated_code)
+            print *, "================="
+            print *, "Length:", len(generated_code)
             
             ! Check attributes are preserved
             if (index(generated_code, "intent(in)") == 0) then

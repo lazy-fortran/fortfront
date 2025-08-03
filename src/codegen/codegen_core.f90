@@ -1184,6 +1184,11 @@ contains
         if (node%is_allocatable) then
             code = code//", allocatable"
         end if
+        
+        ! Add optional if present
+        if (node%is_optional) then
+            code = code//", optional"
+        end if
 
         ! Add variable names - handle both single and multi declarations
         code = code//" :: "
@@ -1918,23 +1923,28 @@ contains
                         group_kind = node%kind_value
                         group_has_kind = node%has_kind
                         
-                        ! Check if this variable is a parameter
-                        param_idx = find_parameter_info(param_map, node%var_name)
-                        if (param_idx > 0) then
-                            ! Use parameter attributes
-                            group_intent = param_map(param_idx)%intent_str
-                            group_is_optional = param_map(param_idx)%is_optional
+                        ! Check intent and optional from the declaration node
+                        if (node%has_intent) then
+                            group_intent = node%intent
                         else
-                            ! Use declaration attributes
-                            if (node%has_intent) then
-                                group_intent = node%intent
-                            else
-                                group_intent = ""
-                            end if
-                            group_is_optional = node%is_optional
+                            group_intent = ""
                         end if
+                        group_is_optional = node%is_optional
                         
-                        var_list = trim(node%var_name)
+                        ! Handle multi-declarations
+                        if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                            ! Multi-declaration - process each variable
+                            var_list = ""
+                            block
+                                integer :: k
+                                do k = 1, size(node%var_names)
+                                    if (k > 1) var_list = var_list//", "
+                                    var_list = var_list//trim(node%var_names(k))
+                                end do
+                            end block
+                        else
+                            var_list = trim(node%var_name)
+                        end if
 
                         ! Look ahead for more declarations of same type
                         j = i + 1
@@ -1963,10 +1973,11 @@ contains
                         end do
 
                         ! Generate grouped declaration with parameter attributes if present
-                        stmt_code = generate_grouped_declaration(group_type, group_kind, &
-                                                                 group_has_kind, group_intent, var_list, group_is_optional)
-
-                        code = code//indent//stmt_code//new_line('a')
+                        if (len_trim(var_list) > 0) then
+                            stmt_code = generate_grouped_declaration(group_type, group_kind, &
+                                                                     group_has_kind, group_intent, var_list, group_is_optional)
+                            code = code//indent//stmt_code//new_line('a')
+                        end if
                         i = j  ! Skip processed declarations
 
                     type is (parameter_declaration_node)
