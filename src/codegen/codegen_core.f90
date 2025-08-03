@@ -673,19 +673,12 @@ contains
                                 end do
                             type is (declaration_node)
                                 ! Check if this declaration has intent and matches a parameter
-                                print *, "DEBUG: Found declaration_node for ", trim(body_node%var_name), &
-                                       " has_intent=", body_node%has_intent, &
-                                       " is_optional=", body_node%is_optional
                                 if (body_node%has_intent) then
-                                    print *, "DEBUG: Intent value: ", trim(body_node%intent)
                                     do i = 1, param_count
                                         if (allocated(param_map(i)%name) .and. &
                                             param_map(i)%name == body_node%var_name) then
                                             param_map(i)%intent_str = body_node%intent
                                             param_map(i)%is_optional = body_node%is_optional
-                                            print *, "DEBUG: Updated param ", trim(param_map(i)%name), &
-                                                   " with intent=", trim(param_map(i)%intent_str), &
-                                                   " optional=", param_map(i)%is_optional
                                         end if
                                     end do
                                 end if
@@ -775,19 +768,12 @@ contains
                                 end do
                             type is (declaration_node)
                                 ! Check if this declaration has intent and matches a parameter
-                                print *, "DEBUG: Found declaration_node for ", trim(body_node%var_name), &
-                                       " has_intent=", body_node%has_intent, &
-                                       " is_optional=", body_node%is_optional
                                 if (body_node%has_intent) then
-                                    print *, "DEBUG: Intent value: ", trim(body_node%intent)
                                     do i = 1, param_count
                                         if (allocated(param_map(i)%name) .and. &
                                             param_map(i)%name == body_node%var_name) then
                                             param_map(i)%intent_str = body_node%intent
                                             param_map(i)%is_optional = body_node%is_optional
-                                            print *, "DEBUG: Updated param ", trim(param_map(i)%name), &
-                                                   " with intent=", trim(param_map(i)%intent_str), &
-                                                   " optional=", param_map(i)%is_optional
                                         end if
                                     end do
                                 end if
@@ -1690,11 +1676,11 @@ contains
         type(declaration_node), intent(in) :: node1, node2
         logical :: can_group
 
-        can_group = node1%type_name == node2%type_name .and. &
+        can_group = trim(node1%type_name) == trim(node2%type_name) .and. &
                     node1%kind_value == node2%kind_value .and. &
                     node1%has_kind .eqv. node2%has_kind .and. &
                     ((node1%has_intent .and. node2%has_intent .and. &
-                      node1%intent == node2%intent) .or. &
+                      trim(node1%intent) == trim(node2%intent)) .or. &
                      (.not. node1%has_intent .and. .not. node2%has_intent)) .and. &
                     node1%is_optional .eqv. node2%is_optional
     end function can_group_declarations
@@ -1704,10 +1690,10 @@ contains
         type(parameter_declaration_node), intent(in) :: node1, node2
         logical :: can_group
 
-        can_group = node1%type_name == node2%type_name .and. &
-                    node1%kind_value == node2%kind_value .and. &
-                    node1%intent_type == node2%intent_type .and. &
-                    node1%is_optional .eqv. node2%is_optional
+        can_group = (trim(node1%type_name) == trim(node2%type_name)) .and. &
+                    (node1%kind_value == node2%kind_value) .and. &
+                    (node1%intent_type == node2%intent_type) .and. &
+                    (node1%is_optional .eqv. node2%is_optional)
     end function can_group_parameters
 
     ! Helper: Build parameter name with array dimensions
