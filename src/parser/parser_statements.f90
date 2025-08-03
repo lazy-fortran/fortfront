@@ -2045,6 +2045,8 @@ contains
         stat_var_index = 0
         line = 0
         column = 0
+        allocate(var_indices(0))
+        allocate(shape_indices(0))
         
         ! Consume 'allocate' keyword
         token = parser%consume()
@@ -2113,6 +2115,7 @@ contains
         stat_var_index = 0
         line = 0
         column = 0
+        allocate(var_indices(0))
         
         ! Consume 'deallocate' keyword
         token = parser%consume()
