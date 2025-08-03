@@ -94,6 +94,14 @@ module fortfront
     ! Re-export visitor pattern
     use ast_visitor, only: ast_visitor_t, debug_visitor_t
     
+    ! Re-export call graph analysis functionality
+    use call_graph_module, only: call_graph_t, create_call_graph, &
+                               procedure_info_t, call_edge_t, &
+                               get_all_procedures, find_unused_procedures, &
+                               get_callers, get_callees, find_recursive_cycles, &
+                               cg_is_procedure_used => is_procedure_used
+    use call_graph_builder_module, only: build_call_graph
+    
     ! Re-export intrinsic function registry (using renamed imports to avoid conflicts)
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
                                  registry_get_signature => get_intrinsic_signature, &
@@ -158,6 +166,13 @@ module fortfront
     public :: expression_temp_info_t, get_expression_temporaries, &
               get_temporary_info, get_active_temporary_count, &
               get_total_temporary_count
+    
+    ! Public call graph APIs for issue #18
+    public :: call_graph_t, build_call_graph_from_arena, &
+              get_unused_procedures, get_procedure_callers, &
+              get_procedure_callees, is_procedure_used, &
+              get_all_procedures_in_graph, get_call_edges, &
+              get_recursive_cycles
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
@@ -1764,5 +1779,82 @@ contains
         
         count = ctx%temp_tracker%get_total_count()
     end function get_total_temporary_count
+
+    ! ========================================================================
+    ! Call Graph Analysis Functions (Issue #18)
+    ! ========================================================================
+    
+    ! Build call graph from AST
+    function build_call_graph_from_arena(arena, root_index) result(graph)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: root_index
+        type(call_graph_t) :: graph
+        
+        graph = build_call_graph(arena, root_index)
+    end function build_call_graph_from_arena
+    
+    ! Get list of unused procedures
+    function get_unused_procedures(graph) result(proc_names)
+        type(call_graph_t), intent(in) :: graph
+        character(len=:), allocatable :: proc_names(:)
+        
+        proc_names = find_unused_procedures(graph)
+    end function get_unused_procedures
+    
+    ! Get procedures that call a given procedure
+    function get_procedure_callers(graph, procedure_name) result(caller_names)
+        type(call_graph_t), intent(in) :: graph
+        character(len=*), intent(in) :: procedure_name
+        character(len=:), allocatable :: caller_names(:)
+        
+        caller_names = get_callers(graph, procedure_name)
+    end function get_procedure_callers
+    
+    ! Get procedures called by a given procedure
+    function get_procedure_callees(graph, procedure_name) result(callee_names)
+        type(call_graph_t), intent(in) :: graph
+        character(len=*), intent(in) :: procedure_name
+        character(len=:), allocatable :: callee_names(:)
+        
+        callee_names = get_callees(graph, procedure_name)
+    end function get_procedure_callees
+    
+    ! Check if a procedure is used (called by any other procedure)
+    function is_procedure_used(graph, procedure_name) result(is_used)
+        type(call_graph_t), intent(in) :: graph
+        character(len=*), intent(in) :: procedure_name
+        logical :: is_used
+        
+        is_used = cg_is_procedure_used(graph, procedure_name)
+    end function is_procedure_used
+    
+    ! Get all procedures in the call graph
+    function get_all_procedures_in_graph(graph) result(proc_names)
+        type(call_graph_t), intent(in) :: graph
+        character(len=:), allocatable :: proc_names(:)
+        
+        proc_names = get_all_procedures(graph)
+    end function get_all_procedures_in_graph
+    
+    ! Get all call edges in the graph
+    function get_call_edges(graph) result(edges)
+        type(call_graph_t), intent(in) :: graph
+        type(call_edge_t), allocatable :: edges(:)
+        
+        if (allocated(graph%calls)) then
+            allocate(edges(graph%call_count))
+            edges = graph%calls(1:graph%call_count)
+        else
+            allocate(edges(0))
+        end if
+    end function get_call_edges
+    
+    ! Get recursive cycles in the call graph
+    function get_recursive_cycles(graph) result(cycles)
+        type(call_graph_t), intent(in) :: graph
+        character(len=:), allocatable :: cycles(:)
+        
+        cycles = find_recursive_cycles(graph)
+    end function get_recursive_cycles
 
 end module fortfront
