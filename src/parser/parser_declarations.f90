@@ -89,8 +89,9 @@ contains
                             end if
                         end if
 
-                        var_token = parser%consume()
+                        ! Don't consume the final closing parenthesis
                         if (paren_count > 0) then
+                            var_token = parser%consume()
                             type_spec = type_spec//var_token%text
                         end if
                     end do
