@@ -1,8 +1,9 @@
 program test_parameter_attributes_ast
     use fortfront
     use ast_core
-    use ast_nodes_data
-    use ast_nodes_procedure
+    use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
+                              INTENT_IN, INTENT_OUT, INTENT_INOUT, &
+                              intent_type_to_string
     implicit none
     
     logical :: all_passed = .true.
@@ -78,7 +79,23 @@ contains
         
         found_params = 0
         
+        ! First look for declaration nodes in the body
+        print *, "Looking for declaration nodes:"
+        do i = 1, arena%size
+            if (allocated(arena%entries(i)%node)) then
+                select type (node => arena%entries(i)%node)
+                type is (declaration_node)
+                    print *, "  Found declaration: name='", trim(node%var_name), &
+                             "' type='", trim(node%type_name), &
+                             "' intent=", node%has_intent, &
+                             " intent_str='", trim(node%intent), &
+                             "' optional=", node%is_optional
+                end select
+            end if
+        end do
+        
         ! Look through the arena for parameter nodes
+        print *, "Looking for parameter nodes:"
         do i = 1, arena%size
             if (allocated(arena%entries(i)%node)) then
                 select type (node => arena%entries(i)%node)
@@ -86,7 +103,7 @@ contains
                     found_params = found_params + 1
                     print *, "Found parameter: ", trim(node%name)
                     print *, "  Type: ", trim(node%type_name)
-                    print *, "  Intent: ", intent_type_to_string(node%intent_type)
+                    print *, "  Intent (type=", node%intent_type, "): ", intent_type_to_string(node%intent_type)
                     print *, "  Optional: ", node%is_optional
                     
                     ! Check specific parameters
