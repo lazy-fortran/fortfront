@@ -1,9 +1,9 @@
 module parser_declarations
-    use lexer_api
-    use parser_state
-    use ast_arena_api
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF
+    use parser_state_module, only: parser_state_t
+    use ast_arena, only: ast_arena_t
+    use ast_types, only: LITERAL_STRING
     use ast_nodes_data, only: INTENT_IN, INTENT_OUT, INTENT_INOUT
-    use parser_expressions, only: parse_expression, parse_comparison
     implicit none
     private
 
@@ -16,8 +16,7 @@ contains
 
     ! Parse single-variable declaration (e.g., real :: x)
     function parse_declaration(parser, arena) result(decl_index)
-        use ast_arena_api, only: push_declaration, push_literal, push_identifier
-        use lexer_api, only: TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF
+        use ast_factory, only: push_declaration, push_literal, push_identifier
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: decl_index
@@ -424,6 +423,8 @@ contains
 
     ! Parse array dimensions helper
     subroutine parse_array_dimensions(parser, arena, dimension_indices)
+        use ast_factory, only: push_literal
+        use parser_expressions_module, only: parse_expression
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: dimension_indices(:)
@@ -496,9 +497,8 @@ contains
 
     ! Parse derived type definition
     function parse_derived_type_def(parser, arena) result(type_index)
-        use ast_arena_api, only: push_derived_type, push_literal, &
+        use ast_factory, only: push_derived_type, push_literal, &
             push_identifier, push_declaration
-        use lexer_api, only: TK_IDENTIFIER, TK_OPERATOR, TK_EOF
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: type_index
@@ -599,8 +599,7 @@ contains
 
     ! Parse derived type component
     function parse_derived_type_component(parser, arena) result(comp_index)
-        use ast_arena_api, only: push_declaration
-        use lexer_api, only: TK_IDENTIFIER, TK_EOF
+        use ast_factory, only: push_declaration
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: comp_index
@@ -631,8 +630,7 @@ contains
 
     ! Parse derived type parameters helper
     subroutine parse_derived_type_parameters(parser, arena, param_indices, param_count)
-        use ast_arena_api, only: push_identifier
-        use lexer_api, only: TK_IDENTIFIER, TK_OPERATOR
+        use ast_factory, only: push_identifier
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: param_indices(:)
@@ -674,6 +672,7 @@ contains
 
     ! Parse multi-variable declaration (e.g., real :: a, b, c)
     function parse_multi_declaration(parser, arena) result(decl_indices)
+        use ast_factory, only: push_multi_declaration, push_literal
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable :: decl_indices(:)
