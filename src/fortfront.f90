@@ -186,6 +186,9 @@ module fortfront
               get_node_type_kind, get_node_type_details, &
               get_node_type_id_from_arena, get_node_source_location_from_arena
     
+    ! Public node type identification functions for issue #34
+    public :: get_node_type
+    
     ! Public AST navigation APIs for issue #19
     public :: get_next_sibling, get_previous_sibling, get_block_statements, &
               is_last_in_block, is_block_node
@@ -265,6 +268,7 @@ module fortfront
     integer, parameter :: NODE_INCLUDE_STATEMENT = 37
     integer, parameter :: NODE_CONTAINS = 38
     integer, parameter :: NODE_FORMAT_DESCRIPTOR = 39
+    integer, parameter :: NODE_COMMENT = 40
     integer, parameter :: NODE_UNKNOWN = 99
     
     ! Additional facade-specific types and procedures
@@ -653,6 +657,98 @@ contains
         end if
     end function compute_depth
     
+    ! Get node type ID using polymorphic node type checking
+    ! This is the recommended helper function from issue #34
+    function get_node_type_id(node) result(type_id)
+        class(ast_node), intent(in) :: node
+        integer :: type_id
+        
+        select type (node)
+        type is (program_node)
+            type_id = NODE_PROGRAM
+        type is (function_def_node)
+            type_id = NODE_FUNCTION_DEF
+        type is (assignment_node)
+            type_id = NODE_ASSIGNMENT
+        type is (binary_op_node)
+            type_id = NODE_BINARY_OP
+        type is (identifier_node)
+            type_id = NODE_IDENTIFIER
+        type is (literal_node)
+            type_id = NODE_LITERAL
+        type is (array_literal_node)
+            type_id = NODE_ARRAY_LITERAL
+        type is (call_or_subscript_node)
+            type_id = NODE_CALL_OR_SUBSCRIPT
+        type is (subroutine_def_node)
+            type_id = NODE_SUBROUTINE_DEF
+        type is (subroutine_call_node)
+            type_id = NODE_SUBROUTINE_CALL
+        type is (declaration_node)
+            type_id = NODE_DECLARATION
+        type is (parameter_declaration_node)
+            type_id = NODE_PARAMETER_DECLARATION
+        type is (if_node)
+            type_id = NODE_IF
+        type is (do_loop_node)
+            type_id = NODE_DO_LOOP
+        type is (do_while_node)
+            type_id = NODE_DO_WHILE
+        type is (select_case_node)
+            type_id = NODE_SELECT_CASE
+        type is (case_block_node)
+            type_id = NODE_CASE_BLOCK
+        type is (module_node)
+            type_id = NODE_MODULE
+        type is (use_statement_node)
+            type_id = NODE_USE_STATEMENT
+        type is (print_statement_node)
+            type_id = NODE_PRINT_STATEMENT
+        type is (write_statement_node)
+            type_id = NODE_WRITE_STATEMENT
+        type is (read_statement_node)
+            type_id = NODE_READ_STATEMENT
+        type is (allocate_statement_node)
+            type_id = NODE_ALLOCATE_STATEMENT
+        type is (deallocate_statement_node)
+            type_id = NODE_DEALLOCATE_STATEMENT
+        type is (stop_node)
+            type_id = NODE_STOP
+        type is (return_node)
+            type_id = NODE_RETURN
+        type is (cycle_node)
+            type_id = NODE_CYCLE
+        type is (exit_node)
+            type_id = NODE_EXIT
+        type is (where_node)
+            type_id = NODE_WHERE
+        type is (interface_block_node)
+            type_id = NODE_INTERFACE_BLOCK
+        type is (derived_type_node)
+            type_id = NODE_DERIVED_TYPE
+        type is (pointer_assignment_node)
+            type_id = NODE_POINTER_ASSIGNMENT
+        type is (forall_node)
+            type_id = NODE_FORALL
+        type is (case_range_node)
+            type_id = NODE_CASE_RANGE
+        type is (case_default_node)
+            type_id = NODE_CASE_DEFAULT
+        type is (complex_literal_node)
+            type_id = NODE_COMPLEX_LITERAL
+        type is (include_statement_node)
+            type_id = NODE_INCLUDE_STATEMENT
+        type is (contains_node)
+            type_id = NODE_CONTAINS
+        type is (format_descriptor_node)
+            type_id = NODE_FORMAT_DESCRIPTOR
+        type is (comment_node)
+            type_id = NODE_COMMENT
+        class default
+            type_id = NODE_UNKNOWN
+        end select
+    end function get_node_type_id
+
     ! Get node type as integer constant
     function get_node_type(arena, node_index) result(node_type)
         type(ast_arena_t), intent(in) :: arena
@@ -745,6 +841,8 @@ contains
             node_type = NODE_CONTAINS
         case ("format_descriptor_node", "format_descriptor")
             node_type = NODE_FORMAT_DESCRIPTOR
+        case ("comment_node", "comment")
+            node_type = NODE_COMMENT
         end select
     end function get_node_type
     
