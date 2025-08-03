@@ -41,17 +41,24 @@ contains
         ! Create builder 
         builder = create_call_graph_builder()
         
-        ! For multi-unit compilation (modules + programs), we need to traverse
-        ! all top-level nodes, not just the root. Look for module and program nodes.
-        do i = 1, arena%size
-            if (allocated(arena%entries(i)%node)) then
-                select case (arena%entries(i)%node_type)
-                case ("module", "module_node", "program")
-                    ! Traverse modules and programs as separate compilation units
-                    call traverse_for_calls(builder, arena, i, "")
-                end select
-            end if
-        end do
+        ! Always traverse from root first to handle single compilation units
+        if (root_index > 0) then
+            call traverse_for_calls(builder, arena, root_index, "")
+        end if
+        
+        ! Additionally, for multi-unit compilation (modules + programs),
+        ! traverse all top-level module and program nodes that aren't the root
+        if (allocated(arena%entries)) then
+            do i = 1, min(arena%size, size(arena%entries))
+                if (i /= root_index .and. allocated(arena%entries(i)%node)) then
+                    select case (arena%entries(i)%node_type)
+                    case ("module", "module_node", "program")
+                        ! Traverse additional modules and programs
+                        call traverse_for_calls(builder, arena, i, "")
+                    end select
+                end if
+            end do
+        end if
         
         ! Return the built graph
         graph = builder%graph
