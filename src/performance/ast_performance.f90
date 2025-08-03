@@ -36,6 +36,9 @@ module ast_performance_module
     
     ! Public procedures for concurrent processing
     public :: lock_arena, unlock_arena, is_arena_locked
+    
+    ! Public helper procedures for testing
+    public :: deep_copy_arena, deep_copy_semantic_context, compute_arena_hash
 
     ! Cache entry type
     type :: ast_cache_entry_t
