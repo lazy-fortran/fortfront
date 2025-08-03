@@ -160,7 +160,12 @@ contains
                 "end program test"
         
         ! Lex and parse
-        call tokenize_core(source, tokens)
+        call lex_source(source, tokens, error_msg)
+        if (error_msg /= "") then
+            print *, "FAILED: Lexing error:", error_msg
+            all_tests_passed = .false.
+            return
+        end if
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root_index, error_msg)
         
@@ -221,7 +226,12 @@ contains
                 "end program test"
         
         ! Lex and parse
-        call tokenize_core(source, tokens)
+        call lex_source(source, tokens, error_msg)
+        if (error_msg /= "") then
+            print *, "FAILED: Lexing error:", error_msg
+            all_tests_passed = .false.
+            return
+        end if
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root_index, error_msg)
         
@@ -285,7 +295,12 @@ contains
                 "end program test"
         
         ! Lex and parse
-        call tokenize_core(source, tokens)
+        call lex_source(source, tokens, error_msg)
+        if (error_msg /= "") then
+            print *, "FAILED: Lexing error:", error_msg
+            all_tests_passed = .false.
+            return
+        end if
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root_index, error_msg)
         
@@ -360,7 +375,12 @@ contains
                 "end program test"
         
         ! Lex and parse
-        call tokenize_core(source, tokens)
+        call lex_source(source, tokens, error_msg)
+        if (error_msg /= "") then
+            print *, "FAILED: Lexing error:", error_msg
+            all_tests_passed = .false.
+            return
+        end if
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root_index, error_msg)
         
@@ -417,7 +437,12 @@ contains
                 "end program test"
         
         ! Lex and parse
-        call tokenize_core(source, tokens)
+        call lex_source(source, tokens, error_msg)
+        if (error_msg /= "") then
+            print *, "FAILED: Lexing error:", error_msg
+            all_tests_passed = .false.
+            return
+        end if
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root_index, error_msg)
         
@@ -462,7 +487,12 @@ contains
                 "end program test"
         
         ! Lex and parse
-        call tokenize_core(source, tokens)
+        call lex_source(source, tokens, error_msg)
+        if (error_msg /= "") then
+            print *, "FAILED: Lexing error:", error_msg
+            all_tests_passed = .false.
+            return
+        end if
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root_index, error_msg)
         

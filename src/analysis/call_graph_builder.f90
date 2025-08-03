@@ -79,7 +79,7 @@ contains
                 end if
             end select
             
-        case ("function")
+        case ("function_def")
             ! Handle function definition
             select type (node => arena%entries(node_index)%node)
             type is (function_def_node)
@@ -96,7 +96,7 @@ contains
                 end if
             end select
             
-        case ("subroutine")
+        case ("subroutine_def")
             ! Handle subroutine definition
             select type (node => arena%entries(node_index)%node)
             type is (subroutine_def_node)
@@ -113,7 +113,7 @@ contains
                 end if
             end select
             
-        case ("call", "subroutine_call")
+        case ("subroutine_call")
             ! Handle subroutine call
             select type (node => arena%entries(node_index)%node)
             type is (subroutine_call_node)
