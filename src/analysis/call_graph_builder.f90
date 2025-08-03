@@ -134,6 +134,24 @@ contains
                 end if
             end select
             
+        case ("assignment")
+            ! Handle assignment nodes - traverse both target and value
+            select type (node => arena%entries(node_index)%node)
+            type is (assignment_node)
+                ! Visit target and value expressions
+                call traverse_for_calls(builder, arena, node%target_index, current_scope)
+                call traverse_for_calls(builder, arena, node%value_index, current_scope)
+            end select
+            
+        case ("binary_op")
+            ! Handle binary operation nodes - traverse both operands
+            select type (node => arena%entries(node_index)%node)
+            type is (binary_op_node)
+                ! Visit left and right operands
+                call traverse_for_calls(builder, arena, node%left_index, current_scope)
+                call traverse_for_calls(builder, arena, node%right_index, current_scope)
+            end select
+            
         case ("module")
             ! Handle module node
             select type (node => arena%entries(node_index)%node)
