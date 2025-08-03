@@ -36,10 +36,22 @@ contains
         type(call_graph_t) :: graph
         
         type(call_graph_builder_t) :: builder
+        integer :: i
         
-        ! Create builder and traverse AST
+        ! Create builder 
         builder = create_call_graph_builder()
-        call traverse_for_calls(builder, arena, root_index, "")
+        
+        ! For multi-unit compilation (modules + programs), we need to traverse
+        ! all top-level nodes, not just the root. Look for module and program nodes.
+        do i = 1, arena%size
+            if (allocated(arena%entries(i)%node)) then
+                select case (arena%entries(i)%node_type)
+                case ("module", "module_node", "program")
+                    ! Traverse modules and programs as separate compilation units
+                    call traverse_for_calls(builder, arena, i, "")
+                end select
+            end if
+        end do
         
         ! Return the built graph
         graph = builder%graph
@@ -152,7 +164,7 @@ contains
                 call traverse_for_calls(builder, arena, node%right_index, current_scope)
             end select
             
-        case ("module")
+        case ("module", "module_node")
             ! Handle module node
             select type (node => arena%entries(node_index)%node)
             type is (module_node)
