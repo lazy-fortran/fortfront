@@ -115,6 +115,12 @@ module fortfront
                                        EDGE_RETURN, EDGE_EXCEPTION
     use cfg_builder_module, only: build_control_flow_graph
     
+    ! Variable usage tracking for issue #16
+    use variable_usage_tracker_module, only: variable_usage_info_t, expression_visitor_t, &
+        create_variable_usage_info, get_variables_in_expression, &
+        get_identifiers_in_subtree, visit_expression_nodes, &
+        is_variable_used_in_expression, count_variable_usage
+    
     ! Re-export intrinsic function registry (using renamed imports to avoid conflicts)
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
                                  registry_get_signature => get_intrinsic_signature, &
@@ -195,6 +201,12 @@ module fortfront
               get_cfg_block_successors, is_cfg_block_reachable, &
               get_cfg_unreachable_statements, print_control_flow_graph, &
               export_cfg_to_dot
+
+    ! Public variable usage tracking APIs for issue #16
+    public :: variable_usage_info_t, expression_visitor_t, &
+              create_variable_usage_info, get_variables_in_expression, &
+              get_identifiers_in_subtree, visit_expression_nodes, &
+              is_variable_used_in_expression, count_variable_usage
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
