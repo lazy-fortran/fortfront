@@ -10,6 +10,7 @@ module codegen_core
     private
 
     ! Type for storing parameter information during codegen
+    ! Used for mapping function/subroutine parameters to their attributes
     type :: parameter_info_t
         character(len=:), allocatable :: name
         character(len=:), allocatable :: intent_str
