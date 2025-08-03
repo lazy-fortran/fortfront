@@ -171,17 +171,20 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Implementation**: Added call_graph_t, call_graph_builder, 6 public API functions, comprehensive test suite
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### 🚧 #17 - Need control flow graph API for reachability analysis
+### ✅ #17 - Need control flow graph API for reachability analysis
 **Priority: Low** | **Impact: Analysis Feature** | **Effort: High**
-- **Status**: 🚧 **IN PROGRESS** - Implementing control flow graph and reachability analysis
+- **Status**: ✅ **COMPLETED** - Control flow graph analysis implemented (PR #61)
 - **Labels**: enhancement
 - **Description**: Provide control flow analysis capabilities
-- **Branch**: feature/17-control-flow-graph
+- **Implementation**: Added control_flow_graph_t, cfg_builder, reachability analysis, comprehensive test suite
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #16 - Need API to track variable usage within expression subtrees
+### 🚧 #16 - Need API to track variable usage within expression subtrees
 **Priority: Low** | **Impact: Analysis Feature** | **Effort: Medium**
+- **Status**: 🚧 **IN PROGRESS** - Implementing variable usage tracking API
 - **Labels**: enhancement
 - **Description**: Track variable usage for analysis tools
+- **Branch**: feature/16-variable-usage-tracking
 
 ### #15 - Performance Issues with Large-Scale AST Processing
 **Priority: Low** | **Impact: Performance** | **Effort: Medium**
