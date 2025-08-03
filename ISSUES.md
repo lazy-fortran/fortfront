@@ -179,17 +179,20 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Implementation**: Added control_flow_graph_t, cfg_builder, reachability analysis, comprehensive test suite
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### 🚧 #16 - Need API to track variable usage within expression subtrees
+### ✅ #16 - Need API to track variable usage within expression subtrees
 **Priority: Low** | **Impact: Analysis Feature** | **Effort: Medium**
-- **Status**: 🚧 **IN PROGRESS** - Implementing variable usage tracking API
+- **Status**: ✅ **COMPLETED** - Variable usage tracking API implemented (PR #62)
 - **Labels**: enhancement
 - **Description**: Track variable usage for analysis tools
-- **Branch**: feature/16-variable-usage-tracking
+- **Implementation**: Added variable_usage_tracker_t, expression visitor pattern, comprehensive test suite
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### #15 - Performance Issues with Large-Scale AST Processing
+### 🚧 #15 - Performance Issues with Large-Scale AST Processing
 **Priority: Low** | **Impact: Performance** | **Effort: Medium**
+- **Status**: 🚧 **IN PROGRESS** - Implementing performance optimizations for AST processing
 - **Labels**: enhancement
 - **Description**: Optimize AST processing for large codebases
+- **Branch**: feature/15-performance-optimization
 
 ## 🟣 Simple Fixes
 
