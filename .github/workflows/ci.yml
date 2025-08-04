@@ -17,6 +17,7 @@ permissions:
   issues: write
   pages: write
   actions: read
+  checks: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -106,6 +107,7 @@ jobs:
 
 
     - name: Produce the coverage report
+      id: coverage_report
       uses: insightsengineering/coverage-action@v3
       continue-on-error: true
       with:
@@ -129,6 +131,37 @@ jobs:
         togglable-report: true
         # Include detailed per-file coverage
         exclude-detailed-coverage: false
+
+    - name: Create coverage check
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          // Extract coverage percentage from cobertura.xml
+          const fs = require('fs');
+          const xml = fs.readFileSync('cobertura.xml', 'utf8');
+          const coverageMatch = xml.match(/line-rate="([0-9.]+)"/);
+          const coverage = coverageMatch ? (parseFloat(coverageMatch[1]) * 100).toFixed(1) : '0.0';
+          
+          const threshold = 70;
+          const passed = parseFloat(coverage) >= threshold;
+          
+          // Create check
+          await github.rest.checks.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            name: 'Coverage Check',
+            head_sha: context.payload.pull_request.head.sha,
+            status: 'completed',
+            conclusion: passed ? 'success' : 'failure',
+            output: {
+              title: `Coverage: ${coverage}%`,
+              summary: passed 
+                ? `✅ Coverage ${coverage}% meets the ${threshold}% threshold`
+                : `❌ Coverage ${coverage}% is below the ${threshold}% threshold`,
+              text: `Current coverage: ${coverage}%\nRequired threshold: ${threshold}%`
+            }
+          });
 
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
