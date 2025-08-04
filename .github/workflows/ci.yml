@@ -163,7 +163,7 @@ jobs:
             status: 'completed',
             conclusion: projectPassed ? 'success' : 'failure',
             output: {
-              title: projectPassed ? `Successful — ${projectCoverage}%` : `Failed — ${projectCoverage}%`,
+              title: projectPassed ? `OK - ${projectCoverage}%` : `FAIL - ${projectCoverage}%`,
               summary: projectPassed 
                 ? `✅ Project coverage ${projectCoverage}% meets the ${projectThreshold}% threshold`
                 : `❌ Project coverage ${projectCoverage}% is below the ${projectThreshold}% threshold`,
@@ -180,7 +180,7 @@ jobs:
             status: 'completed',
             conclusion: patchPassed ? 'success' : 'failure',
             output: {
-              title: patchPassed ? `Successful — ${patchCoverage}%` : `Failed — ${patchCoverage}%`,
+              title: patchPassed ? `OK - ${patchCoverage}%` : `FAIL - ${patchCoverage}%`,
               summary: patchPassed 
                 ? `✅ Patch coverage ${patchCoverage}% meets the ${patchThreshold}% threshold`
                 : `❌ Patch coverage ${patchCoverage}% is below the ${patchThreshold}% threshold`,
