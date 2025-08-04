@@ -142,7 +142,7 @@ jobs:
           
           // Extract overall project coverage
           const coverageMatch = xml.match(/line-rate="([0-9.]+)"/);
-          const projectCoverage = coverageMatch ? (parseFloat(coverageMatch[1]) * 100).toFixed(1) : '0.0';
+          const projectCoverage = coverageMatch ? Math.round(parseFloat(coverageMatch[1]) * 100).toString() : '0';
           
           // For patch coverage, we'll use a simplified approach for now
           // In a full implementation, this would analyze only changed lines
