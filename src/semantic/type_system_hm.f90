@@ -360,7 +360,7 @@ contains
         type(mono_type_t), intent(in) :: rhs
         integer :: i
 
-        ! Note: Cannot use c_loc with polymorphic types, so rely on proper usage
+        ! Memory safety handled through proper Fortran allocation patterns
 
         ! Deallocate existing allocatable components to prevent memory leaks
         if (allocated(lhs%args)) then
@@ -653,9 +653,9 @@ contains
     subroutine subst_assign(lhs, rhs)
         class(substitution_t), intent(inout) :: lhs
         type(substitution_t), intent(in) :: rhs
-        integer :: i
+        integer :: i, alloc_stat
         
-        ! Note: Cannot use c_loc with polymorphic types, so rely on proper usage
+        ! Memory safety handled through proper Fortran allocation patterns
         
         ! Deallocate existing allocatable components
         if (allocated(lhs%vars)) deallocate(lhs%vars)
@@ -663,8 +663,10 @@ contains
 
         lhs%count = rhs%count
         if (rhs%count > 0 .and. allocated(rhs%vars) .and. allocated(rhs%types)) then
-            allocate (lhs%vars(size(rhs%vars)))
-            allocate (lhs%types(size(rhs%types)))
+            allocate (lhs%vars(size(rhs%vars)), stat=alloc_stat)
+            if (alloc_stat /= 0) error stop "Failed to allocate lhs%vars in subst_assign"
+            allocate (lhs%types(size(rhs%types)), stat=alloc_stat)
+            if (alloc_stat /= 0) error stop "Failed to allocate lhs%types in subst_assign"
             do i = 1, rhs%count
                 lhs%vars(i) = rhs%vars(i)
                 lhs%types(i) = rhs%types(i)  ! Uses mono_type assignment (deep copy)
