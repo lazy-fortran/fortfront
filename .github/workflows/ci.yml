@@ -101,6 +101,12 @@ jobs:
           --branch-coverage \
           --legend \
           --title "fortfront Coverage Report"
+        
+        # Install lcov_cobertura for XML conversion
+        pip install lcov_cobertura
+        
+        # Convert lcov to Cobertura XML
+        lcov_cobertura coverage_filtered.info --output cobertura.xml
 
     - name: Create coverage badge
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
@@ -147,147 +153,27 @@ jobs:
         </svg>
         EOF
 
-    - name: Check coverage threshold (PR only)
-      if: github.event_name == 'pull_request'
-      run: |
-        CURRENT_COVERAGE=${{ steps.coverage.outputs.coverage }}
-        
-        # For PRs, ensure we maintain at least 70% coverage
-        if (( $(echo "$CURRENT_COVERAGE < 70" | bc -l) )); then
-          echo "⚠️ Warning: Coverage is below 70% threshold (${CURRENT_COVERAGE}%)"
-          echo "Please add tests to improve coverage."
-        else
-          echo "✅ Coverage is ${CURRENT_COVERAGE}%"
-        fi
-
-    - name: Generate detailed coverage report
-      if: github.event_name == 'pull_request'
-      id: coverage_details
-      run: |
-        # Generate detailed coverage summary
-        echo "## 📊 Coverage Report" > coverage_comment.md
-        echo "" >> coverage_comment.md
-        
-        COVERAGE=${{ steps.coverage.outputs.coverage }}
-        
-        # Add coverage badge
-        if (( $(echo "$COVERAGE >= 80" | bc -l) )); then
-          EMOJI="✅"
-          STATUS="excellent"
-        elif (( $(echo "$COVERAGE >= 70" | bc -l) )); then
-          EMOJI="🟢"
-          STATUS="good"
-        elif (( $(echo "$COVERAGE >= 60" | bc -l) )); then
-          EMOJI="🟡"
-          STATUS="acceptable"
-        elif (( $(echo "$COVERAGE >= 50" | bc -l) )); then
-          EMOJI="🟠"
-          STATUS="low"
-        else
-          EMOJI="🔴"
-          STATUS="critical"
-        fi
-        
-        echo "### Overall Coverage: ${EMOJI} ${COVERAGE}% (${STATUS})" >> coverage_comment.md
-        echo "" >> coverage_comment.md
-        
-        # Add detailed coverage by directory
-        echo "<details>" >> coverage_comment.md
-        echo "<summary>Coverage by Directory</summary>" >> coverage_comment.md
-        echo "" >> coverage_comment.md
-        echo "| Directory | Files | Lines | Coverage |" >> coverage_comment.md
-        echo "|-----------|-------|-------|----------|" >> coverage_comment.md
-        
-        # Parse lcov info for directory coverage
-        for dir in src src/ast src/codegen src/lexer src/parser src/semantic src/standardizer; do
-          if [ -d "$dir" ]; then
-            DIR_STATS=$(lcov --summary coverage_filtered.info 2>&1 | grep -A1000 "Directory" | grep "$dir" | head -1 || true)
-            if [ ! -z "$DIR_STATS" ]; then
-              # Extract coverage percentage for the directory
-              DIR_COV=$(echo "$DIR_STATS" | sed -n 's/.*: \([0-9.]*\)%.*/\1/p' || echo "0.0")
-              FILE_COUNT=$(find "$dir" -maxdepth 1 -name "*.f90" 2>/dev/null | wc -l || echo "0")
-              
-              if [ "$DIR_COV" != "0.0" ] && [ "$FILE_COUNT" != "0" ]; then
-                # Color code based on coverage
-                if (( $(echo "$DIR_COV >= 80" | bc -l) )); then
-                  DIR_EMOJI="✅"
-                elif (( $(echo "$DIR_COV >= 70" | bc -l) )); then
-                  DIR_EMOJI="🟢"
-                elif (( $(echo "$DIR_COV >= 60" | bc -l) )); then
-                  DIR_EMOJI="🟡"
-                elif (( $(echo "$DIR_COV >= 50" | bc -l) )); then
-                  DIR_EMOJI="🟠"
-                else
-                  DIR_EMOJI="🔴"
-                fi
-                echo "| \`$dir/\` | $FILE_COUNT | - | ${DIR_EMOJI} ${DIR_COV}% |" >> coverage_comment.md
-              fi
-            fi
-          fi
-        done
-        
-        echo "" >> coverage_comment.md
-        echo "</details>" >> coverage_comment.md
-        echo "" >> coverage_comment.md
-        
-        # Add test summary
-        echo "<details>" >> coverage_comment.md
-        echo "<summary>Test Execution Summary</summary>" >> coverage_comment.md
-        echo "" >> coverage_comment.md
-        echo "- **Total test files**: $(find test -name "*.f90" | wc -l)" >> coverage_comment.md
-        echo "- **Source files covered**: $(lcov --summary coverage_filtered.info 2>&1 | grep -E "^  lines" | head -1 | sed 's/.*(\([0-9]*\) of.*/\1/' || echo "N/A")" >> coverage_comment.md
-        echo "- **Total lines covered**: $(lcov --summary coverage_filtered.info 2>&1 | grep -E "^  lines" | head -1 | sed 's/.*: \([0-9]*\) of.*/\1/' || echo "N/A")" >> coverage_comment.md
-        echo "" >> coverage_comment.md
-        echo "</details>" >> coverage_comment.md
-        echo "" >> coverage_comment.md
-        
-        # Add threshold check
-        if (( $(echo "$COVERAGE < 70" | bc -l) )); then
-          echo "### ⚠️ Coverage Warning" >> coverage_comment.md
-          echo "" >> coverage_comment.md
-          echo "Coverage is below the **70% threshold**. Please add tests to improve coverage." >> coverage_comment.md
-          echo "" >> coverage_comment.md
-        fi
-        
-        # Add footer
-        echo "---" >> coverage_comment.md
-        echo "_Coverage report generated by CI_" >> coverage_comment.md
-
-    - name: Comment PR with coverage
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v7
+    - name: Produce the coverage report
+      uses: insightsengineering/coverage-action@v3
       with:
-        script: |
-          const fs = require('fs');
-          const comment = fs.readFileSync('coverage_comment.md', 'utf8');
-          
-          // Find existing comment
-          const { data: comments } = await github.rest.issues.listComments({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number,
-          });
-          
-          const botComment = comments.find(comment => 
-            comment.user.type === 'Bot' && 
-            comment.body.includes('Coverage Report')
-          );
-          
-          if (botComment) {
-            await github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: botComment.id,
-              body: comment
-            });
-          } else {
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: comment
-            });
-          }
+        # Path to the Cobertura XML report.
+        path: ./cobertura.xml
+        # Minimum total coverage threshold
+        threshold: 70
+        # Fail the workflow if minimum coverage not met
+        fail: false
+        # Publish the rendered output as a PR comment
+        publish: true
+        # Create a coverage diff report
+        diff: true
+        # Branch to diff against
+        diff-branch: main
+        # Storage for coverage reports
+        diff-storage: _xml_coverage_reports
+        # Custom title for the coverage summary
+        coverage-summary-title: "Fortfront Coverage Report"
+        # Don't fail on coverage regression (warning only)
+        coverage-rate-reduction-failure: false
 
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
