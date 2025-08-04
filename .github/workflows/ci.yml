@@ -158,12 +158,12 @@ jobs:
           await github.rest.checks.create({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            name: `coverage/project — ${projectCoverage}%`,
+            name: 'coverage/project',
             head_sha: context.payload.pull_request.head.sha,
             status: 'completed',
             conclusion: projectPassed ? 'success' : 'failure',
             output: {
-              title: `Project Coverage: ${projectCoverage}%`,
+              title: projectPassed ? `Successful — ${projectCoverage}%` : `Failed — ${projectCoverage}%`,
               summary: projectPassed 
                 ? `✅ Project coverage ${projectCoverage}% meets the ${projectThreshold}% threshold`
                 : `❌ Project coverage ${projectCoverage}% is below the ${projectThreshold}% threshold`,
@@ -175,12 +175,12 @@ jobs:
           await github.rest.checks.create({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            name: `coverage/patch — ${patchCoverage}%`,
+            name: 'coverage/patch',
             head_sha: context.payload.pull_request.head.sha,
             status: 'completed',
             conclusion: patchPassed ? 'success' : 'failure',
             output: {
-              title: `Patch Coverage: ${patchCoverage}%`,
+              title: patchPassed ? `Successful — ${patchCoverage}%` : `Failed — ${patchCoverage}%`,
               summary: patchPassed 
                 ? `✅ Patch coverage ${patchCoverage}% meets the ${patchThreshold}% threshold`
                 : `❌ Patch coverage ${patchCoverage}% is below the ${patchThreshold}% threshold`,
