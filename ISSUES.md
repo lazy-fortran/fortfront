@@ -115,12 +115,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 
 ## 🟢 API and Documentation Improvements
 
-### 🚧 #34 - Document node type identification strategy in public API
+### ✅ #34 - Document node type identification strategy in public API
 **Priority: Medium** | **Impact: Documentation** | **Effort: Low**
-- **Status**: 🚧 **IN PROGRESS** - Working on node type identification documentation
+- **Status**: ✅ **COMPLETED** - Node type identification documentation implemented
 - **Labels**: documentation, enhancement
 - **Description**: Document how to properly identify AST node types
-- **Branch**: feature/34-document-node-type-identification
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### ✅ #14 - Missing Public API for Semantic Information Queries
 **Priority: Medium** | **Impact: API Design** | **Effort: Medium**
@@ -148,12 +148,12 @@ This document lists all open GitHub issues prioritized by architectural impact a
 - **Implementation**: Added temp_tracker_t, integrated with semantic analysis, public API functions
 - **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
-### 🚧 #20 - Include parameter attributes (optional, intent) in AST nodes
+### ✅ #20 - Include parameter attributes (optional, intent) in AST nodes
 **Priority: Low** | **Impact: AST Enhancement** | **Effort: Low**
-- **Status**: 🚧 **IN PROGRESS** - Working on parameter attribute support
+- **Status**: ✅ **COMPLETED** - Parameter attributes support implemented (PR #65)
 - **Labels**: enhancement
 - **Description**: Add parameter metadata to AST nodes
-- **Branch**: feature/20-parameter-attributes
+- **⚠️ PENDING**: Awaiting qodo merge feedback and code coverage analysis before final closure
 
 ### ✅ #19 - Need clearer block boundaries and sibling relationships in AST
 **Priority: Low** | **Impact: API Enhancement** | **Effort: Medium**
