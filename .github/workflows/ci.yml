@@ -76,9 +76,9 @@ jobs:
         fpm clean --all
         fpm test --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
 
-    - name: Generate coverage report
-      id: coverage
+    - name: Generate coverage data for coverage-action
       run: |
+        # Generate lcov coverage data
         lcov --capture --directory build/ --output-file coverage.info \
           --rc branch_coverage=1 \
           --ignore-errors inconsistent \
@@ -93,44 +93,28 @@ jobs:
           --ignore-errors mismatch \
           --ignore-errors unused
         
-        # Extract coverage percentage
-        COVERAGE=$(lcov --summary coverage_filtered.info 2>&1 | grep -E "lines\.\.\.\.\.\.: " | sed 's/.*: \([0-9.]*\)%.*/\1/')
-        echo "Coverage: ${COVERAGE}%"
-        echo "coverage=${COVERAGE}" >> $GITHUB_OUTPUT
-        
-        # Generate HTML report
-        genhtml coverage_filtered.info --output-directory coverage_html \
-          --branch-coverage \
-          --legend \
-          --title "fortfront Coverage Report"
-        
-        # Install lcov_cobertura for XML conversion
+        # Convert to Cobertura XML for coverage-action
         pip install lcov_cobertura
-        
-        # Convert lcov to Cobertura XML
-        echo "Converting lcov to Cobertura XML..."
         lcov_cobertura coverage_filtered.info --output cobertura.xml
         
-        # Verify the XML file was created
-        if [ -f "cobertura.xml" ]; then
-          echo "✅ cobertura.xml created successfully"
-          echo "File size: $(stat -c%s cobertura.xml) bytes"
-          head -10 cobertura.xml
-        else
-          echo "❌ cobertura.xml was not created"
+        # Verify XML was created
+        if [ ! -f "cobertura.xml" ]; then
+          echo "❌ Failed to generate cobertura.xml"
           exit 1
         fi
+        echo "✅ Coverage data ready for coverage-action"
 
 
     - name: Produce the coverage report
       uses: insightsengineering/coverage-action@v3
+      continue-on-error: true
       with:
         # Path to the Cobertura XML report.
         path: ./cobertura.xml
         # Minimum total coverage threshold
         threshold: 70
-        # Fail the workflow if minimum coverage not met
-        fail: false
+        # Fail if coverage below threshold (but continue workflow)
+        fail: true
         # Publish the rendered output as a PR comment
         publish: true
         # Enable diff coverage with storage branch
