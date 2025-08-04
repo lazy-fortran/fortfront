@@ -108,7 +108,18 @@ jobs:
         pip install lcov_cobertura
         
         # Convert lcov to Cobertura XML
+        echo "Converting lcov to Cobertura XML..."
         lcov_cobertura coverage_filtered.info --output cobertura.xml
+        
+        # Verify the XML file was created
+        if [ -f "cobertura.xml" ]; then
+          echo "✅ cobertura.xml created successfully"
+          echo "File size: $(stat -c%s cobertura.xml) bytes"
+          head -10 cobertura.xml
+        else
+          echo "❌ cobertura.xml was not created"
+          exit 1
+        fi
 
     - name: Create coverage badge
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
