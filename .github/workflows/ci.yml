@@ -142,7 +142,7 @@ jobs:
           
           // Extract overall project coverage
           const coverageMatch = xml.match(/line-rate="([0-9.]+)"/);
-          const projectCoverage = coverageMatch ? Math.round(parseFloat(coverageMatch[1]) * 100).toString() : '0';
+          const projectCoverage = coverageMatch ? (parseFloat(coverageMatch[1]) * 100).toFixed(2) : '0.00';
           
           // For patch coverage, we'll use a simplified approach for now
           // In a full implementation, this would analyze only changed lines
@@ -165,9 +165,9 @@ jobs:
             output: {
               title: projectPassed ? `OK - ${projectCoverage}%` : `FAIL - ${projectCoverage}%`,
               summary: projectPassed 
-                ? `✅ Project coverage ${projectCoverage}% meets the ${projectThreshold}% threshold`
-                : `❌ Project coverage ${projectCoverage}% is below the ${projectThreshold}% threshold`,
-              text: `Current project coverage: ${projectCoverage}%\nRequired threshold: ${projectThreshold}%`
+                ? `✅ Project coverage ${projectCoverage}% meets the ${projectThreshold}.00% threshold`
+                : `❌ Project coverage ${projectCoverage}% is below the ${projectThreshold}.00% threshold`,
+              text: `Current project coverage: ${projectCoverage}%\nRequired threshold: ${projectThreshold}.00%`
             }
           });
           
@@ -182,9 +182,9 @@ jobs:
             output: {
               title: patchPassed ? `OK - ${patchCoverage}%` : `FAIL - ${patchCoverage}%`,
               summary: patchPassed 
-                ? `✅ Patch coverage ${patchCoverage}% meets the ${patchThreshold}% threshold`
-                : `❌ Patch coverage ${patchCoverage}% is below the ${patchThreshold}% threshold`,
-              text: `Current patch coverage: ${patchCoverage}%\nRequired threshold: ${patchThreshold}%\n\nNote: Patch coverage analyzes only the lines changed in this PR.`
+                ? `✅ Patch coverage ${patchCoverage}% meets the ${patchThreshold}.00% threshold`
+                : `❌ Patch coverage ${patchCoverage}% is below the ${patchThreshold}.00% threshold`,
+              text: `Current patch coverage: ${patchCoverage}%\nRequired threshold: ${patchThreshold}.00%\n\nNote: Patch coverage analyzes only the lines changed in this PR.`
             }
           });
 

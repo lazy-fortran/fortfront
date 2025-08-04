@@ -106,6 +106,33 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type interface_block_node
 
+    ! Letter specification for implicit statements
+    type, public :: implicit_letter_spec_t
+        character :: start_letter = ' '   ! Starting letter of range
+        character :: end_letter = ' '     ! Ending letter of range (same as start for single letters)
+    end type implicit_letter_spec_t
+
+    ! Type specification for implicit statements
+    type, public :: implicit_type_spec_t
+        character(len=:), allocatable :: type_name    ! "real", "integer", "character", etc.
+        logical :: has_kind = .false.
+        integer :: kind_value = 0
+        logical :: has_length = .false.               ! For character types
+        integer :: length_value = 0
+    end type implicit_type_spec_t
+
+    ! Implicit statement node
+    type, extends(ast_node), public :: implicit_statement_node
+        logical :: is_none = .false.                           ! True for "implicit none"
+        type(implicit_type_spec_t) :: type_spec                ! Type specification
+        type(implicit_letter_spec_t), allocatable :: letter_specs(:)  ! Letter ranges/singles
+    contains
+        procedure :: accept => implicit_statement_accept
+        procedure :: to_json => implicit_statement_to_json
+        procedure :: assign => implicit_statement_assign
+        generic :: assignment(=) => assign
+    end type implicit_statement_node
+
 contains
 
     ! Complex literal implementations
@@ -454,5 +481,91 @@ contains
         ! Copy comment text
         if (allocated(rhs%text)) lhs%text = rhs%text
     end subroutine comment_assign
+
+    ! Implicit statement implementations
+    subroutine implicit_statement_accept(this, visitor)
+        class(implicit_statement_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+        ! For now, do nothing since we don't have a visitor framework in place
+    end subroutine implicit_statement_accept
+
+    subroutine implicit_statement_to_json(this, json, parent)
+        class(implicit_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+        
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'implicit_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'is_none', this%is_none)
+        
+        if (.not. this%is_none) then
+            ! Add type specification as simple fields
+            if (allocated(this%type_spec%type_name)) then
+                call json%add(obj, 'type_name', this%type_spec%type_name)
+            end if
+            call json%add(obj, 'has_kind', this%type_spec%has_kind)
+            if (this%type_spec%has_kind) then
+                call json%add(obj, 'kind_value', this%type_spec%kind_value)
+            end if
+            call json%add(obj, 'has_length', this%type_spec%has_length)
+            if (this%type_spec%has_length) then
+                call json%add(obj, 'length_value', this%type_spec%length_value)
+            end if
+            
+            ! For now, just add letter count - full letter spec serialization can be added later
+            if (allocated(this%letter_specs)) then
+                call json%add(obj, 'letter_specs_count', size(this%letter_specs))
+            else
+                call json%add(obj, 'letter_specs_count', 0)
+            end if
+        end if
+        
+        call json%add(parent, obj)
+    end subroutine implicit_statement_to_json
+
+    subroutine implicit_statement_assign(lhs, rhs)
+        class(implicit_statement_node), intent(inout) :: lhs
+        class(implicit_statement_node), intent(in) :: rhs
+        integer :: i
+        
+        ! Copy base class components
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        end if
+        
+        ! Copy implicit statement specific fields
+        lhs%is_none = rhs%is_none
+        
+        ! Copy type specification
+        if (allocated(rhs%type_spec%type_name)) then
+            lhs%type_spec%type_name = rhs%type_spec%type_name
+        else
+            if (allocated(lhs%type_spec%type_name)) deallocate(lhs%type_spec%type_name)
+        end if
+        lhs%type_spec%has_kind = rhs%type_spec%has_kind
+        lhs%type_spec%kind_value = rhs%type_spec%kind_value
+        lhs%type_spec%has_length = rhs%type_spec%has_length
+        lhs%type_spec%length_value = rhs%type_spec%length_value
+        
+        ! Copy letter specifications
+        if (allocated(rhs%letter_specs)) then
+            if (allocated(lhs%letter_specs)) deallocate(lhs%letter_specs)
+            allocate(lhs%letter_specs(size(rhs%letter_specs)))
+            do i = 1, size(rhs%letter_specs)
+                lhs%letter_specs(i) = rhs%letter_specs(i)
+            end do
+        else
+            if (allocated(lhs%letter_specs)) deallocate(lhs%letter_specs)
+        end if
+    end subroutine implicit_statement_assign
 
 end module ast_nodes_misc
