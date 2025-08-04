@@ -75,14 +75,16 @@ jobs:
         lcov --capture --directory build/ --output-file coverage.info \
           --rc branch_coverage=1 \
           --ignore-errors inconsistent \
-          --ignore-errors mismatch
+          --ignore-errors mismatch \
+          --ignore-errors unused
         lcov --remove coverage.info \
           'build/dependencies/*' \
           'test/*' \
           '/usr/*' \
           --output-file coverage_filtered.info \
           --rc branch_coverage=1 \
-          --ignore-errors mismatch
+          --ignore-errors mismatch \
+          --ignore-errors unused
         
         # Extract coverage percentage
         COVERAGE=$(lcov --summary coverage_filtered.info 2>&1 | grep -E "lines\.\.\.\.\.\.: " | sed 's/.*: \([0-9.]*\)%.*/\1/')
