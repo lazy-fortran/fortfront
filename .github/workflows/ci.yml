@@ -164,16 +164,10 @@ jobs:
         fail: false
         # Publish the rendered output as a PR comment
         publish: true
-        # Create a coverage diff report
-        diff: true
-        # Branch to diff against
-        diff-branch: main
-        # Storage for coverage reports
-        diff-storage: _xml_coverage_reports
+        # Disable coverage diff to avoid creating storage branch
+        diff: false
         # Custom title for the coverage summary
         coverage-summary-title: "Fortfront Coverage Report"
-        # Don't fail on coverage regression (warning only)
-        coverage-rate-reduction-failure: false
 
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
