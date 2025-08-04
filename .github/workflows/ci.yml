@@ -127,10 +127,10 @@ jobs:
         diff-storage: _coverage_storage
         # Custom title for the coverage summary
         coverage-summary-title: "Code Coverage Summary"
-        # Disable togglable report for table view
-        togglable-report: false
-        # Exclude detailed line numbers to get percentage table
-        exclude-detailed-coverage: true
+        # Enable togglable report for organized sections
+        togglable-report: true
+        # Include detailed coverage with percentages and positions
+        exclude-detailed-coverage: false
 
     - name: Create coverage checks
       if: github.event_name == 'pull_request'
