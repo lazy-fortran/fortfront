@@ -4,7 +4,7 @@ module parser_dispatcher_module
     use lexer_core
     use parser_state_module
     use parser_expressions_module
-    use parser_declarations_module, only: parse_declaration, parse_derived_type
+    use parser_declarations, only: parse_declaration, parse_derived_type_def
     use parser_statements_module, only: parse_use_statement, parse_include_statement, &
                                      parse_print_statement, parse_write_statement, &
                                      parse_read_statement, parse_function_definition, &
@@ -131,7 +131,7 @@ contains
             end if
 
             if (is_derived_type_def) then
-                stmt_index = parse_derived_type(parser, arena)
+                stmt_index = parse_derived_type_def(parser, arena)
             else
                 stmt_index = parse_declaration(parser, arena)
             end if
