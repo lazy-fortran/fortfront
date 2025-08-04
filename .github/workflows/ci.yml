@@ -140,7 +140,11 @@ jobs:
         # Storage branch for coverage history (lightweight XML files only)
         diff-storage: _coverage_storage
         # Custom title for the coverage summary
-        coverage-summary-title: "Fortfront Coverage Report"
+        coverage-summary-title: "Code Coverage Summary"
+        # Make report collapsible with nice formatting
+        togglable-report: true
+        # Include detailed per-file coverage
+        exclude-detailed-coverage: false
 
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
