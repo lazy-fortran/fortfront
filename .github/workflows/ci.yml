@@ -12,9 +12,11 @@ on:
       - master
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   issues: write
+  pages: write
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
