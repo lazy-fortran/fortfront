@@ -64,8 +64,155 @@ jobs:
         fpm --version
         python3 --version
 
-    - name: Run all tests
-      run: fpm test
+    - name: Run tests with coverage
+      run: |
+        fpm clean --all
+        fpm test --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
+
+    - name: Generate coverage report
+      id: coverage
+      run: |
+        lcov --capture --directory build/ --output-file coverage.info \
+          --rc branch_coverage=1 \
+          --ignore-errors inconsistent
+        lcov --remove coverage.info \
+          'build/dependencies/*' \
+          'test/*' \
+          '/usr/*' \
+          --output-file coverage_filtered.info \
+          --rc branch_coverage=1
+        
+        # Extract coverage percentage
+        COVERAGE=$(lcov --summary coverage_filtered.info 2>&1 | grep -E "lines\.\.\.\.\.\.: " | sed 's/.*: \([0-9.]*\)%.*/\1/')
+        echo "Coverage: ${COVERAGE}%"
+        echo "coverage=${COVERAGE}" >> $GITHUB_OUTPUT
+        
+        # Generate HTML report
+        genhtml coverage_filtered.info --output-directory coverage_html \
+          --branch-coverage \
+          --legend \
+          --title "fortfront Coverage Report"
+
+    - name: Create coverage badge
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      run: |
+        COVERAGE=${{ steps.coverage.outputs.coverage }}
+        
+        # Determine color based on coverage
+        if (( $(echo "$COVERAGE >= 80" | bc -l) )); then
+          COLOR="brightgreen"
+        elif (( $(echo "$COVERAGE >= 70" | bc -l) )); then
+          COLOR="green"
+        elif (( $(echo "$COVERAGE >= 60" | bc -l) )); then
+          COLOR="yellow"
+        elif (( $(echo "$COVERAGE >= 50" | bc -l) )); then
+          COLOR="orange"
+        else
+          COLOR="red"
+        fi
+        
+        # Create badge JSON
+        echo "{\"schemaVersion\": 1, \"label\": \"coverage\", \"message\": \"${COVERAGE}%\", \"color\": \"${COLOR}\"}" > coverage-badge.json
+        
+        # Create SVG badge
+        cat > coverage-badge.svg << EOF
+        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="114" height="20">
+          <linearGradient id="b" x2="0" y2="100%">
+            <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+            <stop offset="1" stop-opacity=".1"/>
+          </linearGradient>
+          <clipPath id="a">
+            <rect width="114" height="20" rx="3" fill="#fff"/>
+          </clipPath>
+          <g clip-path="url(#a)">
+            <path fill="#555" d="M0 0h63v20H0z"/>
+            <path fill="#${COLOR}" d="M63 0h51v20H63z"/>
+            <path fill="url(#b)" d="M0 0h114v20H0z"/>
+          </g>
+          <g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">
+            <text x="31.5" y="15" fill="#010101" fill-opacity=".3">coverage</text>
+            <text x="31.5" y="14">coverage</text>
+            <text x="86.5" y="15" fill="#010101" fill-opacity=".3">${COVERAGE}%</text>
+            <text x="86.5" y="14">${COVERAGE}%</text>
+          </g>
+        </svg>
+        EOF
+
+    - name: Check coverage threshold (PR only)
+      if: github.event_name == 'pull_request'
+      run: |
+        CURRENT_COVERAGE=${{ steps.coverage.outputs.coverage }}
+        
+        # For PRs, ensure we maintain at least 70% coverage
+        if (( $(echo "$CURRENT_COVERAGE < 70" | bc -l) )); then
+          echo "⚠️ Warning: Coverage is below 70% threshold (${CURRENT_COVERAGE}%)"
+          echo "Please add tests to improve coverage."
+        else
+          echo "✅ Coverage is ${CURRENT_COVERAGE}%"
+        fi
+
+    - name: Comment PR with coverage
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const coverage = '${{ steps.coverage.outputs.coverage }}';
+          
+          let comment = '## 📊 Coverage Report\n\n';
+          comment += `**Total Coverage: ${coverage}%**\n\n`;
+          
+          const coverageFloat = parseFloat(coverage);
+          let emoji = '✅';
+          if (coverageFloat < 50) emoji = '🔴';
+          else if (coverageFloat < 60) emoji = '🟠';
+          else if (coverageFloat < 70) emoji = '🟡';
+          else if (coverageFloat < 80) emoji = '🟢';
+          
+          comment += `${emoji} Coverage: ${coverage}%\n\n`;
+          
+          if (coverageFloat < 70) {
+            comment += '⚠️ **Warning:** Coverage is below the 70% threshold.\n';
+            comment += 'Please add tests to improve coverage.\n';
+          }
+          
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.find(comment => 
+            comment.user.type === 'Bot' && 
+            comment.body.includes('Coverage Report')
+          );
+          
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: comment
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+          }
+
+    - name: Upload coverage artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: |
+          coverage_filtered.info
+          coverage_html/
+          coverage-badge.svg
+          coverage-badge.json
+        retention-days: 30
 
   test-windows:
     runs-on: windows-latest
