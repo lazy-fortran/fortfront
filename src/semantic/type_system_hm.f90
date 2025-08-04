@@ -1,5 +1,6 @@
 module type_system_hm
     ! Hindley-Milner type system for lazy fortran compiler frontend
+    use iso_c_binding, only: c_loc, c_associated
     implicit none
     private
 
@@ -359,6 +360,8 @@ contains
         type(mono_type_t), intent(in) :: rhs
         integer :: i
 
+        ! Note: Cannot use c_loc with polymorphic types, so rely on proper usage
+
         ! Deallocate existing allocatable components to prevent memory leaks
         if (allocated(lhs%args)) then
             deallocate(lhs%args)
@@ -604,32 +607,28 @@ contains
         type(substitution_t), intent(in) :: s1, s2
         type(substitution_t) :: comp
         integer :: i
+        type(mono_type_t) :: applied_type
+        logical :: found
+        integer :: j
 
         ! First apply s1 to all types in s2
         do i = 1, s2%count
-            block
-                type(mono_type_t) :: applied_type
-                call s1%apply(s2%types(i), applied_type)
-                call comp%add(s2%vars(i), applied_type)
-            end block
+            call s1%apply(s2%types(i), applied_type)
+            call comp%add(s2%vars(i), applied_type)
         end do
 
         ! Then add all mappings from s1 that are not in s2
         do i = 1, s1%count
-            block
-                logical :: found
-                integer :: j
-                found = .false.
-                do j = 1, s2%count
-                    if (s1%vars(i)%id == s2%vars(j)%id) then
-                        found = .true.
-                        exit
-                    end if
-                end do
-                if (.not. found) then
-                    call comp%add(s1%vars(i), s1%types(i))
+            found = .false.
+            do j = 1, s2%count
+                if (s1%vars(i)%id == s2%vars(j)%id) then
+                    found = .true.
+                    exit
                 end if
-            end block
+            end do
+            if (.not. found) then
+                call comp%add(s1%vars(i), s1%types(i))
+            end if
         end do
     end function compose_substitutions
 
@@ -656,12 +655,14 @@ contains
         type(substitution_t), intent(in) :: rhs
         integer :: i
         
+        ! Note: Cannot use c_loc with polymorphic types, so rely on proper usage
+        
         ! Deallocate existing allocatable components
         if (allocated(lhs%vars)) deallocate(lhs%vars)
         if (allocated(lhs%types)) deallocate(lhs%types)
 
         lhs%count = rhs%count
-        if (rhs%count > 0 .and. allocated(rhs%vars)) then
+        if (rhs%count > 0 .and. allocated(rhs%vars) .and. allocated(rhs%types)) then
             allocate (lhs%vars(size(rhs%vars)))
             allocate (lhs%types(size(rhs%types)))
             do i = 1, rhs%count
