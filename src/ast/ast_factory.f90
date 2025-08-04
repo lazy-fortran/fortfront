@@ -14,7 +14,7 @@ module ast_factory
     public :: push_associate
     public :: push_case_block, push_case_range, push_case_default, &
               push_select_case_with_default
-    public :: push_use_statement, push_include_statement, push_print_statement, &
+    public :: push_use_statement, push_implicit_statement, push_include_statement, push_print_statement, &
               push_write_statement, push_read_statement, push_read_statement_with_err, &
               push_read_statement_with_end, push_read_statement_with_all_specifiers, &
               push_write_statement_with_iostat, push_write_statement_with_format, &
@@ -926,6 +926,29 @@ contains
         use_index = arena%size
 
     end function push_use_statement
+
+    ! Create implicit statement node and add to stack
+    function push_implicit_statement(arena, is_none, type_name, kind_value, has_kind, &
+                                     length_value, has_length, letter_ranges, &
+                                     line, column, parent_index) result(implicit_index)
+        type(ast_arena_t), intent(inout) :: arena
+        logical, intent(in) :: is_none
+        character(len=*), intent(in), optional :: type_name
+        integer, intent(in), optional :: kind_value
+        logical, intent(in), optional :: has_kind
+        integer, intent(in), optional :: length_value
+        logical, intent(in), optional :: has_length
+        character(len=*), intent(in), optional :: letter_ranges(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: implicit_index
+        type(implicit_statement_node) :: implicit_stmt
+
+        implicit_stmt = create_implicit_statement(is_none, type_name, kind_value, &
+                                                  has_kind, length_value, has_length, &
+                                                  letter_ranges, line, column)
+        call arena%push(implicit_stmt, "implicit_statement", parent_index)
+        implicit_index = arena%size
+    end function push_implicit_statement
 
     ! Create include statement node and add to stack
     function push_include_statement(arena, filename, line, column, &

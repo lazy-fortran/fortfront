@@ -296,7 +296,6 @@ contains
         integer :: implicit_none_index
         integer, allocatable :: declaration_indices(:)
         integer :: i, j, insert_pos, n_declarations
-        type(literal_node) :: implicit_none_node
 
         if (.not. allocated(prog%body_indices)) return
 
@@ -306,13 +305,9 @@ contains
 
         ! Check if implicit none already exists
         if (.not. has_implicit_none(arena, prog)) then
-            ! Create implicit none node
-            implicit_none_node%value = "implicit none"
-            implicit_none_node%literal_kind = LITERAL_STRING
-            implicit_none_node%line = 1
-            implicit_none_node%column = 1
-            call arena%push(implicit_none_node, "implicit_none", prog_index)
-            implicit_none_index = arena%size
+            ! Create implicit none statement node
+            implicit_none_index = push_implicit_statement(arena, .true., &
+                                                         line=1, column=1, parent_index=prog_index)
         else
             implicit_none_index = 0  ! Don't add duplicate
         end if
@@ -1135,7 +1130,6 @@ contains
         integer, intent(in) :: func_index
         integer, allocatable :: new_body_indices(:)
         integer :: implicit_none_index, i, j
-        type(literal_node) :: implicit_none_node
         character(len=:), allocatable :: return_type_str
 
         ! Standardize return type
@@ -1150,13 +1144,9 @@ contains
 
         ! Add implicit none at the beginning of function body
         if (allocated(func_def%body_indices)) then
-            ! Create implicit none node
-            implicit_none_node%value = "implicit none"
-            implicit_none_node%literal_kind = LITERAL_STRING
-            implicit_none_node%line = 1
-            implicit_none_node%column = 1
-            call arena%push(implicit_none_node, "implicit_none", func_index)
-            implicit_none_index = arena%size
+            ! Create implicit none statement node
+            implicit_none_index = push_implicit_statement(arena, .true., &
+                                                         line=1, column=1, parent_index=func_index)
 
             ! Create new body with implicit none at the beginning
             allocate (new_body_indices(size(func_def%body_indices) + 1))
@@ -1306,7 +1296,6 @@ contains
         integer, intent(in) :: sub_index
         integer, allocatable :: new_body_indices(:)
         integer :: implicit_none_index, i, j
-        type(literal_node) :: implicit_none_node
         logical :: has_implicit_none
 
         ! Check if implicit none already exists
@@ -1331,13 +1320,9 @@ contains
 
         ! Add implicit none at the beginning of subroutine body if not present
         if (allocated(sub_def%body_indices) .and. .not. has_implicit_none) then
-            ! Create implicit none node
-            implicit_none_node%value = "implicit none"
-            implicit_none_node%literal_kind = LITERAL_STRING
-            implicit_none_node%line = 1
-            implicit_none_node%column = 1
-            call arena%push(implicit_none_node, "implicit_none", sub_index)
-            implicit_none_index = arena%size
+            ! Create implicit none statement node
+            implicit_none_index = push_implicit_statement(arena, .true., &
+                                                         line=1, column=1, parent_index=sub_index)
 
             ! Create new body with implicit none at the beginning
             allocate (new_body_indices(size(sub_def%body_indices) + 1))
@@ -1351,12 +1336,8 @@ contains
             arena%entries(implicit_none_index)%parent_index = sub_index
         else if (.not. allocated(sub_def%body_indices)) then
             ! For empty body, just add implicit none
-            implicit_none_node%value = "implicit none"
-            implicit_none_node%literal_kind = LITERAL_STRING
-            implicit_none_node%line = 1
-            implicit_none_node%column = 1
-            call arena%push(implicit_none_node, "implicit_none", sub_index)
-            implicit_none_index = arena%size
+            implicit_none_index = push_implicit_statement(arena, .true., &
+                                                         line=1, column=1, parent_index=sub_index)
             
             allocate(sub_def%body_indices(1))
             sub_def%body_indices(1) = implicit_none_index
@@ -1546,7 +1527,6 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: func_index
         type(program_node) :: prog
-        type(literal_node) :: implicit_none_node
         type(contains_node) :: contains_stmt
         integer :: prog_index, implicit_none_index, contains_index
         integer, allocatable :: body_indices(:)
@@ -1557,12 +1537,8 @@ contains
         prog%column = 1
 
         ! Create implicit none
-        implicit_none_node%value = "implicit none"
-        implicit_none_node%literal_kind = LITERAL_STRING
-        implicit_none_node%line = 1
-        implicit_none_node%column = 1
-        call arena%push(implicit_none_node, "implicit_none", 0)
-        implicit_none_index = arena%size
+        implicit_none_index = push_implicit_statement(arena, .true., &
+                                                     line=1, column=1, parent_index=0)
 
         ! Create contains statement
         contains_stmt%line = 1
@@ -1601,7 +1577,6 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: sub_index
         type(program_node) :: prog
-        type(literal_node) :: implicit_none_node
         type(contains_node) :: contains_stmt
         integer :: prog_index, implicit_none_index, contains_index
         integer, allocatable :: body_indices(:)
@@ -1612,12 +1587,8 @@ contains
         prog%column = 1
 
         ! Create implicit none
-        implicit_none_node%value = "implicit none"
-        implicit_none_node%literal_kind = LITERAL_STRING
-        implicit_none_node%line = 1
-        implicit_none_node%column = 1
-        call arena%push(implicit_none_node, "implicit_none", 0)
-        implicit_none_index = arena%size
+        implicit_none_index = push_implicit_statement(arena, .true., &
+                                                     line=1, column=1, parent_index=0)
 
         ! Create contains statement
         contains_stmt%line = 1
