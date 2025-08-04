@@ -15,6 +15,8 @@ program test_subroutine_standardization
     if (.not. test_subroutine_with_params()) all_tests_passed = .false.
     if (.not. test_subroutine_implicit_none()) all_tests_passed = .false.
     if (.not. test_subroutine_param_type_standardization()) all_tests_passed = .false.
+    if (.not. test_subroutine_empty_params()) all_tests_passed = .false.
+    if (.not. test_subroutine_with_existing_implicit_none()) all_tests_passed = .false.
     
     if (all_tests_passed) then
         print *, "All subroutine standardization tests passed!"
@@ -248,5 +250,126 @@ contains
         
         call arena%clear()
     end function test_subroutine_param_type_standardization
+
+    function test_subroutine_empty_params() result(passed)
+        logical :: passed
+        type(ast_arena_t) :: arena
+        type(subroutine_def_node) :: sub_def
+        character(len=:), allocatable :: code_result
+        integer :: sub_index
+        integer, allocatable :: param_indices(:), body_indices(:)
+        
+        passed = .true.
+        
+        ! Create arena
+        arena = create_ast_arena()
+        
+        ! Create subroutine with empty parameter list
+        allocate(param_indices(0))
+        allocate(body_indices(0))
+        
+        sub_def%name = "empty_params"
+        sub_def%param_indices = param_indices
+        sub_def%body_indices = body_indices
+        sub_def%line = 1
+        sub_def%column = 1
+        
+        call arena%push(sub_def, "subroutine", 0)
+        sub_index = arena%size
+        
+        ! Standardize the AST
+        call standardize_ast(arena, sub_index)
+        
+        ! Generate code - should not crash
+        code_result = generate_code_from_arena(arena, sub_index)
+        
+        ! Check that code was generated
+        if (len_trim(code_result) == 0) then
+            passed = .false.
+            print *, "FAIL: No code generated for empty parameter subroutine"
+        end if
+        
+        if (passed) then
+            print *, "PASS: test_subroutine_empty_params"
+        else
+            print *, "FAIL: test_subroutine_empty_params"
+        end if
+        
+        call arena%clear()
+    end function test_subroutine_empty_params
+
+    function test_subroutine_with_existing_implicit_none() result(passed)
+        logical :: passed
+        type(ast_arena_t) :: arena
+        type(subroutine_def_node) :: sub_def
+        type(literal_node) :: implicit_none_node
+        character(len=:), allocatable :: code_result
+        integer :: sub_index, implicit_none_index
+        integer, allocatable :: body_indices(:)
+        integer :: implicit_count
+        
+        passed = .true.
+        
+        ! Create arena
+        arena = create_ast_arena()
+        
+        ! Create existing implicit none statement
+        implicit_none_node%value = "implicit none"
+        implicit_none_node%literal_kind = LITERAL_STRING
+        implicit_none_node%line = 2
+        implicit_none_node%column = 1
+        call arena%push(implicit_none_node, "implicit_none", 0)
+        implicit_none_index = arena%size
+        
+        ! Create subroutine with existing implicit none
+        allocate(body_indices(1))
+        body_indices(1) = implicit_none_index
+        
+        sub_def%name = "has_implicit"
+        sub_def%body_indices = body_indices
+        sub_def%line = 1
+        sub_def%column = 1
+        
+        call arena%push(sub_def, "subroutine", 0)
+        sub_index = arena%size
+        
+        ! Standardize the AST
+        call standardize_ast(arena, sub_index)
+        
+        ! Generate code
+        code_result = generate_code_from_arena(arena, sub_index)
+        
+        ! Count occurrences of "implicit none" - should only be 2 (one added, one existing)
+        implicit_count = 0
+        block
+            integer :: pos, start_pos
+            start_pos = 1
+            do while (start_pos <= len(code_result))
+                pos = index(code_result(start_pos:), "implicit none")
+                if (pos > 0) then
+                    implicit_count = implicit_count + 1
+                    start_pos = start_pos + pos + 12  ! Skip past "implicit none"
+                else
+                    exit
+                end if
+            end do
+        end block
+        
+        ! We expect 2 occurrences: one in program main, one in subroutine (but not duplicate in subroutine)
+        if (implicit_count /= 2) then
+            passed = .false.
+            print *, "FAIL: Expected 2 'implicit none' statements (1 in program, 1 in subroutine), found", implicit_count
+        end if
+        
+        if (passed) then
+            print *, "PASS: test_subroutine_with_existing_implicit_none"
+        else
+            print *, "FAIL: test_subroutine_with_existing_implicit_none"
+            print *, "Generated code:"
+            print *, trim(code_result)
+        end if
+        
+        call arena%clear()
+    end function test_subroutine_with_existing_implicit_none
 
 end program test_subroutine_standardization

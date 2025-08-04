@@ -1307,9 +1307,30 @@ contains
         integer, allocatable :: new_body_indices(:)
         integer :: implicit_none_index, i, j
         type(literal_node) :: implicit_none_node
+        logical :: has_implicit_none
 
-        ! Add implicit none at the beginning of subroutine body
+        ! Check if implicit none already exists
+        has_implicit_none = .false.
         if (allocated(sub_def%body_indices)) then
+            do i = 1, size(sub_def%body_indices)
+                if (sub_def%body_indices(i) > 0 .and. sub_def%body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(sub_def%body_indices(i))%node)) then
+                        select type (node => arena%entries(sub_def%body_indices(i))%node)
+                        type is (literal_node)
+                            if (allocated(node%value)) then
+                                if (index(node%value, "implicit none") > 0) then
+                                    has_implicit_none = .true.
+                                    exit
+                                end if
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        end if
+
+        ! Add implicit none at the beginning of subroutine body if not present
+        if (allocated(sub_def%body_indices) .and. .not. has_implicit_none) then
             ! Create implicit none node
             implicit_none_node%value = "implicit none"
             implicit_none_node%literal_kind = LITERAL_STRING
@@ -1326,6 +1347,20 @@ contains
             end do
             sub_def%body_indices = new_body_indices
 
+            ! Update parent references
+            arena%entries(implicit_none_index)%parent_index = sub_index
+        else if (.not. allocated(sub_def%body_indices)) then
+            ! For empty body, just add implicit none
+            implicit_none_node%value = "implicit none"
+            implicit_none_node%literal_kind = LITERAL_STRING
+            implicit_none_node%line = 1
+            implicit_none_node%column = 1
+            call arena%push(implicit_none_node, "implicit_none", sub_index)
+            implicit_none_index = arena%size
+            
+            allocate(sub_def%body_indices(1))
+            sub_def%body_indices(1) = implicit_none_index
+            
             ! Update parent references
             arena%entries(implicit_none_index)%parent_index = sub_index
         end if
@@ -1372,8 +1407,14 @@ contains
                         param_names(i) = param%name
                     type is (declaration_node)
                         param_names(i) = param%var_name
+                    class default
+                        param_names(i) = ""  ! Set default for unknown node types
                     end select
+                else
+                    param_names(i) = ""  ! Set default for unallocated nodes
                 end if
+            else
+                param_names(i) = ""  ! Set default for invalid indices
             end if
         end do
 
@@ -1414,13 +1455,8 @@ contains
                                     else
                                         ! Infer type from name convention
                                         param_name = param_names(param_idx)
-                                        if (param_name(1:1) >= 'i' .and. param_name(1:1) <= 'n') then
-                                            updated_decl%type_name = "integer"
-                                        else
-                                            updated_decl%type_name = "real"
-                                            updated_decl%has_kind = .true.
-                                            updated_decl%kind_value = 8
-                                        end if
+                                        call infer_parameter_type(param_name, updated_decl%type_name, &
+                                                                 updated_decl%has_kind, updated_decl%kind_value)
                                     end if
                                     
                                     ! Update the declaration in arena
@@ -1455,13 +1491,8 @@ contains
                         param_decl%var_name = param_names(i)
 
                         ! Infer type from name convention
-                        if (param_names(i)(1:1) >= 'i' .and. param_names(i)(1:1) <= 'n') then
-                            param_decl%type_name = "integer"
-                        else
-                            param_decl%type_name = "real"
-                            param_decl%has_kind = .true.
-                            param_decl%kind_value = 8
-                        end if
+                        call infer_parameter_type(param_names(i), param_decl%type_name, &
+                                                 param_decl%has_kind, param_decl%kind_value)
 
                         param_decl%line = 1
                         param_decl%column = 1
@@ -1482,6 +1513,33 @@ contains
             end if
         end if
     end subroutine standardize_subroutine_parameters
+
+    ! Infer parameter type from naming convention
+    subroutine infer_parameter_type(param_name, type_name, has_kind, kind_value)
+        character(len=*), intent(in) :: param_name
+        character(len=:), allocatable, intent(out) :: type_name
+        logical, intent(out) :: has_kind
+        integer, intent(out) :: kind_value
+        
+        has_kind = .false.
+        kind_value = 0
+        
+        if (len_trim(param_name) > 0) then
+            ! Apply Fortran implicit typing convention (i-n for integers)
+            if (param_name(1:1) >= 'i' .and. param_name(1:1) <= 'n') then
+                type_name = "integer"
+            else
+                type_name = "real"
+                has_kind = .true.
+                kind_value = 8
+            end if
+        else
+            ! Default to real for empty names
+            type_name = "real"
+            has_kind = .true.
+            kind_value = 8
+        end if
+    end subroutine infer_parameter_type
 
     ! Wrap a standalone function in a program
     subroutine wrap_function_in_program(arena, func_index)
