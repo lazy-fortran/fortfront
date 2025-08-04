@@ -51,7 +51,10 @@ module fortfront
                         comment_node, contains_node, &
                         LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
                         LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX, &
-                        create_ast_arena, ast_arena_stats_t
+                        create_ast_arena, ast_arena_stats_t, &
+                        create_function_def, create_subroutine_def, &
+                        is_procedure_node, get_procedure_name, get_procedure_params, &
+                        get_procedure_body, procedure_has_return_type, get_procedure_return_type
     
     ! Re-export AST node data utilities  
     use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, INTENT_IN, &

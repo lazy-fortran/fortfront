@@ -6,6 +6,10 @@ module ast_nodes_procedure
 
     ! Public factory functions
     public :: create_function_def, create_subroutine_def
+    
+    ! Public interface helpers
+    public :: is_procedure_node, get_procedure_name, get_procedure_params, get_procedure_body
+    public :: procedure_has_return_type, get_procedure_return_type
 
     ! Procedure-related AST nodes
 
@@ -161,5 +165,119 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_subroutine_def
+
+    ! Helper functions for unified procedure interface
+
+    ! Check if a node is a procedure definition (function or subroutine)
+    function is_procedure_node(node) result(is_proc)
+        class(ast_node), intent(in) :: node
+        logical :: is_proc
+        
+        is_proc = .false.
+        select type (n => node)
+        type is (function_def_node)
+            is_proc = .true.
+        type is (subroutine_def_node)
+            is_proc = .true.
+        end select
+    end function is_procedure_node
+
+    ! Get procedure name (works for both functions and subroutines)
+    function get_procedure_name(node) result(name)
+        class(ast_node), intent(in) :: node
+        character(len=:), allocatable :: name
+        
+        select type (n => node)
+        type is (function_def_node)
+            if (allocated(n%name)) then
+                name = n%name
+            else
+                name = ""
+            end if
+        type is (subroutine_def_node)
+            if (allocated(n%name)) then
+                name = n%name
+            else
+                name = ""
+            end if
+        class default
+            name = ""
+        end select
+    end function get_procedure_name
+
+    ! Get procedure parameters (works for both functions and subroutines)
+    function get_procedure_params(node) result(param_indices)
+        class(ast_node), intent(in) :: node
+        integer, allocatable :: param_indices(:)
+        
+        select type (n => node)
+        type is (function_def_node)
+            if (allocated(n%param_indices)) then
+                param_indices = n%param_indices
+            else
+                allocate(param_indices(0))
+            end if
+        type is (subroutine_def_node)
+            if (allocated(n%param_indices)) then
+                param_indices = n%param_indices
+            else
+                allocate(param_indices(0))
+            end if
+        class default
+            allocate(param_indices(0))
+        end select
+    end function get_procedure_params
+
+    ! Get procedure body (works for both functions and subroutines)
+    function get_procedure_body(node) result(body_indices)
+        class(ast_node), intent(in) :: node
+        integer, allocatable :: body_indices(:)
+        
+        select type (n => node)
+        type is (function_def_node)
+            if (allocated(n%body_indices)) then
+                body_indices = n%body_indices
+            else
+                allocate(body_indices(0))
+            end if
+        type is (subroutine_def_node)
+            if (allocated(n%body_indices)) then
+                body_indices = n%body_indices
+            else
+                allocate(body_indices(0))
+            end if
+        class default
+            allocate(body_indices(0))
+        end select
+    end function get_procedure_body
+
+    ! Check if procedure has a return type (only functions do)
+    function procedure_has_return_type(node) result(has_return)
+        class(ast_node), intent(in) :: node
+        logical :: has_return
+        
+        has_return = .false.
+        select type (n => node)
+        type is (function_def_node)
+            has_return = .true.
+        end select
+    end function procedure_has_return_type
+
+    ! Get procedure return type (only for functions)
+    function get_procedure_return_type(node) result(return_type)
+        class(ast_node), intent(in) :: node
+        character(len=:), allocatable :: return_type
+        
+        select type (n => node)
+        type is (function_def_node)
+            if (allocated(n%return_type)) then
+                return_type = n%return_type
+            else
+                return_type = ""
+            end if
+        class default
+            return_type = ""
+        end select
+    end function get_procedure_return_type
 
 end module ast_nodes_procedure
