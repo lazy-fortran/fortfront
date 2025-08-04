@@ -108,6 +108,8 @@ contains
             code = generate_code_array_slice(arena, node, node_index)
         type is (array_operation_node)
             code = generate_code_array_operation(arena, node, node_index)
+        type is (implicit_statement_node)
+            code = generate_code_implicit_statement(node)
         class default
             code = "! Unknown node type"
         end select
@@ -2171,6 +2173,62 @@ contains
             code = "!"
         end if
     end function generate_code_comment
+
+    ! Generate code for implicit statement
+    function generate_code_implicit_statement(node) result(code)
+        type(implicit_statement_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        integer :: i
+        character(len=256) :: temp_str
+        
+        if (node%is_none) then
+            code = "implicit none"
+        else
+            ! Build type specification
+            code = "implicit "
+            
+            if (allocated(node%type_spec%type_name)) then
+                code = code // node%type_spec%type_name
+                
+                ! Add kind or length specification
+                if (node%type_spec%has_kind .or. node%type_spec%has_length) then
+                    code = code // "("
+                    
+                    if (node%type_spec%has_length) then
+                        ! Character length specification
+                        if (node%type_spec%length_value > 0) then
+                            write(temp_str, '(I0)') node%type_spec%length_value
+                            code = code // "len=" // trim(temp_str)
+                        end if
+                    else if (node%type_spec%has_kind) then
+                        ! Kind specification
+                        if (node%type_spec%kind_value > 0) then
+                            write(temp_str, '(I0)') node%type_spec%kind_value
+                            code = code // trim(temp_str)
+                        end if
+                    end if
+                    
+                    code = code // ")"
+                end if
+            end if
+            
+            ! Add letter specifications
+            if (allocated(node%letter_specs) .and. size(node%letter_specs) > 0) then
+                code = code // " ("
+                
+                do i = 1, size(node%letter_specs)
+                    if (i > 1) code = code // ", "
+                    
+                    code = code // node%letter_specs(i)%start_letter
+                    if (node%letter_specs(i)%start_letter /= node%letter_specs(i)%end_letter) then
+                        code = code // "-" // node%letter_specs(i)%end_letter
+                    end if
+                end do
+                
+                code = code // ")"
+            end if
+        end if
+    end function generate_code_implicit_statement
 
     ! Set type standardization configuration
     subroutine set_type_standardization(enabled)

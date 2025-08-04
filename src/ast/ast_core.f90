@@ -47,7 +47,8 @@ module ast_core
                               deallocate_statement_node, &
                               use_statement_node, include_statement_node, &
                               contains_node, interface_block_node, &
-                              comment_node
+                              comment_node, implicit_statement_node, &
+                              implicit_type_spec_t, implicit_letter_spec_t
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node, &
                                 range_expression_node, array_operation_node, &
                                 get_array_bounds_node, get_array_slice_node, &
@@ -98,7 +99,7 @@ module ast_core
     public :: create_identifier, create_literal, create_binary_op, &
               create_call_or_subscript, &
               create_assignment, create_program, create_subroutine_call, &
-              create_use_statement, &
+              create_use_statement, create_implicit_statement, &
               create_include_statement, create_interface_block, create_module, &
               create_stop, &
               create_return, create_cycle, create_exit, create_where, &
@@ -260,6 +261,50 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_use_statement
+
+    function create_implicit_statement(is_none, type_name, kind_value, has_kind, &
+                                       length_value, has_length, letter_ranges, &
+                                       line, column) result(node)
+        logical, intent(in) :: is_none
+        character(len=*), intent(in), optional :: type_name
+        integer, intent(in), optional :: kind_value
+        logical, intent(in), optional :: has_kind
+        integer, intent(in), optional :: length_value
+        logical, intent(in), optional :: has_length
+        character(len=*), intent(in), optional :: letter_ranges(:)  ! "a", "i-n", "o-z"
+        integer, intent(in), optional :: line, column
+        type(implicit_statement_node) :: node
+        integer :: i, dash_pos
+
+        node%is_none = is_none
+        
+        if (.not. is_none) then
+            if (present(type_name)) node%type_spec%type_name = type_name
+            if (present(has_kind)) node%type_spec%has_kind = has_kind
+            if (present(kind_value)) node%type_spec%kind_value = kind_value
+            if (present(has_length)) node%type_spec%has_length = has_length
+            if (present(length_value)) node%type_spec%length_value = length_value
+            
+            if (present(letter_ranges)) then
+                allocate(node%letter_specs(size(letter_ranges)))
+                do i = 1, size(letter_ranges)
+                    dash_pos = index(letter_ranges(i), '-')
+                    if (dash_pos > 0) then
+                        ! Range like "a-h"
+                        node%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
+                        node%letter_specs(i)%end_letter = letter_ranges(i)(dash_pos+1:dash_pos+1)
+                    else
+                        ! Single letter like "a"
+                        node%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
+                        node%letter_specs(i)%end_letter = letter_ranges(i)(1:1)
+                    end if
+                end do
+            end if
+        end if
+        
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_implicit_statement
 
     function create_include_statement(filename, line, column) result(node)
         character(len=*), intent(in) :: filename
