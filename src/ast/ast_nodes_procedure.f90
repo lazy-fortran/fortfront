@@ -183,6 +183,7 @@ contains
     end function is_procedure_node
 
     ! Get procedure name (works for both functions and subroutines)
+    ! Memory ownership: Caller owns the returned string and is responsible for deallocation
     function get_procedure_name(node) result(name)
         class(ast_node), intent(in) :: node
         character(len=:), allocatable :: name
@@ -206,6 +207,7 @@ contains
     end function get_procedure_name
 
     ! Get procedure parameters (works for both functions and subroutines)
+    ! Memory ownership: Caller owns the returned array and is responsible for deallocation
     function get_procedure_params(node) result(param_indices)
         class(ast_node), intent(in) :: node
         integer, allocatable :: param_indices(:)
@@ -229,6 +231,7 @@ contains
     end function get_procedure_params
 
     ! Get procedure body (works for both functions and subroutines)
+    ! Memory ownership: Caller owns the returned array and is responsible for deallocation
     function get_procedure_body(node) result(body_indices)
         class(ast_node), intent(in) :: node
         integer, allocatable :: body_indices(:)
@@ -264,6 +267,7 @@ contains
     end function procedure_has_return_type
 
     ! Get procedure return type (only for functions)
+    ! Memory ownership: Caller owns the returned string and is responsible for deallocation
     function get_procedure_return_type(node) result(return_type)
         class(ast_node), intent(in) :: node
         character(len=:), allocatable :: return_type

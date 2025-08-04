@@ -5,18 +5,27 @@ program test_memory_corruption_fix
     implicit none
     
     character(len=*), parameter :: test_code = &
-        "program test_binary_ops" // new_line('a') // &
+        "program test_memory_corruption" // new_line('a') // &
         "implicit none" // new_line('a') // &
-        "real :: a, b, c" // new_line('a') // &
-        "integer :: i, j, k" // new_line('a') // &
+        "real :: a, b, c, matrix(3,3)" // new_line('a') // &
+        "integer :: i, j, k, n" // new_line('a') // &
+        "n = 3" // new_line('a') // &
+        "! Test nested loops with matrix operations (original crash scenario)" // new_line('a') // &
+        "do i = 1, n" // new_line('a') // &
+        "    do j = 1, n" // new_line('a') // &
+        "        matrix(i,j) = real(i) * real(j)" // new_line('a') // &
+        "        if (i == j) then" // new_line('a') // &
+        "            matrix(i,j) = matrix(i,j) + 1.0" // new_line('a') // &
+        "        end if" // new_line('a') // &
+        "    end do" // new_line('a') // &
+        "end do" // new_line('a') // &
+        "! Test complex binary expressions" // new_line('a') // &
         "a = 1.0" // new_line('a') // &
         "b = 2.0" // new_line('a') // &
-        "c = a + b * 3.0" // new_line('a') // &  ! Complex binary expression
-        "i = 10" // new_line('a') // &
-        "j = 20" // new_line('a') // &
-        "k = i + j - 5" // new_line('a') // &     ! Another complex expression  
-        "c = c + real(k)" // new_line('a') // &  ! Mixed type operation
-        "end program test_binary_ops"
+        "c = a + b * 3.0" // new_line('a') // &
+        "k = i + j - 5" // new_line('a') // &
+        "c = c + real(k) + matrix(1,1)" // new_line('a') // &
+        "end program test_memory_corruption"
     
     character(len=:), allocatable :: output_code, error_msg
     

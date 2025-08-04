@@ -11,6 +11,7 @@ program test_procedure_interface_consistency
     call test_unified_procedure_interface()
     call test_interface_block_with_procedures()
     call test_procedure_helper_functions()
+    call test_procedure_edge_cases()
     
     if (all_tests_passed) then
         print *, "All procedure interface consistency tests PASSED!"
@@ -222,5 +223,119 @@ contains
         
         print *, "PASSED: Procedure helper functions with non-procedure"
     end subroutine test_procedure_helper_functions
+
+    subroutine test_procedure_edge_cases()
+        type(ast_arena_t) :: arena
+        type(function_def_node) :: empty_func_node
+        type(subroutine_def_node) :: empty_sub_node
+        integer :: empty_func_index, empty_sub_index
+        character(len=:), allocatable :: name, return_type
+        integer, allocatable :: params(:), body(:)
+        logical :: has_return
+
+        print *, "Testing procedure edge cases (no params, no body, unallocated fields)..."
+
+        ! Create test arena
+        arena = create_ast_arena()
+
+        ! Create function node with no parameters and no body (edge case)
+        empty_func_node%name = "empty_func"
+        empty_func_node%return_type = "integer"
+        ! Intentionally leave param_indices and body_indices unallocated
+        call arena%push(empty_func_node, "function_def", 0)
+        empty_func_index = arena%size
+
+        ! Create subroutine node with no parameters and no body (edge case)
+        empty_sub_node%name = "empty_sub"
+        ! Intentionally leave param_indices and body_indices unallocated
+        call arena%push(empty_sub_node, "subroutine_def", 0)
+        empty_sub_index = arena%size
+
+        ! Test empty function
+        if (.not. is_procedure_node(arena%entries(empty_func_index)%node)) then
+            print *, "FAILED: Empty function not recognized as procedure"
+            all_tests_passed = .false.
+            return
+        end if
+
+        name = get_procedure_name(arena%entries(empty_func_index)%node)
+        if (name /= "empty_func") then
+            print *, "FAILED: Empty function name mismatch:", name
+            all_tests_passed = .false.
+            return
+        end if
+
+        params = get_procedure_params(arena%entries(empty_func_index)%node)
+        if (size(params) /= 0) then
+            print *, "FAILED: Empty function should have zero parameters"
+            all_tests_passed = .false.
+            return
+        end if
+
+        body = get_procedure_body(arena%entries(empty_func_index)%node)
+        if (size(body) /= 0) then
+            print *, "FAILED: Empty function should have zero body elements"
+            all_tests_passed = .false.
+            return
+        end if
+
+        has_return = procedure_has_return_type(arena%entries(empty_func_index)%node)
+        if (.not. has_return) then
+            print *, "FAILED: Empty function should have return type"
+            all_tests_passed = .false.
+            return
+        end if
+
+        return_type = get_procedure_return_type(arena%entries(empty_func_index)%node)
+        if (return_type /= "integer") then
+            print *, "FAILED: Empty function return type mismatch:", return_type
+            all_tests_passed = .false.
+            return
+        end if
+
+        ! Test empty subroutine
+        if (.not. is_procedure_node(arena%entries(empty_sub_index)%node)) then
+            print *, "FAILED: Empty subroutine not recognized as procedure"
+            all_tests_passed = .false.
+            return
+        end if
+
+        name = get_procedure_name(arena%entries(empty_sub_index)%node)
+        if (name /= "empty_sub") then
+            print *, "FAILED: Empty subroutine name mismatch:", name
+            all_tests_passed = .false.
+            return
+        end if
+
+        params = get_procedure_params(arena%entries(empty_sub_index)%node)
+        if (size(params) /= 0) then
+            print *, "FAILED: Empty subroutine should have zero parameters"
+            all_tests_passed = .false.
+            return
+        end if
+
+        body = get_procedure_body(arena%entries(empty_sub_index)%node)
+        if (size(body) /= 0) then
+            print *, "FAILED: Empty subroutine should have zero body elements"
+            all_tests_passed = .false.
+            return
+        end if
+
+        has_return = procedure_has_return_type(arena%entries(empty_sub_index)%node)
+        if (has_return) then
+            print *, "FAILED: Empty subroutine should not have return type"
+            all_tests_passed = .false.
+            return
+        end if
+
+        return_type = get_procedure_return_type(arena%entries(empty_sub_index)%node)
+        if (return_type /= "") then
+            print *, "FAILED: Empty subroutine should have empty return type"
+            all_tests_passed = .false.
+            return
+        end if
+
+        print *, "PASSED: Procedure edge cases"
+    end subroutine test_procedure_edge_cases
 
 end program test_procedure_interface_consistency
