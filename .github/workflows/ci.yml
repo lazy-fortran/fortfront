@@ -164,8 +164,12 @@ jobs:
         fail: false
         # Publish the rendered output as a PR comment
         publish: true
-        # Disable coverage diff to avoid creating storage branch
-        diff: false
+        # Enable diff coverage with storage branch
+        diff: true
+        # Branch to diff against
+        diff-branch: main
+        # Storage branch for coverage history (lightweight XML files only)
+        diff-storage: _coverage_storage
         # Custom title for the coverage summary
         coverage-summary-title: "Fortfront Coverage Report"
 
