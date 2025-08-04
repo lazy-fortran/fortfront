@@ -1121,7 +1121,7 @@ contains
                     type is (function_def_node)
                         call standardize_function_def(arena, stmt, prog%body_indices(i))
                     type is (subroutine_def_node)
-                        ! TODO: Implement subroutine standardization
+                        call standardize_subroutine_def(arena, stmt, prog%body_indices(i))
                     end select
                 end if
             end if
@@ -1299,6 +1299,190 @@ contains
         end if
     end subroutine standardize_function_parameters
 
+    ! Standardize subroutine definitions similar to function definitions
+    subroutine standardize_subroutine_def(arena, sub_def, sub_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(subroutine_def_node), intent(inout) :: sub_def
+        integer, intent(in) :: sub_index
+        integer, allocatable :: new_body_indices(:)
+        integer :: implicit_none_index, i, j
+        type(literal_node) :: implicit_none_node
+
+        ! Add implicit none at the beginning of subroutine body
+        if (allocated(sub_def%body_indices)) then
+            ! Create implicit none node
+            implicit_none_node%value = "implicit none"
+            implicit_none_node%literal_kind = LITERAL_STRING
+            implicit_none_node%line = 1
+            implicit_none_node%column = 1
+            call arena%push(implicit_none_node, "implicit_none", sub_index)
+            implicit_none_index = arena%size
+
+            ! Create new body with implicit none at the beginning
+            allocate (new_body_indices(size(sub_def%body_indices) + 1))
+            new_body_indices(1) = implicit_none_index
+            do i = 1, size(sub_def%body_indices)
+                new_body_indices(i + 1) = sub_def%body_indices(i)
+            end do
+            sub_def%body_indices = new_body_indices
+
+            ! Update parent references
+            arena%entries(implicit_none_index)%parent_index = sub_index
+        end if
+
+        ! Standardize parameters if present
+        if (allocated(sub_def%param_indices)) then
+            call standardize_subroutine_parameters(arena, sub_def, sub_index)
+        end if
+
+        ! Update the arena entry
+        arena%entries(sub_index)%node = sub_def
+    end subroutine standardize_subroutine_def
+
+    ! Standardize subroutine parameters by updating existing declarations or
+    ! adding new ones
+    subroutine standardize_subroutine_parameters(arena, sub_def, sub_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(subroutine_def_node), intent(inout) :: sub_def
+        integer, intent(in) :: sub_index
+        type(declaration_node) :: param_decl
+        integer, allocatable :: new_body_indices(:)
+        integer, allocatable :: param_names_found(:)
+        integer :: i, j, n_params, n_body, param_idx
+        character(len=64) :: param_name
+        character(len=64), allocatable :: param_names(:)
+        logical :: is_param_decl, param_updated
+
+        if (.not. allocated(sub_def%param_indices)) return
+        n_params = size(sub_def%param_indices)
+        if (n_params == 0) return
+
+        ! Get parameter names
+        allocate (param_names(n_params))
+        allocate (param_names_found(n_params))
+        param_names_found = 0
+
+        do i = 1, n_params
+            if (sub_def%param_indices(i) > 0 .and. sub_def%param_indices(i) <= arena%size) then
+                if (allocated(arena%entries(sub_def%param_indices(i))%node)) then
+                    select type (param => arena%entries(sub_def%param_indices(i))%node)
+                    type is (identifier_node)
+                        param_names(i) = param%name
+                    type is (parameter_declaration_node)
+                        param_names(i) = param%name
+                    type is (declaration_node)
+                        param_names(i) = param%var_name
+                    end select
+                end if
+            end if
+        end do
+
+        ! Check existing body for parameter declarations and update them
+        if (allocated(sub_def%body_indices)) then
+            n_body = size(sub_def%body_indices)
+
+            do i = 1, n_body
+                if (sub_def%body_indices(i) > 0 .and. sub_def%body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(sub_def%body_indices(i))%node)) then
+                        select type (stmt => arena%entries(sub_def%body_indices(i))%node)
+                        type is (declaration_node)
+                            ! Check if this declares a parameter
+                            is_param_decl = .false.
+                            param_idx = 0
+                            do j = 1, n_params
+                                if (trim(param_names(j)) == trim(stmt%var_name)) then
+                                    is_param_decl = .true.
+                                    param_idx = j
+                                    exit
+                                end if
+                            end do
+
+                            if (is_param_decl) then
+                                param_names_found(param_idx) = i
+
+                                ! Standardize the type in a block to allow modification
+                                block
+                                    type(declaration_node) :: updated_decl
+                                    updated_decl = stmt
+                                    
+                                    if (allocated(updated_decl%type_name)) then
+                                        if (updated_decl%type_name == "real") then
+                                            updated_decl%type_name = "real"
+                                            updated_decl%has_kind = .true.
+                                            updated_decl%kind_value = 8
+                                        end if
+                                    else
+                                        ! Infer type from name convention
+                                        param_name = param_names(param_idx)
+                                        if (param_name(1:1) >= 'i' .and. param_name(1:1) <= 'n') then
+                                            updated_decl%type_name = "integer"
+                                        else
+                                            updated_decl%type_name = "real"
+                                            updated_decl%has_kind = .true.
+                                            updated_decl%kind_value = 8
+                                        end if
+                                    end if
+                                    
+                                    ! Update the declaration in arena
+                                    arena%entries(sub_def%body_indices(i))%node = updated_decl
+                                end block
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+
+            ! Add declarations for parameters that weren't found
+            n_body = size(sub_def%body_indices)
+            j = 0
+            do i = 1, n_params
+                if (param_names_found(i) == 0) then
+                    j = j + 1
+                end if
+            end do
+
+            if (j > 0) then
+                ! Need to add declarations
+                allocate (new_body_indices(n_body + j))
+
+                ! Copy first statement (should be implicit none)
+                new_body_indices(1) = sub_def%body_indices(1)
+
+                ! Add new parameter declarations
+                j = 1
+                do i = 1, n_params
+                    if (param_names_found(i) == 0) then
+                        param_decl%var_name = param_names(i)
+
+                        ! Infer type from name convention
+                        if (param_names(i)(1:1) >= 'i' .and. param_names(i)(1:1) <= 'n') then
+                            param_decl%type_name = "integer"
+                        else
+                            param_decl%type_name = "real"
+                            param_decl%has_kind = .true.
+                            param_decl%kind_value = 8
+                        end if
+
+                        param_decl%line = 1
+                        param_decl%column = 1
+
+                        call arena%push(param_decl, "parameter_decl", sub_index)
+                        j = j + 1
+                        new_body_indices(j) = arena%size
+                    end if
+                end do
+
+                ! Copy rest of body
+                do i = 2, n_body
+                    j = j + 1
+                    new_body_indices(j) = sub_def%body_indices(i)
+                end do
+
+                sub_def%body_indices = new_body_indices
+            end if
+        end if
+    end subroutine standardize_subroutine_parameters
+
     ! Wrap a standalone function in a program
     subroutine wrap_function_in_program(arena, func_index)
         type(ast_arena_t), intent(inout) :: arena
@@ -1383,7 +1567,15 @@ contains
         call arena%push(contains_stmt, "contains", 0)
         contains_index = arena%size
 
-        ! TODO: Standardize the subroutine if needed
+        ! Standardize the subroutine
+        if (sub_index > 0 .and. sub_index <= arena%size) then
+            if (allocated(arena%entries(sub_index)%node)) then
+                select type (sub_node => arena%entries(sub_index)%node)
+                type is (subroutine_def_node)
+                    call standardize_subroutine_def(arena, sub_node, sub_index)
+                end select
+            end if
+        end if
 
         ! Build program body: implicit none, contains, subroutine
         allocate (body_indices(3))
