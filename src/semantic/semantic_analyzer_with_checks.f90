@@ -46,7 +46,7 @@ contains
             ! Check this assignment
             call check_intent_violations(ctx, arena, node_index, error_msg)
             if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
-                error stop error_msg
+                return  ! Propagate the error message up
             end if
             
         type is (program_node)

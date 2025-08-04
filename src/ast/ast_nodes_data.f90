@@ -33,6 +33,7 @@ module ast_nodes_data
         logical :: has_kind                            ! Whether kind was specified
         character(len=:), allocatable :: intent        ! in, out, inout (for parameters)
         logical :: has_intent = .false.                ! Whether intent was specified
+        logical :: is_optional = .false.               ! Whether optional attribute is present
         integer :: initializer_index = 0              ! Initializer index (stack-based)
         logical :: has_initializer = .false.          ! Whether initializer is present
         ! Array dimension support

@@ -4,7 +4,7 @@ module parser_statements_module
     use lexer_core
     use parser_state_module
     use parser_expressions_module, only: parse_comparison, parse_expression, parse_range
-    use parser_declarations_module, only: parse_declaration, parse_multi_declaration
+    use parser_declarations, only: parse_declaration, parse_multi_declaration
     use ast_core
     use ast_factory
     implicit none
@@ -1090,9 +1090,20 @@ contains
 
             else if (token%kind == TK_IDENTIFIER .and. .not. parsing_type_spec) then
                 ! Simple parameter without explicit type
-                param_indices = [param_indices, push_identifier(arena, &
-                    token%text, token%line, token%column)]
-                param_count = param_count + 1
+                ! Create a parameter_declaration_node even without type info
+                block
+                    integer :: param_index
+                    param_index = push_parameter_declaration(arena, &
+                        name=token%text, &
+                        type_name="", &  ! Empty type, will be inferred from body
+                        kind_value=0, &
+                        intent_value=0, &  ! No intent specified in parameter list
+                        is_optional=.false., &  ! Not optional by default
+                        line=token%line, &
+                        column=token%column)
+                    param_indices = [param_indices, param_index]
+                    param_count = param_count + 1
+                end block
                 token = parser%consume()
             else
                 ! Skip unexpected token
@@ -1413,6 +1424,152 @@ contains
                 end if
             end do
         end block
+        
+        ! Update parameter nodes with attributes from body declarations
+        if (allocated(param_indices) .and. allocated(body_indices)) then
+            block
+                use ast_nodes_data, only: parameter_declaration_node, declaration_node
+                use ast_nodes_core, only: identifier_node
+                integer :: param_idx, body_idx
+                
+                ! Iterate through each parameter
+                do param_idx = 1, size(param_indices)
+                    if (param_indices(param_idx) > 0 .and. &
+                        param_indices(param_idx) <= arena%size) then
+                        if (allocated(arena%entries(param_indices(param_idx))%node)) then
+                            ! Get parameter node
+                            select type (param_node => &
+                                        arena%entries(param_indices(param_idx))%node)
+                            type is (identifier_node)
+                                ! Convert identifier_node to parameter_declaration_node
+                                ! This handles the ambiguous case elegantly
+                                block
+                                    type(parameter_declaration_node) :: new_param_node
+                                    logical :: name_matches
+                                    integer :: name_idx
+                                    
+                                    ! Initialize new parameter node with identifier info
+                                    new_param_node%name = param_node%name
+                                    new_param_node%type_name = ""  ! Will be filled from body
+                                    new_param_node%intent_type = 0  ! No intent by default
+                                    new_param_node%is_optional = .false.
+                                    new_param_node%line = param_node%line
+                                    new_param_node%column = param_node%column
+                                    
+                                    ! Search body for matching declaration to fill attributes
+                                    do body_idx = 1, size(body_indices)
+                                        if (body_indices(body_idx) > 0 .and. &
+                                            body_indices(body_idx) <= arena%size) then
+                                            if (allocated(arena%entries(body_indices(body_idx))%node)) then
+                                                select type (body_node => &
+                                                            arena%entries(body_indices(body_idx))%node)
+                                                type is (declaration_node)
+                                                    name_matches = .false.
+                                                    
+                                                    ! Check single declaration
+                                                    if (allocated(body_node%var_name)) then
+                                                        if (new_param_node%name == body_node%var_name) then
+                                                            name_matches = .true.
+                                                        end if
+                                                    end if
+                                                    
+                                                    ! Check multi-declaration var_names array
+                                                    if (.not. name_matches .and. allocated(body_node%var_names)) then
+                                                        do name_idx = 1, size(body_node%var_names)
+                                                            if (new_param_node%name == trim(body_node%var_names(name_idx))) then
+                                                                name_matches = .true.
+                                                                exit
+                                                            end if
+                                                        end do
+                                                    end if
+                                                    
+                                                    if (name_matches) then
+                                                        ! Fill attributes from body declaration
+                                                        new_param_node%type_name = body_node%type_name
+                                                        if (body_node%has_intent) then
+                                                            if (body_node%intent == "in") then
+                                                                new_param_node%intent_type = 1  ! INTENT_IN
+                                                            else if (body_node%intent == "out") then
+                                                                new_param_node%intent_type = 2  ! INTENT_OUT
+                                                            else if (body_node%intent == "inout") then
+                                                                new_param_node%intent_type = 3  ! INTENT_INOUT
+                                                            end if
+                                                        end if
+                                                        new_param_node%is_optional = body_node%is_optional
+                                                        exit  ! Found matching declaration
+                                                    end if
+                                                end select
+                                            end if
+                                        end if
+                                    end do
+                                    
+                                    ! Replace the identifier_node with parameter_declaration_node in arena
+                                    deallocate(arena%entries(param_indices(param_idx))%node)
+                                    allocate(arena%entries(param_indices(param_idx))%node, source=new_param_node)
+                                end block
+                                
+                            type is (parameter_declaration_node)
+                                ! Search body for matching declaration
+                                do body_idx = 1, size(body_indices)
+                                    if (body_indices(body_idx) > 0 .and. &
+                                        body_indices(body_idx) <= arena%size) then
+                                        if (allocated(arena%entries(body_indices(body_idx))%node)) then
+                                            select type (body_node => &
+                                                        arena%entries(body_indices(body_idx))%node)
+                                            type is (declaration_node)
+                                                ! Check if names match - handle both single and multi-declarations
+                                                block
+                                                    logical :: name_matches
+                                                    integer :: name_idx
+                                                    
+                                                    name_matches = .false.
+                                                    
+                                                    ! Check single declaration
+                                                    if (allocated(body_node%var_name)) then
+                                                        if (param_node%name == body_node%var_name) then
+                                                            name_matches = .true.
+                                                        end if
+                                                    end if
+                                                    
+                                                    ! Check multi-declaration var_names array
+                                                    if (.not. name_matches .and. allocated(body_node%var_names)) then
+                                                        do name_idx = 1, size(body_node%var_names)
+                                                            if (param_node%name == trim(body_node%var_names(name_idx))) then
+                                                                name_matches = .true.
+                                                                exit
+                                                            end if
+                                                        end do
+                                                    end if
+                                                    
+                                                    if (name_matches) then
+                                                    ! Update parameter with body declaration attributes
+                                                    if (body_node%has_intent) then
+                                                        ! Convert intent string to enum
+                                                        if (body_node%intent == "in") then
+                                                            param_node%intent_type = 1  ! INTENT_IN
+                                                        else if (body_node%intent == "out") then
+                                                            param_node%intent_type = 2  ! INTENT_OUT
+                                                        else if (body_node%intent == "inout") then
+                                                            param_node%intent_type = 3  ! INTENT_INOUT
+                                                        end if
+                                                    end if
+                                                    param_node%is_optional = body_node%is_optional
+                                                    ! Update type if not already set
+                                                    if (len_trim(param_node%type_name) == 0) then
+                                                        param_node%type_name = body_node%type_name
+                                                    end if
+                                                    end if
+                                                end block
+                                            end select
+                                        end if
+                                    end if
+                                end do
+                            end select
+                        end if
+                    end if
+                end do
+            end block
+        end if
 
         ! Create subroutine node with collected parameters and body
         sub_index = push_subroutine_def(arena, sub_name, param_indices, &
@@ -1957,6 +2114,8 @@ contains
         stat_var_index = 0
         line = 0
         column = 0
+        allocate(var_indices(0))
+        allocate(shape_indices(0))
         
         ! Consume 'allocate' keyword
         token = parser%consume()
@@ -2025,6 +2184,7 @@ contains
         stat_var_index = 0
         line = 0
         column = 0
+        allocate(var_indices(0))
         
         ! Consume 'deallocate' keyword
         token = parser%consume()

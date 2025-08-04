@@ -209,7 +209,7 @@ contains
   function push_declaration(arena, type_name, var_name, kind_value, &
        dimension_indices, &
        initializer_index, is_allocatable, is_pointer, is_target, &
-       intent_value, line, column, &
+       intent_value, is_optional, line, column, &
        parent_index) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name, var_name
@@ -220,6 +220,7 @@ contains
         logical, intent(in), optional :: is_pointer  
         logical, intent(in), optional :: is_target
         character(len=*), intent(in), optional :: intent_value
+        logical, intent(in), optional :: is_optional
         integer, intent(in), optional :: line, column, parent_index
         integer :: decl_index
         type(declaration_node) :: decl
@@ -276,6 +277,12 @@ contains
             decl%has_intent = .false.
         end if
 
+        if (present(is_optional)) then
+            decl%is_optional = is_optional
+        else
+            decl%is_optional = .false.
+        end if
+
         if (present(line)) decl%line = line
         if (present(column)) decl%column = column
 
@@ -288,7 +295,7 @@ contains
     function push_multi_declaration(arena, type_name, var_names, kind_value, &
            dimension_indices, &
            initializer_index, is_allocatable, is_pointer, is_target, intent_value, &
-           line, column, parent_index) result(decl_index)
+           is_optional, line, column, parent_index) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_names(:)
@@ -299,6 +306,7 @@ contains
         logical, intent(in), optional :: is_pointer
         logical, intent(in), optional :: is_target
         character(len=*), intent(in), optional :: intent_value
+        logical, intent(in), optional :: is_optional
         integer, intent(in), optional :: line, column, parent_index
         integer :: decl_index
         type(declaration_node) :: decl
@@ -360,6 +368,12 @@ contains
             decl%has_intent = .true.
         else
             decl%has_intent = .false.
+        end if
+
+        if (present(is_optional)) then
+            decl%is_optional = is_optional
+        else
+            decl%is_optional = .false.
         end if
 
         if (present(line)) decl%line = line

@@ -1,7 +1,7 @@
 program test_multi_variable_declarations
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, TK_EOF
     use parser_state_module
-    use parser_declarations_module, only: parse_declaration
+    use parser_declarations, only: parse_declaration
     use ast_core
     implicit none
 

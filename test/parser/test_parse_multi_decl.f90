@@ -1,7 +1,7 @@
 program test_parse_multi_decl
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, TK_EOF
     use parser_state_module
-    use parser_declarations_module, only: parse_multi_declaration
+    use parser_declarations, only: parse_multi_declaration
     use ast_core
     use codegen_core
     implicit none

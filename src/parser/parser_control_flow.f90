@@ -8,7 +8,7 @@ module parser_control_flow_module
     use parser_statements_module, only: parse_print_statement, parse_write_statement, &
                                         parse_read_statement, &
                                         parse_cycle_statement, parse_exit_statement
-    use parser_declarations_module, only: parse_declaration, parse_multi_declaration
+    use parser_declarations, only: parse_declaration, parse_multi_declaration
     use ast_core
     use ast_factory, only: push_if, push_do_loop, push_do_while, push_select_case, &
                            push_assignment, push_identifier, push_literal, push_where
