@@ -121,50 +121,6 @@ jobs:
           exit 1
         fi
 
-    - name: Create coverage badge
-      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      run: |
-        COVERAGE=${{ steps.coverage.outputs.coverage }}
-        
-        # Determine color based on coverage
-        if (( $(echo "$COVERAGE >= 80" | bc -l) )); then
-          COLOR="brightgreen"
-        elif (( $(echo "$COVERAGE >= 70" | bc -l) )); then
-          COLOR="green"
-        elif (( $(echo "$COVERAGE >= 60" | bc -l) )); then
-          COLOR="yellow"
-        elif (( $(echo "$COVERAGE >= 50" | bc -l) )); then
-          COLOR="orange"
-        else
-          COLOR="red"
-        fi
-        
-        # Create badge JSON
-        echo "{\"schemaVersion\": 1, \"label\": \"coverage\", \"message\": \"${COVERAGE}%\", \"color\": \"${COLOR}\"}" > coverage-badge.json
-        
-        # Create SVG badge
-        cat > coverage-badge.svg << EOF
-        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="114" height="20">
-          <linearGradient id="b" x2="0" y2="100%">
-            <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
-            <stop offset="1" stop-opacity=".1"/>
-          </linearGradient>
-          <clipPath id="a">
-            <rect width="114" height="20" rx="3" fill="#fff"/>
-          </clipPath>
-          <g clip-path="url(#a)">
-            <path fill="#555" d="M0 0h63v20H0z"/>
-            <path fill="#${COLOR}" d="M63 0h51v20H63z"/>
-            <path fill="url(#b)" d="M0 0h114v20H0z"/>
-          </g>
-          <g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">
-            <text x="31.5" y="15" fill="#010101" fill-opacity=".3">coverage</text>
-            <text x="31.5" y="14">coverage</text>
-            <text x="86.5" y="15" fill="#010101" fill-opacity=".3">${COVERAGE}%</text>
-            <text x="86.5" y="14">${COVERAGE}%</text>
-          </g>
-        </svg>
-        EOF
 
     - name: Produce the coverage report
       uses: insightsengineering/coverage-action@v3
