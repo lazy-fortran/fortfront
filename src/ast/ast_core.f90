@@ -36,7 +36,10 @@ module ast_core
                                  create_select_case
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    subroutine_call_node, &
-                                   create_function_def, create_subroutine_def
+                                   create_function_def, create_subroutine_def, &
+                                   is_procedure_node, get_procedure_name, get_procedure_params, &
+                                   get_procedure_body, procedure_has_return_type, &
+                                   get_procedure_return_type
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                                module_node, derived_type_node, &
                                create_declaration, create_derived_type
@@ -95,6 +98,9 @@ module ast_core
               create_print_statement, create_declaration, create_do_loop, &
               create_do_while, create_if, &
               create_select_case, create_derived_type
+    ! Procedure helper functions for consistent interface
+    public :: is_procedure_node, get_procedure_name, get_procedure_params, &
+              get_procedure_body, procedure_has_return_type, get_procedure_return_type
     ! Factory functions in this module
     public :: create_identifier, create_literal, create_binary_op, &
               create_call_or_subscript, &
