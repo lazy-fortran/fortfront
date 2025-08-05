@@ -312,8 +312,14 @@ contains
             implicit_none_index = 0  ! Don't add duplicate
         end if
 
-        ! Collect and generate variable declarations
-     call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
+        ! Check if program already has variable declarations (is already standardized)
+        if (program_has_variable_declarations(arena, prog)) then
+            ! Program already standardized, don't add more declarations
+            allocate(declaration_indices(0))
+        else
+            ! Collect and generate variable declarations
+            call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
+        end if
         n_declarations = 0
         if (allocated(declaration_indices)) n_declarations = size(declaration_indices)
 
@@ -377,11 +383,40 @@ contains
                             found = .true.
                             return
                         end if
+                    type is (implicit_statement_node)
+                        if (stmt%is_none) then
+                            found = .true.
+                            return
+                        end if
                     end select
                 end if
             end if
         end do
     end function has_implicit_none
+
+    ! Check if program already has variable declarations (indicating it's been standardized)
+    function program_has_variable_declarations(arena, prog) result(has_decls)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        logical :: has_decls
+        integer :: i
+        
+        has_decls = .false.
+        if (.not. allocated(prog%body_indices)) return
+        
+        do i = 1, size(prog%body_indices)
+            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                    select type (stmt => arena%entries(prog%body_indices(i))%node)
+                    type is (declaration_node)
+                        ! Found a variable declaration - program is already standardized
+                        has_decls = .true.
+                        return
+                    end select
+                end if
+            end if
+        end do
+    end function program_has_variable_declarations
 
     ! Find where to insert declarations (after use statements)
     function find_declaration_insertion_point(arena, prog) result(pos)
