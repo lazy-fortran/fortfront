@@ -115,6 +115,14 @@ contains
             call process_case_block_node_children(arena, node_index, info)
         case ("do_loop")
             call process_do_loop_node_children(arena, node_index, info)
+        case ("assignment")
+            call process_assignment_node_children(arena, node_index, info)
+        case ("subroutine_call", "call_statement")
+            call process_subroutine_call_children(arena, node_index, info)
+        case ("write_statement")
+            call process_write_statement_children(arena, node_index, info)
+        case ("read_statement")
+            call process_read_statement_children(arena, node_index, info)
         end select
     end subroutine collect_identifiers_recursive
 
@@ -660,6 +668,116 @@ contains
             end if
         end select
     end subroutine process_do_loop_node_children
+
+    ! Process assignment node children
+    subroutine process_assignment_node_children(arena, node_index, info)
+        use ast_nodes_core, only: assignment_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (assignment_node)
+            ! Process target (LHS) - might have array subscripts
+            if (node%target_index > 0) then
+                call collect_identifiers_recursive(arena, node%target_index, info)
+            end if
+            
+            ! Process value (RHS)
+            if (node%value_index > 0) then
+                call collect_identifiers_recursive(arena, node%value_index, info)
+            end if
+        end select
+    end subroutine process_assignment_node_children
+
+    ! Process subroutine call children
+    subroutine process_subroutine_call_children(arena, node_index, info)
+        use ast_nodes_procedure, only: subroutine_call_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        integer :: i
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (subroutine_call_node)
+            ! Subroutine name is stored as string, not index
+            if (allocated(node%name)) then
+                call add_string_to_info(node%name, node_index, info)
+            end if
+            
+            ! Process all arguments
+            if (allocated(node%arg_indices)) then
+                do i = 1, size(node%arg_indices)
+                    if (node%arg_indices(i) > 0) then
+                        call collect_identifiers_recursive(arena, node%arg_indices(i), info)
+                    end if
+                end do
+            end if
+        end select
+    end subroutine process_subroutine_call_children
+
+    ! Process write statement children
+    subroutine process_write_statement_children(arena, node_index, info)
+        use ast_nodes_io, only: write_statement_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        integer :: i
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (write_statement_node)
+            ! Unit and format are stored as strings, not indices
+            ! Process all arguments
+            if (allocated(node%arg_indices)) then
+                do i = 1, size(node%arg_indices)
+                    if (node%arg_indices(i) > 0) then
+                        call collect_identifiers_recursive(arena, node%arg_indices(i), info)
+                    end if
+                end do
+            end if
+        end select
+    end subroutine process_write_statement_children
+
+    ! Process read statement children
+    subroutine process_read_statement_children(arena, node_index, info)
+        use ast_nodes_io, only: read_statement_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        integer :: i
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (read_statement_node)
+            ! Unit and format are stored as strings, not indices
+            ! Process all variables to read into
+            if (allocated(node%var_indices)) then
+                do i = 1, size(node%var_indices)
+                    if (node%var_indices(i) > 0) then
+                        call collect_identifiers_recursive(arena, node%var_indices(i), info)
+                    end if
+                end do
+            end if
+        end select
+    end subroutine process_read_statement_children
 
     ! Get list of all identifiers in a subtree (convenience function)
     function get_identifiers_in_subtree(arena, root_index) result(identifiers)
