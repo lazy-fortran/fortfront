@@ -412,6 +412,10 @@ contains
                         ! Found a variable declaration - program is already standardized
                         has_decls = .true.
                         return
+                    type is (parameter_declaration_node)
+                        ! Found a parameter declaration - also indicates standardization
+                        has_decls = .true.
+                        return
                     end select
                 end if
             end if

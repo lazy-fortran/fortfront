@@ -71,7 +71,7 @@ program test_formatting_idempotent
             pos = index(third_output(search_pos:), "implicit none")
             if (pos == 0) exit
             implicit_count = implicit_count + 1
-            search_pos = search_pos + pos + 12  ! Move past "implicit none"
+            search_pos = search_pos + pos + 13  ! Move past "implicit none" (13 chars)
         end do
         
         if (implicit_count /= 1) then

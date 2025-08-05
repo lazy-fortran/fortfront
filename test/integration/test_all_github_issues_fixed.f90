@@ -69,7 +69,7 @@ program test_all_github_issues_fixed
                         pos = index(second_output(search_pos:), "implicit none")
                         if (pos == 0) exit
                         implicit_count = implicit_count + 1
-                        search_pos = search_pos + pos + 12
+                        search_pos = search_pos + pos + 13  ! "implicit none" is 13 characters
                     end do
                     
                     if (implicit_count > 1) then
