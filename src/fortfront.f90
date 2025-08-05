@@ -48,7 +48,7 @@ module fortfront
                         where_node, interface_block_node, derived_type_node, &
                         pointer_assignment_node, forall_node, case_range_node, &
                         case_default_node, complex_literal_node, &
-                        comment_node, contains_node, &
+                        comment_node, contains_node, implicit_statement_node, &
                         LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
                         LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX, &
                         create_ast_arena, ast_arena_stats_t, &
@@ -217,6 +217,12 @@ module fortfront
               get_cfg_unreachable_statements, print_control_flow_graph, &
               export_cfg_to_dot
 
+    ! Public procedure and parameter analysis APIs for issue #84
+    public :: count_procedure_parameters, get_parameter_intent, &
+              get_parameter_type, is_parameter_optional, &
+              get_procedure_signature, get_procedure_references, &
+              is_procedure_used_in_generic, get_parameter_usage_context
+
     ! Public variable usage tracking APIs for issue #16
     public :: variable_usage_info_t, expression_visitor_t, &
               create_variable_usage_info, get_variables_in_expression, &
@@ -272,6 +278,7 @@ module fortfront
     integer, parameter :: NODE_CONTAINS = 38
     integer, parameter :: NODE_FORMAT_DESCRIPTOR = 39
     integer, parameter :: NODE_COMMENT = 40
+    integer, parameter :: NODE_IMPLICIT_STATEMENT = 41
     integer, parameter :: NODE_UNKNOWN = 99
     
     ! Additional facade-specific types and procedures
@@ -755,6 +762,8 @@ contains
             node_type = NODE_FORMAT_DESCRIPTOR
         case ("comment_node", "comment")
             node_type = NODE_COMMENT
+        case ("implicit_statement_node", "implicit_statement")
+            node_type = NODE_IMPLICIT_STATEMENT
         end select
     end function get_node_type
     
@@ -2013,5 +2022,290 @@ contains
         
         dot_string = cfg_to_dot(cfg)
     end function export_cfg_to_dot
+
+    ! ========================================================================
+    ! Procedure and Parameter Analysis Functions (Issue #84)
+    ! ========================================================================
+    
+    ! Count the number of parameters in a procedure
+    function count_procedure_parameters(arena, node_index) result(param_count)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: param_count
+        
+        integer, allocatable :: param_indices(:)
+        
+        param_count = 0
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        param_indices = get_procedure_params(arena%entries(node_index)%node)
+        param_count = size(param_indices)
+    end function count_procedure_parameters
+    
+    ! Get the intent of a specific parameter by index (1-based)
+    function get_parameter_intent(arena, node_index, param_index) result(intent_str)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, param_index
+        character(len=:), allocatable :: intent_str
+        
+        integer, allocatable :: param_indices(:)
+        integer :: param_node_index
+        
+        intent_str = ""
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        param_indices = get_procedure_params(arena%entries(node_index)%node)
+        if (param_index < 1 .or. param_index > size(param_indices)) return
+        
+        param_node_index = param_indices(param_index)
+        if (param_node_index <= 0 .or. param_node_index > arena%size) return
+        if (.not. allocated(arena%entries(param_node_index)%node)) return
+        
+        select type (param_node => arena%entries(param_node_index)%node)
+        type is (parameter_declaration_node)
+            intent_str = intent_type_to_string(param_node%intent_type)
+        class default
+            intent_str = ""
+        end select
+    end function get_parameter_intent
+    
+    ! Get the type of a specific parameter by index (1-based)
+    function get_parameter_type(arena, node_index, param_index) result(type_str)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, param_index
+        character(len=:), allocatable :: type_str
+        
+        integer, allocatable :: param_indices(:)
+        integer :: param_node_index
+        
+        type_str = ""
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        param_indices = get_procedure_params(arena%entries(node_index)%node)
+        if (param_index < 1 .or. param_index > size(param_indices)) return
+        
+        param_node_index = param_indices(param_index)
+        if (param_node_index <= 0 .or. param_node_index > arena%size) return
+        if (.not. allocated(arena%entries(param_node_index)%node)) return
+        
+        select type (param_node => arena%entries(param_node_index)%node)
+        type is (parameter_declaration_node)
+            if (allocated(param_node%type_name)) then
+                type_str = param_node%type_name
+            else
+                type_str = "unknown"
+            end if
+        class default
+            type_str = "unknown"
+        end select
+    end function get_parameter_type
+    
+    ! Check if a specific parameter is optional by index (1-based)
+    function is_parameter_optional(arena, node_index, param_index) result(is_optional)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, param_index
+        logical :: is_optional
+        
+        integer, allocatable :: param_indices(:)
+        integer :: param_node_index
+        
+        is_optional = .false.
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        param_indices = get_procedure_params(arena%entries(node_index)%node)
+        if (param_index < 1 .or. param_index > size(param_indices)) return
+        
+        param_node_index = param_indices(param_index)
+        if (param_node_index <= 0 .or. param_node_index > arena%size) return
+        if (.not. allocated(arena%entries(param_node_index)%node)) return
+        
+        select type (param_node => arena%entries(param_node_index)%node)
+        type is (parameter_declaration_node)
+            is_optional = param_node%is_optional
+        end select
+    end function is_parameter_optional
+    
+    ! Get a human-readable signature string for a procedure
+    function get_procedure_signature(arena, node_index) result(signature)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: signature
+        
+        character(len=:), allocatable :: proc_name, return_type
+        integer, allocatable :: param_indices(:)
+        integer :: i
+        character(len=256) :: temp_sig
+        character(len=:), allocatable :: param_type, param_intent
+        
+        signature = ""
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        ! Get procedure name
+        proc_name = get_procedure_name(arena%entries(node_index)%node)
+        if (len(proc_name) == 0) return
+        
+        ! Check if it's a function with return type
+        if (procedure_has_return_type(arena%entries(node_index)%node)) then
+            return_type = get_procedure_return_type(arena%entries(node_index)%node)
+            write(temp_sig, '(A,A,A)') "function ", trim(proc_name), "("
+        else
+            write(temp_sig, '(A,A,A)') "subroutine ", trim(proc_name), "("
+        end if
+        
+        ! Add parameters
+        param_indices = get_procedure_params(arena%entries(node_index)%node)
+        do i = 1, size(param_indices)
+            if (i > 1) then
+                temp_sig = trim(temp_sig) // ", "
+            end if
+            param_type = get_parameter_type(arena, node_index, i)
+            param_intent = get_parameter_intent(arena, node_index, i)
+            
+            if (len(param_intent) > 0) then
+                temp_sig = trim(temp_sig) // trim(param_intent) // " " // trim(param_type)
+            else
+                temp_sig = trim(temp_sig) // trim(param_type)
+            end if
+            
+            if (is_parameter_optional(arena, node_index, i)) then
+                temp_sig = trim(temp_sig) // ", optional"
+            end if
+        end do
+        
+        temp_sig = trim(temp_sig) // ")"
+        
+        ! Add return type for functions
+        if (procedure_has_return_type(arena%entries(node_index)%node)) then
+            temp_sig = trim(temp_sig) // " result(" // trim(return_type) // ")"
+        end if
+        
+        signature = trim(temp_sig)
+    end function get_procedure_signature
+    
+    ! Get all references to a procedure by name throughout the AST
+    function get_procedure_references(arena, proc_name) result(reference_indices)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: proc_name
+        integer, allocatable :: reference_indices(:)
+        
+        integer, parameter :: MAX_REFS = 1000
+        integer :: temp_refs(MAX_REFS)
+        integer :: ref_count, i
+        
+        ref_count = 0
+        
+        ! Search through all nodes for procedure calls and references
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            
+            select type (node => arena%entries(i)%node)
+            type is (subroutine_call_node)
+                if (allocated(node%name) .and. node%name == proc_name) then
+                    ref_count = ref_count + 1
+                    if (ref_count <= MAX_REFS) temp_refs(ref_count) = i
+                end if
+            type is (call_or_subscript_node)
+                if (allocated(node%name) .and. node%name == proc_name) then
+                    ref_count = ref_count + 1
+                    if (ref_count <= MAX_REFS) temp_refs(ref_count) = i
+                end if
+            end select
+        end do
+        
+        ! Copy results to properly sized array
+        allocate(reference_indices(ref_count))
+        if (ref_count > 0) then
+            reference_indices(1:ref_count) = temp_refs(1:ref_count)
+        end if
+    end function get_procedure_references
+    
+    ! Check if a procedure is used in a generic interface
+    function is_procedure_used_in_generic(arena, proc_name) result(is_used)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: proc_name
+        logical :: is_used
+        
+        integer :: i
+        
+        is_used = .false.
+        
+        ! Search through interface blocks for generic procedure usage
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            
+            select type (node => arena%entries(i)%node)
+            type is (interface_block_node)
+                if (allocated(node%procedure_indices)) then
+                    block
+                        integer :: j, proc_idx
+                        do j = 1, size(node%procedure_indices)
+                            proc_idx = node%procedure_indices(j)
+                            if (proc_idx > 0 .and. proc_idx <= arena%size) then
+                                if (allocated(arena%entries(proc_idx)%node)) then
+                                    select type (proc_node => arena%entries(proc_idx)%node)
+                                    type is (function_def_node)
+                                        if (allocated(proc_node%name) .and. proc_node%name == proc_name) then
+                                            is_used = .true.
+                                            return
+                                        end if
+                                    type is (subroutine_def_node)
+                                        if (allocated(proc_node%name) .and. proc_node%name == proc_name) then
+                                            is_used = .true.
+                                            return
+                                        end if
+                                    end select
+                                end if
+                            end if
+                        end do
+                    end block
+                end if
+            end select
+        end do
+    end function is_procedure_used_in_generic
+    
+    ! Get usage context information for a parameter
+    function get_parameter_usage_context(arena, param_name) result(context_info)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: param_name
+        character(len=:), allocatable :: context_info
+        
+        integer :: i, usage_count, definition_count
+        character(len=256) :: temp_info
+        
+        usage_count = 0
+        definition_count = 0
+        
+        ! Count parameter usages and definitions
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            
+            select type (node => arena%entries(i)%node)
+            type is (identifier_node)
+                if (allocated(node%name) .and. node%name == param_name) then
+                    usage_count = usage_count + 1
+                end if
+            type is (assignment_node)
+                ! Check if parameter is being assigned to (definition)
+                if (node%target_index > 0 .and. node%target_index <= arena%size) then
+                    if (allocated(arena%entries(node%target_index)%node)) then
+                        select type (target => arena%entries(node%target_index)%node)
+                        type is (identifier_node)
+                            if (allocated(target%name) .and. target%name == param_name) then
+                                definition_count = definition_count + 1
+                            end if
+                        end select
+                    end if
+                end if
+            end select
+        end do
+        
+        write(temp_info, '(A,I0,A,I0,A)') "Parameter '", usage_count, "' usages, '", definition_count, "' definitions"
+        context_info = trim(temp_info)
+    end function get_parameter_usage_context
 
 end module fortfront
