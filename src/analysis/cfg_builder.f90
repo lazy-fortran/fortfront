@@ -143,6 +143,21 @@ contains
         case ("forall_statement", "forall_node")
             call process_forall(builder, arena, node_index)
             
+        case ("allocate_statement", "allocate_node")
+            call process_allocate(builder, arena, node_index)
+            
+        case ("deallocate_statement", "deallocate_node")
+            call process_deallocate(builder, arena, node_index)
+            
+        case ("open_statement", "open_node")
+            call process_io_with_exception(builder, arena, node_index)
+            
+        case ("read_statement", "read_node")
+            call process_io_with_exception(builder, arena, node_index)
+            
+        case ("write_statement", "write_node")
+            call process_io_with_exception(builder, arena, node_index)
+            
         case default
             ! For other nodes, add to current block
             call add_statement_to_buffer(builder, node_index)
@@ -566,5 +581,46 @@ contains
         ! Clear buffer
         builder%buffer_size = 0
     end subroutine flush_statement_buffer
+
+    ! Process allocate statement with exception handling
+    subroutine process_allocate(builder, arena, node_index)
+        type(cfg_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        
+        integer :: success_block_id, failure_block_id, merge_block_id
+        
+        ! Add allocate to current block
+        call add_statement_to_buffer(builder, node_index)
+        
+        ! Check if this allocate has a stat= parameter
+        ! If so, create branches for success/failure
+        ! TODO: Check AST node for stat= parameter presence
+        ! For now, just treat as regular statement
+    end subroutine process_allocate
+
+    ! Process deallocate statement with exception handling
+    subroutine process_deallocate(builder, arena, node_index)
+        type(cfg_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        
+        ! Similar to allocate
+        call add_statement_to_buffer(builder, node_index)
+    end subroutine process_deallocate
+
+    ! Process I/O statements with exception handling
+    subroutine process_io_with_exception(builder, arena, node_index)
+        type(cfg_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        
+        ! Add I/O statement to current block
+        call add_statement_to_buffer(builder, node_index)
+        
+        ! Check if this I/O statement has iostat= or err= parameters
+        ! If so, create branches for success/failure/error conditions
+        ! TODO: Check AST node for exception handling parameters
+    end subroutine process_io_with_exception
 
 end module cfg_builder_module
