@@ -7,6 +7,7 @@ module parser_statements_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use ast_core
     use ast_factory
+    use ast_types, only: LITERAL_STRING
     implicit none
     private
 
@@ -2598,6 +2599,13 @@ contains
         ! Parse condition (should be in parentheses)
         condition_index = parse_if_condition_simple(parser, arena)
         
+        ! Error handling: check if condition parsing failed
+        if (condition_index <= 0) then
+            ! Create error literal node for malformed condition
+            condition_index = push_literal(arena, "! Error: malformed if condition", &
+                                         LITERAL_STRING, if_token%line, if_token%column)
+        end if
+        
         ! Look for 'then' keyword
         then_token = parser%peek()
         if (then_token%kind == TK_KEYWORD .and. then_token%text == "then") then
@@ -2609,7 +2617,7 @@ contains
             allocate(else_body_indices(0))
             allocate(elseif_indices(0))
             
-            ! Simple parsing - look for print statements until endif
+            ! Parse all statements within if block until endif
             do while (.not. parser%is_at_end())
                 then_token = parser%peek()
                 
@@ -2618,21 +2626,27 @@ contains
                         ! End of if statement
                         then_token = parser%consume()
                         exit
-                    else if (then_token%text == "print") then
-                        ! Parse print statement
+                    else
+                        ! Parse any statement type within if block
                         block
                             integer :: stmt_idx
-                            stmt_idx = parse_print_statement(parser, arena)
+                            stmt_idx = parse_statement_in_if_block(parser, arena, then_token)
                             if (stmt_idx > 0) then
                                 then_body_indices = [then_body_indices, stmt_idx]
                             end if
                         end block
-                    else
-                        ! Skip other statements for now
-                        then_token = parser%consume()
                     end if
+                else if (then_token%kind == TK_IDENTIFIER) then
+                    ! Could be assignment or other identifier-based statement
+                    block
+                        integer :: stmt_idx
+                        stmt_idx = parse_assignment_simple(parser, arena)
+                        if (stmt_idx > 0) then
+                            then_body_indices = [then_body_indices, stmt_idx]
+                        end if
+                    end block
                 else
-                    ! Skip non-keywords
+                    ! Skip unexpected tokens
                     then_token = parser%consume()
                 end if
             end do
@@ -2649,32 +2663,130 @@ contains
         
     end function parse_if_simple
     
-    ! Simple if condition parser
+    ! Simple if condition parser with error handling
     function parse_if_condition_simple(parser, arena) result(condition_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: condition_index
         
         type(token_t) :: token
+        logical :: has_parens
         
-        ! Expect opening parenthesis
+        condition_index = 0
+        has_parens = .false.
+        
+        ! Check for opening parenthesis
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()  ! consume '('
-            
-            ! Parse the condition expression
-            condition_index = parse_comparison(parser, arena)
-            
+            has_parens = .true.
+        end if
+        
+        ! Parse the condition expression
+        condition_index = parse_comparison(parser, arena)
+        
+        ! Error handling: check if expression parsing failed
+        if (condition_index <= 0) then
+            ! Return error - caller will handle it
+            return
+        end if
+        
+        if (has_parens) then
             ! Expect closing parenthesis
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
                 token = parser%consume()  ! consume ')'
+            else
+                ! Error: missing closing parenthesis
+                ! Return error to indicate malformed condition
+                condition_index = 0
+                return
             end if
-        else
-            ! No parentheses - parse as expression directly
-            condition_index = parse_comparison(parser, arena)
         end if
         
     end function parse_if_condition_simple
+
+    ! Parse statement within if block - handles common statement types
+    function parse_statement_in_if_block(parser, arena, token) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: token
+        integer :: stmt_index
+        
+        ! Parse different statement types based on keyword
+        select case (token%text)
+        case ("print")
+            stmt_index = parse_print_statement(parser, arena)
+        case ("allocate")
+            stmt_index = parse_allocate_statement(parser, arena)
+        case ("deallocate")
+            stmt_index = parse_deallocate_statement(parser, arena)
+        case ("call")
+            stmt_index = parse_call_statement(parser, arena)
+        case ("write")
+            stmt_index = parse_write_statement(parser, arena)
+        case ("read")
+            stmt_index = parse_read_statement(parser, arena)
+        case ("stop")
+            stmt_index = parse_stop_statement(parser, arena)
+        case ("return")
+            stmt_index = parse_return_statement(parser, arena)
+        case ("cycle")
+            stmt_index = parse_cycle_statement(parser, arena)
+        case ("exit")
+            stmt_index = parse_exit_statement(parser, arena)
+        case ("integer", "real", "logical", "character", "complex")
+            ! Declaration statement
+            stmt_index = parse_declaration(parser, arena)
+        case default
+            ! Skip unknown statements
+            block
+                type(token_t) :: skip_token
+                skip_token = parser%consume()
+            end block
+            stmt_index = 0
+        end select
+        
+    end function parse_statement_in_if_block
+    
+    ! Simple assignment parser for identifier-based statements
+    function parse_assignment_simple(parser, arena) result(assign_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: assign_index
+        
+        type(token_t) :: var_token, assign_token
+        integer :: target_index, value_index
+        
+        ! Get variable name
+        var_token = parser%peek()
+        if (var_token%kind == TK_IDENTIFIER) then
+            var_token = parser%consume()
+            target_index = push_identifier(arena, var_token%text, var_token%line, var_token%column)
+            
+            ! Look for assignment operator
+            assign_token = parser%peek()
+            if (assign_token%kind == TK_OPERATOR .and. assign_token%text == "=") then
+                assign_token = parser%consume()
+                
+                ! Parse value expression
+                value_index = parse_comparison(parser, arena)
+                
+                if (value_index > 0) then
+                    assign_index = push_assignment(arena, target_index, value_index, &
+                                                 var_token%line, var_token%column)
+                else
+                    assign_index = 0
+                end if
+            else
+                ! Not an assignment - might be a function call or other expression
+                ! For now, skip it
+                assign_index = 0
+            end if
+        else
+            assign_index = 0
+        end if
+        
+    end function parse_assignment_simple
 
 end module parser_statements_module
