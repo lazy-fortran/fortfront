@@ -2073,6 +2073,16 @@ contains
                 allocate (stmt_indices(1))
                 stmt_indices(1) = parse_call_statement(parser, arena)
                 return
+            else if (first_token%text == "return") then
+                ! Parse return statement
+                allocate (stmt_indices(1))
+                stmt_indices(1) = parse_return_statement(parser, arena)
+                return
+            else if (first_token%text == "stop") then
+                ! Parse stop statement
+                allocate (stmt_indices(1))
+                stmt_indices(1) = parse_stop_statement(parser, arena)
+                return
             end if
         end if
 

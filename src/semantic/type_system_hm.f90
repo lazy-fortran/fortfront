@@ -355,10 +355,25 @@ contains
     end function mono_type_deep_copy
 
     ! Assignment operator for mono_type_t (deep copy)
-    recursive subroutine mono_type_assign(lhs, rhs)
+    subroutine mono_type_assign(lhs, rhs)
         class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
+        
+        call mono_type_assign_recursive(lhs, rhs, 0)
+    end subroutine mono_type_assign
+    
+    ! Recursive implementation with depth tracking
+    recursive subroutine mono_type_assign_recursive(lhs, rhs, depth)
+        class(mono_type_t), intent(inout) :: lhs
+        type(mono_type_t), intent(in) :: rhs
+        integer, intent(in) :: depth
         integer :: i
+        integer, parameter :: MAX_RECURSION_DEPTH = 100
+        
+        ! Guard against infinite recursion
+        if (depth > MAX_RECURSION_DEPTH) then
+            error stop "Maximum recursion depth exceeded in mono_type_assign - possible circular reference"
+        end if
 
         ! Memory safety handled through proper Fortran allocation patterns
 
@@ -388,12 +403,15 @@ contains
         ! Deep copy args array recursively to handle ALL nesting levels
         if (allocated(rhs%args)) then
             allocate (lhs%args(size(rhs%args)))
-            do i = 1, size(rhs%args)
-                ! Recursively deep copy each element
-                call mono_type_assign(lhs%args(i), rhs%args(i))
-            end do
+            ! Only loop if array is not empty
+            if (size(rhs%args) > 0) then
+                do i = 1, size(rhs%args)
+                    ! Recursively deep copy each element
+                    call mono_type_assign_recursive(lhs%args(i), rhs%args(i), depth + 1)
+                end do
+            end if
         end if
-    end subroutine mono_type_assign
+    end subroutine mono_type_assign_recursive
 
     ! Convert polymorphic type to string
     function poly_type_to_string(this) result(str)

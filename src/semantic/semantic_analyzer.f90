@@ -780,6 +780,18 @@ contains
                 allocate (subst%types(0))
                 return
             end if
+            
+            ! Special case: trying to unify real with character type
+            ! This can happen when passing string to mathematical functions
+            if ((t1_subst%kind == TREAL .and. t2_subst%kind == TCHAR) .or. &
+                (t1_subst%kind == TCHAR .and. t2_subst%kind == TREAL)) then
+                ! Try to create a more helpful error message
+                if (t1_subst%kind == TREAL .and. t2_subst%kind == TCHAR) then
+                    error stop "Type mismatch: expected real type but got character string"
+                else
+                    error stop "Type mismatch: expected character string but got real type"
+                end if
+            end if
 
             ! Check if we have valid types before calling to_string
             if (t1_subst%kind >= TVAR .and. t1_subst%kind <= TARRAY .and. &
