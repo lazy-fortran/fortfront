@@ -162,6 +162,8 @@ contains
             type_id = 39  ! NODE_FORMAT_DESCRIPTOR
         type is (comment_node)
             type_id = 40  ! NODE_COMMENT
+        type is (implicit_statement_node)
+            type_id = 41  ! NODE_IMPLICIT_STATEMENT
         class default
             ! Log warning for debugging purposes
             write(error_unit, '(A)') "Warning: Unknown node type encountered in get_node_type_id"
