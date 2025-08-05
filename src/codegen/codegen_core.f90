@@ -366,12 +366,15 @@ contains
                     type is (literal_node)
                         ! Check for implicit none
                         if (child_node%value == "implicit none") then
-                            if (len(declarations) > 0) then
-                                declarations = declarations//new_line('A')
-                            end if
-                            declarations = declarations//"implicit none"
-                            has_declarations = .true.
                             has_implicit_none = .true.
+                            ! Only add implicit none if we haven't already processed one
+                            if (len(declarations) == 0 .or. index(declarations, "implicit none") == 0) then
+                                if (len(declarations) > 0) then
+                                    declarations = declarations//new_line('A')
+                                end if
+                                declarations = declarations//"implicit none"
+                                has_declarations = .true.
+                            end if
                         else
                             ! Other literals go to executable section
                            stmt_code = generate_code_from_arena(arena, child_indices(i))
@@ -419,6 +422,19 @@ contains
                         ! Skip standalone identifiers
                         ! - they are not executable statements
                         continue
+                    type is (implicit_statement_node)
+                        ! Handle implicit statement nodes
+                        if (child_node%is_none) then
+                            has_implicit_none = .true.
+                            ! Only add implicit none if we haven't already processed one
+                            if (len(declarations) == 0 .or. index(declarations, "implicit none") == 0) then
+                                if (len(declarations) > 0) then
+                                    declarations = declarations//new_line('A')
+                                end if
+                                declarations = declarations//"implicit none"
+                                has_declarations = .true.
+                            end if
+                        end if
                     type is (comment_node)
                         ! Comments go in executable section
                         stmt_code = generate_code_from_arena(arena, child_indices(i))
