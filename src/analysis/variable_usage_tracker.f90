@@ -93,6 +93,24 @@ contains
             call process_array_slice_children(arena, node_index, info)
         case ("component_access")
             call process_component_access_children(arena, node_index, info)
+        case ("if")
+            call process_if_node_children(arena, node_index, info)
+        case ("do_while")
+            call process_do_while_node_children(arena, node_index, info)
+        case ("select_case")
+            call process_select_case_node_children(arena, node_index, info)
+        case ("where")
+            call process_where_node_children(arena, node_index, info)
+        case ("where_stmt")
+            call process_where_stmt_node_children(arena, node_index, info)
+        case ("program")
+            call process_program_node_children(arena, node_index, info)
+        case ("literal")
+            call process_literal_node_children(arena, node_index, info)
+        case ("multi_declaration")
+            call process_multi_declaration_node_children(arena, node_index, info)
+        case ("print_statement")
+            call process_print_statement_node_children(arena, node_index, info)
         end select
     end subroutine collect_identifiers_recursive
 
@@ -277,6 +295,190 @@ contains
         end select
     end subroutine process_component_access_children
 
+    ! Process if node children
+    subroutine process_if_node_children(arena, node_index, info)
+        use ast_nodes_control, only: if_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (if_node)
+            ! Process condition expression
+            if (node%condition_index > 0) then
+                call collect_identifiers_recursive(arena, node%condition_index, info)
+            end if
+        end select
+    end subroutine process_if_node_children
+
+    ! Process do while node children
+    subroutine process_do_while_node_children(arena, node_index, info)
+        use ast_nodes_control, only: do_while_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (do_while_node)
+            ! Process condition expression
+            if (node%condition_index > 0) then
+                call collect_identifiers_recursive(arena, node%condition_index, info)
+            end if
+        end select
+    end subroutine process_do_while_node_children
+
+    ! Process select case node children
+    subroutine process_select_case_node_children(arena, node_index, info)
+        use ast_nodes_control, only: select_case_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (select_case_node)
+            ! Process selector expression
+            if (node%selector_index > 0) then
+                call collect_identifiers_recursive(arena, node%selector_index, info)
+            end if
+        end select
+    end subroutine process_select_case_node_children
+
+    ! Process where node children
+    subroutine process_where_node_children(arena, node_index, info)
+        use ast_nodes_control, only: where_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (where_node)
+            ! Process mask expression
+            if (node%mask_expr_index > 0) then
+                call collect_identifiers_recursive(arena, node%mask_expr_index, info)
+            end if
+        end select
+    end subroutine process_where_node_children
+
+    ! Process where statement node children  
+    subroutine process_where_stmt_node_children(arena, node_index, info)
+        use ast_nodes_control, only: where_stmt_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (where_stmt_node)
+            ! Process mask expression
+            if (node%mask_expr_index > 0) then
+                call collect_identifiers_recursive(arena, node%mask_expr_index, info)
+            end if
+            
+            ! Process assignment
+            if (node%assignment_index > 0) then
+                call collect_identifiers_recursive(arena, node%assignment_index, info)
+            end if
+        end select
+    end subroutine process_where_stmt_node_children
+
+    ! Process program node children
+    subroutine process_program_node_children(arena, node_index, info)
+        use ast_nodes_core, only: program_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        integer :: i
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (program_node)
+            ! Process all body statements
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    if (node%body_indices(i) > 0) then
+                        call collect_identifiers_recursive(arena, node%body_indices(i), info)
+                    end if
+                end do
+            end if
+        end select
+    end subroutine process_program_node_children
+
+    ! Process literal node children (might contain parsed expressions)
+    subroutine process_literal_node_children(arena, node_index, info)
+        use ast_nodes_core, only: literal_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        ! Literals typically don't have child nodes with expressions
+        ! But we should check if this literal represents a parsed statement
+        ! that might contain identifiers (like an if statement)
+        
+        ! For now, we don't traverse literal nodes as they usually contain
+        ! constant values, not variable references
+    end subroutine process_literal_node_children
+
+    ! Process multi declaration node children  
+    subroutine process_multi_declaration_node_children(arena, node_index, info)
+        use ast_nodes_data, only: declaration_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        integer :: i
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (declaration_node)
+            ! Only process if this is actually a multi-declaration
+            if (node%is_multi_declaration) then
+                ! Process initialization expression if present
+                if (node%has_initializer .and. node%initializer_index > 0) then
+                    call collect_identifiers_recursive(arena, node%initializer_index, info)
+                end if
+            end if
+        end select
+    end subroutine process_multi_declaration_node_children
+
+    ! Process print statement node children
+    subroutine process_print_statement_node_children(arena, node_index, info)
+        use ast_nodes_io, only: print_statement_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        integer :: i
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (print_statement_node)
+            ! Process all expression arguments
+            if (allocated(node%expression_indices)) then
+                do i = 1, size(node%expression_indices)
+                    if (node%expression_indices(i) > 0) then
+                        call collect_identifiers_recursive(arena, node%expression_indices(i), info)
+                    end if
+                end do
+            end if
+        end select
+    end subroutine process_print_statement_node_children
 
     ! Get list of all identifiers in a subtree (convenience function)
     function get_identifiers_in_subtree(arena, root_index) result(identifiers)
