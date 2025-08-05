@@ -220,7 +220,8 @@ module fortfront
     ! Public procedure and parameter analysis APIs for issue #84
     public :: count_procedure_parameters, get_parameter_intent, &
               get_parameter_type, is_parameter_optional, &
-              get_procedure_signature
+              get_procedure_signature, get_procedure_references, &
+              is_procedure_used_in_generic, get_parameter_usage_context
 
     ! Public variable usage tracking APIs for issue #16
     public :: variable_usage_info_t, expression_visitor_t, &
@@ -2185,5 +2186,126 @@ contains
         
         signature = trim(temp_sig)
     end function get_procedure_signature
+    
+    ! Get all references to a procedure by name throughout the AST
+    function get_procedure_references(arena, proc_name) result(reference_indices)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: proc_name
+        integer, allocatable :: reference_indices(:)
+        
+        integer, parameter :: MAX_REFS = 1000
+        integer :: temp_refs(MAX_REFS)
+        integer :: ref_count, i
+        
+        ref_count = 0
+        
+        ! Search through all nodes for procedure calls and references
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            
+            select type (node => arena%entries(i)%node)
+            type is (subroutine_call_node)
+                if (allocated(node%name) .and. node%name == proc_name) then
+                    ref_count = ref_count + 1
+                    if (ref_count <= MAX_REFS) temp_refs(ref_count) = i
+                end if
+            type is (call_or_subscript_node)
+                if (allocated(node%name) .and. node%name == proc_name) then
+                    ref_count = ref_count + 1
+                    if (ref_count <= MAX_REFS) temp_refs(ref_count) = i
+                end if
+            end select
+        end do
+        
+        ! Copy results to properly sized array
+        allocate(reference_indices(ref_count))
+        if (ref_count > 0) then
+            reference_indices(1:ref_count) = temp_refs(1:ref_count)
+        end if
+    end function get_procedure_references
+    
+    ! Check if a procedure is used in a generic interface
+    function is_procedure_used_in_generic(arena, proc_name) result(is_used)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: proc_name
+        logical :: is_used
+        
+        integer :: i
+        
+        is_used = .false.
+        
+        ! Search through interface blocks for generic procedure usage
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            
+            select type (node => arena%entries(i)%node)
+            type is (interface_block_node)
+                if (allocated(node%procedure_indices)) then
+                    block
+                        integer :: j, proc_idx
+                        do j = 1, size(node%procedure_indices)
+                            proc_idx = node%procedure_indices(j)
+                            if (proc_idx > 0 .and. proc_idx <= arena%size) then
+                                if (allocated(arena%entries(proc_idx)%node)) then
+                                    select type (proc_node => arena%entries(proc_idx)%node)
+                                    type is (function_def_node)
+                                        if (allocated(proc_node%name) .and. proc_node%name == proc_name) then
+                                            is_used = .true.
+                                            return
+                                        end if
+                                    type is (subroutine_def_node)
+                                        if (allocated(proc_node%name) .and. proc_node%name == proc_name) then
+                                            is_used = .true.
+                                            return
+                                        end if
+                                    end select
+                                end if
+                            end if
+                        end do
+                    end block
+                end if
+            end select
+        end do
+    end function is_procedure_used_in_generic
+    
+    ! Get usage context information for a parameter
+    function get_parameter_usage_context(arena, param_name) result(context_info)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: param_name
+        character(len=:), allocatable :: context_info
+        
+        integer :: i, usage_count, definition_count
+        character(len=256) :: temp_info
+        
+        usage_count = 0
+        definition_count = 0
+        
+        ! Count parameter usages and definitions
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            
+            select type (node => arena%entries(i)%node)
+            type is (identifier_node)
+                if (allocated(node%name) .and. node%name == param_name) then
+                    usage_count = usage_count + 1
+                end if
+            type is (assignment_node)
+                ! Check if parameter is being assigned to (definition)
+                if (node%target_index > 0 .and. node%target_index <= arena%size) then
+                    if (allocated(arena%entries(node%target_index)%node)) then
+                        select type (target => arena%entries(node%target_index)%node)
+                        type is (identifier_node)
+                            if (allocated(target%name) .and. target%name == param_name) then
+                                definition_count = definition_count + 1
+                            end if
+                        end select
+                    end if
+                end if
+            end select
+        end do
+        
+        write(temp_info, '(A,I0,A,I0,A)') "Parameter '", usage_count, "' usages, '", definition_count, "' definitions"
+        context_info = trim(temp_info)
+    end function get_parameter_usage_context
 
 end module fortfront
