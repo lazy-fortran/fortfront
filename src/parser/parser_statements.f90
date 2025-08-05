@@ -2768,48 +2768,8 @@ contains
             stmt_index = parse_function_definition(parser, arena)
         
         case default
-            ! Try to handle as unknown statement gracefully
-            ! This provides better error recovery than just skipping
-            block
-                type(token_t) :: skip_token
-                integer :: i, depth
-                
-                ! Skip tokens until we find a likely statement terminator
-                depth = 0
-                do i = 1, 20  ! Lower safety limit to prevent infinite loops
-                    if (parser%is_at_end()) exit
-                    
-                    skip_token = parser%peek()
-                    
-                    ! Track block depth for proper skipping
-                    if (skip_token%kind == TK_KEYWORD) then
-                        select case (skip_token%text)
-                        case ("then", "do")
-                            depth = depth + 1
-                        case ("end", "endif", "enddo")
-                            if (depth > 0) then
-                                depth = depth - 1
-                            else
-                                ! Don't consume this - it belongs to parent structure
-                                exit
-                            end if
-                        case ("else", "elseif")
-                            if (depth == 0) then
-                                ! Don't consume - belongs to parent if
-                                exit
-                            end if
-                        end select
-                    end if
-                    
-                    skip_token = parser%consume()
-                    
-                    ! Stop at natural statement boundaries when at depth 0
-                    if (depth == 0 .and. skip_token%kind == TK_NEWLINE) then
-                        exit
-                    end if
-                end do
-            end block
-            stmt_index = 0
+            ! For unknown statements, skip to next logical boundary
+            stmt_index = skip_unknown_statement(parser)
         end select
         
     end function parse_statement_in_if_block
@@ -2853,5 +2813,91 @@ contains
         end if
         
     end function parse_assignment_simple
+
+    ! Skip unknown statement with proper Fortran syntax awareness
+    function skip_unknown_statement(parser) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        integer :: stmt_index
+        
+        type(token_t) :: token
+        integer :: paren_depth, block_depth
+        logical :: in_string
+        
+        stmt_index = 0
+        paren_depth = 0
+        block_depth = 0
+        in_string = .false.
+        
+        ! Skip tokens until we reach a logical statement boundary
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            
+            ! Handle string literals - don't parse keywords inside strings
+            if (token%kind == TK_STRING) then
+                in_string = .not. in_string
+                token = parser%consume()
+                cycle
+            end if
+            
+            if (in_string) then
+                token = parser%consume()
+                cycle
+            end if
+            
+            ! Track parentheses depth
+            if (token%kind == TK_OPERATOR) then
+                select case (token%text)
+                case ("(")
+                    paren_depth = paren_depth + 1
+                case (")")
+                    paren_depth = max(0, paren_depth - 1)
+                end select
+            end if
+            
+            ! Handle keywords that affect block structure
+            if (token%kind == TK_KEYWORD) then
+                select case (token%text)
+                case ("if", "do", "select", "where", "forall")
+                    ! These start new blocks - but only if not in parentheses
+                    if (paren_depth == 0) block_depth = block_depth + 1
+                    
+                case ("then")
+                    ! 'then' completes an if statement - increase block depth
+                    if (paren_depth == 0) block_depth = block_depth + 1
+                    
+                case ("else", "elseif", "elsewhere")
+                    ! These are at the same level as the parent if/where
+                    if (paren_depth == 0 .and. block_depth == 0) then
+                        ! We've reached a boundary - don't consume this token
+                        return
+                    end if
+                    
+                case ("end", "endif", "enddo", "endselect", "endwhere", "endforall")
+                    if (paren_depth == 0) then
+                        if (block_depth > 0) then
+                            block_depth = block_depth - 1
+                        else
+                            ! This 'end' belongs to our parent block - don't consume
+                            return
+                        end if
+                    end if
+                    
+                case ("program", "subroutine", "function", "module")
+                    ! These are top-level constructs - stop here
+                    if (paren_depth == 0 .and. block_depth == 0) then
+                        return
+                    end if
+                end select
+            end if
+            
+            token = parser%consume()
+            
+            ! If we're at the top level and hit a newline, we're done with this statement
+            if (paren_depth == 0 .and. block_depth == 0 .and. token%kind == TK_NEWLINE) then
+                exit
+            end if
+        end do
+        
+    end function skip_unknown_statement
 
 end module parser_statements_module
