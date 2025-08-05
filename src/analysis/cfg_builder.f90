@@ -122,9 +122,13 @@ contains
             call process_select_case(builder, arena, node_index)
             
         case ("return_statement", "return_node")
+            ! Flush any buffered statements first, then process return
+            call flush_statement_buffer(builder)
             call process_return(builder, arena, node_index)
             
         case ("stop_statement", "stop_node")
+            ! Flush any buffered statements first, then process stop
+            call flush_statement_buffer(builder)
             call process_stop(builder, arena, node_index)
             
         case ("exit_statement", "exit_node")
@@ -400,7 +404,7 @@ contains
         
         integer :: exit_block_id
         
-        ! Add return to current block
+        ! Add return to current block (buffer should already be flushed by caller)
         call add_statement_to_buffer(builder, node_index)
         call flush_statement_buffer(builder)
         
@@ -497,12 +501,23 @@ contains
         
         if (stmt_index <= 0) return
         
+        ! If no current block (after return/stop), create unreachable block
+        if (builder%current_block_id == 0) then
+            builder%current_block_id = add_basic_block(builder%cfg, "unreachable")
+            ! Note: is_reachable is false by default, so this creates an unreachable block
+        end if
+        
         ! Expand buffer if needed
         if (builder%buffer_size >= builder%buffer_capacity) then
             builder%buffer_capacity = builder%buffer_capacity * 2
             allocate(temp_buffer(builder%buffer_capacity))
             temp_buffer(1:builder%buffer_size) = builder%statement_buffer(1:builder%buffer_size)
-            call move_alloc(temp_buffer, builder%statement_buffer)
+            
+            ! Replace move_alloc with explicit deallocation and reallocation
+            if (allocated(builder%statement_buffer)) deallocate(builder%statement_buffer)
+            allocate(builder%statement_buffer(builder%buffer_capacity))
+            builder%statement_buffer = temp_buffer
+            deallocate(temp_buffer)
         end if
         
         builder%buffer_size = builder%buffer_size + 1

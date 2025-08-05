@@ -125,7 +125,12 @@ contains
                                      cfg%block_capacity + 16)
             allocate(temp_blocks(cfg%block_capacity))
             temp_blocks(1:cfg%block_count-1) = cfg%blocks(1:cfg%block_count-1)
-            call move_alloc(temp_blocks, cfg%blocks)
+            
+            ! Replace move_alloc with explicit deallocation and reallocation
+            if (allocated(cfg%blocks)) deallocate(cfg%blocks)
+            allocate(cfg%blocks(cfg%block_capacity))
+            cfg%blocks = temp_blocks
+            deallocate(temp_blocks)
         end if
         
         cfg%blocks(block_id) = new_block
@@ -159,7 +164,12 @@ contains
             if (cfg%edge_count > 0) then
                 temp_edges(1:cfg%edge_count) = cfg%edges(1:cfg%edge_count)
             end if
-            call move_alloc(temp_edges, cfg%edges)
+            
+            ! Replace move_alloc with explicit deallocation and reallocation
+            if (allocated(cfg%edges)) deallocate(cfg%edges)
+            allocate(cfg%edges(cfg%edge_capacity))
+            cfg%edges = temp_edges
+            deallocate(temp_edges)
         end if
         
         cfg%edge_count = cfg%edge_count + 1
