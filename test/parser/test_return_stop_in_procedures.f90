@@ -77,12 +77,17 @@ program test_return_stop_in_procedures
             integer :: pos, count
             count = 0
             pos = 1
-            do while (pos > 0)
-                pos = index(output_code(pos:), "return")
-                if (pos > 0) then
-                    count = count + 1
-                    pos = pos + 6  ! Move past "return"
-                end if
+            do while (pos <= len(output_code))
+                block
+                    integer :: found_pos
+                    found_pos = index(output_code(pos:), "return")
+                    if (found_pos > 0) then
+                        count = count + 1
+                        pos = pos + found_pos + 5  ! Move past "return" (6 chars - 1)
+                    else
+                        exit
+                    end if
+                end block
             end do
             if (count >= 2) then
                 print *, "✓ Multiple return statements parsed correctly"
