@@ -2257,6 +2257,8 @@ contains
                         stmt_index = parse_function_definition(parser, arena)
                     case ("call")
                         stmt_index = parse_call_statement(parser, arena)
+                    case ("if")
+                        stmt_index = parse_if_simple(parser, arena)
                     case default
                         ! Skip unknown keywords
                         token = parser%consume()
@@ -2578,5 +2580,101 @@ contains
             end if
         end do
     end subroutine parse_call_arguments
+
+    ! Simple if statement parser (to avoid circular dependency with control_flow module)
+    function parse_if_simple(parser, arena) result(if_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: if_index
+        
+        type(token_t) :: if_token, then_token
+        integer :: condition_index
+        integer, allocatable :: then_body_indices(:), else_body_indices(:)
+        integer, allocatable :: elseif_indices(:)
+        
+        ! Consume 'if' keyword
+        if_token = parser%consume()
+        
+        ! Parse condition (should be in parentheses)
+        condition_index = parse_if_condition_simple(parser, arena)
+        
+        ! Look for 'then' keyword
+        then_token = parser%peek()
+        if (then_token%kind == TK_KEYWORD .and. then_token%text == "then") then
+            ! Standard if/then/endif block
+            then_token = parser%consume()
+            
+            ! Parse then body statements
+            allocate(then_body_indices(0))
+            allocate(else_body_indices(0))
+            allocate(elseif_indices(0))
+            
+            ! Simple parsing - look for print statements until endif
+            do while (.not. parser%is_at_end())
+                then_token = parser%peek()
+                
+                if (then_token%kind == TK_KEYWORD) then
+                    if (then_token%text == "endif" .or. then_token%text == "end if") then
+                        ! End of if statement
+                        then_token = parser%consume()
+                        exit
+                    else if (then_token%text == "print") then
+                        ! Parse print statement
+                        block
+                            integer :: stmt_idx
+                            stmt_idx = parse_print_statement(parser, arena)
+                            if (stmt_idx > 0) then
+                                then_body_indices = [then_body_indices, stmt_idx]
+                            end if
+                        end block
+                    else
+                        ! Skip other statements for now
+                        then_token = parser%consume()
+                    end if
+                else
+                    ! Skip non-keywords
+                    then_token = parser%consume()
+                end if
+            end do
+            
+            ! Create if node using ast_factory
+            if_index = push_if(arena, condition_index, then_body_indices, &
+                             elseif_indices=elseif_indices, &
+                             else_body_indices=else_body_indices, &
+                             line=if_token%line, column=if_token%column)
+        else
+            ! One-line if statement - not implemented for simplicity
+            if_index = 0
+        end if
+        
+    end function parse_if_simple
+    
+    ! Simple if condition parser
+    function parse_if_condition_simple(parser, arena) result(condition_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: condition_index
+        
+        type(token_t) :: token
+        
+        ! Expect opening parenthesis
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            token = parser%consume()  ! consume '('
+            
+            ! Parse the condition expression
+            condition_index = parse_comparison(parser, arena)
+            
+            ! Expect closing parenthesis
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()  ! consume ')'
+            end if
+        else
+            ! No parentheses - parse as expression directly
+            condition_index = parse_comparison(parser, arena)
+        end if
+        
+    end function parse_if_condition_simple
 
 end module parser_statements_module
