@@ -359,6 +359,15 @@ contains
         class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
         integer :: i
+        integer, save :: recursion_depth = 0
+        integer, parameter :: MAX_RECURSION_DEPTH = 100
+        
+        ! Guard against infinite recursion
+        recursion_depth = recursion_depth + 1
+        if (recursion_depth > MAX_RECURSION_DEPTH) then
+            recursion_depth = 0
+            error stop "Maximum recursion depth exceeded in mono_type_assign - possible circular reference"
+        end if
 
         ! Memory safety handled through proper Fortran allocation patterns
 
@@ -388,11 +397,17 @@ contains
         ! Deep copy args array recursively to handle ALL nesting levels
         if (allocated(rhs%args)) then
             allocate (lhs%args(size(rhs%args)))
-            do i = 1, size(rhs%args)
-                ! Recursively deep copy each element
-                call mono_type_assign(lhs%args(i), rhs%args(i))
-            end do
+            ! Only loop if array is not empty
+            if (size(rhs%args) > 0) then
+                do i = 1, size(rhs%args)
+                    ! Recursively deep copy each element
+                    call mono_type_assign(lhs%args(i), rhs%args(i))
+                end do
+            end if
         end if
+        
+        ! Reset recursion depth on successful completion
+        recursion_depth = recursion_depth - 1
     end subroutine mono_type_assign
 
     ! Convert polymorphic type to string
