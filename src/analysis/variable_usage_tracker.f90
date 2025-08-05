@@ -123,6 +123,10 @@ contains
             call process_write_statement_children(arena, node_index, info)
         case ("read_statement")
             call process_read_statement_children(arena, node_index, info)
+        case ("allocate_statement")
+            call process_allocate_statement_children(arena, node_index, info)
+        case ("deallocate_statement")
+            call process_deallocate_statement_children(arena, node_index, info)
         end select
     end subroutine collect_identifiers_recursive
 
@@ -821,6 +825,113 @@ contains
             end if
         end select
     end subroutine process_read_statement_children
+
+    ! Process allocate statement children
+    subroutine process_allocate_statement_children(arena, node_index, info)
+        use ast_nodes_misc, only: allocate_statement_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        integer :: i
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries)) return
+        if (node_index > size(arena%entries)) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        ! Verify node type matches expectation
+        if (arena%entries(node_index)%node_type /= "allocate_statement") then
+            ! Node type mismatch - this shouldn't happen if called correctly
+            return
+        end if
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (allocate_statement_node)
+            ! Process variables being allocated
+            if (allocated(node%var_indices)) then
+                do i = 1, size(node%var_indices)
+                    if (node%var_indices(i) > 0) then
+                        call collect_identifiers_recursive(arena, node%var_indices(i), info)
+                    end if
+                end do
+            end if
+            
+            ! Process shape expressions for each variable
+            if (allocated(node%shape_indices)) then
+                do i = 1, size(node%shape_indices)
+                    if (node%shape_indices(i) > 0) then
+                        call collect_identifiers_recursive(arena, node%shape_indices(i), info)
+                    end if
+                end do
+            end if
+            
+            ! Process stat variable if present
+            if (node%stat_var_index > 0) then
+                call collect_identifiers_recursive(arena, node%stat_var_index, info)
+            end if
+            
+            ! Process errmsg variable if present
+            if (node%errmsg_var_index > 0) then
+                call collect_identifiers_recursive(arena, node%errmsg_var_index, info)
+            end if
+            
+            ! Process source expression if present
+            if (node%source_expr_index > 0) then
+                call collect_identifiers_recursive(arena, node%source_expr_index, info)
+            end if
+            
+            ! Process mold expression if present
+            if (node%mold_expr_index > 0) then
+                call collect_identifiers_recursive(arena, node%mold_expr_index, info)
+            end if
+        end select
+    end subroutine process_allocate_statement_children
+
+    ! Process deallocate statement children
+    subroutine process_deallocate_statement_children(arena, node_index, info)
+        use ast_nodes_misc, only: deallocate_statement_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        integer :: i
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries)) return
+        if (node_index > size(arena%entries)) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        ! Verify node type matches expectation
+        if (arena%entries(node_index)%node_type /= "deallocate_statement") then
+            ! Node type mismatch - this shouldn't happen if called correctly
+            return
+        end if
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (deallocate_statement_node)
+            ! Process variables being deallocated
+            if (allocated(node%var_indices)) then
+                do i = 1, size(node%var_indices)
+                    if (node%var_indices(i) > 0) then
+                        call collect_identifiers_recursive(arena, node%var_indices(i), info)
+                    end if
+                end do
+            end if
+            
+            ! Process stat variable if present
+            if (node%stat_var_index > 0) then
+                call collect_identifiers_recursive(arena, node%stat_var_index, info)
+            end if
+            
+            ! Process errmsg variable if present
+            if (node%errmsg_var_index > 0) then
+                call collect_identifiers_recursive(arena, node%errmsg_var_index, info)
+            end if
+        end select
+    end subroutine process_deallocate_statement_children
 
     ! Get list of all identifiers in a subtree (convenience function)
     function get_identifiers_in_subtree(arena, root_index) result(identifiers)

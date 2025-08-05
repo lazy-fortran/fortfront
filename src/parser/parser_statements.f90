@@ -2313,7 +2313,7 @@ contains
 
     end function parse_program_statement
 
-    ! Parse allocate statement: allocate(var1, var2(size), stat=status)
+    ! Parse allocate statement: allocate(var1, var2(size), source=src, mold=template, stat=status, errmsg=msg)
     function parse_allocate_statement(parser, arena) result(allocate_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -2322,12 +2322,18 @@ contains
         type(token_t) :: token
         integer, allocatable :: var_indices(:)
         integer, allocatable :: shape_indices(:)
-        integer :: stat_var_index, line, column
+        integer :: stat_var_index, errmsg_var_index, source_expr_index, mold_expr_index
+        integer :: line, column
+        logical :: in_variable_list
         
         ! Initialize
         stat_var_index = 0
+        errmsg_var_index = 0
+        source_expr_index = 0
+        mold_expr_index = 0
         line = 0
         column = 0
+        in_variable_list = .true.
         allocate(var_indices(0))
         allocate(shape_indices(0))
         
@@ -2341,32 +2347,69 @@ contains
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()  ! consume '('
             
-            ! Parse variable list and optional dimensions
+            ! Parse variable list and optional parameters
             do
-                ! Parse variable (potentially with array dimensions)
-                call parse_allocate_variable(parser, arena, var_indices, shape_indices)
-                
-                ! Check for comma (more variables) or special keywords
                 token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume ','
-                    
-                    ! Check if next token is 'stat=' keyword
-                    token = parser%peek()
-                    if (token%kind == TK_IDENTIFIER .and. token%text == "stat") then
+                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    exit
+                end if
+                
+                ! Check for allocate parameters
+                if (token%kind == TK_IDENTIFIER) then
+                    select case (token%text)
+                    case ("stat")
                         token = parser%consume()  ! consume 'stat'
-                        
-                        ! Expect '='
                         token = parser%peek()
                         if (token%kind == TK_OPERATOR .and. token%text == "=") then
                             token = parser%consume()  ! consume '='
-                            
-                            ! Parse status variable
                             stat_var_index = parse_comparison(parser, arena)
                         end if
-                        exit
-                    end if
-                    ! Continue parsing more variables
+                        in_variable_list = .false.
+                    case ("errmsg")
+                        token = parser%consume()  ! consume 'errmsg'
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                            token = parser%consume()  ! consume '='
+                            errmsg_var_index = parse_comparison(parser, arena)
+                        end if
+                        in_variable_list = .false.
+                    case ("source")
+                        token = parser%consume()  ! consume 'source'
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                            token = parser%consume()  ! consume '='
+                            source_expr_index = parse_comparison(parser, arena)
+                        end if
+                        in_variable_list = .false.
+                    case ("mold")
+                        token = parser%consume()  ! consume 'mold'
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                            token = parser%consume()  ! consume '='
+                            mold_expr_index = parse_comparison(parser, arena)
+                        end if
+                        in_variable_list = .false.
+                    case default
+                        if (in_variable_list) then
+                            ! Parse variable (potentially with array dimensions)
+                            call parse_allocate_variable(parser, arena, var_indices, shape_indices)
+                        else
+                            ! Skip unknown parameter
+                            token = parser%consume()
+                        end if
+                    end select
+                else if (in_variable_list) then
+                    ! Parse variable (potentially with array dimensions)
+                    call parse_allocate_variable(parser, arena, var_indices, shape_indices)
+                else
+                    ! Skip unexpected token
+                    token = parser%consume()
+                end if
+                
+                ! Check for comma to continue
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    token = parser%consume()  ! consume ','
                 else
                     exit
                 end if
@@ -2380,11 +2423,12 @@ contains
         end if
         
         ! Create allocate statement node
-        allocate_index = push_allocate(arena, var_indices, shape_indices, stat_var_index)
+        allocate_index = push_allocate(arena, var_indices, shape_indices, stat_var_index, &
+                                       errmsg_var_index, source_expr_index, mold_expr_index)
         
     end function parse_allocate_statement
     
-    ! Parse deallocate statement: deallocate(var1, var2, stat=status)
+    ! Parse deallocate statement: deallocate(var1, var2, stat=status, errmsg=msg)
     function parse_deallocate_statement(parser, arena) result(deallocate_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -2392,12 +2436,15 @@ contains
         
         type(token_t) :: token
         integer, allocatable :: var_indices(:)
-        integer :: stat_var_index, line, column
+        integer :: stat_var_index, errmsg_var_index, line, column
+        logical :: in_variable_list
         
         ! Initialize
         stat_var_index = 0
+        errmsg_var_index = 0
         line = 0
         column = 0
+        in_variable_list = .true.
         allocate(var_indices(0))
         
         ! Consume 'deallocate' keyword
@@ -2410,35 +2457,53 @@ contains
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()  ! consume '('
             
-            ! Parse variable list
+            ! Parse variable list and optional parameters
             do
-                ! Parse variable identifier
                 token = parser%peek()
-                if (token%kind == TK_IDENTIFIER) then
-                    var_indices = [var_indices, parse_comparison(parser, arena)]
+                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    exit
                 end if
                 
-                ! Check for comma (more variables) or special keywords
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                    token = parser%consume()  ! consume ','
-                    
-                    ! Check if next token is 'stat=' keyword
-                    token = parser%peek()
-                    if (token%kind == TK_IDENTIFIER .and. token%text == "stat") then
+                ! Check for deallocate parameters
+                if (token%kind == TK_IDENTIFIER) then
+                    select case (token%text)
+                    case ("stat")
                         token = parser%consume()  ! consume 'stat'
-                        
-                        ! Expect '='
                         token = parser%peek()
                         if (token%kind == TK_OPERATOR .and. token%text == "=") then
                             token = parser%consume()  ! consume '='
-                            
-                            ! Parse status variable
                             stat_var_index = parse_comparison(parser, arena)
                         end if
-                        exit
-                    end if
-                    ! Continue parsing more variables
+                        in_variable_list = .false.
+                    case ("errmsg")
+                        token = parser%consume()  ! consume 'errmsg'
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                            token = parser%consume()  ! consume '='
+                            errmsg_var_index = parse_comparison(parser, arena)
+                        end if
+                        in_variable_list = .false.
+                    case default
+                        if (in_variable_list) then
+                            ! Parse variable identifier
+                            var_indices = [var_indices, parse_comparison(parser, arena)]
+                        else
+                            ! Skip unknown parameter
+                            token = parser%consume()
+                        end if
+                    end select
+                else if (in_variable_list) then
+                    ! Parse variable identifier
+                    var_indices = [var_indices, parse_comparison(parser, arena)]
+                else
+                    ! Skip unexpected token
+                    token = parser%consume()
+                end if
+                
+                ! Check for comma to continue
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    token = parser%consume()  ! consume ','
                 else
                     exit
                 end if
@@ -2452,7 +2517,7 @@ contains
         end if
         
         ! Create deallocate statement node
-        deallocate_index = push_deallocate(arena, var_indices, stat_var_index)
+        deallocate_index = push_deallocate(arena, var_indices, stat_var_index, errmsg_var_index)
         
     end function parse_deallocate_statement
     
