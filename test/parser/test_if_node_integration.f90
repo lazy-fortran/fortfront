@@ -13,6 +13,7 @@ program test_if_node_integration
     if (.not. test_if_node_with_multiple_statements()) all_passed = .false.
     if (.not. test_if_node_with_assignments()) all_passed = .false.
     if (.not. test_if_node_error_handling()) all_passed = .false.
+    if (.not. test_nested_if_statements()) all_passed = .false.
     
     ! Report results
     if (all_passed) then
@@ -248,5 +249,62 @@ contains
         end if
         
     end function test_if_node_error_handling
+
+    logical function test_nested_if_statements()
+        ! Test nested if statements to ensure recursive parsing works
+        character(len=*), parameter :: test_code = &
+            'program test' // new_line('a') // &
+            '  integer :: x = 5, y = 3' // new_line('a') // &
+            '  if (x > 0) then' // new_line('a') // &
+            '    if (y > 0) then' // new_line('a') // &
+            '      print *, "both positive"' // new_line('a') // &
+            '    end if' // new_line('a') // &
+            '    print *, "x is positive"' // new_line('a') // &
+            '  end if' // new_line('a') // &
+            'end program'
+        
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        integer :: root_index
+        character(len=256) :: error_msg
+        integer :: if_count, i
+        
+        test_nested_if_statements = .true.
+        
+        print '(a)', "Testing nested if statements..."
+        
+        ! Tokenize and parse
+        call tokenize_core(test_code, tokens)
+        arena = create_ast_arena()
+        call parse_tokens(tokens, arena, root_index, error_msg)
+        
+        if (root_index <= 0 .or. len_trim(error_msg) > 0) then
+            print '(a)', "FAIL: Parsing failed"
+            if (len_trim(error_msg) > 0) then
+                print '(a,a)', "Error message: ", trim(error_msg)
+            end if
+            test_nested_if_statements = .false.
+            return
+        end if
+        
+        ! Count if_node instances - should find at least 2 (outer and inner)
+        if_count = 0
+        do i = 1, arena%size
+            if (allocated(arena%entries(i)%node)) then
+                select type (node => arena%entries(i)%node)
+                type is (if_node)
+                    if_count = if_count + 1
+                end select
+            end if
+        end do
+        
+        if (if_count >= 2) then
+            print '(a,i0,a)', "PASS: Found ", if_count, " if_node instances (nested if statements)"
+        else
+            print '(a,i0,a)', "FAIL: Found only ", if_count, " if_node instances, expected at least 2"
+            test_nested_if_statements = .false.
+        end if
+        
+    end function test_nested_if_statements
 
 end program test_if_node_integration

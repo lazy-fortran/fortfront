@@ -2706,27 +2706,32 @@ contains
         
     end function parse_if_condition_simple
 
-    ! Parse statement within if block - handles common statement types
+    ! Parse statement within if block - handles all statement types
     function parse_statement_in_if_block(parser, arena, token) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: token
         integer :: stmt_index
         
-        ! Parse different statement types based on keyword
+        ! Use the comprehensive statement parsing logic similar to parse_program_statement
         select case (token%text)
+        ! I/O statements
         case ("print")
             stmt_index = parse_print_statement(parser, arena)
-        case ("allocate")
-            stmt_index = parse_allocate_statement(parser, arena)
-        case ("deallocate")
-            stmt_index = parse_deallocate_statement(parser, arena)
-        case ("call")
-            stmt_index = parse_call_statement(parser, arena)
         case ("write")
             stmt_index = parse_write_statement(parser, arena)
         case ("read")
             stmt_index = parse_read_statement(parser, arena)
+        
+        ! Memory management
+        case ("allocate")
+            stmt_index = parse_allocate_statement(parser, arena)
+        case ("deallocate")
+            stmt_index = parse_deallocate_statement(parser, arena)
+        
+        ! Control flow
+        case ("call")
+            stmt_index = parse_call_statement(parser, arena)
         case ("stop")
             stmt_index = parse_stop_statement(parser, arena)
         case ("return")
@@ -2735,14 +2740,69 @@ contains
             stmt_index = parse_cycle_statement(parser, arena)
         case ("exit")
             stmt_index = parse_exit_statement(parser, arena)
-        case ("integer", "real", "logical", "character", "complex")
-            ! Declaration statement
-            stmt_index = parse_declaration(parser, arena)
-        case default
-            ! Skip unknown statements
+        
+        ! Nested control structures - recursive if handling
+        case ("if")
+            stmt_index = parse_if_simple(parser, arena)
+        case ("do")
+            ! For future: could add do loop parsing
             block
                 type(token_t) :: skip_token
                 skip_token = parser%consume()
+            end block
+            stmt_index = 0
+        
+        ! Declaration statements  
+        case ("integer", "real", "logical", "character", "complex", "type")
+            stmt_index = parse_declaration(parser, arena)
+        
+        ! Procedure definitions (shouldn't normally appear in if blocks, but handle gracefully)
+        case ("subroutine")
+            stmt_index = parse_subroutine_definition(parser, arena)
+        case ("function")
+            stmt_index = parse_function_definition(parser, arena)
+        
+        case default
+            ! Try to handle as unknown statement gracefully
+            ! This provides better error recovery than just skipping
+            block
+                type(token_t) :: skip_token
+                integer :: i, depth
+                
+                ! Skip tokens until we find a likely statement terminator
+                depth = 0
+                do i = 1, 100  ! Safety limit to prevent infinite loops
+                    if (parser%is_at_end()) exit
+                    
+                    skip_token = parser%peek()
+                    
+                    ! Track block depth for proper skipping
+                    if (skip_token%kind == TK_KEYWORD) then
+                        select case (skip_token%text)
+                        case ("then", "do")
+                            depth = depth + 1
+                        case ("end", "endif", "enddo")
+                            if (depth > 0) then
+                                depth = depth - 1
+                            else
+                                ! Don't consume this - it belongs to parent structure
+                                exit
+                            end if
+                        case ("else", "elseif")
+                            if (depth == 0) then
+                                ! Don't consume - belongs to parent if
+                                exit
+                            end if
+                        end select
+                    end if
+                    
+                    skip_token = parser%consume()
+                    
+                    ! Stop at natural statement boundaries when at depth 0
+                    if (depth == 0 .and. skip_token%kind == TK_NEWLINE) then
+                        exit
+                    end if
+                end do
             end block
             stmt_index = 0
         end select
