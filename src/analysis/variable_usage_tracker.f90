@@ -302,6 +302,10 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
         select type (node => arena%entries(node_index)%node)
         type is (if_node)
             ! Process condition expression
@@ -317,6 +321,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
         
         select type (node => arena%entries(node_index)%node)
         type is (do_while_node)
@@ -389,6 +397,10 @@ contains
         
         integer :: i
         
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
         select type (node => arena%entries(node_index)%node)
         type is (program_node)
             ! Process all body statements
@@ -426,11 +438,18 @@ contains
         
         integer :: i
         
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
         select type (node => arena%entries(node_index)%node)
         type is (declaration_node)
-            ! Process initialization expression if present
-            if (node%has_initializer .and. node%initializer_index > 0) then
-                call collect_identifiers_recursive(arena, node%initializer_index, info)
+            ! Only process if this is actually a multi-declaration
+            if (node%is_multi_declaration) then
+                ! Process initialization expression if present
+                if (node%has_initializer .and. node%initializer_index > 0) then
+                    call collect_identifiers_recursive(arena, node%initializer_index, info)
+                end if
             end if
         end select
     end subroutine process_multi_declaration_node_children
@@ -443,6 +462,10 @@ contains
         type(variable_usage_info_t), intent(inout) :: info
         
         integer :: i
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
         
         select type (node => arena%entries(node_index)%node)
         type is (print_statement_node)
