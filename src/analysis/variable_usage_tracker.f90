@@ -837,6 +837,8 @@ contains
         
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries)) return
+        if (node_index > size(arena%entries)) return
         if (.not. allocated(arena%entries(node_index)%node)) return
         
         ! Verify node type matches expectation
@@ -898,6 +900,8 @@ contains
         
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries)) return
+        if (node_index > size(arena%entries)) return
         if (.not. allocated(arena%entries(node_index)%node)) return
         
         ! Verify node type matches expectation
