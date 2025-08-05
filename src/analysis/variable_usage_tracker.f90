@@ -680,6 +680,12 @@ contains
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
         
+        ! Verify node type matches expectation
+        if (arena%entries(node_index)%node_type /= "assignment") then
+            ! Node type mismatch - this shouldn't happen if called correctly
+            return
+        end if
+        
         select type (node => arena%entries(node_index)%node)
         type is (assignment_node)
             ! Process target (LHS) - might have array subscripts
@@ -706,6 +712,13 @@ contains
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        ! Verify node type matches expectation
+        if (arena%entries(node_index)%node_type /= "subroutine_call" .and. &
+            arena%entries(node_index)%node_type /= "call_statement") then
+            ! Node type mismatch - this shouldn't happen if called correctly
+            return
+        end if
         
         select type (node => arena%entries(node_index)%node)
         type is (subroutine_call_node)
@@ -738,10 +751,25 @@ contains
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
         
+        ! Verify node type matches expectation
+        if (arena%entries(node_index)%node_type /= "write_statement") then
+            ! Node type mismatch - this shouldn't happen if called correctly
+            return
+        end if
+        
         select type (node => arena%entries(node_index)%node)
         type is (write_statement_node)
-            ! Unit and format are stored as strings, not indices
-            ! Process all arguments
+            ! Process runtime format expression if present
+            if (node%format_expr_index > 0) then
+                call collect_identifiers_recursive(arena, node%format_expr_index, info)
+            end if
+            
+            ! Process iostat variable if present
+            if (node%iostat_var_index > 0) then
+                call collect_identifiers_recursive(arena, node%iostat_var_index, info)
+            end if
+            
+            ! Process all output arguments
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
                     if (node%arg_indices(i) > 0) then
@@ -765,9 +793,24 @@ contains
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
         
+        ! Verify node type matches expectation
+        if (arena%entries(node_index)%node_type /= "read_statement") then
+            ! Node type mismatch - this shouldn't happen if called correctly
+            return
+        end if
+        
         select type (node => arena%entries(node_index)%node)
         type is (read_statement_node)
-            ! Unit and format are stored as strings, not indices
+            ! Process runtime format expression if present
+            if (node%format_expr_index > 0) then
+                call collect_identifiers_recursive(arena, node%format_expr_index, info)
+            end if
+            
+            ! Process iostat variable if present
+            if (node%iostat_var_index > 0) then
+                call collect_identifiers_recursive(arena, node%iostat_var_index, info)
+            end if
+            
             ! Process all variables to read into
             if (allocated(node%var_indices)) then
                 do i = 1, size(node%var_indices)
