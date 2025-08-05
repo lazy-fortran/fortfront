@@ -366,12 +366,15 @@ contains
                     type is (literal_node)
                         ! Check for implicit none
                         if (child_node%value == "implicit none") then
-                            if (len(declarations) > 0) then
-                                declarations = declarations//new_line('A')
+                            ! Only add implicit none if we haven't already added it
+                            if (.not. has_implicit_none) then
+                                if (len(declarations) > 0) then
+                                    declarations = declarations//new_line('A')
+                                end if
+                                declarations = declarations//"implicit none"
+                                has_declarations = .true.
+                                has_implicit_none = .true.
                             end if
-                            declarations = declarations//"implicit none"
-                            has_declarations = .true.
-                            has_implicit_none = .true.
                         else
                             ! Other literals go to executable section
                            stmt_code = generate_code_from_arena(arena, child_indices(i))
