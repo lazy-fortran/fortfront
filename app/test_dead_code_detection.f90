@@ -15,13 +15,12 @@ program test_dead_code_detection
     logical :: success
     
     ! Test case from issue #99: variable usage in conditional statements
-    source_code = 'program test' // new_line('A') // &
-                  '    implicit none' // new_line('A') // &
-                  '    integer :: x = 5' // new_line('A') // &
-                  '    if (x > 0) then' // new_line('A') // &
-                  '        print *, "positive"' // new_line('A') // &
-                  '    end if' // new_line('A') // &
-                  'end program'
+    ! Using lazy fortran (no explicit program wrapper)
+    source_code = 'implicit none' // new_line('A') // &
+                  'integer :: x = 5' // new_line('A') // &
+                  'if (x > 0) then' // new_line('A') // &
+                  '    print *, "positive"' // new_line('A') // &
+                  'end if'
     
     print *, "Testing dead code detection fix..."
     print *, "Source code:"
@@ -43,6 +42,18 @@ program test_dead_code_detection
         stop 1
     end if
     
+    ! Debug: Check AST before semantic analysis
+    print *, "AST BEFORE semantic analysis:"
+    do i = 1, arena%size
+        if (allocated(arena%entries(i)%node)) then
+            print *, "  Index", i, ":", arena%entries(i)%node_type
+            if (arena%entries(i)%node_type == "if") then
+                print *, "    >>> IF NODE FOUND! <<<"
+            end if
+        end if
+    end do
+    print *, ""
+    
     ! Analyze semantics
     call analyze_semantics(arena, prog_index)
     
@@ -62,9 +73,15 @@ program test_dead_code_detection
                     end select
                 end block
             end if
+            
+            ! Look for if nodes
+            if (arena%entries(i)%node_type == "if") then
+                print *, "    Found IF node at index", i
+            end if
         end if
     end do
     print *, ""
+    print *, "Total nodes:", arena%size
     
     ! Find the program node and examine its body for if statements
     success = .false.
@@ -72,6 +89,26 @@ program test_dead_code_detection
         if (allocated(arena%entries(i)%node)) then
             if (arena%entries(i)%node_type == "program") then
                 print *, "Found program node at index", i
+                
+                ! Debug: Check program body indices
+                block
+                    use ast_nodes_core, only: program_node
+                    integer :: j
+                    select type (node => arena%entries(i)%node)
+                    type is (program_node)
+                        if (allocated(node%body_indices)) then
+                            print *, "Program has", size(node%body_indices), "body statements:"
+                            do j = 1, size(node%body_indices)
+                                if (node%body_indices(j) > 0) then
+                                    print *, "  Body", j, ": index", node%body_indices(j), &
+                                            "type", arena%entries(node%body_indices(j))%node_type
+                                end if
+                            end do
+                        else
+                            print *, "Program has no body statements!"
+                        end if
+                    end select
+                end block
                 
                 ! Get identifiers from the entire program node (should include condition)
                 identifiers = get_identifiers_in_subtree(arena, i)
