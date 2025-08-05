@@ -501,8 +501,22 @@ contains
         
         if (stmt_index <= 0) return
         
-        ! If no current block (after return/stop), create unreachable block
+        ! If no current block (after return/stop), create or reuse unreachable block
         if (builder%current_block_id == 0) then
+            ! Look for existing unreachable block first to avoid creating multiple ones
+            block
+                integer :: i
+                do i = 1, builder%cfg%block_count
+                    if (.not. builder%cfg%blocks(i)%is_reachable .and. &
+                        .not. builder%cfg%blocks(i)%is_entry .and. &
+                        .not. builder%cfg%blocks(i)%is_exit) then
+                        builder%current_block_id = i
+                        return
+                    end if
+                end do
+            end block
+            
+            ! No existing unreachable block found, create new one
             builder%current_block_id = add_basic_block(builder%cfg, "unreachable")
             ! Note: is_reachable is false by default, so this creates an unreachable block
         end if
@@ -516,7 +530,7 @@ contains
             ! Replace move_alloc with explicit deallocation and reallocation
             if (allocated(builder%statement_buffer)) deallocate(builder%statement_buffer)
             allocate(builder%statement_buffer(builder%buffer_capacity))
-            builder%statement_buffer = temp_buffer
+            builder%statement_buffer(1:builder%buffer_size) = temp_buffer(1:builder%buffer_size)
             deallocate(temp_buffer)
         end if
         
