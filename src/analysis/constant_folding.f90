@@ -140,9 +140,13 @@ contains
         
         select type (node => arena%entries(operand_index)%node)
         type is (literal_node)
-            if (node%literal_type == "integer") then
-                read(node%value, *) int_value
-                is_valid = .true.
+            ! Try to parse as integer regardless of literal_type (which may be empty)
+            if (node%literal_type == "integer" .or. len_trim(node%literal_type) == 0) then
+                ! Check if value looks like an integer
+                if (is_integer_string(node%value)) then
+                    read(node%value, *) int_value
+                    is_valid = .true.
+                end if
             end if
         class default
             ! Not a literal integer
@@ -150,5 +154,25 @@ contains
         end select
         
     end subroutine evaluate_operand
+
+    ! Helper function to check if a string represents an integer
+    function is_integer_string(str) result(is_integer)
+        character(len=*), intent(in) :: str
+        logical :: is_integer
+        integer :: i, iostat
+        integer :: dummy
+        character(len=len(str)) :: trimmed_str
+        
+        trimmed_str = adjustl(str)
+        is_integer = .false.
+        
+        if (len_trim(trimmed_str) == 0) return
+        
+        ! Try to read as integer
+        read(trimmed_str, *, iostat=iostat) dummy
+        if (iostat == 0) then
+            is_integer = .true.
+        end if
+    end function is_integer_string
 
 end module constant_folding_module

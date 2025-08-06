@@ -135,13 +135,13 @@ contains
         integer :: program_index
         integer, allocatable :: unreachable_stmts(:)
         
-        print *, "Testing constant expression folding (1 .eq. 0)..."
+        print *, "Testing constant expression folding (1 == 0)..."
         
         source = "program test_constant_expr" // new_line('a') // &
-                "  if (1 .eq. 0) then" // new_line('a') // &
+                "  if (1 == 0) then" // new_line('a') // &
                 "    print *, 'impossible condition'" // new_line('a') // &
                 "  end if" // new_line('a') // &
-                "  if (2 .gt. 1) then" // new_line('a') // &
+                "  if (2 > 1) then" // new_line('a') // &
                 "    print *, 'always true - this is reachable'" // new_line('a') // &
                 "  else" // new_line('a') // &
                 "    print *, 'always false - dead code'" // new_line('a') // &
