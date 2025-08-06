@@ -981,14 +981,32 @@ contains
         end select
     end subroutine process_associate_construct_children
 
+    ! Process procedure definition children (shared by subroutine and function)
+    subroutine process_procedure_def_body(arena, node_index, info, body_indices)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        integer, intent(in), optional :: body_indices(:)
+        
+        integer :: i
+        
+        ! Process all body statements - this will capture all identifiers used
+        ! within the procedure, including dummy arguments when they're used
+        if (present(body_indices)) then
+            do i = 1, size(body_indices)
+                if (body_indices(i) > 0) then
+                    call collect_identifiers_recursive(arena, body_indices(i), info)
+                end if
+            end do
+        end if
+    end subroutine process_procedure_def_body
+
     ! Process subroutine definition children
     subroutine process_subroutine_def_children(arena, node_index, info)
         use ast_nodes_procedure, only: subroutine_def_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
-        
-        integer :: i
         
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
@@ -997,14 +1015,8 @@ contains
         
         select type (node => arena%entries(node_index)%node)
         type is (subroutine_def_node)
-            ! Process all body statements - this will capture all identifiers used
-            ! within the subroutine, including dummy arguments when they're used
             if (allocated(node%body_indices)) then
-                do i = 1, size(node%body_indices)
-                    if (node%body_indices(i) > 0) then
-                        call collect_identifiers_recursive(arena, node%body_indices(i), info)
-                    end if
-                end do
+                call process_procedure_def_body(arena, node_index, info, node%body_indices)
             end if
         end select
     end subroutine process_subroutine_def_children
@@ -1016,8 +1028,6 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         
-        integer :: i
-        
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries)) return
@@ -1025,14 +1035,8 @@ contains
         
         select type (node => arena%entries(node_index)%node)
         type is (function_def_node)
-            ! Process all body statements - this will capture all identifiers used
-            ! within the function, including dummy arguments when they're used
             if (allocated(node%body_indices)) then
-                do i = 1, size(node%body_indices)
-                    if (node%body_indices(i) > 0) then
-                        call collect_identifiers_recursive(arena, node%body_indices(i), info)
-                    end if
-                end do
+                call process_procedure_def_body(arena, node_index, info, node%body_indices)
             end if
         end select
     end subroutine process_function_def_children
