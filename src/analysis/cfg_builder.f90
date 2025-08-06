@@ -500,30 +500,42 @@ contains
         integer, intent(in) :: node_index
         
         character(len=:), allocatable :: label
-        integer :: target_block_id
+        integer :: target_block_id, current_block
+        
+        ! Ensure we have a valid current block
+        if (builder%current_block_id == 0) then
+            builder%current_block_id = add_basic_block(builder%cfg, "goto_block")
+        end if
+        
+        current_block = builder%current_block_id
         
         ! Add goto to current block
         call add_statement_to_buffer(builder, node_index)
         call flush_statement_buffer(builder)
         
-        ! Get the target label
-        select type (node => arena%entries(node_index)%node)
-        type is (goto_node)
-            if (allocated(node%label)) then
-                label = node%label
-            else
-                label = "unknown"
+        ! Get the target label with validation
+        label = "unknown"
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                select type (node => arena%entries(node_index)%node)
+                type is (goto_node)
+                    if (allocated(node%label) .and. len_trim(node%label) > 0) then
+                        label = node%label
+                    end if
+                end select
             end if
-        end select
+        end if
         
         ! Create or find target block (simplified - real implementation would maintain label map)
         target_block_id = add_basic_block(builder%cfg, "label_" // label)
         
         ! Add unconditional jump edge
-        call add_cfg_edge(builder%cfg, builder%current_block_id, target_block_id, &
-                         EDGE_UNCONDITIONAL, "goto-" // label)
+        if (current_block > 0) then
+            call add_cfg_edge(builder%cfg, current_block, target_block_id, &
+                             EDGE_UNCONDITIONAL, "goto-" // label)
+        end if
         
-        ! No current block after goto (unreachable code follows)
+        ! Mark subsequent code as potentially unreachable
         builder%current_block_id = 0
     end subroutine process_goto
     
@@ -533,7 +545,14 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
-        integer :: exit_block_id
+        integer :: exit_block_id, current_block
+        
+        ! Ensure we have a valid current block
+        if (builder%current_block_id == 0) then
+            builder%current_block_id = add_basic_block(builder%cfg, "error_stop_block")
+        end if
+        
+        current_block = builder%current_block_id
         
         ! Add error stop to current block
         call add_statement_to_buffer(builder, node_index)
@@ -556,10 +575,12 @@ contains
         end if
         
         ! Add edge to exit (error stop terminates program)
-        call add_cfg_edge(builder%cfg, builder%current_block_id, &
-                         exit_block_id, EDGE_RETURN)
+        if (current_block > 0) then
+            call add_cfg_edge(builder%cfg, current_block, &
+                             exit_block_id, EDGE_CONDITIONAL_RETURN)
+        end if
         
-        ! No current block after error stop
+        ! Mark subsequent code as potentially unreachable
         builder%current_block_id = 0
     end subroutine process_error_stop
 
@@ -827,14 +848,20 @@ contains
         has_stat = .false.
         has_errmsg = .false.
         
+        ! Validate arena and indices
+        if (.not. allocated(arena%entries)) return
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
         
-        select type (node => arena%entries(node_index)%node)
-        type is (allocate_statement_node)
-            has_stat = (node%stat_var_index > 0)
-            has_errmsg = (node%errmsg_var_index > 0)
-        end select
+        ! Check node type before accessing fields
+        if (arena%entries(node_index)%node_type == "allocate_statement" .or. &
+            arena%entries(node_index)%node_type == "allocate_node") then
+            select type (node => arena%entries(node_index)%node)
+            type is (allocate_statement_node)
+                has_stat = (node%stat_var_index > 0)
+                has_errmsg = (node%errmsg_var_index > 0)
+            end select
+        end if
     end subroutine check_allocate_exception_params
     
     ! Helper function to check deallocate statement exception parameters
@@ -846,14 +873,20 @@ contains
         has_stat = .false.
         has_errmsg = .false.
         
+        ! Validate arena and indices
+        if (.not. allocated(arena%entries)) return
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
         
-        select type (node => arena%entries(node_index)%node)
-        type is (deallocate_statement_node)
-            has_stat = (node%stat_var_index > 0)
-            has_errmsg = (node%errmsg_var_index > 0)
-        end select
+        ! Check node type before accessing fields
+        if (arena%entries(node_index)%node_type == "deallocate_statement" .or. &
+            arena%entries(node_index)%node_type == "deallocate_node") then
+            select type (node => arena%entries(node_index)%node)
+            type is (deallocate_statement_node)
+                has_stat = (node%stat_var_index > 0)
+                has_errmsg = (node%errmsg_var_index > 0)
+            end select
+        end if
     end subroutine check_deallocate_exception_params
     
     ! Helper function to check I/O statement exception parameters
@@ -866,6 +899,8 @@ contains
         has_err = .false.
         has_end = .false.
         
+        ! Validate arena and indices
+        if (.not. allocated(arena%entries)) return
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
         
@@ -876,6 +911,8 @@ contains
                 has_iostat = (node%iostat_var_index > 0)
                 has_err = (node%err_label_index > 0)
                 has_end = (node%end_label_index > 0)
+            class default
+                ! Node type mismatch - silently return defaults
             end select
         case ("write_statement", "write_node")
             select type (node => arena%entries(node_index)%node)
@@ -883,7 +920,11 @@ contains
                 has_iostat = (node%iostat_var_index > 0)
                 has_err = (node%err_label_index > 0)
                 has_end = (node%end_label_index > 0)
+            class default
+                ! Node type mismatch - silently return defaults
             end select
+        case default
+            ! Unsupported node type - return defaults
         end select
     end subroutine check_io_exception_params
 
