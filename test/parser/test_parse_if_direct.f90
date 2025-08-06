@@ -45,13 +45,13 @@ contains
             return
         end if
         
-        ! Check if we actually got an if_node
+        ! Check if we actually got an if_statement node
         if (if_index > 0 .and. if_index <= arena%size) then
-            if (arena%entries(if_index)%node_type == "if_statement" .or. &
-                arena%entries(if_index)%node_type == "if_node") then
-                print *, "PASSED: If statement parsed as", trim(arena%entries(if_index)%node_type)
+            if (arena%entries(if_index)%node_type == "if_statement") then
+                print *, "PASSED: If statement parsed as if_statement"
             else
                 print *, "FAILED: If statement parsed as:", trim(arena%entries(if_index)%node_type)
+                print *, "  Expected: if_statement"
                 all_tests_passed = .false.
             end if
         else

@@ -2180,7 +2180,8 @@ contains
                 stmt_indices(1) = parse_stop_statement(parser, arena)
                 return
             else if (first_token%text == "if") then
-                ! Parse if statement - use simple if parser to avoid circular dependency
+                ! Parse if statement using parse_if_simple (defined in this module at line 2751)
+                ! This avoids circular dependency with parser_control_flow_module
                 allocate (stmt_indices(1))
                 stmt_indices(1) = parse_if_simple(parser, arena)
                 return

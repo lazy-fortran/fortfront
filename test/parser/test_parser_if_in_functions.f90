@@ -76,12 +76,13 @@ contains
         
         ! Check if the function node has any children that are if_nodes
         if (func_index > 0 .and. func_index <= arena%size) then
-            ! Look through the function's body indices to find if_node types
+            ! Look through the function's body indices to find if_statement types
             if (arena%entries(func_index)%node_type == "function_def") then
-                ! Check if any body statement is an if_node
+                ! Search through all nodes to find if_statement nodes
+                ! Note: A more precise approach would access the function's body_indices
+                ! directly, but this requires knowledge of the AST structure
                 do i = 1, arena%size
-                    if (arena%entries(i)%node_type == "if_statement" .or. &
-                        arena%entries(i)%node_type == "if_node") then
+                    if (arena%entries(i)%node_type == "if_statement") then
                         found_if_node = .true.
                         return
                     end if
