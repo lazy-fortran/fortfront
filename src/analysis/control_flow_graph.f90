@@ -22,6 +22,10 @@ module control_flow_graph_module
     integer, parameter, public :: EDGE_CONTINUE = 6
     integer, parameter, public :: EDGE_RETURN = 7
     integer, parameter, public :: EDGE_EXCEPTION = 8
+    integer, parameter, public :: EDGE_CONDITIONAL_RETURN = 9
+    integer, parameter, public :: EDGE_ERROR_HANDLING = 10
+    integer, parameter, public :: EDGE_SUCCESS_PATH = 11
+    integer, parameter, public :: EDGE_FAILURE_PATH = 12
 
     ! Basic block type
     type :: basic_block_t
@@ -430,6 +434,24 @@ contains
             case (EDGE_LOOP_BACK)
                 print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [loop]"
+            case (EDGE_RETURN)
+                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                         cfg%edges(i)%to_block_id, " [return]"
+            case (EDGE_EXCEPTION)
+                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                         cfg%edges(i)%to_block_id, " [exception]"
+            case (EDGE_CONDITIONAL_RETURN)
+                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                         cfg%edges(i)%to_block_id, " [conditional-return]"
+            case (EDGE_ERROR_HANDLING)
+                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                         cfg%edges(i)%to_block_id, " [error-handling]"
+            case (EDGE_SUCCESS_PATH)
+                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                         cfg%edges(i)%to_block_id, " [success]"
+            case (EDGE_FAILURE_PATH)
+                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                         cfg%edges(i)%to_block_id, " [failure]"
             case default
                 print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id
@@ -478,6 +500,12 @@ contains
                 dot_string = dot_string // ' [label="F",color=red]'
             case (EDGE_LOOP_BACK)
                 dot_string = dot_string // ' [style=dashed]'
+            case (EDGE_RETURN, EDGE_CONDITIONAL_RETURN)
+                dot_string = dot_string // ' [label="return",color=orange]'
+            case (EDGE_EXCEPTION, EDGE_ERROR_HANDLING, EDGE_FAILURE_PATH)
+                dot_string = dot_string // ' [label="error",color=red,style=dashed]'
+            case (EDGE_SUCCESS_PATH)
+                dot_string = dot_string // ' [label="success",color=green]'
             end select
             
             dot_string = dot_string // ';' // new_line('a')
