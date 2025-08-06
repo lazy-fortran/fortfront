@@ -12,7 +12,13 @@ program test_associate_variable_tracking
 
     call test_associate_simple_binding()
     call test_associate_multiple_bindings()
-    ! TODO: Nested associates require more complex parsing logic
+    
+    ! NOTE: Nested associate constructs test is disabled because the simplified
+    ! parser (parse_associate_simple) doesn't handle nested associates as body
+    ! statements. The core functionality for simple and multiple bindings works
+    ! correctly. Full nested support would require using the complete parser
+    ! from parser_control_flow module, which would introduce circular dependencies.
+    ! This is a known limitation that doesn't affect the primary use case.
     ! call test_nested_associate_constructs()
 
     if (all_tests_passed) then

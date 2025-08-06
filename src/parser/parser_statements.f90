@@ -2848,6 +2848,9 @@ contains
     end function parse_if_simple
     
     ! Simple associate construct parser (to avoid circular dependency with control_flow module)
+    ! This function duplicates some logic from parser_control_flow::parse_associate but is
+    ! necessary to break the circular dependency between parser_statements and parser_control_flow.
+    ! The function is intentionally self-contained to avoid further module dependencies.
     function parse_associate_simple(parser, arena) result(assoc_index)
         use ast_nodes_control, only: association_t
         type(parser_state_t), intent(inout) :: parser
@@ -2912,13 +2915,26 @@ contains
                 
                 ! Advance parser position for the expression
                 block
-                    integer :: tokens_to_consume
-                    tokens_to_consume = 1  ! Simple heuristic - advance by one token for now
+                    integer :: paren_depth
+                    paren_depth = 0
+                    ! Properly track expression boundaries considering nested parentheses
                     do while (parser%current_token <= size(parser%tokens))
                         token = parser%peek()
-                        if (token%kind == TK_OPERATOR .and. &
-                            (token%text == "," .or. token%text == ")")) exit
-                        if (token%kind == TK_KEYWORD) exit
+                        
+                        ! Track parentheses depth for nested expressions
+                        if (token%kind == TK_OPERATOR) then
+                            if (token%text == "(") then
+                                paren_depth = paren_depth + 1
+                            else if (token%text == ")") then
+                                if (paren_depth == 0) exit  ! End of associate list
+                                paren_depth = paren_depth - 1
+                            else if (token%text == "," .and. paren_depth == 0) then
+                                exit  ! Next association
+                            end if
+                        else if (token%kind == TK_KEYWORD .and. paren_depth == 0) then
+                            exit  ! End of expression
+                        end if
+                        
                         token = parser%consume()
                     end do
                 end block
@@ -3095,8 +3111,9 @@ contains
             assoc_index = 0
         end if
         
-        deallocate(associations)
-        deallocate(body_indices)
+        ! Clean up allocated arrays
+        if (allocated(associations)) deallocate(associations)
+        if (allocated(body_indices)) deallocate(body_indices)
     end function parse_associate_simple
     
     ! Simple if condition parser with error handling
