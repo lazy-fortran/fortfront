@@ -17,7 +17,6 @@ module cfg_builder_module
         integer, allocatable :: statement_buffer(:)
         integer :: buffer_size = 0
         integer :: buffer_capacity = 16
-        integer :: conditional_depth = 0      ! Track if we're inside conditional branches
     end type cfg_builder_t
 
 contains
@@ -251,9 +250,6 @@ contains
         else_block_id = 0
         elseif_block_id = 0
         
-        ! Increment conditional depth to track we're in a conditional context
-        builder%conditional_depth = builder%conditional_depth + 1
-        
         ! Flush current buffer
         call flush_statement_buffer(builder)
         current_block = builder%current_block_id
@@ -298,7 +294,8 @@ contains
             end do
         end if
         call flush_statement_buffer(builder)
-        if (builder%current_block_id > 0) then
+        ! Only connect to merge if this branch doesn't end with a terminating statement
+        if (builder%current_block_id > 0 .and. builder%current_block_id == then_block_id) then
             call add_cfg_edge(builder%cfg, builder%current_block_id, &
                              merge_block_id, EDGE_UNCONDITIONAL)
         end if
@@ -377,7 +374,8 @@ contains
                 call process_node(builder, arena, else_indices(i))
             end do
             call flush_statement_buffer(builder)
-            if (builder%current_block_id > 0) then
+            ! Only connect to merge if this branch doesn't end with a terminating statement
+            if (builder%current_block_id > 0 .and. builder%current_block_id == else_block_id) then
                 call add_cfg_edge(builder%cfg, builder%current_block_id, &
                                  merge_block_id, EDGE_UNCONDITIONAL)
             end if
@@ -385,9 +383,6 @@ contains
         
         ! Continue from merge block
         builder%current_block_id = merge_block_id
-        
-        ! Decrement conditional depth as we exit the if statement
-        builder%conditional_depth = builder%conditional_depth - 1
     end subroutine process_if_statement
 
     ! Process do loop
@@ -516,11 +511,8 @@ contains
         call add_cfg_edge(builder%cfg, builder%current_block_id, &
                          exit_block_id, EDGE_RETURN)
         
-        ! Only set current block to 0 if we're not inside a conditional context
-        ! Inside conditionals, code after the conditional is still reachable through other branches
-        if (builder%conditional_depth == 0) then
-            builder%current_block_id = 0
-        end if
+        ! Mark this execution path as terminated
+        builder%current_block_id = 0
     end subroutine process_return
 
     ! Process stop statement
