@@ -244,11 +244,14 @@ contains
         integer, allocatable :: then_indices(:), else_indices(:)
         type(elseif_wrapper), allocatable :: elseif_blocks(:)
         integer :: i, j
+        logical :: then_branch_terminates, else_branch_terminates
         
         ! Initialize variables
         condition_index = 0
         else_block_id = 0
         elseif_block_id = 0
+        then_branch_terminates = .false.
+        else_branch_terminates = .false.
         
         ! Flush current buffer
         call flush_statement_buffer(builder)
@@ -294,11 +297,19 @@ contains
             end do
         end if
         call flush_statement_buffer(builder)
-        ! Only connect to merge if this branch doesn't end with a terminating statement
-        if (builder%current_block_id > 0 .and. builder%current_block_id == then_block_id) then
-            call add_cfg_edge(builder%cfg, builder%current_block_id, &
-                             merge_block_id, EDGE_UNCONDITIONAL)
-        end if
+        ! Save the final block id after processing then branch
+        block
+            integer :: final_then_block_id
+            final_then_block_id = builder%current_block_id
+            ! Only connect to merge if this branch doesn't end with a terminating statement
+            if (final_then_block_id > 0) then
+                call add_cfg_edge(builder%cfg, final_then_block_id, &
+                                 merge_block_id, EDGE_UNCONDITIONAL)
+            else
+                ! Branch terminates (e.g., with return)
+                then_branch_terminates = .true.
+            end if
+        end block
         
         ! Process elseif blocks if present
         ! Each elseif creates two blocks: one for the condition check and one for the body
@@ -374,15 +385,38 @@ contains
                 call process_node(builder, arena, else_indices(i))
             end do
             call flush_statement_buffer(builder)
-            ! Only connect to merge if this branch doesn't end with a terminating statement
-            if (builder%current_block_id > 0 .and. builder%current_block_id == else_block_id) then
-                call add_cfg_edge(builder%cfg, builder%current_block_id, &
-                                 merge_block_id, EDGE_UNCONDITIONAL)
-            end if
+            ! Save the final block id after processing else branch
+            block
+                integer :: final_else_block_id
+                final_else_block_id = builder%current_block_id
+                ! Only connect to merge if this branch doesn't end with a terminating statement
+                if (final_else_block_id > 0) then
+                    call add_cfg_edge(builder%cfg, final_else_block_id, &
+                                     merge_block_id, EDGE_UNCONDITIONAL)
+                else
+                    ! Branch terminates (e.g., with return)
+                    else_branch_terminates = .true.
+                end if
+            end block
         end if
         
-        ! Continue from merge block
-        builder%current_block_id = merge_block_id
+        ! Continue from merge block only if at least one branch can reach it
+        ! If there's no else branch, the false branch connects directly to merge
+        ! If both then and else branches terminate, merge block is unreachable
+        if (allocated(else_indices) .and. size(else_indices) > 0) then
+            ! We have an else branch
+            if (then_branch_terminates .and. else_branch_terminates) then
+                ! Both branches terminate - merge block is unreachable
+                builder%current_block_id = 0
+            else
+                ! At least one branch reaches merge
+                builder%current_block_id = merge_block_id
+            end if
+        else
+            ! No else branch - false path goes directly to merge
+            ! Merge is reachable unless then branch doesn't terminate
+            builder%current_block_id = merge_block_id
+        end if
     end subroutine process_if_statement
 
     ! Process do loop
