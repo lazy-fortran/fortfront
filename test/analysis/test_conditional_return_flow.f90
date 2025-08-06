@@ -15,11 +15,9 @@ program test_conditional_return_flow
     call test_conditional_return_reachability()
     call test_unconditional_return_unreachability()
     call test_nested_conditional_returns()
-    ! TODO: Issue #141 - Requires parser-level fix for empty then_body_indices
-    ! call test_multiple_conditional_returns()
+    call test_multiple_conditional_returns()
     call test_deeply_nested_conditionals()
-    ! TODO: Issue #141 - Requires parser-level fix for empty then_body_indices  
-    ! call test_mixed_conditional_unconditional_returns()
+    call test_mixed_conditional_unconditional_returns()
 
     if (all_tests_passed) then
         print *, "All conditional return flow tests PASSED!"
