@@ -46,7 +46,7 @@ contains
         sub_index = parse_subroutine_definition(parser, arena)
         
         if (sub_index <= 0) then
-            print *, "FAILED: Could not parse subroutine"
+            write(error_unit, *) "FAILED: Could not parse subroutine"
             all_tests_passed = .false.
             return
         end if
@@ -55,7 +55,7 @@ contains
         print_node_index = find_print_statement_in_arena(arena)
         
         if (print_node_index <= 0) then
-            print *, "FAILED: Could not find print statement node in AST"
+            write(error_unit, *) "FAILED: Could not find print statement node in AST"
             all_tests_passed = .false.
             return
         end if
@@ -77,8 +77,8 @@ contains
         if (found_arg) then
             print *, "PASSED: Found 'arg' in print statement"
         else
-            print *, "FAILED: 'arg' not found in print statement"
-            print *, "  Found identifiers:", size(identifiers)
+            write(error_unit, *) "FAILED: 'arg' not found in print statement"
+            write(error_unit, *) "  Found identifiers:", size(identifiers)
             if (allocated(identifiers)) then
                 do i = 1, size(identifiers)
                     print *, "    ", trim(identifiers(i))
@@ -112,7 +112,7 @@ contains
         sub_index = parse_subroutine_definition(parser, arena)
         
         if (sub_index <= 0) then
-            print *, "FAILED: Could not parse subroutine"
+            write(error_unit, *) "FAILED: Could not parse subroutine"
             all_tests_passed = .false.
             return
         end if
@@ -120,7 +120,7 @@ contains
         print_node_index = find_print_statement_in_arena(arena)
         
         if (print_node_index <= 0) then
-            print *, "FAILED: Could not find print statement node in AST"
+            write(error_unit, *) "FAILED: Could not find print statement node in AST"
             all_tests_passed = .false.
             return
         end if
@@ -140,8 +140,8 @@ contains
         if (found_x .and. found_y) then
             print *, "PASSED: Found both 'x' and 'y' in print statement"
         else
-            print *, "FAILED: Missing variables in print statement"
-            print *, "  Found x:", found_x, " Found y:", found_y
+            write(error_unit, *) "FAILED: Missing variables in print statement"
+            write(error_unit, *) "  Found x:", found_x, " Found y:", found_y
             all_tests_passed = .false.
         end if
         
@@ -170,7 +170,7 @@ contains
         sub_index = parse_subroutine_definition(parser, arena)
         
         if (sub_index <= 0) then
-            print *, "FAILED: Could not parse subroutine"
+            write(error_unit, *) "FAILED: Could not parse subroutine"
             all_tests_passed = .false.
             return
         end if
@@ -178,7 +178,7 @@ contains
         print_node_index = find_print_statement_in_arena(arena)
         
         if (print_node_index <= 0) then
-            print *, "FAILED: Could not find print statement node in AST"
+            write(error_unit, *) "FAILED: Could not find print statement node in AST"
             all_tests_passed = .false.
             return
         end if
@@ -198,8 +198,8 @@ contains
         if (found_a .and. found_b) then
             print *, "PASSED: Found both 'a' and 'b' in print expression"
         else
-            print *, "FAILED: Missing variables in print expression"
-            print *, "  Found a:", found_a, " Found b:", found_b
+            write(error_unit, *) "FAILED: Missing variables in print expression"
+            write(error_unit, *) "  Found a:", found_a, " Found b:", found_b
             all_tests_passed = .false.
         end if
         

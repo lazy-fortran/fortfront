@@ -2189,6 +2189,10 @@ contains
                 ! Parse print statement
                 allocate (stmt_indices(1))
                 stmt_indices(1) = parse_print_statement(parser, arena)
+                if (stmt_indices(1) <= 0) then
+                    deallocate(stmt_indices)
+                    allocate (stmt_indices(0))  ! Return empty array on failure
+                end if
                 return
             end if
         end if
