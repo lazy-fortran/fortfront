@@ -955,15 +955,11 @@ contains
         
         select type (node => arena%entries(node_index)%node)
         type is (associate_node)
-            ! Process all associations - both the associate name and the target expression
+            ! Process all associations - track variables used in target expressions
             if (allocated(node%associations)) then
                 do i = 1, size(node%associations)
-                    ! Add the associate name as a variable usage
-                    if (allocated(node%associations(i)%name)) then
-                        call add_string_to_info(node%associations(i)%name, node_index, info)
-                    end if
-                    
                     ! Process the target expression - this tracks the original variable
+                    ! The alias name itself is NOT a variable usage, it's a new binding
                     if (node%associations(i)%expr_index > 0) then
                         call collect_identifiers_recursive(arena, node%associations(i)%expr_index, info)
                     end if
