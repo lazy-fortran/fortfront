@@ -15,10 +15,11 @@ program test_conditional_return_flow
     call test_conditional_return_reachability()
     call test_unconditional_return_unreachability()
     call test_nested_conditional_returns()
-    ! TODO: Fix multiple conditional returns test - issue with sequential if statements 
+    ! TODO: Issue #141 - Tests disabled pending CFG analysis improvements
+    ! Parser now correctly handles return statements, but CFG reachability
+    ! analysis needs refinement for sequential conditional returns
     ! call test_multiple_conditional_returns()
     call test_deeply_nested_conditionals()
-    ! TODO: Fix mixed conditional/unconditional returns test
     ! call test_mixed_conditional_unconditional_returns()
 
     if (all_tests_passed) then

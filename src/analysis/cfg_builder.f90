@@ -288,7 +288,7 @@ contains
                          EDGE_TRUE_BRANCH, "if-condition")
         
         builder%current_block_id = then_block_id
-        if (allocated(then_indices)) then
+        if (allocated(then_indices) .and. size(then_indices) > 0) then
             do i = 1, size(then_indices)
                 call process_node(builder, arena, then_indices(i))
             end do

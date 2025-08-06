@@ -2817,6 +2817,9 @@ contains
                             stmt_idx = parse_statement_in_if_block(parser, arena, then_token)
                             if (stmt_idx > 0) then
                                 then_body_indices = [then_body_indices, stmt_idx]
+                            else
+                                ! If parsing failed, skip this token to avoid infinite loop
+                                then_token = parser%consume()
                             end if
                         end block
                     end if
@@ -2827,6 +2830,9 @@ contains
                         stmt_idx = parse_assignment_simple(parser, arena)
                         if (stmt_idx > 0) then
                             then_body_indices = [then_body_indices, stmt_idx]
+                        else
+                            ! If parsing failed, skip this token to avoid infinite loop
+                            then_token = parser%consume()
                         end if
                     end block
                 else
