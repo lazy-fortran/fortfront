@@ -300,6 +300,8 @@ contains
         end if
         
         ! Process elseif blocks if present
+        ! Each elseif creates two blocks: one for the condition check and one for the body
+        ! The chain connects: if-false -> elseif1-cond -> elseif1-body (true) or elseif2-cond (false)
         if (allocated(elseif_blocks) .and. size(elseif_blocks) > 0) then
             ! The previous condition block needs to connect to the first elseif
             elseif_block_id = add_basic_block(builder%cfg, "elseif")
@@ -364,31 +366,16 @@ contains
             end if
         end if
         
-        ! Process else branch if present and not already handled
-        if (allocated(else_indices) .and. size(else_indices) > 0) then
-            if (.not. allocated(elseif_blocks) .or. size(elseif_blocks) == 0) then
-                builder%current_block_id = else_block_id
-                if (allocated(else_indices)) then
-                    do i = 1, size(else_indices)
-                        call process_node(builder, arena, else_indices(i))
-                    end do
-                end if
-                call flush_statement_buffer(builder)
-                if (builder%current_block_id > 0) then
-                    call add_cfg_edge(builder%cfg, builder%current_block_id, &
-                                     merge_block_id, EDGE_UNCONDITIONAL)
-                end if
-            else
-                ! else block was already created and connected after elseif chain
-                builder%current_block_id = else_block_id
-                do i = 1, size(else_indices)
-                    call process_node(builder, arena, else_indices(i))
-                end do
-                call flush_statement_buffer(builder)
-                if (builder%current_block_id > 0) then
-                    call add_cfg_edge(builder%cfg, builder%current_block_id, &
-                                     merge_block_id, EDGE_UNCONDITIONAL)
-                end if
+        ! Process else branch if present
+        if (allocated(else_indices) .and. size(else_indices) > 0 .and. else_block_id > 0) then
+            builder%current_block_id = else_block_id
+            do i = 1, size(else_indices)
+                call process_node(builder, arena, else_indices(i))
+            end do
+            call flush_statement_buffer(builder)
+            if (builder%current_block_id > 0) then
+                call add_cfg_edge(builder%cfg, builder%current_block_id, &
+                                 merge_block_id, EDGE_UNCONDITIONAL)
             end if
         end if
         

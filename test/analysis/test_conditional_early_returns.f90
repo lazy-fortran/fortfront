@@ -256,52 +256,16 @@ contains
             return
         end if
         
-        ! Debug: Check AST structure
-        block
-            use ast_nodes_procedure, only: function_def_node
-            use ast_nodes_control, only: if_node
-            select type (node => arena%entries(func_index)%node)
-            type is (function_def_node) 
-                if (allocated(node%body_indices)) then
-                    print *, "  Function has", size(node%body_indices), "body statements"
-                    do i = 1, size(node%body_indices)
-                        print *, "    Statement", i, ":", &
-                                arena%entries(node%body_indices(i))%node_type
-                        if (arena%entries(node%body_indices(i))%node_type == "if") then
-                            select type (if_stmt => arena%entries(node%body_indices(i))%node)
-                            type is (if_node)
-                                if (allocated(if_stmt%elseif_blocks)) then
-                                    print *, "      If has", size(if_stmt%elseif_blocks), "elseif blocks"
-                                else
-                                    print *, "      If has no elseif blocks"
-                                end if
-                            end select
-                        end if
-                    end do
-                end if
-            end select
-        end block
-        
         cfg = build_control_flow_graph(arena, func_index)
-        
-        ! Debug: print CFG structure
-        call print_cfg(cfg)
-        
         unreachable_nodes = find_unreachable_code(cfg)
         
         ! The final assignment should be reachable
         default_case_reachable = .true.
         if (allocated(unreachable_nodes)) then
-            print *, "  Number of unreachable nodes:", size(unreachable_nodes)
-            do i = 1, size(unreachable_nodes)
-                print *, "    Unreachable:", arena%entries(unreachable_nodes(i))%node_type
-            end do
             ! Check if any assignment is incorrectly marked as unreachable
             if (size(unreachable_nodes) > 0) then
                 default_case_reachable = .false.
             end if
-        else
-            print *, "  No unreachable nodes found (good)"
         end if
         
         if (default_case_reachable) then
