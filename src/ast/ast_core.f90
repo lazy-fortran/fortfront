@@ -31,7 +31,7 @@ module ast_core
                                  select_case_node, case_block_node, case_range_node, &
                                  case_default_node, &
                                  where_node, cycle_node, exit_node, &
-                                 stop_node, return_node, &
+                                 stop_node, return_node, goto_node, error_stop_node, &
                                  create_do_loop, create_do_while, create_if, &
                                  create_select_case
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
@@ -75,7 +75,8 @@ module ast_core
     public :: if_node, do_loop_node, do_while_node, forall_node, &
               elseif_wrapper, case_wrapper
     public :: select_case_node, case_block_node, case_range_node, case_default_node
-    public :: where_node, cycle_node, exit_node, stop_node, return_node
+    public :: where_node, cycle_node, exit_node, stop_node, return_node, &
+              goto_node, error_stop_node
     public :: function_def_node, subroutine_def_node, subroutine_call_node
     public :: declaration_node, parameter_declaration_node, module_node, &
               derived_type_node
@@ -108,7 +109,8 @@ module ast_core
               create_use_statement, create_implicit_statement, &
               create_include_statement, create_interface_block, create_module, &
               create_stop, &
-              create_return, create_cycle, create_exit, create_where, &
+              create_return, create_goto, create_error_stop, &
+              create_cycle, create_exit, create_where, &
               create_comment, create_array_bounds, create_array_slice, &
               create_range_expression, create_array_operation
     
@@ -389,6 +391,28 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_return
+
+    function create_goto(label, line, column) result(node)
+        character(len=*), intent(in), optional :: label
+        integer, intent(in), optional :: line, column
+        type(goto_node) :: node
+
+        if (present(label)) node%label = label
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_goto
+
+    function create_error_stop(error_code_index, error_message, line, column) result(node)
+        integer, intent(in), optional :: error_code_index
+        character(len=*), intent(in), optional :: error_message
+        integer, intent(in), optional :: line, column
+        type(error_stop_node) :: node
+
+        if (present(error_code_index)) node%error_code_index = error_code_index
+        if (present(error_message)) node%error_message = error_message
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_error_stop
 
     function create_cycle(loop_label, line, column) result(node)
         character(len=*), intent(in), optional :: loop_label

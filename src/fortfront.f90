@@ -45,6 +45,7 @@ module fortfront
                         read_statement_node, format_descriptor_node, &
                         allocate_statement_node, deallocate_statement_node, &
                         stop_node, return_node, cycle_node, exit_node, &
+                        goto_node, error_stop_node, &
                         where_node, interface_block_node, derived_type_node, &
                         pointer_assignment_node, forall_node, case_range_node, &
                         case_default_node, complex_literal_node, &
@@ -264,21 +265,23 @@ module fortfront
     integer, parameter :: NODE_DEALLOCATE_STATEMENT = 24
     integer, parameter :: NODE_STOP = 25
     integer, parameter :: NODE_RETURN = 26
-    integer, parameter :: NODE_CYCLE = 27
-    integer, parameter :: NODE_EXIT = 28
-    integer, parameter :: NODE_WHERE = 29
-    integer, parameter :: NODE_INTERFACE_BLOCK = 30
-    integer, parameter :: NODE_DERIVED_TYPE = 31
-    integer, parameter :: NODE_POINTER_ASSIGNMENT = 32
-    integer, parameter :: NODE_FORALL = 33
-    integer, parameter :: NODE_CASE_RANGE = 34
-    integer, parameter :: NODE_CASE_DEFAULT = 35
-    integer, parameter :: NODE_COMPLEX_LITERAL = 36
-    integer, parameter :: NODE_INCLUDE_STATEMENT = 37
-    integer, parameter :: NODE_CONTAINS = 38
-    integer, parameter :: NODE_FORMAT_DESCRIPTOR = 39
-    integer, parameter :: NODE_COMMENT = 40
-    integer, parameter :: NODE_IMPLICIT_STATEMENT = 41
+    integer, parameter :: NODE_GOTO = 27
+    integer, parameter :: NODE_ERROR_STOP = 28
+    integer, parameter :: NODE_CYCLE = 29
+    integer, parameter :: NODE_EXIT = 30
+    integer, parameter :: NODE_WHERE = 31
+    integer, parameter :: NODE_INTERFACE_BLOCK = 32
+    integer, parameter :: NODE_DERIVED_TYPE = 33
+    integer, parameter :: NODE_POINTER_ASSIGNMENT = 34
+    integer, parameter :: NODE_FORALL = 35
+    integer, parameter :: NODE_CASE_RANGE = 36
+    integer, parameter :: NODE_CASE_DEFAULT = 37
+    integer, parameter :: NODE_COMPLEX_LITERAL = 38
+    integer, parameter :: NODE_INCLUDE_STATEMENT = 39
+    integer, parameter :: NODE_CONTAINS = 40
+    integer, parameter :: NODE_FORMAT_DESCRIPTOR = 41
+    integer, parameter :: NODE_COMMENT = 42
+    integer, parameter :: NODE_IMPLICIT_STATEMENT = 43
     integer, parameter :: NODE_UNKNOWN = 99
     
     ! Additional facade-specific types and procedures
@@ -734,6 +737,10 @@ contains
             node_type = NODE_STOP
         case ("return_node", "return")
             node_type = NODE_RETURN
+        case ("goto_node", "goto")
+            node_type = NODE_GOTO
+        case ("error_stop_node", "error_stop")
+            node_type = NODE_ERROR_STOP
         case ("cycle_node", "cycle")
             node_type = NODE_CYCLE
         case ("exit_node", "exit")

@@ -20,7 +20,7 @@ module ast_factory
               push_write_statement_with_iostat, push_write_statement_with_format, &
               push_write_statement_with_runtime_format
     public :: push_function_def, push_subroutine_def, push_interface_block, push_module
-    public :: push_stop, push_return
+    public :: push_stop, push_return, push_goto, push_error_stop
     public :: push_cycle, push_exit
     public :: push_where, push_where_construct, push_where_construct_with_elsewhere
     public :: push_type_constructor, push_component_access
@@ -1204,6 +1204,39 @@ contains
         return_index = arena%size
 
     end function push_return
+
+    ! Create GOTO statement node and add to stack
+    function push_goto(arena, label, line, column, parent_index) result(goto_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in), optional :: label
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: goto_index
+        type(goto_node) :: goto_stmt
+
+        goto_stmt = create_goto(label=label, line=line, column=column)
+
+        call arena%push(goto_stmt, "goto_node", parent_index)
+        goto_index = arena%size
+
+    end function push_goto
+
+    ! Create ERROR STOP statement node and add to stack
+    function push_error_stop(arena, error_code_index, error_message, line, column, parent_index) result(error_stop_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: error_code_index
+        character(len=*), intent(in), optional :: error_message
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: error_stop_index
+        type(error_stop_node) :: error_stop_stmt
+
+        error_stop_stmt = create_error_stop(error_code_index=error_code_index, &
+                                           error_message=error_message, &
+                                           line=line, column=column)
+
+        call arena%push(error_stop_stmt, "error_stop_node", parent_index)
+        error_stop_index = arena%size
+
+    end function push_error_stop
 
     ! Create CYCLE statement node and add to stack
   function push_cycle(arena, loop_label, line, column, parent_index) result(cycle_index)
