@@ -149,6 +149,12 @@ contains
         case ("deallocate_statement", "deallocate_node")
             call process_deallocate(builder, arena, node_index)
             
+        case ("goto_statement", "goto_node")
+            call process_goto(builder, arena, node_index)
+            
+        case ("error_stop_statement", "error_stop_node")
+            call process_error_stop(builder, arena, node_index)
+            
         case ("open_statement", "open_node")
             call process_io_with_exception(builder, arena, node_index)
             
@@ -486,6 +492,76 @@ contains
         ! For now, mark as a continue edge
         builder%current_block_id = 0
     end subroutine process_cycle
+    
+    ! Process goto statement
+    subroutine process_goto(builder, arena, node_index)
+        type(cfg_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        
+        character(len=:), allocatable :: label
+        integer :: target_block_id
+        
+        ! Add goto to current block
+        call add_statement_to_buffer(builder, node_index)
+        call flush_statement_buffer(builder)
+        
+        ! Get the target label
+        select type (node => arena%entries(node_index)%node)
+        type is (goto_node)
+            if (allocated(node%label)) then
+                label = node%label
+            else
+                label = "unknown"
+            end if
+        end select
+        
+        ! Create or find target block (simplified - real implementation would maintain label map)
+        target_block_id = add_basic_block(builder%cfg, "label_" // label)
+        
+        ! Add unconditional jump edge
+        call add_cfg_edge(builder%cfg, builder%current_block_id, target_block_id, &
+                         EDGE_UNCONDITIONAL, "goto-" // label)
+        
+        ! No current block after goto (unreachable code follows)
+        builder%current_block_id = 0
+    end subroutine process_goto
+    
+    ! Process error stop statement
+    subroutine process_error_stop(builder, arena, node_index)
+        type(cfg_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        
+        integer :: exit_block_id
+        
+        ! Add error stop to current block
+        call add_statement_to_buffer(builder, node_index)
+        call flush_statement_buffer(builder)
+        
+        ! Find or create exit block
+        exit_block_id = 0
+        block
+            integer :: i
+            do i = 1, builder%cfg%block_count
+                if (builder%cfg%blocks(i)%is_exit) then
+                    exit_block_id = i
+                    exit
+                end if
+            end do
+        end block
+        
+        if (exit_block_id == 0) then
+            exit_block_id = add_basic_block(builder%cfg, "exit", is_exit=.true.)
+        end if
+        
+        ! Add edge to exit (error stop terminates program)
+        call add_cfg_edge(builder%cfg, builder%current_block_id, &
+                         exit_block_id, EDGE_RETURN)
+        
+        ! No current block after error stop
+        builder%current_block_id = 0
+    end subroutine process_error_stop
 
     ! Process where statement
     subroutine process_where(builder, arena, node_index)
@@ -589,14 +665,44 @@ contains
         integer, intent(in) :: node_index
         
         integer :: success_block_id, failure_block_id, merge_block_id
+        integer :: current_block
+        logical :: has_stat_param, has_errmsg_param
         
-        ! Add allocate to current block
-        call add_statement_to_buffer(builder, node_index)
+        ! Check if this allocate has stat= or errmsg= parameters
+        call check_allocate_exception_params(arena, node_index, has_stat_param, has_errmsg_param)
         
-        ! Check if this allocate has a stat= parameter
-        ! If so, create branches for success/failure
-        ! TODO: Check AST node for stat= parameter presence
-        ! For now, just treat as regular statement
+        if (has_stat_param .or. has_errmsg_param) then
+            ! Create exception handling blocks
+            call flush_statement_buffer(builder)
+            current_block = builder%current_block_id
+            
+            ! Add allocate statement to current block
+            call add_statement_to_buffer(builder, node_index)
+            call flush_statement_buffer(builder)
+            
+            ! Create blocks for different execution paths
+            success_block_id = add_basic_block(builder%cfg, "allocate_success")
+            failure_block_id = add_basic_block(builder%cfg, "allocate_failure")
+            merge_block_id = add_basic_block(builder%cfg, "allocate_merge")
+            
+            ! Add conditional edges based on allocation result
+            call add_cfg_edge(builder%cfg, current_block, success_block_id, &
+                             EDGE_SUCCESS_PATH, "allocation-success")
+            call add_cfg_edge(builder%cfg, current_block, failure_block_id, &
+                             EDGE_FAILURE_PATH, "allocation-failure")
+            
+            ! Connect both paths to merge block
+            call add_cfg_edge(builder%cfg, success_block_id, merge_block_id, &
+                             EDGE_UNCONDITIONAL)
+            call add_cfg_edge(builder%cfg, failure_block_id, merge_block_id, &
+                             EDGE_UNCONDITIONAL)
+            
+            ! Continue from merge block
+            builder%current_block_id = merge_block_id
+        else
+            ! No exception handling, treat as regular statement
+            call add_statement_to_buffer(builder, node_index)
+        end if
     end subroutine process_allocate
 
     ! Process deallocate statement with exception handling
@@ -605,8 +711,45 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
-        ! Similar to allocate
-        call add_statement_to_buffer(builder, node_index)
+        integer :: success_block_id, failure_block_id, merge_block_id
+        integer :: current_block
+        logical :: has_stat_param, has_errmsg_param
+        
+        ! Check if this deallocate has stat= or errmsg= parameters
+        call check_deallocate_exception_params(arena, node_index, has_stat_param, has_errmsg_param)
+        
+        if (has_stat_param .or. has_errmsg_param) then
+            ! Create exception handling blocks
+            call flush_statement_buffer(builder)
+            current_block = builder%current_block_id
+            
+            ! Add deallocate statement to current block
+            call add_statement_to_buffer(builder, node_index)
+            call flush_statement_buffer(builder)
+            
+            ! Create blocks for different execution paths
+            success_block_id = add_basic_block(builder%cfg, "deallocate_success")
+            failure_block_id = add_basic_block(builder%cfg, "deallocate_failure")
+            merge_block_id = add_basic_block(builder%cfg, "deallocate_merge")
+            
+            ! Add conditional edges based on deallocation result
+            call add_cfg_edge(builder%cfg, current_block, success_block_id, &
+                             EDGE_SUCCESS_PATH, "deallocation-success")
+            call add_cfg_edge(builder%cfg, current_block, failure_block_id, &
+                             EDGE_FAILURE_PATH, "deallocation-failure")
+            
+            ! Connect both paths to merge block
+            call add_cfg_edge(builder%cfg, success_block_id, merge_block_id, &
+                             EDGE_UNCONDITIONAL)
+            call add_cfg_edge(builder%cfg, failure_block_id, merge_block_id, &
+                             EDGE_UNCONDITIONAL)
+            
+            ! Continue from merge block
+            builder%current_block_id = merge_block_id
+        else
+            ! No exception handling, treat as regular statement
+            call add_statement_to_buffer(builder, node_index)
+        end if
     end subroutine process_deallocate
 
     ! Process I/O statements with exception handling
@@ -615,12 +758,133 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
-        ! Add I/O statement to current block
-        call add_statement_to_buffer(builder, node_index)
+        integer :: success_block_id, error_block_id, end_block_id, merge_block_id
+        integer :: current_block
+        logical :: has_iostat, has_err, has_end
         
-        ! Check if this I/O statement has iostat= or err= parameters
-        ! If so, create branches for success/failure/error conditions
-        ! TODO: Check AST node for exception handling parameters
+        ! Check if this I/O statement has exception handling parameters
+        call check_io_exception_params(arena, node_index, has_iostat, has_err, has_end)
+        
+        if (has_iostat .or. has_err .or. has_end) then
+            ! Create exception handling blocks
+            call flush_statement_buffer(builder)
+            current_block = builder%current_block_id
+            
+            ! Add I/O statement to current block
+            call add_statement_to_buffer(builder, node_index)
+            call flush_statement_buffer(builder)
+            
+            ! Create blocks for different execution paths
+            success_block_id = add_basic_block(builder%cfg, "io_success")
+            merge_block_id = add_basic_block(builder%cfg, "io_merge")
+            
+            ! Add success path
+            call add_cfg_edge(builder%cfg, current_block, success_block_id, &
+                             EDGE_SUCCESS_PATH, "io-success")
+            call add_cfg_edge(builder%cfg, success_block_id, merge_block_id, &
+                             EDGE_UNCONDITIONAL)
+            
+            ! Add error handling paths if present
+            if (has_err) then
+                error_block_id = add_basic_block(builder%cfg, "io_error")
+                call add_cfg_edge(builder%cfg, current_block, error_block_id, &
+                                 EDGE_ERROR_HANDLING, "io-error")
+                call add_cfg_edge(builder%cfg, error_block_id, merge_block_id, &
+                                 EDGE_UNCONDITIONAL)
+            end if
+            
+            if (has_end) then
+                end_block_id = add_basic_block(builder%cfg, "io_end")
+                call add_cfg_edge(builder%cfg, current_block, end_block_id, &
+                                 EDGE_ERROR_HANDLING, "io-end-of-file")
+                call add_cfg_edge(builder%cfg, end_block_id, merge_block_id, &
+                                 EDGE_UNCONDITIONAL)
+            end if
+            
+            if (.not. has_err .and. .not. has_end) then
+                ! Only iostat, create general error path
+                error_block_id = add_basic_block(builder%cfg, "io_error")
+                call add_cfg_edge(builder%cfg, current_block, error_block_id, &
+                                 EDGE_FAILURE_PATH, "io-error")
+                call add_cfg_edge(builder%cfg, error_block_id, merge_block_id, &
+                                 EDGE_UNCONDITIONAL)
+            end if
+            
+            ! Continue from merge block
+            builder%current_block_id = merge_block_id
+        else
+            ! No exception handling, treat as regular statement
+            call add_statement_to_buffer(builder, node_index)
+        end if
     end subroutine process_io_with_exception
+
+    ! Helper function to check allocate statement exception parameters
+    subroutine check_allocate_exception_params(arena, node_index, has_stat, has_errmsg)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical, intent(out) :: has_stat, has_errmsg
+        
+        has_stat = .false.
+        has_errmsg = .false.
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (allocate_statement_node)
+            has_stat = (node%stat_var_index > 0)
+            has_errmsg = (node%errmsg_var_index > 0)
+        end select
+    end subroutine check_allocate_exception_params
+    
+    ! Helper function to check deallocate statement exception parameters
+    subroutine check_deallocate_exception_params(arena, node_index, has_stat, has_errmsg)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical, intent(out) :: has_stat, has_errmsg
+        
+        has_stat = .false.
+        has_errmsg = .false.
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (deallocate_statement_node)
+            has_stat = (node%stat_var_index > 0)
+            has_errmsg = (node%errmsg_var_index > 0)
+        end select
+    end subroutine check_deallocate_exception_params
+    
+    ! Helper function to check I/O statement exception parameters
+    subroutine check_io_exception_params(arena, node_index, has_iostat, has_err, has_end)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical, intent(out) :: has_iostat, has_err, has_end
+        
+        has_iostat = .false.
+        has_err = .false.
+        has_end = .false.
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select case (arena%entries(node_index)%node_type)
+        case ("read_statement", "read_node")
+            select type (node => arena%entries(node_index)%node)
+            type is (read_statement_node)
+                has_iostat = (node%iostat_var_index > 0)
+                has_err = (node%err_label_index > 0)
+                has_end = (node%end_label_index > 0)
+            end select
+        case ("write_statement", "write_node")
+            select type (node => arena%entries(node_index)%node)
+            type is (write_statement_node)
+                has_iostat = (node%iostat_var_index > 0)
+                has_err = (node%err_label_index > 0)
+                has_end = (node%end_label_index > 0)
+            end select
+        end select
+    end subroutine check_io_exception_params
 
 end module cfg_builder_module
