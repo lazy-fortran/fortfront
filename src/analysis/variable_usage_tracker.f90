@@ -947,14 +947,7 @@ contains
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries)) return
-        if (node_index > size(arena%entries)) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
-        ! Verify node type matches expectation
-        if (arena%entries(node_index)%node_type /= "associate") then
-            ! Node type mismatch - this shouldn't happen if called correctly
-            return
-        end if
         
         select type (node => arena%entries(node_index)%node)
         type is (associate_node)
@@ -1022,6 +1015,7 @@ contains
         class(*), intent(inout), optional :: user_data
         
         character(len=:), allocatable :: node_type
+        integer :: i
         
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
@@ -1049,14 +1043,11 @@ contains
                 ! The function/array name is stored as a string, not an index
                 ! so we only visit the arguments/subscripts
                 if (allocated(node%arg_indices)) then
-                    block
-                        integer :: i
-                        do i = 1, size(node%arg_indices)
-                            if (node%arg_indices(i) > 0) then
-                                call visit_nodes_recursive(arena, node%arg_indices(i), visitor, user_data)
-                            end if
-                        end do
-                    end block
+                    do i = 1, size(node%arg_indices)
+                        if (node%arg_indices(i) > 0) then
+                            call visit_nodes_recursive(arena, node%arg_indices(i), visitor, user_data)
+                        end if
+                    end do
                 end if
             end select
         case ("array_slice")
@@ -1068,14 +1059,11 @@ contains
                 end if
                 
                 ! Process slice bounds
-                block
-                    integer :: i
-                    do i = 1, node%num_dimensions
-                        if (node%bounds_indices(i) > 0) then
-                            call visit_nodes_recursive(arena, node%bounds_indices(i), visitor, user_data)
-                        end if
-                    end do
-                end block
+                do i = 1, node%num_dimensions
+                    if (node%bounds_indices(i) > 0) then
+                        call visit_nodes_recursive(arena, node%bounds_indices(i), visitor, user_data)
+                    end if
+                end do
             end select
         case ("component_access")
             select type (node => arena%entries(node_index)%node)
@@ -1090,26 +1078,20 @@ contains
             type is (associate_node)
                 ! Visit association expressions
                 if (allocated(node%associations)) then
-                    block
-                        integer :: i
-                        do i = 1, size(node%associations)
-                            if (node%associations(i)%expr_index > 0) then
-                                call visit_nodes_recursive(arena, node%associations(i)%expr_index, visitor, user_data)
-                            end if
-                        end do
-                    end block
+                    do i = 1, size(node%associations)
+                        if (node%associations(i)%expr_index > 0) then
+                            call visit_nodes_recursive(arena, node%associations(i)%expr_index, visitor, user_data)
+                        end if
+                    end do
                 end if
                 
                 ! Visit body statements
                 if (allocated(node%body_indices)) then
-                    block
-                        integer :: i
-                        do i = 1, size(node%body_indices)
-                            if (node%body_indices(i) > 0) then
-                                call visit_nodes_recursive(arena, node%body_indices(i), visitor, user_data)
-                            end if
-                        end do
-                    end block
+                    do i = 1, size(node%body_indices)
+                        if (node%body_indices(i) > 0) then
+                            call visit_nodes_recursive(arena, node%body_indices(i), visitor, user_data)
+                        end if
+                    end do
                 end if
             end select
         end select
