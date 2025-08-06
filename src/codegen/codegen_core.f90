@@ -86,6 +86,10 @@ contains
             code = generate_code_stop(arena, node, node_index)
         type is (return_node)
             code = generate_code_return(arena, node, node_index)
+        type is (goto_node)
+            code = generate_code_goto(arena, node, node_index)
+        type is (error_stop_node)
+            code = generate_code_error_stop(arena, node, node_index)
         type is (cycle_node)
             code = generate_code_cycle(arena, node, node_index)
         type is (exit_node)
@@ -889,6 +893,43 @@ contains
         
         code = with_indent("return")
     end function generate_code_return
+    
+    ! Generate code for GOTO statement
+    function generate_code_goto(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(goto_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        
+        if (allocated(node%label) .and. len_trim(node%label) > 0) then
+            code = with_indent("go to "//trim(node%label))
+        else
+            code = with_indent("go to")
+        end if
+    end function generate_code_goto
+    
+    ! Generate code for ERROR STOP statement
+    function generate_code_error_stop(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(error_stop_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: error_code_str
+        
+        code = with_indent("error stop")
+        
+        ! Add error code or message if present
+        if (allocated(node%error_message) .and. len_trim(node%error_message) > 0) then
+            code = code//" "//node%error_message
+        else if (node%error_code_index > 0 .and. node%error_code_index <= arena%size) then
+            if (allocated(arena%entries(node%error_code_index)%node)) then
+                error_code_str = generate_code_from_arena(arena, node%error_code_index)
+                code = code//" "//error_code_str
+            else
+                code = code//" 1"  ! Default error code
+            end if
+        end if
+    end function generate_code_error_stop
     
     ! Generate code for CYCLE statement
     function generate_code_cycle(arena, node, node_index) result(code)
