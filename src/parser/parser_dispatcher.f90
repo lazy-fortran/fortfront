@@ -11,6 +11,7 @@ module parser_dispatcher_module
                                    parse_subroutine_definition, parse_interface_block, &
                                         parse_module, parse_program_statement, &
                                         parse_stop_statement, parse_return_statement, &
+                                        parse_goto_statement, parse_error_stop_statement, &
                                         parse_cycle_statement, parse_exit_statement, &
                                         parse_allocate_statement, &
                                         parse_deallocate_statement, parse_call_statement
@@ -84,6 +85,10 @@ contains
                 stmt_index = parse_stop_statement(parser, arena)
             case ("return")
                 stmt_index = parse_return_statement(parser, arena)
+            case ("go")
+                stmt_index = parse_goto_statement(parser, arena)
+            case ("error")
+                stmt_index = parse_error_stop_statement(parser, arena)
             case ("cycle")
                 stmt_index = parse_cycle_statement(parser, arena)
             case ("exit")

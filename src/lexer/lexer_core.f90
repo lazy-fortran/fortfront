@@ -30,7 +30,7 @@ module lexer_core
     public :: token_type_name
 
     ! Keywords list
-    character(len=20), dimension(53) :: keywords = [ &
+    character(len=20), dimension(56) :: keywords = [ &
                        "program     ", "end         ", "function    ", "subroutine  ", &
                        "if          ", "then        ", "else        ", "endif       ", &
                        "do          ", "while       ", "implicit    ", "none        ", &
@@ -43,7 +43,7 @@ module lexer_core
                                         "assignment  ", "intent      ", &
                                         "in          ", &
                                         "out         ", "inout       ", &
-                                        "stop        ", &
+                                        "stop        ", "go          ", "to          ", "error       ", &
                                         "return      ", "cycle       ", &
                                         "exit        ", &
                                         "where       ", "elsewhere   ", &

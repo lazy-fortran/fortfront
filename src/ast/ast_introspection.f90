@@ -134,36 +134,40 @@ contains
             type_id = 25  ! NODE_STOP
         type is (return_node)
             type_id = 26  ! NODE_RETURN
+        type is (goto_node)
+            type_id = 27  ! NODE_GOTO
+        type is (error_stop_node)
+            type_id = 28  ! NODE_ERROR_STOP
         type is (cycle_node)
-            type_id = 27  ! NODE_CYCLE
+            type_id = 29  ! NODE_CYCLE
         type is (exit_node)
-            type_id = 28  ! NODE_EXIT
+            type_id = 30  ! NODE_EXIT
         type is (where_node)
-            type_id = 29  ! NODE_WHERE
+            type_id = 31  ! NODE_WHERE
         type is (interface_block_node)
-            type_id = 30  ! NODE_INTERFACE_BLOCK
+            type_id = 32  ! NODE_INTERFACE_BLOCK
         type is (derived_type_node)
-            type_id = 31  ! NODE_DERIVED_TYPE
+            type_id = 33  ! NODE_DERIVED_TYPE
         type is (pointer_assignment_node)
-            type_id = 32  ! NODE_POINTER_ASSIGNMENT
+            type_id = 34  ! NODE_POINTER_ASSIGNMENT
         type is (forall_node)
-            type_id = 33  ! NODE_FORALL
+            type_id = 35  ! NODE_FORALL
         type is (case_range_node)
-            type_id = 34  ! NODE_CASE_RANGE
+            type_id = 36  ! NODE_CASE_RANGE
         type is (case_default_node)
-            type_id = 35  ! NODE_CASE_DEFAULT
+            type_id = 37  ! NODE_CASE_DEFAULT
         type is (complex_literal_node)
-            type_id = 36  ! NODE_COMPLEX_LITERAL
+            type_id = 38  ! NODE_COMPLEX_LITERAL
         type is (include_statement_node)
-            type_id = 37  ! NODE_INCLUDE_STATEMENT
+            type_id = 39  ! NODE_INCLUDE_STATEMENT
         type is (contains_node)
-            type_id = 38  ! NODE_CONTAINS
+            type_id = 40  ! NODE_CONTAINS
         type is (format_descriptor_node)
-            type_id = 39  ! NODE_FORMAT_DESCRIPTOR
+            type_id = 41  ! NODE_FORMAT_DESCRIPTOR
         type is (comment_node)
-            type_id = 40  ! NODE_COMMENT
+            type_id = 42  ! NODE_COMMENT
         type is (implicit_statement_node)
-            type_id = 41  ! NODE_IMPLICIT_STATEMENT
+            type_id = 43  ! NODE_IMPLICIT_STATEMENT
         class default
             ! Log warning for debugging purposes
             write(error_unit, '(A)') "Warning: Unknown node type encountered in get_node_type_id"

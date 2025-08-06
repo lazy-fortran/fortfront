@@ -17,6 +17,7 @@ module parser_statements_module
     public :: parse_interface_block, parse_module, parse_program_statement
     public :: parse_typed_parameters
     public :: parse_stop_statement, parse_return_statement
+    public :: parse_goto_statement, parse_error_stop_statement
     public :: parse_cycle_statement, parse_exit_statement
     public :: parse_allocate_statement, parse_deallocate_statement
     public :: parse_call_statement
@@ -682,6 +683,90 @@ contains
         ! Create RETURN node
         return_index = push_return(arena, line=line, column=column)
     end function parse_return_statement
+    
+    ! Parse GOTO statement: go to label
+    function parse_goto_statement(parser, arena) result(goto_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: goto_index
+        
+        type(token_t) :: token
+        integer :: line, column
+        character(len=:), allocatable :: label
+        
+        ! Consume 'go' keyword
+        token = parser%peek()
+        line = token%line
+        column = token%column
+        token = parser%consume()
+        
+        ! Expect 'to' keyword
+        token = parser%peek()
+        if (token%kind == TK_KEYWORD .and. token%text == "to") then
+            token = parser%consume()
+            
+            ! Expect label (number or identifier)
+            token = parser%peek()
+            if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
+                label = token%text
+                token = parser%consume()
+            else
+                ! Invalid goto - missing label
+                label = ""
+            end if
+        else
+            ! Invalid goto - missing 'to'
+            label = ""
+        end if
+        
+        ! Create GOTO node
+        goto_index = push_goto(arena, label, line=line, column=column)
+    end function parse_goto_statement
+    
+    ! Parse ERROR STOP statement: error stop [stop-code | stop-string]
+    function parse_error_stop_statement(parser, arena) result(error_stop_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: error_stop_index
+        
+        type(token_t) :: token
+        integer :: line, column, error_code_index
+        character(len=:), allocatable :: error_message
+        
+        ! Consume 'error' keyword
+        token = parser%peek()
+        line = token%line
+        column = token%column
+        token = parser%consume()
+        
+        ! Consume 'stop' keyword
+        token = parser%peek()
+        if (token%kind == TK_KEYWORD .and. token%text == "stop") then
+            token = parser%consume()
+        else
+            ! This shouldn't happen if called correctly, but handle gracefully
+            error_stop_index = push_error_stop(arena, line=line, column=column)
+            return
+        end if
+        
+        ! Check for optional error code or message
+        token = parser%peek()
+        error_code_index = 0
+        error_message = ""
+        
+        if (token%kind == TK_STRING) then
+            ! String literal message
+            error_message = token%text
+            token = parser%consume()
+        else if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
+            ! Integer expression or variable
+            error_code_index = parse_comparison(parser, arena)
+        end if
+        
+        ! Create ERROR STOP node
+        error_stop_index = push_error_stop(arena, error_code_index, error_message, &
+                                          line=line, column=column)
+    end function parse_error_stop_statement
     
     ! Parse CYCLE statement: cycle [loop-label]
     function parse_cycle_statement(parser, arena) result(cycle_index)

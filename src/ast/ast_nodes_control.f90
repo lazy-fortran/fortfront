@@ -226,6 +226,27 @@ module ast_nodes_control
         generic :: assignment(=) => assign
     end type return_node
 
+    ! Goto statement node
+    type, extends(ast_node), public :: goto_node
+        character(len=:), allocatable :: label        ! Target label
+    contains
+        procedure :: accept => goto_accept
+        procedure :: to_json => goto_to_json
+        procedure :: assign => goto_assign
+        generic :: assignment(=) => assign
+    end type goto_node
+
+    ! Error stop statement node
+    type, extends(ast_node), public :: error_stop_node
+        integer :: error_code_index = 0              ! Optional error code expression index
+        character(len=:), allocatable :: error_message ! Optional error message string
+    contains
+        procedure :: accept => error_stop_accept
+        procedure :: to_json => error_stop_to_json
+        procedure :: assign => error_stop_assign
+        generic :: assignment(=) => assign
+    end type error_stop_node
+
     ! Association type for ASSOCIATE construct
     type, public :: association_t
         character(len=:), allocatable :: name     ! Associate name
@@ -823,6 +844,78 @@ contains
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
     end subroutine return_assign
+
+    ! Goto statement implementations
+    subroutine goto_accept(this, visitor)
+        class(goto_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+    end subroutine goto_accept
+
+    subroutine goto_to_json(this, json, parent)
+        class(goto_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'goto')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%label)) call json%add(obj, 'label', this%label)
+        call json%add(parent, obj)
+    end subroutine goto_to_json
+
+    subroutine goto_assign(lhs, rhs)
+        class(goto_node), intent(inout) :: lhs
+        class(goto_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        end if
+        if (allocated(rhs%label)) lhs%label = rhs%label
+    end subroutine goto_assign
+
+    ! Error stop statement implementations
+    subroutine error_stop_accept(this, visitor)
+        class(error_stop_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+    end subroutine error_stop_accept
+
+    subroutine error_stop_to_json(this, json, parent)
+        class(error_stop_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'error_stop')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (this%error_code_index > 0) call json%add(obj, 'error_code_index', &
+                                                   this%error_code_index)
+        if (allocated(this%error_message)) call json%add(obj, 'error_message', &
+                                                      this%error_message)
+        call json%add(parent, obj)
+    end subroutine error_stop_to_json
+
+    subroutine error_stop_assign(lhs, rhs)
+        class(error_stop_node), intent(inout) :: lhs
+        class(error_stop_node), intent(in) :: rhs
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        end if
+        lhs%error_code_index = rhs%error_code_index
+        if (allocated(rhs%error_message)) lhs%error_message = rhs%error_message
+    end subroutine error_stop_assign
 
     ! ASSOCIATE node implementations
     subroutine associate_accept(this, visitor)
