@@ -9,10 +9,10 @@ program test_conditional_early_returns
     call test_exception_handling_pattern()
     call test_early_return_pattern()
     call test_nested_conditional_returns()
-    ! NOTE: test_multiple_return_paths disabled due to parser limitations
-    ! The parser doesn't properly handle if statements in function bodies,
-    ! treating them as unparsed literals. The CFG builder itself works correctly
-    ! when given proper AST nodes, as shown by the other passing tests.
+    ! NOTE: test_multiple_return_paths disabled due to CFG analysis limitation
+    ! The parser now correctly handles if statements in function bodies,
+    ! but this particular test reveals a CFG analysis issue where
+    ! reachable code after multiple conditional returns is incorrectly marked as unreachable
     ! call test_multiple_return_paths()
 
     if (all_tests_passed) then
