@@ -17,6 +17,7 @@ module cfg_builder_module
         integer, allocatable :: statement_buffer(:)
         integer :: buffer_size = 0
         integer :: buffer_capacity = 16
+        integer :: conditional_depth = 0      ! Track if we're inside conditional branches
     end type cfg_builder_t
 
 contains
@@ -109,7 +110,7 @@ contains
         case ("program", "function_def", "subroutine_def")
             call process_procedure(builder, arena, node_index)
             
-        case ("if_statement")
+        case ("if_statement", "if_node")
             call process_if_statement(builder, arena, node_index)
             
         case ("do_loop", "do_loop_node")
@@ -250,6 +251,9 @@ contains
         else_block_id = 0
         elseif_block_id = 0
         
+        ! Increment conditional depth to track we're in a conditional context
+        builder%conditional_depth = builder%conditional_depth + 1
+        
         ! Flush current buffer
         call flush_statement_buffer(builder)
         current_block = builder%current_block_id
@@ -381,6 +385,9 @@ contains
         
         ! Continue from merge block
         builder%current_block_id = merge_block_id
+        
+        ! Decrement conditional depth as we exit the if statement
+        builder%conditional_depth = builder%conditional_depth - 1
     end subroutine process_if_statement
 
     ! Process do loop
@@ -509,8 +516,11 @@ contains
         call add_cfg_edge(builder%cfg, builder%current_block_id, &
                          exit_block_id, EDGE_RETURN)
         
-        ! No current block after return
-        builder%current_block_id = 0
+        ! Only set current block to 0 if we're not inside a conditional context
+        ! Inside conditionals, code after the conditional is still reachable through other branches
+        if (builder%conditional_depth == 0) then
+            builder%current_block_id = 0
+        end if
     end subroutine process_return
 
     ! Process stop statement
