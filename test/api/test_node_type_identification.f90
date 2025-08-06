@@ -36,7 +36,7 @@ contains
             return
         end if
         
-        if (NODE_COMMENT /= 40) then
+        if (NODE_COMMENT /= 42) then
             print *, "FAILED: NODE_COMMENT constant missing or incorrect"
             all_tests_passed = .false.
             return
