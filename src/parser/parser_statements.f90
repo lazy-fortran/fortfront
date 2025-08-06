@@ -2194,6 +2194,15 @@ contains
                     allocate (stmt_indices(0))  ! Return empty array on failure
                 end if
                 return
+            else if (first_token%text == "associate") then
+                ! Parse associate construct using local function to avoid circular dependency
+                allocate (stmt_indices(1))
+                stmt_indices(1) = parse_associate_simple(parser, arena)
+                if (stmt_indices(1) <= 0) then
+                    deallocate(stmt_indices)
+                    allocate (stmt_indices(0))  ! Return empty array on failure
+                end if
+                return
             end if
         end if
 
@@ -2837,6 +2846,275 @@ contains
         end if
         
     end function parse_if_simple
+    
+    ! Simple associate construct parser (to avoid circular dependency with control_flow module)
+    ! This function duplicates some logic from parser_control_flow::parse_associate but is
+    ! necessary to break the circular dependency between parser_statements and parser_control_flow.
+    ! The function is intentionally self-contained to avoid further module dependencies.
+    function parse_associate_simple(parser, arena) result(assoc_index)
+        use ast_nodes_control, only: association_t
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: assoc_index
+        
+        type(token_t) :: token
+        type(association_t), allocatable :: associations(:)
+        integer, allocatable :: body_indices(:)
+        integer :: assoc_count, body_count
+        integer :: line, column
+        
+        ! Get position
+        token = parser%peek()
+        line = token%line
+        column = token%column
+        
+        ! Consume 'associate'
+        token = parser%consume()
+        
+        ! Expect opening parenthesis
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
+            assoc_index = 0
+            return
+        end if
+        token = parser%consume()
+        
+        ! Parse associations
+        assoc_count = 0
+        allocate(associations(10))  ! Initial allocation
+        
+        do while (.not. parser%is_at_end())
+            ! Parse association name
+            token = parser%peek()
+            if (token%kind /= TK_IDENTIFIER) exit
+            
+            block
+                character(len=:), allocatable :: assoc_name
+                integer :: expr_index
+                
+                assoc_name = token%text
+                token = parser%consume()
+                
+                ! Expect '=>'
+                token = parser%peek()
+                if (token%kind /= TK_OPERATOR .or. token%text /= "=>") then
+                    deallocate(associations)
+                    assoc_index = 0
+                    return
+                end if
+                token = parser%consume()
+                
+                ! Parse expression
+                expr_index = parse_expression(&
+                    parser%tokens(parser%current_token:), arena)
+                if (expr_index <= 0) then
+                    deallocate(associations)
+                    assoc_index = 0
+                    return
+                end if
+                
+                ! Advance parser position for the expression
+                block
+                    integer :: paren_depth
+                    paren_depth = 0
+                    ! Properly track expression boundaries considering nested parentheses
+                    do while (parser%current_token <= size(parser%tokens))
+                        token = parser%peek()
+                        
+                        ! Track parentheses depth for nested expressions
+                        if (token%kind == TK_OPERATOR) then
+                            if (token%text == "(") then
+                                paren_depth = paren_depth + 1
+                            else if (token%text == ")") then
+                                if (paren_depth == 0) exit  ! End of associate list
+                                paren_depth = paren_depth - 1
+                            else if (token%text == "," .and. paren_depth == 0) then
+                                exit  ! Next association
+                            end if
+                        else if (token%kind == TK_KEYWORD .and. paren_depth == 0) then
+                            exit  ! End of expression
+                        end if
+                        
+                        token = parser%consume()
+                    end do
+                end block
+                
+                ! Add association
+                assoc_count = assoc_count + 1
+                if (assoc_count > size(associations)) then
+                    ! Resize array
+                    block
+                        type(association_t), allocatable :: temp(:)
+                        allocate(temp(size(associations) * 2))
+                        temp(1:size(associations)) = associations
+                        call move_alloc(temp, associations)
+                    end block
+                end if
+                
+                associations(assoc_count)%name = assoc_name
+                associations(assoc_count)%expr_index = expr_index
+            end block
+            
+            ! Check for comma or closing parenthesis
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()
+                cycle
+            else if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+                exit
+            else
+                deallocate(associations)
+                assoc_index = 0
+                return
+            end if
+        end do
+        
+        ! Parse body statements until 'end associate'
+        body_count = 0
+        allocate(body_indices(100))  ! Initial allocation
+        
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            
+            ! Check for 'end associate'
+            if (token%kind == TK_KEYWORD .and. token%text == "end") then
+                if (parser%current_token + 1 <= size(parser%tokens)) then
+                    if (parser%tokens(parser%current_token + 1)%kind == &
+                        TK_KEYWORD .and. &
+                        parser%tokens(parser%current_token + 1)%text == &
+                        "associate") then
+                        token = parser%consume()  ! consume 'end'
+                        token = parser%consume()  ! consume 'associate'
+                        exit
+                    end if
+                end if
+            end if
+            
+            ! Handle EOF
+            if (token%kind == TK_EOF) then
+                exit
+            end if
+            
+            ! Parse a single statement
+            block
+                integer :: stmt_index
+                integer :: start_token
+                
+                start_token = parser%current_token
+                
+                ! Try to parse the statement based on its type
+                if (token%kind == TK_KEYWORD) then
+                    select case (token%text)
+                    case ("print")
+                        stmt_index = parse_print_statement(parser, arena)
+                    case ("call")
+                        stmt_index = parse_call_statement(parser, arena)
+                    case ("if")
+                        stmt_index = parse_if_simple(parser, arena)
+                    case default
+                        ! Skip this token and continue
+                        token = parser%consume()
+                        stmt_index = 0
+                    end select
+                else if (token%kind == TK_IDENTIFIER) then
+                    ! Try to parse as assignment
+                    block
+                        type(token_t) :: id_token, op_token
+                        integer :: target_index, value_index
+                        
+                        id_token = parser%consume()
+                        op_token = parser%peek()
+                        
+                        if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
+                            op_token = parser%consume()  ! consume '='
+                            target_index = push_identifier(arena, id_token%text, &
+                                                         id_token%line, id_token%column)
+                            ! Parse expression
+                            block
+                                type(token_t), allocatable :: expr_tokens(:)
+                                integer :: remaining_count
+                                remaining_count = size(parser%tokens) - parser%current_token + 1
+                                if (remaining_count > 0) then
+                                    allocate (expr_tokens(remaining_count))
+                                    expr_tokens = parser%tokens(parser%current_token:)
+                                    value_index = parse_expression(expr_tokens, arena)
+                                    if (value_index > 0) then
+                                        stmt_index = push_assignment(arena, &
+                                            target_index, value_index, id_token%line, &
+                                            id_token%column)
+                                        ! Advance past the expression
+                                        do while (parser%current_token <= size(parser%tokens))
+                                            token = parser%peek()
+                                            if (token%kind == TK_KEYWORD) exit
+                                            if (token%kind == TK_EOF) exit
+                                            token = parser%consume()
+                                        end do
+                                    else
+                                        stmt_index = 0
+                                    end if
+                                end if
+                            end block
+                        else
+                            stmt_index = 0
+                        end if
+                    end block
+                else
+                    ! Skip unknown token
+                    token = parser%consume()
+                    stmt_index = 0
+                end if
+                
+                ! Add successful statement to body
+                if (stmt_index > 0) then
+                    body_count = body_count + 1
+                    if (body_count > size(body_indices)) then
+                        ! Resize array
+                        block
+                            integer, allocatable :: temp(:)
+                            allocate(temp(size(body_indices) + 100))
+                            temp(1:size(body_indices)) = body_indices
+                            temp(size(body_indices)+1:) = 0
+                            call move_alloc(temp, body_indices)
+                        end block
+                    end if
+                    body_indices(body_count) = stmt_index
+                end if
+                
+                ! Safety check to avoid infinite loop
+                if (parser%current_token == start_token) then
+                    token = parser%consume()
+                end if
+            end block
+        end do
+        
+        ! Create ASSOCIATE node
+        if (assoc_count > 0) then
+            block
+                type(association_t), allocatable :: final_assocs(:)
+                integer, allocatable :: final_body(:)
+                
+                allocate(final_assocs(assoc_count))
+                final_assocs = associations(1:assoc_count)
+                
+                if (body_count > 0) then
+                    allocate(final_body(body_count))
+                    final_body = body_indices(1:body_count)
+                    assoc_index = push_associate(arena, final_assocs, &
+                                                  final_body, line, column)
+                else
+                    assoc_index = push_associate(arena, final_assocs, &
+                                                  line=line, column=column)
+                end if
+            end block
+        else
+            assoc_index = 0
+        end if
+        
+        ! Clean up allocated arrays
+        if (allocated(associations)) deallocate(associations)
+        if (allocated(body_indices)) deallocate(body_indices)
+    end function parse_associate_simple
     
     ! Simple if condition parser with error handling
     function parse_if_condition_simple(parser, arena) result(condition_index)
