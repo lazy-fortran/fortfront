@@ -109,7 +109,7 @@ contains
         case ("program", "function_def", "subroutine_def")
             call process_procedure(builder, arena, node_index)
             
-        case ("if_statement")
+        case ("if_statement", "if_node")
             call process_if_statement(builder, arena, node_index)
             
         case ("do_loop", "do_loop_node")
@@ -294,7 +294,8 @@ contains
             end do
         end if
         call flush_statement_buffer(builder)
-        if (builder%current_block_id > 0) then
+        ! Only connect to merge if this branch doesn't end with a terminating statement
+        if (builder%current_block_id > 0 .and. builder%current_block_id == then_block_id) then
             call add_cfg_edge(builder%cfg, builder%current_block_id, &
                              merge_block_id, EDGE_UNCONDITIONAL)
         end if
@@ -373,7 +374,8 @@ contains
                 call process_node(builder, arena, else_indices(i))
             end do
             call flush_statement_buffer(builder)
-            if (builder%current_block_id > 0) then
+            ! Only connect to merge if this branch doesn't end with a terminating statement
+            if (builder%current_block_id > 0 .and. builder%current_block_id == else_block_id) then
                 call add_cfg_edge(builder%cfg, builder%current_block_id, &
                                  merge_block_id, EDGE_UNCONDITIONAL)
             end if
@@ -509,7 +511,7 @@ contains
         call add_cfg_edge(builder%cfg, builder%current_block_id, &
                          exit_block_id, EDGE_RETURN)
         
-        ! No current block after return
+        ! Mark this execution path as terminated
         builder%current_block_id = 0
     end subroutine process_return
 
