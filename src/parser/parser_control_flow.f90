@@ -7,7 +7,9 @@ module parser_control_flow_module
                                        parse_logical_or, parse_range
     use parser_statements_module, only: parse_print_statement, parse_write_statement, &
                                         parse_read_statement, &
-                                        parse_cycle_statement, parse_exit_statement
+                                        parse_cycle_statement, parse_exit_statement, &
+                                        parse_return_statement, parse_call_statement, &
+                                        parse_stop_statement, parse_goto_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use ast_core
     use ast_factory, only: push_if, push_do_loop, push_do_while, push_select_case, &
@@ -807,6 +809,18 @@ contains
             case ("exit")
                 ! Parse exit statement
                 stmt_index = parse_exit_statement(parser, arena)
+            case ("return")
+                ! Parse return statement
+                stmt_index = parse_return_statement(parser, arena)
+            case ("call")
+                ! Parse call statement
+                stmt_index = parse_call_statement(parser, arena)
+            case ("stop")
+                ! Parse stop statement
+                stmt_index = parse_stop_statement(parser, arena)
+            case ("go")
+                ! Parse goto statement
+                stmt_index = parse_goto_statement(parser, arena)
             case default
                 ! Unknown keyword
                 stmt_index = 0
