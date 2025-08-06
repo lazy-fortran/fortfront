@@ -57,22 +57,20 @@ contains
         type(binary_op_node), intent(in) :: op_node
         integer :: constant_value
         
-        integer :: left_val, right_val
         integer :: left_int, right_int
+        logical :: left_valid, right_valid
         
         constant_value = CONSTANT_UNKNOWN
         
         ! Get left and right operand values
-        left_val = evaluate_operand(arena, op_node%left_index)
-        right_val = evaluate_operand(arena, op_node%right_index)
+        call evaluate_operand(arena, op_node%left_index, left_int, left_valid)
+        call evaluate_operand(arena, op_node%right_index, right_int, right_valid)
         
         ! If either operand is not a constant integer, can't fold
-        if (left_val == -999999 .or. right_val == -999999) then
+        if (.not. left_valid .or. .not. right_valid) then
             return
         end if
         
-        left_int = left_val
-        right_int = right_val
         
         ! Evaluate the operation
         select case (trim(op_node%operator))
@@ -126,13 +124,15 @@ contains
     end function evaluate_binary_expression
 
     ! Extract integer value from operand
-    function evaluate_operand(arena, operand_index) result(int_value)
+    subroutine evaluate_operand(arena, operand_index, int_value, is_valid)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: operand_index
-        integer :: int_value
+        integer, intent(out) :: int_value
+        logical, intent(out) :: is_valid
         
-        ! Default value for non-constant
-        int_value = -999999
+        ! Default values
+        int_value = 0
+        is_valid = .false.
         
         if (operand_index <= 0 .or. operand_index > arena%size) then
             return
@@ -142,12 +142,13 @@ contains
         type is (literal_node)
             if (node%literal_type == "integer") then
                 read(node%value, *) int_value
+                is_valid = .true.
             end if
         class default
             ! Not a literal integer
-            int_value = -999999
+            is_valid = .false.
         end select
         
-    end function evaluate_operand
+    end subroutine evaluate_operand
 
 end module constant_folding_module
