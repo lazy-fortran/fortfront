@@ -127,6 +127,8 @@ contains
             call process_allocate_statement_children(arena, node_index, info)
         case ("deallocate_statement")
             call process_deallocate_statement_children(arena, node_index, info)
+        case ("associate")
+            call process_associate_construct_children(arena, node_index, info)
         end select
     end subroutine collect_identifiers_recursive
 
@@ -933,6 +935,48 @@ contains
         end select
     end subroutine process_deallocate_statement_children
 
+    ! Process associate construct children
+    subroutine process_associate_construct_children(arena, node_index, info)
+        use ast_nodes_control, only: associate_node
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(variable_usage_info_t), intent(inout) :: info
+        
+        integer :: i
+        
+        ! Validate node index bounds
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries)) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (associate_node)
+            ! Process all associations - both the associate name and the target expression
+            if (allocated(node%associations)) then
+                do i = 1, size(node%associations)
+                    ! Add the associate name as a variable usage
+                    if (allocated(node%associations(i)%name)) then
+                        call add_string_to_info(node%associations(i)%name, node_index, info)
+                    end if
+                    
+                    ! Process the target expression - this tracks the original variable
+                    if (node%associations(i)%expr_index > 0) then
+                        call collect_identifiers_recursive(arena, node%associations(i)%expr_index, info)
+                    end if
+                end do
+            end if
+            
+            ! Process the body statements
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    if (node%body_indices(i) > 0) then
+                        call collect_identifiers_recursive(arena, node%body_indices(i), info)
+                    end if
+                end do
+            end if
+        end select
+    end subroutine process_associate_construct_children
+
     ! Get list of all identifiers in a subtree (convenience function)
     function get_identifiers_in_subtree(arena, root_index) result(identifiers)
         type(ast_arena_t), intent(in) :: arena
@@ -964,12 +1008,14 @@ contains
 
     ! Recursively visit nodes
     recursive subroutine visit_nodes_recursive(arena, node_index, visitor, user_data)
+        use ast_nodes_control, only: associate_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(expression_visitor_t), intent(in) :: visitor
         class(*), intent(inout), optional :: user_data
         
         character(len=:), allocatable :: node_type
+        integer :: i
         
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
@@ -997,14 +1043,11 @@ contains
                 ! The function/array name is stored as a string, not an index
                 ! so we only visit the arguments/subscripts
                 if (allocated(node%arg_indices)) then
-                    block
-                        integer :: i
-                        do i = 1, size(node%arg_indices)
-                            if (node%arg_indices(i) > 0) then
-                                call visit_nodes_recursive(arena, node%arg_indices(i), visitor, user_data)
-                            end if
-                        end do
-                    end block
+                    do i = 1, size(node%arg_indices)
+                        if (node%arg_indices(i) > 0) then
+                            call visit_nodes_recursive(arena, node%arg_indices(i), visitor, user_data)
+                        end if
+                    end do
                 end if
             end select
         case ("array_slice")
@@ -1016,14 +1059,11 @@ contains
                 end if
                 
                 ! Process slice bounds
-                block
-                    integer :: i
-                    do i = 1, node%num_dimensions
-                        if (node%bounds_indices(i) > 0) then
-                            call visit_nodes_recursive(arena, node%bounds_indices(i), visitor, user_data)
-                        end if
-                    end do
-                end block
+                do i = 1, node%num_dimensions
+                    if (node%bounds_indices(i) > 0) then
+                        call visit_nodes_recursive(arena, node%bounds_indices(i), visitor, user_data)
+                    end if
+                end do
             end select
         case ("component_access")
             select type (node => arena%entries(node_index)%node)
@@ -1031,6 +1071,27 @@ contains
                 ! Process the base expression (structure/derived type)
                 if (node%base_expr_index > 0) then
                     call visit_nodes_recursive(arena, node%base_expr_index, visitor, user_data)
+                end if
+            end select
+        case ("associate")
+            select type (node => arena%entries(node_index)%node)
+            type is (associate_node)
+                ! Visit association expressions
+                if (allocated(node%associations)) then
+                    do i = 1, size(node%associations)
+                        if (node%associations(i)%expr_index > 0) then
+                            call visit_nodes_recursive(arena, node%associations(i)%expr_index, visitor, user_data)
+                        end if
+                    end do
+                end if
+                
+                ! Visit body statements
+                if (allocated(node%body_indices)) then
+                    do i = 1, size(node%body_indices)
+                        if (node%body_indices(i) > 0) then
+                            call visit_nodes_recursive(arena, node%body_indices(i), visitor, user_data)
+                        end if
+                    end do
                 end if
             end select
         end select
