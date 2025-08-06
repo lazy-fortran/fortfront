@@ -234,17 +234,21 @@ contains
 
     ! Process if statement
     subroutine process_if_statement(builder, arena, node_index)
+        use ast_nodes_control, only: elseif_wrapper
         type(cfg_builder_t), intent(inout) :: builder
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
-        integer :: condition_index, then_block_id, else_block_id, merge_block_id
-        integer :: current_block
+        integer :: condition_index, then_block_id, merge_block_id
+        integer :: current_block, else_block_id, elseif_block_id
         integer, allocatable :: then_indices(:), else_indices(:)
-        integer :: i
+        type(elseif_wrapper), allocatable :: elseif_blocks(:)
+        integer :: i, j
         
-        ! Initialize condition_index
+        ! Initialize variables
         condition_index = 0
+        else_block_id = 0
+        elseif_block_id = 0
         
         ! Flush current buffer
         call flush_statement_buffer(builder)
@@ -258,6 +262,10 @@ contains
                 allocate(then_indices(size(node%then_body_indices)))
                 then_indices = node%then_body_indices
             end if
+            if (allocated(node%elseif_blocks)) then
+                allocate(elseif_blocks(size(node%elseif_blocks)))
+                elseif_blocks = node%elseif_blocks
+            end if
             if (allocated(node%else_body_indices)) then
                 allocate(else_indices(size(node%else_body_indices)))
                 else_indices = node%else_body_indices
@@ -269,29 +277,16 @@ contains
         
         ! Create blocks
         then_block_id = add_basic_block(builder%cfg, "then")
-        if (allocated(else_indices) .and. size(else_indices) > 0) then
-            else_block_id = add_basic_block(builder%cfg, "else")
-        else
-            else_block_id = 0
-        end if
         merge_block_id = add_basic_block(builder%cfg, "merge")
         
         ! Add condition to current block
         call add_statement_to_buffer(builder, condition_index)
         call flush_statement_buffer(builder)
         
-        ! Add edges for branches
+        ! Process then branch
         call add_cfg_edge(builder%cfg, current_block, then_block_id, &
                          EDGE_TRUE_BRANCH, "if-condition")
-        if (else_block_id > 0) then
-            call add_cfg_edge(builder%cfg, current_block, else_block_id, &
-                             EDGE_FALSE_BRANCH, "if-condition")
-        else
-            call add_cfg_edge(builder%cfg, current_block, merge_block_id, &
-                             EDGE_FALSE_BRANCH, "if-condition")
-        end if
         
-        ! Process then branch
         builder%current_block_id = then_block_id
         if (allocated(then_indices)) then
             do i = 1, size(then_indices)
@@ -304,14 +299,79 @@ contains
                              merge_block_id, EDGE_UNCONDITIONAL)
         end if
         
-        ! Process else branch if present
-        if (else_block_id > 0) then
-            builder%current_block_id = else_block_id
-            if (allocated(else_indices)) then
-                do i = 1, size(else_indices)
-                    call process_node(builder, arena, else_indices(i))
-                end do
+        ! Process elseif blocks if present
+        ! Each elseif creates two blocks: one for the condition check and one for the body
+        ! The chain connects: if-false -> elseif1-cond -> elseif1-body (true) or elseif2-cond (false)
+        if (allocated(elseif_blocks) .and. size(elseif_blocks) > 0) then
+            ! The previous condition block needs to connect to the first elseif
+            elseif_block_id = add_basic_block(builder%cfg, "elseif")
+            call add_cfg_edge(builder%cfg, current_block, elseif_block_id, &
+                             EDGE_FALSE_BRANCH, "if-condition")
+            
+            do j = 1, size(elseif_blocks)
+                builder%current_block_id = elseif_block_id
+                
+                ! Add elseif condition to block
+                call add_statement_to_buffer(builder, elseif_blocks(j)%condition_index)
+                call flush_statement_buffer(builder)
+                
+                ! Create block for elseif body
+                then_block_id = add_basic_block(builder%cfg, "elseif-then")
+                call add_cfg_edge(builder%cfg, elseif_block_id, then_block_id, &
+                                 EDGE_TRUE_BRANCH, "elseif-condition")
+                
+                ! Process elseif body
+                builder%current_block_id = then_block_id
+                if (allocated(elseif_blocks(j)%body_indices)) then
+                    do i = 1, size(elseif_blocks(j)%body_indices)
+                        call process_node(builder, arena, elseif_blocks(j)%body_indices(i))
+                    end do
+                end if
+                call flush_statement_buffer(builder)
+                if (builder%current_block_id > 0) then
+                    call add_cfg_edge(builder%cfg, builder%current_block_id, &
+                                     merge_block_id, EDGE_UNCONDITIONAL)
+                end if
+                
+                ! Prepare for next elseif or else
+                if (j < size(elseif_blocks)) then
+                    ! Create next elseif block
+                    current_block = elseif_block_id
+                    elseif_block_id = add_basic_block(builder%cfg, "elseif")
+                    call add_cfg_edge(builder%cfg, current_block, elseif_block_id, &
+                                     EDGE_FALSE_BRANCH, "elseif-condition")
+                else
+                    ! Last elseif - check if there's an else block
+                    if (allocated(else_indices) .and. size(else_indices) > 0) then
+                        else_block_id = add_basic_block(builder%cfg, "else")
+                        call add_cfg_edge(builder%cfg, elseif_block_id, else_block_id, &
+                                         EDGE_FALSE_BRANCH, "elseif-condition")
+                    else
+                        ! No else - connect to merge
+                        call add_cfg_edge(builder%cfg, elseif_block_id, merge_block_id, &
+                                         EDGE_FALSE_BRANCH, "elseif-condition")
+                    end if
+                end if
+            end do
+        else
+            ! No elseif blocks - check for else
+            if (allocated(else_indices) .and. size(else_indices) > 0) then
+                else_block_id = add_basic_block(builder%cfg, "else")
+                call add_cfg_edge(builder%cfg, current_block, else_block_id, &
+                                 EDGE_FALSE_BRANCH, "if-condition")
+            else
+                call add_cfg_edge(builder%cfg, current_block, merge_block_id, &
+                                 EDGE_FALSE_BRANCH, "if-condition")
+                else_block_id = 0
             end if
+        end if
+        
+        ! Process else branch if present
+        if (allocated(else_indices) .and. size(else_indices) > 0 .and. else_block_id > 0) then
+            builder%current_block_id = else_block_id
+            do i = 1, size(else_indices)
+                call process_node(builder, arena, else_indices(i))
+            end do
             call flush_statement_buffer(builder)
             if (builder%current_block_id > 0) then
                 call add_cfg_edge(builder%cfg, builder%current_block_id, &
