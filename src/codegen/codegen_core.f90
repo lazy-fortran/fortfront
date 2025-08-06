@@ -902,9 +902,15 @@ contains
         character(len=:), allocatable :: code
         
         if (allocated(node%label) .and. len_trim(node%label) > 0) then
-            code = with_indent("go to "//trim(node%label))
+            if (trim(node%label) == "INVALID_LABEL") then
+                ! Generate a comment for invalid GOTO statements
+                code = with_indent("! Invalid GOTO statement - missing label")
+            else
+                code = with_indent("go to "//trim(node%label))
+            end if
         else
-            code = with_indent("go to")
+            ! Fallback for uninitialized labels
+            code = with_indent("! Invalid GOTO statement - no label")
         end if
     end function generate_code_goto
     

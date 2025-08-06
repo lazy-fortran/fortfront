@@ -719,6 +719,12 @@ contains
             label = ""
         end if
         
+        ! Validate that we have a proper label
+        if (.not. allocated(label) .or. len_trim(label) == 0) then
+            ! Invalid GOTO statement - create a placeholder with error indication
+            label = "INVALID_LABEL"
+        end if
+        
         ! Create GOTO node
         goto_index = push_goto(arena, label, line=line, column=column)
     end function parse_goto_statement
@@ -761,6 +767,10 @@ contains
         else if (token%kind == TK_NUMBER .or. token%kind == TK_IDENTIFIER) then
             ! Integer expression or variable
             error_code_index = parse_comparison(parser, arena)
+            if (error_code_index <= 0) then
+                ! Failed to parse error code expression - create basic error stop
+                error_code_index = 0
+            end if
         end if
         
         ! Create ERROR STOP node
