@@ -784,6 +784,12 @@ contains
         ! Handle different statement types
         if (first_token%kind == TK_KEYWORD) then
             select case (first_token%text)
+            case ("if")
+                ! Parse if statement
+                stmt_index = parse_if(parser, arena)
+            case ("do")
+                ! Parse do loop statement
+                stmt_index = parse_do_loop(parser, arena)
             case ("print")
                 ! Parse print statement
                 stmt_index = parse_print_statement(parser, arena)

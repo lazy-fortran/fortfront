@@ -2179,6 +2179,11 @@ contains
                 allocate (stmt_indices(1))
                 stmt_indices(1) = parse_stop_statement(parser, arena)
                 return
+            else if (first_token%text == "if") then
+                ! Parse if statement - use simple if parser to avoid circular dependency
+                allocate (stmt_indices(1))
+                stmt_indices(1) = parse_if_simple(parser, arena)
+                return
             end if
         end if
 
