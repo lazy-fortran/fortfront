@@ -373,25 +373,36 @@ contains
         is_used = .false.
     end function is_procedure_used
 
-    ! Get all procedure names in the graph
+    ! Get all procedure names in the graph (returns simple names without scope)
     function get_all_procedures(graph) result(proc_names)
         type(call_graph_t), intent(in) :: graph
         character(len=:), allocatable :: proc_names(:)
-        integer :: i, max_len
+        integer :: i, max_len, sep_pos
+        character(len=256) :: simple_name
         
         if (graph%proc_count > 0) then
-            ! Find max length
+            ! Find max length of simple names
             max_len = 0
             do i = 1, graph%proc_count
                 if (allocated(graph%procedures(i)%name)) then
-                    max_len = max(max_len, len(graph%procedures(i)%name))
+                    simple_name = graph%procedures(i)%name
+                    sep_pos = index(simple_name, "::", back=.true.)
+                    if (sep_pos > 0) then
+                        simple_name = simple_name(sep_pos+2:)
+                    end if
+                    max_len = max(max_len, len_trim(simple_name))
                 end if
             end do
             
             allocate(character(len=max_len) :: proc_names(graph%proc_count))
             do i = 1, graph%proc_count
                 if (allocated(graph%procedures(i)%name)) then
-                    proc_names(i) = graph%procedures(i)%name
+                    simple_name = graph%procedures(i)%name
+                    sep_pos = index(simple_name, "::", back=.true.)
+                    if (sep_pos > 0) then
+                        simple_name = simple_name(sep_pos+2:)
+                    end if
+                    proc_names(i) = trim(simple_name)
                 else
                     proc_names(i) = ""
                 end if
