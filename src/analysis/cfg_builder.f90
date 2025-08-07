@@ -3,8 +3,14 @@ module cfg_builder_module
     use ast_core
     use ast_arena
     use control_flow_graph_module
+    use constant_folding_module, only: evaluate_constant_condition
     implicit none
     private
+
+    ! Constants for constant folding results
+    integer, parameter :: CONSTANT_UNKNOWN = 0
+    integer, parameter :: CONSTANT_TRUE = 1
+    integer, parameter :: CONSTANT_FALSE = 2
 
     ! Public interface
     public :: cfg_builder_t, create_cfg_builder
@@ -274,6 +280,90 @@ contains
             ! Should not happen if node_type was checked correctly
             return
         end select
+        
+        ! Check for constant folding opportunity
+        block
+            integer :: constant_result
+            constant_result = evaluate_constant_condition(arena, condition_index)
+            
+            if (constant_result /= CONSTANT_UNKNOWN) then
+                ! We have a constant condition - build CFG but don't connect unreachable paths
+                then_block_id = add_basic_block(builder%cfg, "then")
+                merge_block_id = add_basic_block(builder%cfg, "merge")
+                
+                ! Add condition to current block
+                call add_statement_to_buffer(builder, condition_index)
+                call flush_statement_buffer(builder)
+                
+                if (constant_result == CONSTANT_TRUE) then
+                    ! Only connect the true branch
+                    call add_cfg_edge(builder%cfg, current_block, then_block_id, &
+                                     EDGE_TRUE_BRANCH, "if-condition")
+                    
+                    ! Process then branch
+                    builder%current_block_id = then_block_id
+                    if (allocated(then_indices) .and. size(then_indices) > 0) then
+                        do i = 1, size(then_indices)
+                            call process_node(builder, arena, then_indices(i))
+                        end do
+                    end if
+                    call flush_statement_buffer(builder)
+                    if (builder%current_block_id > 0) then
+                        call add_cfg_edge(builder%cfg, builder%current_block_id, &
+                                         merge_block_id, EDGE_UNCONDITIONAL)
+                    end if
+                    
+                    ! Create else block but don't connect it (unreachable)
+                    if (allocated(else_indices) .and. size(else_indices) > 0) then
+                        else_block_id = add_basic_block(builder%cfg, "else")
+                        ! Don't connect it to entry - it's unreachable
+                        builder%current_block_id = else_block_id
+                        do i = 1, size(else_indices)
+                            call process_node(builder, arena, else_indices(i))
+                        end do
+                        call flush_statement_buffer(builder)
+                    end if
+                    
+                else  ! CONSTANT_FALSE
+                    ! Only connect the false branch
+                    if (allocated(else_indices) .and. size(else_indices) > 0) then
+                        else_block_id = add_basic_block(builder%cfg, "else")
+                        call add_cfg_edge(builder%cfg, current_block, else_block_id, &
+                                         EDGE_FALSE_BRANCH, "if-condition")
+                        
+                        ! Process else branch
+                        builder%current_block_id = else_block_id
+                        do i = 1, size(else_indices)
+                            call process_node(builder, arena, else_indices(i))
+                        end do
+                        call flush_statement_buffer(builder)
+                        if (builder%current_block_id > 0) then
+                            call add_cfg_edge(builder%cfg, builder%current_block_id, &
+                                             merge_block_id, EDGE_UNCONDITIONAL)
+                        end if
+                    else
+                        ! No else branch, direct connection to merge
+                        call add_cfg_edge(builder%cfg, current_block, merge_block_id, &
+                                         EDGE_FALSE_BRANCH, "if-condition")
+                    end if
+                    
+                    ! Create then block but don't connect it (unreachable)
+                    builder%current_block_id = then_block_id
+                    if (allocated(then_indices) .and. size(then_indices) > 0) then
+                        do i = 1, size(then_indices)
+                            call process_node(builder, arena, then_indices(i))
+                        end do
+                    end if
+                    call flush_statement_buffer(builder)
+                end if
+                
+                ! Continue from merge block
+                builder%current_block_id = merge_block_id
+                return
+            end if
+            
+            ! If we reach here, it's a dynamic condition - proceed with normal CFG building
+        end block
         
         ! Create blocks
         then_block_id = add_basic_block(builder%cfg, "then")
