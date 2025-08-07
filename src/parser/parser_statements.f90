@@ -2379,6 +2379,20 @@ contains
                         stmt_index = parse_call_statement(parser, arena)
                     case ("if")
                         stmt_index = parse_if_simple(parser, arena)
+                    case ("stop")
+                        stmt_index = parse_stop_statement(parser, arena)
+                    case ("return")
+                        stmt_index = parse_return_statement(parser, arena)
+                    case ("go")
+                        ! Handle 'go to' statement
+                        stmt_index = parse_goto_statement(parser, arena)
+                    case ("error")
+                        ! Handle 'error stop' statement
+                        stmt_index = parse_error_stop_statement(parser, arena)
+                    case ("cycle")
+                        stmt_index = parse_cycle_statement(parser, arena)
+                    case ("exit")
+                        stmt_index = parse_exit_statement(parser, arena)
                     case default
                         ! Skip unknown keywords
                         token = parser%consume()
