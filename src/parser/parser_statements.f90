@@ -2776,6 +2776,7 @@ contains
         integer :: condition_index
         integer, allocatable :: then_body_indices(:), else_body_indices(:)
         integer, allocatable :: elseif_indices(:)
+        logical :: in_else_clause
         
         ! Consume 'if' keyword
         if_token = parser%consume()
@@ -2802,11 +2803,18 @@ contains
             allocate(elseif_indices(0))
             
             ! Parse all statements within if block until endif
+            ! First parse then body until else or endif
+            in_else_clause = .false.
+            
             do while (.not. parser%is_at_end())
                 then_token = parser%peek()
                 
                 if (then_token%kind == TK_KEYWORD) then
-                    if (then_token%text == "endif" .or. then_token%text == "end if") then
+                    if (then_token%text == "else" .and. .not. in_else_clause) then
+                        ! Switch to parsing else clause
+                        then_token = parser%consume()  ! consume 'else'
+                        in_else_clause = .true.
+                    else if (then_token%text == "endif" .or. then_token%text == "end if") then
                         ! End of if statement
                         then_token = parser%consume()
                         exit
@@ -2816,7 +2824,11 @@ contains
                             integer :: stmt_idx
                             stmt_idx = parse_statement_in_if_block(parser, arena, then_token)
                             if (stmt_idx > 0) then
-                                then_body_indices = [then_body_indices, stmt_idx]
+                                if (in_else_clause) then
+                                    else_body_indices = [else_body_indices, stmt_idx]
+                                else
+                                    then_body_indices = [then_body_indices, stmt_idx]
+                                end if
                             else
                                 ! If parsing failed, skip this token to avoid infinite loop
                                 then_token = parser%consume()
@@ -2829,7 +2841,11 @@ contains
                         integer :: stmt_idx
                         stmt_idx = parse_assignment_simple(parser, arena)
                         if (stmt_idx > 0) then
-                            then_body_indices = [then_body_indices, stmt_idx]
+                            if (in_else_clause) then
+                                else_body_indices = [else_body_indices, stmt_idx]
+                            else
+                                then_body_indices = [then_body_indices, stmt_idx]
+                            end if
                         else
                             ! If parsing failed, skip this token to avoid infinite loop
                             then_token = parser%consume()
