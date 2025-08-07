@@ -14,6 +14,7 @@ module semantic_analyzer
                                 range_expression_node, get_array_slice_node
     use parameter_tracker
     use expression_temporary_tracker_module
+    use constant_folding, only: fold_constants_in_arena
     implicit none
     private
 
@@ -115,6 +116,9 @@ contains
             ! Single statement/expression
             call infer_and_store_type(ctx, arena, root_index)
         end select
+        
+        ! Perform constant folding after type inference
+        call fold_constants_in_arena(arena)
     end subroutine analyze_program
 
     ! Analyze a program node with arena-based AST
