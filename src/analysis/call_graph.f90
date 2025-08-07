@@ -181,11 +181,29 @@ contains
         
         ! Mark all called procedures
         do i = 1, graph%call_count
+            ! Extract simple name from callee for comparison
+            simple_name = graph%calls(i)%callee
+            sep_pos = index(simple_name, "::", back=.true.)
+            if (sep_pos > 0) then
+                simple_name = simple_name(sep_pos+2:)
+            end if
+            
             do j = 1, graph%proc_count
-                if (graph%procedures(j)%name == graph%calls(i)%callee) then
-                    is_called(j) = .true.
-                    exit
-                end if
+                ! Extract simple name from procedure for comparison
+                block
+                    character(len=256) :: proc_simple_name
+                    integer :: proc_sep_pos
+                    proc_simple_name = graph%procedures(j)%name
+                    proc_sep_pos = index(proc_simple_name, "::", back=.true.)
+                    if (proc_sep_pos > 0) then
+                        proc_simple_name = proc_simple_name(proc_sep_pos+2:)
+                    end if
+                    
+                    if (proc_simple_name == simple_name) then
+                        is_called(j) = .true.
+                        exit
+                    end if
+                end block
             end do
         end do
         
