@@ -22,6 +22,13 @@ module ast_base
         integer :: column = 1
         type(mono_type_t), allocatable :: inferred_type  ! Type information
         ! from semantic analysis
+        
+        ! Constant folding information
+        logical :: is_constant = .false.  ! True if this node is a compile-time constant
+        logical :: constant_logical       ! For logical constants
+        integer :: constant_integer       ! For integer constants
+        real :: constant_real             ! For real constants
+        integer :: constant_type = 0      ! Type of constant (LITERAL_* constants)
     contains
         procedure(visit_interface), deferred :: accept
         procedure(to_json_interface), deferred :: to_json
