@@ -1572,7 +1572,66 @@ contains
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: j
-                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                        ! Parse statements with enhanced logic to handle all statement types
+                        integer :: single_stmt_index
+                        type(token_t) :: first_token
+                        
+                        ! Check the first token to determine statement type
+                        if (size(stmt_tokens) > 0) then
+                            first_token = stmt_tokens(1)
+                            if (first_token%kind == 5) then  ! TK_KEYWORD
+                                select case (first_token%text)
+                                case ("stop")
+                                    block
+                                        use parser_state_module
+                                        type(parser_state_t) :: stmt_parser
+                                        stmt_parser = create_parser_state(stmt_tokens)
+                                        single_stmt_index = parse_stop_statement(stmt_parser, arena)
+                                    end block
+                                    if (single_stmt_index > 0) then
+                                        allocate(stmt_indices(1))
+                                        stmt_indices(1) = single_stmt_index
+                                    else
+                                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                                    end if
+                                case ("go")
+                                    block
+                                        use parser_state_module
+                                        type(parser_state_t) :: stmt_parser
+                                        stmt_parser = create_parser_state(stmt_tokens)
+                                        single_stmt_index = parse_goto_statement(stmt_parser, arena)
+                                    end block
+                                    if (single_stmt_index > 0) then
+                                        allocate(stmt_indices(1))
+                                        stmt_indices(1) = single_stmt_index
+                                    else
+                                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                                    end if
+                                case ("error")
+                                    block
+                                        use parser_state_module
+                                        type(parser_state_t) :: stmt_parser
+                                        stmt_parser = create_parser_state(stmt_tokens)
+                                        single_stmt_index = parse_error_stop_statement(stmt_parser, arena)
+                                    end block
+                                    if (single_stmt_index > 0) then
+                                        allocate(stmt_indices(1))
+                                        stmt_indices(1) = single_stmt_index
+                                    else
+                                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                                    end if
+                                case default
+                                    ! Use the multi-statement parser for other cases
+                                    stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                                end select
+                            else
+                                ! Non-keyword first token, use multi-statement parser
+                                stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                            end if
+                        else
+                            ! Empty token array
+                            allocate(stmt_indices(0))
+                        end if
 
                         ! Add all parsed statements to body
                         do j = 1, size(stmt_indices)
@@ -1711,7 +1770,66 @@ contains
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: j
-                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                        ! Parse statements with enhanced logic to handle all statement types
+                        integer :: single_stmt_index
+                        type(token_t) :: first_token
+                        
+                        ! Check the first token to determine statement type
+                        if (size(stmt_tokens) > 0) then
+                            first_token = stmt_tokens(1)
+                            if (first_token%kind == 5) then  ! TK_KEYWORD
+                                select case (first_token%text)
+                                case ("stop")
+                                    block
+                                        use parser_state_module
+                                        type(parser_state_t) :: stmt_parser
+                                        stmt_parser = create_parser_state(stmt_tokens)
+                                        single_stmt_index = parse_stop_statement(stmt_parser, arena)
+                                    end block
+                                    if (single_stmt_index > 0) then
+                                        allocate(stmt_indices(1))
+                                        stmt_indices(1) = single_stmt_index
+                                    else
+                                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                                    end if
+                                case ("go")
+                                    block
+                                        use parser_state_module
+                                        type(parser_state_t) :: stmt_parser
+                                        stmt_parser = create_parser_state(stmt_tokens)
+                                        single_stmt_index = parse_goto_statement(stmt_parser, arena)
+                                    end block
+                                    if (single_stmt_index > 0) then
+                                        allocate(stmt_indices(1))
+                                        stmt_indices(1) = single_stmt_index
+                                    else
+                                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                                    end if
+                                case ("error")
+                                    block
+                                        use parser_state_module
+                                        type(parser_state_t) :: stmt_parser
+                                        stmt_parser = create_parser_state(stmt_tokens)
+                                        single_stmt_index = parse_error_stop_statement(stmt_parser, arena)
+                                    end block
+                                    if (single_stmt_index > 0) then
+                                        allocate(stmt_indices(1))
+                                        stmt_indices(1) = single_stmt_index
+                                    else
+                                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                                    end if
+                                case default
+                                    ! Use the multi-statement parser for other cases
+                                    stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                                end select
+                            else
+                                ! Non-keyword first token, use multi-statement parser
+                                stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                            end if
+                        else
+                            ! Empty token array
+                            allocate(stmt_indices(0))
+                        end if
 
                         ! Add all parsed statements to body
                         do j = 1, size(stmt_indices)
@@ -2379,6 +2497,20 @@ contains
                         stmt_index = parse_call_statement(parser, arena)
                     case ("if")
                         stmt_index = parse_if_simple(parser, arena)
+                    case ("stop")
+                        stmt_index = parse_stop_statement(parser, arena)
+                    case ("return")
+                        stmt_index = parse_return_statement(parser, arena)
+                    case ("go")
+                        ! Handle 'go to' statement
+                        stmt_index = parse_goto_statement(parser, arena)
+                    case ("error")
+                        ! Handle 'error stop' statement
+                        stmt_index = parse_error_stop_statement(parser, arena)
+                    case ("cycle")
+                        stmt_index = parse_cycle_statement(parser, arena)
+                    case ("exit")
+                        stmt_index = parse_exit_statement(parser, arena)
                     case default
                         ! Skip unknown keywords
                         token = parser%consume()
@@ -3199,6 +3331,12 @@ contains
             stmt_index = parse_cycle_statement(parser, arena)
         case ("exit")
             stmt_index = parse_exit_statement(parser, arena)
+        case ("go")
+            ! Handle 'go to' statement
+            stmt_index = parse_goto_statement(parser, arena)
+        case ("error")
+            ! Handle 'error stop' statement
+            stmt_index = parse_error_stop_statement(parser, arena)
         
         ! Nested control structures - avoid infinite recursion
         case ("if")
