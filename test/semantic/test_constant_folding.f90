@@ -2,7 +2,8 @@ program test_constant_folding
     use frontend
     use ast_core
     use lexer_core, only: token_t
-    use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program
+    use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
+                                 analyze_program
     implicit none
 
     logical :: all_passed
@@ -196,6 +197,8 @@ contains
         integer :: i
         logical :: debug = .false.
 
+        associate(unused_prog_index => prog_index); end associate
+        
         found = .false.
         
         ! Check all nodes in the arena for if_node with constant false condition
@@ -203,7 +206,8 @@ contains
             select type(node => arena%entries(i)%node)
             type is (if_node)
                 ! Check if condition is marked as constant false
-                if (node%condition_index > 0 .and. node%condition_index <= arena%size) then
+                if (node%condition_index > 0 .and. &
+                    node%condition_index <= arena%size) then
                     select type(cond => arena%entries(node%condition_index)%node)
                     type is (literal_node)
                         ! Check if it's marked as a constant with value false

@@ -41,6 +41,7 @@ contains
     
     subroutine fold_literal_node(node)
         type(literal_node), intent(inout) :: node
+        integer :: read_status
         
         ! Mark literals as constants and store their values
         node%is_constant = .true.
@@ -53,10 +54,18 @@ contains
             node%constant_logical = .true.
             node%constant_type = LITERAL_LOGICAL
         else if (node%literal_kind == LITERAL_INTEGER) then
-            read(node%value, *) node%constant_integer
+            read(node%value, *, iostat=read_status) node%constant_integer
+            if (read_status /= 0) then
+                node%is_constant = .false.
+                return
+            end if
             node%constant_type = LITERAL_INTEGER
         else if (node%literal_kind == LITERAL_REAL) then
-            read(node%value, *) node%constant_real
+            read(node%value, *, iostat=read_status) node%constant_real
+            if (read_status /= 0) then
+                node%is_constant = .false.
+                return
+            end if
             node%constant_type = LITERAL_REAL
         end if
     end subroutine fold_literal_node
@@ -176,7 +185,8 @@ contains
         else if (left%constant_type == LITERAL_REAL .and. &
                  right%constant_type == LITERAL_REAL) then
             node%is_constant = .true.
-            node%constant_logical = abs(left%constant_real - right%constant_real) < 1e-10
+            node%constant_logical = &
+                abs(left%constant_real - right%constant_real) < 1e-10
             node%constant_type = LITERAL_LOGICAL
         else if (left%constant_type == LITERAL_LOGICAL .and. &
                  right%constant_type == LITERAL_LOGICAL) then
@@ -198,7 +208,8 @@ contains
         else if (left%constant_type == LITERAL_REAL .and. &
                  right%constant_type == LITERAL_REAL) then
             node%is_constant = .true.
-            node%constant_logical = abs(left%constant_real - right%constant_real) >= 1e-10
+            node%constant_logical = &
+                abs(left%constant_real - right%constant_real) >= 1e-10
             node%constant_type = LITERAL_LOGICAL
         else if (left%constant_type == LITERAL_LOGICAL .and. &
                  right%constant_type == LITERAL_LOGICAL) then
@@ -222,7 +233,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(declaration_node), intent(inout) :: node
         
-        ! Check if this is a parameter declaration (has 'parameter' in type_name or similar)
+        ! Check if this is a parameter declaration
         ! For now, assume parameter declarations have initializers that should be folded
         if (node%has_initializer .and. node%initializer_index > 0 .and. &
             node%initializer_index <= arena%size) then
@@ -248,12 +259,15 @@ contains
         type(identifier_node), intent(inout) :: node
         integer :: i
         
+        ! Early exit if node name is not allocated
+        if (.not. allocated(node%name)) return
+        
         ! Look for declarations with matching name (including parameters)
+        ! Only check nodes that come before this one in the arena
         do i = 1, arena%size
             select type(decl => arena%entries(i)%node)
             type is (declaration_node)
-                if (allocated(decl%var_name) .and. &
-                    allocated(node%name)) then
+                if (allocated(decl%var_name)) then
                     if (trim(decl%var_name) == trim(node%name)) then
                         ! Propagate the declaration's constant value
                         if (decl%is_constant) then
@@ -262,7 +276,7 @@ contains
                             node%constant_integer = decl%constant_integer
                             node%constant_real = decl%constant_real
                             node%constant_logical = decl%constant_logical
-                            exit
+                            return  ! Found match, no need to continue
                         end if
                     end if
                 end if
