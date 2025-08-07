@@ -228,9 +228,16 @@ contains
                 end if
             end select
             
-        case ("contains", "contains_section")
-            ! Handle contains section - traverse all contained procedures
-            call traverse_children_for_calls(builder, arena, node_index, current_scope)
+        case ("contains", "contains_section", "contains_node")
+            ! Handle contains section - traverse all contained procedures in the current scope
+            select type (node => arena%entries(node_index)%node)
+            type is (contains_node)
+                ! Contains node found - traverse all children in current scope
+                call traverse_children_for_calls(builder, arena, node_index, current_scope)
+            class default
+                ! Unknown contains-related node type - still traverse children
+                call traverse_children_for_calls(builder, arena, node_index, current_scope)
+            end select
             
         case default
             ! For other node types, just traverse children
