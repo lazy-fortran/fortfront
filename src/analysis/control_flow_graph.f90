@@ -8,6 +8,7 @@ module control_flow_graph_module
     public :: control_flow_graph_t, basic_block_t, cfg_edge_t
     public :: create_control_flow_graph, add_basic_block, add_cfg_edge
     public :: find_reachable_blocks, find_unreachable_code
+    public :: find_conditionally_unreachable_code
     public :: get_entry_block, get_exit_blocks, get_all_blocks
     public :: get_block_predecessors, get_block_successors
     public :: is_block_reachable, get_unreachable_statements
@@ -83,7 +84,8 @@ contains
     end function create_control_flow_graph
 
     ! Add a basic block to the CFG
-    function add_basic_block(cfg, label, statement_indices, is_entry, is_exit) result(block_id)
+    function add_basic_block(cfg, label, statement_indices, is_entry, is_exit) &
+             result(block_id)
         type(control_flow_graph_t), intent(inout) :: cfg
         character(len=*), intent(in), optional :: label
         integer, intent(in), optional :: statement_indices(:)
@@ -513,5 +515,103 @@ contains
         
         dot_string = dot_string // '}' // new_line('a')
     end function cfg_to_dot
+
+    ! Find conditionally unreachable code in early return patterns
+    function find_conditionally_unreachable_code(cfg) result(unreachable_blocks)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, allocatable :: unreachable_blocks(:)
+        integer :: i, count
+        logical, allocatable :: is_conditionally_unreachable(:)
+        
+        ! Initialize tracking array
+        allocate(is_conditionally_unreachable(cfg%block_count))
+        is_conditionally_unreachable = .false.
+        
+        ! Find blocks that are reachable but become unreachable due to early returns
+        do i = 1, cfg%block_count
+            if (cfg%blocks(i)%is_reachable) then
+                ! Check if this block has predecessors with early return patterns
+                call check_early_return_patterns(cfg, i, is_conditionally_unreachable)
+            end if
+        end do
+        
+        ! Count conditionally unreachable blocks
+        count = 0
+        do i = 1, cfg%block_count
+            if (is_conditionally_unreachable(i)) then
+                count = count + 1
+            end if
+        end do
+        
+        ! Collect conditionally unreachable blocks
+        allocate(unreachable_blocks(count))
+        count = 0
+        do i = 1, cfg%block_count
+            if (is_conditionally_unreachable(i)) then
+                count = count + 1
+                unreachable_blocks(count) = i
+            end if
+        end do
+    end function find_conditionally_unreachable_code
+    
+    ! Check if a block has early return patterns in its predecessors
+    subroutine check_early_return_patterns(cfg, block_id, is_conditionally_unreachable)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, intent(in) :: block_id
+        logical, intent(inout) :: is_conditionally_unreachable(:)
+        integer :: i, pred_id
+        logical :: has_conditional_return_predecessor
+        logical :: has_fallthrough_predecessor
+        
+        has_conditional_return_predecessor = .false.
+        has_fallthrough_predecessor = .false.
+        
+        ! Check all edges leading to this block
+        do i = 1, cfg%edge_count
+            if (cfg%edges(i)%to_block_id == block_id) then
+                pred_id = cfg%edges(i)%from_block_id
+                
+                ! Check if predecessor has early return pattern
+                if (has_early_return_pattern(cfg, pred_id, cfg%edges(i)%edge_type)) then
+                    has_conditional_return_predecessor = .true.
+                else
+                    has_fallthrough_predecessor = .true.
+                end if
+            end if
+        end do
+        
+        ! If block only has conditional return predecessors and no fallthrough,
+        ! it's conditionally unreachable
+        if (has_conditional_return_predecessor .and. &
+            .not. has_fallthrough_predecessor) then
+            is_conditionally_unreachable(block_id) = .true.
+        end if
+    end subroutine check_early_return_patterns
+    
+    ! Check if a block contains an early return pattern
+    function has_early_return_pattern(cfg, block_id, edge_type) result(has_pattern)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, intent(in) :: block_id, edge_type
+        logical :: has_pattern
+        integer :: i
+        
+        has_pattern = .false.
+        
+        ! Check if this is a conditional return edge
+        if (edge_type == EDGE_CONDITIONAL_RETURN .or. edge_type == EDGE_RETURN) then
+            has_pattern = .true.
+            return
+        end if
+        
+        ! Check if block leads to return statements
+        do i = 1, cfg%edge_count
+            if (cfg%edges(i)%from_block_id == block_id .and. &
+                (cfg%edges(i)%edge_type == EDGE_RETURN .or. &
+                 cfg%edges(i)%edge_type == EDGE_CONDITIONAL_RETURN)) then
+                has_pattern = .true.
+                return
+            end if
+        end do
+    end function has_early_return_pattern
 
 end module control_flow_graph_module
