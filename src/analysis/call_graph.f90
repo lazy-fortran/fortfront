@@ -163,8 +163,9 @@ contains
         type(call_graph_t), intent(in) :: graph
         character(len=:), allocatable :: unused_names(:)
         logical, allocatable :: is_called(:)
-        integer :: i, j, unused_count
+        integer :: i, j, unused_count, sep_pos
         character(len=256), allocatable :: temp_names(:)
+        character(len=256) :: simple_name
         
         ! Initialize all procedures as not called
         allocate(is_called(graph%proc_count))
@@ -196,14 +197,19 @@ contains
             end if
         end do
         
-        ! Collect unused procedure names
+        ! Collect unused procedure names (return simple names without scope)
         if (unused_count > 0) then
             allocate(temp_names(unused_count))
             j = 0
             do i = 1, graph%proc_count
                 if (.not. is_called(i)) then
                     j = j + 1
-                    temp_names(j) = graph%procedures(i)%name
+                    simple_name = graph%procedures(i)%name
+                    sep_pos = index(simple_name, "::", back=.true.)
+                    if (sep_pos > 0) then
+                        simple_name = simple_name(sep_pos+2:)
+                    end if
+                    temp_names(j) = simple_name
                 end if
             end do
             
@@ -223,8 +229,9 @@ contains
         character(len=*), intent(in) :: procedure_name
         character(len=:), allocatable :: caller_names(:)
         character(len=256), allocatable :: temp_names(:)
-        integer :: i, count
+        integer :: i, count, sep_pos
         logical, allocatable :: unique_check(:)
+        character(len=256) :: simple_callee
         
         ! Count unique callers
         allocate(temp_names(graph%call_count))
@@ -233,12 +240,29 @@ contains
         count = 0
         
         do i = 1, graph%call_count
-            if (graph%calls(i)%callee == procedure_name) then
-                ! Check if this caller is already in list
-                if (.not. any(temp_names(1:count) == graph%calls(i)%caller)) then
-                    count = count + 1
-                    temp_names(count) = graph%calls(i)%caller
-                end if
+            ! Extract simple name from scoped name for comparison
+            simple_callee = graph%calls(i)%callee
+            sep_pos = index(simple_callee, "::", back=.true.)
+            if (sep_pos > 0) then
+                simple_callee = simple_callee(sep_pos+2:)
+            end if
+            
+            if (graph%calls(i)%callee == procedure_name .or. &
+                trim(simple_callee) == procedure_name) then
+                block
+                    character(len=256) :: extracted_caller
+                    extracted_caller = graph%calls(i)%caller
+                    sep_pos = index(extracted_caller, "::", back=.true.)
+                    if (sep_pos > 0) then
+                        extracted_caller = extracted_caller(sep_pos+2:)
+                    end if
+                    
+                    ! Check if this caller is already in list  
+                    if (.not. any(temp_names(1:count) == trim(extracted_caller))) then
+                        count = count + 1
+                        temp_names(count) = trim(extracted_caller)
+                    end if
+                end block
             end if
         end do
         
@@ -260,19 +284,38 @@ contains
         character(len=*), intent(in) :: procedure_name
         character(len=:), allocatable :: callee_names(:)
         character(len=256), allocatable :: temp_names(:)
-        integer :: i, count
+        integer :: i, count, sep_pos
+        character(len=256) :: simple_caller, extracted_callee
         
         ! Count unique callees
         allocate(temp_names(graph%call_count))
         count = 0
         
         do i = 1, graph%call_count
-            if (graph%calls(i)%caller == procedure_name) then
-                ! Check if this callee is already in list
-                if (.not. any(temp_names(1:count) == graph%calls(i)%callee)) then
-                    count = count + 1
-                    temp_names(count) = graph%calls(i)%callee
-                end if
+            ! Extract simple name from scoped name for comparison
+            simple_caller = graph%calls(i)%caller
+            sep_pos = index(simple_caller, "::", back=.true.)
+            if (sep_pos > 0) then
+                simple_caller = simple_caller(sep_pos+2:)
+            end if
+            
+            if (graph%calls(i)%caller == procedure_name .or. &
+                trim(simple_caller) == procedure_name) then
+                block
+                    character(len=256) :: extracted_callee
+                    ! Extract simple name from callee for output
+                    extracted_callee = graph%calls(i)%callee
+                    sep_pos = index(extracted_callee, "::", back=.true.)
+                    if (sep_pos > 0) then
+                        extracted_callee = extracted_callee(sep_pos+2:)
+                    end if
+                    
+                    ! Check if this callee is already in list
+                    if (.not. any(temp_names(1:count) == trim(extracted_callee))) then
+                        count = count + 1
+                        temp_names(count) = trim(extracted_callee)
+                    end if
+                end block
             end if
         end do
         
@@ -293,11 +336,19 @@ contains
         type(call_graph_t), intent(in) :: graph
         character(len=*), intent(in) :: procedure_name
         logical :: is_used
-        integer :: i
+        integer :: i, sep_pos
+        character(len=256) :: simple_name, simple_callee
         
         ! Main programs are always "used"
         do i = 1, graph%proc_count
-            if (graph%procedures(i)%name == procedure_name .and. &
+            simple_name = graph%procedures(i)%name
+            sep_pos = index(simple_name, "::", back=.true.)
+            if (sep_pos > 0) then
+                simple_name = simple_name(sep_pos+2:)
+            end if
+            
+            if ((graph%procedures(i)%name == procedure_name .or. &
+                 trim(simple_name) == procedure_name) .and. &
                 graph%procedures(i)%is_main_program) then
                 is_used = .true.
                 return
@@ -306,7 +357,14 @@ contains
         
         ! Check if called by anyone
         do i = 1, graph%call_count
-            if (graph%calls(i)%callee == procedure_name) then
+            simple_callee = graph%calls(i)%callee
+            sep_pos = index(simple_callee, "::", back=.true.)
+            if (sep_pos > 0) then
+                simple_callee = simple_callee(sep_pos+2:)
+            end if
+            
+            if (graph%calls(i)%callee == procedure_name .or. &
+                trim(simple_callee) == procedure_name) then
                 is_used = .true.
                 return
             end if
