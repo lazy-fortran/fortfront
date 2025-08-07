@@ -3213,6 +3213,12 @@ contains
             stmt_index = parse_cycle_statement(parser, arena)
         case ("exit")
             stmt_index = parse_exit_statement(parser, arena)
+        case ("go")
+            ! Handle 'go to' statement
+            stmt_index = parse_goto_statement(parser, arena)
+        case ("error")
+            ! Handle 'error stop' statement
+            stmt_index = parse_error_stop_statement(parser, arena)
         
         ! Nested control structures - avoid infinite recursion
         case ("if")
