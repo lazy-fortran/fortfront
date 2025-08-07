@@ -39,7 +39,7 @@ contains
                 "    valid = .false." // new_line('a') // &
                 "    return" // new_line('a') // &
                 "end if" // new_line('a') // &
-                "valid = .true." // new_line('a') // &  ! Should be detected as conditionally unreachable
+                "valid = .true." // new_line('a') // &  ! Conditionally unreachable
                 "end function validate"
         
         ! Lex and parse
@@ -67,12 +67,14 @@ contains
         
         ! Should detect that "valid = .true." is unreachable on the early return path
         if (size(unreachable_blocks) == 0) then
-            print *, "FAILED: Early return pattern not detected as conditionally unreachable"
+            print *, "FAILED: Early return pattern not detected as " // &
+                     "conditionally unreachable"
             all_tests_passed = .false.
             return
         end if
         
-        print *, "PASSED: Found", size(unreachable_blocks), "conditionally unreachable blocks"
+        print *, "PASSED: Found", size(unreachable_blocks), &
+                 "conditionally unreachable blocks"
         
     end subroutine test_basic_early_return
 
@@ -97,8 +99,8 @@ contains
                 "    print *, 'Nothing to do'" // new_line('a') // &
                 "    return" // new_line('a') // &
                 "end if" // new_line('a') // &
-                "print *, 'Processing...'" // new_line('a') // &  ! Conditionally unreachable
-                "status = 1" // new_line('a') // &                ! Conditionally unreachable
+                "print *, 'Processing...'" // new_line('a') // &  ! Unreachable
+                "status = 1" // new_line('a') // &                ! Unreachable
                 "end subroutine process"
         
         ! Lex and parse
@@ -131,7 +133,8 @@ contains
             return
         end if
         
-        print *, "PASSED: Found", size(unreachable_blocks), "conditionally unreachable blocks"
+        print *, "PASSED: Found", size(unreachable_blocks), &
+                 "conditionally unreachable blocks"
         
     end subroutine test_conditional_early_return
 
@@ -161,7 +164,7 @@ contains
                 "    result_code = -3" // new_line('a') // &
                 "    return" // new_line('a') // &
                 "end if" // new_line('a') // &
-                "result_code = data * 2" // new_line('a') // &  ! Conditionally unreachable
+                "result_code = data * 2" // new_line('a') // &  ! Unreachable
                 "end function analyze"
         
         ! Lex and parse
@@ -194,7 +197,8 @@ contains
             return
         end if
         
-        print *, "PASSED: Found", size(unreachable_blocks), "conditionally unreachable blocks"
+        print *, "PASSED: Found", size(unreachable_blocks), &
+                 "conditionally unreachable blocks"
         
     end subroutine test_multiple_early_returns
 

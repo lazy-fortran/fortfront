@@ -84,7 +84,8 @@ contains
     end function create_control_flow_graph
 
     ! Add a basic block to the CFG
-    function add_basic_block(cfg, label, statement_indices, is_entry, is_exit) result(block_id)
+    function add_basic_block(cfg, label, statement_indices, is_entry, is_exit) &
+             result(block_id)
         type(control_flow_graph_t), intent(inout) :: cfg
         character(len=*), intent(in), optional :: label
         integer, intent(in), optional :: statement_indices(:)
@@ -581,7 +582,8 @@ contains
         
         ! If block only has conditional return predecessors and no fallthrough,
         ! it's conditionally unreachable
-        if (has_conditional_return_predecessor .and. .not. has_fallthrough_predecessor) then
+        if (has_conditional_return_predecessor .and. &
+            .not. has_fallthrough_predecessor) then
             is_conditionally_unreachable(block_id) = .true.
         end if
     end subroutine check_early_return_patterns
