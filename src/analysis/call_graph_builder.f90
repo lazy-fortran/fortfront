@@ -71,6 +71,9 @@ contains
             end do
         end if
         
+        ! Post-process to handle parser limitations with nested procedures
+        call handle_missing_nested_procedures(builder, arena)
+        
         ! Return the built graph
         graph = builder%graph
     end function build_call_graph
@@ -90,6 +93,7 @@ contains
         if (.not. allocated(arena%entries(node_index)%node)) return
         
         node_type = arena%entries(node_index)%node_type
+        
         
         select case (node_type)
         case ("program")
@@ -340,5 +344,50 @@ contains
             resolved_name = simple_name
         end if
     end function resolve_procedure_name
+    
+    ! Handle parser limitation where nested procedures aren't correctly parsed
+    subroutine handle_missing_nested_procedures(builder, arena)
+        type(call_graph_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+        
+        integer :: i, j
+        character(len=256) :: caller_name, callee_name, caller_scope
+        character(len=256) :: inferred_full_name
+        logical :: callee_exists
+        
+        ! Scan all call edges to find calls to non-existent procedures
+        do i = 1, builder%graph%call_count
+            caller_name = builder%graph%calls(i)%caller
+            callee_name = builder%graph%calls(i)%callee
+            
+            ! Check if callee exists in our symbol table
+            callee_exists = .false.
+            do j = 1, builder%symbol_count
+                if (builder%symbol_table(j)%name == callee_name) then
+                    callee_exists = .true.
+                    exit
+                end if
+            end do
+            
+            ! If callee doesn't exist, infer it as a nested procedure
+            if (.not. callee_exists) then
+                ! Extract caller scope (remove last :: component if present)
+                caller_scope = caller_name
+                j = index(caller_scope, "::", back=.true.)
+                if (j > 0) then
+                    caller_scope = caller_scope(1:j-1)
+                else
+                    caller_scope = caller_name
+                end if
+                
+                ! Infer nested procedure with qualified name
+                inferred_full_name = trim(caller_scope) // "::" // callee_name
+                
+                ! Add inferred procedure to symbol table and graph
+                call add_to_symbol_table(builder, callee_name, inferred_full_name, caller_scope)
+                call builder%graph%add_proc(inferred_full_name, 0, 0, 0)  ! No source location available
+            end if
+        end do
+    end subroutine handle_missing_nested_procedures
 
 end module call_graph_builder_module
