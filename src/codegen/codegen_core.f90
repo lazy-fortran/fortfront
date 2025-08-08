@@ -204,6 +204,64 @@ contains
         code = target_code//" = "//value_code
     end function generate_code_assignment
 
+    ! Helper function to determine operator precedence
+    function get_operator_precedence(operator) result(precedence)
+        character(len=*), intent(in) :: operator
+        integer :: precedence
+        
+        select case (trim(operator))
+        case ("**")
+            precedence = 10  ! Highest precedence (exponentiation, right-associative)
+        case ("*", "/")
+            precedence = 8   ! Multiplication and division
+        case ("+", "-", "//")
+            precedence = 6   ! Addition, subtraction, concatenation
+        case ("==", "/=", "<", "<=", ">", ">=")
+            precedence = 4   ! Comparisons
+        case (".and.")
+            precedence = 3   ! Logical AND
+        case (".or.")
+            precedence = 2   ! Logical OR
+        case (".eqv.", ".neqv.")
+            precedence = 1   ! Logical equivalence (lowest precedence)
+        case default
+            precedence = 0   ! Unknown operators get lowest precedence
+        end select
+    end function get_operator_precedence
+
+    ! Helper function to check if parentheses are needed for an operand
+    function needs_parentheses(arena, operand_index, parent_op, is_left_operand) result(needs)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: operand_index
+        character(len=*), intent(in) :: parent_op
+        logical, intent(in) :: is_left_operand
+        logical :: needs
+        integer :: operand_prec, parent_prec
+        
+        needs = .false.
+        
+        if (operand_index <= 0 .or. operand_index > arena%size) return
+        if (.not. allocated(arena%entries(operand_index)%node)) return
+        
+        ! Check if operand is a binary operation
+        select type (operand_node => arena%entries(operand_index)%node)
+        type is (binary_op_node)
+            operand_prec = get_operator_precedence(operand_node%operator)
+            parent_prec = get_operator_precedence(parent_op)
+            
+            if (operand_prec < parent_prec) then
+                ! Lower precedence always needs parentheses
+                needs = .true.
+            else if (operand_prec == parent_prec .and. .not. is_left_operand) then
+                ! Equal precedence on right side needs parentheses for left-associative operators
+                ! Exception: ** is right-associative, so a ** b ** c = a ** (b ** c)
+                if (trim(parent_op) /= "**") then
+                    needs = .true.
+                end if
+            end if
+        end select
+    end function needs_parentheses
+
     ! Generate code for binary operation node
     function generate_code_binary_op(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -212,15 +270,23 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: left_code, right_code
 
-        ! Generate code for operands
+        ! Generate code for operands with parentheses when needed
         if (node%left_index > 0 .and. node%left_index <= arena%size) then
             left_code = generate_code_from_arena(arena, node%left_index)
+            ! Add parentheses if left operand has lower precedence
+            if (needs_parentheses(arena, node%left_index, node%operator, .true.)) then
+                left_code = "(" // left_code // ")"
+            end if
         else
             left_code = ""
         end if
 
         if (node%right_index > 0 .and. node%right_index <= arena%size) then
             right_code = generate_code_from_arena(arena, node%right_index)
+            ! Add parentheses if right operand has lower or equal precedence (for left-associative ops)
+            if (needs_parentheses(arena, node%right_index, node%operator, .false.)) then
+                right_code = "(" // right_code // ")"
+            end if
         else
             right_code = ""
         end if
