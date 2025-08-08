@@ -49,8 +49,12 @@ contains
             ! Standard if/then/endif block
             then_token = parser%consume()
 
-            ! Parse then body statements
-            then_body_indices = parse_if_body(parser, arena)
+            ! Create if node placeholder first to get the parent index
+            if_index = push_if(arena, condition_index, [integer::], &
+                               line=if_token%line, column=if_token%column)
+
+            ! Parse then body statements with the if node as parent
+            then_body_indices = parse_if_body(parser, arena, if_index)
 
             ! Check for elseif/else blocks
             elseif_count = 0
@@ -85,7 +89,7 @@ contains
                         end if
                         ! Parse else block
                         then_token = parser%consume()  ! consume 'else'
-                        else_body_indices = parse_if_body(parser, arena)
+                        else_body_indices = parse_if_body(parser, arena, if_index)
                         exit
               else if (then_token%text == "endif" .or. then_token%text == "end if") then
                         ! End of if statement
@@ -101,11 +105,27 @@ contains
                 end if
             end do
 
-            ! Create if node
-            if_index = push_if(arena, condition_index, then_body_indices, &
-                               elseif_indices=elseif_indices, &
-                               else_body_indices=else_body_indices, &
-                               line=if_token%line, column=if_token%column)
+            ! Update the if node with the actual body indices
+            if (allocated(arena%entries(if_index)%node)) then
+                select type(node => arena%entries(if_index)%node)
+                type is (if_node)
+                    if (allocated(then_body_indices)) then
+                        node%then_body_indices = then_body_indices
+                    end if
+                    if (allocated(else_body_indices)) then
+                        node%else_body_indices = else_body_indices  
+                    end if
+                    if (allocated(elseif_indices)) then
+                        if (size(elseif_indices) > 0 .and. mod(size(elseif_indices), 2) == 0) then
+                            allocate (node%elseif_blocks(size(elseif_indices)/2))
+                            do elseif_count = 1, size(elseif_indices)/2
+                                node%elseif_blocks(elseif_count)%condition_index = elseif_indices(2*elseif_count - 1)
+                                node%elseif_blocks(elseif_count)%body_indices = [elseif_indices(2*elseif_count)]
+                            end do
+                        end if
+                    end if
+                end select
+            end if
         else
             ! One-line if statement (no then keyword)
             allocate (then_body_indices(1))
@@ -213,9 +233,10 @@ contains
     end function parse_if_condition
 
     ! Parse if/elseif/else body statements
-    function parse_if_body(parser, arena) result(body_indices)
+    function parse_if_body(parser, arena, parent_index) result(body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
         integer, allocatable :: body_indices(:)
         type(token_t) :: token
         type(token_t), allocatable :: remaining_tokens(:)
@@ -292,7 +313,7 @@ contains
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: k
-                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, parent_index)
 
                         ! Add all parsed statements to body
                         do k = 1, size(stmt_indices)
@@ -428,6 +449,16 @@ contains
             allocate (body_indices(0))
             body_count = 0
 
+            ! Create do loop node placeholder first to get the parent index
+            if (step_index > 0) then
+                loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                                     step_index=step_index, body_indices=[integer::], &
+                                          line=line, column=column)
+            else
+                loop_index = push_do_loop(arena, var_name, start_index, end_index, &
+                                    body_indices=[integer::], line=line, column=column)
+            end if
+
             ! Parse body statements
             do while (parser%current_token <= size(parser%tokens))
                 ! Check for 'end do'
@@ -480,7 +511,7 @@ contains
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: k
-                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, loop_index)
 
                         ! Add all parsed statements to body
                         do k = 1, size(stmt_indices)
@@ -498,14 +529,14 @@ contains
                 parser%current_token = stmt_end + 1
             end do
 
-            ! Create do loop node with body
-            if (step_index > 0) then
-                loop_index = push_do_loop(arena, var_name, start_index, end_index, &
-                                     step_index=step_index, body_indices=body_indices, &
-                                          line=line, column=column)
-            else
-                loop_index = push_do_loop(arena, var_name, start_index, end_index, &
-                                    body_indices=body_indices, line=line, column=column)
+            ! Update the do loop node with the actual body indices
+            if (allocated(arena%entries(loop_index)%node)) then
+                select type(node => arena%entries(loop_index)%node)
+                type is (do_loop_node)
+                    if (allocated(body_indices)) then
+                        node%body_indices = body_indices
+                    end if
+                end select
             end if
             ! Successfully created do loop node
         end block
@@ -759,9 +790,10 @@ contains
     end function parse_select_case
 
     ! Parse basic statement with support for multi-variable declarations
-    function parse_basic_statement_multi(tokens, arena) result(stmt_indices)
+    function parse_basic_statement_multi(tokens, arena, parent_index) result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
         integer, allocatable :: stmt_indices(:)
         type(parser_state_t) :: parser
         type(token_t) :: first_token
@@ -788,13 +820,46 @@ contains
         if (first_token%kind == TK_KEYWORD) then
             select case (first_token%text)
             case ("if")
-                ! Parse if statement
-                stmt_index = parse_if(parser, arena)
-                if (stmt_index <= 0) stmt_index = 0  ! Ensure consistent error handling
+                ! Parse if statement - need to handle parent index
+                if (present(parent_index)) then
+                    ! For nested if statements, we need special handling
+                    block
+                        integer :: nested_if_index
+                        nested_if_index = parse_if(parser, arena)
+                        if (nested_if_index > 0 .and. present(parent_index)) then
+                            ! Update the nested if's parent_index
+                            arena%entries(nested_if_index)%parent_index = parent_index
+                            ! Add it as a child to the parent
+                            call arena%add_child(parent_index, nested_if_index)
+                            stmt_index = nested_if_index
+                        else
+                            stmt_index = 0
+                        end if
+                    end block
+                else
+                    stmt_index = parse_if(parser, arena)
+                    if (stmt_index <= 0) stmt_index = 0
+                end if
             case ("do")
-                ! Parse do loop statement
-                stmt_index = parse_do_loop(parser, arena)
-                if (stmt_index <= 0) stmt_index = 0  ! Ensure consistent error handling
+                ! Parse do loop statement - need to handle parent index  
+                if (present(parent_index)) then
+                    block
+                        integer :: nested_loop_index
+                        nested_loop_index = parse_do_loop(parser, arena)
+                        if (nested_loop_index > 0 .and. present(parent_index)) then
+                            ! Update the nested loop's parent_index
+                            arena%entries(nested_loop_index)%parent_index = parent_index
+                            ! Add it as a child to the parent
+                            call arena%add_child(parent_index, nested_loop_index)
+                            stmt_index = nested_loop_index
+                        else
+                            stmt_index = 0
+                        end if
+                    end block
+                else
+                    stmt_index = parse_do_loop(parser, arena)
+                    if (stmt_index <= 0) stmt_index = 0
+                end if
             case ("print")
                 ! Parse print statement
                 stmt_index = parse_print_statement(parser, arena)
@@ -812,7 +877,7 @@ contains
                 stmt_index = parse_exit_statement(parser, arena)
             case ("return")
                 ! Parse return statement
-                stmt_index = parse_return_statement(parser, arena)
+                stmt_index = parse_return_statement(parser, arena, parent_index)
             case ("call")
                 ! Parse call statement
                 stmt_index = parse_call_statement(parser, arena)
@@ -839,7 +904,7 @@ contains
 
                 if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
                     op_token = parser%consume()  ! consume '='
-    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column, parent_index)
                     ! Get remaining tokens for expression parsing
                     block
                         type(token_t), allocatable :: expr_tokens(:)
@@ -851,7 +916,8 @@ contains
                             value_index = parse_expression(expr_tokens, arena)
                             if (value_index > 0) then
                         stmt_index = push_assignment(arena, target_index, value_index, &
-                                                         id_token%line, id_token%column)
+                                                         id_token%line, id_token%column, &
+                                                         parent_index)
                             end if
                         end if
                     end block

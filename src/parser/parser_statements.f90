@@ -666,9 +666,10 @@ contains
     end function parse_stop_statement
     
     ! Parse RETURN statement
-    function parse_return_statement(parser, arena) result(return_index)
+    function parse_return_statement(parser, arena, parent_index) result(return_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
         integer :: return_index
         
         type(token_t) :: token
@@ -681,7 +682,7 @@ contains
         token = parser%consume()
         
         ! Create RETURN node
-        return_index = push_return(arena, line=line, column=column)
+        return_index = push_return(arena, line=line, column=column, parent_index=parent_index)
     end function parse_return_statement
     
     ! Parse GOTO statement: go to label
