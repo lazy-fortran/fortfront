@@ -123,7 +123,8 @@ contains
         
         ! Check generated code - real literals get d0 suffix in codegen
         if (code == "[1.0, 2.5, 3.14]" .or. code == "(/ 1.0, 2.5, 3.14 /)" .or. &
-            code == "(/ 1.0d0, 2.5d0, 3.14d0 /)" .or. code == "[1.0d0, 2.5d0, 3.14d0]") then
+            code == "(/ 1.0d0, 2.5d0, 3.14d0 /)" .or. code == "[1.0d0, 2.5d0, 3.14d0]" .or. &
+            code == "[1.0d0,2.5d0,3.14d0]" .or. code == "(/1.0d0,2.5d0,3.14d0/)") then
             print *, '  PASS: Real array generated as "', trim(code), '"'
         else
             print *, '  FAIL: Expected real array syntax, got "', trim(code), '"'

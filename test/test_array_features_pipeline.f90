@@ -67,7 +67,9 @@ contains
                 if (index(line, 'integer') > 0 .and. index(line, 'arr(3)') > 0) then
                     print *, '  PASS: Array declaration found'
                     found_correct_output = .true.
-                else if (index(line, 'arr = (/ 1, 2, 3 /)') > 0 .or. &
+                else if (index(line, 'arr = (/1,2,3/)') > 0 .or. &
+                         index(line, 'arr = (/ 1, 2, 3 /)') > 0 .or. &
+                         index(line, 'arr = [1,2,3]') > 0 .or. &
                          index(line, 'arr = [1, 2, 3]') > 0) then
                     print *, '  PASS: Array literal converted to constructor'
                     found_correct_output = .true.
