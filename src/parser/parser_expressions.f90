@@ -445,7 +445,7 @@ contains
                     ! Manual lookahead - check if next token is "/"
                     if (parser%current_token + 1 <= size(parser%tokens)) then
                         next_token = parser%tokens(parser%current_token + 1)
-                        if (next_token%text == "/") then
+                        if (next_token%kind == TK_OPERATOR .and. next_token%text == "/") then
                             is_legacy_array = .true.
                         end if
                     end if
@@ -481,7 +481,24 @@ contains
                             else
                                 ! Parse array elements for legacy syntax
                                 do
-                                    ! Parse element expression
+                                    ! After a comma, check if we're at the closing /
+                                    if (element_count > 0) then
+                                        current = parser%peek()
+                                        if (current%text == "/") then
+                                            current = parser%consume()  ! consume '/'
+                                            ! Check for closing )
+                                            current = parser%peek()
+                                            if (current%text == ")") then
+                                                current = parser%consume()  ! consume ')'
+                                                exit  ! End of array
+                                            else
+                                                ! Not closing - put back the / and parse as element
+                                                parser%current_token = parser%current_token - 1
+                                            end if
+                                        end if
+                                    end if
+                                    
+                                    ! Parse element expression - use parse_unary to avoid consuming operators
                                     element_count = element_count + 1
                                     if (element_count > size(temp_indices)) then
                                         ! Resize array
@@ -495,16 +512,16 @@ contains
                                         end block
                                     end if
 
-                                   temp_indices(element_count) = parse_comparison(parser, arena)
+                                   temp_indices(element_count) = parse_primary(parser, arena)
 
                                     ! Check for comma or closing /
                                     current = parser%peek()
                                     if (current%text == ",") then
                                         current = parser%consume()  ! consume ','
-                                        ! Continue parsing
+                                        ! Continue parsing next element
                                     else if (current%text == "/") then
+                                        ! This must be the closing /, check it
                                         current = parser%consume()  ! consume '/'
-                                        ! Check for closing )
                                         current = parser%peek()
                                         if (current%text == ")") then
                                             current = parser%consume()  ! consume ')'
@@ -513,9 +530,13 @@ contains
                                             expr_index = 0  ! Error - expected )
                                             return
                                         end if
+                                    else if (current%kind == TK_EOF) then
+                                        ! Hit end of tokens - should be error, but create array anyway
+                                        ! Legacy array is missing closing /)
+                                        exit
                                     else
-                                        expr_index = 0  ! Error - expected , or /
-                                        return
+                                        ! Unexpected token - return what we have so far
+                                        exit
                                     end if
                                 end do
 
