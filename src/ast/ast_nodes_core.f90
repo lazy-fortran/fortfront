@@ -103,6 +103,7 @@ module ast_nodes_core
     type, extends(ast_node), public :: array_literal_node
         integer, allocatable :: element_indices(:)  ! Indices to array elements
         character(len=:), allocatable :: element_type  ! Type of array elements
+        character(len=:), allocatable :: syntax_style  ! "modern" for [...] or "legacy" for (/ ... /)
     contains
         procedure :: accept => array_literal_accept
         procedure :: to_json => array_literal_to_json
@@ -458,6 +459,7 @@ contains
         ! Copy derived class fields
         if (allocated(rhs%element_indices)) lhs%element_indices = rhs%element_indices
         if (allocated(rhs%element_type)) lhs%element_type = rhs%element_type
+        if (allocated(rhs%syntax_style)) lhs%syntax_style = rhs%syntax_style
     end subroutine array_literal_assign
 
     ! Factory functions
@@ -474,13 +476,19 @@ contains
         if (present(column)) node%column = column
     end function create_pointer_assignment
 
-    function create_array_literal(element_indices, line, column) result(node)
+    function create_array_literal(element_indices, line, column, syntax_style) result(node)
         integer, intent(in) :: element_indices(:)
         integer, intent(in), optional :: line, column
+        character(len=*), intent(in), optional :: syntax_style
         type(array_literal_node) :: node
         node%element_indices = element_indices
         if (present(line)) node%line = line
         if (present(column)) node%column = column
+        if (present(syntax_style)) then
+            node%syntax_style = syntax_style
+        else
+            node%syntax_style = "modern"  ! default to modern syntax
+        end if
     end function create_array_literal
 
     ! Stub implementations for component_access_node
