@@ -445,7 +445,7 @@ contains
                     ! Manual lookahead - check if next token is "/"
                     if (parser%current_token + 1 <= size(parser%tokens)) then
                         next_token = parser%tokens(parser%current_token + 1)
-                        if (next_token%text == "/") then
+                        if (next_token%kind == TK_OPERATOR .and. next_token%text == "/") then
                             is_legacy_array = .true.
                         end if
                     end if
@@ -495,7 +495,7 @@ contains
                                         end block
                                     end if
 
-                                   temp_indices(element_count) = parse_comparison(parser, arena)
+                                   temp_indices(element_count) = parse_primary(parser, arena)
 
                                     ! Check for comma or closing /
                                     current = parser%peek()
