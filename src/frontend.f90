@@ -3,7 +3,7 @@ module frontend
     ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
     
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
-                           TK_COMMENT, TK_NEWLINE
+                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
@@ -854,23 +854,39 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
         else
             ! Single-line statement - find end of line or comment
-            i = start_pos
-            do while (i <= size(tokens))
-                if (tokens(i)%kind == TK_EOF) then
-                    stmt_end = i - 1
-                    exit
-                else if (tokens(i)%kind == TK_COMMENT .and. i > start_pos) then
-                    ! Stop before comment - let comment be parsed separately
-                    stmt_end = i - 1
-                    exit
-               else if (i < size(tokens) .and. tokens(i)%line < tokens(i + 1)%line) then
-                    stmt_end = i
-                    exit
-                else
-                    stmt_end = i
-                    i = i + 1
-                end if
-            end do
+            ! Track parentheses to handle array literals (/ ... /)
+            block
+                integer :: paren_depth
+                paren_depth = 0
+                i = start_pos
+                do while (i <= size(tokens))
+                    ! Track parentheses depth
+                    if (tokens(i)%kind == TK_OPERATOR) then
+                        if (tokens(i)%text == "(") then
+                            paren_depth = paren_depth + 1
+                        else if (tokens(i)%text == ")") then
+                            paren_depth = paren_depth - 1
+                        end if
+                    end if
+                    
+                    if (tokens(i)%kind == TK_EOF) then
+                        stmt_end = i - 1
+                        exit
+                    else if (tokens(i)%kind == TK_COMMENT .and. i > start_pos) then
+                        ! Stop before comment - let comment be parsed separately
+                        stmt_end = i - 1
+                        exit
+                    else if (i < size(tokens) .and. tokens(i)%line < tokens(i + 1)%line .and. &
+                             paren_depth == 0) then
+                        ! Only end statement at line break if parentheses are balanced
+                        stmt_end = i
+                        exit
+                    else
+                        stmt_end = i
+                        i = i + 1
+                    end if
+                end do
+            end block
         end if
     end subroutine find_statement_boundary
 

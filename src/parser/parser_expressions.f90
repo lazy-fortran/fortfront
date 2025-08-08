@@ -434,14 +434,110 @@ contains
         case (TK_OPERATOR)
             ! Debug: print operator
             ! print *, "DEBUG parse_primary: operator = '", trim(current%text), "'"
-            ! Check for parentheses
+            ! Check for parentheses or legacy array literal
             if (current%text == "(") then
-                current = parser%consume()  ! consume '('
-                expr_index = parse_range(parser, arena)  ! parse the expression inside
-                current = parser%peek()
-                if (current%text == ")") then
-                    current = parser%consume()  ! consume ')'
-                end if
+                ! Check for legacy array literal: (/ ... /) FIRST before consuming
+                block
+                    type(token_t) :: next_token
+                    logical :: is_legacy_array
+                    is_legacy_array = .false.
+                    
+                    ! Manual lookahead - check if next token is "/"
+                    if (parser%current_token + 1 <= size(parser%tokens)) then
+                        next_token = parser%tokens(parser%current_token + 1)
+                        if (next_token%kind == TK_OPERATOR .and. next_token%text == "/") then
+                            is_legacy_array = .true.
+                        end if
+                    end if
+                    
+                    if (is_legacy_array) then
+                        ! Legacy array literal: (/ ... /)
+                        block
+                            type(token_t) :: paren_token, slash_token
+                            integer, allocatable :: element_indices(:)
+                            integer :: element_count
+                            integer, allocatable :: temp_indices(:)
+
+                            paren_token = parser%consume()  ! consume '('
+                            slash_token = parser%consume()  ! consume '/'
+                            element_count = 0
+                            allocate (temp_indices(100))  ! Start with space for 100 elements
+
+                            ! Check for empty array (//)
+                            current = parser%peek()
+                            if (current%text == "/") then
+                                current = parser%consume()  ! consume '/'
+                                current = parser%peek()
+                                if (current%text == ")") then
+                                    current = parser%consume()  ! consume ')'
+                                    allocate (element_indices(0))
+                                    expr_index = push_array_literal(arena, element_indices, &
+                                                                     paren_token%line, &
+                                                                     paren_token%column, &
+                                                                     syntax_style="legacy")
+                                else
+                                    expr_index = 0  ! Error - expected )
+                                end if
+                            else
+                                ! Parse array elements for legacy syntax
+                                do
+                                    ! Parse element expression
+                                    element_count = element_count + 1
+                                    if (element_count > size(temp_indices)) then
+                                        ! Resize array
+                                        block
+                                            integer, allocatable :: new_indices(:)
+                                            allocate (new_indices(size(temp_indices)*2))
+                                            new_indices(1:size(temp_indices)) = temp_indices
+                                            deallocate (temp_indices)
+                                            allocate (temp_indices(size(new_indices)))
+                                            temp_indices = new_indices
+                                        end block
+                                    end if
+
+                                   temp_indices(element_count) = parse_primary(parser, arena)
+
+                                    ! Check for comma or closing /
+                                    current = parser%peek()
+                                    if (current%text == ",") then
+                                        current = parser%consume()  ! consume ','
+                                        ! Continue parsing
+                                    else if (current%text == "/") then
+                                        current = parser%consume()  ! consume '/'
+                                        ! Check for closing )
+                                        current = parser%peek()
+                                        if (current%text == ")") then
+                                            current = parser%consume()  ! consume ')'
+                                            exit  ! End of array
+                                        else
+                                            expr_index = 0  ! Error - expected )
+                                            return
+                                        end if
+                                    else
+                                        expr_index = 0  ! Error - expected , or /
+                                        return
+                                    end if
+                                end do
+
+                                ! Copy to final array
+                                allocate (element_indices(element_count))
+                                element_indices = temp_indices(1:element_count)
+                                expr_index = push_array_literal(arena, element_indices, &
+                                                                 paren_token%line, &
+                                                                 paren_token%column, &
+                                                                 syntax_style="legacy")
+                            end if
+                        end block
+                    else
+                        ! Regular parenthesized expression
+                        current = parser%consume()  ! consume '('
+                        expr_index = parse_range(parser, arena)  ! parse the expression inside
+                        current = parser%peek()
+                        if (current%text == ")") then
+                            current = parser%consume()  ! consume ')'
+                        end if
+                    end if
+                end block
             else if (current%text == "-" .or. current%text == "+") then
                 ! Unary operator
                 block
@@ -485,7 +581,8 @@ contains
                         allocate (element_indices(0))
                         expr_index = push_array_literal(arena, element_indices, &
                                                          bracket_token%line, &
-                                                         bracket_token%column)
+                                                         bracket_token%column, &
+                                                         syntax_style="modern")
                     else
                         ! Parse array elements
                         do
@@ -608,7 +705,8 @@ contains
                                                     allocate (element_indices(1))
                                                     element_indices(1) = loop_expr_idx
                                expr_index = push_array_literal(arena, element_indices, &
-                                               bracket_token%line, bracket_token%column)
+                                               bracket_token%line, bracket_token%column, &
+                                               syntax_style="modern")
                                                 end block
                                             end block
                                             return
@@ -635,7 +733,8 @@ contains
                         element_indices = temp_indices(1:element_count)
                         expr_index = push_array_literal(arena, element_indices, &
                                                          bracket_token%line, &
-                                                         bracket_token%column)
+                                                         bracket_token%column, &
+                                                         syntax_style="modern")
                     end if
                 end block
             else if (current%text == ".not.") then

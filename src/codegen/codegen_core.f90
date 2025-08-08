@@ -1701,13 +1701,25 @@ contains
         ! Check if we have elements
         if (.not. allocated(node%element_indices) .or. &
             size(node%element_indices) == 0) then
-            ! Empty array - use Fortran 2003 syntax
-            code = "[integer ::]"
+            ! Empty array - use appropriate syntax based on style
+            if (allocated(node%syntax_style)) then
+                if (node%syntax_style == "legacy") then
+                    code = "(/ /)"
+                else
+                    code = "[]"
+                end if
+            else
+                code = "[]"  ! default to modern
+            end if
             return
         end if
 
-        ! Generate array constructor
-        code = "(/ "
+        ! Generate array constructor based on syntax_style
+        if (allocated(node%syntax_style) .and. node%syntax_style == "legacy") then
+            code = "(/ "
+        else
+            code = "["
+        end if
         
         ! Add each element
         do i = 1, size(node%element_indices)
@@ -1737,7 +1749,12 @@ contains
             end if
         end do
         
-        code = code//" /)"
+        ! Close array constructor based on syntax_style
+        if (allocated(node%syntax_style) .and. node%syntax_style == "legacy") then
+            code = code//" /)"
+        else
+            code = code//"]"
+        end if
     end function generate_code_array_literal
 
     ! Generate implied do loop for array constructors

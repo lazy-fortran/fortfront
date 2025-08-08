@@ -158,13 +158,14 @@ contains
 
     ! Create array literal node and add to stack
     function push_array_literal(arena, element_indices, line, column, &
-                               parent_index) result(array_index)
+                               parent_index, syntax_style) result(array_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: element_indices(:)
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: syntax_style
         integer :: array_index
         type(array_literal_node) :: array_lit
-        array_lit = create_array_literal(element_indices, line, column)
+        array_lit = create_array_literal(element_indices, line, column, syntax_style)
         call arena%push(array_lit, "array_literal", parent_index)
         array_index = arena%size
 
