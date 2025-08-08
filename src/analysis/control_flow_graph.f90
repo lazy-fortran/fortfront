@@ -234,12 +234,15 @@ contains
     end subroutine find_reachable_blocks
 
     ! Find unreachable code (blocks and statements)
+    ! Enhanced to detect both absolutely unreachable and conditionally unreachable code
     function find_unreachable_code(cfg) result(unreachable_blocks)
         type(control_flow_graph_t), intent(in) :: cfg
         integer, allocatable :: unreachable_blocks(:)
         integer :: i, count
+        integer, allocatable :: absolutely_unreachable(:), conditionally_unreachable(:)
+        integer, allocatable :: combined_unreachable(:)
         
-        ! Count unreachable blocks
+        ! Count absolutely unreachable blocks (original behavior)
         count = 0
         do i = 1, cfg%block_count
             if (.not. cfg%blocks(i)%is_reachable .and. &
@@ -248,17 +251,80 @@ contains
             end if
         end do
         
-        ! Collect unreachable blocks
-        allocate(unreachable_blocks(count))
+        ! Collect absolutely unreachable blocks
+        allocate(absolutely_unreachable(count))
         count = 0
         do i = 1, cfg%block_count
             if (.not. cfg%blocks(i)%is_reachable .and. &
                 .not. cfg%blocks(i)%is_entry) then
                 count = count + 1
-                unreachable_blocks(count) = i
+                absolutely_unreachable(count) = i
             end if
         end do
+        
+        ! Also find conditionally unreachable blocks (early return patterns)
+        conditionally_unreachable = find_conditionally_unreachable_code(cfg)
+        
+        ! Combine both types of unreachable code
+        if (size(absolutely_unreachable) == 0 .and. size(conditionally_unreachable) == 0) then
+            allocate(unreachable_blocks(0))
+        else if (size(absolutely_unreachable) == 0) then
+            unreachable_blocks = conditionally_unreachable
+        else if (size(conditionally_unreachable) == 0) then
+            unreachable_blocks = absolutely_unreachable
+        else
+            ! Combine both arrays, avoiding duplicates
+            allocate(combined_unreachable(size(absolutely_unreachable) + size(conditionally_unreachable)))
+            combined_unreachable(1:size(absolutely_unreachable)) = absolutely_unreachable
+            combined_unreachable(size(absolutely_unreachable)+1:) = conditionally_unreachable
+            
+            ! Remove duplicates (simple approach)
+            call remove_duplicates_from_array(combined_unreachable, unreachable_blocks)
+        end if
     end function find_unreachable_code
+
+    ! Helper subroutine to remove duplicates from an array
+    subroutine remove_duplicates_from_array(input_array, output_array)
+        integer, intent(in) :: input_array(:)
+        integer, intent(out), allocatable :: output_array(:)
+        integer, allocatable :: unique_values(:)
+        integer :: i, j, count, n
+        logical :: is_duplicate
+        
+        n = size(input_array)
+        if (n == 0) then
+            allocate(output_array(0))
+            return
+        end if
+        
+        ! Allocate maximum possible size
+        allocate(unique_values(n))
+        count = 0
+        
+        ! Simple algorithm to remove duplicates
+        do i = 1, n
+            is_duplicate = .false.
+            do j = 1, count
+                if (unique_values(j) == input_array(i)) then
+                    is_duplicate = .true.
+                    exit
+                end if
+            end do
+            
+            if (.not. is_duplicate) then
+                count = count + 1
+                unique_values(count) = input_array(i)
+            end if
+        end do
+        
+        ! Copy to output array with correct size
+        allocate(output_array(count))
+        if (count > 0) then
+            output_array(1:count) = unique_values(1:count)
+        end if
+        
+        deallocate(unique_values)
+    end subroutine remove_duplicates_from_array
 
     ! Get entry block ID
     function get_entry_block(cfg) result(entry_id)
