@@ -240,8 +240,10 @@ contains
                 code = left_code//":"//right_code
             end if
         else if (trim(node%operator) == '*' .or. trim(node%operator) == '/') then
+            ! Multiplication and division get no spaces
             code = left_code//node%operator//right_code
         else
+            ! All other operators (comparisons, logical, etc.) get spaces around them
             code = left_code//" "//node%operator//" "//right_code
         end if
     end function generate_code_binary_op
