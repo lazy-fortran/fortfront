@@ -8,7 +8,7 @@ module control_flow_graph_module
     public :: control_flow_graph_t, basic_block_t, cfg_edge_t
     public :: create_control_flow_graph, add_basic_block, add_cfg_edge
     public :: find_reachable_blocks, find_unreachable_code
-    public :: find_conditionally_unreachable_code
+    public :: find_conditionally_unreachable_code, find_all_unreachable_code
     public :: get_entry_block, get_exit_blocks, get_all_blocks
     public :: get_block_predecessors, get_block_successors
     public :: is_block_reachable, get_unreachable_statements
@@ -259,6 +259,69 @@ contains
             end if
         end do
     end function find_unreachable_code
+
+    ! Find all types of unreachable code (both absolute and conditional)
+    function find_all_unreachable_code(cfg) result(unreachable_blocks)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, allocatable :: unreachable_blocks(:)
+        integer, allocatable :: absolutely_unreachable(:), conditionally_unreachable(:)
+        
+        ! Get both types of unreachable code
+        absolutely_unreachable = find_unreachable_code(cfg)
+        conditionally_unreachable = find_conditionally_unreachable_code(cfg)
+        
+        ! Combine results
+        call combine_unique_arrays(absolutely_unreachable, conditionally_unreachable, &
+                                   unreachable_blocks)
+    end function find_all_unreachable_code
+
+    ! Helper to combine two arrays removing duplicates
+    subroutine combine_unique_arrays(array1, array2, result_array)
+        integer, intent(in) :: array1(:), array2(:)
+        integer, intent(out), allocatable :: result_array(:)
+        integer, allocatable :: temp_array(:)
+        integer :: n1, n2, i, j, count
+        logical :: found_duplicate
+        
+        n1 = size(array1)
+        n2 = size(array2)
+        
+        if (n1 == 0 .and. n2 == 0) then
+            allocate(result_array(0))
+            return
+        else if (n1 == 0) then
+            result_array = array2
+            return
+        else if (n2 == 0) then
+            result_array = array1
+            return
+        end if
+        
+        ! Allocate temporary array
+        allocate(temp_array(n1 + n2))
+        temp_array(1:n1) = array1
+        count = n1
+        
+        ! Add unique elements from array2
+        do i = 1, n2
+            found_duplicate = .false.
+            do j = 1, count
+                if (temp_array(j) == array2(i)) then
+                    found_duplicate = .true.
+                    exit
+                end if
+            end do
+            if (.not. found_duplicate) then
+                count = count + 1
+                temp_array(count) = array2(i)
+            end if
+        end do
+        
+        ! Copy to result
+        allocate(result_array(count))
+        result_array = temp_array(1:count)
+        deallocate(temp_array)
+    end subroutine combine_unique_arrays
 
     ! Get entry block ID
     function get_entry_block(cfg) result(entry_id)
