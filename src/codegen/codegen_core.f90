@@ -2,7 +2,7 @@ module codegen_core
     use ast_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
     use ast_nodes_control, only: associate_node
-    use ast_nodes_data, only: intent_type_to_string, INTENT_NONE
+    use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, derived_type_node
     use type_system_hm
     use string_types, only: string_t
     use codegen_indent
@@ -114,6 +114,8 @@ contains
             code = generate_code_array_operation(arena, node, node_index)
         type is (implicit_statement_node)
             code = generate_code_implicit_statement(node)
+        type is (derived_type_node)
+            code = generate_code_derived_type(arena, node, node_index)
         class default
             code = "! Unknown node type"
         end select
@@ -2531,5 +2533,41 @@ contains
             code = code//" ! shape conformant"
         end if
     end function generate_code_array_operation
+
+    ! Generate code for derived type definition  
+    function generate_code_derived_type(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(derived_type_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: component_code
+        integer :: i
+
+        code = ""
+        
+        ! Generate type header
+        code = "type :: "//node%name
+        
+        ! Generate components
+        if (allocated(node%component_indices)) then
+            do i = 1, size(node%component_indices)
+                if (node%component_indices(i) > 0 .and. &
+                    node%component_indices(i) <= arena%size) then
+                    component_code = generate_code_from_arena(arena, node%component_indices(i))
+                    if (len_trim(component_code) > 0) then
+                        code = code//new_line('a')//"    "//component_code
+                    end if
+                end if
+            end do
+        end if
+        
+        ! Generate type footer
+        code = code//new_line('a')//"end type"
+        
+        ! Add type name after 'end type' if it exists  
+        if (len_trim(node%name) > 0) then
+            code = code//" "//node%name
+        end if
+    end function generate_code_derived_type
 
 end module codegen_core

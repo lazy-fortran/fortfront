@@ -545,6 +545,30 @@ contains
         integer :: param_count
         logical :: has_parameters
 
+        ! Consume "type" keyword
+        token = parser%peek()
+        if (token%kind == TK_KEYWORD .and. token%text == "type") then
+            token = parser%consume()
+        else
+            ! Error: expected type keyword
+            type_index = push_literal(arena, &
+                "ERROR: Expected 'type' keyword", LITERAL_STRING, &
+                token%line, token%column)
+            return
+        end if
+        
+        ! Consume "::" operator
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "::") then
+            token = parser%consume()
+        else
+            ! Error: expected ::
+            type_index = push_literal(arena, &
+                "ERROR: Expected '::' after type", LITERAL_STRING, &
+                token%line, token%column)
+            return
+        end if
+
         ! Get type name
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER) then
