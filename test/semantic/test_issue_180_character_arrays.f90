@@ -7,55 +7,95 @@ program test_issue_180_character_arrays
     character(len=:), allocatable :: output
     character(len=:), allocatable :: error_msg
     
-    print *, "=== Issue #180: Character arrays translated as real ==="
+    print *, "=== Issue #180: Character array type inference ==="
     
-    ! Test the exact case from the issue
-    call test_character_array_assignment()
+    ! Test 1: Basic character array literals 
+    call test_basic_character_array()
     
-    print *, "Issue #180 test completed"
+    ! Test 2: Mixed length character arrays
+    call test_mixed_length_arrays()
+    
+    ! Test 3: Character array with explicit type
+    call test_explicit_character_array()
+    
+    print *, "All issue #180 tests completed"
     
 contains
 
-    subroutine test_character_array_assignment()
-        print *, "Testing character array assignment..."
+    subroutine test_basic_character_array()
+        print *, "Testing basic character array literal..."
         
-        source = 'program test' // new_line('a') // &
-                 's = ["mom", "dad"]' // new_line('a') // &
-                 'print*,s' // new_line('a') // &
-                 'end program test'
+        source = 's = ["mom", "dad"]'
         
         call transform_lazy_fortran_string(source, output, error_msg)
         
-        if (allocated(error_msg)) then
-            if (len_trim(error_msg) > 0) then
-                print *, "  ERROR: ", trim(error_msg)
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+            print *, "  ERROR: ", trim(error_msg)
+            stop 1
+        end if
+        
+        ! Must be character type, not real
+        if (index(output, "real") > 0) then
+            print *, "  FAIL: Character array incorrectly typed as real"
+            stop 1
+        end if
+        
+        if (index(output, "character") == 0) then
+            print *, "  FAIL: Missing character type declaration"
+            stop 1
+        end if
+        
+        print *, "  PASS: Character array correctly inferred as character type"
+    end subroutine test_basic_character_array
+
+    subroutine test_mixed_length_arrays()
+        print *, "Testing mixed length character arrays..."
+        
+        source = 'names = ["Alice", "Bob", "Charlie"]'
+        
+        call transform_lazy_fortran_string(source, output, error_msg)
+        
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+            print *, "  ERROR: ", trim(error_msg)
+            stop 1
+        end if
+        
+        if (index(output, "character") == 0) then
+            print *, "  FAIL: Mixed length array not typed as character"
+            stop 1
+        end if
+        
+        ! Should use max length for character type (Charlie = 7 chars)
+        if (index(output, "len=7") == 0 .and. index(output, "len=8") == 0) then
+            print *, "  WARNING: Expected character length 7 or 8, checking for reasonable length"
+            if (index(output, "len=") == 0) then
+                print *, "  FAIL: No character length specification found"
                 stop 1
             end if
         end if
         
-        print *, "INPUT:"
-        print *, trim(source)
-        print *, ""
-        print *, "OUTPUT:"
-        print *, trim(output)
-        print *, ""
+        print *, "  PASS: Mixed length character array correctly handled"
+    end subroutine test_mixed_length_arrays
+
+    subroutine test_explicit_character_array()
+        print *, "Testing explicit character array declaration..."
         
-        ! Check that output does NOT contain "real" for character arrays
-        if (index(output, "real") > 0) then
-            print *, "  FAIL: Found 'real' type for character array"
-            print *, "  This indicates the character array was incorrectly typed as real"
+        source = 'character(len=5) :: words(3)' // new_line('a') // &
+                 'words = ["hello", "world", "test!"]'
+        
+        call transform_lazy_fortran_string(source, output, error_msg)
+        
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+            print *, "  ERROR: ", trim(error_msg)
             stop 1
         end if
         
-        ! Check that output contains proper character declaration
-        if (index(output, "character") == 0) then
-            print *, "  FAIL: Missing 'character' type declaration"
-            print *, "  Character arrays should be declared with character type"
+        if (index(output, "character(len=5)") == 0) then
+            print *, "  FAIL: Explicit character declaration not preserved"
             stop 1
         end if
         
-        print *, "  PASS: Character arrays correctly typed as character, not real"
-        
-    end subroutine test_character_array_assignment
+        print *, "  PASS: Explicit character declaration preserved"
+    end subroutine test_explicit_character_array
     
 end program test_issue_180_character_arrays

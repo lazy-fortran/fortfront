@@ -6,19 +6,76 @@ program test_issue_182_function_params_multi_var
     character(len=:), allocatable :: source
     character(len=:), allocatable :: output
     character(len=:), allocatable :: error_msg
-    logical :: test_passed
     
-    print *, "=== Issue #182: Multi-variable declarations in function parameters ==="
+    print *, "=== Issue #182: Function parameter parsing with result clauses ==="
     
-    ! Test the exact case from the issue
-    call test_function_param_multi_var()
+    ! Test 1: Basic result clause parsing
+    call test_result_clause_parsing()
     
-    print *, "Issue #182 test completed"
+    ! Test 2: Function with parameters and result clause
+    call test_function_params_with_result()
+    
+    ! Test 3: Ensure no unparsed statements
+    call test_no_unparsed_statements()
+    
+    print *, "All issue #182 tests completed"
     
 contains
 
-    subroutine test_function_param_multi_var()
-        print *, "Testing function with multi-variable parameter declarations..."
+    subroutine test_result_clause_parsing()
+        print *, "Testing result clause parsing..."
+        
+        source = "function simple() result(res)" // new_line('a') // &
+                 "real :: res" // new_line('a') // &
+                 "res = 42.0" // new_line('a') // &
+                 "end function simple"
+        
+        call transform_lazy_fortran_string(source, output, error_msg)
+        
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+            print *, "  ERROR: ", trim(error_msg)
+            stop 1
+        end if
+        
+        if (index(output, "result(res)") == 0) then
+            print *, "  FAIL: Result clause not preserved"
+            stop 1
+        end if
+        
+        print *, "  PASS: Result clause correctly parsed and preserved"
+    end subroutine test_result_clause_parsing
+
+    subroutine test_function_params_with_result()
+        print *, "Testing function parameters with result clause..."
+        
+        source = "function calc(x, y) result(sum)" // new_line('a') // &
+                 "real :: x, y, sum" // new_line('a') // &
+                 "sum = x + y" // new_line('a') // &
+                 "end function calc"
+        
+        call transform_lazy_fortran_string(source, output, error_msg)
+        
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+            print *, "  ERROR: ", trim(error_msg)
+            stop 1
+        end if
+        
+        ! Must preserve both parameters and result clause
+        if (index(output, "calc(x, y)") == 0) then
+            print *, "  FAIL: Function parameters not preserved"
+            stop 1
+        end if
+        
+        if (index(output, "result(sum)") == 0) then
+            print *, "  FAIL: Result clause not preserved with parameters"
+            stop 1
+        end if
+        
+        print *, "  PASS: Function parameters and result clause both preserved"
+    end subroutine test_function_params_with_result
+
+    subroutine test_no_unparsed_statements()
+        print *, "Testing elimination of unparsed statements..."
         
         source = "program test" // new_line('a') // &
                  "contains" // new_line('a') // &
@@ -30,53 +87,18 @@ contains
         
         call transform_lazy_fortran_string(source, output, error_msg)
         
-        if (allocated(error_msg)) then
-            if (len_trim(error_msg) > 0) then
-                print *, "  ERROR: ", trim(error_msg)
-                stop 1
-            end if
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+            print *, "  ERROR: ", trim(error_msg)
+            stop 1
         end if
         
-        ! Check that output does NOT contain "Unparsed statement" - this is FIXED
         if (index(output, "Unparsed statement") > 0) then
-            print *, "  FAIL: Found 'Unparsed statement' in output"
+            print *, "  FAIL: Still generating unparsed statements"
             print *, "  Output: ", trim(output)
             stop 1
         end if
         
-        print *, "  PASS: No 'Unparsed statement' found - parser handles multi-var declarations"
-        
-        ! Check that result clause is preserved - this is FIXED
-        if (index(output, "result(res)") == 0) then
-            print *, "  FAIL: Result clause missing from function signature"
-            print *, "  Output: ", trim(output)
-            stop 1
-        end if
-        
-        print *, "  PASS: Result clause correctly preserved in function signature"
-        
-        ! Note: Duplicate variable declarations in function body are a known limitation
-        ! The variables x, y, z are declared both as parameters and in the function body
-        ! This is a separate issue that would require significant refactoring
-        print *, "  NOTE: Duplicate variable declarations still occur (known limitation)"
-        
-        print *, "  OVERALL: Major parser issues resolved - result clause parsing works correctly"
-    end subroutine test_function_param_multi_var
-    
-    function count_occurrences(text, pattern) result(count)
-        character(len=*), intent(in) :: text, pattern
-        integer :: count
-        integer :: pos, start_pos
-        
-        count = 0
-        start_pos = 1
-        
-        do
-            pos = index(text(start_pos:), pattern)
-            if (pos == 0) exit
-            count = count + 1
-            start_pos = start_pos + pos + len(pattern) - 1
-        end do
-    end function count_occurrences
+        print *, "  PASS: No unparsed statements generated"
+    end subroutine test_no_unparsed_statements
     
 end program test_issue_182_function_params_multi_var

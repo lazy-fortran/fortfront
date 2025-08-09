@@ -80,24 +80,16 @@ contains
             print *, "  PASS: Parameter initialization preserved"
         end if
         
-        ! Overall assessment
-        if (index(output, "= 42") == 0 .or. &
-            index(output, "= 3.14") == 0 .or. &
-            index(output, "= .true.") == 0 .or. &
-            index(output, "= [1, 2, 3]") == 0 .or. &
+        ! Overall assessment - confirm critical parser limitation
+        if (index(output, "= 42") == 0 .and. &
+            index(output, "= 3.14") == 0 .and. &
+            index(output, "= .true.") == 0 .and. &
+            index(output, "= [1, 2, 3]") == 0 .and. &
             index(output, "= 10") == 0) then
-            print *, "  OVERALL RESULT: Initialization values removed (CRITICAL ISSUE CONFIRMED)"
-            print *, "  "
-            print *, "  ROOT CAUSE: Parser does not capture initialization expressions"
-            print *, "  REQUIRED FIXES:"
-            print *, "  - Update declaration parsing to capture '= expr' parts"
-            print *, "  - Extend AST declaration nodes to store init expressions"
-            print *, "  - Update codegen to emit initialization values"
-            print *, "  "  
-            print *, "  IMPACT: Changes program semantics - variables lose default values"
-            print *, "  SEVERITY: HIGH - can cause runtime errors and incorrect behavior"
+            print *, "  CONFIRMED: All initialization values removed (critical parser limitation)"
+            print *, "  This affects program semantics and requires parser enhancement"
         else
-            print *, "  OVERALL RESULT: All initialization values preserved - issue may be fixed!"
+            print *, "  UNEXPECTED: Some initialization values preserved - issue may be partially fixed!"
         end if
         
     end subroutine test_variable_initialization
