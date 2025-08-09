@@ -462,6 +462,10 @@ contains
         call core%get(json_obj, 'return_type', node%return_type, found)
         if (.not. found) node%return_type = ""
 
+        ! Get result variable
+        call core%get(json_obj, 'result_variable', node%result_variable, found)
+        if (.not. found) node%result_variable = ""
+
         ! Get body
         call core%get(json_obj, 'body', body_array, found)
         if (found) then
