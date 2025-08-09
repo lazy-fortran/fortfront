@@ -47,6 +47,9 @@ program test_json_reader_comprehensive
     call test_start("json_to_ast_node function_def node")
     call test_json_to_ast_node_function_def()
 
+    call test_start("json_to_ast_node function_def node with result_variable")
+    call test_json_to_ast_node_function_def_result()
+
     call test_start("json_to_ast_node call_or_subscript node")
     call test_json_to_ast_node_call_or_subscript()
 
@@ -456,6 +459,59 @@ contains
         call json%destroy()
         call test_pass()
     end subroutine test_json_to_ast_node_function_def
+
+    subroutine test_json_to_ast_node_function_def_result()
+        type(json_file) :: json
+        type(ast_arena_t) :: arena
+        integer :: root_index
+        character(len=*), parameter :: test_json = '{ &
+            &"type": "function_def", &
+            &"name": "calc", &
+            &"return_type": "real", &
+            &"result_variable": "result_value", &
+            &"line": 10, &
+            &"column": 5, &
+            &"params": [], &
+            &"body": [] &
+            &}'
+
+        call json%initialize()
+        call json%deserialize(test_json)
+        arena = create_ast_arena()
+
+        root_index = json_to_ast(json, arena)
+
+        if (root_index /= 1) then
+            call test_fail("Expected root_index to be 1")
+            return
+        end if
+
+        select type (node => arena%entries(root_index)%node)
+        type is (function_def_node)
+            if (node%name /= "calc") then
+                call test_fail("Name should be 'calc'")
+                return
+            end if
+            if (node%return_type /= "real") then
+                call test_fail("Return type should be 'real'")
+                return
+            end if
+            if (.not. allocated(node%result_variable)) then
+                call test_fail("Result variable should be allocated")
+                return
+            end if
+            if (node%result_variable /= "result_value") then
+                call test_fail("Result variable should be 'result_value'")
+                return
+            end if
+        class default
+            call test_fail("Expected function_def_node")
+            return
+        end select
+
+        call json%destroy()
+        call test_pass()
+    end subroutine test_json_to_ast_node_function_def_result
 
     subroutine test_json_to_ast_node_call_or_subscript()
         type(json_file) :: json

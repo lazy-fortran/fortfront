@@ -18,6 +18,7 @@ module ast_nodes_procedure
         character(len=:), allocatable :: name
         integer, allocatable :: param_indices(:)
         character(len=:), allocatable :: return_type
+        character(len=:), allocatable :: result_variable
         integer, allocatable :: body_indices(:)
     contains
         procedure :: accept => function_def_accept
@@ -51,18 +52,37 @@ module ast_nodes_procedure
 
 contains
 
-    ! Stub implementations for function_def_node
+    ! Implementation for function_def_node
     subroutine function_def_accept(this, visitor)
         class(function_def_node), intent(in) :: this
         class(*), intent(inout) :: visitor
-        ! Stub implementation
+        ! Implementation is in ast_visitor.f90
     end subroutine function_def_accept
 
     subroutine function_def_to_json(this, json, parent)
         class(function_def_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
+        type(json_value), pointer :: obj
+        
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'function_def')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'name', this%name)
+        if (allocated(this%return_type)) then
+            call json%add(obj, 'return_type', this%return_type)
+        end if
+        if (allocated(this%result_variable)) then
+            call json%add(obj, 'result_variable', this%result_variable)
+        end if
+        if (allocated(this%param_indices)) then
+            call json%add(obj, 'param_indices', this%param_indices)
+        end if
+        if (allocated(this%body_indices)) then
+            call json%add(obj, 'body_indices', this%body_indices)
+        end if
+        call json%add(parent, obj)
     end subroutine function_def_to_json
 
     subroutine function_def_assign(lhs, rhs)
@@ -70,22 +90,36 @@ contains
         class(function_def_node), intent(in) :: rhs
         lhs%name = rhs%name
         lhs%return_type = rhs%return_type
+        if (allocated(rhs%result_variable)) lhs%result_variable = rhs%result_variable
         if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
     end subroutine function_def_assign
 
-    ! Stub implementations for subroutine_def_node
+    ! Implementation for subroutine_def_node
     subroutine subroutine_def_accept(this, visitor)
         class(subroutine_def_node), intent(in) :: this
         class(*), intent(inout) :: visitor
-        ! Stub implementation
+        ! Implementation is in ast_visitor.f90
     end subroutine subroutine_def_accept
 
     subroutine subroutine_def_to_json(this, json, parent)
         class(subroutine_def_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
+        type(json_value), pointer :: obj
+        
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'subroutine_def')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'name', this%name)
+        if (allocated(this%param_indices)) then
+            call json%add(obj, 'param_indices', this%param_indices)
+        end if
+        if (allocated(this%body_indices)) then
+            call json%add(obj, 'body_indices', this%body_indices)
+        end if
+        call json%add(parent, obj)
     end subroutine subroutine_def_to_json
 
     subroutine subroutine_def_assign(lhs, rhs)
@@ -96,18 +130,28 @@ contains
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
     end subroutine subroutine_def_assign
 
-    ! Stub implementations for subroutine_call_node
+    ! Implementation for subroutine_call_node
     subroutine subroutine_call_accept(this, visitor)
         class(subroutine_call_node), intent(in) :: this
         class(*), intent(inout) :: visitor
-        ! Stub implementation
+        ! Implementation is in ast_visitor.f90
     end subroutine subroutine_call_accept
 
     subroutine subroutine_call_to_json(this, json, parent)
         class(subroutine_call_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        ! Stub implementation
+        type(json_value), pointer :: obj
+        
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'subroutine_call')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'name', this%name)
+        if (allocated(this%arg_indices)) then
+            call json%add(obj, 'arg_indices', this%arg_indices)
+        end if
+        call json%add(parent, obj)
     end subroutine subroutine_call_to_json
 
     subroutine subroutine_call_assign(lhs, rhs)
@@ -119,12 +163,13 @@ contains
 
     ! Factory functions
     function create_function_def(name, param_indices, return_type, &
-                                body_indices, line, column) result(node)
+                                body_indices, line, column, result_variable) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         character(len=*), intent(in) :: return_type
         integer, intent(in), optional :: body_indices(:)
         integer, intent(in), optional :: line, column
+        character(len=*), intent(in), optional :: result_variable
         type(function_def_node) :: node
 
         node%name = name
@@ -134,6 +179,9 @@ contains
             end if
         end if
         node%return_type = return_type
+        if (present(result_variable)) then
+            node%result_variable = result_variable
+        end if
         if (present(body_indices)) then
             if (size(body_indices) > 0) then
                 node%body_indices = body_indices
