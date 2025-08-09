@@ -1,4 +1,4 @@
-program test_integer_array_issue
+program test_array_literal_type_preservation
     use fortfront, only: transform_lazy_fortran_string_with_format, format_options_t
     implicit none
     
@@ -8,7 +8,7 @@ program test_integer_array_issue
     
     test_passed = .true.
     
-    ! Test 1: Integer array literal
+    ! Test 1: Integer array literal type preservation
     print *, "Test 1: Integer array [2, 3, 4]"
     call transform_lazy_fortran_string_with_format( &
         "i = [2, 3, 4]" // new_line('a') // "print*,i**3", &
@@ -83,4 +83,4 @@ program test_integer_array_issue
         stop 1
     end if
     
-end program test_integer_array_issue
+end program test_array_literal_type_preservation

@@ -1117,8 +1117,9 @@ contains
                             elem_type_str = get_fortran_type_string(expr_type)
                         else
                             ! Try to infer from literal if possible
-                            elem_type_str = infer_element_type_from_literal(arena, &
-                                                            node%element_indices(1))
+                            elem_type_str = &
+                                infer_element_type_from_literal(arena, &
+                                node%element_indices(1))
                         end if
                     else
                         elem_type_str = "real(8)"  ! Default for empty arrays

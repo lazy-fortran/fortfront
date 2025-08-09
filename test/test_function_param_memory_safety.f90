@@ -1,4 +1,4 @@
-program test_issue_173
+program test_function_param_memory_safety
     use fortfront, only: transform_lazy_fortran_string_with_format, format_options_t
     implicit none
     
@@ -17,7 +17,7 @@ program test_issue_173
     
     test_passed = .true.
     
-    print *, "Testing issue #173: Function parameter list corruption"
+    print *, "Testing function parameter memory safety"
     call transform_lazy_fortran_string_with_format(input, output, error_msg, options)
     
     if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
@@ -72,4 +72,4 @@ program test_issue_173
         stop 1
     end if
     
-end program test_issue_173
+end program test_function_param_memory_safety
