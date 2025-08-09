@@ -671,8 +671,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     has_real_content = .false.
                     do k = 1, size(tokens)
                         if (tokens(k)%kind /= TK_EOF .and. &
-                            tokens(k)%kind /= TK_NEWLINE .and. &
-                            tokens(k)%kind /= TK_COMMENT) then
+                            tokens(k)%kind /= TK_NEWLINE) then
+                            ! Include comments as real content for lazy fortran
                             has_real_content = .true.
                             exit
                         end if
@@ -706,6 +706,27 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 ! call log_verbose("parse_all", "Hit EOF token at position "// &
                 !                  trim(adjustl(int_to_str(i))))
                 exit
+            end if
+
+            ! Special handling for comments - treat as standalone statements
+            if (tokens(i)%kind == TK_COMMENT) then
+                ! Create a token array with just the comment and EOF
+                allocate (stmt_tokens(2))
+                stmt_tokens(1) = tokens(i)
+                stmt_tokens(2)%kind = TK_EOF
+                stmt_tokens(2)%text = ""
+                stmt_tokens(2)%line = tokens(i)%line
+                stmt_tokens(2)%column = tokens(i)%column + len(tokens(i)%text)
+                
+                ! Parse the comment
+                stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
+                if (stmt_index > 0) then
+                    body_indices = [body_indices, stmt_index]
+                end if
+                
+                deallocate (stmt_tokens)
+                i = i + 1
+                cycle
             end if
 
             ! Find statement boundary
