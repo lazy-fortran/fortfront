@@ -1778,7 +1778,17 @@ contains
                 else if (lookahead_token%kind == TK_EOF) then
                     exit
                 else if (lookahead_token%kind == TK_KEYWORD) then
-                    if (lookahead_pos > parser%current_token) then
+                    ! Stop when we hit another statement keyword (but not type/attribute keywords)
+                    if (lookahead_pos > parser%current_token .and. &
+                        lookahead_token%text /= "parameter" .and. &
+                        lookahead_token%text /= "intent" .and. &
+                        lookahead_token%text /= "optional" .and. &
+                        lookahead_token%text /= "allocatable" .and. &
+                        lookahead_token%text /= "pointer" .and. &
+                        lookahead_token%text /= "target" .and. &
+                        lookahead_token%text /= "save" .and. &
+                        lookahead_token%text /= "public" .and. &
+                        lookahead_token%text /= "private") then
                         exit
                     end if
                 end if

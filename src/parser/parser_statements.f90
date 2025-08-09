@@ -2511,6 +2511,7 @@ contains
                             
                             call analyze_declaration_structure(parser, has_initializer, has_comma)
                             
+                            
                             if (has_initializer .and. .not. has_comma) then
                                 ! Single variable with initializer - use parse_declaration
                                 stmt_index = parse_declaration(parser, arena)
@@ -3514,6 +3515,7 @@ contains
                 if (lookahead_pos > size(parser%tokens)) exit
                 lookahead_token = parser%tokens(lookahead_pos)
                 
+                
                 if (lookahead_token%kind == TK_OPERATOR .and. &
                    (lookahead_token%text == "(" .or. lookahead_token%text == "[")) then
                     bracket_depth = bracket_depth + 1
@@ -3543,8 +3545,17 @@ contains
                 else if (lookahead_token%kind == TK_EOF) then
                     exit
                 else if (lookahead_token%kind == TK_KEYWORD) then
-                    ! Stop when we hit another statement keyword (except the current statement)
-                    if (lookahead_pos > parser%current_token) then
+                    ! Stop when we hit another statement keyword (but not type/attribute keywords)
+                    if (lookahead_pos > parser%current_token .and. &
+                        lookahead_token%text /= "parameter" .and. &
+                        lookahead_token%text /= "intent" .and. &
+                        lookahead_token%text /= "optional" .and. &
+                        lookahead_token%text /= "allocatable" .and. &
+                        lookahead_token%text /= "pointer" .and. &
+                        lookahead_token%text /= "target" .and. &
+                        lookahead_token%text /= "save" .and. &
+                        lookahead_token%text /= "public" .and. &
+                        lookahead_token%text /= "private") then
                         exit
                     end if
                 end if
