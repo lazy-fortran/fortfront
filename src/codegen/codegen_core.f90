@@ -2080,45 +2080,25 @@ contains
 
         code = ""
         
-        ! First, generate consolidated parameter declarations
+        ! Only generate consolidated parameter declarations if we have parameters
         if (size(param_map) > 0) then
-            ! Group parameters by type and intent
             block
-                integer :: p, q
-                character(len=:), allocatable :: param_code, param_list
-                logical :: already_handled
-                logical, allocatable :: handled(:)
+                character(len=:), allocatable :: param_list
+                integer :: p
                 
-                allocate(handled(size(param_map)))
-                handled = .false.
-                
+                ! Build parameter list from param_map
+                param_list = ""
                 do p = 1, size(param_map)
-                    if (handled(p) .or. len_trim(param_map(p)%name) == 0) cycle
-                    
-                    ! Start parameter group with this parameter
-                    param_list = trim(param_map(p)%name)
-                    handled(p) = .true.
-                    
-                    ! Look for other parameters with same type and intent
-                    do q = p + 1, size(param_map)
-                        if (handled(q) .or. len_trim(param_map(q)%name) == 0) cycle
-                        
-                        ! For now, group all parameters together as real(8), intent(in)
-                        ! This is a simplification - in a full implementation, we'd need
-                        ! to track and match the actual types from the body declarations
-                        param_list = param_list//", "//trim(param_map(q)%name)
-                        handled(q) = .true.
-                    end do
-                    
-                    ! Generate parameter declaration
-                    if (len_trim(param_map(p)%intent_str) > 0) then
-                        param_code = "real(8), "//trim(param_map(p)%intent_str)//" :: "//param_list
-                    else
-                        param_code = "real(8), intent(in) :: "//param_list
+                    if (len_trim(param_map(p)%name) > 0) then
+                        if (len_trim(param_list) > 0) param_list = param_list//", "
+                        param_list = param_list//trim(param_map(p)%name)
                     end if
-                    
-                    code = code//indent//param_code//new_line('a')
                 end do
+                
+                ! Generate single parameter declaration
+                if (len_trim(param_list) > 0) then
+                    code = code//indent//"real(8), intent(in) :: "//param_list//new_line('a')
+                end if
             end block
         end if
         
@@ -2129,14 +2109,15 @@ contains
                 if (allocated(arena%entries(body_indices(i))%node)) then
                     select type (node => arena%entries(body_indices(i))%node)
                     type is (declaration_node)
-                        ! Check if this declaration is for a parameter - if so, skip it
-                        ! as it will be handled separately as a parameter declaration
+                        ! Check if this is a parameter declaration that should be skipped
+                        ! Parameters are already handled at the top of the function
                         if (find_parameter_info(param_map, node%var_name) > 0) then
+                            ! This declaration is for a function parameter - skip it
                             i = i + 1
                             cycle
                         end if
                         
-                        ! Handle multi-declarations - split parameters from non-parameters
+                        ! Handle multi-variable declarations with parameters mixed with locals
                         if (node%is_multi_declaration .and. allocated(node%var_names)) then
                             block
                                 logical :: has_parameter, has_non_parameter
@@ -2147,7 +2128,7 @@ contains
                                 has_non_parameter = .false.
                                 non_param_count = 0
                                 
-                                ! Count non-parameters
+                                ! Check each variable in the multi-declaration
                                 do k = 1, size(node%var_names)
                                     if (find_parameter_info(param_map, node%var_names(k)) > 0) then
                                         has_parameter = .true.
@@ -2162,7 +2143,7 @@ contains
                                     i = i + 1
                                     cycle
                                 else if (has_parameter .and. has_non_parameter) then
-                                    ! Mixed - create declaration with only non-parameters
+                                    ! Mixed - filter out parameters and keep only locals
                                     allocate(character(len=256) :: non_param_names(non_param_count))
                                     non_param_count = 0
                                     do k = 1, size(node%var_names)
@@ -2172,14 +2153,18 @@ contains
                                         end if
                                     end do
                                     
-                                    ! Override var_list with only non-parameters
+                                    ! Update var_list with only non-parameters
                                     var_list = ""
                                     do k = 1, non_param_count
                                         if (k > 1) var_list = var_list//", "
                                         var_list = var_list//trim(non_param_names(k))
                                     end do
+                                    
+                                    if (len_trim(var_list) == 0) then
+                                        i = i + 1
+                                        cycle
+                                    end if
                                 end if
-                                ! If has_non_parameter and not has_parameter, proceed normally
                             end block
                         end if
                         
