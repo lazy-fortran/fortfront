@@ -205,6 +205,9 @@ contains
 
         ! Combine target and value
         code = target_code//" = "//value_code
+        
+        ! Apply line continuation if the assignment exceeds line length limit
+        code = add_line_continuations(code)
     end function generate_code_assignment
 
     ! Helper function to determine operator precedence
@@ -2818,5 +2821,65 @@ contains
             code = code//" "//node%name
         end if
     end function generate_code_derived_type
+
+    ! Add line continuations when line exceeds configured length
+    function add_line_continuations(input_code) result(output_code)
+        character(len=*), intent(in) :: input_code
+        character(len=:), allocatable :: output_code
+        integer :: line_length_limit
+        
+        ! Get the configured line length limit
+        call get_line_length_config(line_length_limit)
+        
+        ! For now, just apply a simple check: if the input is longer than limit, add continuation
+        if (len(input_code) > line_length_limit) then
+            call add_line_with_continuation(input_code, line_length_limit, output_code, .true.)
+        else
+            output_code = input_code
+        end if
+    end function add_line_continuations
+    
+    ! Helper subroutine to break a long line with continuation characters
+    subroutine add_line_with_continuation(long_line, max_length, output_code, is_first_line)
+        character(len=*), intent(in) :: long_line
+        integer, intent(in) :: max_length
+        character(len=:), allocatable, intent(inout) :: output_code
+        logical, intent(in) :: is_first_line
+        integer :: break_pos
+        character(len=:), allocatable :: continuation_indent
+        
+        ! Simple implementation: break at max_length with continuation
+        if (len(long_line) <= max_length) then
+            ! Line fits, no continuation needed
+            output_code = long_line
+            return
+        end if
+        
+        ! Create continuation indentation (current indent + 9 spaces)
+        continuation_indent = get_indent()//"         "  ! Extra spaces for continuation
+        
+        ! Find a reasonable break point (look for space, +, etc near max_length)
+        break_pos = max_length - 5  ! Leave some room for " &"
+        if (break_pos > 1 .and. break_pos < len(long_line)) then
+            ! Look backwards for a good break point
+            do while (break_pos > max_length/2 .and. break_pos > 1)
+                if (long_line(break_pos:break_pos) == ' ' .or. &
+                    long_line(break_pos:break_pos) == '+' .or. &
+                    long_line(break_pos:break_pos) == '-') then
+                    exit  ! Good break point found
+                end if
+                break_pos = break_pos - 1
+            end do
+        end if
+        
+        ! If no good break point found, just use max_length - 5
+        if (break_pos <= max_length/2) then
+            break_pos = max_length - 5
+        end if
+        
+        ! Create the broken line with continuation
+        output_code = trim(long_line(1:break_pos))//" &"//new_line('a')// &
+                      continuation_indent//trim(long_line(break_pos+1:))
+    end subroutine add_line_with_continuation
 
 end module codegen_core
