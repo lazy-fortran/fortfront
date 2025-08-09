@@ -2831,37 +2831,36 @@ contains
         ! Get the configured line length limit
         call get_line_length_config(line_length_limit)
         
-        ! For now, just apply a simple check: if the input is longer than limit, add continuation
+        ! Apply line continuation if the input exceeds the limit
         if (len(input_code) > line_length_limit) then
-            call add_line_with_continuation(input_code, line_length_limit, output_code, .true.)
+            call add_line_with_continuation(input_code, line_length_limit, &
+                                          output_code)
         else
             output_code = input_code
         end if
     end function add_line_continuations
     
     ! Helper subroutine to break a long line with continuation characters
-    subroutine add_line_with_continuation(long_line, max_length, output_code, is_first_line)
+    subroutine add_line_with_continuation(long_line, max_length, output_code)
         character(len=*), intent(in) :: long_line
         integer, intent(in) :: max_length
         character(len=:), allocatable, intent(inout) :: output_code
-        logical, intent(in) :: is_first_line
         integer :: break_pos
         character(len=:), allocatable :: continuation_indent
         
-        ! Simple implementation: break at max_length with continuation
+        ! Handle lines that fit within the limit
         if (len(long_line) <= max_length) then
-            ! Line fits, no continuation needed
             output_code = long_line
             return
         end if
         
         ! Create continuation indentation (current indent + 9 spaces)
-        continuation_indent = get_indent()//"         "  ! Extra spaces for continuation
+        continuation_indent = get_indent()//"         "
         
-        ! Find a reasonable break point (look for space, +, etc near max_length)
-        break_pos = max_length - 5  ! Leave some room for " &"
+        ! Find a reasonable break point near max_length
+        break_pos = max_length - 5  ! Leave room for " &"
         if (break_pos > 1 .and. break_pos < len(long_line)) then
-            ! Look backwards for a good break point
+            ! Look backwards for good break point
             do while (break_pos > max_length/2 .and. break_pos > 1)
                 if (long_line(break_pos:break_pos) == ' ' .or. &
                     long_line(break_pos:break_pos) == '+' .or. &
@@ -2872,7 +2871,7 @@ contains
             end do
         end if
         
-        ! If no good break point found, just use max_length - 5
+        ! If no good break point found, use max_length - 5
         if (break_pos <= max_length/2) then
             break_pos = max_length - 5
         end if
