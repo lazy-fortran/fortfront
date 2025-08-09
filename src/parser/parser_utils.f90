@@ -51,8 +51,9 @@ contains
             lookahead_pos = lookahead_pos + 1
         end do
         
-        ! Final check: single variable even with initializer
-        if (variable_count_after_colon == 1 .and. has_initializer) then
+        ! Final check: single variable (with or without initializer)
+        ! Only override if no comma was found during scan
+        if (variable_count_after_colon == 1 .and. .not. has_comma) then
             has_comma = .false.
         end if
     end subroutine scan_tokens
