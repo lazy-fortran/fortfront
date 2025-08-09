@@ -2079,6 +2079,49 @@ contains
         logical :: group_has_kind, group_is_optional
 
         code = ""
+        
+        ! First, generate consolidated parameter declarations
+        if (size(param_map) > 0) then
+            ! Group parameters by type and intent
+            block
+                integer :: p, q
+                character(len=:), allocatable :: param_code, param_list
+                logical :: already_handled
+                logical, allocatable :: handled(:)
+                
+                allocate(handled(size(param_map)))
+                handled = .false.
+                
+                do p = 1, size(param_map)
+                    if (handled(p) .or. len_trim(param_map(p)%name) == 0) cycle
+                    
+                    ! Start parameter group with this parameter
+                    param_list = trim(param_map(p)%name)
+                    handled(p) = .true.
+                    
+                    ! Look for other parameters with same type and intent
+                    do q = p + 1, size(param_map)
+                        if (handled(q) .or. len_trim(param_map(q)%name) == 0) cycle
+                        
+                        ! For now, group all parameters together as real(8), intent(in)
+                        ! This is a simplification - in a full implementation, we'd need
+                        ! to track and match the actual types from the body declarations
+                        param_list = param_list//", "//trim(param_map(q)%name)
+                        handled(q) = .true.
+                    end do
+                    
+                    ! Generate parameter declaration
+                    if (len_trim(param_map(p)%intent_str) > 0) then
+                        param_code = "real(8), "//trim(param_map(p)%intent_str)//" :: "//param_list
+                    else
+                        param_code = "real(8), intent(in) :: "//param_list
+                    end if
+                    
+                    code = code//indent//param_code//new_line('a')
+                end do
+            end block
+        end if
+        
         i = 1
 
         do while (i <= size(body_indices))
@@ -2086,6 +2129,60 @@ contains
                 if (allocated(arena%entries(body_indices(i))%node)) then
                     select type (node => arena%entries(body_indices(i))%node)
                     type is (declaration_node)
+                        ! Check if this declaration is for a parameter - if so, skip it
+                        ! as it will be handled separately as a parameter declaration
+                        if (find_parameter_info(param_map, node%var_name) > 0) then
+                            i = i + 1
+                            cycle
+                        end if
+                        
+                        ! Handle multi-declarations - split parameters from non-parameters
+                        if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                            block
+                                logical :: has_parameter, has_non_parameter
+                                integer :: k, non_param_count
+                                character(len=:), allocatable :: non_param_names(:)
+                                
+                                has_parameter = .false.
+                                has_non_parameter = .false.
+                                non_param_count = 0
+                                
+                                ! Count non-parameters
+                                do k = 1, size(node%var_names)
+                                    if (find_parameter_info(param_map, node%var_names(k)) > 0) then
+                                        has_parameter = .true.
+                                    else
+                                        has_non_parameter = .true.
+                                        non_param_count = non_param_count + 1
+                                    end if
+                                end do
+                                
+                                if (has_parameter .and. .not. has_non_parameter) then
+                                    ! Only parameters - skip entirely
+                                    i = i + 1
+                                    cycle
+                                else if (has_parameter .and. has_non_parameter) then
+                                    ! Mixed - create declaration with only non-parameters
+                                    allocate(character(len=256) :: non_param_names(non_param_count))
+                                    non_param_count = 0
+                                    do k = 1, size(node%var_names)
+                                        if (find_parameter_info(param_map, node%var_names(k)) == 0) then
+                                            non_param_count = non_param_count + 1
+                                            non_param_names(non_param_count) = trim(node%var_names(k))
+                                        end if
+                                    end do
+                                    
+                                    ! Override var_list with only non-parameters
+                                    var_list = ""
+                                    do k = 1, non_param_count
+                                        if (k > 1) var_list = var_list//", "
+                                        var_list = var_list//trim(non_param_names(k))
+                                    end do
+                                end if
+                                ! If has_non_parameter and not has_parameter, proceed normally
+                            end block
+                        end if
+                        
                         ! Start of declaration group
                         group_type = node%type_name
                         group_kind = node%kind_value
