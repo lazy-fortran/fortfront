@@ -5,6 +5,7 @@ module parser_statements_module
     use parser_state_module
     use parser_expressions_module, only: parse_comparison, parse_expression, parse_range
     use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_utils, only: analyze_declaration_structure
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -3490,83 +3491,5 @@ contains
         
     end function skip_unknown_statement
 
-    ! Analyze declaration structure to determine if single or multi-variable
-    subroutine analyze_declaration_structure(parser, has_initializer, has_comma)
-        type(parser_state_t), intent(inout) :: parser
-        logical, intent(out) :: has_initializer, has_comma
-        integer :: lookahead_pos
-        type(token_t) :: lookahead_token
-        
-        ! Smart lookahead: distinguish variable-separating commas from other commas
-        ! For the parameter case: "integer, parameter :: N = 10"
-        ! The comma after "integer" is an attribute separator, not a variable separator
-        block
-            logical :: seen_double_colon, in_brackets, in_attributes
-            integer :: bracket_depth, variable_count_after_colon
-            
-            seen_double_colon = .false.
-            in_brackets = .false.
-            in_attributes = .true.  ! Start assuming we're in the attribute section
-            bracket_depth = 0
-            variable_count_after_colon = 0
-            lookahead_pos = parser%current_token
-            
-            do while (lookahead_pos <= size(parser%tokens))
-                if (lookahead_pos > size(parser%tokens)) exit
-                lookahead_token = parser%tokens(lookahead_pos)
-                
-                
-                if (lookahead_token%kind == TK_OPERATOR .and. &
-                   (lookahead_token%text == "(" .or. lookahead_token%text == "[")) then
-                    bracket_depth = bracket_depth + 1
-                    in_brackets = (bracket_depth > 0)
-                else if (lookahead_token%kind == TK_OPERATOR .and. &
-                        (lookahead_token%text == ")" .or. lookahead_token%text == "]")) then
-                    bracket_depth = bracket_depth - 1
-                    in_brackets = (bracket_depth > 0)
-                else if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == "::") then
-                    seen_double_colon = .true.
-                    in_attributes = .false.  ! Past :: means we're in variable section
-                else if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == "=") then
-                    has_initializer = .true.
-                else if (lookahead_token%kind == TK_IDENTIFIER .and. seen_double_colon &
-                         .and. .not. in_brackets) then
-                    ! Count variables after ::
-                    variable_count_after_colon = variable_count_after_colon + 1
-                else if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == ",") then
-                    ! Only count as variable-separating comma if:
-                    ! 1. We've seen :: (so we're past the type specification)
-                    ! 2. We're not inside brackets/parentheses (array bounds, initializers, etc.)
-                    ! 3. We're not in the attribute section before ::
-                    if (seen_double_colon .and. .not. in_brackets .and. .not. in_attributes) then
-                        has_comma = .true.
-                        exit
-                    end if
-                else if (lookahead_token%kind == TK_EOF) then
-                    exit
-                else if (lookahead_token%kind == TK_KEYWORD) then
-                    ! Stop when we hit another statement keyword (but not type/attribute keywords)
-                    if (lookahead_pos > parser%current_token .and. &
-                        lookahead_token%text /= "parameter" .and. &
-                        lookahead_token%text /= "intent" .and. &
-                        lookahead_token%text /= "optional" .and. &
-                        lookahead_token%text /= "allocatable" .and. &
-                        lookahead_token%text /= "pointer" .and. &
-                        lookahead_token%text /= "target" .and. &
-                        lookahead_token%text /= "save" .and. &
-                        lookahead_token%text /= "public" .and. &
-                        lookahead_token%text /= "private") then
-                        exit
-                    end if
-                end if
-                lookahead_pos = lookahead_pos + 1
-            end do
-            
-            ! Final check: if we found exactly one variable after ::, it's single-var even with initializer
-            if (variable_count_after_colon == 1 .and. has_initializer) then
-                has_comma = .false.
-            end if
-        end block
-    end subroutine analyze_declaration_structure
 
 end module parser_statements_module
