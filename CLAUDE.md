@@ -104,3 +104,4 @@ When adding new features:
 3. Add semantic analysis for type checking
 4. Implement code generation
 5. Write comprehensive tests for each phase
+- we have four use cases for fortfront. 1. its own standardizer for lazy fortran. 2. fortrun that does module discovery and source and object cache. 3. fluff for static analysis and custom formatting of code, where it would be also ok to be very strict on dismissing original formatting (like ruff and black). 4. ffc the fortran fortran compiler that plugs fortfront to a hlfir llvm backend lowering chain like flang
