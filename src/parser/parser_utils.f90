@@ -29,7 +29,7 @@ contains
         logical, intent(inout) :: has_initializer, has_comma
         
         logical :: seen_double_colon, in_brackets, in_attributes, should_exit
-        integer :: bracket_depth, variable_count_after_colon
+        integer :: bracket_depth, variable_count_after_colon, start_pos, relative_pos
         type(token_t) :: lookahead_token
         
         seen_double_colon = .false.
@@ -37,12 +37,14 @@ contains
         in_attributes = .true.  ! Start assuming we're in the attribute section
         bracket_depth = 0
         variable_count_after_colon = 0
+        start_pos = lookahead_pos  ! Remember starting position
         
         do while (lookahead_pos <= size(tokens))
             if (lookahead_pos > size(tokens)) exit
             lookahead_token = tokens(lookahead_pos)
+            relative_pos = lookahead_pos - start_pos + 1  ! Calculate relative position
             
-            call process_token(lookahead_token, lookahead_pos, &
+            call process_token(lookahead_token, relative_pos, &
                 seen_double_colon, in_brackets, in_attributes, &
                 bracket_depth, variable_count_after_colon, &
                 has_initializer, has_comma, should_exit)

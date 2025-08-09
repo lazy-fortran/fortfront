@@ -260,7 +260,10 @@ contains
                 var_token = parser%consume()
                 ! Parse the initializer expression
                 initializer_index = parse_comparison(parser, arena)
+                ! Debug output
+                ! print *, "DEBUG: Parsed initializer, index =", initializer_index
             else
+                ! print *, "DEBUG: No initializer found"
             end if
 
             ! Create declaration node with or without initializer
