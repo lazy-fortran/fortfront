@@ -722,6 +722,12 @@ contains
         else
             code = code//"()"
         end if
+
+        ! Add result clause if present
+        if (allocated(node%result_variable) .and. len_trim(node%result_variable) > 0) then
+            code = code//" result("//node%result_variable//")"
+        end if
+
         code = code//new_line('a')
 
         ! Build parameter map by matching parameter names to body declarations
