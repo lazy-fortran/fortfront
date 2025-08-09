@@ -18,7 +18,8 @@ module frontend
                            get_standardizer_type_standardization
     use codegen_core, only: generate_code_from_arena, generate_code_polymorphic, &
                            set_type_standardization, get_type_standardization
-    use codegen_indent, only: set_indent_config, get_indent_config
+    use codegen_indent, only: set_indent_config, get_indent_config, &
+                               set_line_length_config, get_line_length_config
     use json_reader, only: json_read_tokens_from_file, json_read_ast_from_file, &
                             json_read_semantic_from_file
     use stdlib_logger, only: global_logger
@@ -60,6 +61,7 @@ module frontend
         logical :: use_tabs = .false.
         character(len=1) :: indent_char = ' '
         logical :: standardize_types = .true.  ! Whether to standardize type kinds
+        integer :: line_length = 130  ! Maximum line length before adding continuations
     end type format_options_t
 
 contains
@@ -1320,16 +1322,18 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         character(len=:), allocatable, intent(out) :: error_msg
         type(format_options_t), intent(in) :: format_opts
         
-        ! Save current indentation and type standardization configuration
-        integer :: saved_size
+        ! Save current indentation, line length, and type standardization configuration
+        integer :: saved_size, saved_line_length
         character(len=1) :: saved_char
         logical :: saved_standardize_types, saved_standardizer_types
         call get_indent_config(saved_size, saved_char)
+        call get_line_length_config(saved_line_length)
         call get_type_standardization(saved_standardize_types)
         call get_standardizer_type_standardization(saved_standardizer_types)
         
         ! Set new configuration
         call set_indent_config(format_opts%indent_size, format_opts%indent_char)
+        call set_line_length_config(format_opts%line_length)
         call set_type_standardization(format_opts%standardize_types)
         call set_standardizer_type_standardization(format_opts%standardize_types)
         
@@ -1338,6 +1342,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         
         ! Restore original configuration
         call set_indent_config(saved_size, saved_char)
+        call set_line_length_config(saved_line_length)
         call set_type_standardization(saved_standardize_types)
         call set_standardizer_type_standardization(saved_standardizer_types)
     end subroutine transform_lazy_fortran_string_with_format
