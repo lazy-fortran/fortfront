@@ -1,4 +1,5 @@
 module codegen_core
+    use iso_fortran_env, only: error_unit
     use ast_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
     use ast_nodes_control, only: associate_node
@@ -1868,6 +1869,12 @@ contains
         type(declaration_node), intent(in) :: node1, node2
         logical :: can_group
 
+        ! Don't group declarations that have initializers
+        if (node1%has_initializer .or. node2%has_initializer) then
+            can_group = .false.
+            return
+        end if
+
         can_group = trim(node1%type_name) == trim(node2%type_name) .and. &
                     node1%kind_value == node2%kind_value .and. &
                     node1%has_kind .eqv. node2%has_kind .and. &
@@ -1957,6 +1964,15 @@ contains
                 if (allocated(arena%entries(body_indices(i))%node)) then
                     select type (node => arena%entries(body_indices(i))%node)
                     type is (declaration_node)
+                        ! Check if this declaration has initializer
+                        if (node%has_initializer .or. node%initializer_index > 0) then
+                            ! Don't group declarations with initializers, generate individually
+                            stmt_code = generate_code_from_arena(arena, body_indices(i))
+                            code = code//indent//stmt_code//new_line('a')
+                            i = i + 1
+                            cycle
+                        end if
+                        
                         ! Start of declaration group
                         group_type = node%type_name
                         group_kind = node%kind_value
@@ -2432,6 +2448,12 @@ contains
         integer :: param_idx1, param_idx2
         character(len=:), allocatable :: intent1, intent2
         logical :: optional1, optional2
+        
+        ! Don't group declarations that have initializers
+        if (node1%has_initializer .or. node2%has_initializer) then
+            can_group = .false.
+            return
+        end if
         
         ! First check basic grouping criteria
         can_group = can_group_declarations(node1, node2)

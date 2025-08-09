@@ -239,8 +239,13 @@ contains
         end if
 
         if (present(initializer_index)) then
-            decl%initializer_index = initializer_index
-            decl%has_initializer = .true.
+            if (initializer_index > 0) then
+                decl%initializer_index = initializer_index
+                decl%has_initializer = .true.
+            else
+                decl%initializer_index = 0
+                decl%has_initializer = .false.
+            end if
         else
             decl%initializer_index = 0
             decl%has_initializer = .false.
@@ -332,8 +337,13 @@ contains
         end if
 
         if (present(initializer_index)) then
-            decl%initializer_index = initializer_index
-            decl%has_initializer = .true.
+            if (initializer_index > 0) then
+                decl%initializer_index = initializer_index
+                decl%has_initializer = .true.
+            else
+                decl%initializer_index = 0
+                decl%has_initializer = .false.
+            end if
         else
             decl%initializer_index = 0
             decl%has_initializer = .false.

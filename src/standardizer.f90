@@ -404,7 +404,6 @@ contains
         
         has_decls = .false.
         if (.not. allocated(prog%body_indices)) return
-        
         do i = 1, size(prog%body_indices)
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then

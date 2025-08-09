@@ -5,6 +5,7 @@ module parser_statements_module
     use parser_state_module
     use parser_expressions_module, only: parse_comparison, parse_expression, parse_range
     use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_utils, only: analyze_declaration_structure
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -2307,9 +2308,44 @@ contains
         if (first_token%kind == TK_KEYWORD) then
             if (first_token%text == "real" .or. first_token%text == "integer" .or. &
                 first_token%text == "logical" .or. first_token%text == "character") then
-                ! Use multi-declaration parser
-                stmt_indices = parse_multi_declaration(parser, arena)
-                return
+                ! Check if this is a single declaration with initializer
+                ! If so, use parse_declaration for proper initializer handling
+                block
+                    logical :: has_initializer, has_comma
+                    integer :: lookahead_pos
+                    type(token_t) :: lookahead_token
+                    
+                    ! Look ahead to check for = (initializer) and comma (multi-var)
+                    has_initializer = .false.
+                    has_comma = .false.
+                    lookahead_pos = parser%current_token
+                    
+                    do while (lookahead_pos <= size(parser%tokens))
+                        if (lookahead_pos > size(parser%tokens)) exit
+                        lookahead_token = parser%tokens(lookahead_pos)
+                        if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == "=") then
+                            has_initializer = .true.
+                        else if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == ",") then
+                            has_comma = .true.
+                            exit
+                        else if (lookahead_token%kind == TK_EOF .or. &
+                                (lookahead_token%kind == TK_KEYWORD .and. lookahead_token%text == "end")) then
+                            exit
+                        end if
+                        lookahead_pos = lookahead_pos + 1
+                    end do
+                    
+                    if (has_initializer .and. .not. has_comma) then
+                        ! Single variable with initializer - use parse_declaration
+                        allocate (stmt_indices(1))
+                        stmt_indices(1) = parse_declaration(parser, arena)
+                        return
+                    else
+                        ! Multi-variable declaration - use parse_multi_declaration
+                        stmt_indices = parse_multi_declaration(parser, arena)
+                        return
+                    end if
+                end block
             else if (first_token%text == "call") then
                 ! Parse call statement
                 allocate (stmt_indices(1))
@@ -2474,20 +2510,8 @@ contains
                             has_comma = .false.
                             lookahead_pos = parser%current_token
                             
-                            do while (lookahead_pos <= size(parser%tokens))
-                                if (lookahead_pos > size(parser%tokens)) exit
-                                lookahead_token = parser%tokens(lookahead_pos)
-                                if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == "=") then
-                                    has_initializer = .true.
-                                else if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == ",") then
-                                    has_comma = .true.
-                                    exit
-                                else if (lookahead_token%kind == TK_EOF .or. &
-                                        (lookahead_token%kind == TK_KEYWORD .and. lookahead_token%text == "end")) then
-                                    exit
-                                end if
-                                lookahead_pos = lookahead_pos + 1
-                            end do
+                            call analyze_declaration_structure(parser, has_initializer, has_comma)
+                            
                             
                             if (has_initializer .and. .not. has_comma) then
                                 ! Single variable with initializer - use parse_declaration
@@ -3466,5 +3490,6 @@ contains
         end if
         
     end function skip_unknown_statement
+
 
 end module parser_statements_module
