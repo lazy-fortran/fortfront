@@ -46,15 +46,8 @@ contains
         
         ! Check if line continuation characters are preserved
         if (index(output, "&") == 0) then
-            print *, "  CONFIRMED: Line continuation characters are removed (as expected)"
-            print *, "  This is a known limitation requiring significant architectural changes:"
-            print *, "  - Lexer must preserve line continuation tokens"
-            print *, "  - AST must store formatting information"
-            print *, "  - Codegen must respect original line breaks"
-            print *, "  - Configuration system needed for line length preferences"
-            print *, "  "
-            print *, "  IMPACT: Code functionality is preserved, but readability/formatting is lost"
-            print *, "  STATUS: Complex issue requiring major refactoring of multiple components"
+            print *, "  CONFIRMED: Line continuation characters removed (architectural limitation)"
+            print *, "  Functionality preserved but formatting lost - requires major refactoring"
         else
             print *, "  UNEXPECTED: Line continuation characters found - issue may be fixed!"
             print *, "  Found: ", count_occurrences(output, "&"), " continuation characters"
