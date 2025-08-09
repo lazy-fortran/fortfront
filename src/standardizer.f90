@@ -1278,6 +1278,11 @@ contains
         allocate (param_names(n_params))
         allocate (param_names_found(n_params))
         param_names_found = 0
+        
+        ! Initialize all param_names to avoid undefined behavior
+        do i = 1, n_params
+            param_names(i) = ""
+        end do
 
         do i = 1, n_params
    if (func_def%param_indices(i) > 0 .and. func_def%param_indices(i) <= arena%size) then
@@ -1285,8 +1290,21 @@ contains
                     select type (param => arena%entries(func_def%param_indices(i))%node)
                     type is (identifier_node)
                         param_names(i) = param%name
+                    type is (parameter_declaration_node)
+                        param_names(i) = param%name
+                    type is (declaration_node)
+                        param_names(i) = param%var_name
+                    class default
+                        ! Try to get a reasonable default name
+                        write(param_names(i), '(a,i0)') "param", i
                     end select
+                else
+                    ! Node not allocated, create default name
+                    write(param_names(i), '(a,i0)') "param", i
                 end if
+            else
+                ! Invalid index, create default name
+                write(param_names(i), '(a,i0)') "param", i
             end if
         end do
 
@@ -1469,6 +1487,11 @@ contains
         allocate (param_names(n_params))
         allocate (param_names_found(n_params))
         param_names_found = 0
+        
+        ! Initialize all param_names to avoid undefined behavior
+        do i = 1, n_params
+            param_names(i) = ""
+        end do
 
         do i = 1, n_params
             if (sub_def%param_indices(i) > 0 .and. sub_def%param_indices(i) <= arena%size) then
@@ -1481,13 +1504,16 @@ contains
                     type is (declaration_node)
                         param_names(i) = param%var_name
                     class default
-                        param_names(i) = ""  ! Set default for unknown node types
+                        ! Try to get a reasonable default name
+                        write(param_names(i), '(a,i0)') "param", i
                     end select
                 else
-                    param_names(i) = ""  ! Set default for unallocated nodes
+                    ! Node not allocated, create default name
+                    write(param_names(i), '(a,i0)') "param", i
                 end if
             else
-                param_names(i) = ""  ! Set default for invalid indices
+                ! Invalid index, create default name
+                write(param_names(i), '(a,i0)') "param", i
             end if
         end do
 
