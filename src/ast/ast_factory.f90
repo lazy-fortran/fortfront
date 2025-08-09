@@ -238,7 +238,7 @@ contains
             decl%has_kind = .false.
         end if
 
-        if (present(initializer_index)) then
+        if (present(initializer_index) .and. initializer_index > 0) then
             decl%initializer_index = initializer_index
             decl%has_initializer = .true.
         else
@@ -331,7 +331,7 @@ contains
             decl%has_kind = .false.
         end if
 
-        if (present(initializer_index)) then
+        if (present(initializer_index) .and. initializer_index > 0) then
             decl%initializer_index = initializer_index
             decl%has_initializer = .true.
         else
