@@ -6,16 +6,19 @@ module codegen_indent
     ! Default constants
     integer, parameter :: DEFAULT_INDENT_SIZE = 4
     character(len=1), parameter :: DEFAULT_INDENT_CHAR = ' '
+    integer, parameter :: DEFAULT_LINE_LENGTH = 130
 
     ! Module state for current indentation level and configuration
     integer, save :: current_indent_level = 0
     integer, save :: active_indent_size = DEFAULT_INDENT_SIZE
     character(len=1), save :: active_indent_char = DEFAULT_INDENT_CHAR
+    integer, save :: active_line_length = DEFAULT_LINE_LENGTH
 
     ! Public interface
     public :: get_indent, increase_indent, decrease_indent, reset_indent
     public :: with_indent, indent_lines
     public :: set_indent_config, get_indent_config
+    public :: set_line_length_config, get_line_length_config
 
 contains
 
@@ -106,5 +109,17 @@ contains
         size = active_indent_size
         char = active_indent_char
     end subroutine get_indent_config
+
+    ! Set line length configuration
+    subroutine set_line_length_config(length)
+        integer, intent(in) :: length
+        active_line_length = length
+    end subroutine set_line_length_config
+
+    ! Get current line length configuration
+    subroutine get_line_length_config(length)
+        integer, intent(out) :: length
+        length = active_line_length
+    end subroutine get_line_length_config
 
 end module codegen_indent
