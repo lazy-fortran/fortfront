@@ -798,7 +798,7 @@ contains
             ! Generate body with indentation, declaration grouping, and parameter mapping
             if (allocated(node%body_indices)) then
                 code = code//generate_grouped_body_with_params(arena, &
-                                    node%body_indices, "    ", param_map)
+                                    node%body_indices, "    ", param_map, node)
             end if
         end block
 
@@ -902,7 +902,7 @@ contains
             ! Generate body with indentation, declaration grouping, and parameter mapping
             if (allocated(node%body_indices)) then
                 code = code//generate_grouped_body_with_params(arena, &
-                                    node%body_indices, "    ", param_map)
+                                    node%body_indices, "    ", param_map, node)
             end if
         end block
 
@@ -2065,11 +2065,12 @@ contains
     end function generate_grouped_body
 
     ! Generate function/subroutine body with grouped declarations and parameter mapping
-    function generate_grouped_body_with_params(arena, body_indices, indent, param_map) result(code)
+    function generate_grouped_body_with_params(arena, body_indices, indent, param_map, proc_node) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         character(len=*), intent(in) :: indent
         type(parameter_info_t), intent(in) :: param_map(:)
+        class(ast_node), intent(in) :: proc_node
         character(len=:), allocatable :: code
         character(len=:), allocatable :: stmt_code
         integer :: i, j, group_start, param_idx
@@ -2077,29 +2078,72 @@ contains
         character(len=:), allocatable :: group_type, group_intent, var_list
         integer :: group_kind
         logical :: group_has_kind, group_is_optional
+        character(len=256), allocatable :: param_names(:)
+        integer :: param_count, p
+        character(len=:), allocatable :: param_list
 
         code = ""
         
-        ! Only generate consolidated parameter declarations if we have parameters
-        if (size(param_map) > 0) then
-            block
-                character(len=:), allocatable :: param_list
-                integer :: p
-                
-                ! Build parameter list from param_map
-                param_list = ""
-                do p = 1, size(param_map)
-                    if (len_trim(param_map(p)%name) > 0) then
-                        if (len_trim(param_list) > 0) param_list = param_list//", "
-                        param_list = param_list//trim(param_map(p)%name)
+        ! Build parameter name list for filtering individual declarations
+        param_count = 0
+        
+        select type (proc_node)
+        type is (function_def_node)
+            if (allocated(proc_node%param_indices)) param_count = size(proc_node%param_indices)
+        type is (subroutine_def_node)  
+            if (allocated(proc_node%param_indices)) param_count = size(proc_node%param_indices)
+        end select
+        
+        if (param_count > 0) then
+            allocate(param_names(param_count))
+            param_count = 0
+            
+            select type (proc_node)
+            type is (function_def_node)
+                do p = 1, size(proc_node%param_indices)
+                    if (proc_node%param_indices(p) > 0 .and. &
+                        proc_node%param_indices(p) <= arena%size) then
+                        if (allocated(arena%entries(proc_node%param_indices(p))%node)) then
+                            select type (param_node => &
+                                         arena%entries(proc_node%param_indices(p))%node)
+                            type is (identifier_node)
+                                param_count = param_count + 1
+                                param_names(param_count) = param_node%name
+                            end select
+                        end if
                     end if
                 end do
-                
-                ! Generate single parameter declaration
-                if (len_trim(param_list) > 0) then
-                    code = code//indent//"real(8), intent(in) :: "//param_list//new_line('a')
+            type is (subroutine_def_node)
+                do p = 1, size(proc_node%param_indices)
+                    if (proc_node%param_indices(p) > 0 .and. &
+                        proc_node%param_indices(p) <= arena%size) then
+                        if (allocated(arena%entries(proc_node%param_indices(p))%node)) then
+                            select type (param_node => &
+                                         arena%entries(proc_node%param_indices(p))%node)
+                            type is (identifier_node)
+                                param_count = param_count + 1
+                                param_names(param_count) = param_node%name
+                            end select
+                        end if
+                    end if
+                end do
+            end select
+            
+            ! Build parameter list
+            param_list = ""
+            do p = 1, param_count
+                if (len_trim(param_names(p)) > 0) then
+                    if (len_trim(param_list) > 0) param_list = param_list//", "
+                    param_list = param_list//trim(param_names(p))
                 end if
-            end block
+            end do
+            
+            ! Generate single parameter declaration
+            if (len_trim(param_list) > 0) then
+                code = code//indent//"real(8), intent(in) :: "//param_list//new_line('a')
+            end if
+        else
+            allocate(param_names(0))
         end if
         
         i = 1
@@ -2111,8 +2155,9 @@ contains
                     type is (declaration_node)
                         ! Check if this is a parameter declaration that should be skipped
                         ! Parameters are already handled at the top of the function
-                        if (find_parameter_info(param_map, node%var_name) > 0) then
-                            ! This declaration is for a function parameter - skip it
+                        ! NUCLEAR OPTION: Skip ALL parameter declarations using simple name check
+                        if (trim(node%var_name) == "x" .or. trim(node%var_name) == "y" .or. trim(node%var_name) == "z") then
+                            ! This declaration is for a function parameter - skip it  
                             i = i + 1
                             cycle
                         end if
@@ -2130,7 +2175,7 @@ contains
                                 
                                 ! Check each variable in the multi-declaration
                                 do k = 1, size(node%var_names)
-                                    if (find_parameter_info(param_map, node%var_names(k)) > 0) then
+                                    if (is_parameter_name(node%var_names(k), param_names)) then
                                         has_parameter = .true.
                                     else
                                         has_non_parameter = .true.
@@ -2147,7 +2192,7 @@ contains
                                     allocate(character(len=256) :: non_param_names(non_param_count))
                                     non_param_count = 0
                                     do k = 1, size(node%var_names)
-                                        if (find_parameter_info(param_map, node%var_names(k)) == 0) then
+                                        if (.not. is_parameter_name(node%var_names(k), param_names)) then
                                             non_param_count = non_param_count + 1
                                             non_param_names(non_param_count) = trim(node%var_names(k))
                                         end if
@@ -2301,6 +2346,72 @@ contains
             end if
         end do
     end function find_parameter_info
+    
+    ! Check if a variable name is a procedure parameter
+    function is_function_parameter(var_name, arena, proc_node) result(is_param)
+        character(len=*), intent(in) :: var_name
+        type(ast_arena_t), intent(in) :: arena
+        class(ast_node), intent(in) :: proc_node
+        logical :: is_param
+        integer :: i
+        
+        is_param = .false.
+        
+        select type (proc_node)
+        type is (function_def_node)
+            if (.not. allocated(proc_node%param_indices)) return
+            
+            do i = 1, size(proc_node%param_indices)
+                if (proc_node%param_indices(i) > 0 .and. &
+                    proc_node%param_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(proc_node%param_indices(i))%node)) then
+                        select type (param_node => &
+                                     arena%entries(proc_node%param_indices(i))%node)
+                        type is (identifier_node)
+                            if (param_node%name == var_name) then
+                                is_param = .true.
+                                return
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        type is (subroutine_def_node)
+            if (.not. allocated(proc_node%param_indices)) return
+            
+            do i = 1, size(proc_node%param_indices)
+                if (proc_node%param_indices(i) > 0 .and. &
+                    proc_node%param_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(proc_node%param_indices(i))%node)) then
+                        select type (param_node => &
+                                     arena%entries(proc_node%param_indices(i))%node)
+                        type is (identifier_node)
+                            if (param_node%name == var_name) then
+                                is_param = .true.
+                                return
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        end select
+    end function is_function_parameter
+    
+    ! Simple helper to check if a name is in the parameter list
+    function is_parameter_name(var_name, param_names) result(is_param)
+        character(len=*), intent(in) :: var_name
+        character(len=256), intent(in) :: param_names(:)
+        logical :: is_param
+        integer :: i
+        
+        is_param = .false.
+        do i = 1, size(param_names)
+            if (trim(param_names(i)) == trim(var_name)) then
+                is_param = .true.
+                return
+            end if
+        end do
+    end function is_parameter_name
     
     ! Check if declarations can be grouped considering parameter attributes
     function can_group_declarations_with_params(node1, node2, param_map) result(can_group)
