@@ -71,6 +71,7 @@ contains
         class(function_def_node), intent(in) :: rhs
         lhs%name = rhs%name
         lhs%return_type = rhs%return_type
+        if (allocated(rhs%result_variable)) lhs%result_variable = rhs%result_variable
         if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
     end subroutine function_def_assign
