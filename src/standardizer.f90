@@ -11,6 +11,7 @@ module standardizer
     use ast_factory
     use type_system_hm
     use json_module, only: json_core, json_value, json_file
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     implicit none
     private
     
@@ -1090,6 +1091,8 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
         character(len=64) :: var_type
+        type(mono_type_t), pointer :: expr_type
+        character(len=:), allocatable :: elem_type_str
         
         var_type = "real(8), dimension(:), allocatable"  ! Default
         
@@ -1100,8 +1103,31 @@ contains
         type is (array_literal_node)
             ! For array literals, we know the exact size
             if (allocated(node%element_indices)) then
-                write(var_type, '(a,i0,a)') "real(8), dimension(", &
-                    size(node%element_indices), ")"
+                ! Try to get the inferred type of the array literal
+                if (allocated(node%inferred_type)) then
+                    ! The inferred type is TARRAY with element type in args(1)
+                    ! get_fortran_type_string handles TARRAY by extracting element type
+                    elem_type_str = get_fortran_type_string(node%inferred_type)
+                else
+                    ! No inferred type, try to determine from elements
+                    if (size(node%element_indices) > 0) then
+                        ! Check the first element type
+                        expr_type => get_expression_type(arena, node%element_indices(1))
+                        if (associated(expr_type)) then
+                            elem_type_str = get_fortran_type_string(expr_type)
+                        else
+                            ! Try to infer from literal if possible
+                            elem_type_str = &
+                                infer_element_type_from_literal(arena, &
+                                node%element_indices(1))
+                        end if
+                    else
+                        elem_type_str = "real(8)"  ! Default for empty arrays
+                    end if
+                end if
+                
+                write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                    ", dimension(", size(node%element_indices), ")"
             end if
         type is (call_or_subscript_node)
             ! For array slices, try to calculate the size
@@ -1111,6 +1137,34 @@ contains
             end if
         end select
     end function get_array_var_type
+    
+    ! Helper function to infer type from a literal node
+    function infer_element_type_from_literal(arena, elem_index) result(type_str)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: elem_index
+        character(len=:), allocatable :: type_str
+        
+        type_str = "real(8)"  ! Default
+        
+        if (elem_index <= 0 .or. elem_index > arena%size) return
+        if (.not. allocated(arena%entries(elem_index)%node)) return
+        
+        select type (elem => arena%entries(elem_index)%node)
+        type is (literal_node)
+            select case (elem%literal_kind)
+            case (LITERAL_INTEGER)
+                type_str = "integer"
+            case (LITERAL_REAL)
+                type_str = "real(8)"
+            case (LITERAL_STRING)
+                type_str = "character"
+            case (LITERAL_LOGICAL)
+                type_str = "logical"
+            case default
+                type_str = "real(8)"
+            end select
+        end select
+    end function infer_element_type_from_literal
 
     ! Standardize existing declaration nodes (e.g., real -> real(8))
     subroutine standardize_declarations(arena, prog)
@@ -1225,6 +1279,11 @@ contains
         allocate (param_names(n_params))
         allocate (param_names_found(n_params))
         param_names_found = 0
+        
+        ! Initialize all param_names to avoid undefined behavior
+        do i = 1, n_params
+            param_names(i) = ""
+        end do
 
         do i = 1, n_params
    if (func_def%param_indices(i) > 0 .and. func_def%param_indices(i) <= arena%size) then
@@ -1232,8 +1291,21 @@ contains
                     select type (param => arena%entries(func_def%param_indices(i))%node)
                     type is (identifier_node)
                         param_names(i) = param%name
+                    type is (parameter_declaration_node)
+                        param_names(i) = param%name
+                    type is (declaration_node)
+                        param_names(i) = param%var_name
+                    class default
+                        ! Try to get a reasonable default name
+                        write(param_names(i), '(a,i0)') "param", i
                     end select
+                else
+                    ! Node not allocated, create default name
+                    write(param_names(i), '(a,i0)') "param", i
                 end if
+            else
+                ! Invalid index, create default name
+                write(param_names(i), '(a,i0)') "param", i
             end if
         end do
 
@@ -1416,6 +1488,11 @@ contains
         allocate (param_names(n_params))
         allocate (param_names_found(n_params))
         param_names_found = 0
+        
+        ! Initialize all param_names to avoid undefined behavior
+        do i = 1, n_params
+            param_names(i) = ""
+        end do
 
         do i = 1, n_params
             if (sub_def%param_indices(i) > 0 .and. sub_def%param_indices(i) <= arena%size) then
@@ -1428,13 +1505,16 @@ contains
                     type is (declaration_node)
                         param_names(i) = param%var_name
                     class default
-                        param_names(i) = ""  ! Set default for unknown node types
+                        ! Try to get a reasonable default name
+                        write(param_names(i), '(a,i0)') "param", i
                     end select
                 else
-                    param_names(i) = ""  ! Set default for unallocated nodes
+                    ! Node not allocated, create default name
+                    write(param_names(i), '(a,i0)') "param", i
                 end if
             else
-                param_names(i) = ""  ! Set default for invalid indices
+                ! Invalid index, create default name
+                write(param_names(i), '(a,i0)') "param", i
             end if
         end do
 
