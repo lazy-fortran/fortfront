@@ -2315,10 +2315,21 @@ contains
                         i = j
 
                     class default
-                        ! Generate other statements normally
-                        stmt_code = generate_code_from_arena(arena, body_indices(i))
-                        if (len_trim(stmt_code) > 0) then
-                            code = code//indent//stmt_code//new_line('a')
+                        ! Generate other statements normally (but avoid recursive declaration generation)
+                        if (allocated(arena%entries(body_indices(i))%node)) then
+                            select type (check_node => arena%entries(body_indices(i))%node)
+                            type is (declaration_node)
+                                ! Skip individual declaration nodes to prevent duplication
+                                ! They should have been handled by the grouped generation above
+                                i = i + 1
+                                cycle
+                            class default
+                                ! Generate non-declaration statements normally
+                                stmt_code = generate_code_from_arena(arena, body_indices(i))
+                                if (len_trim(stmt_code) > 0) then
+                                    code = code//indent//stmt_code//new_line('a')
+                                end if
+                            end select
                         end if
                         i = i + 1
                     end select
