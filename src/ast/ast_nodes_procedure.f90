@@ -18,6 +18,7 @@ module ast_nodes_procedure
         character(len=:), allocatable :: name
         integer, allocatable :: param_indices(:)
         character(len=:), allocatable :: return_type
+        character(len=:), allocatable :: result_variable
         integer, allocatable :: body_indices(:)
     contains
         procedure :: accept => function_def_accept
@@ -119,12 +120,13 @@ contains
 
     ! Factory functions
     function create_function_def(name, param_indices, return_type, &
-                                body_indices, line, column) result(node)
+                                body_indices, line, column, result_variable) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         character(len=*), intent(in) :: return_type
         integer, intent(in), optional :: body_indices(:)
         integer, intent(in), optional :: line, column
+        character(len=*), intent(in), optional :: result_variable
         type(function_def_node) :: node
 
         node%name = name
@@ -134,6 +136,9 @@ contains
             end if
         end if
         node%return_type = return_type
+        if (present(result_variable)) then
+            node%result_variable = result_variable
+        end if
         if (present(body_indices)) then
             if (size(body_indices) > 0) then
                 node%body_indices = body_indices

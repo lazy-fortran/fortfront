@@ -1104,18 +1104,19 @@ contains
 
     ! Create function definition node and add to stack
     function push_function_def(arena, name, param_indices, return_type, body_indices, &
-                               line, column, parent_index) result(func_index)
+                               line, column, parent_index, result_variable) result(func_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         character(len=*), intent(in), optional :: return_type
         integer, intent(in), optional :: body_indices(:)
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: result_variable
         integer :: func_index
         type(function_def_node) :: func_def
 
         func_def = create_function_def(name, param_indices, return_type, &
-                                       body_indices, line, column)
+                                       body_indices, line, column, result_variable)
         call arena%push(func_def, "function_def", parent_index)
         func_index = arena%size
 

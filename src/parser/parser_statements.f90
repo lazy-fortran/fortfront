@@ -1428,6 +1428,7 @@ contains
         integer :: func_index
 
         character(len=:), allocatable :: return_type_str, func_name
+        character(len=:), allocatable :: result_variable_name
         type(token_t) :: token
         integer, allocatable :: param_indices(:), body_indices(:)
         integer :: return_type_index
@@ -1435,6 +1436,7 @@ contains
 
         ! Initialize
         return_type_str = ""
+        result_variable_name = ""
 
         ! Check if we have a return type
         token = parser%peek()
@@ -1484,6 +1486,31 @@ contains
             end if
         else
             allocate (param_indices(0))
+        end if
+
+        ! Check for result clause: result(variable_name)
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER .and. token%text == "result") then
+            token = parser%consume()  ! consume 'result'
+            
+            ! Expect opening parenthesis
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                token = parser%consume()  ! consume '('
+                
+                ! Get result variable name
+                token = parser%peek()
+                if (token%kind == TK_IDENTIFIER) then
+                    result_variable_name = token%text
+                    token = parser%consume()  ! consume result variable name
+                end if
+                
+                ! Expect closing parenthesis
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    token = parser%consume()  ! consume ')'
+                end if
+            end if
         end if
 
         ! Parse function body (collect all statements until "end function")
@@ -1664,7 +1691,7 @@ contains
         ! Create function definition node with body_indices from parsed function body
         func_index = push_function_def(arena, func_name, param_indices, &
                                        return_type_str, body_indices, line, &
-                                       column)
+                                       column, result_variable=result_variable_name)
 
     end function parse_function_definition
 
