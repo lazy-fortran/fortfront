@@ -1,4 +1,5 @@
 module parser_declarations
+    use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD
     use parser_state_module, only: parser_state_t
     use ast_arena, only: ast_arena_t
@@ -259,6 +260,7 @@ contains
                 var_token = parser%consume()
                 ! Parse the initializer expression
                 initializer_index = parse_comparison(parser, arena)
+            else
             end if
 
             ! Create declaration node with or without initializer

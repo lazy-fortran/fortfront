@@ -238,9 +238,14 @@ contains
             decl%has_kind = .false.
         end if
 
-        if (present(initializer_index) .and. initializer_index > 0) then
-            decl%initializer_index = initializer_index
-            decl%has_initializer = .true.
+        if (present(initializer_index)) then
+            if (initializer_index > 0) then
+                decl%initializer_index = initializer_index
+                decl%has_initializer = .true.
+            else
+                decl%initializer_index = 0
+                decl%has_initializer = .false.
+            end if
         else
             decl%initializer_index = 0
             decl%has_initializer = .false.
@@ -331,9 +336,14 @@ contains
             decl%has_kind = .false.
         end if
 
-        if (present(initializer_index) .and. initializer_index > 0) then
-            decl%initializer_index = initializer_index
-            decl%has_initializer = .true.
+        if (present(initializer_index)) then
+            if (initializer_index > 0) then
+                decl%initializer_index = initializer_index
+                decl%has_initializer = .true.
+            else
+                decl%initializer_index = 0
+                decl%has_initializer = .false.
+            end if
         else
             decl%initializer_index = 0
             decl%has_initializer = .false.

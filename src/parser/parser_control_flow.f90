@@ -1,5 +1,6 @@
 module parser_control_flow_module
     ! Parser module for control flow constructs (if, do, select case)
+    use iso_fortran_env, only: error_unit
     use lexer_core
     use ast_types, only: LITERAL_STRING
     use parser_state_module
@@ -806,9 +807,32 @@ contains
         if (first_token%kind == TK_KEYWORD) then
             if (first_token%text == "real" .or. first_token%text == "integer" .or. &
                 first_token%text == "logical" .or. first_token%text == "character") then
-                ! Use multi-declaration parser
-                stmt_indices = parse_multi_declaration(parser, arena)
-                return
+                ! Check if this is a single declaration with initializer
+                ! If so, use parse_declaration for proper initializer handling
+                block
+                    logical :: has_initializer, has_comma
+                    integer :: lookahead_pos
+                    type(token_t) :: lookahead_token
+                    
+                    ! Look ahead to check for = (initializer) and comma (multi-var)
+                    has_initializer = .false.
+                    has_comma = .false.
+                    lookahead_pos = parser%current_token
+                    
+                    call analyze_declaration_structure_cf(parser, has_initializer, has_comma)
+                    
+                    
+                    if (has_initializer .and. .not. has_comma) then
+                        ! Single variable with initializer - use parse_declaration
+                        allocate (stmt_indices(1))
+                        stmt_indices(1) = parse_declaration(parser, arena)
+                        return
+                    else
+                        ! Multi-variable declaration - use parse_multi_declaration
+                        stmt_indices = parse_multi_declaration(parser, arena)
+                        return
+                    end if
+                end block
             end if
         end if
 
@@ -1704,5 +1728,68 @@ contains
         length = parser%current_token - start_pos
         if (length == 0) length = 1  ! At least one token
     end function parse_expression_length
+
+    ! Analyze declaration structure to determine if single or multi-variable
+    subroutine analyze_declaration_structure_cf(parser, has_initializer, has_comma)
+        type(parser_state_t), intent(inout) :: parser
+        logical, intent(out) :: has_initializer, has_comma
+        integer :: lookahead_pos
+        type(token_t) :: lookahead_token
+        
+        ! Smart lookahead: distinguish variable-separating commas from other commas
+        block
+            logical :: seen_double_colon, in_brackets, in_attributes
+            integer :: bracket_depth, variable_count_after_colon
+            
+            seen_double_colon = .false.
+            in_brackets = .false.
+            in_attributes = .true.  ! Start assuming we're in the attribute section
+            bracket_depth = 0
+            variable_count_after_colon = 0
+            lookahead_pos = parser%current_token
+            
+            do while (lookahead_pos <= size(parser%tokens))
+                if (lookahead_pos > size(parser%tokens)) exit
+                lookahead_token = parser%tokens(lookahead_pos)
+                
+                if (lookahead_token%kind == TK_OPERATOR .and. &
+                   (lookahead_token%text == "(" .or. lookahead_token%text == "[")) then
+                    bracket_depth = bracket_depth + 1
+                    in_brackets = (bracket_depth > 0)
+                else if (lookahead_token%kind == TK_OPERATOR .and. &
+                        (lookahead_token%text == ")" .or. lookahead_token%text == "]")) then
+                    bracket_depth = bracket_depth - 1
+                    in_brackets = (bracket_depth > 0)
+                else if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == "::") then
+                    seen_double_colon = .true.
+                    in_attributes = .false.  ! Past :: means we're in variable section
+                else if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == "=") then
+                    has_initializer = .true.
+                else if (lookahead_token%kind == TK_IDENTIFIER .and. seen_double_colon &
+                         .and. .not. in_brackets) then
+                    ! Count variables after ::
+                    variable_count_after_colon = variable_count_after_colon + 1
+                else if (lookahead_token%kind == TK_OPERATOR .and. lookahead_token%text == ",") then
+                    ! Only count as variable-separating comma if we're past ::
+                    if (seen_double_colon .and. .not. in_brackets .and. .not. in_attributes) then
+                        has_comma = .true.
+                        exit
+                    end if
+                else if (lookahead_token%kind == TK_EOF) then
+                    exit
+                else if (lookahead_token%kind == TK_KEYWORD) then
+                    if (lookahead_pos > parser%current_token) then
+                        exit
+                    end if
+                end if
+                lookahead_pos = lookahead_pos + 1
+            end do
+            
+            ! Final check: single variable even with initializer
+            if (variable_count_after_colon == 1 .and. has_initializer) then
+                has_comma = .false.
+            end if
+        end block
+    end subroutine analyze_declaration_structure_cf
     
 end module parser_control_flow_module

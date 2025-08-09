@@ -1,4 +1,5 @@
 module codegen_core
+    use iso_fortran_env, only: error_unit
     use ast_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
     use ast_nodes_control, only: associate_node
