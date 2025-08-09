@@ -1,5 +1,6 @@
 module parser_control_flow_module
     ! Parser module for control flow constructs (if, do, select case)
+    use iso_fortran_env, only: error_unit
     use lexer_core
     use ast_types, only: LITERAL_STRING
     use parser_state_module
@@ -12,6 +13,7 @@ module parser_control_flow_module
                                         parse_stop_statement, parse_goto_statement, &
                                         parse_error_stop_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_utils, only: analyze_declaration_structure
     use ast_core
     use ast_factory, only: push_if, push_do_loop, push_do_while, push_select_case, &
                            push_assignment, push_identifier, push_literal, push_where
@@ -806,9 +808,32 @@ contains
         if (first_token%kind == TK_KEYWORD) then
             if (first_token%text == "real" .or. first_token%text == "integer" .or. &
                 first_token%text == "logical" .or. first_token%text == "character") then
-                ! Use multi-declaration parser
-                stmt_indices = parse_multi_declaration(parser, arena)
-                return
+                ! Check if this is a single declaration with initializer
+                ! If so, use parse_declaration for proper initializer handling
+                block
+                    logical :: has_initializer, has_comma
+                    integer :: lookahead_pos
+                    type(token_t) :: lookahead_token
+                    
+                    ! Look ahead to check for = (initializer) and comma (multi-var)
+                    has_initializer = .false.
+                    has_comma = .false.
+                    lookahead_pos = parser%current_token
+                    
+                    call analyze_declaration_structure(parser, has_initializer, has_comma)
+                    
+                    
+                    if (has_initializer .and. .not. has_comma) then
+                        ! Single variable with initializer - use parse_declaration
+                        allocate (stmt_indices(1))
+                        stmt_indices(1) = parse_declaration(parser, arena)
+                        return
+                    else
+                        ! Multi-variable declaration - use parse_multi_declaration
+                        stmt_indices = parse_multi_declaration(parser, arena)
+                        return
+                    end if
+                end block
             end if
         end if
 
@@ -1704,5 +1729,6 @@ contains
         length = parser%current_token - start_pos
         if (length == 0) length = 1  ! At least one token
     end function parse_expression_length
+
     
 end module parser_control_flow_module
