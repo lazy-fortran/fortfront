@@ -72,34 +72,34 @@ program test_analysis_plugins
 
     ! Test 4: Check analyzer results are accessible
     block
-        class(*), allocatable :: results
+        class(*), allocatable :: results1, results2, results3, results4, results5
         
-        results = call_graph_analyzer%get_results()
-        if (.not. allocated(results)) then
+        results1 = call_graph_analyzer%get_results()
+        if (.not. allocated(results1)) then
             print *, "FAIL: Call graph analyzer results not accessible"
             error stop
         end if
         
-        results = control_flow_analyzer%get_results()
-        if (.not. allocated(results)) then
+        results2 = control_flow_analyzer%get_results()
+        if (.not. allocated(results2)) then
             print *, "FAIL: Control flow analyzer results not accessible"
             error stop
         end if
         
-        results = usage_tracker_analyzer%get_results()
-        if (.not. allocated(results)) then
+        results3 = usage_tracker_analyzer%get_results()
+        if (.not. allocated(results3)) then
             print *, "FAIL: Usage tracker analyzer results not accessible"
             error stop
         end if
         
-        results = source_reconstruction_analyzer%get_results()
-        if (.not. allocated(results)) then
+        results4 = source_reconstruction_analyzer%get_results()
+        if (.not. allocated(results4)) then
             print *, "FAIL: Source reconstruction analyzer results not accessible"
             error stop
         end if
         
-        results = interface_analyzer%get_results()
-        if (.not. allocated(results)) then
+        results5 = interface_analyzer%get_results()
+        if (.not. allocated(results5)) then
             print *, "FAIL: Interface analyzer results not accessible"
             error stop
         end if
