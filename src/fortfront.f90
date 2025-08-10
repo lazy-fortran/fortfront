@@ -151,6 +151,13 @@ module fortfront
                                   is_identifier_defined_direct, get_unused_variables_direct, &
                                   get_symbols_in_scope_direct
     
+    ! NEW: Extensible Semantic Pipeline (issue #202)
+    use semantic_pipeline, only: semantic_pipeline_t, analyzer_ptr, create_pipeline
+    use semantic_analyzer_base, only: semantic_analyzer_t
+    use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t
+    use semantic_pipeline_integration, only: analyze_semantics_with_pipeline, &
+                                             create_default_semantic_pipeline
+    
     implicit none
     public
     
