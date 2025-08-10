@@ -14,6 +14,7 @@ module test_analyzer
         procedure :: analyze => analyze_test
         procedure :: get_results => get_test_results
         procedure :: get_name => get_test_analyzer_name
+        procedure :: assign => assign_test_analyzer
         procedure :: was_executed
         procedure :: get_nodes_visited
     end type
@@ -69,5 +70,18 @@ contains
         
         count = this%nodes_visited
     end function
+
+    subroutine assign_test_analyzer(lhs, rhs)
+        class(simple_test_analyzer_t), intent(inout) :: lhs
+        class(semantic_analyzer_t), intent(in) :: rhs
+        
+        select type(rhs)
+        type is (simple_test_analyzer_t)
+            lhs%analysis_executed = rhs%analysis_executed
+            lhs%nodes_visited = rhs%nodes_visited
+        class default
+            error stop "Type mismatch in simple_test_analyzer assignment"
+        end select
+    end subroutine
 
 end module test_analyzer

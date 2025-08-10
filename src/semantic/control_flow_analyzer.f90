@@ -21,6 +21,7 @@ module control_flow_analyzer
         procedure :: analyze => analyze_control_flow
         procedure :: get_results => get_control_flow_results
         procedure :: get_name => get_control_flow_analyzer_name
+        procedure :: assign => assign_control_flow_analyzer
         
         ! Analysis methods for fluff rules
         procedure :: find_unreachable_code
@@ -63,6 +64,20 @@ contains
         
         name = "control_flow_analyzer"
     end function
+
+    subroutine assign_control_flow_analyzer(lhs, rhs)
+        class(control_flow_analyzer_t), intent(inout) :: lhs
+        class(semantic_analyzer_t), intent(in) :: rhs
+        
+        select type(rhs)
+        type is (control_flow_analyzer_t)
+            ! Deep copy the CFG
+            lhs%cfg = rhs%cfg
+            lhs%analysis_complete = rhs%analysis_complete
+        class default
+            error stop "Type mismatch in control_flow_analyzer assignment"
+        end select
+    end subroutine
 
     ! Analysis methods for fluff rules
     function find_unreachable_code(this) result(unreachable_nodes)

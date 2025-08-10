@@ -47,6 +47,7 @@ module interface_analyzer
         procedure :: analyze => analyze_interfaces
         procedure :: get_results => get_interface_results
         procedure :: get_name => get_interface_analyzer_name
+        procedure :: assign => assign_interface_analyzer
         
         ! Analysis methods for fluff rules
         procedure :: extract_interface_signature
@@ -91,6 +92,21 @@ contains
         
         name = "interface_analyzer"
     end function
+
+    subroutine assign_interface_analyzer(lhs, rhs)
+        use semantic_analyzer_base, only: semantic_analyzer_t
+        class(interface_analyzer_t), intent(inout) :: lhs
+        class(semantic_analyzer_t), intent(in) :: rhs
+        
+        select type(rhs)
+        type is (interface_analyzer_t)
+            ! Deep copy the result
+            lhs%result = rhs%result
+            lhs%analysis_complete = rhs%analysis_complete
+        class default
+            error stop "Type mismatch in interface_analyzer assignment"
+        end select
+    end subroutine
 
     ! Analysis methods for fluff rules
     function extract_interface_signature(this, proc_node_index, arena) result(signature)

@@ -29,6 +29,7 @@ module builtin_analyzers
         procedure :: analyze => analyze_symbols
         procedure :: get_results => get_symbol_results
         procedure :: get_name => get_symbol_analyzer_name
+        procedure :: assign => assign_symbol_analyzer
     end type
 
     ! Type inference analyzer - performs Hindley-Milner type inference  
@@ -38,6 +39,7 @@ module builtin_analyzers
         procedure :: analyze => analyze_types
         procedure :: get_results => get_type_results  
         procedure :: get_name => get_type_analyzer_name
+        procedure :: assign => assign_type_analyzer
     end type
 
     ! Scope management analyzer - builds scope hierarchy
@@ -47,6 +49,7 @@ module builtin_analyzers
         procedure :: analyze => analyze_scopes
         procedure :: get_results => get_scope_results
         procedure :: get_name => get_scope_analyzer_name
+        procedure :: assign => assign_scope_analyzer
     end type
 
 contains
@@ -161,5 +164,42 @@ contains
         
         name = "scope_analyzer"
     end function
+
+    ! Assignment operators for deep copy
+    subroutine assign_symbol_analyzer(lhs, rhs)
+        class(symbol_analyzer_t), intent(inout) :: lhs
+        class(semantic_analyzer_t), intent(in) :: rhs
+        
+        select type(rhs)
+        type is (symbol_analyzer_t)
+            lhs%context = rhs%context
+        class default
+            error stop "Type mismatch in symbol_analyzer assignment"
+        end select
+    end subroutine
+
+    subroutine assign_type_analyzer(lhs, rhs)
+        class(type_analyzer_t), intent(inout) :: lhs
+        class(semantic_analyzer_t), intent(in) :: rhs
+        
+        select type(rhs)
+        type is (type_analyzer_t)
+            lhs%context = rhs%context
+        class default
+            error stop "Type mismatch in type_analyzer assignment"
+        end select
+    end subroutine
+
+    subroutine assign_scope_analyzer(lhs, rhs)
+        class(scope_analyzer_t), intent(inout) :: lhs
+        class(semantic_analyzer_t), intent(in) :: rhs
+        
+        select type(rhs)
+        type is (scope_analyzer_t)
+            lhs%context = rhs%context
+        class default
+            error stop "Type mismatch in scope_analyzer assignment"
+        end select
+    end subroutine
 
 end module builtin_analyzers

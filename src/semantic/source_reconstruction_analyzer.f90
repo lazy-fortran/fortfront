@@ -37,6 +37,7 @@ module source_reconstruction_analyzer
         procedure :: analyze => analyze_source_reconstruction
         procedure :: get_results => get_source_reconstruction_results
         procedure :: get_name => get_source_reconstruction_name
+        procedure :: assign => assign_source_reconstruction_analyzer
         
         ! Analysis methods for fluff rules
         procedure :: get_node_source_text
@@ -82,6 +83,21 @@ contains
         
         name = "source_reconstruction_analyzer"
     end function
+
+    subroutine assign_source_reconstruction_analyzer(lhs, rhs)
+        use semantic_analyzer_base, only: semantic_analyzer_t
+        class(source_reconstruction_analyzer_t), intent(inout) :: lhs
+        class(semantic_analyzer_t), intent(in) :: rhs
+        
+        select type(rhs)
+        type is (source_reconstruction_analyzer_t)
+            ! Deep copy the result
+            lhs%result = rhs%result
+            lhs%analysis_complete = rhs%analysis_complete
+        class default
+            error stop "Type mismatch in source_reconstruction_analyzer assignment"
+        end select
+    end subroutine
 
     ! Analysis methods for fluff rules
     function get_node_source_text(this, node_index) result(text)

@@ -27,6 +27,7 @@ module usage_tracker_analyzer
         procedure :: analyze => analyze_variable_usage
         procedure :: get_results => get_usage_results
         procedure :: get_name => get_usage_analyzer_name
+        procedure :: assign => assign_usage_tracker_analyzer
         
         ! Analysis methods for fluff rules
         procedure :: find_unused_variables
@@ -75,6 +76,21 @@ contains
         
         name = "usage_tracker_analyzer"
     end function
+
+    subroutine assign_usage_tracker_analyzer(lhs, rhs)
+        use semantic_analyzer_base, only: semantic_analyzer_t
+        class(usage_tracker_analyzer_t), intent(inout) :: lhs
+        class(semantic_analyzer_t), intent(in) :: rhs
+        
+        select type(rhs)
+        type is (usage_tracker_analyzer_t)
+            ! Deep copy the result
+            lhs%result = rhs%result
+            lhs%analysis_complete = rhs%analysis_complete
+        class default
+            error stop "Type mismatch in usage_tracker_analyzer assignment"
+        end select
+    end subroutine
 
     ! Analysis methods for fluff rules
     function find_unused_variables(this) result(unused_vars)

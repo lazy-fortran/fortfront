@@ -17,6 +17,7 @@ module call_graph_analyzer
         procedure :: analyze => analyze_call_graph
         procedure :: get_results => get_call_graph_results
         procedure :: get_name => get_call_graph_analyzer_name
+        procedure :: assign => assign_call_graph_analyzer
         
         ! Analysis methods for fluff rules
         procedure :: find_unused_procedures
@@ -58,6 +59,20 @@ contains
         
         name = "call_graph_analyzer"
     end function
+
+    subroutine assign_call_graph_analyzer(lhs, rhs)
+        class(call_graph_analyzer_t), intent(inout) :: lhs
+        class(semantic_analyzer_t), intent(in) :: rhs
+        
+        select type(rhs)
+        type is (call_graph_analyzer_t)
+            ! Deep copy the call graph
+            lhs%call_graph = rhs%call_graph
+            lhs%analysis_complete = rhs%analysis_complete
+        class default
+            error stop "Type mismatch in call_graph_analyzer assignment"
+        end select
+    end subroutine
 
     ! Analysis methods for fluff rules
     function find_unused_procedures(this) result(unused_procs)

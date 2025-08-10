@@ -1,6 +1,13 @@
 module semantic_pipeline
     use ast_core, only: ast_arena_t
     use semantic_analyzer_base, only: semantic_analyzer_t
+    ! Import all analyzer types for safe allocation
+    use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t
+    use call_graph_analyzer, only: call_graph_analyzer_t
+    use control_flow_analyzer, only: control_flow_analyzer_t
+    use usage_tracker_analyzer, only: usage_tracker_analyzer_t
+    use source_reconstruction_analyzer, only: source_reconstruction_analyzer_t
+    use interface_analyzer, only: interface_analyzer_t
     implicit none
     private
 
@@ -54,13 +61,35 @@ contains
         ! Grow analyzers array
         allocate(temp_analyzers(this%analyzer_count + 1))
         
-        ! Copy existing analyzers (move allocation to avoid deep copy)
+        ! Move existing analyzers (no copy!)
         do i = 1, this%analyzer_count
             call move_alloc(this%analyzers(i)%analyzer, temp_analyzers(i)%analyzer)
         end do
         
-        ! Add new analyzer (allocate and copy)
-        allocate(temp_analyzers(this%analyzer_count + 1)%analyzer, source=analyzer)
+        ! SAFE: Use type-specific allocation and deep copy via assignment operator
+        select type(a => analyzer)
+        type is (symbol_analyzer_t)
+            allocate(symbol_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+        type is (type_analyzer_t)
+            allocate(type_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+        type is (scope_analyzer_t)
+            allocate(scope_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+        type is (call_graph_analyzer_t)
+            allocate(call_graph_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+        type is (control_flow_analyzer_t)
+            allocate(control_flow_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+        type is (usage_tracker_analyzer_t)
+            allocate(usage_tracker_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+        type is (source_reconstruction_analyzer_t)
+            allocate(source_reconstruction_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+        type is (interface_analyzer_t)
+            allocate(interface_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+        class default
+            error stop "Unknown analyzer type in register_analyzer"
+        end select
+        
+        ! Deep copy using overloaded assignment operator
+        temp_analyzers(this%analyzer_count + 1)%analyzer = analyzer
         
         ! Update pipeline
         call move_alloc(temp_analyzers, this%analyzers)

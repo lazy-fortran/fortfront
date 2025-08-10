@@ -10,7 +10,9 @@ module semantic_analyzer_base
     contains
         procedure(analyze_interface), deferred :: analyze
         procedure(get_results_interface), deferred :: get_results
+        procedure(assign_interface), deferred :: assign
         procedure :: get_name => get_analyzer_name
+        generic :: assignment(=) => assign
     end type
 
     ! Abstract interfaces for deferred procedures
@@ -28,6 +30,12 @@ module semantic_analyzer_base
             class(semantic_analyzer_t), intent(in) :: this
             class(*), allocatable :: results  ! Analyzer-specific results
         end function
+
+        subroutine assign_interface(lhs, rhs)
+            import :: semantic_analyzer_t
+            class(semantic_analyzer_t), intent(inout) :: lhs
+            class(semantic_analyzer_t), intent(in) :: rhs
+        end subroutine
     end interface
 
 contains
