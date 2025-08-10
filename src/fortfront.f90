@@ -141,13 +141,15 @@ module fortfront
                                  initialize_intrinsic_registry, &
                                  intrinsic_signature_t
     
-    ! Semantic query API for advanced semantic analysis (issue #189)
+    ! Semantic query API for advanced semantic analysis (issues #189, #196)
     use semantic_query_api, only: semantic_query_t, create_semantic_query, &
                                   variable_info_t, function_info_t, &
                                   semantic_query_type_info_t => type_info_t, &
                                   symbol_info_t, &
                                   SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, &
-                                  SYMBOL_UNKNOWN
+                                  SYMBOL_UNKNOWN, &
+                                  is_identifier_defined_direct, get_unused_variables_direct, &
+                                  get_symbols_in_scope_direct
     
     implicit none
     public
@@ -247,11 +249,13 @@ module fortfront
               lock_arena, unlock_arena, is_arena_locked, &
               deep_copy_arena, deep_copy_semantic_context, compute_arena_hash
     
-    ! Public semantic query APIs for issue #189
+    ! Public semantic query APIs for issues #189, #196
     public :: semantic_query_t, create_semantic_query, &
               variable_info_t, function_info_t, semantic_query_type_info_t, &
               symbol_info_t, &
-              SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, SYMBOL_UNKNOWN
+              SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, SYMBOL_UNKNOWN, &
+              is_identifier_defined_direct, get_unused_variables_direct, &
+              get_symbols_in_scope_direct
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2

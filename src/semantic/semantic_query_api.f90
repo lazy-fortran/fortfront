@@ -21,6 +21,10 @@ module semantic_query_api
     public :: variable_info_t, function_info_t, type_info_t, scope_info_t
     public :: symbol_info_t
     public :: SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, SYMBOL_UNKNOWN
+    
+    ! Direct query functions to avoid semantic_query_t instantiation (issue #196)
+    public :: is_identifier_defined_direct, get_unused_variables_direct
+    public :: get_symbols_in_scope_direct
 
     ! Symbol types
     integer, parameter :: SYMBOL_VARIABLE = 1
@@ -80,10 +84,10 @@ module semantic_query_api
         !       analysis. Currently these fields are exported but not populated.
     end type symbol_info_t
 
-    ! Main query interface - using existing safe pattern with direct assignment
+    ! Main query interface - using pointers to avoid expensive deep copies (issue #196)
     type :: semantic_query_t
-        type(ast_arena_t) :: arena
-        type(semantic_context_t) :: context
+        type(ast_arena_t), pointer :: arena => null()
+        type(semantic_context_t), pointer :: context => null()
     contains
         procedure :: get_variable_info => query_get_variable_info
         procedure :: get_function_info => query_get_function_info
@@ -103,15 +107,15 @@ module semantic_query_api
 
 contains
 
-    ! Create semantic query interface - using existing safe pattern
+    ! Create semantic query interface - using pointers to avoid deep copies (issue #196)
     function create_semantic_query(arena, context) result(query)
-        type(ast_arena_t), intent(in) :: arena
-        type(semantic_context_t), intent(in) :: context
+        type(ast_arena_t), intent(in), target :: arena
+        type(semantic_context_t), intent(in), target :: context
         type(semantic_query_t) :: query
 
-        ! Direct assignment like existing code
-        query%arena = arena
-        query%context = context
+        ! Use pointers to avoid expensive deep copies
+        query%arena => arena
+        query%context => context
     end function create_semantic_query
 
     ! Get variable information by name
@@ -595,5 +599,112 @@ contains
         
         is_param = tracker%is_parameter(param_name)
     end function is_parameter_name
+
+    ! ===== DIRECT QUERY FUNCTIONS (avoid semantic_query_t instantiation) =====
+    ! These functions provide lightweight alternatives to avoid deep copy issues
+    
+    ! Direct function to check if identifier is defined (issue #196)
+    function is_identifier_defined_direct(arena, context, identifier_name) result(defined)
+        type(ast_arena_t), intent(in) :: arena
+        type(semantic_context_t), intent(inout) :: context
+        character(len=*), intent(in) :: identifier_name
+        logical :: defined
+        type(poly_type_t), allocatable :: scheme
+        type(mono_type_t) :: builtin_type
+        
+        ! Check in scope stack  
+        call context%scopes%lookup(identifier_name, scheme)
+        if (allocated(scheme)) then
+            defined = .true.
+            return
+        end if
+        
+        ! Check builtin functions
+        builtin_type = context%get_builtin_function_type(identifier_name)
+        defined = (builtin_type%kind /= 0)
+    end function is_identifier_defined_direct
+    
+    ! Direct function to get unused variables (issue #196)  
+    function get_unused_variables_direct(arena, context, scope_type, unused_vars) result(success)
+        type(ast_arena_t), intent(in) :: arena
+        type(semantic_context_t), intent(inout) :: context
+        integer, intent(in) :: scope_type
+        character(len=:), allocatable, intent(out) :: unused_vars(:)
+        logical :: success
+        type(symbol_info_t), allocatable :: all_symbols(:)
+        integer :: i, unused_count
+        
+        success = .false.
+        
+        ! Get all symbols in scope
+        if (.not. get_symbols_in_scope_direct(arena, context, scope_type, all_symbols)) return
+        
+        if (size(all_symbols) == 0) then
+            allocate(character(len=1) :: unused_vars(0))
+            success = .true.
+            return
+        end if
+        
+        ! For now, assume all variables are unused (usage tracking not implemented yet)
+        ! This matches the behavior of the semantic_query_t version
+        unused_count = size(all_symbols)
+        
+        ! Allocate and populate unused variables array
+        allocate(character(len=256) :: unused_vars(unused_count))
+        
+        do i = 1, unused_count
+            unused_vars(i) = all_symbols(i)%name
+        end do
+        
+        success = .true.
+    end function get_unused_variables_direct
+    
+    ! Direct function to get symbols in scope (issue #196)
+    function get_symbols_in_scope_direct(arena, context, scope_type, symbols) result(success)
+        type(ast_arena_t), intent(in) :: arena
+        type(semantic_context_t), intent(inout) :: context
+        integer, intent(in) :: scope_type
+        type(symbol_info_t), allocatable, intent(out) :: symbols(:)
+        logical :: success
+        integer :: i, count, target_depth
+        
+        success = .false.
+        count = 0
+        
+        ! Find target scope depth based on scope_type
+        select case (scope_type)
+        case (SCOPE_GLOBAL)
+            target_depth = 1
+        case (SCOPE_MODULE, SCOPE_FUNCTION, SCOPE_SUBROUTINE, SCOPE_BLOCK)
+            target_depth = context%scopes%depth
+        case default
+            target_depth = context%scopes%depth
+        end select
+        
+        if (target_depth <= 0 .or. target_depth > context%scopes%depth) return
+        
+        ! Count symbols in target scope
+        count = context%scopes%scopes(target_depth)%env%count
+        
+        if (count == 0) then
+            allocate(symbols(0))
+            success = .true.
+            return
+        end if
+        
+        ! Allocate and populate symbols array
+        allocate(symbols(count))
+        
+        do i = 1, count
+            symbols(i)%name = context%scopes%scopes(target_depth)%env%names(i)
+            symbols(i)%type_info = context%instantiate( &
+                context%scopes%scopes(target_depth)%env%schemes(i))
+            symbols(i)%is_parameter = is_parameter_name( &
+                context%param_tracker, symbols(i)%name)
+            symbols(i)%is_used = .false.  ! TODO: Implement usage tracking
+        end do
+        
+        success = .true.
+    end function get_symbols_in_scope_direct
 
 end module semantic_query_api
