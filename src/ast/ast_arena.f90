@@ -58,7 +58,7 @@ module ast_arena
     end type ast_arena_stats_t
 
     ! Public interface
-    public :: create_ast_arena, ast_entry_t
+    public :: create_ast_arena, ast_entry_t, init_ast_arena
 
 contains
 
@@ -85,6 +85,32 @@ contains
         arena%current_index = 0
         arena%max_depth = 0
     end function create_ast_arena
+
+    ! Initialize AST arena (subroutine version to avoid assignment)
+    subroutine init_ast_arena(arena, initial_capacity)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: initial_capacity
+        integer :: cap
+        
+        ! Set defaults first
+        arena%chunk_size = 1024  ! High-performance chunk size
+        arena%initial_capacity = 256
+        
+        ! Use chunk-aligned initial capacity for optimal performance
+        if (present(initial_capacity)) then
+            cap = max(initial_capacity, 256)
+        else
+            cap = 256
+        end if
+        
+        arena%capacity = cap
+        ! Deallocate existing entries if any
+        if (allocated(arena%entries)) deallocate(arena%entries)
+        allocate (arena%entries(cap))
+        arena%size = 0
+        arena%current_index = 0
+        arena%max_depth = 0
+    end subroutine init_ast_arena
 
     ! Push a new AST node onto the stack
     subroutine ast_arena_push(this, node, node_type, parent_index)
@@ -551,25 +577,10 @@ contains
     subroutine ast_arena_assign(lhs, rhs)
         class(ast_arena_t), intent(inout) :: lhs
         class(ast_arena_t), intent(in) :: rhs
-        integer :: i
         
-        ! Copy all scalar components
-        lhs%size = rhs%size
-        lhs%capacity = rhs%capacity
-        lhs%current_index = rhs%current_index
-        lhs%max_depth = rhs%max_depth
-        lhs%chunk_size = rhs%chunk_size
-        lhs%initial_capacity = rhs%initial_capacity
-        
-        ! Deep copy allocatable array
-        if (allocated(rhs%entries)) then
-            if (allocated(lhs%entries)) deallocate(lhs%entries)
-            allocate(lhs%entries(size(rhs%entries)))
-            ! Deep copy each entry to avoid double-free issues
-            do i = 1, size(rhs%entries)
-                lhs%entries(i) = rhs%entries(i)  ! Calls ast_entry_assign
-            end do
-        end if
+        ! Arena assignment is not supported - arenas should never be copied
+        ! The arena owns all nodes and copying would lead to double-free issues
+        error stop "ERROR: ast_arena assignment is not allowed. Arenas cannot be copied."
     end subroutine ast_arena_assign
 
     function ast_entry_deep_copy(this) result(copy)
@@ -602,13 +613,15 @@ contains
         class(ast_entry_t), intent(inout) :: lhs
         class(ast_entry_t), intent(in) :: rhs
         
-        ! Clear existing node if any
-        if (allocated(lhs%node)) deallocate(lhs%node)
-        
-        ! For safety and simplicity, we don't copy nodes between entries
+        ! IMPORTANT: We don't copy nodes in ast_entry_assign to avoid ownership issues
         ! The arena maintains ownership of all nodes
-        ! If you need to copy nodes, use the arena's push method
-        ! This avoids all the dangerous allocate(source=) issues
+        ! When arena is copied, we should not be doing deep copies
+        ! This prevents double-free issues when the temporary arena is destroyed
+        
+        ! Clear existing node if any - but DON'T copy new one
+        if (allocated(lhs%node)) then
+            deallocate(lhs%node)
+        end if
         
         ! Copy scalar fields
         lhs%parent_index = rhs%parent_index

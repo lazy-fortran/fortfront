@@ -124,12 +124,13 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Properly handle inferred_type copying with defensive programming
+        if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
+        end if
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
@@ -151,6 +152,8 @@ contains
             if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
             allocate(lhs%dimension_indices(size(rhs%dimension_indices)))
             lhs%dimension_indices = rhs%dimension_indices
+        else
+            if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
         end if
     end subroutine declaration_assign
 
@@ -204,12 +207,13 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Properly handle inferred_type copying with defensive programming
+        if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
+        end if
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
@@ -223,6 +227,8 @@ contains
             if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
             allocate(lhs%dimension_indices(size(rhs%dimension_indices)))
             lhs%dimension_indices = rhs%dimension_indices
+        else
+            if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
         end if
     end subroutine parameter_declaration_assign
 
@@ -246,12 +252,13 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Properly handle inferred_type copying with defensive programming
+        if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
+        end if
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
@@ -288,12 +295,13 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Properly handle inferred_type copying with defensive programming
+        if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
+        end if
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
             lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
