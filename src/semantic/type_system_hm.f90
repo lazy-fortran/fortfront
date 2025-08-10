@@ -391,9 +391,10 @@ contains
         if (.not. allocated(rhs%args)) return
         
         args_size = size(rhs%args)
-        if (args_size <= 0 .or. args_size > 20) return  ! Conservative limits
+        ! Allow empty arrays (size 0) but limit maximum size
+        if (args_size < 0 .or. args_size > 20) return  ! Conservative limits
         
-        ! Allocate destination array
+        ! Allocate destination array (including empty arrays)
         allocate(lhs%args(args_size))
         
         ! Copy each argument with minimal depth to maintain stability
