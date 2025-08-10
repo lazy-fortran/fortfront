@@ -113,7 +113,8 @@ contains
         print *, "  very long name:", long_result  
         print *, "  invalid identifier:", special_result
         
-        test_edge_cases = .not. empty_result .and. .not. long_result .and. .not. special_result
+        test_edge_cases = .not. empty_result .and. &
+            .not. long_result .and. .not. special_result
         
         if (test_edge_cases) then
             print *, "  ✓ Edge cases handled correctly"
@@ -135,13 +136,15 @@ contains
         
         builtin_result = is_identifier_defined_direct(arena, ctx, "sin")
         undefined_result = is_identifier_defined_direct(arena, ctx, "truly_undefined")
-        fake_builtin_result = is_identifier_defined_direct(arena, ctx, "fake_builtin_func")
+        fake_builtin_result = is_identifier_defined_direct(arena, ctx, &
+            "fake_builtin_func")
         
         print *, "  sin (builtin, should be true):", builtin_result
         print *, "  truly_undefined (should be false):", undefined_result
         print *, "  fake_builtin_func (should be false):", fake_builtin_result
         
-        test_builtin_vs_undefined = builtin_result .and. .not. undefined_result .and. .not. fake_builtin_result
+        test_builtin_vs_undefined = builtin_result .and. &
+            .not. undefined_result .and. .not. fake_builtin_result
         
         if (test_builtin_vs_undefined) then
             print *, "  ✓ Builtin vs undefined distinction works correctly"
