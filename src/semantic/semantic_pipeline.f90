@@ -24,7 +24,6 @@ module semantic_pipeline
     type :: semantic_pipeline_t
         type(analyzer_ptr), allocatable :: analyzers(:)
         integer :: analyzer_count = 0
-        class(*), allocatable :: shared_context  ! Will be semantic_context_t
     contains
         procedure :: register_analyzer
         procedure :: run_analysis
@@ -48,9 +47,7 @@ contains
         type(semantic_pipeline_t), intent(inout) :: pipeline
         
         call pipeline%clear_analyzers()
-        if (allocated(pipeline%shared_context)) then
-            deallocate(pipeline%shared_context)
-        end if
+        ! Shared context no longer used
     end subroutine
 
     subroutine register_analyzer(this, analyzer)
@@ -106,17 +103,17 @@ contains
         integer, intent(in) :: root_node_index
         
         integer :: i
+        integer :: dummy_context
         
-        ! Initialize shared context if not already done
-        if (.not. allocated(this%shared_context)) then
-            call initialize_shared_context(this)
-        end if
+        ! For now, use a simple non-allocatable context
+        ! The allocatable class(*) was causing issues
+        dummy_context = 0
         
         ! Run each registered analyzer
         do i = 1, this%analyzer_count
             if (allocated(this%analyzers(i)%analyzer)) then
                 call this%analyzers(i)%analyzer%analyze( &
-                    this%shared_context, arena, root_node_index)
+                    dummy_context, arena, root_node_index)
             end if
         end do
     end subroutine
@@ -137,31 +134,65 @@ contains
             if (allocated(this%analyzers(index)%analyzer)) then
                 ! Type-specific allocation + assignment
                 select type(a => this%analyzers(index)%analyzer)
-                type is (symbol_analyzer_t)
-                    allocate(symbol_analyzer_t :: analyzer)
-                type is (type_analyzer_t)
-                    allocate(type_analyzer_t :: analyzer)
-                type is (scope_analyzer_t)
-                    allocate(scope_analyzer_t :: analyzer)
-                type is (call_graph_analyzer_t)
-                    allocate(call_graph_analyzer_t :: analyzer)
-                type is (control_flow_analyzer_t)
-                    allocate(control_flow_analyzer_t :: analyzer)
-                type is (usage_tracker_analyzer_t)
-                    allocate(usage_tracker_analyzer_t :: analyzer)
-                type is (source_reconstruction_analyzer_t)
-                    allocate(source_reconstruction_analyzer_t :: analyzer)
-                type is (interface_analyzer_t)
-                    allocate(interface_analyzer_t :: analyzer)
                 type is (simple_test_analyzer_t)
                     allocate(simple_test_analyzer_t :: analyzer)
+                    ! Direct assignment for test analyzer
+                    select type(analyzer)
+                    type is (simple_test_analyzer_t)
+                        analyzer = a
+                    end select
+                type is (symbol_analyzer_t)
+                    allocate(symbol_analyzer_t :: analyzer)
+                    select type(analyzer)
+                    type is (symbol_analyzer_t)
+                        analyzer = a
+                    end select
+                type is (type_analyzer_t)
+                    allocate(type_analyzer_t :: analyzer)
+                    select type(analyzer)
+                    type is (type_analyzer_t)
+                        analyzer = a
+                    end select
+                type is (scope_analyzer_t)
+                    allocate(scope_analyzer_t :: analyzer)
+                    select type(analyzer)
+                    type is (scope_analyzer_t)
+                        analyzer = a
+                    end select
+                type is (call_graph_analyzer_t)
+                    allocate(call_graph_analyzer_t :: analyzer)
+                    select type(analyzer)
+                    type is (call_graph_analyzer_t)
+                        analyzer = a
+                    end select
+                type is (control_flow_analyzer_t)
+                    allocate(control_flow_analyzer_t :: analyzer)
+                    select type(analyzer)
+                    type is (control_flow_analyzer_t)
+                        analyzer = a
+                    end select
+                type is (usage_tracker_analyzer_t)
+                    allocate(usage_tracker_analyzer_t :: analyzer)
+                    select type(analyzer)
+                    type is (usage_tracker_analyzer_t)
+                        analyzer = a
+                    end select
+                type is (source_reconstruction_analyzer_t)
+                    allocate(source_reconstruction_analyzer_t :: analyzer)
+                    select type(analyzer)
+                    type is (source_reconstruction_analyzer_t)
+                        analyzer = a
+                    end select
+                type is (interface_analyzer_t)
+                    allocate(interface_analyzer_t :: analyzer)
+                    select type(analyzer)
+                    type is (interface_analyzer_t)
+                        analyzer = a
+                    end select
                 class default
                     ! Should not happen if registered properly
                     return
                 end select
-                
-                ! Deep copy using assignment operator
-                analyzer = this%analyzers(index)%analyzer
             end if
         end if
     end function
@@ -180,19 +211,11 @@ contains
     subroutine cleanup_pipeline(this)
         type(semantic_pipeline_t), intent(inout) :: this
         
-        call this%clear_analyzers()
-        if (allocated(this%shared_context)) then
-            deallocate(this%shared_context)
+        ! Deallocate analyzers directly without reallocating empty array
+        if (allocated(this%analyzers)) then
+            deallocate(this%analyzers)
         end if
-    end subroutine
-
-    subroutine initialize_shared_context(this)
-        class(semantic_pipeline_t), intent(inout) :: this
-        
-        ! For now, just allocate a placeholder
-        ! This will be replaced with actual semantic_context_t
-        ! when we integrate with existing semantic analysis
-        allocate(integer :: this%shared_context)
+        ! Shared context no longer used
     end subroutine
 
 end module semantic_pipeline

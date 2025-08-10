@@ -12,7 +12,6 @@ program test_semantic_pipeline
     integer :: root_node_index
     logical :: test_passed
     class(*), allocatable :: results
-    class(semantic_analyzer_t), allocatable :: retrieved_analyzer
 
     print *, "=== Semantic Pipeline Basic Test ==="
 
@@ -40,23 +39,33 @@ program test_semantic_pipeline
     print *, "PASS: Analyzer registration works"
 
     ! Test 3: Run analysis
+    print *, "DEBUG: About to run analysis"
     call pipeline%run_analysis(arena, root_node_index)
+    print *, "DEBUG: Analysis completed"
 
     ! Test 4: Verify analyzer was executed
-    ! Get the analyzer from the pipeline (it's a copy that was executed)
-    retrieved_analyzer = pipeline%get_analyzer(1)
+    ! Check the analyzer directly from the pipeline (no copy)
+    print *, "DEBUG: About to check analyzer execution"
     
-    select type(retrieved_analyzer)
-    type is (simple_test_analyzer_t)
-        if (.not. retrieved_analyzer%was_executed()) then
-            print *, "FAIL: Test analyzer was not executed"
+    if (allocated(pipeline%analyzers(1)%analyzer)) then
+        select type(a => pipeline%analyzers(1)%analyzer)
+        type is (simple_test_analyzer_t)
+            if (.not. a%was_executed()) then
+                print *, "FAIL: Test analyzer was not executed"
+                error stop
+            end if
+            print *, "PASS: Analyzer execution works"
+            
+            ! Test 5: Check analyzer results
+            results = a%get_results()
+        class default
+            print *, "FAIL: Wrong analyzer type"
             error stop
-        end if
-        print *, "PASS: Analyzer execution works"
-        
-        ! Test 5: Check analyzer results
-        results = retrieved_analyzer%get_results()
-    end select
+        end select
+    else
+        print *, "FAIL: Analyzer not allocated"
+        error stop
+    end if
     
     select type(results)
     type is (logical)
@@ -79,9 +88,11 @@ program test_semantic_pipeline
     print *, "PASS: Analyzer name correct"
 
     ! Cleanup - let Fortran handle finalization automatically
+    print *, "DEBUG: Tests completed, entering cleanup phase"
 
     print *, ""
     print *, "=== ALL TESTS PASSED ==="
     print *, "Basic semantic pipeline infrastructure is working!"
+    print *, "DEBUG: About to exit program"
 
 end program test_semantic_pipeline
