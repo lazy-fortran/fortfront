@@ -141,6 +141,14 @@ module fortfront
                                  initialize_intrinsic_registry, &
                                  intrinsic_signature_t
     
+    ! Semantic query API for advanced semantic analysis (issue #189)
+    use semantic_query_api, only: semantic_query_t, create_semantic_query, &
+                                  variable_info_t, function_info_t, &
+                                  semantic_query_type_info_t => type_info_t, &
+                                  symbol_info_t, &
+                                  SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, &
+                                  SYMBOL_UNKNOWN
+    
     implicit none
     public
     
@@ -238,6 +246,12 @@ module fortfront
               update_ast_range, supports_incremental_update, &
               lock_arena, unlock_arena, is_arena_locked, &
               deep_copy_arena, deep_copy_semantic_context, compute_arena_hash
+    
+    ! Public semantic query APIs for issue #189
+    public :: semantic_query_t, create_semantic_query, &
+              variable_info_t, function_info_t, semantic_query_type_info_t, &
+              symbol_info_t, &
+              SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, SYMBOL_UNKNOWN
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
@@ -324,20 +338,7 @@ module fortfront
         character(len=:), allocatable :: category  ! Error category
     end type diagnostic_t
     
-    ! Enhanced symbol information type for static analysis
-    type :: symbol_info_t
-        character(len=:), allocatable :: name
-        integer :: declaration_node_index = 0
-        integer :: scope_level = 0
-        character(len=:), allocatable :: scope_name
-        type(mono_type_t) :: symbol_type
-        logical :: is_parameter = .false.
-        logical :: is_optional = .false.
-        logical :: is_function = .false.
-        logical :: is_subroutine = .false.
-        logical :: is_module_variable = .false.
-        integer :: intent_type = 0  ! 0=none, 1=in, 2=out, 3=inout
-    end type symbol_info_t
+    ! Enhanced symbol information type now imported from semantic_query_api (issues #189, #190)
     
     ! Function signature type
     type :: function_signature_t
@@ -1296,20 +1297,18 @@ contains
         type(symbol_info_t) :: symbol
         type(poly_type_t), allocatable :: scheme
         
-        ! Initialize symbol with defaults
+        ! Initialize symbol with defaults (using semantic_query_api symbol_info_t fields)
         symbol%name = ""
-        symbol%declaration_node_index = 0
-        symbol%scope_level = 0
+        symbol%definition_line = 0
+        symbol%definition_column = 0
+        symbol%is_used = .false.
         symbol%is_parameter = .false.
-        symbol%is_module_variable = .false.
-        symbol%is_function = .false.
-        symbol%is_subroutine = .false.
         
         ! Try to find symbol in scopes
         call ctx%scopes%lookup(name, scheme)
         if (allocated(scheme)) then
             symbol%name = name
-            symbol%symbol_type = scheme%mono
+            symbol%type_info = scheme%mono
         end if
     end function lookup_symbol
     
@@ -1322,17 +1321,12 @@ contains
         type(poly_type_t), allocatable :: scheme
         integer :: search_scope
         
-        ! Initialize with defaults
+        ! Initialize with defaults (using semantic_query_api symbol_info_t fields)
         symbol%name = ""
-        symbol%declaration_node_index = 0
-        symbol%scope_level = 0
-        symbol%scope_name = ""
+        symbol%definition_line = 0
+        symbol%definition_column = 0
+        symbol%is_used = .false.
         symbol%is_parameter = .false.
-        symbol%is_optional = .false.
-        symbol%is_function = .false.
-        symbol%is_subroutine = .false.
-        symbol%is_module_variable = .false.
-        symbol%intent_type = 0
         
         ! Search for symbol in scopes
         if (present(scope_level)) then
@@ -1344,15 +1338,7 @@ contains
         call ctx%scopes%lookup(name, scheme)
         if (allocated(scheme)) then
             symbol%name = name
-            symbol%symbol_type = scheme%mono
-            symbol%scope_level = ctx%scopes%depth
-            
-            ! Get scope name if available
-            if (ctx%scopes%depth > 0) then
-                symbol%scope_name = ctx%scopes%scopes(ctx%scopes%depth)%name
-            else
-                symbol%scope_name = "global"
-            end if
+            symbol%type_info = scheme%mono
             
             ! Check parameter tracker for additional attributes
             if (ctx%param_tracker%count > 0) then
@@ -1381,9 +1367,7 @@ contains
         if (count > 0) then
             do i = 1, count
                 symbols(i)%name = ctx%scopes%scopes(scope_level)%env%names(i)
-                symbols(i)%symbol_type = ctx%scopes%scopes(scope_level)%env%schemes(i)%mono
-                symbols(i)%scope_level = scope_level
-                symbols(i)%scope_name = ctx%scopes%scopes(scope_level)%name
+                symbols(i)%type_info = ctx%scopes%scopes(scope_level)%env%schemes(i)%mono
                 
                 ! Check parameter attributes
                 call check_parameter_attributes(ctx, symbols(i)%name, symbols(i))
@@ -1474,17 +1458,6 @@ contains
         do i = 1, ctx%param_tracker%count
             if (ctx%param_tracker%params(i)%name == name) then
                 symbol%is_parameter = .true.
-                symbol%is_optional = ctx%param_tracker%params(i)%is_optional
-                ! Convert intent string to integer
-                if (ctx%param_tracker%params(i)%intent == "in") then
-                    symbol%intent_type = 1
-                else if (ctx%param_tracker%params(i)%intent == "out") then
-                    symbol%intent_type = 2
-                else if (ctx%param_tracker%params(i)%intent == "inout") then
-                    symbol%intent_type = 3
-                else
-                    symbol%intent_type = 0
-                end if
                 exit
             end if
         end do

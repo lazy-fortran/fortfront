@@ -24,9 +24,10 @@ program test_symbol_table_api
     symbol = get_symbol_info(ctx, "x")
     if (symbol%name /= "") then
         print *, "  ✓ Found symbol:", symbol%name
-        print *, "  ✓ Scope level:", symbol%scope_level
-        print *, "  ✓ Scope name:", symbol%scope_name
+        print *, "  ✓ Definition line:", symbol%definition_line
+        print *, "  ✓ Definition column:", symbol%definition_column
         print *, "  ✓ Is parameter:", symbol%is_parameter
+        print *, "  ✓ Is used:", symbol%is_used
     else
         print *, "  ✗ Symbol 'x' not found"
     end if
