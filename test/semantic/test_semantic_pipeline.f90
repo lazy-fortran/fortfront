@@ -2,6 +2,7 @@ program test_semantic_pipeline
     use ast_core, only: ast_arena_t, create_ast_arena
     use semantic_pipeline, only: semantic_pipeline_t, create_pipeline, &
                                  destroy_pipeline
+    use semantic_analyzer_base, only: semantic_analyzer_t
     use test_analyzer, only: simple_test_analyzer_t
     implicit none
 
@@ -11,6 +12,7 @@ program test_semantic_pipeline
     integer :: root_node_index
     logical :: test_passed
     class(*), allocatable :: results
+    class(semantic_analyzer_t), allocatable :: retrieved_analyzer
 
     print *, "=== Semantic Pipeline Basic Test ==="
 
@@ -41,14 +43,21 @@ program test_semantic_pipeline
     call pipeline%run_analysis(arena, root_node_index)
 
     ! Test 4: Verify analyzer was executed
-    if (.not. test_analyzer%was_executed()) then
-        print *, "FAIL: Test analyzer was not executed"
-        error stop
-    end if
-    print *, "PASS: Analyzer execution works"
-
-    ! Test 5: Check analyzer results
-    results = test_analyzer%get_results()
+    ! Get the analyzer from the pipeline (it's a copy that was executed)
+    retrieved_analyzer = pipeline%get_analyzer(1)
+    
+    select type(retrieved_analyzer)
+    type is (simple_test_analyzer_t)
+        if (.not. retrieved_analyzer%was_executed()) then
+            print *, "FAIL: Test analyzer was not executed"
+            error stop
+        end if
+        print *, "PASS: Analyzer execution works"
+        
+        ! Test 5: Check analyzer results
+        results = retrieved_analyzer%get_results()
+    end select
+    
     select type(results)
     type is (logical)
         test_passed = results

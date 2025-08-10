@@ -8,6 +8,7 @@ module semantic_pipeline
     use usage_tracker_analyzer, only: usage_tracker_analyzer_t
     use source_reconstruction_analyzer, only: source_reconstruction_analyzer_t
     use interface_analyzer, only: interface_analyzer_t
+    use test_analyzer, only: simple_test_analyzer_t
     implicit none
     private
 
@@ -28,6 +29,7 @@ module semantic_pipeline
         procedure :: register_analyzer
         procedure :: run_analysis
         procedure :: get_analyzer_count
+        procedure :: get_analyzer
         procedure :: clear_analyzers
         final :: cleanup_pipeline
     end type
@@ -84,6 +86,8 @@ contains
             allocate(source_reconstruction_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (interface_analyzer_t)
             allocate(interface_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+        type is (simple_test_analyzer_t)
+            allocate(simple_test_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
         class default
             error stop "Unknown analyzer type in register_analyzer"
         end select
@@ -122,6 +126,44 @@ contains
         integer :: count
         
         count = this%analyzer_count
+    end function
+    
+    function get_analyzer(this, index) result(analyzer)
+        class(semantic_pipeline_t), intent(in) :: this
+        integer, intent(in) :: index
+        class(semantic_analyzer_t), allocatable :: analyzer
+        
+        if (index > 0 .and. index <= this%analyzer_count) then
+            if (allocated(this%analyzers(index)%analyzer)) then
+                ! Type-specific allocation + assignment
+                select type(a => this%analyzers(index)%analyzer)
+                type is (symbol_analyzer_t)
+                    allocate(symbol_analyzer_t :: analyzer)
+                type is (type_analyzer_t)
+                    allocate(type_analyzer_t :: analyzer)
+                type is (scope_analyzer_t)
+                    allocate(scope_analyzer_t :: analyzer)
+                type is (call_graph_analyzer_t)
+                    allocate(call_graph_analyzer_t :: analyzer)
+                type is (control_flow_analyzer_t)
+                    allocate(control_flow_analyzer_t :: analyzer)
+                type is (usage_tracker_analyzer_t)
+                    allocate(usage_tracker_analyzer_t :: analyzer)
+                type is (source_reconstruction_analyzer_t)
+                    allocate(source_reconstruction_analyzer_t :: analyzer)
+                type is (interface_analyzer_t)
+                    allocate(interface_analyzer_t :: analyzer)
+                type is (simple_test_analyzer_t)
+                    allocate(simple_test_analyzer_t :: analyzer)
+                class default
+                    ! Should not happen if registered properly
+                    return
+                end select
+                
+                ! Deep copy using assignment operator
+                analyzer = this%analyzers(index)%analyzer
+            end if
+        end if
     end function
 
     subroutine clear_analyzers(this)
