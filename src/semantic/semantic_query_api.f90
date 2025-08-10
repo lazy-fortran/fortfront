@@ -67,14 +67,17 @@ module semantic_query_api
         integer :: depth
     end type scope_info_t
 
-    ! Symbol information type (as specified in issue #14)
+    ! Symbol information type (as specified in issues #189, #190)
     type :: symbol_info_t
         character(len=:), allocatable :: name
         type(mono_type_t) :: type_info
-        integer :: definition_line = 0
-        integer :: definition_column = 0
-        logical :: is_used = .false.
-        logical :: is_parameter = .false.
+        integer :: definition_line = 0      ! Line where symbol is declared
+        integer :: definition_column = 0    ! Column where symbol is declared  
+        logical :: is_used = .false.        ! Whether symbol is used (TODO: implement)
+        logical :: is_parameter = .false.   ! Whether symbol is a parameter
+        ! NOTE: definition_line/definition_column population requires connecting
+        !       symbol declarations to AST node source locations during semantic 
+        !       analysis. Currently these fields are exported but not populated.
     end type symbol_info_t
 
     ! Main query interface - using existing safe pattern with direct assignment
