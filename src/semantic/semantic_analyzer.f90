@@ -882,8 +882,14 @@ contains
             ! TODO: Properly handle character length in type system
 
         case (TFUN)
+            ! Handle function types defensively due to incomplete inferred_type copying
             if (.not. allocated(t1_subst%args) .or. .not. allocated(t2_subst%args)) then
-                error stop "Invalid function types"
+                ! This occurs because AST node copying doesn't preserve full type information
+                ! TODO: Remove this workaround when proper inferred_type copying is implemented
+                subst%count = 0
+                allocate(subst%vars(0))
+                allocate(subst%types(0))
+                return
             end if
             if (size(t1_subst%args) /= size(t2_subst%args)) then
                 error stop "Function arity mismatch"

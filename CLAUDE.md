@@ -105,3 +105,28 @@ When adding new features:
 4. Implement code generation
 5. Write comprehensive tests for each phase
 - we have four use cases for fortfront. 1. its own standardizer for lazy fortran. 2. fortrun that does module discovery and source and object cache. 3. fluff for static analysis and custom formatting of code, where it would be also ok to be very strict on dismissing original formatting (like ruff and black). 4. ffc the fortran fortran compiler that plugs fortfront to a hlfir llvm backend lowering chain like flang
+- THE ASSIGNMENT OPERATOR ALWAYS HAS TO BE OVERLOADED TO DO A DEEP COPY FOR DERIVED TYPES WITH ALLOCATABLE MEMBERS
+
+## Memory Management
+
+### Known Limitations
+
+**IMPORTANT**: The current implementation has architectural limitations that need addressing:
+
+### AST Node Assignment Operations
+- AST node assignment operators currently **skip** copying `inferred_type` fields
+- This breaks semantic information flow through the compilation pipeline
+- **This is a temporary workaround**, not a design decision
+- TODO: Implement cycle-safe deep copy for `mono_type_t` self-referential structures
+
+### Type System Safety
+- `mono_type_t` assignment uses limited shallow copying to prevent infinite recursion
+- Function types (TFUN) require defensive handling due to incomplete type information
+- Type variable names are always allocated to prevent finalizer crashes
+- Nested `args` arrays are not copied to prevent performance issues and cycles
+
+### Future Work Needed
+1. Implement proper cycle detection in `mono_type_t` copying
+2. Restore full `inferred_type` copying in AST nodes  
+3. Remove defensive workarounds in semantic analyzer
+4. Ensure type information preservation throughout pipeline

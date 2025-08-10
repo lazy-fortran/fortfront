@@ -124,12 +124,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
+        ! Currently skipped due to mono_type_t self-referential structure causing
+        ! performance issues and potential infinite loops during assignment.
+        ! This is a temporary workaround that breaks semantic information flow.
+        if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
@@ -140,6 +140,7 @@ contains
         lhs%has_kind = rhs%has_kind
         if (allocated(rhs%intent)) lhs%intent = rhs%intent
         lhs%has_intent = rhs%has_intent
+        lhs%is_optional = rhs%is_optional
         lhs%initializer_index = rhs%initializer_index
         lhs%has_initializer = rhs%has_initializer
         lhs%is_array = rhs%is_array
@@ -150,6 +151,8 @@ contains
             if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
             allocate(lhs%dimension_indices(size(rhs%dimension_indices)))
             lhs%dimension_indices = rhs%dimension_indices
+        else
+            if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
         end if
     end subroutine declaration_assign
 
@@ -203,12 +206,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
+        ! Currently skipped due to mono_type_t self-referential structure causing
+        ! performance issues and potential infinite loops during assignment.
+        ! This is a temporary workaround that breaks semantic information flow.
+        if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
@@ -222,6 +225,8 @@ contains
             if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
             allocate(lhs%dimension_indices(size(rhs%dimension_indices)))
             lhs%dimension_indices = rhs%dimension_indices
+        else
+            if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
         end if
     end subroutine parameter_declaration_assign
 
@@ -245,12 +250,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
+        ! Currently skipped due to mono_type_t self-referential structure causing
+        ! performance issues and potential infinite loops during assignment.
+        ! This is a temporary workaround that breaks semantic information flow.
+        if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
@@ -287,12 +292,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
+        ! Currently skipped due to mono_type_t self-referential structure causing
+        ! performance issues and potential infinite loops during assignment.
+        ! This is a temporary workaround that breaks semantic information flow.
+        if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name

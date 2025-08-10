@@ -58,7 +58,7 @@ module ast_arena
     end type ast_arena_stats_t
 
     ! Public interface
-    public :: create_ast_arena, ast_entry_t
+    public :: create_ast_arena, ast_entry_t, init_ast_arena
 
 contains
 
@@ -85,6 +85,32 @@ contains
         arena%current_index = 0
         arena%max_depth = 0
     end function create_ast_arena
+
+    ! Initialize AST arena (subroutine version to avoid assignment)
+    subroutine init_ast_arena(arena, initial_capacity)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: initial_capacity
+        integer :: cap
+        
+        ! Set defaults first
+        arena%chunk_size = 1024  ! High-performance chunk size
+        arena%initial_capacity = 256
+        
+        ! Use chunk-aligned initial capacity for optimal performance
+        if (present(initial_capacity)) then
+            cap = max(initial_capacity, 256)
+        else
+            cap = 256
+        end if
+        
+        arena%capacity = cap
+        ! Deallocate existing entries if any
+        if (allocated(arena%entries)) deallocate(arena%entries)
+        allocate (arena%entries(cap))
+        arena%size = 0
+        arena%current_index = 0
+        arena%max_depth = 0
+    end subroutine init_ast_arena
 
     ! Push a new AST node onto the stack
     subroutine ast_arena_push(this, node, node_type, parent_index)
@@ -565,9 +591,8 @@ contains
         if (allocated(rhs%entries)) then
             if (allocated(lhs%entries)) deallocate(lhs%entries)
             allocate(lhs%entries(size(rhs%entries)))
-            ! Deep copy each entry to avoid double-free issues
             do i = 1, size(rhs%entries)
-                lhs%entries(i) = rhs%entries(i)  ! Calls ast_entry_assign
+                lhs%entries(i) = rhs%entries(i)  ! Uses ast_entry_assign
             end do
         end if
     end subroutine ast_arena_assign
@@ -605,11 +630,6 @@ contains
         ! Clear existing node if any
         if (allocated(lhs%node)) deallocate(lhs%node)
         
-        ! For safety and simplicity, we don't copy nodes between entries
-        ! The arena maintains ownership of all nodes
-        ! If you need to copy nodes, use the arena's push method
-        ! This avoids all the dangerous allocate(source=) issues
-        
         ! Copy scalar fields
         lhs%parent_index = rhs%parent_index
         lhs%depth = rhs%depth
@@ -620,11 +640,16 @@ contains
             lhs%node_type = rhs%node_type
         end if
         
-        ! Deep copy child indices array
+        ! Copy child indices
         if (allocated(lhs%child_indices)) deallocate(lhs%child_indices)
         if (allocated(rhs%child_indices)) then
             allocate(lhs%child_indices(size(rhs%child_indices)))
             lhs%child_indices = rhs%child_indices
+        end if
+        
+        ! Deep copy the node using allocate(source=) for polymorphic copying
+        if (allocated(rhs%node)) then
+            allocate(lhs%node, source=rhs%node)
         end if
     end subroutine ast_entry_assign
 
