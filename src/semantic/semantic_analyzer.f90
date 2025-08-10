@@ -245,6 +245,9 @@ contains
                     ! Variable exists - check assignment compatibility
                     target_type = ctx%instantiate(existing_scheme)
 
+                    ! Issue 188: Array reassignment detection moved to standardizer
+                    ! The standardizer handles multi-pass detection of reassignment patterns
+
                     if (.not. is_assignable(typ, target_type)) then
                         ! Type error - for now, just continue with inference
                         ! In a full implementation, we would report an error
@@ -252,7 +255,10 @@ contains
                         !              "assignment to " // var_name)
                     end if
 
-                    ! Use the existing type for consistency
+                    ! Use the existing type for consistency but preserve allocatable flag
+                    if (typ%alloc_info%is_allocatable) then
+                        target_type%alloc_info%is_allocatable = .true.
+                    end if
                     typ = target_type
                 end if
 
@@ -269,6 +275,10 @@ contains
                 ! TODO: Re-enable strict checking after fixing parser &
                 ! multi-variable declaration bug
                 if (.not. allocated(existing_scheme)) then
+                    scheme = ctx%generalize(typ)
+                    call ctx%scopes%define(var_name, scheme)
+                else
+                    ! Update existing variable with new type (including allocatable flag)
                     scheme = ctx%generalize(typ)
                     call ctx%scopes%define(var_name, scheme)
                 end if
@@ -1801,6 +1811,14 @@ contains
                     (elem_type%kind == TREAL .and. current_type%kind == TINT)) then
                     elem_type = create_mono_type(TREAL)
                     elem_type%size = 8  ! real(8)
+                end if
+            else if (current_type%kind == TCHAR .and. elem_type%kind == TCHAR) then
+                ! For character types, find maximum length
+                if (current_type%size > elem_type%size) then
+                    elem_type%size = current_type%size
+                    all_same_type = .false.  ! Different lengths
+                else if (current_type%size /= elem_type%size) then
+                    all_same_type = .false.  ! Different lengths
                 end if
             end if
         end do

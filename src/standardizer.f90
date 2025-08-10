@@ -94,6 +94,9 @@ contains
 
         ! Always insert implicit none and variable declarations for programs
         call insert_variable_declarations(arena, prog, prog_index)
+        
+        ! Mark variables that need allocatable due to array reassignment (Issue 188)
+        call mark_allocatable_for_array_reassignments(arena, prog)
 
         ! Check if we need to insert a contains statement
         if (has_functions .or. has_subroutines) then
@@ -561,7 +564,8 @@ contains
                                                     decl_node%dimension_indices)) &
                                                     deallocate(decl_node%dimension_indices)
                                                 allocate(decl_node%dimension_indices(1))
-                                                if (node%inferred_type%size > 0) then
+                                                if (node%inferred_type%size > 0 .and. &
+                                                    .not. node%inferred_type%alloc_info%is_allocatable) then
                                                     ! Create literal node for the size
                                                     block
                                                         type(literal_node) :: size_literal
@@ -576,7 +580,7 @@ contains
                                                         decl_node%dimension_indices(1) = arena%size
                                                     end block
                                                 else
-                                                    ! Allocatable dimension
+                                                    ! Allocatable dimension (either size unknown or marked allocatable)
                                                     decl_node%dimension_indices(1) = 0
                                                 end if
                                                 exit
@@ -603,6 +607,8 @@ contains
                         end if
                     end if
                     
+                    ! Note: allocatable attribute comes from AST semantic analysis
+                    
                     decl_node%has_kind = .false.
                     decl_node%initializer_index = 0
                     decl_node%line = 1
@@ -622,8 +628,7 @@ contains
 
     ! Collect variables from any statement type
     recursive subroutine collect_statement_vars(arena, stmt_index, var_names, &
-                                                var_types, var_declared, &
-                                                var_count, &
+                                                var_types, var_declared, var_count, &
                                                 function_names, func_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
@@ -1755,5 +1760,195 @@ contains
         logical, intent(out) :: enabled
         enabled = standardizer_type_standardization_enabled
     end subroutine get_standardizer_type_standardization
+
+    ! Mark variables that need allocatable due to array reassignment patterns (Issue 188)
+    subroutine mark_allocatable_for_array_reassignments(arena, prog)
+        type(ast_arena_t), intent(inout) :: arena
+        type(program_node), intent(in) :: prog
+        character(len=64), allocatable :: assigned_vars(:)
+        integer, allocatable :: assignment_counts(:)
+        integer :: var_count, i, j
+        
+        ! Skip if program has no body
+        if (.not. allocated(prog%body_indices)) return
+        
+        allocate(assigned_vars(100))
+        allocate(assignment_counts(100))
+        var_count = 0
+        
+        ! First pass: count assignments to each variable
+        do i = 1, size(prog%body_indices)
+            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                    call count_variable_assignments(arena, prog%body_indices(i), &
+                                                   assigned_vars, assignment_counts, var_count)
+                end if
+            end if
+        end do
+        
+        ! Second pass: mark declarations for variables with multiple array assignments
+        do i = 1, size(prog%body_indices)
+            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                    call mark_declarations_allocatable(arena, prog%body_indices(i), &
+                                                      assigned_vars, assignment_counts, var_count)
+                end if
+            end if
+        end do
+        
+        deallocate(assigned_vars)
+        deallocate(assignment_counts)
+    end subroutine mark_allocatable_for_array_reassignments
+    
+    ! Count assignments to variables (helper for array reassignment detection)
+    recursive subroutine count_variable_assignments(arena, stmt_index, assigned_vars, &
+                                                    assignment_counts, var_count)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: stmt_index
+        character(len=64), intent(inout) :: assigned_vars(:)
+        integer, intent(inout) :: assignment_counts(:)
+        integer, intent(inout) :: var_count
+        integer :: i, var_idx
+        
+        if (stmt_index <= 0 .or. stmt_index > arena%size) return
+        if (.not. allocated(arena%entries(stmt_index)%node)) return
+        
+        select type (stmt => arena%entries(stmt_index)%node)
+        type is (assignment_node)
+            ! Check if this is an array assignment
+            if (stmt%target_index > 0 .and. stmt%target_index <= arena%size) then
+                if (allocated(arena%entries(stmt%target_index)%node)) then
+                    select type (target => arena%entries(stmt%target_index)%node)
+                    type is (identifier_node)
+                        ! Check if value is an array expression
+                        if (is_array_assignment(arena, stmt%value_index)) then
+                            ! Find or add variable to tracking
+                            var_idx = 0
+                            do i = 1, var_count
+                                if (trim(assigned_vars(i)) == trim(target%name)) then
+                                    var_idx = i
+                                    exit
+                                end if
+                            end do
+                            
+                            if (var_idx == 0) then
+                                ! New variable
+                                if (var_count < size(assigned_vars)) then
+                                    var_count = var_count + 1
+                                    assigned_vars(var_count) = target%name
+                                    assignment_counts(var_count) = 1
+                                end if
+                            else
+                                ! Increment count for existing variable
+                                assignment_counts(var_idx) = assignment_counts(var_idx) + 1
+                            end if
+                        end if
+                    end select
+                end if
+            end if
+        type is (do_loop_node)
+            ! Recursively check loop body
+            if (allocated(stmt%body_indices)) then
+                do i = 1, size(stmt%body_indices)
+                    call count_variable_assignments(arena, stmt%body_indices(i), &
+                                                   assigned_vars, assignment_counts, var_count)
+                end do
+            end if
+        type is (if_node)
+            ! Recursively check if branches
+            if (allocated(stmt%then_body_indices)) then
+                do i = 1, size(stmt%then_body_indices)
+                    call count_variable_assignments(arena, stmt%then_body_indices(i), &
+                                                   assigned_vars, assignment_counts, var_count)
+                end do
+            end if
+            if (allocated(stmt%else_body_indices)) then
+                do i = 1, size(stmt%else_body_indices)
+                    call count_variable_assignments(arena, stmt%else_body_indices(i), &
+                                                   assigned_vars, assignment_counts, var_count)
+                end do
+            end if
+        end select
+    end subroutine count_variable_assignments
+    
+    ! Mark declaration nodes as allocatable for variables with multiple assignments
+    recursive subroutine mark_declarations_allocatable(arena, stmt_index, assigned_vars, &
+                                                      assignment_counts, var_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: stmt_index
+        character(len=64), intent(in) :: assigned_vars(:)
+        integer, intent(in) :: assignment_counts(:)
+        integer, intent(in) :: var_count
+        integer :: i
+        
+        if (stmt_index <= 0 .or. stmt_index > arena%size) return
+        if (.not. allocated(arena%entries(stmt_index)%node)) return
+        
+        select type (stmt => arena%entries(stmt_index)%node)
+        type is (declaration_node)
+            ! Check if this declaration needs allocatable
+            do i = 1, var_count
+                if (trim(stmt%var_name) == trim(assigned_vars(i))) then
+                    ! Variable has multiple array assignments
+                    if (assignment_counts(i) > 1) then
+                        ! Only mark as allocatable if:
+                        ! 1. It's an array
+                        ! 2. Not already allocatable
+                        ! 3. Not a procedure parameter (skip those)
+                        if (stmt%is_array .and. &
+                            .not. stmt%is_allocatable .and. &
+                            .not. is_procedure_parameter(arena, stmt_index)) then
+                            stmt%is_allocatable = .true.
+                            ! Update to deferred shape
+                            if (allocated(stmt%dimension_indices)) then
+                                if (size(stmt%dimension_indices) > 0) then
+                                    stmt%dimension_indices(1) = 0  ! Deferred shape
+                                end if
+                            end if
+                        end if
+                    end if
+                    exit
+                end if
+            end do
+        end select
+    end subroutine mark_declarations_allocatable
+    
+    ! Check if assignment value is an array expression
+    function is_array_assignment(arena, value_index) result(is_array)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: value_index
+        logical :: is_array
+        
+        is_array = .false.
+        if (value_index <= 0 .or. value_index > arena%size) return
+        if (.not. allocated(arena%entries(value_index)%node)) return
+        
+        select type (value => arena%entries(value_index)%node)
+        type is (array_literal_node)
+            is_array = .true.
+        end select
+    end function is_array_assignment
+    
+    ! Check if a declaration is a procedure parameter (skip augmentation for these)
+    function is_procedure_parameter(arena, decl_index) result(is_param)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_index
+        logical :: is_param
+        integer :: parent_idx
+        
+        is_param = .false.
+        
+        ! Check if parent is a function or subroutine
+        parent_idx = arena%entries(decl_index)%parent_index
+        if (parent_idx <= 0 .or. parent_idx > arena%size) return
+        if (.not. allocated(arena%entries(parent_idx)%node)) return
+        
+        select type (parent => arena%entries(parent_idx)%node)
+        type is (function_def_node)
+            is_param = .true.
+        type is (subroutine_def_node) 
+            is_param = .true.
+        end select
+    end function is_procedure_parameter
 
 end module standardizer
