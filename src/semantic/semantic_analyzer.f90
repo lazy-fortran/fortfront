@@ -245,14 +245,8 @@ contains
                     ! Variable exists - check assignment compatibility
                     target_type = ctx%instantiate(existing_scheme)
 
-                    ! Issue 188: Detect array reassignment pattern
-                    ! Fortran reallocates automatically on ANY array assignment when sizes differ
-                    if (target_type%kind == TARRAY .and. typ%kind == TARRAY) then
-                        ! Any array reassignment to existing array variable needs allocatable
-                        ! This handles all cases: growth, shrinkage, or different content
-                        target_type%alloc_info%is_allocatable = .true.
-                        typ%alloc_info%is_allocatable = .true.
-                    end if
+                    ! Issue 188: Array reassignment detection moved to standardizer
+                    ! The standardizer handles multi-pass detection of reassignment patterns
 
                     if (.not. is_assignable(typ, target_type)) then
                         ! Type error - for now, just continue with inference
