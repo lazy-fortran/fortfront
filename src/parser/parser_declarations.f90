@@ -739,7 +739,7 @@ contains
 
     ! Parse multi-variable declaration (e.g., real :: a, b, c)
     function parse_multi_declaration(parser, arena) result(decl_indices)
-        use ast_factory, only: push_multi_declaration, push_literal
+        use ast_factory, only: push_declaration, push_multi_declaration, push_literal
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable :: decl_indices(:)
@@ -920,16 +920,16 @@ contains
                     end if
                 end if
 
-                ! Create declaration node
+                ! Create declaration node - use push_declaration for individual variables
                 if (has_kind .and. is_array) then
                     if (has_intent) then
-                        decl_index = push_multi_declaration(arena, type_name, [var_name], &
+                        decl_index = push_declaration(arena, type_name, var_name, &
                             kind_value=kind_value, dimension_indices=dimension_indices, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, intent_value=intent, &
                             is_optional=is_optional, line=line, column=column)
                     else
-                        decl_index = push_multi_declaration(arena, type_name, [var_name], &
+                        decl_index = push_declaration(arena, type_name, var_name, &
                             kind_value=kind_value, dimension_indices=dimension_indices, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, is_optional=is_optional, &
@@ -937,38 +937,38 @@ contains
                     end if
                 else if (has_kind) then
                     if (has_intent) then
-                        decl_index = push_multi_declaration(arena, type_name, [var_name], &
+                        decl_index = push_declaration(arena, type_name, var_name, &
                             kind_value=kind_value, is_allocatable=is_allocatable, &
                             is_pointer=is_pointer, is_target=is_target, &
                             intent_value=intent, is_optional=is_optional, &
                             line=line, column=column)
                     else
-                        decl_index = push_multi_declaration(arena, type_name, [var_name], &
+                        decl_index = push_declaration(arena, type_name, var_name, &
                             kind_value=kind_value, is_allocatable=is_allocatable, &
                             is_pointer=is_pointer, is_target=is_target, &
                             is_optional=is_optional, line=line, column=column)
                     end if
                 else if (is_array) then
                     if (has_intent) then
-                        decl_index = push_multi_declaration(arena, type_name, [var_name], &
+                        decl_index = push_declaration(arena, type_name, var_name, &
                             dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
                             is_pointer=is_pointer, is_target=is_target, &
                             intent_value=intent, is_optional=is_optional, &
                             line=line, column=column)
                     else
-                        decl_index = push_multi_declaration(arena, type_name, [var_name], &
+                        decl_index = push_declaration(arena, type_name, var_name, &
                             dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
                             is_pointer=is_pointer, is_target=is_target, &
                             is_optional=is_optional, line=line, column=column)
                     end if
                 else
                     if (has_intent) then
-                        decl_index = push_multi_declaration(arena, type_name, [var_name], &
+                        decl_index = push_declaration(arena, type_name, var_name, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, intent_value=intent, &
                             is_optional=is_optional, line=line, column=column)
                     else
-                        decl_index = push_multi_declaration(arena, type_name, [var_name], &
+                        decl_index = push_declaration(arena, type_name, var_name, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, is_optional=is_optional, &
                             line=line, column=column)

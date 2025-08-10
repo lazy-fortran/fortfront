@@ -783,16 +783,18 @@ contains
                                     end if
                                 end do
                             type is (declaration_node)
-                                ! Check if this declaration has intent and matches a parameter
-                                if (body_node%has_intent) then
-                                    do i = 1, param_count
-                                        if (allocated(param_map(i)%name) .and. &
-                                            param_map(i)%name == body_node%var_name) then
+                                ! Check if this declaration matches a parameter
+                                do i = 1, param_count
+                                    if (allocated(param_map(i)%name) .and. &
+                                        param_map(i)%name == body_node%var_name) then
+                                        ! Update intent if present
+                                        if (body_node%has_intent) then
                                             param_map(i)%intent_str = body_node%intent
-                                            param_map(i)%is_optional = body_node%is_optional
                                         end if
-                                    end do
-                                end if
+                                        ! Always update optional flag
+                                        param_map(i)%is_optional = body_node%is_optional
+                                    end if
+                                end do
                             end select
                         end if
                     end if
@@ -887,16 +889,18 @@ contains
                                     end if
                                 end do
                             type is (declaration_node)
-                                ! Check if this declaration has intent and matches a parameter
-                                if (body_node%has_intent) then
-                                    do i = 1, param_count
-                                        if (allocated(param_map(i)%name) .and. &
-                                            param_map(i)%name == body_node%var_name) then
+                                ! Check if this declaration matches a parameter
+                                do i = 1, param_count
+                                    if (allocated(param_map(i)%name) .and. &
+                                        param_map(i)%name == body_node%var_name) then
+                                        ! Update intent if present
+                                        if (body_node%has_intent) then
                                             param_map(i)%intent_str = body_node%intent
-                                            param_map(i)%is_optional = body_node%is_optional
                                         end if
-                                    end do
-                                end if
+                                        ! Always update optional flag
+                                        param_map(i)%is_optional = body_node%is_optional
+                                    end if
+                                end do
                             end select
                         end if
                     end if
@@ -2269,13 +2273,24 @@ contains
                         group_kind = node%kind_value
                         group_has_kind = node%has_kind
                         
-                        ! Check intent and optional from the declaration node
-                        if (node%has_intent) then
-                            group_intent = node%intent
-                        else
-                            group_intent = ""
-                        end if
-                        group_is_optional = node%is_optional
+                        ! Check intent and optional, preferring param_map for parameters
+                        block
+                            integer :: param_idx
+                            param_idx = find_parameter_info(param_map, node%var_name)
+                            if (param_idx > 0) then
+                                ! This is a parameter - use param_map information
+                                group_intent = param_map(param_idx)%intent_str
+                                group_is_optional = param_map(param_idx)%is_optional
+                            else
+                                ! Regular declaration - use node information
+                                if (node%has_intent) then
+                                    group_intent = node%intent
+                                else
+                                    group_intent = ""
+                                end if
+                                group_is_optional = node%is_optional
+                            end if
+                        end block
                         
                         ! Handle multi-declarations
                         if (node%is_multi_declaration .and. allocated(node%var_names)) then
