@@ -1,7 +1,6 @@
 module ast_nodes_data
     use json_module
     use ast_base, only: ast_node, visit_interface, to_json_interface
-    use type_system_hm, only: TVAR, TINT, TREAL, TCHAR, TFUN
     implicit none
     private
 
@@ -125,9 +124,9 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Skip inferred_type copying to prevent finalizer crashes
-        ! The mono_type_t automatic finalizer has memory corruption issues
-        ! in this specific test context - skip copying to maintain stability
+        ! Clear existing inferred_type to prevent memory issues
+        ! Note: mono_type_t copying is disabled to avoid automatic finalizer
+        ! conflicts during AST node assignment operations
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
@@ -206,9 +205,9 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Skip inferred_type copying to prevent finalizer crashes
-        ! The mono_type_t automatic finalizer has memory corruption issues
-        ! in this specific test context - skip copying to maintain stability
+        ! Clear existing inferred_type to prevent memory issues
+        ! Note: mono_type_t copying is disabled to avoid automatic finalizer
+        ! conflicts during AST node assignment operations
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
@@ -249,9 +248,9 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Skip inferred_type copying to prevent finalizer crashes
-        ! The mono_type_t automatic finalizer has memory corruption issues
-        ! in this specific test context - skip copying to maintain stability
+        ! Clear existing inferred_type to prevent memory issues
+        ! Note: mono_type_t copying is disabled to avoid automatic finalizer
+        ! conflicts during AST node assignment operations
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
@@ -290,9 +289,9 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Skip inferred_type copying to prevent finalizer crashes
-        ! The mono_type_t automatic finalizer has memory corruption issues
-        ! in this specific test context - skip copying to maintain stability
+        ! Clear existing inferred_type to prevent memory issues
+        ! Note: mono_type_t copying is disabled to avoid automatic finalizer
+        ! conflicts during AST node assignment operations
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
