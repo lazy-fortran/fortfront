@@ -22,9 +22,11 @@ program test_issue_188_allocatable_arrays
     print *, trim(output)
     print *, "=================="
     
-    ! Document current behavior and future expectations
-    print *, "INFO: Issue 188 requires multi-pass type inference"
-    print *, "      Current behavior: May not detect allocatable need"
-    print *, "      Future: Will mark 'v' as allocatable automatically"
-    print *, "PASS: Issue 188 - Test framework ready for future implementation"
+    ! Check that allocatable is detected for self-referential pattern
+    if (index(output, "allocatable ::") > 0) then
+        print *, "PASS: Issue 188 - Array growth pattern triggers allocatable"
+    else
+        print *, "FAIL: Issue 188 - Should detect v = [v, ...] pattern and mark as allocatable"
+        stop 1
+    end if
 end program test_issue_188_allocatable_arrays
