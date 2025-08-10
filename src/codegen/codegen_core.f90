@@ -1707,6 +1707,8 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: elem_code
         integer :: i
+        logical :: is_char_array
+        integer :: max_char_len
 
         ! Check if we have elements
         if (.not. allocated(node%element_indices) .or. &
@@ -1724,11 +1726,41 @@ contains
             return
         end if
 
+        ! Check if this is a character array with mixed lengths
+        is_char_array = .false.
+        max_char_len = 0
+        
+        if (size(node%element_indices) > 0) then
+            do i = 1, size(node%element_indices)
+                if (node%element_indices(i) > 0 .and. &
+                    node%element_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(node%element_indices(i))%node)) then
+                        select type (elem_node => &
+                                      arena%entries(node%element_indices(i))%node)
+                        type is (literal_node)
+                            if (elem_node%literal_kind == LITERAL_STRING) then
+                                is_char_array = .true.
+                                ! Length includes quotes, so subtract 2
+                                max_char_len = max(max_char_len, &
+                                                 len_trim(elem_node%value) - 2)
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        end if
+
         ! Generate array constructor based on syntax_style
         if (allocated(node%syntax_style) .and. node%syntax_style == "legacy") then
             code = "(/ "
         else
             code = "["
+        end if
+        
+        ! Add character type specifier if needed
+        if (is_char_array .and. max_char_len > 0) then
+            code = code//"character(len="// &
+                   trim(adjustl(int_to_string(max_char_len)))//") :: "
         end if
         
         ! Add each element

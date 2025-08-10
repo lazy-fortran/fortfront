@@ -561,7 +561,8 @@ contains
                                                     decl_node%dimension_indices)) &
                                                     deallocate(decl_node%dimension_indices)
                                                 allocate(decl_node%dimension_indices(1))
-                                                if (node%inferred_type%size > 0) then
+                                                if (node%inferred_type%size > 0 .and. &
+                                                    .not. node%inferred_type%alloc_info%is_allocatable) then
                                                     ! Create literal node for the size
                                                     block
                                                         type(literal_node) :: size_literal
@@ -576,7 +577,7 @@ contains
                                                         decl_node%dimension_indices(1) = arena%size
                                                     end block
                                                 else
-                                                    ! Allocatable dimension
+                                                    ! Allocatable dimension (either size unknown or marked allocatable)
                                                     decl_node%dimension_indices(1) = 0
                                                 end if
                                                 exit

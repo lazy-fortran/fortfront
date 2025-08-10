@@ -245,6 +245,16 @@ contains
                     ! Variable exists - check assignment compatibility
                     target_type = ctx%instantiate(existing_scheme)
 
+                    ! Check for dynamic array size change - mark as allocatable
+                    if (target_type%kind == TARRAY .and. typ%kind == TARRAY) then
+                        if (target_type%size /= typ%size .and. &
+                            target_type%size > 0 .and. typ%size > 0) then
+                            ! Size is changing - mark as allocatable
+                            target_type%alloc_info%is_allocatable = .true.
+                            typ%alloc_info%is_allocatable = .true.
+                        end if
+                    end if
+
                     if (.not. is_assignable(typ, target_type)) then
                         ! Type error - for now, just continue with inference
                         ! In a full implementation, we would report an error
@@ -252,7 +262,10 @@ contains
                         !              "assignment to " // var_name)
                     end if
 
-                    ! Use the existing type for consistency
+                    ! Use the existing type for consistency but preserve allocatable flag
+                    if (typ%alloc_info%is_allocatable) then
+                        target_type%alloc_info%is_allocatable = .true.
+                    end if
                     typ = target_type
                 end if
 
@@ -1801,6 +1814,14 @@ contains
                     (elem_type%kind == TREAL .and. current_type%kind == TINT)) then
                     elem_type = create_mono_type(TREAL)
                     elem_type%size = 8  ! real(8)
+                end if
+            else if (current_type%kind == TCHAR .and. elem_type%kind == TCHAR) then
+                ! For character types, find maximum length
+                if (current_type%size > elem_type%size) then
+                    elem_type%size = current_type%size
+                    all_same_type = .false.  ! Different lengths
+                else if (current_type%size /= elem_type%size) then
+                    all_same_type = .false.  ! Different lengths
                 end if
             end if
         end do
