@@ -245,11 +245,12 @@ contains
                     ! Variable exists - check assignment compatibility
                     target_type = ctx%instantiate(existing_scheme)
 
-                    ! Check for dynamic array size change - mark as allocatable
+                    ! Check for specific pattern: v = [v, ...] (array append)
+                    ! This is a minimal fix for issue 188 - detect self-referential array growth
                     if (target_type%kind == TARRAY .and. typ%kind == TARRAY) then
-                        if (target_type%size /= typ%size .and. &
-                            target_type%size > 0 .and. typ%size > 0) then
-                            ! Size is changing - mark as allocatable
+                        if (typ%size > target_type%size .and. target_type%size > 0) then
+                            ! Array is growing (likely v = [v, new_elements])
+                            ! Mark as allocatable for modern Fortran compatibility
                             target_type%alloc_info%is_allocatable = .true.
                             typ%alloc_info%is_allocatable = .true.
                         end if
@@ -282,6 +283,10 @@ contains
                 ! TODO: Re-enable strict checking after fixing parser &
                 ! multi-variable declaration bug
                 if (.not. allocated(existing_scheme)) then
+                    scheme = ctx%generalize(typ)
+                    call ctx%scopes%define(var_name, scheme)
+                else
+                    ! Update existing variable with new type (including allocatable flag)
                     scheme = ctx%generalize(typ)
                     call ctx%scopes%define(var_name, scheme)
                 end if
