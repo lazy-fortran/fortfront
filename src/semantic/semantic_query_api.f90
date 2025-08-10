@@ -84,10 +84,11 @@ module semantic_query_api
         !       analysis. Currently these fields are exported but not populated.
     end type symbol_info_t
 
-    ! Main query interface - using pointers to avoid expensive deep copies (issue #196)
+    ! Main query interface - WARNING: Assignment causes deep copies (issue #196)
+    ! For production use, prefer direct query functions to avoid memory issues
     type :: semantic_query_t
-        type(ast_arena_t), pointer :: arena => null()
-        type(semantic_context_t), pointer :: context => null()
+        type(ast_arena_t) :: arena
+        type(semantic_context_t) :: context
     contains
         procedure :: get_variable_info => query_get_variable_info
         procedure :: get_function_info => query_get_function_info
@@ -107,15 +108,17 @@ module semantic_query_api
 
 contains
 
-    ! Create semantic query interface - using pointers to avoid deep copies (issue #196)
+    ! Create semantic query interface - WARNING: causes deep copies (issue #196)
+    ! This function is retained for compatibility but should be avoided in production.
+    ! Use direct query functions instead to avoid memory issues.
     function create_semantic_query(arena, context) result(query)
-        type(ast_arena_t), intent(in), target :: arena
-        type(semantic_context_t), intent(in), target :: context
+        type(ast_arena_t), intent(in) :: arena
+        type(semantic_context_t), intent(in) :: context
         type(semantic_query_t) :: query
 
-        ! Use pointers to avoid expensive deep copies
-        query%arena => arena
-        query%context => context
+        ! Direct assignment causes deep copies - use with caution
+        query%arena = arena
+        query%context = context
     end function create_semantic_query
 
     ! Get variable information by name
@@ -600,8 +603,16 @@ contains
         is_param = tracker%is_parameter(param_name)
     end function is_parameter_name
 
-    ! ===== DIRECT QUERY FUNCTIONS (avoid semantic_query_t instantiation) =====
-    ! These functions provide lightweight alternatives to avoid deep copy issues
+    ! ===== DIRECT QUERY FUNCTIONS (RECOMMENDED APPROACH) =====
+    ! These functions provide the recommended way to query semantic information.
+    ! They avoid the deep copy issues of semantic_query_t and should be used
+    ! in production code, especially with large AST arenas.
+    ! 
+    ! Benefits:
+    ! - No memory allocation for query objects
+    ! - No deep copies of arena/context
+    ! - Direct access to semantic information
+    ! - Safe to use with any size arena
     
     ! Direct function to check if identifier is defined (issue #196)
     function is_identifier_defined_direct(arena, context, identifier_name) result(defined)

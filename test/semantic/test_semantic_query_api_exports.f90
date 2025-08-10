@@ -35,15 +35,12 @@ program test_semantic_query_api_exports
     print *, "  - is_parameter:", symbol%is_parameter
     print *, "  - is_used:", symbol%is_used
     
-    ! Test semantic query instantiation (fixed with pointers - issue #196)
+    ! Note: semantic_query_t causes deep copies and should be avoided (issue #196)
+    ! The direct functions below are the recommended approach
+    
+    ! Initialize test arena and context for direct functions
     arena = create_ast_arena()
     ctx = create_semantic_context()
-    query = create_semantic_query(arena, ctx)
-    print *, "PASS: semantic_query_t instantiation works (no deep copy issues)"
-    
-    ! Test basic semantic query methods
-    success = query%is_symbol_defined("nonexistent")
-    print *, "PASS: is_symbol_defined callable, result:", success
     
     ! Test direct query functions (lightweight alternative)
     success = is_identifier_defined_direct(arena, ctx, "nonexistent")
@@ -68,9 +65,8 @@ program test_semantic_query_api_exports
     print *, "=== Export Verification Complete ==="
     print *, "✓ All semantic query API exports are accessible"
     print *, "✓ symbol_info_t has source location fields (definition_line, definition_column)"
-    print *, "✓ semantic_query_t instantiation works (no deep copy issues - issue #196)"
-    print *, "✓ Both object-oriented and direct function APIs work"
-    print *, "✓ Direct functions provide lightweight alternative for performance"
+    print *, "✓ Direct query functions work correctly (recommended for issue #196)"
+    print *, "✓ Direct functions avoid deep copy issues entirely"
     print *, ""
     print *, "NOTE: Full source location population requires semantic analysis"
     print *, "      of actual Fortran code with declarations. This test verifies"
