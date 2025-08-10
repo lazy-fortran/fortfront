@@ -140,6 +140,7 @@ contains
         lhs%has_kind = rhs%has_kind
         if (allocated(rhs%intent)) lhs%intent = rhs%intent
         lhs%has_intent = rhs%has_intent
+        lhs%is_optional = rhs%is_optional
         lhs%initializer_index = rhs%initializer_index
         lhs%has_initializer = rhs%has_initializer
         lhs%is_array = rhs%is_array
