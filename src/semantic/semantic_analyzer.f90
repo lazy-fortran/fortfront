@@ -245,15 +245,13 @@ contains
                     ! Variable exists - check assignment compatibility
                     target_type = ctx%instantiate(existing_scheme)
 
-                    ! Check for specific pattern: v = [v, ...] (array append)
-                    ! This is a minimal fix for issue 188 - detect self-referential array growth
+                    ! Issue 188: Detect array reassignment pattern
+                    ! Fortran reallocates automatically on ANY array assignment when sizes differ
                     if (target_type%kind == TARRAY .and. typ%kind == TARRAY) then
-                        if (typ%size > target_type%size .and. target_type%size > 0) then
-                            ! Array is growing (likely v = [v, new_elements])
-                            ! Mark as allocatable for modern Fortran compatibility
-                            target_type%alloc_info%is_allocatable = .true.
-                            typ%alloc_info%is_allocatable = .true.
-                        end if
+                        ! Any array reassignment to existing array variable needs allocatable
+                        ! This handles all cases: growth, shrinkage, or different content
+                        target_type%alloc_info%is_allocatable = .true.
+                        typ%alloc_info%is_allocatable = .true.
                     end if
 
                     if (.not. is_assignable(typ, target_type)) then

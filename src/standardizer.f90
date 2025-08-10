@@ -459,7 +459,6 @@ contains
         character(len=64), allocatable :: var_names(:)
         character(len=64), allocatable :: var_types(:)
         logical, allocatable :: var_declared(:)
-        logical, allocatable :: var_needs_allocatable(:)  ! Track which vars need allocatable
         character(len=64), allocatable :: function_names(:)
         integer :: i, var_count, func_count
         type(declaration_node) :: decl_node
@@ -467,10 +466,8 @@ contains
         allocate (var_names(100))
         allocate (var_types(100))
         allocate (var_declared(100))
-        allocate (var_needs_allocatable(100))  ! Initialize allocatable tracking
         allocate (function_names(100))
         var_declared = .false.
-        var_needs_allocatable = .false.  ! Initialize to false
         var_count = 0
         func_count = 0
 
@@ -497,8 +494,7 @@ contains
              if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         call collect_statement_vars(arena, prog%body_indices(i), &
-                                        var_names, var_types, var_declared, &
-                                        var_needs_allocatable, var_count, &
+                                        var_names, var_types, var_declared, var_count, &
                                                     function_names, func_count)
                     end if
                 end if
@@ -608,16 +604,7 @@ contains
                         end if
                     end if
                     
-                    ! Check if this variable was marked as needing allocatable (issue 188)
-                    if (var_needs_allocatable(i)) then
-                        decl_node%is_allocatable = .true.
-                        ! Force deferred shape for allocatable arrays
-                        if (decl_node%is_array .and. allocated(decl_node%dimension_indices)) then
-                            if (size(decl_node%dimension_indices) > 0) then
-                                decl_node%dimension_indices(1) = 0  ! Deferred shape
-                            end if
-                        end if
-                    end if
+                    ! Note: allocatable attribute comes from AST semantic analysis
                     
                     decl_node%has_kind = .false.
                     decl_node%initializer_index = 0
@@ -638,15 +625,13 @@ contains
 
     ! Collect variables from any statement type
     recursive subroutine collect_statement_vars(arena, stmt_index, var_names, &
-                                                var_types, var_declared, &
-                                                var_needs_allocatable, var_count, &
+                                                var_types, var_declared, var_count, &
                                                 function_names, func_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(inout) :: var_names(:)
         character(len=64), intent(inout) :: var_types(:)
         logical, intent(inout) :: var_declared(:)
-        logical, intent(inout) :: var_needs_allocatable(:)
         integer, intent(inout) :: var_count
         character(len=64), intent(in) :: function_names(:)
         integer, intent(in) :: func_count
@@ -663,8 +648,7 @@ contains
                                          var_declared, var_count)
         type is (assignment_node)
             call collect_assignment_vars(arena, stmt_index, var_names, &
-                                          var_types, var_declared, &
-                                          var_needs_allocatable, var_count, &
+                                          var_types, var_declared, var_count, &
                                          function_names, func_count)
         type is (do_loop_node)
             ! Collect loop variable
@@ -675,8 +659,7 @@ contains
             if (allocated(stmt%body_indices)) then
                 do i = 1, size(stmt%body_indices)
                     call collect_statement_vars(arena, stmt%body_indices(i), &
-                                        var_names, var_types, var_declared, &
-                                        var_needs_allocatable, var_count, &
+                                        var_names, var_types, var_declared, var_count, &
                                                 function_names, func_count)
                 end do
             end if
@@ -685,8 +668,7 @@ contains
             if (allocated(stmt%body_indices)) then
                 do i = 1, size(stmt%body_indices)
                     call collect_statement_vars(arena, stmt%body_indices(i), &
-                                        var_names, var_types, var_declared, &
-                                        var_needs_allocatable, var_count, &
+                                        var_names, var_types, var_declared, var_count, &
                                                 function_names, func_count)
                 end do
             end if
@@ -695,16 +677,14 @@ contains
             if (allocated(stmt%then_body_indices)) then
                 do i = 1, size(stmt%then_body_indices)
                     call collect_statement_vars(arena, stmt%then_body_indices(i), &
-                                        var_names, var_types, var_declared, &
-                                        var_needs_allocatable, var_count, &
+                                        var_names, var_types, var_declared, var_count, &
                                                 function_names, func_count)
                 end do
             end if
             if (allocated(stmt%else_body_indices)) then
                 do i = 1, size(stmt%else_body_indices)
                     call collect_statement_vars(arena, stmt%else_body_indices(i), &
-                                        var_names, var_types, var_declared, &
-                                        var_needs_allocatable, var_count, &
+                                        var_names, var_types, var_declared, var_count, &
                                                 function_names, func_count)
                 end do
             end if
@@ -715,15 +695,13 @@ contains
 
     ! Collect variables from assignment node
     subroutine collect_assignment_vars(arena, assign_index, var_names, &
-                                        var_types, var_declared, &
-                                        var_needs_allocatable, var_count, &
+                                        var_types, var_declared, var_count, &
                                        function_names, func_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: assign_index
         character(len=64), intent(inout) :: var_names(:)
         character(len=64), intent(inout) :: var_types(:)
         logical, intent(inout) :: var_declared(:)
-        logical, intent(inout) :: var_needs_allocatable(:)
         integer, intent(inout) :: var_count
         character(len=64), intent(in) :: function_names(:)
         integer, intent(in) :: func_count
@@ -749,13 +727,6 @@ contains
                             if (allocated(arena%entries(assign%value_index)%node)) then
                                 ! Check if it's an array expression by structure
                                 if (is_array_expression(arena, assign%value_index)) then
-                                    ! Check for self-reference pattern (issue 188)
-                                    if (contains_self_reference(arena, assign%value_index, target%name)) then
-                                        ! Mark this variable as needing allocatable
-                                        call mark_var_needs_allocatable(target%name, var_names, &
-                                                                       var_needs_allocatable, var_count)
-                                    end if
-                                    
                                     ! Try to determine array size if possible
                                     var_type = &
                                         get_array_var_type(arena, assign%value_index)
@@ -771,97 +742,13 @@ contains
                         
                         ! Now collect the variable with the determined type
                         call collect_identifier_var_with_type(target, var_type, &
-                            var_names, var_types, var_declared, &
-                            var_needs_allocatable, var_count, &
+                            var_names, var_types, var_declared, var_count, &
                             function_names, func_count)
                     end select
                 end if
             end if
         end select
     end subroutine collect_assignment_vars
-    
-    ! Check if an array literal contains self-reference (for issue 188)
-    recursive function contains_self_reference(arena, array_index, var_name) result(found)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: array_index
-        character(len=*), intent(in) :: var_name
-        logical :: found
-        integer :: i
-        
-        found = .false.
-        
-        if (array_index <= 0 .or. array_index > arena%size) return
-        if (.not. allocated(arena%entries(array_index)%node)) return
-        
-        select type (array_node => arena%entries(array_index)%node)
-        type is (array_literal_node)
-            ! Check each element of the array
-            if (allocated(array_node%element_indices)) then
-                do i = 1, size(array_node%element_indices)
-                    if (array_node%element_indices(i) > 0 .and. &
-                        array_node%element_indices(i) <= arena%size) then
-                        if (allocated(arena%entries(array_node%element_indices(i))%node)) then
-                            ! Check if this element references our variable
-                            select type (elem => arena%entries(array_node%element_indices(i))%node)
-                            type is (identifier_node)
-                                if (trim(elem%name) == trim(var_name)) then
-                                    found = .true.
-                                    return
-                                end if
-                            type is (binary_op_node)
-                                ! Check recursively in binary operations
-                                if (contains_self_reference_in_expr(arena, array_node%element_indices(i), var_name)) then
-                                    found = .true.
-                                    return
-                                end if
-                            end select
-                        end if
-                    end if
-                end do
-            end if
-        end select
-    end function contains_self_reference
-    
-    ! Check for self-reference in expressions (helper for contains_self_reference)
-    recursive function contains_self_reference_in_expr(arena, expr_index, var_name) result(found)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: expr_index
-        character(len=*), intent(in) :: var_name
-        logical :: found
-        
-        found = .false.
-        
-        if (expr_index <= 0 .or. expr_index > arena%size) return
-        if (.not. allocated(arena%entries(expr_index)%node)) return
-        
-        select type (expr => arena%entries(expr_index)%node)
-        type is (identifier_node)
-            if (trim(expr%name) == trim(var_name)) then
-                found = .true.
-            end if
-        type is (binary_op_node)
-            ! Check both operands
-            found = contains_self_reference_in_expr(arena, expr%left_index, var_name) .or. &
-                   contains_self_reference_in_expr(arena, expr%right_index, var_name)
-        end select
-    end function contains_self_reference_in_expr
-    
-    ! Mark a variable as needing allocatable attribute
-    subroutine mark_var_needs_allocatable(var_name, var_names, var_needs_allocatable, var_count)
-        character(len=*), intent(in) :: var_name
-        character(len=64), intent(in) :: var_names(:)
-        logical, intent(inout) :: var_needs_allocatable(:)
-        integer, intent(in) :: var_count
-        integer :: i
-        
-        ! Find the variable in the list and mark it as needing allocatable
-        do i = 1, var_count
-            if (trim(var_names(i)) == trim(var_name)) then
-                var_needs_allocatable(i) = .true.
-                return
-            end if
-        end do
-    end subroutine mark_var_needs_allocatable
 
     ! Collect variable from identifier node
     subroutine collect_identifier_var(identifier, var_names, var_types, &
@@ -920,14 +807,12 @@ contains
     subroutine collect_identifier_var_with_type(identifier, var_type, &
                                                 var_names, var_types, &
                                                 var_declared, &
-                                                var_needs_allocatable, &
                                                  var_count, function_names, func_count)
         type(identifier_node), intent(in) :: identifier
         character(len=*), intent(in) :: var_type
         character(len=64), intent(inout) :: var_names(:)
         character(len=64), intent(inout) :: var_types(:)
         logical, intent(inout) :: var_declared(:)
-        logical, intent(inout) :: var_needs_allocatable(:)
         integer, intent(inout) :: var_count
         character(len=64), intent(in) :: function_names(:)
         integer, intent(in) :: func_count
