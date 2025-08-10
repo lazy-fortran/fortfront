@@ -124,14 +124,16 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Properly handle inferred_type copying with defensive programming
+        ! Temporarily disable inferred_type copying to prevent memory corruption
+        ! TODO: Fix mono_type_t assignment to work safely in all contexts
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        end if
+        ! Skip copying inferred_type for now to prevent segfault
+        ! if (allocated(rhs%inferred_type)) then
+        !     allocate(lhs%inferred_type)
+        !     lhs%inferred_type = rhs%inferred_type
+        ! end if
         ! Copy derived class fields
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
         if (allocated(rhs%var_name)) lhs%var_name = rhs%var_name
@@ -207,14 +209,16 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Properly handle inferred_type copying with defensive programming
+        ! Temporarily disable inferred_type copying to prevent memory corruption
+        ! TODO: Fix mono_type_t assignment to work safely in all contexts
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        end if
+        ! Skip copying inferred_type for now to prevent segfault
+        ! if (allocated(rhs%inferred_type)) then
+        !     allocate(lhs%inferred_type)
+        !     lhs%inferred_type = rhs%inferred_type
+        ! end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
@@ -252,14 +256,16 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Properly handle inferred_type copying with defensive programming
+        ! Temporarily disable inferred_type copying to prevent memory corruption
+        ! TODO: Fix mono_type_t assignment to work safely in all contexts
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        end if
+        ! Skip copying inferred_type for now to prevent segfault
+        ! if (allocated(rhs%inferred_type)) then
+        !     allocate(lhs%inferred_type)
+        !     lhs%inferred_type = rhs%inferred_type
+        ! end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%declaration_indices)) then
@@ -295,14 +301,16 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Properly handle inferred_type copying with defensive programming
+        ! Temporarily disable inferred_type copying to prevent memory corruption
+        ! TODO: Fix mono_type_t assignment to work safely in all contexts
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        end if
+        ! Skip copying inferred_type for now to prevent segfault
+        ! if (allocated(rhs%inferred_type)) then
+        !     allocate(lhs%inferred_type)
+        !     lhs%inferred_type = rhs%inferred_type
+        ! end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%component_indices)) then
