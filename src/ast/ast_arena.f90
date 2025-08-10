@@ -577,10 +577,24 @@ contains
     subroutine ast_arena_assign(lhs, rhs)
         class(ast_arena_t), intent(inout) :: lhs
         class(ast_arena_t), intent(in) :: rhs
+        integer :: i
         
-        ! Arena assignment is not supported - arenas should never be copied
-        ! The arena owns all nodes and copying would lead to double-free issues
-        error stop "ERROR: ast_arena assignment is not allowed. Arenas cannot be copied."
+        ! Copy all scalar components
+        lhs%size = rhs%size
+        lhs%capacity = rhs%capacity
+        lhs%current_index = rhs%current_index
+        lhs%max_depth = rhs%max_depth
+        lhs%chunk_size = rhs%chunk_size
+        lhs%initial_capacity = rhs%initial_capacity
+        
+        ! Deep copy allocatable array
+        if (allocated(rhs%entries)) then
+            if (allocated(lhs%entries)) deallocate(lhs%entries)
+            allocate(lhs%entries(size(rhs%entries)))
+            do i = 1, size(rhs%entries)
+                lhs%entries(i) = rhs%entries(i)  ! Uses ast_entry_assign
+            end do
+        end if
     end subroutine ast_arena_assign
 
     function ast_entry_deep_copy(this) result(copy)
@@ -613,15 +627,8 @@ contains
         class(ast_entry_t), intent(inout) :: lhs
         class(ast_entry_t), intent(in) :: rhs
         
-        ! IMPORTANT: We don't copy nodes in ast_entry_assign to avoid ownership issues
-        ! The arena maintains ownership of all nodes
-        ! When arena is copied, we should not be doing deep copies
-        ! This prevents double-free issues when the temporary arena is destroyed
-        
-        ! Clear existing node if any - but DON'T copy new one
-        if (allocated(lhs%node)) then
-            deallocate(lhs%node)
-        end if
+        ! Clear existing node if any
+        if (allocated(lhs%node)) deallocate(lhs%node)
         
         ! Copy scalar fields
         lhs%parent_index = rhs%parent_index
@@ -633,11 +640,16 @@ contains
             lhs%node_type = rhs%node_type
         end if
         
-        ! Deep copy child indices array
+        ! Copy child indices
         if (allocated(lhs%child_indices)) deallocate(lhs%child_indices)
         if (allocated(rhs%child_indices)) then
             allocate(lhs%child_indices(size(rhs%child_indices)))
             lhs%child_indices = rhs%child_indices
+        end if
+        
+        ! Deep copy the node using allocate(source=) for polymorphic copying
+        if (allocated(rhs%node)) then
+            allocate(lhs%node, source=rhs%node)
         end if
     end subroutine ast_entry_assign
 
