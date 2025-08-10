@@ -124,9 +124,10 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Clear existing inferred_type to prevent memory issues
-        ! Note: mono_type_t copying is disabled to avoid automatic finalizer
-        ! conflicts during AST node assignment operations
+        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
+        ! Currently skipped due to mono_type_t self-referential structure causing
+        ! performance issues and potential infinite loops during assignment.
+        ! This is a temporary workaround that breaks semantic information flow.
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
@@ -205,9 +206,10 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Clear existing inferred_type to prevent memory issues
-        ! Note: mono_type_t copying is disabled to avoid automatic finalizer
-        ! conflicts during AST node assignment operations
+        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
+        ! Currently skipped due to mono_type_t self-referential structure causing
+        ! performance issues and potential infinite loops during assignment.
+        ! This is a temporary workaround that breaks semantic information flow.
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
@@ -248,9 +250,10 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Clear existing inferred_type to prevent memory issues
-        ! Note: mono_type_t copying is disabled to avoid automatic finalizer
-        ! conflicts during AST node assignment operations
+        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
+        ! Currently skipped due to mono_type_t self-referential structure causing
+        ! performance issues and potential infinite loops during assignment.
+        ! This is a temporary workaround that breaks semantic information flow.
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if
@@ -289,9 +292,10 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! Clear existing inferred_type to prevent memory issues
-        ! Note: mono_type_t copying is disabled to avoid automatic finalizer
-        ! conflicts during AST node assignment operations
+        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
+        ! Currently skipped due to mono_type_t self-referential structure causing
+        ! performance issues and potential infinite loops during assignment.
+        ! This is a temporary workaround that breaks semantic information flow.
         if (allocated(lhs%inferred_type)) then
             deallocate(lhs%inferred_type)
         end if

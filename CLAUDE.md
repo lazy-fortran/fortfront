@@ -109,12 +109,24 @@ When adding new features:
 
 ## Memory Management
 
+### Known Limitations
+
+**IMPORTANT**: The current implementation has architectural limitations that need addressing:
+
 ### AST Node Assignment Operations
-- AST node assignment operators intentionally avoid copying `inferred_type` fields
-- This prevents automatic finalizer conflicts with `mono_type_t` objects during node copying
-- Type information is preserved through the semantic analysis pipeline, not through AST copying
+- AST node assignment operators currently **skip** copying `inferred_type` fields
+- This breaks semantic information flow through the compilation pipeline
+- **This is a temporary workaround**, not a design decision
+- TODO: Implement cycle-safe deep copy for `mono_type_t` self-referential structures
 
 ### Type System Safety
-- `mono_type_t` assignment uses minimal copying to avoid deep recursion issues
-- Function types (TFUN) require defensive handling during unification
+- `mono_type_t` assignment uses limited shallow copying to prevent infinite recursion
+- Function types (TFUN) require defensive handling due to incomplete type information
 - Type variable names are always allocated to prevent finalizer crashes
+- Nested `args` arrays are not copied to prevent performance issues and cycles
+
+### Future Work Needed
+1. Implement proper cycle detection in `mono_type_t` copying
+2. Restore full `inferred_type` copying in AST nodes  
+3. Remove defensive workarounds in semantic analyzer
+4. Ensure type information preservation throughout pipeline

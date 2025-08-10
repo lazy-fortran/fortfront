@@ -882,10 +882,10 @@ contains
             ! TODO: Properly handle character length in type system
 
         case (TFUN)
-            ! Handle function types more defensively
+            ! Handle function types defensively due to incomplete inferred_type copying
             if (.not. allocated(t1_subst%args) .or. .not. allocated(t2_subst%args)) then
-                ! If either function type is missing args, treat as empty substitution
-                ! This can happen during AST node copying when inferred_type is not fully copied
+                ! This occurs because AST node copying doesn't preserve full type information
+                ! TODO: Remove this workaround when proper inferred_type copying is implemented
                 subst%count = 0
                 allocate(subst%vars(0))
                 allocate(subst%types(0))

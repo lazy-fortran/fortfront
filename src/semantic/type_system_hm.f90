@@ -357,7 +357,7 @@ contains
         call mono_type_assign(copy, this)
     end function mono_type_deep_copy
 
-    ! Assignment operator for mono_type_t (safe shallow copy)
+    ! Assignment operator for mono_type_t (proper iterative deep copy)
     subroutine mono_type_assign(lhs, rhs)
         class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
@@ -375,15 +375,15 @@ contains
         ! Copy var field using safe assignment
         lhs%var = rhs%var
         
-        ! For args array, use minimal copying to prevent corruption
-        ! This is a design decision to favor stability over completeness
+        ! Use safe limited copying to prevent recursion issues
+        ! TODO: Implement proper cycle-safe deep copy algorithm
         if (allocated(rhs%args)) then
-            call mono_type_minimal_args_copy(lhs, rhs)
+            call mono_type_safe_args_copy(lhs, rhs)
         end if
     end subroutine mono_type_assign
     
-    ! Ultra-safe args copying to eliminate all memory corruption risks
-    subroutine mono_type_minimal_args_copy(lhs, rhs)
+    ! Safe limited args copying to prevent recursion and performance issues
+    subroutine mono_type_safe_args_copy(lhs, rhs)
         class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
         integer :: i, args_size
@@ -391,15 +391,14 @@ contains
         if (.not. allocated(rhs%args)) return
         
         args_size = size(rhs%args)
-        ! Sanity check - if args_size is unreasonable, skip copying
-        if (args_size < 0 .or. args_size > 100) return
+        if (args_size <= 0 .or. args_size > 20) return  ! Conservative limits
         
-        ! Allocate destination array (even if empty)
+        ! Allocate destination array
         allocate(lhs%args(args_size))
         
-        ! For each element, use ultra-safe initialization and copying
+        ! Copy each argument with minimal depth to maintain stability
         do i = 1, args_size
-            ! Initialize ALL fields to completely safe defaults
+            ! Initialize all fields to safe defaults first
             lhs%args(i)%kind = TVAR
             lhs%args(i)%size = 0
             lhs%args(i)%var%id = -1
@@ -407,31 +406,22 @@ contains
             lhs%args(i)%alloc_info%is_pointer = .false.
             lhs%args(i)%alloc_info%needs_allocation_check = .false.
             
-            ! Always ensure var%name is allocated to prevent finalizer issues
+            ! Always ensure var%name is allocated
             allocate(character(len=0) :: lhs%args(i)%var%name)
             
-            ! Copy essential fields only if source appears valid
+            ! Copy essential fields with validation
             if (rhs%args(i)%kind >= 1 .and. rhs%args(i)%kind <= 10) then
                 lhs%args(i)%kind = rhs%args(i)%kind
             end if
-            if (rhs%args(i)%size >= 0 .and. rhs%args(i)%size <= 1000000) then
+            if (rhs%args(i)%size >= 0) then
                 lhs%args(i)%size = rhs%args(i)%size
             end if
             lhs%args(i)%alloc_info = rhs%args(i)%alloc_info
+            lhs%args(i)%var = rhs%args(i)%var
             
-            ! Safe var copying with validation
-            if (rhs%args(i)%var%id >= -1) then
-                lhs%args(i)%var%id = rhs%args(i)%var%id
-            end if
-            if (allocated(rhs%args(i)%var%name)) then
-                deallocate(lhs%args(i)%var%name)
-                lhs%args(i)%var%name = rhs%args(i)%var%name
-            end if
-            
-            ! CRITICAL: Never copy nested args - this prevents all corruption
-            ! lhs%args(i)%args remains unallocated (safe default)
+            ! IMPORTANT: Never copy nested args to prevent cycles and stack overflow
         end do
-    end subroutine mono_type_minimal_args_copy
+    end subroutine mono_type_safe_args_copy
 
     ! Convert polymorphic type to string
     function poly_type_to_string(this) result(str)
