@@ -1098,14 +1098,14 @@ contains
         type(mono_type_t), pointer :: expr_type
         character(len=:), allocatable :: elem_type_str
         
-        var_type = "real(8), dimension(:), allocatable"  ! Default
+        var_type = "real(8)"  ! Default - just the base type, no attributes
         
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
         
         select type (node => arena%entries(expr_index)%node)
         type is (array_literal_node)
-            ! For array literals, we know the exact size
+            ! For array literals, get the element type
             if (allocated(node%element_indices)) then
                 ! Try to get the inferred type of the array literal
                 if (allocated(node%inferred_type)) then
@@ -1130,14 +1130,13 @@ contains
                     end if
                 end if
                 
-                write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
-                    ", dimension(", size(node%element_indices), ")"
+                ! Return just the base type, not dimension/allocatable attributes
+                var_type = trim(elem_type_str)
             end if
         type is (call_or_subscript_node)
-            ! For array slices, try to calculate the size
+            ! For array slices, return base type
             if (has_array_slice_args(arena, node)) then
-                ! For now, use allocatable. TODO: Calculate slice size
-                var_type = "real(8), dimension(:), allocatable"
+                var_type = "real(8)"  ! Default base type
             end if
         end select
     end function get_array_var_type
@@ -1899,11 +1898,12 @@ contains
                             .not. stmt%is_allocatable .and. &
                             .not. is_procedure_parameter(arena, stmt_index)) then
                             stmt%is_allocatable = .true.
-                            ! Update to deferred shape
+                            ! Update ALL dimensions to deferred shape
                             if (allocated(stmt%dimension_indices)) then
-                                if (size(stmt%dimension_indices) > 0) then
-                                    stmt%dimension_indices(1) = 0  ! Deferred shape
-                                end if
+                                ! Set all dimensions to 0 (deferred shape)
+                                ! This converts fixed dimensions like (10) or (3,4) 
+                                ! to deferred shapes (:) or (:,:)
+                                stmt%dimension_indices = 0
                             end if
                         end if
                     end if
