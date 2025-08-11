@@ -539,7 +539,57 @@ contains
                                                             var_names(i))) then
                             decl_idx = decl_idx + 1
                     ! Create declaration node
-                    decl_node%type_name = trim(var_types(i))
+                    ! Parse the type string - it might contain dimension info
+                    block
+                        integer :: comma_pos, dim_pos, paren_pos, iostat
+                        logical :: has_dimension_attr
+                        character(len=20) :: dim_str
+                        integer :: dim_size
+                        
+                        has_dimension_attr = .false.
+                        comma_pos = index(var_types(i), ',')
+                        if (comma_pos > 0) then
+                            ! Has attributes like dimension - extract just the base type
+                            decl_node%type_name = trim(var_types(i)(1:comma_pos-1))
+                            
+                            ! Check for dimension attribute
+                            dim_pos = index(var_types(i), 'dimension(')
+                            if (dim_pos > 0) then
+                                has_dimension_attr = .true.
+                                ! Extract dimension value
+                                paren_pos = index(var_types(i)(dim_pos:), ')')
+                                if (paren_pos > 1) then  ! Must be > 1 to have content
+                                    ! paren_pos is relative to dim_pos, so adjust accordingly
+                                    ! dimension( has 10 chars, paren_pos-1 is the position before )
+                                    if (dim_pos+9 < dim_pos+paren_pos-2) then
+                                        dim_str = var_types(i)(dim_pos+10:dim_pos+paren_pos-2)
+                                        read(dim_str, *, iostat=iostat) dim_size
+                                    else
+                                        iostat = 1  ! Invalid dimension string
+                                    end if
+                                    if (iostat == 0) then
+                                        ! Successfully parsed dimension
+                                        decl_node%is_array = .true.
+                                        if (allocated(decl_node%dimension_indices)) &
+                                            deallocate(decl_node%dimension_indices)
+                                        allocate(decl_node%dimension_indices(1))
+                                        ! Create literal node for the size
+                                        block
+                                            type(literal_node) :: size_literal
+                                            character(len=20) :: size_str
+                                            write(size_str, '(i0)') dim_size
+                                            size_literal = create_literal(trim(size_str), &
+                                                                         LITERAL_INTEGER, 1, 1)
+                                            call arena%push(size_literal, "literal", prog_index)
+                                            decl_node%dimension_indices(1) = arena%size
+                                        end block
+                                    end if
+                                end if
+                            end if
+                        else
+                            decl_node%type_name = trim(var_types(i))
+                        end if
+                    end block
                     decl_node%var_name = trim(var_names(i))
                     
                     ! Check if this variable is an array by looking it up in the arena
@@ -1130,8 +1180,16 @@ contains
                     end if
                 end if
                 
-                write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
-                    ", dimension(", size(node%element_indices), ")"
+                ! For implied do loops, use allocatable array
+                ! TODO: Calculate actual size from implied do bounds
+                if (size(node%element_indices) == 1) then
+                    ! Could be an implied do - check if it looks like one
+                    ! For now, use allocatable for safety
+                    var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                else
+                    write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                        ", dimension(", size(node%element_indices), ")"
+                end if
             end if
         type is (call_or_subscript_node)
             ! For array slices, try to calculate the size
@@ -1899,11 +1957,12 @@ contains
                             .not. stmt%is_allocatable .and. &
                             .not. is_procedure_parameter(arena, stmt_index)) then
                             stmt%is_allocatable = .true.
-                            ! Update to deferred shape
+                            ! Update ALL dimensions to deferred shape
                             if (allocated(stmt%dimension_indices)) then
-                                if (size(stmt%dimension_indices) > 0) then
-                                    stmt%dimension_indices(1) = 0  ! Deferred shape
-                                end if
+                                ! Set all dimensions to 0 (deferred shape)
+                                ! This converts fixed dimensions like (10) or (3,4) 
+                                ! to deferred shapes (:) or (:,:)
+                                stmt%dimension_indices = 0
                             end if
                         end if
                     end if
