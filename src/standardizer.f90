@@ -17,6 +17,9 @@ module standardizer
     
     ! Type standardization configuration for standardizer
     logical, save :: standardizer_type_standardization_enabled = .true.
+    
+    ! Constants
+    integer, parameter :: INVALID_INTEGER = -999999
 
     public :: standardize_ast
     public :: standardize_ast_json
@@ -564,8 +567,6 @@ contains
                                     ! paren_pos is relative to dim_pos, so we extract from dim_pos+10 to dim_pos+paren_pos-2
                                     dim_str = var_types(i)(dim_pos+10:dim_pos+paren_pos-2)
                                     read(dim_str, *, iostat=iostat) dim_size
-                                    if (iostat /= 0) then
-                                    end if
                                 else
                                     iostat = 1  ! Invalid dimension string
                                 end if
@@ -1200,68 +1201,51 @@ contains
         
         ! Get start value
         start_val = get_integer_literal_value(arena, start_idx)
-        if (start_val == -999999) then
+        if (start_val == INVALID_INTEGER) then
             return
         end if
         
         ! Get end value
         end_val = get_integer_literal_value(arena, end_idx)
-        if (end_val == -999999) then
+        if (end_val == INVALID_INTEGER) then
             return
         end if
         
         ! Get step value (default to 1 if not specified)
         if (step_idx > 0) then
             step_val = get_integer_literal_value(arena, step_idx)
-            if (step_val == -999999) step_val = 1
+            if (step_val == INVALID_INTEGER) step_val = 1
         else
             step_val = 1
         end if
         
         ! Calculate size
         if (step_val /= 0) then
-            size = (end_val - start_val) / step_val + 1
-            if (size < 0) size = 0
+            if (step_val > 0) then
+                ! Forward iteration
+                if (end_val >= start_val) then
+                    size = (end_val - start_val) / step_val + 1
+                else
+                    size = 0  ! No iterations
+                end if
+            else
+                ! Backward iteration
+                if (start_val >= end_val) then
+                    size = (start_val - end_val) / abs(step_val) + 1
+                else
+                    size = 0  ! No iterations
+                end if
+            end if
         end if
     end function calculate_loop_size
     
-    ! Get node type name for debugging
-    function get_node_type_name(arena, idx) result(name)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: idx
-        character(len=32) :: name
-        
-        name = "unknown"
-        if (idx <= 0 .or. idx > arena%size) then
-            name = "invalid_index"
-            return
-        end if
-        if (.not. allocated(arena%entries(idx)%node)) then
-            name = "unallocated"
-            return
-        end if
-        
-        select type (node => arena%entries(idx)%node)
-        type is (literal_node)
-            name = "literal_node"
-        type is (identifier_node)
-            name = "identifier_node"
-        type is (binary_op_node)
-            name = "binary_op_node"
-        type is (do_loop_node)
-            name = "do_loop_node"
-        class default
-            name = "other_node"
-        end select
-    end function get_node_type_name
-    
     ! Get integer value from a literal node
-    function get_integer_literal_value(arena, expr_idx) result(value)
+    recursive function get_integer_literal_value(arena, expr_idx) result(value)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_idx
         integer :: value
         
-        value = -999999  ! Error value
+        value = INVALID_INTEGER  ! Error value
         
         if (expr_idx <= 0 .or. expr_idx > arena%size) then
             return
@@ -1272,17 +1256,29 @@ contains
         
         select type (node => arena%entries(expr_idx)%node)
         type is (literal_node)
-            
             ! Try using literal_kind instead of literal_type
             if (node%literal_kind == LITERAL_INTEGER .and. allocated(node%value)) then
                 block
                     integer :: iostat
                     read(node%value, *, iostat=iostat) value
                     if (iostat /= 0) then
-                        value = -999999
+                        value = INVALID_INTEGER
                     end if
                 end block
-            else
+            end if
+        type is (binary_op_node)
+            ! Handle binary operations like "0 - 1" 
+            if (allocated(node%operator) .and. node%operator == "-") then
+                if (node%left_index > 0 .and. node%right_index > 0) then
+                    block
+                        integer :: left_val, right_val
+                        left_val = get_integer_literal_value(arena, node%left_index)
+                        right_val = get_integer_literal_value(arena, node%right_index)
+                        if (left_val /= INVALID_INTEGER .and. right_val /= INVALID_INTEGER) then
+                            value = left_val - right_val
+                        end if
+                    end block
+                end if
             end if
         class default
         end select
