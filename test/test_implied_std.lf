@@ -1,2 +1,0 @@
-squares = [(i*i, i=1,5)]
-print *, squares
