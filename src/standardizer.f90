@@ -566,27 +566,44 @@ contains
                                 if (paren_pos > 10) then  ! Must have at least 1 character after dimension(
                                     ! paren_pos is relative to dim_pos, so we extract from dim_pos+10 to dim_pos+paren_pos-2
                                     dim_str = var_types(i)(dim_pos+10:dim_pos+paren_pos-2)
-                                    read(dim_str, *, iostat=iostat) dim_size
+                                    
+                                    ! Check if it's a deferred shape (:) - indicates allocatable
+                                    if (trim(dim_str) == ':') then
+                                        decl_node%is_array = .true.
+                                        decl_node%is_allocatable = .true.
+                                        if (allocated(decl_node%dimension_indices)) &
+                                            deallocate(decl_node%dimension_indices)
+                                        allocate(decl_node%dimension_indices(1))
+                                        decl_node%dimension_indices(1) = 0  ! 0 indicates deferred shape
+                                    else
+                                        ! Try to parse as integer
+                                        read(dim_str, *, iostat=iostat) dim_size
+                                        if (iostat == 0) then
+                                            ! Successfully parsed dimension
+                                            decl_node%is_array = .true.
+                                            if (allocated(decl_node%dimension_indices)) &
+                                                deallocate(decl_node%dimension_indices)
+                                            allocate(decl_node%dimension_indices(1))
+                                            ! Create literal node for the size
+                                            block
+                                                type(literal_node) :: size_literal
+                                                character(len=20) :: size_str
+                                                write(size_str, '(i0)') dim_size
+                                                size_literal = create_literal(trim(size_str), &
+                                                                             LITERAL_INTEGER, 1, 1)
+                                                call arena%push(size_literal, "literal", prog_index)
+                                                decl_node%dimension_indices(1) = arena%size
+                                            end block
+                                        end if
+                                    end if
                                 else
                                     iostat = 1  ! Invalid dimension string
                                 end if
-                                if (iostat == 0) then
-                                    ! Successfully parsed dimension
-                                    decl_node%is_array = .true.
-                                    if (allocated(decl_node%dimension_indices)) &
-                                        deallocate(decl_node%dimension_indices)
-                                    allocate(decl_node%dimension_indices(1))
-                                    ! Create literal node for the size
-                                    block
-                                        type(literal_node) :: size_literal
-                                        character(len=20) :: size_str
-                                        write(size_str, '(i0)') dim_size
-                                        size_literal = create_literal(trim(size_str), &
-                                                                     LITERAL_INTEGER, 1, 1)
-                                        call arena%push(size_literal, "literal", prog_index)
-                                        decl_node%dimension_indices(1) = arena%size
-                                    end block
-                                end if
+                            end if
+                            
+                            ! Check for explicit allocatable attribute
+                            if (index(var_types(i), 'allocatable') > 0) then
+                                decl_node%is_allocatable = .true.
                             end if
                         else
                             decl_node%type_name = trim(var_types(i))
@@ -1267,15 +1284,25 @@ contains
                 end block
             end if
         type is (binary_op_node)
-            ! Handle binary operations like "0 - 1" 
-            if (allocated(node%operator) .and. node%operator == "-") then
+            ! Handle simple binary operations for compile-time constants
+            if (allocated(node%operator)) then
                 if (node%left_index > 0 .and. node%right_index > 0) then
                     block
                         integer :: left_val, right_val
                         left_val = get_integer_literal_value(arena, node%left_index)
                         right_val = get_integer_literal_value(arena, node%right_index)
-                        if (left_val /= INVALID_INTEGER .and. right_val /= INVALID_INTEGER) then
-                            value = left_val - right_val
+                        if (left_val /= INVALID_INTEGER .and. &
+                            right_val /= INVALID_INTEGER) then
+                            select case(node%operator)
+                            case("-")
+                                value = left_val - right_val
+                            case("+")
+                                value = left_val + right_val
+                            case("*")
+                                value = left_val * right_val
+                            case("/")
+                                if (right_val /= 0) value = left_val / right_val
+                            end select
                         end if
                     end block
                 end if

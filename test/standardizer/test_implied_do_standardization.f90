@@ -11,6 +11,10 @@ program test_implied_do_standardization
     if (.not. test_simple_implied_do()) all_passed = .false.
     if (.not. test_implied_do_with_step()) all_passed = .false.
     if (.not. test_negative_range_implied_do()) all_passed = .false.
+    if (.not. test_non_literal_bounds()) all_passed = .false.
+    
+    ! Cleanup temporary files
+    call cleanup_temp_files()
     
     if (all_passed) then
         print *, 'PASS: All implied do loop standardization tests passed'
@@ -22,26 +26,30 @@ program test_implied_do_standardization
 
 contains
 
-    logical function test_simple_implied_do()
+    ! Helper to run a test case
+    logical function run_implied_do_test(input_code, expected_var, &
+                                         expected_size_str, test_name)
+        character(len=*), intent(in) :: input_code(:)
+        character(len=*), intent(in) :: expected_var, expected_size_str
+        character(len=*), intent(in) :: test_name
         character(len=:), allocatable :: input_file, output_file
         character(len=256) :: error_msg, line
         type(compilation_options_t) :: options
-        integer :: unit, iostat
-        logical :: found_correct_decl
+        integer :: unit, iostat, i
         
-        test_simple_implied_do = .false.
+        run_implied_do_test = .false.
         
-        ! Create test input with implied do loop
-        input_file = 'test_implied_do.lf'
+        ! Create test input
+        input_file = 'test_' // test_name // '.lf'
         open(newunit=unit, file=input_file, status='replace')
-        write(unit, '(a)') 'squares = [(i**2, i=1,10)]'
-        write(unit, '(a)') 'print*, squares'
+        do i = 1, size(input_code)
+            write(unit, '(a)') input_code(i)
+        end do
         close(unit)
         
-        ! Compile with standardization
-        output_file = 'test_implied_do_out.f90'
+        ! Compile
+        output_file = 'test_' // test_name // '_out.f90'
         options%output_file = output_file
-        
         call compile_source(input_file, options, error_msg)
         
         if (len_trim(error_msg) > 0) then
@@ -49,133 +57,85 @@ contains
             return
         end if
         
-        ! Check if squares got a declaration with correct size
-        found_correct_decl = .false.
+        ! Check output
         open(newunit=unit, file=output_file, status='old')
         do
             read(unit, '(a)', iostat=iostat) line
             if (iostat /= 0) exit
             
-            ! Look for squares declaration with size 10
-            if (index(line, 'squares') > 0 .and. index(line, '::') > 0) then
-                print *, 'Found declaration:', trim(line)
-                if (index(line, 'squares(10)') > 0 .or. &
-                    index(line, 'squares(:)') > 0) then
-                    found_correct_decl = .true.
+            if (index(line, expected_var) > 0 .and. index(line, '::') > 0) then
+                print *, '  Found:', trim(line)
+                if (index(line, expected_size_str) > 0) then
+                    run_implied_do_test = .true.
                 else
-                    print *, 'ERROR: Wrong array size in declaration'
+                    print *, '  ERROR: Expected', expected_size_str
                 end if
             end if
         end do
         close(unit)
-        
-        if (.not. found_correct_decl) then
-            print *, 'FAIL: Declaration has wrong size for implied do array'
-            return
-        end if
-        
-        test_simple_implied_do = .true.
-        
+    end function run_implied_do_test
+
+    logical function test_simple_implied_do()
+        character(len=50) :: code(2)
+        print *, 'Testing simple implied do loop...'
+        code = ['squares = [(i**2, i=1,10)]                      ', &
+                'print*, squares                                 ']
+        test_simple_implied_do = run_implied_do_test(code, 'squares', &
+                                                     'squares(10)', 'simple')
     end function test_simple_implied_do
     
     logical function test_implied_do_with_step()
-        character(len=:), allocatable :: input_file, output_file
-        character(len=256) :: error_msg, line
-        type(compilation_options_t) :: options
-        integer :: unit, iostat
-        logical :: found_correct_decl
-        
-        test_implied_do_with_step = .false.
+        character(len=50) :: code(2)
         print *, 'Testing implied do with step...'
-        
-        ! Create test input with step value
-        input_file = 'test_implied_step.lf'
-        open(newunit=unit, file=input_file, status='replace')
-        write(unit, '(a)') 'evens = [(i, i=2,20,2)]'
-        write(unit, '(a)') 'print*, evens'
-        close(unit)
-        
-        ! Compile with standardization
-        output_file = 'test_implied_step_out.f90'
-        options%output_file = output_file
-        
-        call compile_source(input_file, options, error_msg)
-        
-        if (len_trim(error_msg) > 0) then
-            print *, 'Compilation error:', trim(error_msg)
-            return
-        end if
-        
-        ! Check for correct declaration (should be size 10: 2,4,6,...,20)
-        found_correct_decl = .false.
-        open(newunit=unit, file=output_file, status='old')
-        do
-            read(unit, '(a)', iostat=iostat) line
-            if (iostat /= 0) exit
-            
-            if (index(line, 'evens') > 0 .and. index(line, '::') > 0) then
-                print *, '  Found declaration:', trim(line)
-                if (index(line, 'evens(10)') > 0) then
-                    found_correct_decl = .true.
-                else
-                    print *, '  ERROR: Wrong array size (expected 10)'
-                end if
-            end if
-        end do
-        close(unit)
-        
-        test_implied_do_with_step = found_correct_decl
-        
+        code = ['evens = [(i, i=2,20,2)]                         ', &
+                'print*, evens                                   ']
+        test_implied_do_with_step = run_implied_do_test(code, 'evens', &
+                                                        'evens(10)', 'step')
     end function test_implied_do_with_step
     
     logical function test_negative_range_implied_do()
-        character(len=:), allocatable :: input_file, output_file
-        character(len=256) :: error_msg, line
-        type(compilation_options_t) :: options
-        integer :: unit, iostat
-        logical :: found_correct_decl
+        character(len=50) :: code(2)
+        print *, 'Testing implied do with negative step...'
+        code = ['countdown = [(i, i=10,1,-1)]                    ', &
+                'print*, countdown                               ']
+        test_negative_range_implied_do = run_implied_do_test(code, &
+                                            'countdown', 'countdown(10)', 'neg')
+    end function test_negative_range_implied_do
+    
+    logical function test_non_literal_bounds()
+        character(len=50) :: code(3)
+        print *, 'Testing implied do with non-literal bounds...'
+        code = ['n = 10                                          ', &
+                'arr = [(i, i=1,n)]                              ', &
+                'print*, arr                                     ']
+        test_non_literal_bounds = run_implied_do_test(code, 'arr', &
+                                                      'allocatable', 'var')
+    end function test_non_literal_bounds
+    
+    subroutine cleanup_temp_files()
+        logical :: file_exists
+        character(len=30) :: filename
+        integer :: i, unit
+        character(len=10), dimension(4) :: test_names = &
+            ['simple    ', 'step      ', 'neg       ', 'var       ']
         
-        test_negative_range_implied_do = .false.
-        print *, 'Testing implied do with negative range...'
-        
-        ! Create test input with negative step
-        input_file = 'test_implied_neg.lf'
-        open(newunit=unit, file=input_file, status='replace')
-        write(unit, '(a)') 'countdown = [(i, i=10,1,-1)]'
-        write(unit, '(a)') 'print*, countdown'
-        close(unit)
-        
-        ! Compile with standardization
-        output_file = 'test_implied_neg_out.f90'
-        options%output_file = output_file
-        
-        call compile_source(input_file, options, error_msg)
-        
-        if (len_trim(error_msg) > 0) then
-            print *, 'Compilation error:', trim(error_msg)
-            return
-        end if
-        
-        ! Check for correct declaration (should be size 10)
-        found_correct_decl = .false.
-        open(newunit=unit, file=output_file, status='old')
-        do
-            read(unit, '(a)', iostat=iostat) line
-            if (iostat /= 0) exit
+        do i = 1, 4
+            ! Delete .lf file
+            filename = 'test_' // trim(test_names(i)) // '.lf'
+            inquire(file=filename, exist=file_exists)
+            if (file_exists) then
+                open(newunit=unit, file=filename, status='old')
+                close(unit, status='delete')
+            end if
             
-            if (index(line, 'countdown') > 0 .and. index(line, '::') > 0) then
-                print *, '  Found declaration:', trim(line)
-                if (index(line, 'countdown(10)') > 0) then
-                    found_correct_decl = .true.
-                else
-                    print *, '  ERROR: Wrong array size (expected 10)'
-                end if
+            ! Delete _out.f90 file
+            filename = 'test_' // trim(test_names(i)) // '_out.f90'
+            inquire(file=filename, exist=file_exists)
+            if (file_exists) then
+                open(newunit=unit, file=filename, status='old')
+                close(unit, status='delete')
             end if
         end do
-        close(unit)
-        
-        test_negative_range_implied_do = found_correct_decl
-        
-    end function test_negative_range_implied_do
+    end subroutine cleanup_temp_files
 
 end program test_implied_do_standardization
