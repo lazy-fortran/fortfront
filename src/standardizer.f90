@@ -17,6 +17,9 @@ module standardizer
     
     ! Type standardization configuration for standardizer
     logical, save :: standardizer_type_standardization_enabled = .true.
+    
+    ! Constants
+    integer, parameter :: INVALID_INTEGER = -999999
 
     public :: standardize_ast
     public :: standardize_ast_json
@@ -545,6 +548,8 @@ contains
                         logical :: has_dimension_attr
                         character(len=20) :: dim_str
                         integer :: dim_size
+                        logical :: found_array_type
+                        integer :: j
                         
                         has_dimension_attr = .false.
                         comma_pos = index(var_types(i), ',')
@@ -558,49 +563,63 @@ contains
                                 has_dimension_attr = .true.
                                 ! Extract dimension value
                                 paren_pos = index(var_types(i)(dim_pos:), ')')
-                                if (paren_pos > 1) then  ! Must be > 1 to have content
-                                    ! paren_pos is relative to dim_pos, so adjust accordingly
-                                    ! dimension( has 10 chars, paren_pos-1 is the position before )
-                                    if (dim_pos+9 < dim_pos+paren_pos-2) then
-                                        dim_str = var_types(i)(dim_pos+10:dim_pos+paren_pos-2)
-                                        read(dim_str, *, iostat=iostat) dim_size
-                                    else
-                                        iostat = 1  ! Invalid dimension string
-                                    end if
-                                    if (iostat == 0) then
-                                        ! Successfully parsed dimension
+                                if (paren_pos > 10) then  ! Must have at least 1 character after dimension(
+                                    ! paren_pos is relative to dim_pos, so we extract from dim_pos+10 to dim_pos+paren_pos-2
+                                    dim_str = var_types(i)(dim_pos+10:dim_pos+paren_pos-2)
+                                    
+                                    ! Check if it's a deferred shape (:) - indicates allocatable
+                                    if (trim(dim_str) == ':') then
                                         decl_node%is_array = .true.
+                                        decl_node%is_allocatable = .true.
                                         if (allocated(decl_node%dimension_indices)) &
                                             deallocate(decl_node%dimension_indices)
                                         allocate(decl_node%dimension_indices(1))
-                                        ! Create literal node for the size
-                                        block
-                                            type(literal_node) :: size_literal
-                                            character(len=20) :: size_str
-                                            write(size_str, '(i0)') dim_size
-                                            size_literal = create_literal(trim(size_str), &
-                                                                         LITERAL_INTEGER, 1, 1)
-                                            call arena%push(size_literal, "literal", prog_index)
-                                            decl_node%dimension_indices(1) = arena%size
-                                        end block
+                                        decl_node%dimension_indices(1) = 0  ! 0 indicates deferred shape
+                                    else
+                                        ! Try to parse as integer
+                                        read(dim_str, *, iostat=iostat) dim_size
+                                        if (iostat == 0) then
+                                            ! Successfully parsed dimension
+                                            decl_node%is_array = .true.
+                                            if (allocated(decl_node%dimension_indices)) &
+                                                deallocate(decl_node%dimension_indices)
+                                            allocate(decl_node%dimension_indices(1))
+                                            ! Create literal node for the size
+                                            block
+                                                type(literal_node) :: size_literal
+                                                character(len=20) :: size_str
+                                                write(size_str, '(i0)') dim_size
+                                                size_literal = create_literal(trim(size_str), &
+                                                                             LITERAL_INTEGER, 1, 1)
+                                                call arena%push(size_literal, "literal", prog_index)
+                                                decl_node%dimension_indices(1) = arena%size
+                                            end block
+                                        end if
                                     end if
+                                else
+                                    iostat = 1  ! Invalid dimension string
                                 end if
+                            end if
+                            
+                            ! Check for explicit allocatable attribute
+                            if (index(var_types(i), 'allocatable') > 0) then
+                                decl_node%is_allocatable = .true.
                             end if
                         else
                             decl_node%type_name = trim(var_types(i))
                         end if
-                    end block
-                    decl_node%var_name = trim(var_names(i))
-                    
-                    ! Check if this variable is an array by looking it up in the arena
-                    block
-                        logical :: found_array_type
-                        integer :: j
-                        found_array_type = .false.
                         
-                        ! Search for the identifier node with this name to check &
-                        ! its inferred type
-                        do j = 1, arena%size
+                        decl_node%var_name = trim(var_names(i))
+                        
+                        ! Check if this variable is an array by looking it up in the arena
+                        ! But only if we haven't already set it from dimension attribute
+                        found_array_type = has_dimension_attr  ! If we already parsed dimension, we found it
+                        
+                        ! Only search if we haven't already determined it's an array
+                        if (.not. has_dimension_attr) then
+                            ! Search for the identifier node with this name to check &
+                            ! its inferred type
+                            do j = 1, arena%size
                             if (allocated(arena%entries(j)%node)) then
                                 select type (node => arena%entries(j)%node)
                                 type is (identifier_node)
@@ -640,6 +659,7 @@ contains
                                 end select
                             end if
                         end do
+                        end if  ! .not. has_dimension_attr
                         
                         if (.not. found_array_type) then
                             decl_node%is_array = .false.
@@ -1140,6 +1160,157 @@ contains
         end select
     end function is_array_expression
     
+    ! Check if array literal contains an implied do loop
+    function has_implied_do_loop(arena, array_node) result(has_implied)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: array_node
+        logical :: has_implied
+        
+        has_implied = .false.
+        
+        if (allocated(array_node%element_indices)) then
+            if (size(array_node%element_indices) == 1) then
+                ! Check if the single element is a do_loop_node
+                if (array_node%element_indices(1) > 0 .and. &
+                    array_node%element_indices(1) <= arena%size) then
+                    if (allocated(arena%entries(array_node%element_indices(1))%node)) then
+                        select type (elem => arena%entries(array_node%element_indices(1))%node)
+                        type is (do_loop_node)
+                            has_implied = .true.
+                        class default
+                        end select
+                    end if
+                end if
+            end if
+        end if
+    end function has_implied_do_loop
+    
+    ! Calculate size of implied do loop
+    function get_implied_do_size(arena, do_node_index) result(size)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: do_node_index
+        integer :: size
+        
+        size = -1  ! Return -1 if we can't determine the size
+        
+        if (do_node_index <= 0 .or. do_node_index > arena%size) return
+        if (.not. allocated(arena%entries(do_node_index)%node)) return
+        
+        select type (do_node => arena%entries(do_node_index)%node)
+        type is (do_loop_node)
+            ! Try to calculate size from start, end, and step expressions
+            ! For now, we'll handle simple integer literals
+            if (do_node%start_expr_index > 0 .and. do_node%end_expr_index > 0) then
+                size = calculate_loop_size(arena, do_node%start_expr_index, &
+                                          do_node%end_expr_index, do_node%step_expr_index)
+            end if
+        end select
+    end function get_implied_do_size
+    
+    ! Calculate loop size from start, end, and step expressions
+    function calculate_loop_size(arena, start_idx, end_idx, step_idx) result(size)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: start_idx, end_idx, step_idx
+        integer :: size
+        integer :: start_val, end_val, step_val
+        
+        size = -1
+        
+        ! Get start value
+        start_val = get_integer_literal_value(arena, start_idx)
+        if (start_val == INVALID_INTEGER) then
+            return
+        end if
+        
+        ! Get end value
+        end_val = get_integer_literal_value(arena, end_idx)
+        if (end_val == INVALID_INTEGER) then
+            return
+        end if
+        
+        ! Get step value (default to 1 if not specified)
+        if (step_idx > 0) then
+            step_val = get_integer_literal_value(arena, step_idx)
+            if (step_val == INVALID_INTEGER) step_val = 1
+        else
+            step_val = 1
+        end if
+        
+        ! Calculate size
+        if (step_val /= 0) then
+            if (step_val > 0) then
+                ! Forward iteration
+                if (end_val >= start_val) then
+                    size = (end_val - start_val) / step_val + 1
+                else
+                    size = 0  ! No iterations
+                end if
+            else
+                ! Backward iteration
+                if (start_val >= end_val) then
+                    size = (start_val - end_val) / abs(step_val) + 1
+                else
+                    size = 0  ! No iterations
+                end if
+            end if
+        end if
+    end function calculate_loop_size
+    
+    ! Get integer value from a literal node
+    recursive function get_integer_literal_value(arena, expr_idx) result(value)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_idx
+        integer :: value
+        
+        value = INVALID_INTEGER  ! Error value
+        
+        if (expr_idx <= 0 .or. expr_idx > arena%size) then
+            return
+        end if
+        if (.not. allocated(arena%entries(expr_idx)%node)) then
+            return
+        end if
+        
+        select type (node => arena%entries(expr_idx)%node)
+        type is (literal_node)
+            ! Try using literal_kind instead of literal_type
+            if (node%literal_kind == LITERAL_INTEGER .and. allocated(node%value)) then
+                block
+                    integer :: iostat
+                    read(node%value, *, iostat=iostat) value
+                    if (iostat /= 0) then
+                        value = INVALID_INTEGER
+                    end if
+                end block
+            end if
+        type is (binary_op_node)
+            ! Handle simple binary operations for compile-time constants
+            if (allocated(node%operator)) then
+                if (node%left_index > 0 .and. node%right_index > 0) then
+                    block
+                        integer :: left_val, right_val
+                        left_val = get_integer_literal_value(arena, node%left_index)
+                        right_val = get_integer_literal_value(arena, node%right_index)
+                        if (left_val /= INVALID_INTEGER .and. &
+                            right_val /= INVALID_INTEGER) then
+                            select case(node%operator)
+                            case("-")
+                                value = left_val - right_val
+                            case("+")
+                                value = left_val + right_val
+                            case("*")
+                                value = left_val * right_val
+                            case("/")
+                                if (right_val /= 0) value = left_val / right_val
+                            end select
+                        end if
+                    end block
+                end if
+            end if
+        class default
+        end select
+    end function get_integer_literal_value
+    
     ! Get array variable type declaration from an array expression
     function get_array_var_type(arena, expr_index) result(var_type)
         type(ast_arena_t), intent(in) :: arena
@@ -1180,13 +1351,22 @@ contains
                     end if
                 end if
                 
-                ! For implied do loops, use allocatable array
-                ! TODO: Calculate actual size from implied do bounds
-                if (size(node%element_indices) == 1) then
-                    ! Could be an implied do - check if it looks like one
-                    ! For now, use allocatable for safety
-                    var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                ! Check if this is an implied do loop
+                if (has_implied_do_loop(arena, node)) then
+                    ! Calculate the size from the implied do loop bounds
+                    block
+                        integer :: implied_size
+                        implied_size = get_implied_do_size(arena, node%element_indices(1))
+                        if (implied_size > 0) then
+                            write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                                ", dimension(", implied_size, ")"
+                        else
+                            ! Can't determine size, use allocatable
+                            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                        end if
+                    end block
                 else
+                    ! Regular array literal with explicit elements
                     write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
                         ", dimension(", size(node%element_indices), ")"
                 end if
