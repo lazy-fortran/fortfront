@@ -539,7 +539,57 @@ contains
                                                             var_names(i))) then
                             decl_idx = decl_idx + 1
                     ! Create declaration node
-                    decl_node%type_name = trim(var_types(i))
+                    ! Parse the type string - it might contain dimension info
+                    block
+                        integer :: comma_pos, dim_pos, paren_pos, iostat
+                        logical :: has_dimension_attr
+                        character(len=20) :: dim_str
+                        integer :: dim_size
+                        
+                        has_dimension_attr = .false.
+                        comma_pos = index(var_types(i), ',')
+                        if (comma_pos > 0) then
+                            ! Has attributes like dimension - extract just the base type
+                            decl_node%type_name = trim(var_types(i)(1:comma_pos-1))
+                            
+                            ! Check for dimension attribute
+                            dim_pos = index(var_types(i), 'dimension(')
+                            if (dim_pos > 0) then
+                                has_dimension_attr = .true.
+                                ! Extract dimension value
+                                paren_pos = index(var_types(i)(dim_pos:), ')')
+                                if (paren_pos > 1) then  ! Must be > 1 to have content
+                                    ! paren_pos is relative to dim_pos, so adjust accordingly
+                                    ! dimension( has 10 chars, paren_pos-1 is the position before )
+                                    if (dim_pos+9 < dim_pos+paren_pos-2) then
+                                        dim_str = var_types(i)(dim_pos+10:dim_pos+paren_pos-2)
+                                        read(dim_str, *, iostat=iostat) dim_size
+                                    else
+                                        iostat = 1  ! Invalid dimension string
+                                    end if
+                                    if (iostat == 0) then
+                                        ! Successfully parsed dimension
+                                        decl_node%is_array = .true.
+                                        if (allocated(decl_node%dimension_indices)) &
+                                            deallocate(decl_node%dimension_indices)
+                                        allocate(decl_node%dimension_indices(1))
+                                        ! Create literal node for the size
+                                        block
+                                            type(literal_node) :: size_literal
+                                            character(len=20) :: size_str
+                                            write(size_str, '(i0)') dim_size
+                                            size_literal = create_literal(trim(size_str), &
+                                                                         LITERAL_INTEGER, 1, 1)
+                                            call arena%push(size_literal, "literal", prog_index)
+                                            decl_node%dimension_indices(1) = arena%size
+                                        end block
+                                    end if
+                                end if
+                            end if
+                        else
+                            decl_node%type_name = trim(var_types(i))
+                        end if
+                    end block
                     decl_node%var_name = trim(var_names(i))
                     
                     ! Check if this variable is an array by looking it up in the arena
@@ -1098,14 +1148,14 @@ contains
         type(mono_type_t), pointer :: expr_type
         character(len=:), allocatable :: elem_type_str
         
-        var_type = "real(8)"  ! Default - just the base type, no attributes
+        var_type = "real(8), dimension(:), allocatable"  ! Default
         
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
         
         select type (node => arena%entries(expr_index)%node)
         type is (array_literal_node)
-            ! For array literals, get the element type
+            ! For array literals, we know the exact size
             if (allocated(node%element_indices)) then
                 ! Try to get the inferred type of the array literal
                 if (allocated(node%inferred_type)) then
@@ -1130,13 +1180,22 @@ contains
                     end if
                 end if
                 
-                ! Return just the base type, not dimension/allocatable attributes
-                var_type = trim(elem_type_str)
+                ! For implied do loops, use allocatable array
+                ! TODO: Calculate actual size from implied do bounds
+                if (size(node%element_indices) == 1) then
+                    ! Could be an implied do - check if it looks like one
+                    ! For now, use allocatable for safety
+                    var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                else
+                    write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                        ", dimension(", size(node%element_indices), ")"
+                end if
             end if
         type is (call_or_subscript_node)
-            ! For array slices, return base type
+            ! For array slices, try to calculate the size
             if (has_array_slice_args(arena, node)) then
-                var_type = "real(8)"  ! Default base type
+                ! For now, use allocatable. TODO: Calculate slice size
+                var_type = "real(8), dimension(:), allocatable"
             end if
         end select
     end function get_array_var_type
