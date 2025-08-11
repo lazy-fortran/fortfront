@@ -1281,7 +1281,7 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: init_code
         character(len=:), allocatable :: type_str
-        integer :: i
+        integer :: i, j
 
         ! Determine the type string
         if (len_trim(node%type_name) > 0) then
@@ -1356,25 +1356,41 @@ contains
             do i = 1, size(node%var_names)
                 if (i > 1) code = code//", "
                 code = code//trim(node%var_names(i))
+                ! Add dimensions per variable if needed
+                if (node%is_array .and. allocated(node%dimension_indices)) then
+                    code = code//"("
+                    do j = 1, size(node%dimension_indices)
+                        if (j > 1) code = code//","
+                        if (node%dimension_indices(j) > 0 .and. &
+                            node%dimension_indices(j) <= arena%size) then
+                            code = code//generate_code_from_arena(arena, &
+                                                                 node%dimension_indices(j))
+                        else
+                            code = code//":"  ! Default for unspecified dimensions
+                        end if
+                    end do
+                    code = code//")"
+                end if
             end do
         else
             ! Single variable declaration
             code = code//node%var_name
-        end if
-
-        ! Add array dimensions if present
-        if (node%is_array .and. allocated(node%dimension_indices)) then
-            ! Generate dimension expressions
-            code = code//"("
-            do i = 1, size(node%dimension_indices)
-                if (i > 1) code = code//","
-   if (node%dimension_indices(i) > 0 .and. node%dimension_indices(i) <= arena%size) then
-                 code = code//generate_code_from_arena(arena, node%dimension_indices(i))
-                else
-                    code = code//":"  ! Default for unspecified dimensions
-                end if
-            end do
-            code = code//")"
+            
+            ! Add array dimensions if present
+            if (node%is_array .and. allocated(node%dimension_indices)) then
+                ! Generate dimension expressions
+                code = code//"("
+                do i = 1, size(node%dimension_indices)
+                    if (i > 1) code = code//","
+                    if (node%dimension_indices(i) > 0 .and. &
+                        node%dimension_indices(i) <= arena%size) then
+                        code = code//generate_code_from_arena(arena, node%dimension_indices(i))
+                    else
+                        code = code//":"  ! Default for unspecified dimensions
+                    end if
+                end do
+                code = code//")"
+            end if
         end if
 
         ! Add initializer if present
