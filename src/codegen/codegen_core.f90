@@ -314,8 +314,8 @@ contains
             ! Exponentiation gets no spaces (highest precedence)
             code = left_code//node%operator//right_code
         else if (trim(node%operator) == '*' .or. trim(node%operator) == '/') then
-            ! Multiplication and division get spaces (to distinguish from **)
-            code = left_code//" "//node%operator//" "//right_code
+            ! Multiplication and division get no spaces (original convention)
+            code = left_code//node%operator//right_code
         else
             ! All other operators (comparisons, logical, etc.) get spaces around them
             code = left_code//" "//node%operator//" "//right_code
