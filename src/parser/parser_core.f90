@@ -2,8 +2,8 @@ module parser_core
     use lexer_core
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_expression, parse_logical_or, &
-          parse_logical_and, parse_comparison, parse_member_access, parse_term, &
-          parse_factor, parse_primary
+          parse_logical_and, parse_comparison, parse_concatenation, parse_term, &
+          parse_factor, parse_power, parse_unary, parse_primary
     use parser_statements_module, only: parse_function_definition, &
                                         parse_subroutine_definition, &
                                         parse_interface_block, parse_module

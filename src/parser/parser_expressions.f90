@@ -18,7 +18,7 @@ module parser_expressions_module
     ! Public expression parsing interface
     public :: parse_expression
     public :: parse_range, parse_logical_eqv, parse_logical_or, parse_logical_and, parse_comparison
-    public :: parse_member_access, parse_term, parse_factor, parse_power, parse_primary
+    public :: parse_concatenation, parse_term, parse_factor, parse_power, parse_unary, parse_primary
 
 contains
 
@@ -234,16 +234,40 @@ contains
         integer :: right_index
         type(token_t) :: op_token
 
-        expr_index = parse_member_access(parser, arena)
+        expr_index = parse_concatenation(parser, arena)
 
-        do while (.not. parser%is_at_end())
+        ! Make comparison operators non-associative (Issue #216)
+        ! Parse at most ONE comparison operator
+        if (.not. parser%is_at_end()) then
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
                 (op_token%text == "==" .or. op_token%text == "/=" .or. &
                  op_token%text == "<=" .or. op_token%text == ">=" .or. &
                  op_token%text == "<" .or. op_token%text == ">")) then
                 op_token = parser%consume()
-                right_index = parse_member_access(parser, arena)
+                right_index = parse_concatenation(parser, arena)
+                expr_index = push_binary_op(arena, expr_index, right_index, &
+                                             op_token%text, op_token%line, &
+                                             op_token%column)
+            end if
+        end if
+    end function parse_comparison
+
+    ! Parse string concatenation operator (//) - Issue #214
+    function parse_concatenation(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+        integer :: right_index
+        type(token_t) :: op_token
+
+        expr_index = parse_term(parser, arena)
+
+        do while (.not. parser%is_at_end())
+            op_token = parser%peek()
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == "//") then
+                op_token = parser%consume()
+                right_index = parse_term(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
                                              op_token%text, op_token%line, &
                                              op_token%column)
@@ -251,7 +275,7 @@ contains
                 exit
             end if
         end do
-    end function parse_comparison
+    end function parse_concatenation
 
     ! Parse member access operator (%)
     function parse_member_access(parser, arena) result(expr_index)
@@ -277,7 +301,7 @@ contains
         do while (.not. parser%is_at_end())
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
-       (op_token%text == "+" .or. op_token%text == "-" .or. op_token%text == "//")) then
+                (op_token%text == "+" .or. op_token%text == "-")) then
                 op_token = parser%consume()
                 right_index = parse_factor(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
@@ -297,14 +321,14 @@ contains
         integer :: right_index
         type(token_t) :: op_token
 
-        expr_index = parse_power(parser, arena)
+        expr_index = parse_unary(parser, arena)
 
         do while (.not. parser%is_at_end())
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
                 (op_token%text == "*" .or. op_token%text == "/")) then
                 op_token = parser%consume()
-                right_index = parse_power(parser, arena)
+                right_index = parse_unary(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
                                              op_token%text, op_token%line, &
                                              op_token%column)
@@ -314,7 +338,7 @@ contains
         end do
     end function parse_factor
 
-    ! Parse exponentiation (right associative, higher precedence than *//)
+    ! Parse exponentiation (**) - right-associative
     recursive function parse_power(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -324,12 +348,13 @@ contains
 
         expr_index = parse_primary(parser, arena)
 
-        ! Right associative: parse from right to left
+        ! Right-associative: a ** b ** c = a ** (b ** c)
         if (.not. parser%is_at_end()) then
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == "**") then
                 op_token = parser%consume()
-                right_index = parse_power(parser, arena)  ! Recursive for right associativity
+                ! Recursive call for right-associativity  
+                right_index = parse_power(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
                                              op_token%text, op_token%line, &
                                              op_token%column)
@@ -337,6 +362,51 @@ contains
         end if
     end function parse_power
 
+    ! Parse unary operators (+, -, .NOT.) - Issue #215
+    recursive function parse_unary(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+        type(token_t) :: op_token
+
+        op_token = parser%peek()
+
+        if (op_token%kind == TK_OPERATOR .and. &
+            (op_token%text == "-" .or. op_token%text == "+" .or. &
+             op_token%text == ".not.")) then
+            ! Unary operator
+            op_token = parser%consume()
+            expr_index = parse_power(parser, arena)  ! Parse the operand
+            
+            if (expr_index > 0) then
+                if (op_token%text == "-") then
+                    ! Create unary minus as 0 - operand
+                    block
+                        integer :: zero_index
+                        zero_index = push_literal(arena, "0", LITERAL_INTEGER, &
+                                                  op_token%line, op_token%column)
+                        expr_index = push_binary_op(arena, zero_index, expr_index, "-")
+                    end block
+                else if (op_token%text == "+") then
+                    ! Unary plus - just return the operand
+                    ! expr_index already contains the operand
+                else if (op_token%text == ".not.") then
+                    ! Create logical NOT as .false. .not. operand
+                    block
+                        integer :: false_index
+                        false_index = push_literal(arena, ".false.", LITERAL_LOGICAL, &
+                                                   op_token%line, op_token%column)
+                        expr_index = push_binary_op(arena, false_index, expr_index, ".not.")
+                    end block
+                end if
+            else
+                expr_index = 0
+            end if
+        else
+            ! No unary operator, parse power expression  
+            expr_index = parse_power(parser, arena)
+        end if
+    end function parse_unary
     ! Parse primary expressions (literals, identifiers, parentheses)
     recursive function parse_primary(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
@@ -518,7 +588,7 @@ contains
                                         end block
                                     end if
 
-                                   temp_indices(element_count) = parse_primary(parser, arena)
+                                   temp_indices(element_count) = parse_unary(parser, arena)
 
                                     ! Check for comma or closing /
                                     current = parser%peek()
@@ -559,30 +629,6 @@ contains
                         if (current%text == ")") then
                             current = parser%consume()  ! consume ')'
                         end if
-                    end if
-                end block
-            else if (current%text == "-" .or. current%text == "+") then
-                ! Unary operator
-                block
-                    type(token_t) :: op_token
-                    integer :: operand_index
-                    op_token = parser%consume()
-                    operand_index = parse_primary(parser, arena)
-                    if (operand_index > 0) then
-                        ! Create unary expression as binary op with zero
-                        if (op_token%text == "-") then
-                            ! For unary minus, create 0 - operand
-                            block
-                                integer :: zero_index
-  zero_index = push_literal(arena, "0", LITERAL_INTEGER, op_token%line, op_token%column)
-                      expr_index = push_binary_op(arena, zero_index, operand_index, "-")
-                            end block
-                        else
-                            ! For unary plus, just return the operand
-                            expr_index = operand_index
-                        end if
-                    else
-                        expr_index = 0
                     end if
                 end block
             else if (current%text == "[") then
@@ -758,25 +804,6 @@ contains
                                                          bracket_token%line, &
                                                          bracket_token%column, &
                                                          syntax_style="modern")
-                    end if
-                end block
-            else if (current%text == ".not.") then
-                ! Logical NOT operator
-                block
-                    type(token_t) :: op_token
-                    integer :: operand_index
-                    op_token = parser%consume()
-                    operand_index = parse_primary(parser, arena)
-                    if (operand_index > 0) then
-                        ! Create unary NOT expression as binary op with false
-                        block
-                            integer :: false_index
-             false_index = push_literal(arena, ".false.", LITERAL_LOGICAL, &
-                                         op_token%line, op_token%column)
-                 expr_index = push_binary_op(arena, false_index, operand_index, ".not.")
-                        end block
-                    else
-                        expr_index = 0
                     end if
                 end block
             else if (current%text == ".") then
