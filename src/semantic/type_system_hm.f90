@@ -336,6 +336,17 @@ contains
                             write (size_str, '(i0)') this%size
                             str = elem_str//"("//trim(size_str)//")"
                         end block
+                    else if (this%size < -1) then
+                        ! Negative size encodes array rank for reshape inference
+                        block
+                            character(len=20) :: rank_str
+                            integer :: rank
+                            rank = -this%size
+                            write (rank_str, '(i0)') rank
+                            str = "array("//trim(rank_str)//")"
+                        end block
+                    else if (this%size == -1) then
+                        str = "array(unknown_rank)"
                     else
                         str = elem_str//"(:)"
                     end if

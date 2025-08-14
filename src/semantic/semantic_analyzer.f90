@@ -1,5 +1,6 @@
 module semantic_analyzer
     ! Hindley-Milner type inference (Algorithm W) - dialect-agnostic
+    ! Now enhanced with extensible semantic analysis framework
     use type_system_hm, only: type_env_t, type_var_t, mono_type_t, poly_type_t, &
                               substitution_t, allocation_info_t, &
                               create_mono_type, create_type_var, &
@@ -15,12 +16,19 @@ module semantic_analyzer
     use parameter_tracker
     use expression_temporary_tracker_module
     use constant_folding, only: fold_constants_in_arena
+    ! New extensible framework components
+    use analysis_orchestrator, only: analysis_orchestrator_t, &
+                                     create_analysis_orchestrator, &
+                                     analysis_results_t
+    use base_analyzer, only: base_analyzer_t, analyzer_config_t, analysis_result_t
+    use semantic_event_system, only: semantic_event_system_t
     implicit none
     private
 
     public :: semantic_context_t, create_semantic_context
     public :: analyze_program
     public :: validate_array_bounds, check_shape_conformance
+    public :: type_inference_analyzer_t
 
     ! Semantic analysis context
     type :: semantic_context_t
@@ -30,6 +38,9 @@ module semantic_analyzer
         type(substitution_t) :: subst
         type(parameter_tracker_t) :: param_tracker  ! Track parameter attributes
         type(temp_tracker_t) :: temp_tracker  ! Track expression temporaries
+        ! Extensible framework components
+        type(analysis_orchestrator_t) :: orchestrator
+        logical :: use_extensible_framework = .false.
     contains
         procedure :: infer => infer_type
         procedure :: infer_stmt => infer_statement_type
@@ -47,11 +58,21 @@ module semantic_analyzer
         generic :: assignment(=) => assign
     end type semantic_context_t
 
+    ! Default type inference analyzer implementing base_analyzer_t interface
+    type, extends(base_analyzer_t) :: type_inference_analyzer_t
+        type(semantic_context_t), pointer :: context => null()
+    contains
+        procedure :: initialize => type_analyzer_initialize
+        procedure :: process_node => type_analyzer_process_node
+        procedure :: get_results => type_analyzer_get_results
+        procedure :: cleanup => type_analyzer_cleanup
+    end type type_inference_analyzer_t
+
 contains
 
     ! Create a new semantic context with builtin functions
     function create_semantic_context() result(ctx)
-        type(semantic_context_t) :: ctx
+        type(semantic_context_t), target :: ctx
         type(poly_type_t) :: builtin_scheme
         type(mono_type_t) :: real_to_real, real_type
 
@@ -98,6 +119,23 @@ contains
         call ctx%env%extend("log", builtin_scheme)
         call ctx%env%extend("abs", builtin_scheme)
 
+        ! Initialize extensible framework
+        ctx%orchestrator = create_analysis_orchestrator()
+        
+        ! Register default type inference analyzer
+        block
+            type(type_inference_analyzer_t) :: type_analyzer
+            type(analyzer_config_t) :: config
+            
+            config%name = "type_inference"
+            config%enabled = .true.
+            config%priority = 100  ! High priority for type inference
+            
+            type_analyzer%context => ctx
+            call type_analyzer%initialize(config)
+            call ctx%orchestrator%register_analyzer(type_analyzer)
+        end block
+
     end function create_semantic_context
 
     ! Main entry point: analyze entire program
@@ -109,13 +147,22 @@ contains
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
 
-        select type (ast => arena%entries(root_index)%node)
-        type is (program_node)
-            call analyze_program_node_arena(ctx, arena, ast, root_index)
-        class default
-            ! Single statement/expression
-            call infer_and_store_type(ctx, arena, root_index)
-        end select
+        if (ctx%use_extensible_framework) then
+            ! Use new extensible framework
+            block
+                type(analysis_results_t) :: results
+                call ctx%orchestrator%analyze(arena, root_index, results)
+            end block
+        else
+            ! Use legacy monolithic implementation for backward compatibility
+            select type (ast => arena%entries(root_index)%node)
+            type is (program_node)
+                call analyze_program_node_arena(ctx, arena, ast, root_index)
+            class default
+                ! Single statement/expression
+                call infer_and_store_type(ctx, arena, root_index)
+            end select
+        end if
         
         ! Perform constant folding after type inference
         call fold_constants_in_arena(arena)
@@ -670,6 +717,62 @@ contains
             needs_temp = .false.
         end select
     end function needs_temporary
+    
+    ! Infer type of reshape() call with proper array rank extraction
+    function infer_reshape_call(ctx, arena, call_node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(inout) :: call_node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: source_type, element_type
+        type(mono_type_t), allocatable :: result_args(:)
+        integer :: shape_rank
+        character(len=256) :: rank_str
+        
+        ! reshape(source, shape) returns array with element type from source
+        ! and rank determined by shape
+        
+        if (.not. allocated(call_node%arg_indices) .or. &
+            size(call_node%arg_indices) < 2) then
+            ! Invalid reshape call - need at least source and shape
+            typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+            return
+        end if
+        
+        ! Infer type of source argument
+        source_type = ctx%infer(arena, call_node%arg_indices(1))
+        
+        ! Extract element type from source
+        if (source_type%kind == TARRAY .and. allocated(source_type%args) .and. &
+            size(source_type%args) > 0) then
+            element_type = source_type%args(1)  ! Array element type
+        else
+            element_type = source_type  ! Scalar becomes array element type
+        end if
+        
+        ! Extract array rank from shape argument
+        shape_rank = extract_array_rank_from_shape(ctx, arena, &
+                                                   call_node%arg_indices(2))
+        
+        ! Create array type with extracted rank
+        allocate(result_args(1))
+        result_args(1) = element_type
+        typ = create_mono_type(TARRAY, args=result_args)
+        typ%size = -1  ! Dynamic size
+        
+        ! Set allocatable attribute for reshape results
+        typ%alloc_info%is_allocatable = .true.
+        typ%alloc_info%needs_allocation_check = .true.
+        
+        ! Store rank information in size field for now
+        ! Negative values indicate dynamic arrays with specific ranks
+        if (shape_rank > 0) then
+            typ%size = -shape_rank  ! Negative to distinguish from actual sizes
+        else
+            typ%size = -1  ! Unknown rank
+        end if
+        
+    end function infer_reshape_call
 
     ! Infer type of function call
     function infer_function_call(ctx, arena, call_node) result(typ)
@@ -684,6 +787,13 @@ contains
 
         ! Get function type
         fun_typ = ctx%get_builtin_function_type(call_node%name)
+        
+        ! Special handling for reshape() calls
+        if (trim(call_node%name) == "reshape") then
+            ! Handle reshape specially to extract array rank from shape argument
+            typ = infer_reshape_call(ctx, arena, call_node)
+            return
+        end if
 
         if (fun_typ%kind == 0) then
             ! Unknown function - look up in environment
@@ -1190,11 +1300,63 @@ contains
                 typ = create_fun_type(param_type, logical_type)
             end block
 
+        case ("reshape")
+            ! reshape(source, shape) -> array of source element type with shape rank
+            ! This is handled specially in infer_function_call to extract rank
+            ! For now, return a generic array type
+            block
+                type(mono_type_t) :: source_type, shape_type, result_type
+                type(mono_type_t), allocatable :: shape_args(:), result_args(:)
+                
+                ! Source can be any type - use a type variable
+                source_type = create_mono_type(TVAR, var=this%fresh_type_var())
+                
+                ! Shape is an integer array
+                allocate(shape_args(1))
+                shape_args(1) = create_mono_type(TINT)
+                shape_type = create_mono_type(TARRAY, args=shape_args)
+                
+                ! Result is an array of source element type
+                allocate(result_args(1))
+                result_args(1) = source_type
+                result_type = create_mono_type(TARRAY, args=result_args)
+                
+                ! Create function type: source -> shape -> result
+                typ = create_fun_type(source_type, create_fun_type(shape_type, &
+                                                                  result_type))
+            end block
+
         case default
             ! Return empty type to indicate not found
             typ%kind = 0
         end select
     end function get_builtin_function_type
+    
+    ! Extract array rank from shape argument in reshape() calls
+    function extract_array_rank_from_shape(this, arena, shape_index) result(rank)
+        class(semantic_context_t), intent(inout) :: this
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: shape_index
+        integer :: rank
+        
+        rank = -1  ! Unknown rank
+        
+        if (shape_index <= 0 .or. shape_index > arena%size) return
+        if (.not. allocated(arena%entries(shape_index)%node)) return
+        
+        select type (shape_node => arena%entries(shape_index)%node)
+        type is (array_literal_node)
+            ! Shape is an array literal like [2,2] or [2,2,2]
+            ! The rank is the number of elements in the literal
+            if (allocated(shape_node%element_indices)) then
+                rank = size(shape_node%element_indices)
+            end if
+        class default
+            ! For variable shape references or complex expressions,
+            ! we can't determine rank at compile time
+            rank = -1
+        end select
+    end function extract_array_rank_from_shape
 
     ! Get free type variables in environment
     subroutine get_env_free_vars(env, vars)
@@ -1765,6 +1927,8 @@ contains
         copy%subst = this%subst          ! Uses substitution_t assignment (deep copy)
         ! Uses temp_tracker_t assignment (deep copy)
         copy%temp_tracker = this%temp_tracker
+        copy%orchestrator = this%orchestrator  ! Orchestrator assignment
+        copy%use_extensible_framework = this%use_extensible_framework
     end function semantic_context_deep_copy
 
     subroutine semantic_context_assign(lhs, rhs)
@@ -1777,6 +1941,8 @@ contains
         lhs%subst = rhs%subst            ! Uses substitution_t assignment (deep copy)
         ! Uses temp_tracker_t assignment (deep copy)
         lhs%temp_tracker = rhs%temp_tracker
+        lhs%orchestrator = rhs%orchestrator  ! Orchestrator assignment
+        lhs%use_extensible_framework = rhs%use_extensible_framework
     end subroutine semantic_context_assign
 
     ! Infer type of array literal
@@ -2073,5 +2239,64 @@ contains
             end select
         end if
     end subroutine set_character_substring_flag
+
+    ! ========================================================================
+    ! Type Inference Analyzer Implementation
+    ! ========================================================================
+
+    ! Initialize the type inference analyzer
+    subroutine type_analyzer_initialize(this, config)
+        class(type_inference_analyzer_t), intent(inout) :: this
+        type(analyzer_config_t), intent(in) :: config
+        
+        this%config = config
+        this%initialized = .true.
+    end subroutine type_analyzer_initialize
+
+    ! Process a single AST node for type inference
+    function type_analyzer_process_node(this, arena, node_index) result(result)
+        class(type_inference_analyzer_t), intent(inout) :: this
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: node_index
+        type(analysis_result_t) :: result
+        
+        ! Initialize result
+        result%has_findings = .false.
+        result%error_count = 0
+        result%warning_count = 0
+        
+        if (.not. associated(this%context)) then
+            result%result_data = "Type inference context not available"
+            return
+        end if
+        
+        ! Use existing type inference logic
+        if (node_index > 0 .and. node_index <= arena%size) then
+            if (allocated(arena%entries(node_index)%node)) then
+                call infer_and_store_type(this%context, arena, node_index)
+                result%has_findings = .true.
+                result%result_data = "Type inference completed"
+            end if
+        end if
+    end function type_analyzer_process_node
+
+    ! Get accumulated results from type inference
+    function type_analyzer_get_results(this) result(results)
+        class(type_inference_analyzer_t), intent(in) :: this
+        type(analysis_result_t) :: results
+        
+        results%has_findings = .true.
+        results%error_count = 0
+        results%warning_count = 0
+        results%result_data = "Type inference analysis completed"
+    end function type_analyzer_get_results
+
+    ! Cleanup the type inference analyzer
+    subroutine type_analyzer_cleanup(this)
+        class(type_inference_analyzer_t), intent(inout) :: this
+        
+        this%context => null()
+        this%initialized = .false.
+    end subroutine type_analyzer_cleanup
 
 end module semantic_analyzer

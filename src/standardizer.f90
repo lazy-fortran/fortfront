@@ -34,6 +34,7 @@ contains
         integer, intent(inout) :: root_index
         integer :: i
 
+
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
 
@@ -792,7 +793,7 @@ contains
                     select type (target => arena%entries(assign%target_index)%node)
                     type is (identifier_node)
                         ! Check if the value is an array expression
-                        var_type = "real(8)"  ! Default type
+                        var_type = get_smart_default_type(arena, assign)  ! Smart default
                         
                         ! Try to get type from the value expression
                         if (assign%value_index > 0 .and. &
@@ -1095,10 +1096,28 @@ contains
                 ! For now, we'll check if it has a colon operator (array slice)
                 if (has_array_slice_args(arena, node)) then
                     ! This is an array slice, so result is an array
-                    ! We need to get the base array type
-                    allocate(expr_type)
-                    expr_type%kind = TARRAY
-                    ! TODO: Set proper element type
+                    ! Get the base array type to determine element type
+                    block
+                        type(mono_type_t), pointer :: base_array_type
+                        base_array_type => find_base_array_type(arena, node%name)
+                        if (associated(base_array_type) .and. &
+                            base_array_type%kind == TARRAY .and. &
+                            allocated(base_array_type%args) .and. &
+                            size(base_array_type%args) > 0) then
+                            ! Create slice type with correct element type
+                            allocate(expr_type)
+                            expr_type%kind = TARRAY
+                            expr_type%size = -1  ! Unknown size for slices
+                            allocate(expr_type%args(1))
+                            expr_type%args(1) = base_array_type%args(1)  ! Copy element type
+                        else
+                            ! Fallback if we can't determine base array type
+                            allocate(expr_type)
+                            expr_type%kind = TARRAY
+                            allocate(expr_type%args(1))
+                            expr_type%args(1)%kind = TREAL  ! Default element type
+                        end if
+                    end block
                 end if
             end if
         type is (binary_op_node)
@@ -1156,9 +1175,41 @@ contains
             ! Check if this is an array slice (has colon operator in args)
             if (has_array_slice_args(arena, node)) then
                 is_array = .true.
+            else
+                ! Check if this is an array-producing intrinsic function call
+                if (is_array_producing_intrinsic(node%name)) then
+                    is_array = .true.
+                end if
             end if
         end select
     end function is_array_expression
+    
+    ! Check if intrinsic function produces arrays
+    function is_array_producing_intrinsic(intrinsic_name) result(produces_array)
+        character(len=*), intent(in) :: intrinsic_name
+        logical :: produces_array
+        
+        produces_array = .false.
+        
+        select case (trim(intrinsic_name))
+        case ("reshape")
+            produces_array = .true.
+        case ("matmul")
+            produces_array = .true.
+        case ("transpose")  
+            produces_array = .true.
+        case ("pack")
+            produces_array = .true.
+        case ("unpack")
+            produces_array = .true.
+        case ("cshift")
+            produces_array = .true.
+        case ("eoshift")
+            produces_array = .true.
+        case default
+            produces_array = .false.
+        end select
+    end function is_array_producing_intrinsic
     
     ! Check if array literal contains an implied do loop
     function has_implied_do_loop(arena, array_node) result(has_implied)
@@ -1372,13 +1423,288 @@ contains
                 end if
             end if
         type is (call_or_subscript_node)
-            ! For array slices, try to calculate the size
-            if (has_array_slice_args(arena, node)) then
-                ! For now, use allocatable. TODO: Calculate slice size
-                var_type = "real(8), dimension(:), allocatable"
+            ! Check if this is a reshape() call
+            if (trim(node%name) == "reshape") then
+                ! Generate dimensions based on reshape rank
+                var_type = generate_reshape_var_type(arena, node)
+            else if (has_array_slice_args(arena, node)) then
+                ! For array slices, look up the base array type
+                var_type = get_slice_var_type(arena, node)
             end if
+        type is (array_slice_node)
+            ! Handle array slice nodes directly
+            var_type = get_array_slice_var_type(arena, node)
         end select
     end function get_array_var_type
+    
+    ! Get variable type for array slice operation
+    function get_slice_var_type(arena, slice_node) result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: slice_node
+        character(len=64) :: var_type
+        type(mono_type_t), pointer :: base_array_type
+        character(len=:), allocatable :: elem_type_str
+        
+        ! Default fallback
+        var_type = "real(8), dimension(:), allocatable"
+        
+        ! Try to get the inferred type from the slice node itself
+        if (allocated(slice_node%inferred_type)) then
+            ! Use the inferred type from semantic analysis
+            var_type = get_fortran_type_string_from_slice(slice_node%inferred_type)
+            return
+        end if
+        
+        ! Fallback: look up the base array by name
+        base_array_type => find_base_array_type(arena, slice_node%name)
+        if (associated(base_array_type)) then
+            if (base_array_type%kind == TARRAY .and. &
+                allocated(base_array_type%args) .and. &
+                size(base_array_type%args) > 0) then
+                ! Extract element type and make it allocatable for slices
+                elem_type_str = get_fortran_type_string(base_array_type%args(1))
+                var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+            end if
+        end if
+        
+    end function get_slice_var_type
+    
+    ! Convert slice type to Fortran type string
+    function get_fortran_type_string_from_slice(slice_type) result(type_str)
+        type(mono_type_t), intent(in) :: slice_type
+        character(len=64) :: type_str
+        character(len=:), allocatable :: elem_type_str
+        
+        type_str = "real(8), dimension(:), allocatable"  ! Default
+        
+        if (slice_type%kind == TARRAY .and. &
+            allocated(slice_type%args) .and. &
+            size(slice_type%args) > 0) then
+            elem_type_str = get_fortran_type_string(slice_type%args(1))
+            type_str = trim(elem_type_str) // ", dimension(:), allocatable"
+        end if
+        
+    end function get_fortran_type_string_from_slice
+    
+    ! Find the type of a base array by searching through assignments
+    function find_base_array_type(arena, array_name) result(array_type)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: array_name
+        type(mono_type_t), pointer :: array_type
+        integer :: i
+        
+        
+        array_type => null()
+        
+        ! Search through all arena entries to find assignments to this variable
+        do i = 1, arena%size
+            if (allocated(arena%entries(i)%node)) then
+                select type (node => arena%entries(i)%node)
+                type is (assignment_node)
+                    ! Check if this assigns to our target variable
+                    if (node%target_index > 0 .and. &
+                        node%target_index <= arena%size) then
+                        if (allocated(arena%entries(node%target_index)%node)) then
+                            select type (target => &
+                                arena%entries(node%target_index)%node)
+                            type is (identifier_node)
+                                if (trim(target%name) == trim(array_name)) then
+                                    ! Found assignment to our variable
+                                    ! Since inferred_type is lost due to AST copy issues,
+                                    ! analyze the value expression directly
+                                    if (node%value_index > 0 .and. &
+                                        node%value_index <= arena%size) then
+                                        array_type => &
+                                            analyze_value_type_directly(arena, &
+                                                              node%value_index)
+                                        if (associated(array_type)) return
+                                    end if
+                                end if
+                            end select
+                        end if
+                    end if
+                end select
+            end if
+        end do
+        
+    end function find_base_array_type
+    
+    ! Analyze value type directly without relying on inferred_type
+    function analyze_value_type_directly(arena, value_index) result(value_type)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: value_index
+        type(mono_type_t), pointer :: value_type
+        
+        value_type => null()
+        
+        if (value_index <= 0 .or. value_index > arena%size) return
+        if (.not. allocated(arena%entries(value_index)%node)) return
+        
+        select type (node => arena%entries(value_index)%node)
+        type is (array_literal_node)
+            ! For array literals, analyze the first element to get element type
+            if (allocated(node%element_indices) .and. &
+                size(node%element_indices) > 0) then
+                ! Get first element type
+                if (node%element_indices(1) > 0 .and. &
+                    node%element_indices(1) <= arena%size) then
+                    if (allocated(arena%entries(node%element_indices(1))%node)) then
+                        select type (elem => &
+                            arena%entries(node%element_indices(1))%node)
+                        type is (literal_node)
+                            ! Create array type based on literal type
+                            allocate(value_type)
+                            value_type%kind = TARRAY
+                            value_type%size = size(node%element_indices)
+                            allocate(value_type%args(1))
+                            ! Determine element type from literal
+                            select case (elem%literal_kind)
+                            case (LITERAL_INTEGER)
+                                value_type%args(1)%kind = TINT
+                            case (LITERAL_REAL)
+                                value_type%args(1)%kind = TREAL
+                            case (LITERAL_STRING)
+                                value_type%args(1)%kind = TCHAR
+                            case (LITERAL_LOGICAL)
+                                value_type%args(1)%kind = TLOGICAL
+                            case default
+                                value_type%args(1)%kind = TREAL  ! Default
+                            end select
+                        end select
+                    end if
+                end if
+            end if
+        class default
+            ! For other expressions, try to get existing type
+            value_type => get_expression_type(arena, value_index)
+        end select
+        
+    end function analyze_value_type_directly
+    
+    ! Get smart default type for assignment
+    function get_smart_default_type(arena, assign) result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: assign
+        character(len=64) :: var_type
+        
+        ! Default fallback
+        var_type = "real(8)"
+        
+        ! Check if this is a slice assignment like slice = arr(2:4)
+        if (assign%value_index > 0 .and. assign%value_index <= arena%size) then
+            if (allocated(arena%entries(assign%value_index)%node)) then
+                select type (val_node => arena%entries(assign%value_index)%node)
+                type is (call_or_subscript_node)
+                    ! Check if this looks like array slicing
+                    if (has_array_slice_args(arena, val_node)) then
+                        ! Try to get the base array type
+                        block
+                            type(mono_type_t), pointer :: base_type
+                            character(len=:), allocatable :: elem_type_str
+                            base_type => find_base_array_type(arena, val_node%name)
+                            if (associated(base_type) .and. &
+                                base_type%kind == TARRAY .and. &
+                                allocated(base_type%args) .and. &
+                                size(base_type%args) > 0) then
+                                elem_type_str = get_fortran_type_string(base_type%args(1))
+                                var_type = trim(elem_type_str) // ", allocatable"
+                                return
+                            end if
+                        end block
+                    end if
+                end select
+            end if
+        end if
+        
+    end function get_smart_default_type
+    
+    ! Get variable type for array_slice_node
+    function get_array_slice_var_type(arena, slice_node) result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_slice_node), intent(in) :: slice_node
+        character(len=64) :: var_type
+        type(mono_type_t), pointer :: base_array_type
+        character(len=:), allocatable :: elem_type_str
+        
+        ! Default fallback
+        var_type = "real(8), dimension(:), allocatable"
+        
+        ! Try to get the inferred type from the slice node itself
+        if (allocated(slice_node%inferred_type)) then
+            var_type = get_fortran_type_string_from_slice(slice_node%inferred_type)
+            return
+        end if
+        
+        ! Get the base array type by looking at the array being sliced
+        if (slice_node%array_index > 0 .and. &
+            slice_node%array_index <= arena%size) then
+            base_array_type => get_expression_type(arena, slice_node%array_index)
+            if (associated(base_array_type)) then
+                if (base_array_type%kind == TARRAY .and. &
+                    allocated(base_array_type%args) .and. &
+                    size(base_array_type%args) > 0) then
+                    ! Extract element type and make it allocatable for slices
+                    elem_type_str = get_fortran_type_string(base_array_type%args(1))
+                    var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                end if
+            end if
+        end if
+        
+    end function get_array_slice_var_type
+    
+    ! Generate variable type for reshape() expressions
+    function generate_reshape_var_type(arena, reshape_node) result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: reshape_node
+        character(len=64) :: var_type
+        integer :: shape_rank
+        character(len=32) :: dimensions_str
+        integer :: i
+        
+        var_type = "real(8), allocatable"  ! Default fallback
+        
+        ! Check if we have the shape argument (second argument)
+        if (.not. allocated(reshape_node%arg_indices) .or. &
+            size(reshape_node%arg_indices) < 2) return
+        
+        ! Extract rank from shape argument
+        shape_rank = extract_reshape_rank(arena, reshape_node%arg_indices(2))
+        
+        if (shape_rank > 0) then
+            ! Generate dimension specification with correct number of colons
+            dimensions_str = ":"
+            do i = 2, shape_rank
+                dimensions_str = trim(dimensions_str) // ",:"
+            end do
+            
+            ! Create the complete type specification
+            var_type = "real(8), dimension(" // trim(dimensions_str) // &
+                       "), allocatable"
+        else
+            ! Unknown rank - use single dimension
+            var_type = "real(8), dimension(:), allocatable"
+        end if
+    end function generate_reshape_var_type
+    
+    ! Extract rank from reshape shape argument  
+    function extract_reshape_rank(arena, shape_index) result(rank)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: shape_index
+        integer :: rank
+        
+        rank = -1  ! Unknown rank
+        
+        if (shape_index <= 0 .or. shape_index > arena%size) return
+        if (.not. allocated(arena%entries(shape_index)%node)) return
+        
+        select type (shape_node => arena%entries(shape_index)%node)
+        type is (array_literal_node)
+            ! Shape is an array literal like [2,2] or [2,2,2]
+            if (allocated(shape_node%element_indices)) then
+                rank = size(shape_node%element_indices)
+            end if
+        end select
+    end function extract_reshape_rank
     
     ! Helper function to infer type from a literal node
     function infer_element_type_from_literal(arena, elem_index) result(type_str)
