@@ -1300,7 +1300,9 @@ contains
                     type_str = "real"
                 end if
             case (TCHAR)
-                if (node%inferred_type%size > 0) then
+                if (node%inferred_type%alloc_info%needs_allocatable_string) then
+                    type_str = "character(len=:)"
+                else if (node%inferred_type%size > 0) then
                     type_str = "character(len="// &
                         trim(adjustl(int_to_string(node%inferred_type%size)))//")"
                 else
@@ -1331,9 +1333,13 @@ contains
             code = code//", intent("//node%intent//")"
         end if
 
-        ! Add allocatable if present
+        ! Add allocatable if present or if string needs allocatable
         if (node%is_allocatable) then
             code = code//", allocatable"
+        else if (allocated(node%inferred_type)) then
+            if (node%inferred_type%alloc_info%needs_allocatable_string) then
+                code = code//", allocatable"
+            end if
         end if
         
         ! Add optional if present

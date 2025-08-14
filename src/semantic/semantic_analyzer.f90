@@ -245,6 +245,15 @@ contains
                     ! Variable exists - check assignment compatibility
                     target_type = ctx%instantiate(existing_scheme)
 
+                    ! Check for string length changes requiring allocatable
+                    if (typ%kind == TCHAR .and. target_type%kind == TCHAR) then
+                        if (typ%size /= target_type%size) then
+                            ! String length changed - mark as needing allocatable
+                            typ%alloc_info%needs_allocatable_string = .true.
+                            target_type%alloc_info%needs_allocatable_string = .true.
+                        end if
+                    end if
+
                     ! Issue 188: Array reassignment detection moved to standardizer
                     ! The standardizer handles multi-pass detection of reassignment patterns
 
@@ -258,6 +267,9 @@ contains
                     ! Use the existing type for consistency but preserve allocatable flag
                     if (typ%alloc_info%is_allocatable) then
                         target_type%alloc_info%is_allocatable = .true.
+                    end if
+                    if (typ%alloc_info%needs_allocatable_string) then
+                        target_type%alloc_info%needs_allocatable_string = .true.
                     end if
                     typ = target_type
                 end if
