@@ -18,7 +18,7 @@ module parser_expressions_module
     ! Public expression parsing interface
     public :: parse_expression
     public :: parse_range, parse_logical_eqv, parse_logical_or, parse_logical_and, parse_comparison
-    public :: parse_member_access, parse_term, parse_factor, parse_primary
+    public :: parse_member_access, parse_term, parse_factor, parse_power, parse_primary
 
 contains
 
@@ -289,7 +289,7 @@ contains
         end do
     end function parse_term
 
-    ! Parse multiplication, division, and power
+    ! Parse multiplication and division
     function parse_factor(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -297,14 +297,14 @@ contains
         integer :: right_index
         type(token_t) :: op_token
 
-        expr_index = parse_primary(parser, arena)
+        expr_index = parse_power(parser, arena)
 
         do while (.not. parser%is_at_end())
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
-       (op_token%text == "*" .or. op_token%text == "/" .or. op_token%text == "**")) then
+                (op_token%text == "*" .or. op_token%text == "/")) then
                 op_token = parser%consume()
-                right_index = parse_primary(parser, arena)
+                right_index = parse_power(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
                                              op_token%text, op_token%line, &
                                              op_token%column)
@@ -313,6 +313,29 @@ contains
             end if
         end do
     end function parse_factor
+
+    ! Parse exponentiation (right associative, higher precedence than *//)
+    recursive function parse_power(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+        integer :: right_index
+        type(token_t) :: op_token
+
+        expr_index = parse_primary(parser, arena)
+
+        ! Right associative: parse from right to left
+        if (.not. parser%is_at_end()) then
+            op_token = parser%peek()
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == "**") then
+                op_token = parser%consume()
+                right_index = parse_power(parser, arena)  ! Recursive for right associativity
+                expr_index = push_binary_op(arena, expr_index, right_index, &
+                                             op_token%text, op_token%line, &
+                                             op_token%column)
+            end if
+        end if
+    end function parse_power
 
     ! Parse primary expressions (literals, identifiers, parentheses)
     recursive function parse_primary(parser, arena) result(expr_index)
