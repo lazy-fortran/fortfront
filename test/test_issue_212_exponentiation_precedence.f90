@@ -51,7 +51,7 @@ contains
             return
         end if
         
-        ! Check generated code - should have "3.14d0 * r**2", NOT "(3.14d0*r) ** 2"
+        ! Check generated code - should have "3.14d0*r**2", NOT "(3.14d0*r) ** 2"
         has_correct_precedence = .false.
         
         open(newunit=unit, file=output_file, status='old')
@@ -60,7 +60,7 @@ contains
             if (iostat /= 0) exit
             
             ! Check for correct precedence
-            if (index(line, '3.14d0 * r**2') > 0) then
+            if (index(line, '3.14d0*r**2') > 0) then
                 has_correct_precedence = .true.
                 print *, '  OK: Found correct precedence: ', trim(line)
             end if
@@ -76,7 +76,18 @@ contains
         close(unit)
         
         if (.not. has_correct_precedence) then
-            print *, '  FAIL: Did not find expected "3.14d0 * r**2" in output'
+            print *, '  FAIL: Did not find expected "3.14d0*r**2" in output'
+            print *, '  Generated output was:'
+            
+            ! Re-read and dump the entire output for debugging
+            open(newunit=unit, file=output_file, status='old')
+            do
+                read(unit, '(a)', iostat=iostat) line
+                if (iostat /= 0) exit
+                print *, '    ', trim(line)
+            end do
+            close(unit)
+            
             test_exponentiation_precedence = .false.
         end if
         
