@@ -715,10 +715,19 @@ contains
 
         select type (stmt => arena%entries(stmt_index)%node)
         type is (declaration_node)
-            ! Mark this variable as already declared - don't generate implicit &
-            ! declaration
-            call mark_variable_declared(stmt%var_name, var_names, &
-                                         var_declared, var_count)
+            ! Mark variables as already declared - don't generate implicit 
+            ! declarations
+            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                ! Handle multi-variable declaration
+                do i = 1, size(stmt%var_names)
+                    call mark_variable_declared(stmt%var_names(i), var_names, &
+                                               var_declared, var_count)
+                end do
+            else
+                ! Handle single variable declaration
+                call mark_variable_declared(stmt%var_name, var_names, &
+                                           var_declared, var_count)
+            end if
         type is (assignment_node)
             call collect_assignment_vars(arena, stmt_index, var_names, &
                                           var_types, var_declared, var_count, &
@@ -1008,9 +1017,22 @@ contains
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
                         type is (declaration_node)
+                            ! Check single variable declaration
                             if (trim(stmt%var_name) == trim(var_name)) then
                                 has_decl = .true.
                                 return
+                            end if
+                            ! Check multi-variable declaration
+                            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                                block
+                                    integer :: j
+                                    do j = 1, size(stmt%var_names)
+                                        if (trim(stmt%var_names(j)) == trim(var_name)) then
+                                            has_decl = .true.
+                                            return
+                                        end if
+                                    end do
+                                end block
                             end if
                         end select
                     end if
@@ -2124,33 +2146,114 @@ contains
         
         select type (stmt => arena%entries(stmt_index)%node)
         type is (declaration_node)
-            ! Check if this declaration needs allocatable
-            do i = 1, var_count
-                if (trim(stmt%var_name) == trim(assigned_vars(i))) then
-                    ! Variable has multiple array assignments
-                    if (assignment_counts(i) > 1) then
-                        ! Only mark as allocatable if:
-                        ! 1. It's an array
-                        ! 2. Not already allocatable
-                        ! 3. Not a procedure parameter (skip those)
-                        if (stmt%is_array .and. &
-                            .not. stmt%is_allocatable .and. &
-                            .not. is_procedure_parameter(arena, stmt_index)) then
-                            stmt%is_allocatable = .true.
-                            ! Update ALL dimensions to deferred shape
-                            if (allocated(stmt%dimension_indices)) then
-                                ! Set all dimensions to 0 (deferred shape)
-                                ! This converts fixed dimensions like (10) or (3,4) 
-                                ! to deferred shapes (:) or (:,:)
-                                stmt%dimension_indices = 0
+            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                ! Handle multi-variable declaration - need to check if splitting required
+                call handle_multi_variable_declaration_allocatable(arena, stmt_index, &
+                                                                  assigned_vars, &
+                                                                  assignment_counts, &
+                                                                  var_count)
+            else
+                ! Handle single variable declaration
+                do i = 1, var_count
+                    if (trim(stmt%var_name) == trim(assigned_vars(i))) then
+                        ! Variable has multiple array assignments
+                        if (assignment_counts(i) > 1) then
+                            ! Only mark as allocatable if:
+                            ! 1. It's an array
+                            ! 2. Not already allocatable
+                            ! 3. Not a procedure parameter (skip those)
+                            if (stmt%is_array .and. &
+                                .not. stmt%is_allocatable .and. &
+                                .not. is_procedure_parameter(arena, stmt_index)) then
+                                stmt%is_allocatable = .true.
+                                ! Update ALL dimensions to deferred shape
+                                if (allocated(stmt%dimension_indices)) then
+                                    ! Set all dimensions to 0 (deferred shape)
+                                    ! This converts fixed dimensions like (10) or (3,4) 
+                                    ! to deferred shapes (:) or (:,:)
+                                    stmt%dimension_indices = 0
+                                end if
                             end if
                         end if
+                        exit
                     end if
-                    exit
-                end if
-            end do
+                end do
+            end if
         end select
     end subroutine mark_declarations_allocatable
+    
+    ! Handle multi-variable declarations where only some variables need allocatable
+    subroutine handle_multi_variable_declaration_allocatable(arena, decl_index, &
+                                                            assigned_vars, &
+                                                            assignment_counts, &
+                                                            var_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+        character(len=64), intent(in) :: assigned_vars(:)
+        integer, intent(in) :: assignment_counts(:)
+        integer, intent(in) :: var_count
+        
+        integer :: i, j
+        logical, allocatable :: needs_allocatable(:)
+        logical :: any_needs_allocatable, all_need_allocatable
+        
+        if (decl_index <= 0 .or. decl_index > arena%size) return
+        if (.not. allocated(arena%entries(decl_index)%node)) return
+        
+        select type (decl => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            if (.not. decl%is_multi_declaration .or. &
+                .not. allocated(decl%var_names)) return
+            
+            ! Determine which variables need allocatable
+            allocate(needs_allocatable(size(decl%var_names)))
+            needs_allocatable = .false.
+            
+            do i = 1, size(decl%var_names)
+                do j = 1, var_count
+                    if (trim(decl%var_names(i)) == trim(assigned_vars(j))) then
+                        if (assignment_counts(j) > 1) then
+                            ! Only mark as needing allocatable if:
+                            ! 1. It's an array
+                            ! 2. Not already allocatable
+                            ! 3. Not a procedure parameter
+                            if (decl%is_array .and. &
+                                .not. decl%is_allocatable .and. &
+                                .not. is_procedure_parameter(arena, decl_index)) then
+                                needs_allocatable(i) = .true.
+                            end if
+                        end if
+                        exit
+                    end if
+                end do
+            end do
+            
+            ! Check if any or all need allocatable
+            any_needs_allocatable = any(needs_allocatable)
+            all_need_allocatable = all(needs_allocatable)
+            
+            if (.not. any_needs_allocatable) then
+                ! No variables need allocatable, leave declaration as-is
+                return
+            else if (all_need_allocatable) then
+                ! All variables need allocatable, just mark the declaration
+                decl%is_allocatable = .true.
+                if (allocated(decl%dimension_indices)) then
+                    ! Set all dimensions to 0 (deferred shape)
+                    decl%dimension_indices = 0
+                end if
+            else
+                ! Mixed case: For now, mark all as allocatable
+                ! TODO: Implement proper declaration splitting
+                decl%is_allocatable = .true.
+                if (allocated(decl%dimension_indices)) then
+                    ! Set all dimensions to 0 (deferred shape)
+                    decl%dimension_indices = 0
+                end if
+            end if
+            
+        end select
+    end subroutine handle_multi_variable_declaration_allocatable
     
     ! Check if assignment value is an array expression
     function is_array_assignment(arena, value_index) result(is_array)
