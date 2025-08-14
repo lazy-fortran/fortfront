@@ -69,14 +69,14 @@ contains
             read(unit, '(a)', iostat=iostat) line
             if (iostat /= 0) exit
             
-            ! Check for correct precedence
-            if (index(line, '3.14d0*r**2') > 0) then
+            ! Check for correct precedence (remove any trailing whitespace/line endings)
+            if (index(trim(line), '3.14d0*r**2') > 0) then
                 has_correct_precedence = .true.
                 print *, '  OK: Found correct precedence: ', trim(line)
             end if
             
             ! Check for wrong grouping that indicates the bug
-            if (index(line, '(3.14d0*r) ** 2') > 0) then
+            if (index(trim(line), '(3.14d0*r) ** 2') > 0) then
                 print *, '  FAIL: Found incorrect grouping: ', trim(line)
                 test_exponentiation_precedence = .false.
                 close(unit)
