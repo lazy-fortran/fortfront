@@ -51,15 +51,6 @@ contains
             return
         end if
         
-        ! Check that output file was actually created
-        inquire(file=output_file, exist=has_correct_precedence)
-        if (.not. has_correct_precedence) then
-            print *, '  FAIL: Output file was not created:', trim(output_file)
-            test_exponentiation_precedence = .false.
-            return
-        end if
-        
-        print *, '  INFO: Compilation succeeded, checking output in:', trim(output_file)
         
         ! Check generated code - should have "3.14d0*r**2", NOT "(3.14d0*r) ** 2"
         has_correct_precedence = .false.
@@ -87,17 +78,6 @@ contains
         
         if (.not. has_correct_precedence) then
             print *, '  FAIL: Did not find expected "3.14d0*r**2" in output'
-            print *, '  Generated output was:'
-            
-            ! Re-read and dump the entire output for debugging
-            open(newunit=unit, file=output_file, status='old')
-            do
-                read(unit, '(a)', iostat=iostat) line
-                if (iostat /= 0) exit
-                print *, '    ', trim(line)
-            end do
-            close(unit)
-            
             test_exponentiation_precedence = .false.
         end if
         
