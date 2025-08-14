@@ -297,8 +297,7 @@ contains
             right_code = ""
         end if
 
-        ! Combine with operator - match fprettify spacing rules
-        ! fprettify: * and / get no spaces, +/- and comparisons get spaces
+        ! Combine with operator - precedence-aware spacing
         if (trim(node%operator) == ':') then
             ! Array slicing operator
             if (len(left_code) == 0) then
@@ -311,8 +310,11 @@ contains
                 ! Both bounds: lower:upper
                 code = left_code//":"//right_code
             end if
+        else if (trim(node%operator) == '**') then
+            ! Exponentiation gets no spaces (highest precedence)
+            code = left_code//node%operator//right_code
         else if (trim(node%operator) == '*' .or. trim(node%operator) == '/') then
-            ! Multiplication and division get no spaces
+            ! Multiplication and division get no spaces (original convention)
             code = left_code//node%operator//right_code
         else
             ! All other operators (comparisons, logical, etc.) get spaces around them
