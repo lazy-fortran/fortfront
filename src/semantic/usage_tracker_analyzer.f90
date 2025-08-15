@@ -219,7 +219,8 @@ contains
         end do
         
         ! Store results
-        allocate(character(len(temp_names(1))) :: result%usage_info%variable_names(count))
+        allocate(character(len(temp_names(1))) :: &
+            result%usage_info%variable_names(count))
         allocate(result%usage_info%usage_counts(count))
         allocate(result%usage_info%node_indices(count))
         
@@ -227,7 +228,8 @@ contains
         result%usage_info%usage_counts(1:count) = temp_counts(1:count)
         result%usage_info%total_count = count
         
-        ! For simplicity, set node indices to root (would need more sophisticated tracking)
+        ! For simplicity, set node indices to root (would need more &
+        ! sophisticated tracking)
         do i = 1, count
             result%usage_info%node_indices(i) = root_index
         end do
@@ -244,7 +246,8 @@ contains
         ! Find variables with zero usage (declared but not used)
         unused_count = 0
         if (allocated(result%usage_info%variable_names)) then
-            allocate(character(len(result%usage_info%variable_names(1))) :: temp_unused(size(result%usage_info%variable_names)))
+            allocate(character(len(result%usage_info%variable_names(1))) :: &
+                temp_unused(size(result%usage_info%variable_names)))
             
             do i = 1, size(result%usage_info%usage_counts)
                 if (result%usage_info%usage_counts(i) == 0) then
@@ -254,7 +257,8 @@ contains
             end do
             
             if (unused_count > 0) then
-                allocate(character(len(temp_unused(1))) :: result%unused_variables(unused_count))
+                allocate(character(len(temp_unused(1))) :: &
+                    result%unused_variables(unused_count))
                 result%unused_variables(1:unused_count) = temp_unused(1:unused_count)
                 
                 allocate(result%unused_node_indices(unused_count))

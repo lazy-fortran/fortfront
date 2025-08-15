@@ -142,7 +142,8 @@ contains
         ! Check parameter compatibility
         if (allocated(sig1%parameters) .and. allocated(sig2%parameters)) then
             do i = 1, sig1%parameter_count
-                if (.not. parameters_compatible(sig1%parameters(i), sig2%parameters(i))) then
+                if (.not. parameters_compatible(sig1%parameters(i), &
+                                                 sig2%parameters(i))) then
                     return
                 end if
             end do
@@ -246,7 +247,8 @@ contains
         do i = 1, arena%size
             if (is_procedure_node_type(arena, i)) then
                 signature_count = signature_count + 1
-                call extract_signature_from_node(temp_signatures(signature_count), arena, i)
+                call extract_signature_from_node(temp_signatures(signature_count), &
+                                                  arena, i)
             end if
         end do
         
@@ -456,10 +458,12 @@ contains
             do j = i + 1, result%signature_count
                 if (result%signatures(i)%name == result%signatures(j)%name) then
                     ! Same name - check if signatures match
-                    if (.not. signatures_match(result%signatures(i), result%signatures(j))) then
+                    if (.not. signatures_match(result%signatures(i), &
+                                               result%signatures(j))) then
                         mismatch_count = mismatch_count + 1
                         temp_mismatches(mismatch_count) = result%signatures(i)%name
-                        temp_locations(mismatch_count) = result%signatures(i)%source_location
+                        temp_locations(mismatch_count) = &
+                            result%signatures(i)%source_location
                     end if
                 end if
             end do
@@ -468,8 +472,10 @@ contains
         if (mismatch_count > 0) then
             allocate(character(len=256) :: result%mismatched_procedures(mismatch_count))
             allocate(result%mismatch_locations(mismatch_count))
-            result%mismatched_procedures(1:mismatch_count) = temp_mismatches(1:mismatch_count)
-            result%mismatch_locations(1:mismatch_count) = temp_locations(1:mismatch_count)
+            result%mismatched_procedures(1:mismatch_count) = &
+                temp_mismatches(1:mismatch_count)
+            result%mismatch_locations(1:mismatch_count) = &
+                temp_locations(1:mismatch_count)
         else
             allocate(character(0) :: result%mismatched_procedures(0))
             allocate(result%mismatch_locations(0))
@@ -545,7 +551,8 @@ contains
         ! Check all parameters
         if (allocated(sig1%parameters) .and. allocated(sig2%parameters)) then
             do i = 1, sig1%parameter_count
-                if (.not. parameters_compatible(sig1%parameters(i), sig2%parameters(i))) then
+                if (.not. parameters_compatible(sig1%parameters(i), &
+                                                 sig2%parameters(i))) then
                     return
                 end if
             end do

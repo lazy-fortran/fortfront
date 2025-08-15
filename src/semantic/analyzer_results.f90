@@ -37,7 +37,8 @@ contains
         if (allocated(results%control_flow)) deallocate(results%control_flow)
         if (allocated(results%usage_info)) deallocate(results%usage_info)
         if (allocated(results%unused_variables)) deallocate(results%unused_variables)
-        if (allocated(results%undefined_variables)) deallocate(results%undefined_variables)
+        if (allocated(results%undefined_variables)) &
+            deallocate(results%undefined_variables)
         if (allocated(results%unused_procedures)) deallocate(results%unused_procedures)
         if (allocated(results%unreachable_nodes)) deallocate(results%unreachable_nodes)
         

@@ -389,8 +389,9 @@ contains
         call this%detect_performance_antipatterns(arena)
         
         ! Calculate overall complexity score
-        this%perf_metrics%overall_complexity = real(this%perf_metrics%max_loop_depth) + &
-                                             real(size(this%perf_metrics%expensive_ops)) * 0.5
+        this%perf_metrics%overall_complexity = &
+            real(this%perf_metrics%max_loop_depth) + &
+            real(size(this%perf_metrics%expensive_ops)) * 0.5
     end subroutine analyze_performance_characteristics
 
     ! Detect hot paths in CFG
