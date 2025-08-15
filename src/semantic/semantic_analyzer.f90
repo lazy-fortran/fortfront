@@ -620,8 +620,27 @@ contains
             end if
 
             ! Result is a character type with combined length
-            ! For now, use default size
-            result_typ = create_mono_type(TCHAR)
+            ! Calculate combined string length for concatenation
+            block
+                integer :: left_size, right_size, total_size
+                
+                left_size = 1  ! Default for unknown size
+                right_size = 1  ! Default for unknown size
+
+                ! Get left operand size if it's a character type
+                if (left_typ%kind == TCHAR) then
+                    left_size = left_typ%size
+                end if
+
+                ! Get right operand size if it's a character type  
+                if (right_typ%kind == TCHAR) then
+                    right_size = right_typ%size
+                end if
+
+                ! Combined length for concatenation
+                total_size = left_size + right_size
+                result_typ = create_mono_type(TCHAR, char_size=total_size)
+            end block
 
         case default
             error stop "Unknown binary operator: "//trim(binop%operator)
