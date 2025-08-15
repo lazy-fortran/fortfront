@@ -12,9 +12,8 @@ program test_dimension_attribute_parsing
     test_count = 0
     pass_count = 0
     
-    print *, "=== Dimension Attribute Parsing Tests (TDD) ==="
+    print *, "=== Dimension Attribute Parsing Tests ==="
     print *, "These tests verify issue #208 dimension attribute parsing"
-    print *, "Tests should FAIL initially due to dimension propagation bug"
     print *, ""
     
     ! Test basic dimension attributes
@@ -43,7 +42,7 @@ program test_dimension_attribute_parsing
         print *, "All dimension attribute tests passed!"
         stop 0
     else
-        print *, "Some dimension attribute tests failed (expected for issue #208)!"
+        print *, "Some dimension attribute tests failed!"
         stop 1
     end if
     
@@ -197,18 +196,22 @@ contains
         end if
         
         ! Verify each variable has dimension attribute
-        call verify_dimension_declaration(arena, decl_indices(1), "integer", "a", &
-                                        expected_is_array=.true., &
-                                        expected_dim_count=1, &
-                                        test_name="multi-var a")
-        call verify_dimension_declaration(arena, decl_indices(2), "integer", "b", &
-                                        expected_is_array=.true., &
-                                        expected_dim_count=1, &
-                                        test_name="multi-var b")
-        call verify_dimension_declaration(arena, decl_indices(3), "integer", "c", &
-                                        expected_is_array=.true., &
-                                        expected_dim_count=1, &
-                                        test_name="multi-var c")
+        if (verify_dimension_declaration_bool(arena, decl_indices(1), "integer", "a", &
+                                            expected_is_array=.true., &
+                                            expected_dim_count=1, &
+                                            test_name="multi-var a") .and. &
+            verify_dimension_declaration_bool(arena, decl_indices(2), "integer", "b", &
+                                            expected_is_array=.true., &
+                                            expected_dim_count=1, &
+                                            test_name="multi-var b") .and. &
+            verify_dimension_declaration_bool(arena, decl_indices(3), "integer", "c", &
+                                            expected_is_array=.true., &
+                                            expected_dim_count=1, &
+                                            test_name="multi-var c")) then
+            call test_pass()
+        else
+            call test_fail("One or more multi-var declarations failed verification")
+        end if
     end subroutine test_multi_var_dimension_attribute
     
     ! Test: real, dimension(2,3) :: x, y, z
@@ -248,18 +251,22 @@ contains
         end if
         
         ! Verify each variable has 2D dimension attribute
-        call verify_dimension_declaration(arena, decl_indices(1), "real", "x", &
-                                        expected_is_array=.true., &
-                                        expected_dim_count=2, &
-                                        test_name="multi-var x")
-        call verify_dimension_declaration(arena, decl_indices(2), "real", "y", &
-                                        expected_is_array=.true., &
-                                        expected_dim_count=2, &
-                                        test_name="multi-var y")
-        call verify_dimension_declaration(arena, decl_indices(3), "real", "z", &
-                                        expected_is_array=.true., &
-                                        expected_dim_count=2, &
-                                        test_name="multi-var z")
+        if (verify_dimension_declaration_bool(arena, decl_indices(1), "real", "x", &
+                                            expected_is_array=.true., &
+                                            expected_dim_count=2, &
+                                            test_name="multi-var x") .and. &
+            verify_dimension_declaration_bool(arena, decl_indices(2), "real", "y", &
+                                            expected_is_array=.true., &
+                                            expected_dim_count=2, &
+                                            test_name="multi-var y") .and. &
+            verify_dimension_declaration_bool(arena, decl_indices(3), "real", "z", &
+                                            expected_is_array=.true., &
+                                            expected_dim_count=2, &
+                                            test_name="multi-var z")) then
+            call test_pass()
+        else
+            call test_fail("One or more multi-var multi-dimension declarations failed verification")
+        end if
     end subroutine test_multi_var_multi_dimension
     
     ! Test: integer, dimension(10) :: a, b(20), c
@@ -551,6 +558,72 @@ contains
             call test_fail(test_name // ": Not a declaration node")
         end select
     end subroutine verify_dimension_declaration
+    
+    ! Boolean version that doesn't call test_pass/test_fail
+    function verify_dimension_declaration_bool(arena, decl_idx, expected_type, &
+                                              expected_var, expected_is_array, &
+                                              expected_dim_count, test_name, &
+                                              expected_is_allocatable, &
+                                              expected_is_pointer, expected_has_intent) result(success)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: decl_idx
+        character(len=*), intent(in) :: expected_type, expected_var, test_name
+        logical, intent(in) :: expected_is_array
+        integer, intent(in) :: expected_dim_count
+        logical, intent(in), optional :: expected_is_allocatable
+        logical, intent(in), optional :: expected_is_pointer
+        logical, intent(in), optional :: expected_has_intent
+        logical :: success
+        
+        logical :: actual_is_allocatable, actual_is_pointer, actual_has_intent
+        
+        success = .false.
+        
+        ! Check bounds
+        if (decl_idx <= 0 .or. decl_idx > arena%size) then
+            return
+        end if
+        
+        ! Get the declaration node
+        select type (node => arena%entries(decl_idx)%node)
+        type is (declaration_node)
+            ! Verify basic fields
+            if (node%type_name /= expected_type) return
+            if (node%var_name /= expected_var) return
+            
+            ! Verify array status
+            if (node%is_array .neqv. expected_is_array) return
+            
+            ! If expected to be array, verify dimension count
+            if (expected_is_array) then
+                if (.not. allocated(node%dimension_indices)) return
+                if (size(node%dimension_indices) /= expected_dim_count) return
+            else
+                if (allocated(node%dimension_indices)) return
+            end if
+            
+            ! Verify optional attributes
+            if (present(expected_is_allocatable)) then
+                actual_is_allocatable = node%is_allocatable
+                if (actual_is_allocatable .neqv. expected_is_allocatable) return
+            end if
+            
+            if (present(expected_is_pointer)) then
+                actual_is_pointer = node%is_pointer
+                if (actual_is_pointer .neqv. expected_is_pointer) return
+            end if
+            
+            if (present(expected_has_intent)) then
+                actual_has_intent = node%has_intent
+                if (actual_has_intent .neqv. expected_has_intent) return
+            end if
+            
+            success = .true.
+            
+        class default
+            success = .false.
+        end select
+    end function verify_dimension_declaration_bool
     
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
