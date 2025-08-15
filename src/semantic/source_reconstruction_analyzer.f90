@@ -38,6 +38,7 @@ module source_reconstruction_analyzer
         procedure :: get_results => get_source_reconstruction_results
         procedure :: get_name => get_source_reconstruction_name
         procedure :: assign => assign_source_reconstruction_analyzer
+        procedure :: get_dependencies => get_source_reconstruction_dependencies
         
         ! Analysis methods for fluff rules
         procedure :: get_node_source_text
@@ -319,6 +320,17 @@ contains
         end do
         
         line_count = max_line
+    end function
+
+    function get_source_reconstruction_dependencies(this) result(deps)
+        class(source_reconstruction_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! Source reconstruction analyzer has no dependencies
+        allocate(deps(0))
+        
+        associate(dummy => this)
+        end associate
     end function
 
 end module source_reconstruction_analyzer

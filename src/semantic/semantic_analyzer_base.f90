@@ -11,6 +11,7 @@ module semantic_analyzer_base
         procedure(analyze_interface), deferred :: analyze
         procedure(get_results_interface), deferred :: get_results
         procedure(assign_interface), deferred :: assign
+        procedure(get_dependencies_interface), deferred :: get_dependencies
         procedure :: get_name => get_analyzer_name
         generic :: assignment(=) => assign
     end type
@@ -36,6 +37,12 @@ module semantic_analyzer_base
             class(semantic_analyzer_t), intent(inout) :: lhs
             class(semantic_analyzer_t), intent(in) :: rhs
         end subroutine
+
+        function get_dependencies_interface(this) result(deps)
+            import :: semantic_analyzer_t
+            class(semantic_analyzer_t), intent(in) :: this
+            character(len=32), allocatable :: deps(:)
+        end function
     end interface
 
 contains

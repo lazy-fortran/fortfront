@@ -28,6 +28,7 @@ module usage_tracker_analyzer
         procedure :: get_results => get_usage_results
         procedure :: get_name => get_usage_analyzer_name
         procedure :: assign => assign_usage_tracker_analyzer
+        procedure :: get_dependencies => get_usage_dependencies
         
         ! Analysis methods for fluff rules
         procedure :: find_unused_variables
@@ -291,5 +292,16 @@ contains
         ! 2. Compare usage against declarations  
         ! 3. Flag variables used but not declared
     end subroutine
+
+    function get_usage_dependencies(this) result(deps)
+        class(usage_tracker_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! Usage tracker analyzer has no dependencies
+        allocate(deps(0))
+        
+        associate(dummy => this)
+        end associate
+    end function
 
 end module usage_tracker_analyzer
