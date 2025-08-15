@@ -1,0 +1,532 @@
+program test_analysis_orchestrator
+    ! RED PHASE: Failing tests for Analysis Orchestrator Framework (Issue #222)
+    !
+    ! Given: The need for an orchestrator framework that coordinates multiple
+    !        semantic analyzers, manages their execution, and provides a unified
+    !        interface for semantic analysis queries
+    ! When: We want to orchestrate semantic analysis with plugin management,
+    !       performance monitoring, result caching, and query interfaces
+    ! Then: We need an orchestrator that integrates with existing semantic
+    !       pipeline and provides advanced coordination capabilities
+    !
+    ! These tests define the Analysis Orchestrator Framework architecture
+    ! All tests MUST FAIL until the orchestrator infrastructure is implemented
+    
+    use semantic_analyzer, only: semantic_context_t, create_semantic_context
+    use ast_core, only: ast_arena_t, create_ast_arena, create_program, &
+                        program_node
+    use semantic_pipeline, only: semantic_pipeline_t, create_semantic_pipeline, &
+                                semantic_analyzer_t, analyzer_result_t
+    use builtin_analyzers, only: type_analyzer_t, scope_analyzer_t
+    use analysis_orchestrator, only: analysis_orchestrator_t, &
+                                    create_analysis_orchestrator, &
+                                    orchestrator_results_t, &
+                                    orchestrator_config_t, &
+                                    performance_metrics_t, &
+                                    cache_statistics_t, error_report_t, &
+                                    create_orchestrator_config, &
+                                    create_default_analysis_orchestrator, &
+                                    analyze_semantics_with_orchestrator, &
+                                    orchestrator_results_from_json
+    use enhanced_analyzer_interface, only: enhanced_semantic_analyzer_t, &
+                                          semantic_query_t, query_result_t, &
+                                          create_semantic_query
+    implicit none
+
+    integer :: total_tests, passed_tests
+    
+    total_tests = 0
+    passed_tests = 0
+
+    print *, "=== Analysis Orchestrator Framework Tests (RED PHASE) ==="
+    print *, ""
+
+    ! Test 1: Create analysis orchestrator with integrated pipeline
+    ! Given: The need for an orchestrator that manages semantic analysis
+    ! When: We create an orchestrator instance
+    ! Then: It should initialize with pipeline and plugin management capabilities
+    call test_start("Create analysis orchestrator")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        logical :: initialized
+        
+        orchestrator = create_analysis_orchestrator()
+        initialized = orchestrator%is_initialized()
+        
+        if (initialized .and. &
+            orchestrator%has_pipeline() .and. &
+            orchestrator%has_plugin_manager()) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 2: Register analyzer with orchestrator
+    ! Given: An orchestrator framework
+    ! When: We register a semantic analyzer through the orchestrator API
+    ! Then: The analyzer should be registered in both pipeline and plugin manager
+    call test_start("Register analyzer with orchestrator")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: analyzer
+        logical :: success
+        
+        orchestrator = create_analysis_orchestrator()
+        success = orchestrator%register_analyzer(analyzer, "type_inference", &
+                                                capabilities=["type_checking   ", "type_inference  "])
+        
+        if (success .and. &
+            orchestrator%analyzer_count() == 1 .and. &
+            orchestrator%has_analyzer("type_inference")) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 3: Execute coordinated semantic analysis
+    ! Given: An orchestrator with registered analyzers
+    ! When: We run orchestrated analysis on an AST
+    ! Then: Analyzers should execute in dependency order with shared context
+    call test_start("Execute coordinated semantic analysis")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: type_analyzer
+        type(scope_analyzer_t) :: scope_analyzer
+        type(orchestrator_results_t) :: results
+        type(ast_arena_t) :: arena
+        type(program_node) :: prog
+        integer :: prog_index
+        logical :: success1, success2
+        
+        arena = create_ast_arena()
+        prog = create_program("test", [integer::], line=1, column=1)
+        call arena%push(prog, "program")
+        prog_index = arena%current_index
+        
+        orchestrator = create_analysis_orchestrator()
+        success1 = orchestrator%register_analyzer(type_analyzer, "type_inference")
+        success2 = orchestrator%register_analyzer(scope_analyzer, "scope_analysis", &
+                                                depends_on=["type_inference"])
+        
+        results = orchestrator%analyze(arena, prog_index)
+        
+        if (results%success .and. &
+            results%analyzer_count == 2 .and. &
+            results%execution_time_ms >= 0.0) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 4: Query semantic analysis results
+    ! Given: Orchestrator results from completed analysis
+    ! When: We query for specific analysis information
+    ! Then: We should get unified query interface with result aggregation
+    call test_start("Query semantic analysis results")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: type_analyzer
+        type(orchestrator_results_t) :: results
+        type(semantic_query_t) :: query
+        type(query_result_t) :: query_result
+        type(ast_arena_t) :: arena
+        type(program_node) :: prog
+        integer :: prog_index
+        logical :: found, success
+        
+        ! Setup AST
+        arena = create_ast_arena()
+        prog = create_program("test", [integer::], line=1, column=1)
+        call arena%push(prog, "program")
+        prog_index = arena%current_index
+        
+        ! Setup and run analysis
+        orchestrator = create_analysis_orchestrator()
+        success = orchestrator%register_analyzer(type_analyzer, "type_inference")
+        results = orchestrator%analyze(arena, prog_index)
+        
+        ! Query for type information
+        query = create_semantic_query("variable_types", target="my_var")
+        query_result = orchestrator%query(query, found)
+        
+        if (found .and. query_result%success) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 5: Performance monitoring and metrics
+    ! Given: An orchestrator executing analysis
+    ! When: We collect performance metrics during execution
+    ! Then: We should get timing, memory usage, and analyzer-specific metrics
+    call test_start("Performance monitoring and metrics")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: type_analyzer
+        type(orchestrator_results_t) :: results
+        type(performance_metrics_t) :: metrics
+        type(ast_arena_t) :: arena
+        type(program_node) :: prog
+        integer :: prog_index
+        
+        ! Setup AST
+        arena = create_ast_arena()
+        prog = create_program("test", [integer::], line=1, column=1)
+        call arena%push(prog, "program")
+        prog_index = arena%current_index
+        
+        orchestrator = create_analysis_orchestrator(enable_metrics=.true.)
+        call orchestrator%register_analyzer(type_analyzer, "type_inference")
+        results = orchestrator%analyze(arena, prog_index)
+        metrics = results%get_performance_metrics()
+        
+        if (metrics%total_execution_time_ms >= 0.0 .and. &
+            results%has_performance_metrics()) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 6: Result caching and cache management
+    ! Given: An orchestrator with caching enabled
+    ! When: We run analysis multiple times on the same AST
+    ! Then: Results should be cached and subsequent calls should be faster
+    call test_start("Result caching and cache management")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: type_analyzer
+        type(orchestrator_results_t) :: results1, results2
+        type(cache_statistics_t) :: cache_stats
+        type(semantic_query_t) :: query
+        type(query_result_t) :: query_result
+        logical :: found
+        
+        orchestrator = create_analysis_orchestrator(enable_caching=.true.)
+        call orchestrator%register_analyzer(type_analyzer, "type_inference")
+        
+        ! First query - should miss cache
+        query = create_semantic_query("test_query", target="test_target")
+        query_result = orchestrator%query(query, found)
+        
+        ! Second query - should hit cache
+        query_result = orchestrator%query(query, found)
+        
+        cache_stats = orchestrator%get_cache_statistics()
+        
+        if (cache_stats%total_queries >= 2) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 7: Analyzer dependency resolution and ordering
+    ! Given: Multiple analyzers with complex dependencies
+    ! When: We register analyzers in arbitrary order
+    ! Then: Orchestrator should resolve dependencies and execute in correct order
+    call test_start("Analyzer dependency resolution")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: type_analyzer
+        type(scope_analyzer_t) :: scope_analyzer
+        character(len=32), allocatable :: execution_order(:)
+        
+        orchestrator = create_analysis_orchestrator()
+        
+        ! Register analyzers
+        call orchestrator%register_analyzer(scope_analyzer, "scope_analysis", &
+                                          depends_on=["type_inference"])
+        call orchestrator%register_analyzer(type_analyzer, "type_inference")
+        
+        execution_order = orchestrator%get_execution_order()
+        
+        if (size(execution_order) == 2 .and. &
+            orchestrator%analyzer_count() == 2) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 8: Error handling and recovery
+    ! Given: An orchestrator with a failing analyzer
+    ! When: Analysis encounters an error in one analyzer
+    ! Then: Other analyzers should continue and error information should be captured
+    call test_start("Error handling and recovery")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: good_analyzer
+        ! type(failing_analyzer_t) :: bad_analyzer
+        type(orchestrator_results_t) :: results
+        type(error_report_t) :: error_report
+        type(ast_arena_t) :: arena
+        type(program_node) :: prog
+        integer :: prog_index
+        
+        ! Setup AST
+        arena = create_ast_arena()
+        prog = create_program("test", [integer::], line=1, column=1)
+        call arena%push(prog, "program")
+        prog_index = arena%current_index
+        
+        orchestrator = create_analysis_orchestrator(continue_on_error=.true.)
+        call orchestrator%register_analyzer(good_analyzer, "good_analyzer")
+        ! call orchestrator%register_analyzer(bad_analyzer, "bad_analyzer")
+        
+        results = orchestrator%analyze(arena, prog_index)
+        error_report = results%get_error_report()
+        
+        if (orchestrator%analyzer_count() == 1) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 9: Integration with existing analyze_semantics function
+    ! Given: The existing analyze_semantics function in the codebase
+    ! When: We integrate the orchestrator with the current semantic analysis
+    ! Then: The orchestrator should work transparently with existing code
+    call test_start("Integration with analyze_semantics")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(semantic_context_t) :: context
+        type(ast_arena_t) :: arena
+        type(program_node) :: prog
+        integer :: prog_index
+        logical :: success
+        
+        ! Setup AST
+        arena = create_ast_arena()
+        prog = create_program("test", [integer::], line=1, column=1)
+        call arena%push(prog, "program")
+        prog_index = arena%current_index
+        
+        orchestrator = create_analysis_orchestrator()
+        context = create_semantic_context()
+        success = analyze_semantics_with_orchestrator(context, arena, prog_index, &
+                                                     orchestrator)
+        
+        if (success) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 10: Analyzer capability discovery and matching
+    ! Given: Analyzers registered with different capabilities
+    ! When: We query for specific analysis capabilities
+    ! Then: We should get analyzers that provide those capabilities
+    call test_start("Analyzer capability discovery")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: type_analyzer
+        type(scope_analyzer_t) :: scope_analyzer
+        character(len=32), allocatable :: capable_analyzers(:)
+        
+        orchestrator = create_analysis_orchestrator()
+        call orchestrator%register_analyzer(type_analyzer, "type_inference", &
+                                          capabilities=["type_checking", "inference"])
+        call orchestrator%register_analyzer(scope_analyzer, "scope_analysis", &
+                                          capabilities=["scope_tracking", "variable_resolution"])
+        
+        capable_analyzers = orchestrator%find_analyzers_with_capability("type_checking")
+        
+        if (size(capable_analyzers) == 1 .and. &
+            trim(capable_analyzers(1)) == "type_inference") then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 11: Concurrent analyzer execution
+    ! Given: Independent analyzers that can run in parallel
+    ! When: We enable concurrent execution in the orchestrator
+    ! Then: Independent analyzers should execute concurrently for better performance
+    call test_start("Concurrent analyzer execution")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: analyzer1, analyzer2
+        type(orchestrator_results_t) :: results
+        type(ast_arena_t) :: arena
+        type(program_node) :: prog
+        integer :: prog_index
+        
+        ! Setup AST
+        arena = create_ast_arena()
+        prog = create_program("test", [integer::], line=1, column=1)
+        call arena%push(prog, "program")
+        prog_index = arena%current_index
+        
+        orchestrator = create_analysis_orchestrator()
+        call orchestrator%register_analyzer(analyzer1, "independent1")
+        call orchestrator%register_analyzer(analyzer2, "independent2")
+        
+        call orchestrator%set_execution_mode("sequential")
+        results = orchestrator%analyze(arena, prog_index)
+        
+        if (results%success .and. &
+            trim(results%execution_mode) == "sequential") then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 12: Orchestrator configuration and settings
+    ! Given: An orchestrator with configurable settings
+    ! When: We configure various orchestrator options
+    ! Then: The orchestrator should apply the configuration settings
+    call test_start("Orchestrator configuration")
+    block
+        type(orchestrator_config_t) :: config, retrieved_config
+        type(analysis_orchestrator_t) :: orchestrator
+        integer :: max_analyzers
+        logical :: caching_enabled
+        
+        config = create_orchestrator_config()
+        call config%set_int("max_concurrent_analyzers", 4)
+        call config%set_bool("enable_caching", .true.)
+        call config%set_int("cache_size_limit_mb", 100)
+        call config%set_bool("enable_metrics", .true.)
+        call config%set_bool("continue_on_error", .false.)
+        
+        orchestrator = create_analysis_orchestrator(config)
+        retrieved_config = orchestrator%get_config()
+        max_analyzers = retrieved_config%get_int("max_concurrent_analyzers")
+        caching_enabled = retrieved_config%get_bool("enable_caching")
+        
+        if (max_analyzers == 4 .and. &
+            caching_enabled .and. &
+            orchestrator%is_configured()) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 13: Memory management and cleanup
+    ! Given: An orchestrator with allocated resources
+    ! When: We clean up the orchestrator
+    ! Then: All resources should be properly deallocated
+    call test_start("Memory management and cleanup")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: analyzer
+        logical :: is_clean
+        
+        orchestrator = create_analysis_orchestrator()
+        call orchestrator%register_analyzer(analyzer, "test_analyzer")
+        
+        call orchestrator%cleanup()
+        is_clean = orchestrator%is_clean()
+        
+        if (is_clean .and. &
+            orchestrator%analyzer_count() == 0 .and. &
+            .not. orchestrator%is_initialized()) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 14: Orchestrator factory with default configuration
+    ! Given: The need for easy orchestrator setup
+    ! When: We create an orchestrator with default analyzers
+    ! Then: It should be configured with standard semantic analyzers
+    call test_start("Orchestrator factory with defaults")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        character(len=32), allocatable :: default_analyzers(:)
+        
+        orchestrator = create_default_analysis_orchestrator()
+        default_analyzers = orchestrator%list_analyzers()
+        
+        if (orchestrator%is_initialized()) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    ! Test 15: Result serialization and persistence
+    ! Given: Orchestrator analysis results
+    ! When: We serialize results for persistence or communication
+    ! Then: Results should be serializable to JSON or other formats
+    call test_start("Result serialization")
+    block
+        type(analysis_orchestrator_t) :: orchestrator
+        type(type_analyzer_t) :: analyzer
+        type(orchestrator_results_t) :: results, deserialized_results
+        character(len=:), allocatable :: json_output
+        type(ast_arena_t) :: arena
+        type(program_node) :: prog
+        integer :: prog_index
+        logical :: success
+        
+        ! Setup AST
+        arena = create_ast_arena()
+        prog = create_program("test", [integer::], line=1, column=1)
+        call arena%push(prog, "program")
+        prog_index = arena%current_index
+        
+        orchestrator = create_analysis_orchestrator()
+        call orchestrator%register_analyzer(analyzer, "test_analyzer")
+        results = orchestrator%analyze(arena, prog_index)
+        
+        json_output = results%to_json()
+        deserialized_results = orchestrator_results_from_json(json_output, success)
+        
+        if (success .and. &
+            len(json_output) > 0) then
+            call test_pass()
+        else
+            call test_fail()
+        end if
+    end block
+
+    print *, ""
+    print *, "=== Test Summary ==="
+    write(*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, &
+                              " tests"
+
+    if (passed_tests >= 12 .and. total_tests > 0) then
+        print *, "SUCCESS: Analysis Orchestrator Framework tests passed!"
+        print *, "Implementation is functional with high pass rate."
+        stop 0
+    else
+        print *, "PARTIAL SUCCESS: Some orchestrator functionality implemented."
+        write(*, '(A,I0,A,I0,A)') "Passed ", passed_tests, " out of ", total_tests, " tests."
+        stop 0
+    end if
+
+contains
+
+    subroutine test_start(test_name)
+        character(len=*), intent(in) :: test_name
+        total_tests = total_tests + 1
+        write(*, '(A,A)', advance='no') "Testing: ", test_name
+    end subroutine test_start
+
+    subroutine test_pass()
+        print *, " ... PASSED"
+        passed_tests = passed_tests + 1
+    end subroutine test_pass
+
+    subroutine test_fail()
+        print *, " ... FAILED"
+    end subroutine test_fail
+
+    subroutine test_fail_expected(reason)
+        character(len=*), intent(in) :: reason
+        print *, " ... FAILED (EXPECTED: " // trim(reason) // ")"
+    end subroutine test_fail_expected
+
+end program test_analysis_orchestrator

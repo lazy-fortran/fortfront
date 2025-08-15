@@ -31,7 +31,7 @@ module codegen_core
 contains
 
     ! Generate code from AST arena
-    function generate_code_from_arena(arena, node_index) result(code)
+    recursive function generate_code_from_arena(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code

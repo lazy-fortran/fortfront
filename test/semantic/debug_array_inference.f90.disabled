@@ -1,0 +1,45 @@
+program test_debug
+use core_type_analyzer_module, only: core_type_analyzer_t
+use semantic_pipeline, only: semantic_pipeline_t, create_semantic_pipeline, register_analyzer, run_analysis
+use lexer_core, only: tokenize_core, token_t
+use parser_dispatcher_module, only: parse_statement_dispatcher
+use ast_core, only: ast_arena_t, create_ast_arena
+implicit none
+type(token_t), allocatable :: tokens(:)
+type(ast_arena_t) :: arena
+type(semantic_pipeline_t) :: pipeline
+type(core_type_analyzer_t) :: analyzer
+integer :: stmt_index
+logical :: success
+character(len=*), parameter :: test_source = "arr(1) = 42"
+
+print *, "Testing: ", test_source
+call tokenize_core(test_source, tokens)
+arena = create_ast_arena()
+stmt_index = parse_statement_dispatcher(tokens, arena)
+print *, "Parse result, stmt_index = ", stmt_index
+
+if (stmt_index > 0) then
+    pipeline = create_semantic_pipeline()
+    success = register_analyzer(pipeline, analyzer, "core_type_analyzer")
+    if (success) then
+        print *, "Running analysis..."
+        block
+            use semantic_pipeline, only: pipeline_results_t
+            type(pipeline_results_t) :: results
+            results = run_analysis(pipeline, arena, stmt_index)
+            print *, "Analysis success: ", results%success
+            if (allocated(arena%entries(stmt_index)%node%inferred_type)) then
+                print *, "Inferred type kind: ", arena%entries(stmt_index)%node%inferred_type%kind
+                print *, "Expected TINT (2): ", 2
+            else
+                print *, "No inferred type stored"
+            end if
+        end block
+    else
+        print *, "Failed to register analyzer"
+    end if
+else
+    print *, "Parse failed"
+end if
+end program

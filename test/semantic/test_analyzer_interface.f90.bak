@@ -1,0 +1,548 @@
+program test_analyzer_interface
+    ! RED PHASE: Failing tests for Base Analyzer Interface (Issue #222)
+    !
+    ! Given: The need for a standardized interface for semantic analyzers that
+    !        provides query capabilities, lifecycle management, and compliance
+    !        verification for use in the Analysis Orchestrator Framework
+    ! When: We want to ensure all analyzers implement required interfaces and
+    !       provide consistent behavior for orchestrated analysis
+    ! Then: We need comprehensive interface compliance testing and mock
+    !       implementations for development and testing purposes
+    !
+    ! These tests define the Base Analyzer Interface requirements
+    ! All tests MUST FAIL until the enhanced interface is implemented
+    
+    use semantic_analyzer, only: semantic_context_t, create_semantic_context
+    use ast_core, only: ast_arena_t, create_ast_arena, create_program, &
+                        program_node, create_assignment, assignment_node, &
+                        create_identifier, identifier_node
+    use semantic_analyzer_base, only: semantic_analyzer_t
+    use analyzer_results, only: analyzer_results_t
+    use builtin_analyzers, only: type_analyzer_t, scope_analyzer_t
+    implicit none
+
+    integer :: total_tests, passed_tests
+    
+    total_tests = 0
+    passed_tests = 0
+
+    print *, "=== Base Analyzer Interface Tests (RED PHASE) ==="
+    print *, ""
+
+    ! Test 1: Enhanced analyzer interface compliance
+    ! Given: The need for analyzers to implement extended interfaces
+    ! When: We check analyzer interface compliance
+    ! Then: Analyzers should implement all required methods and properties
+    call test_start("Enhanced analyzer interface compliance")
+    block
+        ! EXPECTED TO FAIL - enhanced interface not implemented
+        ! class(enhanced_semantic_analyzer_t), allocatable :: analyzer
+        ! logical :: has_query_interface, has_lifecycle, has_metadata
+        ! 
+        ! allocate(compliant_analyzer_t :: analyzer)
+        ! 
+        ! has_query_interface = analyzer%supports_queries()
+        ! has_lifecycle = analyzer%supports_lifecycle_management()
+        ! has_metadata = analyzer%has_metadata_interface()
+        ! 
+        ! if (has_query_interface .and. &
+        !     has_lifecycle .and. &
+        !     has_metadata .and. &
+        !     analyzer%is_interface_compliant()) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("enhanced interface not implemented")
+    end block
+
+    ! Test 2: Query interface functionality
+    ! Given: An analyzer that implements the query interface
+    ! When: We perform semantic queries through the analyzer
+    ! Then: We should get structured query results
+    call test_start("Query interface functionality")
+    block
+        ! EXPECTED TO FAIL - query interface not implemented
+        ! class(queryable_analyzer_t), allocatable :: analyzer
+        ! type(semantic_query_t) :: query
+        ! type(query_result_t) :: result
+        ! logical :: query_success
+        ! 
+        ! allocate(queryable_type_analyzer_t :: analyzer)
+        ! 
+        ! ! Run analysis first
+        ! call analyzer%analyze(context, arena, root_index)
+        ! 
+        ! ! Query for type information
+        ! query = create_semantic_query("get_variable_type", target="my_var")
+        ! result = analyzer%execute_query(query, query_success)
+        ! 
+        ! if (query_success .and. &
+        !     result%has_data() .and. &
+        !     result%query_type == "get_variable_type" .and. &
+        !     allocated(result%data)) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("query interface not implemented")
+    end block
+
+    ! Test 3: Analyzer metadata and capabilities
+    ! Given: Analyzers with metadata describing their capabilities
+    ! When: We query analyzer metadata
+    ! Then: We should get comprehensive capability and requirement information
+    call test_start("Analyzer metadata and capabilities")
+    block
+        ! EXPECTED TO FAIL - metadata interface not implemented
+        ! class(enhanced_semantic_analyzer_t), allocatable :: analyzer
+        ! type(analyzer_metadata_t) :: metadata
+        ! character(len=32), allocatable :: capabilities(:), requirements(:)
+        ! 
+        ! allocate(comprehensive_analyzer_t :: analyzer)
+        ! metadata = analyzer%get_metadata()
+        ! capabilities = metadata%get_capabilities()
+        ! requirements = metadata%get_requirements()
+        ! 
+        ! if (allocated(capabilities) .and. &
+        !     allocated(requirements) .and. &
+        !     size(capabilities) > 0 .and. &
+        !     metadata%version%major > 0 .and. &
+        !     len_trim(metadata%description) > 0) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("metadata interface not implemented")
+    end block
+
+    ! Test 4: Lifecycle management (initialization and finalization)
+    ! Given: Analyzers that require initialization and cleanup
+    ! When: We manage analyzer lifecycle
+    ! Then: Initialize and finalize methods should work correctly
+    call test_start("Lifecycle management")
+    block
+        ! EXPECTED TO FAIL - lifecycle management not implemented
+        ! class(lifecycle_aware_analyzer_t), allocatable :: analyzer
+        ! logical :: init_success, finalize_success, is_initialized, is_finalized
+        ! 
+        ! allocate(stateful_analyzer_t :: analyzer)
+        ! 
+        ! ! Test initialization
+        ! init_success = analyzer%initialize()
+        ! is_initialized = analyzer%is_initialized()
+        ! 
+        ! ! Test finalization
+        ! finalize_success = analyzer%finalize()
+        ! is_finalized = analyzer%is_finalized()
+        ! 
+        ! if (init_success .and. &
+        !     is_initialized .and. &
+        !     finalize_success .and. &
+        !     is_finalized .and. &
+        !     .not. analyzer%is_initialized()) then  ! Should be false after finalization
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("lifecycle management not implemented")
+    end block
+
+    ! Test 5: Configuration interface
+    ! Given: Analyzers that accept configuration parameters
+    ! When: We configure an analyzer with parameters
+    ! Then: The analyzer should validate and apply the configuration
+    call test_start("Configuration interface")
+    block
+        ! EXPECTED TO FAIL - configuration interface not implemented
+        ! class(configurable_analyzer_t), allocatable :: analyzer
+        ! type(analyzer_config_t) :: config
+        ! logical :: config_success, validation_success
+        ! 
+        ! allocate(configurable_type_analyzer_t :: analyzer)
+        ! config = create_analyzer_config()
+        ! call config%set("strict_mode", .true.)
+        ! call config%set("max_depth", 50)
+        ! call config%set("output_format", "json")
+        ! 
+        ! validation_success = analyzer%validate_config(config)
+        ! config_success = analyzer%configure(config)
+        ! 
+        ! if (validation_success .and. &
+        !     config_success .and. &
+        !     analyzer%is_configured() .and. &
+        !     analyzer%get_config()%get_bool("strict_mode")) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("configuration interface not implemented")
+    end block
+
+    ! Test 6: Mock analyzer implementation for testing
+    ! Given: The need for mock analyzers for unit testing
+    ! When: We create and use a mock analyzer
+    ! Then: It should behave predictably for testing scenarios
+    call test_start("Mock analyzer implementation")
+    block
+        ! EXPECTED TO FAIL - mock analyzer not implemented
+        ! type(mock_semantic_analyzer_t) :: mock_analyzer
+        ! type(semantic_context_t) :: context
+        ! type(ast_arena_t) :: arena
+        ! type(program_node) :: prog
+        ! integer :: prog_index
+        ! logical :: analysis_result
+        ! type(analyzer_results_t) :: results
+        ! 
+        ! ! Configure mock behavior
+        ! call mock_analyzer%set_analysis_result(.true.)
+        ! call mock_analyzer%set_result_data("mock analysis complete")
+        ! call mock_analyzer%set_execution_time_ms(10)
+        ! 
+        ! ! Create test AST
+        ! arena = create_ast_arena()
+        ! prog = create_program("test", [integer::], line=1, column=1)
+        ! call arena%push(prog, "program")
+        ! prog_index = arena%current_index
+        ! context = create_semantic_context()
+        ! 
+        ! ! Run analysis
+        ! analysis_result = mock_analyzer%analyze(context, arena, prog_index)
+        ! results = mock_analyzer%get_results()
+        ! 
+        ! if (analysis_result .and. &
+        !     results%success .and. &
+        !     trim(results%data) == "mock analysis complete" .and. &
+        !     mock_analyzer%call_count("analyze") == 1) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("mock analyzer not implemented")
+    end block
+
+    ! Test 7: Analyzer dependency specification
+    ! Given: Analyzers that depend on other analyzers
+    ! When: We query analyzer dependencies
+    ! Then: We should get structured dependency information
+    call test_start("Analyzer dependency specification")
+    block
+        ! EXPECTED TO FAIL - dependency specification not implemented
+        ! class(dependency_aware_analyzer_t), allocatable :: analyzer
+        ! type(analyzer_dependencies_t) :: dependencies
+        ! character(len=32), allocatable :: required_analyzers(:), optional_analyzers(:)
+        ! 
+        ! allocate(complex_analyzer_t :: analyzer)
+        ! dependencies = analyzer%get_dependencies()
+        ! required_analyzers = dependencies%get_required()
+        ! optional_analyzers = dependencies%get_optional()
+        ! 
+        ! if (allocated(required_analyzers) .and. &
+        !     allocated(optional_analyzers) .and. &
+        !     any(required_analyzers == "type_inference") .and. &
+        !     dependencies%has_requirements()) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("dependency specification not implemented")
+    end block
+
+    ! Test 8: Progress reporting interface
+    ! Given: Long-running analyzers that report progress
+    ! When: An analyzer runs and reports progress
+    ! Then: We should receive progress updates during execution
+    call test_start("Progress reporting interface")
+    block
+        ! EXPECTED TO FAIL - progress reporting not implemented
+        ! type(progress_reporting_analyzer_t) :: analyzer
+        ! type(progress_monitor_t) :: monitor
+        ! type(progress_report_t) :: final_report
+        ! integer :: progress_updates
+        ! 
+        ! monitor = create_progress_monitor()
+        ! call analyzer%set_progress_monitor(monitor)
+        ! 
+        ! call analyzer%analyze(context, arena, root_index)
+        ! 
+        ! progress_updates = monitor%update_count()
+        ! final_report = monitor%get_final_report()
+        ! 
+        ! if (progress_updates > 0 .and. &
+        !     final_report%completion_percentage == 100 .and. &
+        !     final_report%total_steps > 0 .and. &
+        !     final_report%is_completed()) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("progress reporting not implemented")
+    end block
+
+    ! Test 9: Error reporting and diagnostics
+    ! Given: Analyzers that encounter errors during analysis
+    ! When: An error occurs in analysis
+    ! Then: Detailed error information should be available
+    call test_start("Error reporting and diagnostics")
+    block
+        ! EXPECTED TO FAIL - error reporting not implemented
+        ! type(error_prone_analyzer_t) :: analyzer
+        ! type(diagnostic_context_t) :: diagnostics
+        ! type(analyzer_error_t) :: error_info
+        ! logical :: has_errors
+        ! 
+        ! call analyzer%set_trigger_error(.true.)
+        ! call analyzer%analyze(context, arena, root_index)
+        ! 
+        ! has_errors = analyzer%has_errors()
+        ! diagnostics = analyzer%get_diagnostics()
+        ! error_info = diagnostics%get_last_error()
+        ! 
+        ! if (has_errors .and. &
+        !     diagnostics%error_count() > 0 .and. &
+        !     error_info%severity == "error" .and. &
+        !     len_trim(error_info%message) > 0 .and. &
+        !     error_info%has_location_info()) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("error reporting not implemented")
+    end block
+
+    ! Test 10: Analyzer composition and chaining
+    ! Given: Analyzers that can be composed or chained together
+    ! When: We create composite analyzers
+    ! Then: The composite should coordinate sub-analyzers correctly
+    call test_start("Analyzer composition")
+    block
+        ! EXPECTED TO FAIL - composition not implemented
+        ! type(composite_analyzer_t) :: composite
+        ! type(type_analyzer_t) :: type_analyzer
+        ! type(scope_analyzer_t) :: scope_analyzer
+        ! type(analyzer_results_t) :: composite_results
+        ! integer :: sub_analyzer_count
+        ! logical :: all_succeeded
+        ! 
+        ! call composite%add_sub_analyzer(type_analyzer, "type_analysis")
+        ! call composite%add_sub_analyzer(scope_analyzer, "scope_analysis")
+        ! 
+        ! call composite%analyze(context, arena, root_index)
+        ! composite_results = composite%get_results()
+        ! sub_analyzer_count = composite%sub_analyzer_count()
+        ! all_succeeded = composite%all_sub_analyzers_succeeded()
+        ! 
+        ! if (composite_results%success .and. &
+        !     sub_analyzer_count == 2 .and. &
+        !     all_succeeded .and. &
+        !     composite%has_sub_analyzer_results()) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("composition not implemented")
+    end block
+
+    ! Test 11: Analyzer performance profiling
+    ! Given: Analyzers with performance profiling capabilities
+    ! When: We run analysis with profiling enabled
+    ! Then: We should get detailed performance metrics
+    call test_start("Analyzer performance profiling")
+    block
+        ! EXPECTED TO FAIL - performance profiling not implemented
+        ! type(profiling_analyzer_t) :: analyzer
+        ! type(performance_profile_t) :: profile
+        ! type(timing_breakdown_t) :: timing
+        ! 
+        ! call analyzer%enable_profiling(.true.)
+        ! call analyzer%analyze(context, arena, root_index)
+        ! 
+        ! profile = analyzer%get_performance_profile()
+        ! timing = profile%get_timing_breakdown()
+        ! 
+        ! if (profile%total_execution_time_ms > 0 .and. &
+        !     profile%memory_peak_mb > 0 .and. &
+        !     timing%has_detailed_breakdown() .and. &
+        !     size(timing%phase_times) > 0) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("performance profiling not implemented")
+    end block
+
+    ! Test 12: Thread-safe analyzer interface
+    ! Given: Analyzers that may be used in concurrent contexts
+    ! When: We check thread safety capabilities
+    ! Then: Thread-safe analyzers should handle concurrent access properly
+    call test_start("Thread-safe analyzer interface")
+    block
+        ! EXPECTED TO FAIL - thread safety not implemented
+        ! type(thread_safe_analyzer_t) :: analyzer
+        ! logical :: is_thread_safe, supports_concurrent_access
+        ! type(concurrency_info_t) :: concurrency_info
+        ! 
+        ! is_thread_safe = analyzer%is_thread_safe()
+        ! supports_concurrent_access = analyzer%supports_concurrent_analysis()
+        ! concurrency_info = analyzer%get_concurrency_info()
+        ! 
+        ! if (is_thread_safe .and. &
+        !     supports_concurrent_access .and. &
+        !     concurrency_info%max_concurrent_instances > 0 .and. &
+        !     concurrency_info%has_synchronization_primitives()) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("thread safety not implemented")
+    end block
+
+    ! Test 13: Analyzer state management
+    ! Given: Stateful analyzers that maintain internal state
+    ! When: We manage analyzer state across multiple analysis runs
+    ! Then: State should be properly managed and isolated
+    call test_start("Analyzer state management")
+    block
+        ! EXPECTED TO FAIL - state management not implemented
+        ! type(stateful_analyzer_t) :: analyzer
+        ! type(analyzer_state_t) :: state1, state2
+        ! logical :: state_changed, state_isolated
+        ! 
+        ! ! First analysis
+        ! call analyzer%analyze(context, arena, root_index)
+        ! state1 = analyzer%get_state()
+        ! 
+        ! ! Second analysis with different AST
+        ! call analyzer%reset_state()
+        ! call analyzer%analyze(context, arena, other_root_index)
+        ! state2 = analyzer%get_state()
+        ! 
+        ! state_changed = .not. state1%equals(state2)
+        ! state_isolated = analyzer%is_state_isolated()
+        ! 
+        ! if (state_changed .and. &
+        !     state_isolated .and. &
+        !     state1%is_valid() .and. &
+        !     state2%is_valid()) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("state management not implemented")
+    end block
+
+    ! Test 14: Analyzer registry and factory pattern
+    ! Given: A registry of available analyzer implementations
+    ! When: We request analyzers by capability or name
+    ! Then: The registry should provide appropriate analyzer instances
+    call test_start("Analyzer registry and factory")
+    block
+        ! EXPECTED TO FAIL - registry/factory not implemented
+        ! type(analyzer_registry_t) :: registry
+        ! class(enhanced_semantic_analyzer_t), allocatable :: analyzer
+        ! character(len=32), allocatable :: available_analyzers(:)
+        ! logical :: found, registration_success
+        ! 
+        ! registry = create_analyzer_registry()
+        ! registration_success = registry%register_analyzer_type("advanced_type_analyzer", &
+        !                                                       advanced_type_analyzer_factory)
+        ! 
+        ! available_analyzers = registry%list_available_analyzers()
+        ! analyzer = registry%create_analyzer("advanced_type_analyzer", found)
+        ! 
+        ! if (registration_success .and. &
+        !     found .and. &
+        !     allocated(analyzer) .and. &
+        !     size(available_analyzers) > 0 .and. &
+        !     any(available_analyzers == "advanced_type_analyzer")) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("registry/factory not implemented")
+    end block
+
+    ! Test 15: Analyzer validation and testing utilities
+    ! Given: Utilities for validating analyzer implementations
+    ! When: We validate an analyzer implementation
+    ! Then: We should get comprehensive validation results
+    call test_start("Analyzer validation utilities")
+    block
+        ! EXPECTED TO FAIL - validation utilities not implemented
+        ! type(analyzer_validator_t) :: validator
+        ! type(validation_report_t) :: report
+        ! class(enhanced_semantic_analyzer_t), allocatable :: test_analyzer
+        ! logical :: is_valid, passes_compliance_tests
+        ! 
+        ! allocate(test_implementation_analyzer_t :: test_analyzer)
+        ! validator = create_analyzer_validator()
+        ! 
+        ! report = validator%validate_analyzer(test_analyzer)
+        ! is_valid = report%is_valid()
+        ! passes_compliance_tests = report%passes_compliance_tests()
+        ! 
+        ! if (is_valid .and. &
+        !     passes_compliance_tests .and. &
+        !     report%test_count() > 0 .and. &
+        !     report%passed_tests() == report%test_count() .and. &
+        !     len_trim(report%summary()) > 0) then
+        !     call test_pass()
+        ! else
+        !     call test_fail()
+        ! end if
+        
+        call test_fail_expected("validation utilities not implemented")
+    end block
+
+    print *, ""
+    print *, "=== Test Summary ==="
+    write(*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, &
+                              " tests"
+
+    if (passed_tests == 0 .and. total_tests > 0) then
+        print *, "SUCCESS: All tests failed as expected in RED phase!"
+        print *, "Ready for implementation of Enhanced Analyzer Interface."
+        stop 0
+    else
+        print *, "ERROR: Some tests passed unexpectedly in RED phase!"
+        print *, "Enhanced interface may already exist or tests are incorrect."
+        stop 1
+    end if
+
+contains
+
+    subroutine test_start(test_name)
+        character(len=*), intent(in) :: test_name
+        total_tests = total_tests + 1
+        write(*, '(A,A)', advance='no') "Testing: ", test_name
+    end subroutine test_start
+
+    subroutine test_pass()
+        print *, " ... PASSED"
+        passed_tests = passed_tests + 1
+    end subroutine test_pass
+
+    subroutine test_fail()
+        print *, " ... FAILED"
+    end subroutine test_fail
+
+    subroutine test_fail_expected(reason)
+        character(len=*), intent(in) :: reason
+        print *, " ... FAILED (EXPECTED: " // trim(reason) // ")"
+    end subroutine test_fail_expected
+
+end program test_analyzer_interface

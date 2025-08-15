@@ -1,0 +1,92 @@
+program debug_parser_comments
+    use fortfront, only: lex_source, parse_tokens
+    use lexer_core, only: token_t, TK_COMMENT
+    use ast_core, only: get_arena_size, visit_node_at
+    use ast_visitor, only: ast_visitor_t
+    implicit none
+    
+    type(token_t), allocatable :: tokens(:)
+    character(len=:), allocatable :: test_source, error_msg
+    integer :: root_index, arena_size, i, comment_nodes_found
+    
+    ! Simple visitor to count comment nodes
+    type, extends(ast_visitor_t) :: comment_counter_t
+        integer :: count = 0
+    contains
+        procedure :: visit_comment => count_comment_nodes
+    end type
+    
+    type(comment_counter_t) :: counter
+    
+    ! Test the exact failing case
+    test_source = "! Header comment" // new_line('a') // &
+                  "! Second line" // new_line('a') // &
+                  "program test" // new_line('a') // &
+                  "! Body comment" // new_line('a') // &
+                  "x = 1" // new_line('a') // &
+                  "end program"
+    
+    print *, "=== PARSER DIAGNOSTIC: Comment Node Analysis ==="
+    print *, ""
+    print *, "Input source:"
+    print *, trim(test_source)
+    print *, ""
+    
+    ! Step 1: Lex
+    call lex_source(test_source, tokens, error_msg)
+    if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+        print *, "LEX ERROR: ", trim(error_msg)
+        stop 1
+    end if
+    
+    ! Count comment tokens
+    comment_nodes_found = 0
+    do i = 1, size(tokens)
+        if (tokens(i)%kind == TK_COMMENT) then
+            comment_nodes_found = comment_nodes_found + 1
+        end if
+    end do
+    print *, "Comment tokens from lexer:", comment_nodes_found
+    
+    ! Step 2: Parse
+    call parse_tokens(tokens, root_index, error_msg)
+    if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+        print *, "PARSE ERROR: ", trim(error_msg)
+        stop 1
+    end if
+    
+    arena_size = get_arena_size()
+    print *, "AST arena size:", arena_size
+    print *, "Root node index:", root_index
+    print *, ""
+    
+    ! Count comment nodes in AST by visiting all nodes
+    counter%count = 0
+    do i = 1, arena_size
+        call visit_node_at(i, counter)
+    end do
+    
+    print *, "Comment nodes in AST:", counter%count
+    
+    ! Analysis
+    if (counter%count >= 3) then
+        print *, "✓ PARSER: All expected comments converted to AST nodes"
+    else
+        print *, "✗ PARSER: Missing comment nodes (expected 3, got", counter%count, ")"
+        print *, "  Issue: Comments not being converted to AST nodes"
+    end if
+    
+contains
+
+    subroutine count_comment_nodes(this, node)
+        class(comment_counter_t), intent(inout) :: this
+        class(*), intent(in) :: node
+        
+        select type(node)
+        type is (comment_node)
+            this%count = this%count + 1
+            print *, "Found comment node:", trim(node%text)
+        end select
+    end subroutine count_comment_nodes
+    
+end program debug_parser_comments

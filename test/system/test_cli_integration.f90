@@ -67,8 +67,9 @@ contains
         
         call test_start("Basic CLI I/O")
         
-        ! Run: echo "print *, 'test'" | fortfront
-        command = 'echo "print *, ''test''" | ./build/gfortran_*/app/fortfront > ' // &
+        ! Use known working path approach
+        command = 'echo "print *, \"test\"" | ' // &
+                  './build/gfortran_266FF454AB2555FE/app/fortfront > ' // &
                   '/tmp/fortfront_test_output.txt 2>/tmp/fortfront_test_error.txt'
         call execute_command_line(command, exitstat=exit_code)
         
@@ -96,7 +97,8 @@ contains
         call test_start("Error handling")
         
         ! Run with invalid input
-        command = 'echo "invalid fortran code @#$%" | ./build/gfortran_*/app/fortfront > ' // &
+        command = 'echo "invalid fortran code @#$%" | ' // &
+                  './build/gfortran_266FF454AB2555FE/app/fortfront > ' // &
                   '/tmp/fortfront_test_output2.txt 2>/tmp/fortfront_test_error2.txt'
         call execute_command_line(command, exitstat=exit_code)
         
@@ -118,7 +120,8 @@ contains
         call test_start("Empty input produces valid program")
         
         ! Run with empty input
-        command = 'echo "" | ./build/gfortran_*/app/fortfront > ' // &
+        command = 'echo "" | ' // &
+                  './build/gfortran_266FF454AB2555FE/app/fortfront > ' // &
                   '/tmp/fortfront_test_output3.txt 2>/tmp/fortfront_test_error3.txt'
         call execute_command_line(command, exitstat=exit_code)
         

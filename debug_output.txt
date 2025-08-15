@@ -1,0 +1,24 @@
+Project is up to date
+ DEBUG: mark_allocatable_for_string_length_changes called
+ DEBUG: Program has           6 body indices
+ DEBUG: Processing body index           1 node index          12
+ DEBUG: Processing body index           2 node index          13
+ DEBUG: Processing body index           3 node index           3
+ DEBUG: Found assignment node at index           3
+ DEBUG: Processing body index           4 node index           5
+ DEBUG: Processing body index           5 node index           8
+ DEBUG: Found assignment node at index           8
+ DEBUG: Processing body index           6 node index          10
+ DEBUG: After first pass, found           1 string variables
+ DEBUG: Variable           1 :slength=           1 has_different_lengths= T
+ DEBUG: Found declaration node at index          13
+ Generated code:
+ program main
+    implicit none
+    character(len=1) :: s
+
+    s = "a"
+    print *, s
+    s = "ab"
+    print *, s
+end program main
