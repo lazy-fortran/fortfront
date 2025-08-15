@@ -6,7 +6,8 @@ module interface_analyzer
     implicit none
     private
 
-    public :: interface_analyzer_t
+    public :: interface_analyzer_t, interface_signature_t, parameter_info_t
+    public :: interface_comparison_result_t, parameters_compatible
 
     ! Parameter information
     type :: parameter_info_t
@@ -256,6 +257,8 @@ contains
     end subroutine
 
     subroutine extract_signature_from_node(signature, arena, node_index)
+        use ast_nodes_data, only: parameter_declaration_node, INTENT_IN, INTENT_OUT, &
+                                  INTENT_INOUT, INTENT_NONE
         type(interface_signature_t), intent(out) :: signature
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
@@ -263,8 +266,7 @@ contains
         ! Initialize signature
         signature%source_location = node_index
         
-        ! This is a simplified extraction - full implementation would
-        ! examine the actual node type and extract detailed information
+        ! Extract complete signature information from AST nodes
         select type (node => arena%entries(node_index)%node)
         class is (function_def_node)
             signature%is_function = .true.
@@ -273,8 +275,25 @@ contains
             else
                 signature%name = "unnamed_function"
             end if
-            signature%return_type = "unknown"  ! Would extract from node
-            signature%parameter_count = 0  ! Would count from node
+            
+            ! Extract return type
+            if (allocated(node%return_type)) then
+                signature%return_type = node%return_type
+            else
+                signature%return_type = "unknown"
+            end if
+            
+            ! Extract parameters from param_indices
+            if (allocated(node%param_indices)) then
+                signature%parameter_count = size(node%param_indices)
+                if (signature%parameter_count > 0) then
+                    allocate(signature%parameters(signature%parameter_count))
+                    call extract_parameters_from_indices(signature%parameters, &
+                                                        arena, node%param_indices)
+                end if
+            else
+                signature%parameter_count = 0
+            end if
             
         class is (subroutine_def_node)
             signature%is_function = .false.
@@ -283,19 +302,137 @@ contains
             else
                 signature%name = "unnamed_subroutine"
             end if
-            signature%parameter_count = 0  ! Would count from node
+            
+            ! Extract parameters from param_indices
+            if (allocated(node%param_indices)) then
+                signature%parameter_count = size(node%param_indices)
+                if (signature%parameter_count > 0) then
+                    allocate(signature%parameters(signature%parameter_count))
+                    call extract_parameters_from_indices(signature%parameters, &
+                                                        arena, node%param_indices)
+                end if
+            else
+                signature%parameter_count = 0
+            end if
             
         class default
             signature%name = "unknown_procedure"
             signature%is_function = .false.
             signature%parameter_count = 0
         end select
+    end subroutine
+
+    ! Extract parameter details from parameter declaration nodes
+    subroutine extract_parameters_from_indices(parameters, arena, param_indices)
+        use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
+                                  INTENT_IN, INTENT_OUT, INTENT_INOUT, INTENT_NONE
+        type(parameter_info_t), intent(out) :: parameters(:)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_indices(:)
         
-        ! Would extract parameter information in full implementation
-        if (signature%parameter_count > 0) then
-            allocate(signature%parameters(signature%parameter_count))
-            ! Fill parameter details...
-        end if
+        integer :: i, param_idx
+        
+        do i = 1, size(param_indices)
+            param_idx = param_indices(i)
+            
+            if (param_idx > 0 .and. param_idx <= arena%size) then
+                if (allocated(arena%entries(param_idx)%node)) then
+                    call extract_single_parameter(parameters(i), arena, param_idx)
+                end if
+            end if
+        end do
+    end subroutine
+
+    ! Extract information from a single parameter node
+    subroutine extract_single_parameter(param_info, arena, node_index)
+        use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
+                                  INTENT_IN, INTENT_OUT, INTENT_INOUT, INTENT_NONE
+        type(parameter_info_t), intent(out) :: param_info
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        
+        ! Initialize parameter info
+        param_info%source_location = node_index
+        param_info%is_optional = .false.
+        
+        select type (node => arena%entries(node_index)%node)
+        class is (parameter_declaration_node)
+            ! Extract from parameter_declaration_node
+            if (allocated(node%name)) then
+                param_info%name = node%name
+            else
+                param_info%name = "unknown_param"
+            end if
+            
+            if (allocated(node%type_name)) then
+                if (node%has_kind .and. node%kind_value > 0) then
+                    ! Create type string with kind
+                    block
+                        character(len=100) :: temp_str
+                        write(temp_str, '(A,"(kind=",I0,")")') &
+                            trim(node%type_name), node%kind_value
+                        param_info%type_spec = trim(temp_str)
+                    end block
+                else
+                    param_info%type_spec = node%type_name
+                end if
+            else
+                param_info%type_spec = "unknown"
+            end if
+            
+            ! Extract intent
+            select case (node%intent_type)
+            case (INTENT_IN)
+                param_info%intent = "in"
+            case (INTENT_OUT)
+                param_info%intent = "out"
+            case (INTENT_INOUT)
+                param_info%intent = "inout"
+            case default
+                param_info%intent = "none"
+            end select
+            
+            param_info%is_optional = node%is_optional
+            
+        class is (declaration_node)
+            ! Extract from declaration_node (for older parsing)
+            if (allocated(node%var_name)) then
+                param_info%name = node%var_name
+            else
+                param_info%name = "unknown_param"
+            end if
+            
+            if (allocated(node%type_name)) then
+                if (node%has_kind .and. node%kind_value > 0) then
+                    block
+                        character(len=100) :: temp_str
+                        write(temp_str, '(A,"(kind=",I0,")")') &
+                            trim(node%type_name), node%kind_value
+                        param_info%type_spec = trim(temp_str)
+                    end block
+                else
+                    param_info%type_spec = node%type_name
+                end if
+            else
+                param_info%type_spec = "unknown"
+            end if
+            
+            ! Extract intent from string
+            if (allocated(node%intent)) then
+                param_info%intent = node%intent
+            else
+                param_info%intent = "none"
+            end if
+            
+            param_info%is_optional = node%is_optional
+            
+        class default
+            ! Fallback for unknown node types
+            param_info%name = "unknown_param"
+            param_info%type_spec = "unknown"
+            param_info%intent = "none"
+            param_info%is_optional = .false.
+        end select
     end subroutine
 
     subroutine find_signature_mismatches(result)
