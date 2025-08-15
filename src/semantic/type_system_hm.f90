@@ -36,6 +36,7 @@ module type_system_hm
         logical :: is_target = .false.
         logical :: is_allocated = .false.  ! Known at compile time
         logical :: needs_allocation_check = .false.
+        logical :: needs_allocatable_string = .false.  ! String needs allocatable len
     end type allocation_info_t
 
     ! Monomorphic type - simplified to avoid circular dependency
