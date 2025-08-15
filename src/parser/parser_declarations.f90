@@ -27,9 +27,9 @@ contains
         character(len=:), allocatable :: type_name, var_name
         integer :: line, column, kind_value
         logical :: has_kind, is_array, is_allocatable, is_pointer, is_target
-        logical :: has_intent, is_optional
+        logical :: has_intent, is_optional, has_global_dimensions
         character(len=:), allocatable :: intent
-        integer, allocatable :: dimension_indices(:)
+        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
 
         ! Get type name (real, integer, etc.)
         type_token = parser%consume()
@@ -43,6 +43,7 @@ contains
         is_target = .false.
         has_intent = .false.
         is_optional = .false.
+        has_global_dimensions = .false.
 
         ! Check for kind specification (e.g., real(8)) or derived type (e.g., &
         ! type(point))
@@ -140,6 +141,25 @@ contains
                          var_token%text == "target") then
                     is_target = .true.
                     var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "dimension") then
+                    has_global_dimensions = .true.
+                    var_token = parser%consume()
+                    
+                    ! Parse dimension specification
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        ! Parse dimensions
+                        call parse_array_dimensions(parser, arena, global_dimension_indices)
+                        
+                        ! Consume ')'
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()
+                        end if
+                    end if
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "intent") then
                     has_intent = .true.
@@ -752,8 +772,8 @@ contains
         character(len=:), allocatable :: intent
         integer :: decl_count, decl_index
         character(len=:), allocatable :: var_name
-        logical :: is_array
-        integer, allocatable :: dimension_indices(:)
+        logical :: is_array, has_global_dimensions
+        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
 
         allocate (decl_indices(0))
         decl_count = 0
@@ -770,6 +790,8 @@ contains
         is_target = .false.
         has_intent = .false.
         is_optional = .false.
+        has_global_dimensions = .false.
+        has_global_dimensions = .false.
 
         ! Check for kind specification (e.g., real(8))
         var_token = parser%peek()
@@ -819,6 +841,25 @@ contains
                          var_token%text == "target") then
                     is_target = .true.
                     var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "dimension") then
+                    has_global_dimensions = .true.
+                    var_token = parser%consume()
+                    
+                    ! Parse dimension specification
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        ! Parse dimensions
+                        call parse_array_dimensions(parser, arena, global_dimension_indices)
+                        
+                        ! Consume ')'
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()
+                        end if
+                    end if
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "intent") then
                     has_intent = .true.
@@ -897,15 +938,16 @@ contains
                 var_token = parser%consume()
                 var_name = var_token%text
 
-                ! Check for array dimensions
+                ! Check for array dimensions (per-variable) or use global dimensions
                 var_token = parser%peek()
-                is_array = .false.
+                is_array = has_global_dimensions  ! Start with global dimensions
+                
                 if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
                     ! Consume '('
                     var_token = parser%consume()
                     is_array = .true.
 
-                    ! Parse dimensions
+                    ! Parse per-variable dimensions (overrides global)
                     call parse_array_dimensions(parser, arena, dimension_indices)
 
                     ! Consume ')'
@@ -918,6 +960,9 @@ contains
                         decl_indices = [decl_index]
                         return
                     end if
+                else if (has_global_dimensions) then
+                    ! Use global dimensions
+                    dimension_indices = global_dimension_indices
                 end if
 
                 ! Create declaration node - use push_declaration for individual variables

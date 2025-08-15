@@ -99,7 +99,7 @@ contains
         call insert_variable_declarations(arena, prog, prog_index)
         
         ! Mark variables that need allocatable due to array reassignment (Issue 188)
-        call mark_allocatable_for_array_reassignments(arena, prog)
+        call mark_allocatable_for_array_reassignments(arena, prog, prog_index)
         
         ! Mark variables that need allocatable due to string length changes (Issue 218)
         call mark_allocatable_for_string_length_changes(arena, prog)
@@ -718,10 +718,19 @@ contains
 
         select type (stmt => arena%entries(stmt_index)%node)
         type is (declaration_node)
-            ! Mark this variable as already declared - don't generate implicit &
-            ! declaration
-            call mark_variable_declared(stmt%var_name, var_names, &
-                                         var_declared, var_count)
+            ! Mark variables as already declared - don't generate implicit 
+            ! declarations
+            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                ! Handle multi-variable declaration
+                do i = 1, size(stmt%var_names)
+                    call mark_variable_declared(stmt%var_names(i), var_names, &
+                                               var_declared, var_count)
+                end do
+            else
+                ! Handle single variable declaration
+                call mark_variable_declared(stmt%var_name, var_names, &
+                                           var_declared, var_count)
+            end if
         type is (assignment_node)
             call collect_assignment_vars(arena, stmt_index, var_names, &
                                           var_types, var_declared, var_count, &
@@ -1011,9 +1020,22 @@ contains
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
                         type is (declaration_node)
+                            ! Check single variable declaration
                             if (trim(stmt%var_name) == trim(var_name)) then
                                 has_decl = .true.
                                 return
+                            end if
+                            ! Check multi-variable declaration
+                            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                                block
+                                    integer :: j
+                                    do j = 1, size(stmt%var_names)
+                                        if (trim(stmt%var_names(j)) == trim(var_name)) then
+                                            has_decl = .true.
+                                            return
+                                        end if
+                                    end do
+                                end block
                             end if
                         end select
                     end if
@@ -2003,9 +2025,10 @@ contains
     end subroutine get_standardizer_type_standardization
 
     ! Mark variables that need allocatable due to array reassignment patterns (Issue 188)
-    subroutine mark_allocatable_for_array_reassignments(arena, prog)
+    subroutine mark_allocatable_for_array_reassignments(arena, prog, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(in) :: prog
+        integer, intent(in) :: prog_index
         character(len=64), allocatable :: assigned_vars(:)
         integer, allocatable :: assignment_counts(:)
         integer :: var_count, i, j
@@ -2032,7 +2055,8 @@ contains
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     call mark_declarations_allocatable(arena, prog%body_indices(i), &
-                                                      assigned_vars, assignment_counts, var_count)
+                                                      assigned_vars, assignment_counts, &
+                                                      var_count, prog_index)
                 end if
             end if
         end do
@@ -2114,12 +2138,13 @@ contains
     
     ! Mark declaration nodes as allocatable for variables with multiple assignments
     recursive subroutine mark_declarations_allocatable(arena, stmt_index, assigned_vars, &
-                                                      assignment_counts, var_count)
+                                                      assignment_counts, var_count, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(in) :: assigned_vars(:)
         integer, intent(in) :: assignment_counts(:)
         integer, intent(in) :: var_count
+        integer, intent(in) :: prog_index
         integer :: i
         
         if (stmt_index <= 0 .or. stmt_index > arena%size) return
@@ -2127,33 +2152,264 @@ contains
         
         select type (stmt => arena%entries(stmt_index)%node)
         type is (declaration_node)
-            ! Check if this declaration needs allocatable
-            do i = 1, var_count
-                if (trim(stmt%var_name) == trim(assigned_vars(i))) then
-                    ! Variable has multiple array assignments
-                    if (assignment_counts(i) > 1) then
-                        ! Only mark as allocatable if:
-                        ! 1. It's an array
-                        ! 2. Not already allocatable
-                        ! 3. Not a procedure parameter (skip those)
-                        if (stmt%is_array .and. &
-                            .not. stmt%is_allocatable .and. &
-                            .not. is_procedure_parameter(arena, stmt_index)) then
-                            stmt%is_allocatable = .true.
-                            ! Update ALL dimensions to deferred shape
-                            if (allocated(stmt%dimension_indices)) then
-                                ! Set all dimensions to 0 (deferred shape)
-                                ! This converts fixed dimensions like (10) or (3,4) 
-                                ! to deferred shapes (:) or (:,:)
-                                stmt%dimension_indices = 0
+            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                ! Handle multi-variable declaration - need to check if splitting required
+                call handle_multi_variable_declaration_allocatable(arena, stmt_index, &
+                                                                  assigned_vars, &
+                                                                  assignment_counts, &
+                                                                  var_count, prog_index)
+            else
+                ! Handle single variable declaration
+                do i = 1, var_count
+                    if (trim(stmt%var_name) == trim(assigned_vars(i))) then
+                        ! Variable has multiple array assignments
+                        if (assignment_counts(i) > 1) then
+                            ! Only mark as allocatable if:
+                            ! 1. It's an array
+                            ! 2. Not already allocatable
+                            ! 3. Not a procedure parameter (skip those)
+                            if (stmt%is_array .and. &
+                                .not. stmt%is_allocatable .and. &
+                                .not. is_procedure_parameter(arena, stmt_index)) then
+                                stmt%is_allocatable = .true.
+                                ! Update ALL dimensions to deferred shape
+                                if (allocated(stmt%dimension_indices)) then
+                                    ! Set all dimensions to 0 (deferred shape)
+                                    ! This converts fixed dimensions like (10) or (3,4) 
+                                    ! to deferred shapes (:) or (:,:)
+                                    stmt%dimension_indices = 0
+                                end if
                             end if
                         end if
+                        exit
                     end if
+                end do
+            end if
+        end select
+    end subroutine mark_declarations_allocatable
+    
+    ! Handle multi-variable declarations where only some variables need allocatable
+    subroutine handle_multi_variable_declaration_allocatable(arena, decl_index, &
+                                                            assigned_vars, &
+                                                            assignment_counts, &
+                                                            var_count, prog_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+        character(len=64), intent(in) :: assigned_vars(:)
+        integer, intent(in) :: assignment_counts(:)
+        integer, intent(in) :: var_count
+        integer, intent(in) :: prog_index
+        
+        integer :: i, j
+        logical, allocatable :: needs_allocatable(:)
+        logical :: any_needs_allocatable, all_need_allocatable
+        
+        if (decl_index <= 0 .or. decl_index > arena%size) return
+        if (.not. allocated(arena%entries(decl_index)%node)) return
+        
+        select type (decl => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            if (.not. decl%is_multi_declaration .or. &
+                .not. allocated(decl%var_names)) return
+            
+            ! Determine which variables need allocatable
+            allocate(needs_allocatable(size(decl%var_names)))
+            needs_allocatable = .false.
+            
+            do i = 1, size(decl%var_names)
+                do j = 1, var_count
+                    if (trim(decl%var_names(i)) == trim(assigned_vars(j))) then
+                        if (assignment_counts(j) > 1) then
+                            ! Only mark as needing allocatable if:
+                            ! 1. It's an array
+                            ! 2. Not already allocatable
+                            ! 3. Not a procedure parameter
+                            if (decl%is_array .and. &
+                                .not. decl%is_allocatable .and. &
+                                .not. is_procedure_parameter(arena, decl_index)) then
+                                needs_allocatable(i) = .true.
+                            end if
+                        end if
+                        exit
+                    end if
+                end do
+            end do
+            
+            ! Check if any or all need allocatable
+            any_needs_allocatable = any(needs_allocatable)
+            all_need_allocatable = all(needs_allocatable)
+            
+            if (.not. any_needs_allocatable) then
+                ! No variables need allocatable, leave declaration as-is
+                return
+            else if (all_need_allocatable) then
+                ! All variables need allocatable, just mark the declaration
+                decl%is_allocatable = .true.
+                if (allocated(decl%dimension_indices)) then
+                    ! Set all dimensions to 0 (deferred shape)
+                    decl%dimension_indices = 0
+                end if
+            else
+                ! Mixed case: Split the declaration into allocatable and non-allocatable
+                call split_multi_variable_declaration(arena, decl_index, &
+                                                    needs_allocatable, prog_index)
+            end if
+            
+        end select
+    end subroutine handle_multi_variable_declaration_allocatable
+    
+    ! Split multi-variable declaration into allocatable and non-allocatable parts
+    subroutine split_multi_variable_declaration(arena, decl_index, &
+                                               needs_allocatable, prog_index)
+        use ast_factory, only: push_multi_declaration
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+        logical, intent(in) :: needs_allocatable(:)
+        integer, intent(in) :: prog_index
+        
+        type(declaration_node), pointer :: orig_decl
+        character(len=:), allocatable :: allocatable_vars(:), non_allocatable_vars(:)
+        integer :: i, alloc_count, non_alloc_count
+        integer :: new_alloc_index, new_non_alloc_index
+        integer, allocatable :: deferred_dims(:)
+        
+        if (decl_index <= 0 .or. decl_index > arena%size) return
+        if (.not. allocated(arena%entries(decl_index)%node)) return
+        
+        select type (orig_decl => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            if (.not. orig_decl%is_multi_declaration .or. &
+                .not. allocated(orig_decl%var_names)) return
+            
+            ! Count variables in each group
+            alloc_count = count(needs_allocatable)
+            non_alloc_count = size(needs_allocatable) - alloc_count
+            
+            if (alloc_count == 0 .or. non_alloc_count == 0) return
+            
+            ! Allocate arrays for variable names
+            allocate(character(len=100) :: allocatable_vars(alloc_count))
+            allocate(character(len=100) :: non_allocatable_vars(non_alloc_count))
+            
+            ! Split variable names
+            alloc_count = 0
+            non_alloc_count = 0
+            do i = 1, size(orig_decl%var_names)
+                if (needs_allocatable(i)) then
+                    alloc_count = alloc_count + 1
+                    allocatable_vars(alloc_count) = trim(orig_decl%var_names(i))
+                else
+                    non_alloc_count = non_alloc_count + 1
+                    non_allocatable_vars(non_alloc_count) = &
+                        trim(orig_decl%var_names(i))
+                end if
+            end do
+            
+            ! Create deferred shape dimensions for allocatable variables
+            if (orig_decl%is_array .and. allocated(orig_decl%dimension_indices)) then
+                allocate(deferred_dims(size(orig_decl%dimension_indices)))
+                deferred_dims = 0  ! 0 means deferred shape (:)
+            end if
+            
+            ! Create new allocatable declaration
+            new_alloc_index = push_multi_declaration(arena, &
+                orig_decl%type_name, &
+                allocatable_vars, &
+                kind_value=merge(orig_decl%kind_value, 0, orig_decl%has_kind), &
+                dimension_indices=deferred_dims, &
+                initializer_index=merge(orig_decl%initializer_index, 0, &
+                                      orig_decl%has_initializer), &
+                is_allocatable=.true., &
+                is_pointer=orig_decl%is_pointer, &
+                is_target=orig_decl%is_target, &
+                intent_value=merge(orig_decl%intent, "", orig_decl%has_intent), &
+                is_optional=orig_decl%is_optional, &
+                line=orig_decl%line, &
+                column=orig_decl%column, &
+                parent_index=prog_index)
+            
+            ! Create new non-allocatable declaration
+            new_non_alloc_index = push_multi_declaration(arena, &
+                orig_decl%type_name, &
+                non_allocatable_vars, &
+                kind_value=merge(orig_decl%kind_value, 0, orig_decl%has_kind), &
+                dimension_indices=orig_decl%dimension_indices, &
+                initializer_index=merge(orig_decl%initializer_index, 0, &
+                                      orig_decl%has_initializer), &
+                is_allocatable=.false., &
+                is_pointer=orig_decl%is_pointer, &
+                is_target=orig_decl%is_target, &
+                intent_value=merge(orig_decl%intent, "", orig_decl%has_intent), &
+                is_optional=orig_decl%is_optional, &
+                line=orig_decl%line, &
+                column=orig_decl%column, &
+                parent_index=prog_index)
+            
+            ! Update program body_indices to include new declarations
+            call update_program_body_indices(arena, prog_index, decl_index, &
+                                            new_alloc_index, new_non_alloc_index)
+            
+            ! Clean up
+            if (allocated(deferred_dims)) deallocate(deferred_dims)
+            deallocate(allocatable_vars)
+            deallocate(non_allocatable_vars)
+            
+        end select
+    end subroutine split_multi_variable_declaration
+    
+    ! Update program body_indices to replace old declaration with new ones
+    subroutine update_program_body_indices(arena, prog_index, old_decl_index, &
+                                         new_alloc_index, new_non_alloc_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: prog_index, old_decl_index
+        integer, intent(in) :: new_alloc_index, new_non_alloc_index
+        
+        integer, allocatable :: new_body_indices(:)
+        integer :: i, old_pos, new_size
+        
+        if (prog_index <= 0 .or. prog_index > arena%size) return
+        if (.not. allocated(arena%entries(prog_index)%node)) return
+        
+        select type (prog => arena%entries(prog_index)%node)
+        type is (program_node)
+            if (.not. allocated(prog%body_indices)) return
+            
+            ! Find position of old declaration
+            old_pos = 0
+            do i = 1, size(prog%body_indices)
+                if (prog%body_indices(i) == old_decl_index) then
+                    old_pos = i
                     exit
                 end if
             end do
+            
+            if (old_pos == 0) return  ! Old declaration not found
+            
+            ! Create new body_indices array (one element larger)
+            new_size = size(prog%body_indices) + 1
+            allocate(new_body_indices(new_size))
+            
+            ! Copy elements before the old declaration
+            if (old_pos > 1) then
+                new_body_indices(1:old_pos-1) = prog%body_indices(1:old_pos-1)
+            end if
+            
+            ! Insert the two new declarations
+            new_body_indices(old_pos) = new_alloc_index
+            new_body_indices(old_pos+1) = new_non_alloc_index
+            
+            ! Copy elements after the old declaration
+            if (old_pos < size(prog%body_indices)) then
+                new_body_indices(old_pos+2:new_size) = &
+                    prog%body_indices(old_pos+1:size(prog%body_indices))
+            end if
+            
+            ! Replace the program's body_indices
+            deallocate(prog%body_indices)
+            prog%body_indices = new_body_indices
+            
         end select
-    end subroutine mark_declarations_allocatable
+    end subroutine update_program_body_indices
     
     ! Check if assignment value is an array expression
     function is_array_assignment(arena, value_index) result(is_array)
