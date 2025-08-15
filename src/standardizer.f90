@@ -101,6 +101,9 @@ contains
         
         ! Mark variables that need allocatable due to array reassignment (Issue 188)
         call mark_allocatable_for_array_reassignments(arena, prog)
+        
+        ! Mark variables that need allocatable due to string length changes (Issue 218)
+        call mark_allocatable_for_string_length_changes(arena, prog)
 
         ! Check if we need to insert a contains statement
         if (has_functions .or. has_subroutines) then
@@ -2515,5 +2518,123 @@ contains
             is_param = .true.
         end select
     end function is_procedure_parameter
+
+    ! Mark declaration nodes as allocatable for strings with length changes (Issue 218)
+    subroutine mark_allocatable_for_string_length_changes(arena, prog)
+        type(ast_arena_t), intent(inout) :: arena
+        type(program_node), intent(in) :: prog
+        character(len=64), allocatable :: string_vars_needing_allocatable(:)
+        integer :: var_count, i, j
+        
+        
+        ! First pass: collect variables that need allocatable strings
+        allocate(string_vars_needing_allocatable(100))
+        var_count = 0
+        
+        if (allocated(prog%body_indices)) then
+            do i = 1, size(prog%body_indices)
+                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                    call collect_string_vars_needing_allocatable(arena, prog%body_indices(i), &
+                        string_vars_needing_allocatable, var_count)
+                end if
+            end do
+        end if
+        
+        
+        ! Second pass: mark the corresponding declarations
+        if (var_count > 0 .and. allocated(prog%body_indices)) then
+            do i = 1, size(prog%body_indices)
+                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                        select type (stmt => arena%entries(prog%body_indices(i))%node)
+                        type is (declaration_node)
+                            ! Check if this declaration needs to be marked
+                            do j = 1, var_count
+                                if (trim(stmt%var_name) == trim(string_vars_needing_allocatable(j))) then
+                                    if (allocated(stmt%inferred_type)) then
+                                        stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
+                                        ! Clear type_name so codegen uses inferred_type
+                                        stmt%type_name = ""
+                                    else
+                                        ! Create an inferred_type for the declaration
+                                        allocate(stmt%inferred_type)
+                                        stmt%inferred_type%kind = TCHAR
+                                        stmt%inferred_type%size = 0  ! Unknown size for allocatable
+                                        stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
+                                        ! Clear type_name so codegen uses inferred_type
+                                        stmt%type_name = ""
+                                    end if
+                                    exit
+                                end if
+                            end do
+                        end select
+                    end if
+                end if
+            end do
+        end if
+        
+        deallocate(string_vars_needing_allocatable)
+    end subroutine mark_allocatable_for_string_length_changes
+    
+    ! Recursively collect variables that need allocatable strings
+    recursive subroutine collect_string_vars_needing_allocatable(arena, stmt_index, &
+                                                               var_list, var_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: stmt_index
+        character(len=64), intent(inout) :: var_list(:)
+        integer, intent(inout) :: var_count
+        character(len=:), allocatable :: var_name
+        integer :: i, j
+        
+        if (stmt_index <= 0 .or. stmt_index > arena%size) return
+        if (.not. allocated(arena%entries(stmt_index)%node)) return
+        
+        select type (stmt => arena%entries(stmt_index)%node)
+        type is (assignment_node)
+            ! Check if assignment target has needs_allocatable_string flag
+            if (stmt%target_index > 0 .and. stmt%target_index <= arena%size) then
+                if (allocated(arena%entries(stmt%target_index)%node)) then
+                    select type (target => arena%entries(stmt%target_index)%node)
+                    type is (identifier_node)
+                        if (allocated(target%inferred_type)) then
+                            if (target%inferred_type%alloc_info%needs_allocatable_string) then
+                                var_name = target%name
+                                ! Add to list if not already present
+                                do j = 1, var_count
+                                    if (trim(var_list(j)) == trim(var_name)) return  ! Already in list
+                                end do
+                                if (var_count < size(var_list)) then
+                                    var_count = var_count + 1
+                                    var_list(var_count) = var_name
+                                end if
+                            end if
+                        end if
+                    end select
+                end if
+            end if
+        type is (do_loop_node)
+            ! Recursively process loop body
+            if (allocated(stmt%body_indices)) then
+                do i = 1, size(stmt%body_indices)
+                    call collect_string_vars_needing_allocatable(arena, stmt%body_indices(i), &
+                                                                var_list, var_count)
+                end do
+            end if
+        type is (if_node)
+            ! Recursively process if branches
+            if (allocated(stmt%then_body_indices)) then
+                do i = 1, size(stmt%then_body_indices)
+                    call collect_string_vars_needing_allocatable(arena, stmt%then_body_indices(i), &
+                                                                var_list, var_count)
+                end do
+            end if
+            if (allocated(stmt%else_body_indices)) then
+                do i = 1, size(stmt%else_body_indices)
+                    call collect_string_vars_needing_allocatable(arena, stmt%else_body_indices(i), &
+                                                                var_list, var_count)
+                end do
+            end if
+        end select
+    end subroutine collect_string_vars_needing_allocatable
 
 end module standardizer
