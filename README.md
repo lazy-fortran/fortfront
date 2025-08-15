@@ -64,7 +64,7 @@ end program main
 
 ### Integration with fortrun
 
-fortfront is designed to work seamlessly with [fortrun](../fortrun):
+fortfront is designed to work seamlessly with [fortrun](https://github.com/lazy-fortran/fortrun):
 
 ```bash
 # fortrun automatically uses fortfront for .lf files
