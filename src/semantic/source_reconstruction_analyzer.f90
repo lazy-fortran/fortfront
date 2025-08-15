@@ -26,7 +26,7 @@ module source_reconstruction_analyzer
         character(:), allocatable :: original_source
         type(source_map_t) :: node_map
         integer :: total_lines = 0
-        character(:), allocatable :: line_starts(:)  ! Character positions of line starts
+        character(:), allocatable :: line_starts(:)  ! Character positions
     end type
 
     ! Source reconstruction analyzer plugin
@@ -127,12 +127,14 @@ contains
         text = "<source not available>"
     end function
 
-    function extract_text_span(this, start_line, start_col, end_line, end_col) result(text)
+    function extract_text_span(this, start_line, start_col, end_line, &
+                                end_col) result(text)
         class(source_reconstruction_analyzer_t), intent(in) :: this
         integer, intent(in) :: start_line, start_col, end_line, end_col
         character(:), allocatable :: text
         
-        if (.not. this%analysis_complete .or. .not. allocated(this%result%original_source)) then
+        if (.not. this%analysis_complete .or. &
+            .not. allocated(this%result%original_source)) then
             text = ""
             return
         end if
@@ -249,8 +251,10 @@ contains
                 if (arena%entries(i)%node%line > 0) then
                     valid_nodes = valid_nodes + 1
                     result%node_map%node_indices(valid_nodes) = i
-                    result%node_map%locations(valid_nodes)%line = arena%entries(i)%node%line
-                    result%node_map%locations(valid_nodes)%column = arena%entries(i)%node%column
+                    result%node_map%locations(valid_nodes)%line = &
+                        arena%entries(i)%node%line
+                    result%node_map%locations(valid_nodes)%column = &
+                        arena%entries(i)%node%column
                     ! Set positions (would need actual source text for real positions)
                     result%node_map%locations(valid_nodes)%start_pos = 0
                     result%node_map%locations(valid_nodes)%end_pos = 0

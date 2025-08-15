@@ -68,23 +68,32 @@ contains
         ! SAFE: Use type-specific allocation and deep copy via assignment operator
         select type(a => analyzer)
         type is (symbol_analyzer_t)
-            allocate(symbol_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(symbol_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (type_analyzer_t)
-            allocate(type_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(type_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (scope_analyzer_t)
-            allocate(scope_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(scope_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (call_graph_analyzer_t)
-            allocate(call_graph_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(call_graph_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (control_flow_analyzer_t)
-            allocate(control_flow_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(control_flow_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (usage_tracker_analyzer_t)
-            allocate(usage_tracker_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(usage_tracker_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (source_reconstruction_analyzer_t)
-            allocate(source_reconstruction_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(source_reconstruction_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (interface_analyzer_t)
-            allocate(interface_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(interface_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (simple_test_analyzer_t)
-            allocate(simple_test_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(simple_test_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         class default
             error stop "Unknown analyzer type in register_analyzer"
         end select

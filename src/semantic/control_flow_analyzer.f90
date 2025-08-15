@@ -1,12 +1,12 @@
 module control_flow_analyzer
     use semantic_analyzer_base, only: semantic_analyzer_t
     use ast_core, only: ast_arena_t
-    use control_flow_graph_module, only: control_flow_graph_t, basic_block_t, cfg_edge_t, &
-                                         create_control_flow_graph, &
-                                         cfg_find_unreachable_code => find_unreachable_code, &
-                                         get_unreachable_statements, is_block_reachable, &
-                                         EDGE_UNCONDITIONAL, EDGE_TRUE_BRANCH, EDGE_FALSE_BRANCH, &
-                                         EDGE_LOOP_BACK, EDGE_BREAK, EDGE_CONTINUE, EDGE_RETURN
+    use control_flow_graph_module, only: control_flow_graph_t, basic_block_t, &
+        cfg_edge_t, create_control_flow_graph, &
+        cfg_find_unreachable_code => find_unreachable_code, &
+        get_unreachable_statements, is_block_reachable, &
+        EDGE_UNCONDITIONAL, EDGE_TRUE_BRANCH, EDGE_FALSE_BRANCH, &
+        EDGE_LOOP_BACK, EDGE_BREAK, EDGE_CONTINUE, EDGE_RETURN
     use cfg_builder_module, only: build_control_flow_graph
     implicit none
     private
