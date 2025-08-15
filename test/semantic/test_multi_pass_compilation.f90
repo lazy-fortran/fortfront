@@ -47,8 +47,9 @@ program test_multi_pass_compilation
     if (.not. test_results_cache_invalidation()) all_passed = .false.
     if (.not. test_results_cache_memory_management()) all_passed = .false.
 
-    ! Test Group 4: Integration Tests
-    ! Commented out for PR #229 - these are TDD tests for future functionality
+    ! Test Group 4: Integration Tests (TODO: Enable in Phase 3)
+    ! These tests are intentionally designed to fail until Phase 3 integration
+    print *, '  SKIPPING integration tests (Phase 3): Type inference, allocatable detection, forward references, performance'
     ! if (.not. test_multi_pass_type_inference()) all_passed = .false.
     ! if (.not. test_multi_pass_allocatable_detection()) all_passed = .false.
     ! if (.not. test_multi_pass_forward_references()) all_passed = .false.
