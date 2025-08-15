@@ -119,6 +119,9 @@ module fortfront
                                        EDGE_RETURN, EDGE_EXCEPTION
     use cfg_builder_module, only: build_control_flow_graph
     
+    ! Re-export control flow analyzer plugin for performance analysis (issue #194)
+    use control_flow_analyzer_plugin, only: control_flow_analyzer_t
+    
     ! Variable usage tracking for issue #16
     use variable_usage_tracker_module, only: variable_usage_info_t, expression_visitor_t, &
         create_variable_usage_info, get_variables_in_expression, &
@@ -227,6 +230,9 @@ module fortfront
               get_cfg_block_successors, is_cfg_block_reachable, &
               get_cfg_unreachable_statements, print_control_flow_graph, &
               export_cfg_to_dot
+    
+    ! Public control flow analyzer plugin APIs for performance analysis (issue #194)
+    public :: control_flow_analyzer_t
 
     ! Public procedure and parameter analysis APIs for issue #84
     public :: count_procedure_parameters, get_parameter_intent, &
