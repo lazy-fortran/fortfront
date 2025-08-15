@@ -141,6 +141,25 @@ contains
                          var_token%text == "target") then
                     is_target = .true.
                     var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "dimension") then
+                    has_global_dimensions = .true.
+                    var_token = parser%consume()
+                    
+                    ! Parse dimension specification
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        ! Parse dimensions
+                        call parse_array_dimensions(parser, arena, global_dimension_indices)
+                        
+                        ! Consume ')'
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()
+                        end if
+                    end if
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "dimension") then
                     has_global_dimensions = .true.
@@ -874,6 +893,25 @@ contains
                          var_token%text == "target") then
                     is_target = .true.
                     var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "dimension") then
+                    has_global_dimensions = .true.
+                    var_token = parser%consume()
+                    
+                    ! Parse dimension specification
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        ! Parse dimensions
+                        call parse_array_dimensions(parser, arena, global_dimension_indices)
+                        
+                        ! Consume ')'
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()
+                        end if
+                    end if
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "dimension") then
                     has_global_dimensions = .true.

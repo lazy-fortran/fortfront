@@ -245,6 +245,15 @@ contains
                     ! Variable exists - check assignment compatibility
                     target_type = ctx%instantiate(existing_scheme)
 
+                    ! Check for string length changes requiring allocatable
+                    if (typ%kind == TCHAR .and. target_type%kind == TCHAR) then
+                        if (typ%size /= target_type%size) then
+                            ! String length changed - mark as needing allocatable
+                            typ%alloc_info%needs_allocatable_string = .true.
+                            target_type%alloc_info%needs_allocatable_string = .true.
+                        end if
+                    end if
+
                     ! Issue 188: Array reassignment detection moved to standardizer
                     ! The standardizer handles multi-pass detection of reassignment patterns
 
@@ -258,6 +267,9 @@ contains
                     ! Use the existing type for consistency but preserve allocatable flag
                     if (typ%alloc_info%is_allocatable) then
                         target_type%alloc_info%is_allocatable = .true.
+                    end if
+                    if (typ%alloc_info%needs_allocatable_string) then
+                        target_type%alloc_info%needs_allocatable_string = .true.
                     end if
                     typ = target_type
                 end if
@@ -608,8 +620,27 @@ contains
             end if
 
             ! Result is a character type with combined length
-            ! For now, use default size
-            result_typ = create_mono_type(TCHAR)
+            ! Calculate combined string length for concatenation
+            block
+                integer :: left_size, right_size, total_size
+                
+                left_size = 1  ! Default for unknown size
+                right_size = 1  ! Default for unknown size
+
+                ! Get left operand size if it's a character type
+                if (left_typ%kind == TCHAR) then
+                    left_size = left_typ%size
+                end if
+
+                ! Get right operand size if it's a character type  
+                if (right_typ%kind == TCHAR) then
+                    right_size = right_typ%size
+                end if
+
+                ! Combined length for concatenation
+                total_size = left_size + right_size
+                result_typ = create_mono_type(TCHAR, char_size=total_size)
+            end block
 
         case default
             error stop "Unknown binary operator: "//trim(binop%operator)
@@ -857,6 +888,53 @@ contains
                 allocate (subst%vars(0))
                 allocate (subst%types(0))
                 return  ! Allow the unification
+            end if
+            
+            ! Special case: Allow base type to unify with array of that type
+            ! This handles cases like "integer :: arr = [1,2,3]"
+            if ((t1_subst%kind == TINT .and. t2_subst%kind == TARRAY) .or. &
+                (t1_subst%kind == TARRAY .and. t2_subst%kind == TINT)) then
+                ! Check that array element type matches base type
+                if (t1_subst%kind == TARRAY) then
+                    if (allocated(t1_subst%args) .and. size(t1_subst%args) >= 1 .and. &
+                        t1_subst%args(1)%kind == TINT) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                else  ! t2_subst%kind == TARRAY
+                    if (allocated(t2_subst%args) .and. size(t2_subst%args) >= 1 .and. &
+                        t2_subst%args(1)%kind == TINT) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                end if
+            end if
+            
+            ! Special case: Allow real base type to unify with real array type
+            if ((t1_subst%kind == TREAL .and. t2_subst%kind == TARRAY) .or. &
+                (t1_subst%kind == TARRAY .and. t2_subst%kind == TREAL)) then
+                ! Check that array element type matches base type
+                if (t1_subst%kind == TARRAY) then
+                    if (allocated(t1_subst%args) .and. size(t1_subst%args) >= 1 .and. &
+                        t1_subst%args(1)%kind == TREAL) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                else  ! t2_subst%kind == TARRAY
+                    if (allocated(t2_subst%args) .and. size(t2_subst%args) >= 1 .and. &
+                        t2_subst%args(1)%kind == TREAL) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                end if
             end if
 
             ! Check if we have valid types before calling to_string
