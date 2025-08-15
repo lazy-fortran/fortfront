@@ -236,7 +236,8 @@ contains
         if (.not. allocated(this%arena%entries(node_index)%node)) return
         if (.not. allocated(this%arena%entries(node_index)%node%inferred_type)) return
         
-        call extract_type_info(this%arena%entries(node_index)%node%inferred_type, type_info)
+        call extract_type_info(this%arena%entries(node_index)%node%inferred_type, &
+                                type_info)
         success = .true.
     end function query_get_type_info_by_node
 
@@ -435,7 +436,8 @@ contains
             allocate(character(len=16) :: func_info%parameter_intents(0))
             
             if (allocated(func_type%args) .and. size(func_type%args) > 0) then
-                func_info%return_type = get_type_name(func_type%args(size(func_type%args)))
+                func_info%return_type = &
+                    get_type_name(func_type%args(size(func_type%args)))
             else
                 func_info%return_type = "unknown"
             end if
@@ -615,7 +617,8 @@ contains
     ! - Safe to use with any size arena
     
     ! Direct function to check if identifier is defined (issue #196)
-    function is_identifier_defined_direct(arena, context, identifier_name) result(defined)
+    function is_identifier_defined_direct(arena, context, &
+                                           identifier_name) result(defined)
         type(ast_arena_t), intent(in) :: arena
         type(semantic_context_t), intent(inout) :: context
         character(len=*), intent(in) :: identifier_name
@@ -636,7 +639,8 @@ contains
     end function is_identifier_defined_direct
     
     ! Direct function to get unused variables (issue #196)  
-    function get_unused_variables_direct(arena, context, scope_type, unused_vars) result(success)
+    function get_unused_variables_direct(arena, context, scope_type, &
+                                          unused_vars) result(success)
         type(ast_arena_t), intent(in) :: arena
         type(semantic_context_t), intent(inout) :: context
         integer, intent(in) :: scope_type
@@ -648,7 +652,8 @@ contains
         success = .false.
         
         ! Get all symbols in scope
-        if (.not. get_symbols_in_scope_direct(arena, context, scope_type, all_symbols)) return
+        if (.not. get_symbols_in_scope_direct(arena, context, scope_type, &
+                                               all_symbols)) return
         
         if (size(all_symbols) == 0) then
             allocate(character(len=1) :: unused_vars(0))
@@ -671,7 +676,8 @@ contains
     end function get_unused_variables_direct
     
     ! Direct function to get symbols in scope (issue #196)
-    function get_symbols_in_scope_direct(arena, context, scope_type, symbols) result(success)
+    function get_symbols_in_scope_direct(arena, context, scope_type, &
+                                          symbols) result(success)
         type(ast_arena_t), intent(in) :: arena
         type(semantic_context_t), intent(inout) :: context
         integer, intent(in) :: scope_type
