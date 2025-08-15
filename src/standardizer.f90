@@ -99,7 +99,7 @@ contains
         call insert_variable_declarations(arena, prog, prog_index)
         
         ! Mark variables that need allocatable due to array reassignment (Issue 188)
-        call mark_allocatable_for_array_reassignments(arena, prog)
+        call mark_allocatable_for_array_reassignments(arena, prog, prog_index)
         
         ! Mark variables that need allocatable due to string length changes (Issue 218)
         call mark_allocatable_for_string_length_changes(arena, prog)

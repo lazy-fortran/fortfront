@@ -889,6 +889,53 @@ contains
                 allocate (subst%types(0))
                 return  ! Allow the unification
             end if
+            
+            ! Special case: Allow base type to unify with array of that type
+            ! This handles cases like "integer :: arr = [1,2,3]"
+            if ((t1_subst%kind == TINT .and. t2_subst%kind == TARRAY) .or. &
+                (t1_subst%kind == TARRAY .and. t2_subst%kind == TINT)) then
+                ! Check that array element type matches base type
+                if (t1_subst%kind == TARRAY) then
+                    if (allocated(t1_subst%args) .and. size(t1_subst%args) >= 1 .and. &
+                        t1_subst%args(1)%kind == TINT) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                else  ! t2_subst%kind == TARRAY
+                    if (allocated(t2_subst%args) .and. size(t2_subst%args) >= 1 .and. &
+                        t2_subst%args(1)%kind == TINT) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                end if
+            end if
+            
+            ! Special case: Allow real base type to unify with real array type
+            if ((t1_subst%kind == TREAL .and. t2_subst%kind == TARRAY) .or. &
+                (t1_subst%kind == TARRAY .and. t2_subst%kind == TREAL)) then
+                ! Check that array element type matches base type
+                if (t1_subst%kind == TARRAY) then
+                    if (allocated(t1_subst%args) .and. size(t1_subst%args) >= 1 .and. &
+                        t1_subst%args(1)%kind == TREAL) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                else  ! t2_subst%kind == TARRAY
+                    if (allocated(t2_subst%args) .and. size(t2_subst%args) >= 1 .and. &
+                        t2_subst%args(1)%kind == TREAL) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                end if
+            end if
 
             ! Check if we have valid types before calling to_string
             if (t1_subst%kind >= TVAR .and. t1_subst%kind <= TARRAY .and. &
