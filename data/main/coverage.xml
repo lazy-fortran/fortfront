@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE coverage
   SYSTEM 'http://cobertura.sourceforge.net/xml/coverage-04.dtd'>
-<coverage branch-rate="0.34122168880511294" branches-covered="23171" branches-valid="67906" complexity="0" line-rate="0.6878622768374681" lines-covered="11867" lines-valid="17252" timestamp="1755293197" version="2.0.3">
+<coverage branch-rate="0.3395811807849586" branches-covered="23335" branches-valid="68717" complexity="0" line-rate="0.6874063832238737" lines-covered="11932" lines-valid="17358" timestamp="1755321801" version="2.0.3">
 	<sources>
 		<source>.</source>
 	</sources>
@@ -3469,7 +3469,7 @@
 						</method>
 						<method name="__ast_arena_MOD_ast_arena_assign" signature="" line-rate="1.0" branch-rate="1.0">
 							<lines>
-								<line hits="633" number="0" branch="false"/>
+								<line hits="637" number="0" branch="false"/>
 							</lines>
 						</method>
 						<method name="__ast_arena_MOD_ast_entry_deep_copy" signature="" line-rate="1.0" branch-rate="1.0">
@@ -3479,7 +3479,7 @@
 						</method>
 						<method name="__ast_arena_MOD_ast_entry_assign" signature="" line-rate="1.0" branch-rate="1.0">
 							<lines>
-								<line hits="164052" number="0" branch="false"/>
+								<line hits="165076" number="0" branch="false"/>
 							</lines>
 						</method>
 						<method name="__ast_arena_MOD___copy_ast_arena_Ast_arena_stats_t" signature="" line-rate="0.0" branch-rate="0.0">
@@ -3509,7 +3509,7 @@
 						</method>
 						<method name="__ast_arena_MOD_create_ast_arena" signature="" line-rate="1.0" branch-rate="1.0">
 							<lines>
-								<line hits="626" number="0" branch="false"/>
+								<line hits="630" number="0" branch="false"/>
 							</lines>
 						</method>
 						<method name="__ast_arena_MOD_init_ast_arena" signature="" line-rate="1.0" branch-rate="1.0">
@@ -3519,18 +3519,18 @@
 						</method>
 					</methods>
 					<lines>
-						<line branch="false" hits="626" number="66"/>
-						<line branch="false" hits="626" number="72"/>
-						<line branch="false" hits="626" number="73"/>
-						<line branch="false" hits="626" number="76"/>
+						<line branch="false" hits="630" number="66"/>
+						<line branch="false" hits="630" number="72"/>
+						<line branch="false" hits="630" number="73"/>
+						<line branch="false" hits="630" number="76"/>
 						<line branch="false" hits="9" number="77"/>
-						<line branch="false" hits="617" number="79"/>
-						<line branch="false" hits="626" number="82"/>
-						<line branch="true" hits="162626" number="83" condition-coverage="53% (17/32)"/>
-						<line branch="false" hits="626" number="84"/>
-						<line branch="false" hits="626" number="85"/>
-						<line branch="false" hits="626" number="86"/>
-						<line branch="true" hits="1252" number="87" condition-coverage="100% (2/2)"/>
+						<line branch="false" hits="621" number="79"/>
+						<line branch="false" hits="630" number="82"/>
+						<line branch="true" hits="163654" number="83" condition-coverage="53% (17/32)"/>
+						<line branch="false" hits="630" number="84"/>
+						<line branch="false" hits="630" number="85"/>
+						<line branch="false" hits="630" number="86"/>
+						<line branch="true" hits="1260" number="87" condition-coverage="100% (2/2)"/>
 						<line branch="false" hits="160" number="90"/>
 						<line branch="false" hits="160" number="96"/>
 						<line branch="false" hits="160" number="97"/>
@@ -3742,19 +3742,19 @@
 						<line branch="true" hits="5" number="571" condition-coverage="100% (2/2)"/>
 						<line branch="true" hits="5" number="572" condition-coverage="45% (11/24)"/>
 						<line branch="false" hits="2" number="575"/>
-						<line branch="false" hits="633" number="577"/>
-						<line branch="false" hits="633" number="583"/>
-						<line branch="false" hits="633" number="584"/>
-						<line branch="false" hits="633" number="585"/>
-						<line branch="false" hits="633" number="586"/>
-						<line branch="false" hits="633" number="587"/>
-						<line branch="false" hits="633" number="588"/>
-						<line branch="true" hits="633" number="591" condition-coverage="50% (1/2)"/>
-						<line branch="true" hits="21192" number="592" condition-coverage="66% (16/24)"/>
-						<line branch="true" hits="164425" number="593" condition-coverage="53% (17/32)"/>
-						<line branch="true" hits="164425" number="594" condition-coverage="100% (2/2)"/>
-						<line branch="true" hits="164425" number="595" condition-coverage="50% (4/8)"/>
-						<line branch="false" hits="633" number="598"/>
+						<line branch="false" hits="637" number="577"/>
+						<line branch="false" hits="637" number="583"/>
+						<line branch="false" hits="637" number="584"/>
+						<line branch="false" hits="637" number="585"/>
+						<line branch="false" hits="637" number="586"/>
+						<line branch="false" hits="637" number="587"/>
+						<line branch="false" hits="637" number="588"/>
+						<line branch="true" hits="637" number="591" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="21196" number="592" condition-coverage="66% (16/24)"/>
+						<line branch="true" hits="165453" number="593" condition-coverage="53% (17/32)"/>
+						<line branch="true" hits="165453" number="594" condition-coverage="100% (2/2)"/>
+						<line branch="true" hits="165453" number="595" condition-coverage="50% (4/8)"/>
+						<line branch="false" hits="637" number="598"/>
 						<line branch="false" hits="4" number="600"/>
 						<line branch="false" hits="4" number="605"/>
 						<line branch="false" hits="4" number="606"/>
@@ -3767,20 +3767,20 @@
 						<line branch="true" hits="4" number="621" condition-coverage="50% (1/2)"/>
 						<line branch="true" hits="4" number="622" condition-coverage="50% (2/4)"/>
 						<line branch="true" hits="8" number="624" condition-coverage="50% (1/2)"/>
-						<line branch="false" hits="164052" number="626"/>
-						<line branch="true" hits="164052" number="631" condition-coverage="16% (1/6)"/>
-						<line branch="false" hits="164052" number="634"/>
-						<line branch="false" hits="164052" number="635"/>
-						<line branch="false" hits="164052" number="636"/>
-						<line branch="true" hits="164052" number="639" condition-coverage="100% (2/2)"/>
+						<line branch="false" hits="165076" number="626"/>
+						<line branch="true" hits="165076" number="631" condition-coverage="16% (1/6)"/>
+						<line branch="false" hits="165076" number="634"/>
+						<line branch="false" hits="165076" number="635"/>
+						<line branch="false" hits="165076" number="636"/>
+						<line branch="true" hits="165076" number="639" condition-coverage="100% (2/2)"/>
 						<line branch="true" hits="285" number="640" condition-coverage="37% (3/8)"/>
-						<line branch="true" hits="164052" number="644" condition-coverage="25% (1/4)"/>
-						<line branch="true" hits="164052" number="645" condition-coverage="100% (2/2)"/>
+						<line branch="true" hits="165076" number="644" condition-coverage="25% (1/4)"/>
+						<line branch="true" hits="165076" number="645" condition-coverage="100% (2/2)"/>
 						<line branch="true" hits="2" number="646" condition-coverage="50% (7/14)"/>
 						<line branch="true" hits="4" number="647" condition-coverage="40% (8/20)"/>
-						<line branch="true" hits="164052" number="651" condition-coverage="100% (2/2)"/>
+						<line branch="true" hits="165076" number="651" condition-coverage="100% (2/2)"/>
 						<line branch="true" hits="285" number="652" condition-coverage="50% (2/4)"/>
-						<line branch="false" hits="164052" number="654"/>
+						<line branch="false" hits="165076" number="654"/>
 						<line branch="true" hits="0" number="656" condition-coverage="0% (0/74)"/>
 					</lines>
 				</class>
@@ -24458,7 +24458,7 @@
 				</class>
 			</classes>
 		</package>
-		<package line-rate="0.579064587973274" branch-rate="0.2613563845216685" name="src.semantic" complexity="0">
+		<package line-rate="0.5800432666306111" branch-rate="0.258699024822695" name="src.semantic" complexity="0">
 			<classes>
 				<class branch-rate="0.24013157894736842" complexity="0" filename="src/semantic/analysis_cache.f90" line-rate="0.6666666666666666" name="src.semantic.analysis_cache.f90">
 					<methods>
@@ -27857,6 +27857,358 @@
 						<line branch="false" hits="1" number="259"/>
 						<line branch="false" hits="6" number="262"/>
 						<line branch="true" hits="0" number="264" condition-coverage="0% (0/78)"/>
+					</lines>
+				</class>
+				<class branch-rate="0.20221948212083848" complexity="0" filename="src/semantic/procedure_attribute_analyzer.f90" line-rate="0.6132075471698113" name="src.semantic.procedure_attribute_analyzer.f90">
+					<methods>
+						<method name="118,__procedure_attribute_analyzer_MOD_get_procedure_attribute_analyzer_name" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="110" branch="false"/>
+							</lines>
+						</method>
+						<method name="131,__procedure_attribute_analyzer_MOD_assign_procedure_attribute_analyzer" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="120" branch="false"/>
+							</lines>
+						</method>
+						<method name="160,__procedure_attribute_analyzer_MOD_has_attribute" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="134" branch="false"/>
+							</lines>
+						</method>
+						<method name="170,__procedure_attribute_analyzer_MOD_get_procedure_info" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="162" branch="false"/>
+							</lines>
+						</method>
+						<method name="214,__procedure_attribute_analyzer_MOD_get_all_attributes" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="172" branch="false"/>
+							</lines>
+						</method>
+						<method name="223,__procedure_attribute_analyzer_MOD_extract_procedure_attributes" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="216" branch="false"/>
+							</lines>
+						</method>
+						<method name="230,__procedure_attribute_analyzer_MOD_validate_attribute_consistency" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="225" branch="false"/>
+							</lines>
+						</method>
+						<method name="254,__procedure_attribute_analyzer_MOD_add_procedure" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="233" branch="false"/>
+							</lines>
+						</method>
+						<method name="272,__procedure_attribute_analyzer_MOD_find_by_name" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="256" branch="false"/>
+							</lines>
+						</method>
+						<method name="290,__procedure_attribute_analyzer_MOD_find_by_node" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="274" branch="false"/>
+							</lines>
+						</method>
+						<method name="300,__procedure_attribute_analyzer_MOD_get_all_procedures" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="292" branch="false"/>
+							</lines>
+						</method>
+						<method name="311,__procedure_attribute_analyzer_MOD_traverse_for_procedures" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="303" branch="false"/>
+							</lines>
+						</method>
+						<method name="320,__procedure_attribute_analyzer_MOD_extract_all_attributes" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="313" branch="false"/>
+							</lines>
+						</method>
+						<method name="328,__procedure_attribute_analyzer_MOD_validate_all_procedures" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="322" branch="false"/>
+							</lines>
+						</method>
+						<method name="330,__procedure_attribute_analyzer_MOD___copy_50055E8" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="330" branch="false"/>
+							</lines>
+						</method>
+						<method name="330,__procedure_attribute_analyzer_MOD___copy_84F491" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="330" branch="false"/>
+							</lines>
+						</method>
+						<method name="330,__procedure_attribute_analyzer_MOD___copy_D2E214" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="330" branch="false"/>
+							</lines>
+						</method>
+						<method name="330,__procedure_attribute_analyzer_MOD___copy_procedure_attribute_analyzer_Procedure_info_t" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="330" branch="false"/>
+							</lines>
+						</method>
+						<method name="330,__procedure_attribute_analyzer_MOD___final_50055E8" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="330" branch="false"/>
+							</lines>
+						</method>
+						<method name="330,__procedure_attribute_analyzer_MOD___final_84F491" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="330" branch="false"/>
+							</lines>
+						</method>
+						<method name="330,__procedure_attribute_analyzer_MOD___final_D2E214" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="330" branch="false"/>
+							</lines>
+						</method>
+						<method name="330,__procedure_attribute_analyzer_MOD___final_procedure_attribute_analyzer_Procedure_info_t" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="330" branch="false"/>
+							</lines>
+						</method>
+						<method name="96,__procedure_attribute_analyzer_MOD_analyze_procedure_attributes" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="81" branch="false"/>
+							</lines>
+						</method>
+						<method name="108,__procedure_attribute_analyzer_MOD_get_procedure_attribute_results" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="98" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_get_procedure_attribute_analyzer_name" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_assign_procedure_attribute_analyzer" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="1" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_has_attribute" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="1" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_get_procedure_info" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_get_all_attributes" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="1" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_extract_procedure_attributes" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_validate_attribute_consistency" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_add_procedure" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="1" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_find_by_name" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="3" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_find_by_node" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="1" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_get_all_procedures" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="1" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_traverse_for_procedures" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="4" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_extract_all_attributes" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="4" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_validate_all_procedures" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="4" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD___copy_50055E8" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD___copy_84F491" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD___copy_D2E214" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD___copy_procedure_attribute_analyzer_Procedure_info_t" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD___final_50055E8" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD___final_84F491" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD___final_D2E214" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD___final_procedure_attribute_analyzer_Procedure_info_t" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_analyze_procedure_attributes" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="4" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__procedure_attribute_analyzer_MOD_get_procedure_attribute_results" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="0" branch="false"/>
+							</lines>
+						</method>
+					</methods>
+					<lines>
+						<line branch="false" hits="4" number="81"/>
+						<line branch="false" hits="4" number="88"/>
+						<line branch="false" hits="4" number="89"/>
+						<line branch="false" hits="4" number="90"/>
+						<line branch="false" hits="4" number="91"/>
+						<line branch="false" hits="4" number="94"/>
+						<line branch="false" hits="4" number="96"/>
+						<line branch="false" hits="0" number="98"/>
+						<line branch="true" hits="0" number="103" condition-coverage="0% (0/4)"/>
+						<line branch="true" hits="0" number="106" condition-coverage="0% (0/52)"/>
+						<line branch="false" hits="0" number="108"/>
+						<line branch="false" hits="0" number="110"/>
+						<line branch="true" hits="0" number="114" condition-coverage="0% (0/8)"/>
+						<line branch="false" hits="0" number="116"/>
+						<line branch="false" hits="0" number="118"/>
+						<line branch="false" hits="1" number="120"/>
+						<line branch="true" hits="1" number="126" condition-coverage="6% (3/50)"/>
+						<line branch="true" hits="2" number="127" condition-coverage="50% (1/2)"/>
+						<line branch="false" hits="0" number="129"/>
+						<line branch="false" hits="1" number="131"/>
+						<line branch="false" hits="1" number="134"/>
+						<line branch="false" hits="1" number="139"/>
+						<line branch="false" hits="1" number="142"/>
+						<line branch="true" hits="1" number="143" condition-coverage="50% (1/2)"/>
+						<line branch="false" hits="1" number="144"/>
+						<line branch="false" hits="1" number="145"/>
+						<line branch="false" hits="0" number="148"/>
+						<line branch="false" hits="0" number="150"/>
+						<line branch="false" hits="0" number="152"/>
+						<line branch="false" hits="0" number="154"/>
+						<line branch="false" hits="0" number="156"/>
+						<line branch="true" hits="0" number="158" condition-coverage="0% (0/7)"/>
+						<line branch="true" hits="2" number="160" condition-coverage="30% (6/20)"/>
+						<line branch="false" hits="0" number="162"/>
+						<line branch="false" hits="0" number="168"/>
+						<line branch="false" hits="0" number="170"/>
+						<line branch="false" hits="1" number="172"/>
+						<line branch="false" hits="1" number="177"/>
+						<line branch="false" hits="1" number="178"/>
+						<line branch="false" hits="1" number="182"/>
+						<line branch="true" hits="1" number="183" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="1" number="184" condition-coverage="50% (3/6)"/>
+						<line branch="false" hits="1" number="185"/>
+						<line branch="true" hits="0" number="189" condition-coverage="0% (0/6)"/>
+						<line branch="false" hits="0" number="190"/>
+						<line branch="true" hits="0" number="192" condition-coverage="0% (0/2)"/>
+						<line branch="false" hits="0" number="193"/>
+						<line branch="true" hits="0" number="194" condition-coverage="0% (0/4)"/>
+						<line branch="true" hits="0" number="196" condition-coverage="0% (0/2)"/>
+						<line branch="false" hits="0" number="197"/>
+						<line branch="true" hits="0" number="198" condition-coverage="0% (0/4)"/>
+						<line branch="true" hits="0" number="200" condition-coverage="0% (0/2)"/>
+						<line branch="false" hits="0" number="201"/>
+						<line branch="true" hits="0" number="202" condition-coverage="0% (0/4)"/>
+						<line branch="true" hits="0" number="204" condition-coverage="0% (0/2)"/>
+						<line branch="false" hits="0" number="205"/>
+						<line branch="true" hits="0" number="206" condition-coverage="0% (0/4)"/>
+						<line branch="true" hits="0" number="210" condition-coverage="0% (0/14)"/>
+						<line branch="true" hits="0" number="211" condition-coverage="0% (0/2)"/>
+						<line branch="true" hits="0" number="212" condition-coverage="0% (0/24)"/>
+						<line branch="true" hits="2" number="214" condition-coverage="33% (8/24)"/>
+						<line branch="false" hits="0" number="216"/>
+						<line branch="false" hits="0" number="222"/>
+						<line branch="false" hits="0" number="223"/>
+						<line branch="false" hits="0" number="225"/>
+						<line branch="false" hits="0" number="229"/>
+						<line branch="false" hits="0" number="230"/>
+						<line branch="false" hits="1" number="233"/>
+						<line branch="false" hits="1" number="237"/>
+						<line branch="true" hits="2" number="241" condition-coverage="45% (21/46)"/>
+						<line branch="true" hits="1" number="244" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="1" number="245" condition-coverage="0% (0/50)"/>
+						<line branch="true" hits="1" number="249" condition-coverage="34% (16/46)"/>
+						<line branch="true" hits="1" number="252" condition-coverage="7% (2/26)"/>
+						<line branch="false" hits="1" number="253"/>
+						<line branch="true" hits="1" number="254" condition-coverage="3% (1/26)"/>
+						<line branch="true" hits="3" number="256" condition-coverage="27% (5/18)"/>
+						<line branch="false" hits="3" number="264"/>
+						<line branch="true" hits="3" number="265" condition-coverage="100% (2/2)"/>
+						<line branch="true" hits="1" number="266" condition-coverage="50% (5/10)"/>
+						<line branch="true" hits="1" number="267" condition-coverage="34% (16/46)"/>
+						<line branch="false" hits="1" number="268"/>
+						<line branch="false" hits="1" number="269"/>
+						<line branch="true" hits="3" number="272" condition-coverage="100% (2/2)"/>
+						<line branch="true" hits="1" number="274" condition-coverage="30% (6/20)"/>
+						<line branch="false" hits="1" number="282"/>
+						<line branch="true" hits="1" number="283" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="1" number="284" condition-coverage="50% (3/6)"/>
+						<line branch="true" hits="1" number="285" condition-coverage="34% (16/46)"/>
+						<line branch="false" hits="1" number="286"/>
+						<line branch="false" hits="1" number="287"/>
+						<line branch="false" hits="1" number="292"/>
+						<line branch="true" hits="2" number="296" condition-coverage="45% (20/44)"/>
+						<line branch="true" hits="1" number="297" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="2" number="298" condition-coverage="24% (22/90)"/>
+						<line branch="false" hits="1" number="300"/>
+						<line branch="false" hits="4" number="303"/>
+						<line branch="false" hits="4" number="309"/>
+						<line branch="false" hits="4" number="311"/>
+						<line branch="false" hits="4" number="313"/>
+						<line branch="false" hits="4" number="318"/>
+						<line branch="false" hits="4" number="320"/>
+						<line branch="false" hits="4" number="322"/>
+						<line branch="false" hits="4" number="326"/>
+						<line branch="false" hits="4" number="328"/>
+						<line branch="true" hits="1" number="330" condition-coverage="1% (1/80)"/>
 					</lines>
 				</class>
 				<class branch-rate="0.25193298969072164" complexity="0" filename="src/semantic/scope_manager.f90" line-rate="0.6983240223463687" name="src.semantic.scope_manager.f90">
@@ -31782,7 +32134,7 @@
 						<line branch="true" hits="22102" number="415" condition-coverage="50% (5/10)"/>
 						<line branch="true" hits="22102" number="416" condition-coverage="50% (4/8)"/>
 						<line branch="true" hits="22102" number="418" condition-coverage="66% (4/6)"/>
-						<line branch="true" hits="21716" number="419" condition-coverage="50% (4/8)"/>
+						<line branch="true" hits="21712" number="419" condition-coverage="50% (4/8)"/>
 						<line branch="true" hits="22102" number="421" condition-coverage="50% (4/8)"/>
 						<line branch="true" hits="22102" number="422" condition-coverage="50% (4/8)"/>
 						<line branch="false" hits="0" number="429"/>
