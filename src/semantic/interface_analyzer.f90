@@ -49,6 +49,7 @@ module interface_analyzer
         procedure :: get_results => get_interface_results
         procedure :: get_name => get_interface_analyzer_name
         procedure :: assign => assign_interface_analyzer
+        procedure :: get_dependencies => get_interface_dependencies
         
         ! Analysis methods for fluff rules
         procedure :: extract_interface_signature
@@ -559,6 +560,17 @@ contains
         end if
         
         match = .true.
+    end function
+
+    function get_interface_dependencies(this) result(deps)
+        class(interface_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! Interface analyzer has no dependencies
+        allocate(deps(0))
+        
+        associate(dummy => this)
+        end associate
     end function
 
 end module interface_analyzer

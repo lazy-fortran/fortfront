@@ -67,6 +67,7 @@ module procedure_attribute_analyzer
         procedure :: get_results => get_procedure_attribute_results
         procedure :: get_name => get_procedure_attribute_analyzer_name
         procedure :: assign => assign_procedure_attribute_analyzer
+        procedure :: get_dependencies => get_procedure_attribute_dependencies
         
         ! Public API methods for fluff rules
         procedure :: extract_procedure_attributes
@@ -129,6 +130,18 @@ contains
             error stop "Type mismatch in procedure_attribute_analyzer assignment"
         end select
     end subroutine
+    
+    function get_procedure_attribute_dependencies(this) result(deps)
+        class(procedure_attribute_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! No dependencies for procedure attribute analysis
+        allocate(character(len=32) :: deps(0))
+        
+        ! Avoid unused variable warning
+        associate(dummy => this)
+        end associate
+    end function
     
     ! Public API methods
     function has_attribute(this, proc_name, attribute) result(has_attr)

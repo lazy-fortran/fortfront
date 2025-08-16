@@ -22,6 +22,7 @@ module control_flow_analyzer
         procedure :: get_results => get_control_flow_results
         procedure :: get_name => get_control_flow_analyzer_name
         procedure :: assign => assign_control_flow_analyzer
+        procedure :: get_dependencies => get_control_flow_dependencies
         
         ! Analysis methods for fluff rules
         procedure :: find_unreachable_code
@@ -255,6 +256,17 @@ contains
         end do
         
         complexity = branch_count
+    end function
+
+    function get_control_flow_dependencies(this) result(deps)
+        class(control_flow_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! Control flow analyzer has no dependencies
+        allocate(deps(0))
+        
+        associate(dummy => this)
+        end associate
     end function
 
 end module control_flow_analyzer
