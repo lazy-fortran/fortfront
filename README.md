@@ -11,173 +11,40 @@ fortfront is a pure CLI tool that transforms lazy Fortran code to standard Fortr
 - **Type Inference**: Automatic variable type detection using Hindley-Milner algorithm
 - **Integration**: Designed for use with fortrun build orchestrator (as fortfront)
 
-## Known Issues
+## Array Literal Support
 
-### Issue #261: Parser Regressions from Enhanced Error Reporting
+fortfront supports comprehensive array literal parsing for all Fortran data types:
 
-**Problem**: Enhanced error reporting from Issue #256 introduced parser regressions that prevent certain valid Fortran constructs from parsing correctly.
+### ✅ Supported Array Types
 
-**Primary Regression**: Logical literal arrays cannot be parsed:
-
+**Numeric arrays:**
 ```bash
-# ❌ FAILS - logical literal array parsing broken
-echo "arr = [.true., .false.]" | fortfront
-# Error: Expected "," or "]" in array literal at line 1, column 17
+echo "arr = [1, 2, 3]" | fortfront           # Integer arrays
+echo "arr = [1.0, 2.5, 3.14]" | fortfront    # Real arrays
+echo "arr = []" | fortfront                   # Empty arrays
 ```
 
-**What Should Work vs What Currently Fails**:
-
+**Logical arrays:**
 ```bash
-# ✅ WORKS - Basic arrays with numbers
-echo "arr = [1, 2, 3]" | fortfront           # ✅ Parses correctly
-echo "arr = [1.0, 2.5]" | fortfront          # ✅ Parses correctly  
-echo "arr = []" | fortfront                   # ✅ Empty arrays work
-
-# ✅ WORKS - Arrays with variables/expressions  
-echo "arr = [a, b, c]" | fortfront            # ✅ Variable arrays work
-echo "arr = [x + y, z * 2]" | fortfront       # ✅ Expression arrays work
-
-# ✅ WORKS - Individual logical literals
-echo "flag = .true." | fortfront              # ✅ Single logical literals work
-echo "valid = .false." | fortfront            # ✅ Single logical literals work
-
-# ❌ FAILS - Logical literal arrays broken
-echo "arr = [.true., .false.]" | fortfront    # ❌ REGRESSION: Cannot parse logical literals in arrays
+echo "arr = [.true., .false.]" | fortfront    # Logical literal arrays
+echo "flag = .true." | fortfront              # Individual logical literals
 ```
 
-**User Guidelines**:
-
-When you encounter this error:
-```
-Error: Expected "," or "]" in array literal at line 1, column X
-```
-
-**Check if you're using logical literals in arrays**:
-- Look for `.true.` or `.false.` inside `[...]` brackets
-- This is the most common trigger for this regression
-
-**Immediate Solutions**:
-1. **Use variables instead**:
-   ```bash
-   # Instead of: arr = [.true., .false.]
-   echo -e "flag1 = .true.\nflag2 = .false.\narr = [flag1, flag2]" | fortfront
-   ```
-
-2. **Use standard Fortran directly** (bypassing lazy fortran for logical arrays):
-   ```fortran
-   program main
-       logical :: arr(2) = [.true., .false.]
-   end program
-   ```
-
-3. **Split into separate assignments**:
-   ```bash
-   # Instead of: arr = [.true., .false.]  
-   echo -e "arr(1) = .true.\narr(2) = .false." | fortfront
-   ```
-
-**Root Cause**: The enhanced error reporting system interferes with logical literal token parsing within array contexts. The parser correctly identifies individual logical literals (`.true.`, `.false.`) but fails when they appear as elements within array literal expressions `[.true., .false.]`.
-
-**Technical Details**:
-- Logical literals are parsed as three separate tokens: `.` + `true`/`false` + `.`
-- Array literal parsing expects comma-separated expressions
-- Error reporting enhancements disrupt the token sequence processing for logical literals within array contexts
-- The parser state becomes inconsistent when logical literal parsing fails inside array expressions
-
-**Impact**:
-- Logical array assignments fail to transform
-- Valid Fortran constructs are rejected with parsing errors
-- Users cannot create boolean/logical arrays using lazy Fortran syntax
-
-**Workaround**: Currently no workaround available. Use standard Fortran syntax directly:
-
-```fortran
-! Instead of lazy fortran: arr = [.true., .false.]
-! Use standard fortran:
-program main
-    implicit none
-    logical :: arr(2)
-    arr = [.true., .false.]
-end program
-```
-
-**Secondary Issues**:
-
-1. **Arena State Warnings**: Enhanced error reporting can trigger "Cannot update invalid arena" warnings during error handling, though these are less severe than initially thought.
-
-2. **Parser State Recovery**: Error handling can leave parser state in inconsistent condition, affecting subsequent parsing operations in the same session.
-
-3. **Error Recovery Interference**: The enhanced error reporting system's attempt to provide detailed error messages can interfere with normal parser recovery mechanisms.
-
-**What Still Works**:
-- Individual logical literal parsing: `.true.` and `.false.` parse correctly in isolation
-- All numeric array literals work perfectly: `[1, 2, 3]`, `[1.0, 2.5]`
-- Variable and expression arrays work: `[a, b, c]`, `[x + y, z * 2]`
-- Empty arrays parse correctly: `[]`
-- Complex expressions within arrays: `[func(1), func(2)]`
-- Mixed type arrays: `[1, 2.0, 3]`
-
-**Development Impact**:
-- Test suite shows STOP 1 failures for logical literal arrays
-- Arena warnings may appear during development but don't prevent basic functionality
-- Parser state corruption is contained and doesn't affect simple expression parsing
-
-### Relationship to Enhanced Error Reporting (Issue #256)
-
-**Background**: Issue #256 introduced enhanced error reporting with improved diagnostics and validation. While this improved user experience for error cases, it inadvertently affected the parser's ability to handle certain valid constructs.
-
-**The Conflict**: 
-- Enhanced error reporting validates token sequences more strictly
-- Logical literals require lookahead parsing (recognizing `.true.` as single semantic unit from three tokens)
-- Array parsing expects clean expression boundaries between commas
-- The stricter validation interferes with the lookahead logic for logical literals within arrays
-
-**Technical Example**:
-```
-Input: [.true., .false.]
-Tokens: [ . true . , . false . ]
-         ^---^---^   ^---^---^
-         Expected: single logical literal tokens
-         Reality: Parsed as separate dot + identifier + dot
-```
-
-**Error Processing Flow**:
-1. Parser encounters `[` (start array)
-2. Attempts to parse first element: `.`
-3. Enhanced error reporting validates `.` as incomplete expression
-4. Error handling disrupts lookahead logic for `true.` portion
-5. Parser fails to recognize `.true.` as complete logical literal
-6. Reports "Expected ',' or ']'" error at wrong position
-
-### How to Identify This Issue
-
-**Diagnostic Signs**:
-1. Error message contains "Expected ',' or ']' in array literal"
-2. You're using `.true.` or `.false.` inside `[...]` brackets  
-3. The same logical literals work fine when used individually
-4. Other array types (numbers, variables) work perfectly
-
-**Quick Test**:
+**Variable and expression arrays:**
 ```bash
-# Test 1: Does this work?
-echo "flag = .true." | fortfront              # Should work ✅
-
-# Test 2: Does this fail? 
-echo "arr = [.true., .false.]" | fortfront    # Should fail with "Expected ','" ❌
-
-# Test 3: Do other arrays work?
-echo "arr = [1, 2, 3]" | fortfront            # Should work ✅
+echo "arr = [a, b, c]" | fortfront            # Variable arrays
+echo "arr = [x + y, z * 2]" | fortfront       # Expression arrays
+echo "arr = [func(1), func(2)]" | fortfront   # Function call arrays
 ```
 
-If Test 1 and Test 3 pass but Test 2 fails, you've confirmed the Issue #261 regression.
+**Mixed type arrays:**
+```bash
+echo "arr = [1, 2.0, 3]" | fortfront          # Mixed numeric types
+```
 
-**Not This Issue If**:
-- Error mentions missing keywords (`then`, `end`, etc.) - that's validation working correctly
-- Error mentions unrecognized operators - that's lexer issues  
-- ALL array types fail - that's broader parser issues
-- Individual `.true.`/`.false.` also fail - that's logical literal parsing issues
+### Recent Improvements
 
-**Status**: Documented in Issue #261. Fix requires restoring logical literal parsing within array contexts while preserving enhanced error reporting benefits from Issue #256.
+**Issue #261 Resolution**: Parser regressions affecting logical literal arrays have been resolved. Array literal parsing now works correctly for all types including logical literals (`[.true., .false.]`) while maintaining the enhanced error reporting improvements from Issue #256.
 
 ## Features
 
