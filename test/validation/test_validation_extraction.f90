@@ -5,7 +5,8 @@ program test_validation_extraction
     ! When: Testing the extraction and clean module separation
     ! Then: input_validation module should be independent and complete
     
-    use lexer_core, only: token_t, lex_source
+    use lexer_core, only: token_t
+    use frontend, only: lex_source
     ! NOTE: This will fail until input_validation module is created
     use input_validation, only: validate_basic_syntax
     implicit none

@@ -5,7 +5,8 @@ program test_validation_integration
     ! When: Testing integration with frontend and other modules
     ! Then: Should work together without breaking existing functionality
     
-    use lexer_core, only: token_t, lex_source
+    use lexer_core, only: token_t
+    use frontend, only: lex_source
     use frontend, only: transform_lazy_fortran_string
     ! NOTE: This will fail until input_validation module is created
     use input_validation, only: validate_basic_syntax

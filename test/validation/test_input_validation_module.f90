@@ -5,7 +5,8 @@ program test_input_validation_module
     ! When: Testing the module interface and validation functions
     ! Then: All validation logic should be cleanly separated with proper interfaces
     
-    use lexer_core, only: token_t, lex_source, TK_KEYWORD, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER
+    use lexer_core, only: token_t, TK_KEYWORD, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER
+    use frontend, only: lex_source
     ! NOTE: This will fail until input_validation module is created
     use input_validation, only: &
         validate_basic_syntax, &
@@ -294,7 +295,7 @@ contains
         ! Should be able to validate without any frontend dependencies
         call validate_basic_syntax(source, tokens, error_msg)
         
-        passed = .true.  # Self-containment verified by successful execution
+        passed = .true.  ! Self-containment verified by successful execution
     end function
 
 end program test_input_validation_module

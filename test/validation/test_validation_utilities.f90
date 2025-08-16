@@ -5,7 +5,8 @@ program test_validation_utilities
     ! When: Testing error formatting and utility functions
     ! Then: Should provide clean interfaces for error reporting and text processing
     
-    use lexer_core, only: token_t, lex_source
+    use lexer_core, only: token_t
+    use frontend, only: lex_source
     ! NOTE: These will fail until input_validation module is created
     use input_validation, only: &
         format_enhanced_error, &
