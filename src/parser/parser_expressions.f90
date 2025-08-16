@@ -164,7 +164,8 @@ contains
                 op_token = parser%consume()  ! consume operator
                 right_index = parse_logical_or(parser, arena)
                 if (right_index > 0) then
-              expr_index = push_binary_op(arena, expr_index, right_index, op_token%text)
+                    expr_index = push_binary_op(arena, expr_index, right_index, &
+                        op_token%text)
                 else
                     exit
                 end if
@@ -190,7 +191,8 @@ contains
                 op_token = parser%consume()  ! consume operator
                 right_index = parse_logical_and(parser, arena)
                 if (right_index > 0) then
-              expr_index = push_binary_op(arena, expr_index, right_index, op_token%text)
+                    expr_index = push_binary_op(arena, expr_index, right_index, &
+                        op_token%text)
                 else
                     exit
                 end if
@@ -216,7 +218,8 @@ contains
                 op_token = parser%consume()  ! consume operator
                 right_index = parse_comparison(parser, arena)
                 if (right_index > 0) then
-              expr_index = push_binary_op(arena, expr_index, right_index, op_token%text)
+                    expr_index = push_binary_op(arena, expr_index, right_index, &
+                        op_token%text)
                 else
                     exit
                 end if
@@ -422,19 +425,19 @@ contains
             current = parser%consume()
             if (index(current%text, '.') > 0) then
                 ! Contains decimal point - classify as real
-         expr_index = push_literal(arena, current%text, LITERAL_REAL, &
-                                   current%line, current%column)
+                expr_index = push_literal(arena, current%text, LITERAL_REAL, &
+                    current%line, current%column)
             else
                 ! No decimal point - classify as integer
-      expr_index = push_literal(arena, current%text, LITERAL_INTEGER, &
-                                 current%line, current%column)
+                expr_index = push_literal(arena, current%text, &
+                    LITERAL_INTEGER, current%line, current%column)
             end if
 
         case (TK_STRING)
             ! Parse string literal
             current = parser%consume()
-       expr_index = push_literal(arena, current%text, LITERAL_STRING, &
-                                  current%line, current%column)
+            expr_index = push_literal(arena, current%text, LITERAL_STRING, &
+                current%line, current%column)
 
         case (TK_IDENTIFIER)
             ! Parse identifier or function call
@@ -520,7 +523,8 @@ contains
                         end block
                     end if
                 else
-         expr_index = push_identifier(arena, current%text, current%line, current%column)
+                    expr_index = push_identifier(arena, current%text, &
+                        current%line, current%column)
                 end if
             end block
 
@@ -588,7 +592,7 @@ contains
                                         end block
                                     end if
 
-                                   temp_indices(element_count) = parse_unary(parser, arena)
+                                    temp_indices(element_count) = parse_unary(parser, arena)
 
                                     ! Check if element parsing failed
                                     if (temp_indices(element_count) <= 0) then
@@ -676,7 +680,26 @@ contains
                                 end block
                             end if
 
-                           temp_indices(element_count) = parse_comparison(parser, arena)
+                            ! Check for trailing comma: if we expect an element but find ']'
+                            current = parser%peek()
+                            if (current%text == "]") then
+                                write (error_unit, *) &
+                                    'Error: Trailing comma in array literal at line ', &
+                                    current%line, ', column ', current%column
+                                expr_index = 0
+                                return
+                            end if
+                            
+                            ! Check for leading comma: if this is the first element and we find ','
+                            if (element_count == 1 .and. current%text == ",") then
+                                write (error_unit, *) &
+                                    'Error: Leading comma in array literal at line ', &
+                                    current%line, ', column ', current%column
+                                expr_index = 0
+                                return
+                            end if
+
+                            temp_indices(element_count) = parse_comparison(parser, arena)
 
                             ! Check if element parsing failed
                             if (temp_indices(element_count) <= 0) then
@@ -729,8 +752,9 @@ contains
                                                 ! Expect comma
                                                 current = parser%peek()
                                                 if (current%text /= ",") then
-                write (error_unit, *) 'Error: Expected "," after loop start at line ', &
-                                                        current%line
+                                write (error_unit, *) &
+                                    'Error: Expected "," after loop start at line ', &
+                                    current%line
                                                     expr_index = 0
                                                     return
                                                 end if
@@ -750,8 +774,9 @@ contains
                                                 ! Expect closing parenthesis
                                                 current = parser%peek()
                                                 if (current%text /= ")") then
-           write (error_unit, *) 'Error: Expected ")" after implied do loop at line ', &
-                                                        current%line
+                                write (error_unit, *) &
+                                    'Error: Expected ")" after implied do loop at line ', &
+                                    current%line
                                                     expr_index = 0
                                                     return
                                                 end if
@@ -760,8 +785,9 @@ contains
                                                 ! Expect closing bracket
                                                 current = parser%peek()
                                                 if (current%text /= "]") then
-           write (error_unit, *) 'Error: Expected "]" after implied do loop at line ', &
-                                                        current%line
+                                write (error_unit, *) &
+                                    'Error: Expected "]" after implied do loop at line ', &
+                                    current%line
                                                     expr_index = 0
                                                     return
                                                 end if
@@ -804,7 +830,8 @@ contains
                                 exit
                             else
                                 ! Error: expected comma or closing bracket
-         write (error_unit, *) 'Error: Expected "," or "]" in array literal at line ', &
+                                write (error_unit, *) &
+                                    'Error: Expected "," or "]" in array literal at line ', &
                                     current%line, ', column ', current%column
                                 expr_index = 0
                                 return
@@ -835,28 +862,33 @@ contains
                                 current = parser%consume()  ! consume first '.'
                                 current = parser%consume()  ! consume 'true'/'false'
                                 current = parser%consume()  ! consume second '.'
-    expr_index = push_literal(arena, "."//trim(next_token%text)//".", LITERAL_LOGICAL, &
-                                                          current%line, current%column)
+                expr_index = push_literal(arena, &
+                    "."//trim(next_token%text)//".", LITERAL_LOGICAL, &
+                    current%line, current%column)
                             else
                                 ! Not a logical literal
-      expr_index = push_literal(arena, "", LITERAL_STRING, current%line, current%column)
+                                expr_index = push_literal(arena, "", &
+                                    LITERAL_STRING, current%line, current%column)
                                 current = parser%consume()
                             end if
                         else
                             ! Not a logical literal pattern
-      expr_index = push_literal(arena, "", LITERAL_STRING, current%line, current%column)
+                                expr_index = push_literal(arena, "", &
+                                    LITERAL_STRING, current%line, current%column)
                             current = parser%consume()
                         end if
                     else
                         ! Not enough tokens
-      expr_index = push_literal(arena, "", LITERAL_STRING, current%line, current%column)
+                                expr_index = push_literal(arena, "", &
+                                    LITERAL_STRING, current%line, current%column)
                         current = parser%consume()
                     end if
                 end block
             else
                 ! Unrecognized operator - create error node
-expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text//"'", &
-                                          LITERAL_STRING, current%line, current%column)
+                expr_index = push_literal(arena, &
+                    "!ERROR: Unrecognized operator '"//current%text//"'", &
+                    LITERAL_STRING, current%line, current%column)
                 current = parser%consume()
             end if
 
@@ -864,20 +896,20 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
             ! Handle logical constants
             current = parser%consume()
             if (current%text == ".true." .or. current%text == ".false.") then
-      expr_index = push_literal(arena, current%text, LITERAL_LOGICAL, &
-                                 current%line, current%column)
+                expr_index = push_literal(arena, current%text, &
+                    LITERAL_LOGICAL, current%line, current%column)
             else
                 ! Other keywords - create error node
-      expr_index = push_literal(arena, &
-          "!ERROR: Unexpected keyword '"//current%text//"' in expression", &
-                                          LITERAL_STRING, current%line, current%column)
+                expr_index = push_literal(arena, &
+                    "!ERROR: Unexpected keyword '"//current%text//"' in expression", &
+                    LITERAL_STRING, current%line, current%column)
             end if
 
         case default
             ! Unrecognized token - create error node and skip
-      expr_index = push_literal(arena, &
-          "!ERROR: Unrecognized token in expression", LITERAL_STRING, &
-          current%line, current%column)
+            expr_index = push_literal(arena, &
+                "!ERROR: Unrecognized token in expression", LITERAL_STRING, &
+                current%line, current%column)
             current = parser%consume()
         end select
         

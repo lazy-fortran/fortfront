@@ -11,6 +11,41 @@ fortfront is a pure CLI tool that transforms lazy Fortran code to standard Fortr
 - **Type Inference**: Automatic variable type detection using Hindley-Milner algorithm
 - **Integration**: Designed for use with fortrun build orchestrator (as fortfront)
 
+## Array Literal Support
+
+fortfront supports comprehensive array literal parsing for all Fortran data types:
+
+### ✅ Supported Array Types
+
+**Numeric arrays:**
+```bash
+echo "arr = [1, 2, 3]" | fortfront           # Integer arrays
+echo "arr = [1.0, 2.5, 3.14]" | fortfront    # Real arrays
+echo "arr = []" | fortfront                   # Empty arrays
+```
+
+**Logical arrays:**
+```bash
+echo "arr = [.true., .false.]" | fortfront    # Logical literal arrays
+echo "flag = .true." | fortfront              # Individual logical literals
+```
+
+**Variable and expression arrays:**
+```bash
+echo "arr = [a, b, c]" | fortfront            # Variable arrays
+echo "arr = [x + y, z * 2]" | fortfront       # Expression arrays
+echo "arr = [func(1), func(2)]" | fortfront   # Function call arrays
+```
+
+**Mixed type arrays:**
+```bash
+echo "arr = [1, 2.0, 3]" | fortfront          # Mixed numeric types
+```
+
+### Recent Improvements
+
+**Issue #261 Resolution**: Parser regressions affecting logical literal arrays have been resolved. Array literal parsing now works correctly for all types including logical literals (`[.true., .false.]`) while maintaining the enhanced error reporting improvements from Issue #256.
+
 ## Features
 
 - **Pure CLI Interface**: No API dependencies, works as standalone command
