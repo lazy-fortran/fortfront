@@ -22,9 +22,10 @@ program test_cli_integration
     
     ! Pre-build fortfront to ensure it exists before testing
     print *, "Building fortfront executable..."
-    call execute_command_line('fpm build --flag "-cpp -fmax-stack-var-size=65536" > /dev/null 2>&1', exitstat=test_count)
+    call execute_command_line('fpm build --flag "-cpp -fmax-stack-var-size=65536"', exitstat=test_count)
     if (test_count /= 0) then
-        print *, "SKIPPING: Failed to build fortfront executable (CI environment may lack build tools)"
+        print *, "SKIPPING: Failed to build fortfront executable (exit code:", test_count, ")"
+        print *, "This may indicate CI environment issues or missing build dependencies"
         stop 0
     end if
     
@@ -81,12 +82,14 @@ contains
         executable_path = ""
         
         ! Strategy 1: Use find command to dynamically locate fortfront executable
-        call execute_command_line('find build -name "fortfront" -type f 2>/dev/null | head -1 > /tmp/fortfront_search.txt', exitstat=exit_code)
+        call execute_command_line('find build -name "fortfront" -type f 2>/dev/null | head -1 > fortfront_search.txt', exitstat=exit_code)
         if (exit_code == 0) then
-            open(newunit=unit_num, file='/tmp/fortfront_search.txt', status='old', action='read', iostat=exit_code)
+            open(newunit=unit_num, file='fortfront_search.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
                 read(unit_num, '(A)', iostat=exit_code) search_output
                 close(unit_num)
+                ! Clean up temporary file
+                call execute_command_line('rm -f fortfront_search.txt', exitstat=exit_code)
                 if (exit_code == 0 .and. len_trim(search_output) > 0) then
                     inquire(file=trim(search_output), exist=file_exists)
                     if (file_exists) then
@@ -154,20 +157,22 @@ contains
         
         ! Run: echo "print *, 'test'" | fortfront
         command = 'echo "print *, ''test''" | ' // executable_path // ' > ' // &
-                  '/tmp/fortfront_test_output.txt 2>/tmp/fortfront_test_error.txt'
+                  'test_output.txt 2>test_error.txt'
         call execute_command_line(command, exitstat=exit_code)
         
         success = (exit_code == 0)
         
         if (success) then
             ! Check if output contains expected Fortran code
-            open(unit=10, file='/tmp/fortfront_test_output.txt', status='old', action='read', iostat=exit_code)
+            open(unit=10, file='test_output.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
                 read(10, '(A)', end=100, iostat=exit_code) output_line
                 if (exit_code == 0) then
                     success = success .and. (index(output_line, 'program main') > 0)
                 end if
 100             close(10)
+                ! Clean up test files
+                call execute_command_line('rm -f test_output.txt test_error.txt', exitstat=exit_code)
             else
                 success = .false.
             end if
@@ -199,8 +204,11 @@ contains
         
         ! Run with invalid input
         command = 'echo "invalid fortran code @#$%" | ' // executable_path // ' > ' // &
-                  '/tmp/fortfront_test_output2.txt 2>/tmp/fortfront_test_error2.txt'
+                  'test_output2.txt 2>test_error2.txt'
         call execute_command_line(command, exitstat=exit_code)
+        
+        ! Clean up test files
+        call execute_command_line('rm -f test_output2.txt test_error2.txt', exitstat=exit_code)
         
         ! Should still exit successfully but output should contain error markers
         success = (exit_code == 0)
@@ -231,20 +239,22 @@ contains
         
         ! Run with empty input
         command = 'echo "" | ' // executable_path // ' > ' // &
-                  '/tmp/fortfront_test_output3.txt 2>/tmp/fortfront_test_error3.txt'
+                  'test_output3.txt 2>test_error3.txt'
         call execute_command_line(command, exitstat=exit_code)
         
         success = (exit_code == 0)
         
         if (success) then
             ! Check output contains valid empty program
-            open(unit=11, file='/tmp/fortfront_test_output3.txt', status='old', action='read', iostat=exit_code)
+            open(unit=11, file='test_output3.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
                 read(11, '(A)', end=200, iostat=exit_code) output_line
                 if (exit_code == 0) then
                     success = success .and. (index(output_line, 'program main') > 0)
                 end if
 200             close(11)
+                ! Clean up test files
+                call execute_command_line('rm -f test_output3.txt test_error3.txt', exitstat=exit_code)
             else
                 success = .false.
             end if
