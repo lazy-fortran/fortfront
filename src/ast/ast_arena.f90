@@ -104,8 +104,6 @@ contains
         end if
         
         arena%capacity = cap
-        ! Deallocate existing entries if any
-        if (allocated(arena%entries)) deallocate(arena%entries)
         allocate (arena%entries(cap))
         arena%size = 0
         arena%current_index = 0
@@ -144,11 +142,6 @@ contains
         ! Add new entry
         this%size = this%size + 1
 
-        ! Ensure the node field is not allocated before allocating
-        if (allocated(this%entries(this%size)%node)) then
-            deallocate(this%entries(this%size)%node)
-        end if
-        
         ! Allocate and copy the node
         allocate (this%entries(this%size)%node, source=node)
 
@@ -162,7 +155,7 @@ contains
         ! Set parent relationship
         if (present(parent_index)) then
             parent_idx = parent_index
-            if (parent_idx > 0 .and. parent_idx <= this%size) then
+            if (parent_idx > 0) then
                 this%entries(this%size)%parent_index = parent_idx
                 parent_depth = this%entries(parent_idx)%depth
                 this%entries(this%size)%depth = parent_depth + 1
@@ -188,13 +181,6 @@ contains
         class(ast_arena_t), intent(inout) :: this
         integer, intent(in) :: parent_index, child_index
 
-        ! Defensive checks for valid indices
-        if (parent_index <= 0 .or. parent_index > this%size) return
-        if (child_index <= 0 .or. child_index > this%size) return
-        
-        ! Prevent circular references
-        if (parent_index == child_index) return
-
         ! Grow children array using Fortran array extension syntax
         if (.not. allocated(this%entries(parent_index)%child_indices)) then
             allocate (this%entries(parent_index)%child_indices(1))
@@ -214,61 +200,29 @@ contains
         class(ast_arena_t), intent(inout) :: this
         integer :: parent_idx, i, j
         
-        ! Defensive check: ensure we have something to pop
-        if (this%size <= 0) return
-        
-        ! Defensive check: ensure size is within bounds
-        if (this%size > this%capacity) then
-            ! Corrupted state - cannot safely proceed
-            return
-        end if
-        
         ! Get parent of the node being removed
         parent_idx = this%entries(this%size)%parent_index
         
         ! Remove this node from parent's children list if it has a parent
-        if (parent_idx > 0 .and. parent_idx <= this%size) then
+        if (parent_idx > 0) then
             if (allocated(this%entries(parent_idx)%child_indices)) then
                 ! Find and remove this node from parent's children
                 do i = 1, this%entries(parent_idx)%child_count
                     if (this%entries(parent_idx)%child_indices(i) == this%size) then
                         ! Shift remaining children left
-                        ! (only if there are elements to shift)
-                        if (i < this%entries(parent_idx)%child_count) then
-                            do j = i, this%entries(parent_idx)%child_count - 1
-                                this%entries(parent_idx)%child_indices(j) = &
-                                    this%entries(parent_idx)%child_indices(j + 1)
-                            end do
-                        end if
+                        do j = i, this%entries(parent_idx)%child_count - 1
+                            this%entries(parent_idx)%child_indices(j) = &
+                                this%entries(parent_idx)%child_indices(j + 1)
+                        end do
                         this%entries(parent_idx)%child_count = &
                             this%entries(parent_idx)%child_count - 1
-                        
-                        ! If no children left, deallocate the array
-                        if (this%entries(parent_idx)%child_count == 0) then
-                            if (allocated(this%entries(parent_idx)%child_indices)) then
-                                deallocate(this%entries(parent_idx)%child_indices)
-                            end if
-                        end if
-                        
                         exit
                     end if
                 end do
             end if
         end if
         
-        ! Clean up the node being removed
-        if (allocated(this%entries(this%size)%node)) then
-            deallocate(this%entries(this%size)%node)
-            ! Nullification not needed for allocatable components in Fortran
-        end if
-        if (allocated(this%entries(this%size)%node_type)) then
-            deallocate(this%entries(this%size)%node_type)
-        end if
-        if (allocated(this%entries(this%size)%child_indices)) then
-            deallocate(this%entries(this%size)%child_indices)
-        end if
-        
-        ! Reset the entry
+        ! Reset the entry fields
         this%entries(this%size)%parent_index = 0
         this%entries(this%size)%depth = 0
         this%entries(this%size)%child_count = 0
@@ -286,14 +240,10 @@ contains
         class(ast_arena_t), intent(in) :: this
         class(ast_node), allocatable :: node
         
-        ! Return the node at current_index with bounds checking
-        if (this%current_index > 0 .and. this%current_index <= this%size) then
-            if (allocated(this%entries(this%current_index)%node)) then
-                ! Safe polymorphic copy - allocate(source=) handles all AST node types
-                allocate(node, source=this%entries(this%current_index)%node)
-            end if
+        ! Return the node at current_index
+        if (allocated(this%entries(this%current_index)%node)) then
+            allocate(node, source=this%entries(this%current_index)%node)
         end if
-        ! Returns unallocated node if index is invalid or node not allocated
     end function ast_arena_current
 
     function ast_arena_get_parent(this, index) result(parent_node)
@@ -302,18 +252,13 @@ contains
         class(ast_node), allocatable :: parent_node
         integer :: parent_index
         
-        ! Get parent node with defensive bounds checking
-        if (index > 0 .and. index <= this%size) then
-            parent_index = this%entries(index)%parent_index
-            if (parent_index > 0 .and. parent_index <= this%size) then
-                if (allocated(this%entries(parent_index)%node)) then
-                    ! Safe polymorphic copy
-                    ! allocate(source=) handles all AST node types
-                    allocate(parent_node, source=this%entries(parent_index)%node)
-                end if
+        ! Get parent node
+        parent_index = this%entries(index)%parent_index
+        if (parent_index > 0) then
+            if (allocated(this%entries(parent_index)%node)) then
+                allocate(parent_node, source=this%entries(parent_index)%node)
             end if
         end if
-        ! Returns unallocated parent_node if invalid index or no parent
     end function ast_arena_get_parent
 
     function ast_arena_get_depth(this, index) result(depth)
@@ -321,10 +266,7 @@ contains
         integer, intent(in) :: index
         integer :: depth
         
-        depth = 0
-        if (index > 0 .and. index <= this%size) then
-            depth = this%entries(index)%depth
-        end if
+        depth = this%entries(index)%depth
     end function ast_arena_get_depth
 
     subroutine ast_arena_traverse_depth(this, target_depth, visitor)
@@ -384,15 +326,11 @@ contains
         integer, allocatable :: child_indices(:)
         
         ! Return children indices for the parent node
-        if (parent_index > 0 .and. parent_index <= this%size) then
-            if (allocated(this%entries(parent_index)%child_indices)) then
-                allocate(child_indices(this%entries(parent_index)%child_count))
-                child_indices = &
-                    this%entries(parent_index)%child_indices( &
-                        1:this%entries(parent_index)%child_count)
-            else
-                allocate(child_indices(0))
-            end if
+        if (allocated(this%entries(parent_index)%child_indices)) then
+            allocate(child_indices(this%entries(parent_index)%child_count))
+            child_indices = &
+                this%entries(parent_index)%child_indices( &
+                    1:this%entries(parent_index)%child_count)
         else
             allocate(child_indices(0))
         end if
@@ -407,8 +345,6 @@ contains
         integer, allocatable :: siblings(:)
         
         next_sibling = 0
-        
-        if (node_index <= 0 .or. node_index > this%size) return
         
         parent_idx = this%entries(node_index)%parent_index
         if (parent_idx <= 0) return  ! No parent = no siblings
@@ -433,8 +369,6 @@ contains
         integer, allocatable :: siblings(:)
         
         prev_sibling = 0
-        
-        if (node_index <= 0 .or. node_index > this%size) return
         
         parent_idx = this%entries(node_index)%parent_index
         if (parent_idx <= 0) return  ! No parent = no siblings
@@ -482,8 +416,6 @@ contains
         character(len=:), allocatable :: node_type
         
         is_block = .false.
-        
-        if (node_index <= 0 .or. node_index > this%size) return
         
         if (allocated(this%entries(node_index)%node_type)) then
             node_type = this%entries(node_index)%node_type
@@ -589,9 +521,8 @@ contains
         
         ! Deep copy allocatable array
         if (allocated(rhs%entries)) then
-            if (allocated(lhs%entries)) deallocate(lhs%entries)
-            allocate(lhs%entries(size(rhs%entries)))
-            do i = 1, size(rhs%entries)
+            allocate(lhs%entries(rhs%capacity))
+            do i = 1, rhs%size
                 lhs%entries(i) = rhs%entries(i)  ! Uses ast_entry_assign
             end do
         end if
@@ -627,9 +558,6 @@ contains
         class(ast_entry_t), intent(inout) :: lhs
         class(ast_entry_t), intent(in) :: rhs
         
-        ! Clear existing node if any
-        if (allocated(lhs%node)) deallocate(lhs%node)
-        
         ! Copy scalar fields
         lhs%parent_index = rhs%parent_index
         lhs%depth = rhs%depth
@@ -641,7 +569,6 @@ contains
         end if
         
         ! Copy child indices
-        if (allocated(lhs%child_indices)) deallocate(lhs%child_indices)
         if (allocated(rhs%child_indices)) then
             allocate(lhs%child_indices(size(rhs%child_indices)))
             lhs%child_indices = rhs%child_indices
