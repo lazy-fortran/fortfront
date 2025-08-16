@@ -161,6 +161,7 @@ contains
         this%size = this%size + 1
 
         ! Deep copy polymorphic AST node
+        if (allocated(this%entries(this%size)%node)) deallocate(this%entries(this%size)%node)
         allocate (this%entries(this%size)%node, source=node)
 
         ! Set metadata
