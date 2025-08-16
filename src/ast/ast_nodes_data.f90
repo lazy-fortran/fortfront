@@ -259,13 +259,16 @@ contains
         end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
+        ! Handle declaration_indices array
+        if (allocated(lhs%declaration_indices)) deallocate(lhs%declaration_indices)
         if (allocated(rhs%declaration_indices)) then
-            if (allocated(lhs%declaration_indices)) deallocate(lhs%declaration_indices)
             allocate(lhs%declaration_indices(size(rhs%declaration_indices)))
             lhs%declaration_indices = rhs%declaration_indices
         end if
+        
+        ! Handle procedure_indices array
+        if (allocated(lhs%procedure_indices)) deallocate(lhs%procedure_indices)
         if (allocated(rhs%procedure_indices)) then
-            if (allocated(lhs%procedure_indices)) deallocate(lhs%procedure_indices)
             allocate(lhs%procedure_indices(size(rhs%procedure_indices)))
             lhs%procedure_indices = rhs%procedure_indices
         end if
@@ -301,14 +304,18 @@ contains
         end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
+        ! Handle component_indices array
+        if (allocated(lhs%component_indices)) deallocate(lhs%component_indices)
         if (allocated(rhs%component_indices)) then
-            if (allocated(lhs%component_indices)) deallocate(lhs%component_indices)
             allocate(lhs%component_indices(size(rhs%component_indices)))
             lhs%component_indices = rhs%component_indices
         end if
+        
         lhs%has_parameters = rhs%has_parameters
+        
+        ! Handle param_indices array
+        if (allocated(lhs%param_indices)) deallocate(lhs%param_indices)
         if (allocated(rhs%param_indices)) then
-            if (allocated(lhs%param_indices)) deallocate(lhs%param_indices)
             allocate(lhs%param_indices(size(rhs%param_indices)))
             lhs%param_indices = rhs%param_indices
         end if

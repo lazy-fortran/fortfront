@@ -132,7 +132,25 @@ contains
             allocate (temp_entries(new_capacity))
             if (this%size > 0) then
                 do i = 1, this%size
-                    temp_entries(i) = this%entries(i)
+                    ! Explicitly copy each field to avoid assignment operator issues
+                    temp_entries(i)%parent_index = this%entries(i)%parent_index
+                    temp_entries(i)%depth = this%entries(i)%depth
+                    temp_entries(i)%child_count = this%entries(i)%child_count
+                    
+                    ! Copy node_type string
+                    if (allocated(this%entries(i)%node_type)) then
+                        temp_entries(i)%node_type = this%entries(i)%node_type
+                    end if
+                    
+                    ! Copy child indices array
+                    if (allocated(this%entries(i)%child_indices)) then
+                        temp_entries(i)%child_indices = this%entries(i)%child_indices
+                    end if
+                    
+                    ! Explicitly deep copy the polymorphic node
+                    if (allocated(this%entries(i)%node)) then
+                        allocate(temp_entries(i)%node, source=this%entries(i)%node)
+                    end if
                 end do
             end if
             call move_alloc(temp_entries, this%entries)
@@ -142,7 +160,7 @@ contains
         ! Add new entry
         this%size = this%size + 1
 
-        ! Explicitly allocate new node to avoid assignment operator issues
+        ! Perform safe deep copy for polymorphic AST nodes
         if (allocated(this%entries(this%size)%node)) then
             ! This should not happen for new entries, but handle it safely
             deallocate(this%entries(this%size)%node)
@@ -244,9 +262,11 @@ contains
         class(ast_arena_t), intent(in) :: this
         class(ast_node), allocatable :: node
         
-        ! Return the node at current_index
-        if (allocated(this%entries(this%current_index)%node)) then
-            allocate(node, source=this%entries(this%current_index)%node)
+        ! Return deep copy of the node at current_index
+        if (this%current_index > 0 .and. this%current_index <= this%size) then
+            if (allocated(this%entries(this%current_index)%node)) then
+                allocate(node, source=this%entries(this%current_index)%node)
+            end if
         end if
     end function ast_arena_current
 
@@ -256,11 +276,13 @@ contains
         class(ast_node), allocatable :: parent_node
         integer :: parent_index
         
-        ! Get parent node
-        parent_index = this%entries(index)%parent_index
-        if (parent_index > 0) then
-            if (allocated(this%entries(parent_index)%node)) then
-                allocate(parent_node, source=this%entries(parent_index)%node)
+        ! Get parent node with bounds checking
+        if (index > 0 .and. index <= this%size) then
+            parent_index = this%entries(index)%parent_index
+            if (parent_index > 0 .and. parent_index <= this%size) then
+                if (allocated(this%entries(parent_index)%node)) then
+                    allocate(parent_node, source=this%entries(parent_index)%node)
+                end if
             end if
         end if
     end function ast_arena_get_parent
@@ -578,7 +600,7 @@ contains
             lhs%child_indices = rhs%child_indices  ! Automatic allocation for regular arrays
         end if
         
-        ! Deep copy the polymorphic node using explicit allocation to avoid problematic assignment operators
+        ! Deep copy the polymorphic node using explicit allocation
         if (allocated(lhs%node)) deallocate(lhs%node)
         if (allocated(rhs%node)) then
             allocate(lhs%node, source=rhs%node)

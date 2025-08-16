@@ -20,10 +20,9 @@ program test_issue_209_multi_var_allocatable
     print *
     if (all_passed) then
         print *, 'All tests PASSED'
-        stop 0
     else
         print *, 'Some tests FAILED'
-        stop 1
+        error stop 1  ! Use error stop for actual failures
     end if
 
 contains
