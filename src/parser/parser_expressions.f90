@@ -590,6 +590,13 @@ contains
 
                                    temp_indices(element_count) = parse_unary(parser, arena)
 
+                                    ! Check if element parsing failed
+                                    if (temp_indices(element_count) <= 0) then
+                                        ! Element parsing failed - return error
+                                        expr_index = 0
+                                        return
+                                    end if
+
                                     ! Check for comma or closing /
                                     current = parser%peek()
                                     if (current%text == ",") then
@@ -670,6 +677,13 @@ contains
                             end if
 
                            temp_indices(element_count) = parse_comparison(parser, arena)
+
+                            ! Check if element parsing failed
+                            if (temp_indices(element_count) <= 0) then
+                                ! Element parsing failed - return error
+                                expr_index = 0
+                                return
+                            end if
 
                             ! Check for comma or closing bracket
                             current = parser%peek()
