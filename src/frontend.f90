@@ -1263,6 +1263,18 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         call lex_source(input, tokens, error_msg)
         if (error_msg /= "") return
         
+        ! Phase 1.5: Basic syntax validation
+        call validate_basic_syntax(input, tokens, error_msg)
+        if (error_msg /= "") then
+            output = "! COMPILATION FAILED" // new_line('A') // &
+                    "! Error: " // error_msg // new_line('A') // &
+                    "program main" // new_line('A') // &
+                    "    implicit none" // new_line('A') // &
+                    "    ! Original code could not be parsed" // new_line('A') // &
+                    "end program main" // new_line('A')
+            return
+        end if
+        
         ! Check if we have any tokens to parse
         if (size(tokens) == 0) then
             ! No tokens - create minimal program
@@ -1275,14 +1287,35 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         ! Phase 2: Parsing
         call init_ast_arena(arena)
         call parse_tokens(tokens, arena, prog_index, error_msg)
-        if (error_msg /= "") return
+        if (error_msg /= "") then
+            ! If parsing failed but we have partial output, include it
+            if (prog_index > 0) then
+                call emit_fortran(arena, prog_index, output)
+                ! Append error information to output as comments
+                output = output // new_line('A') // &
+                        "! COMPILATION ERRORS:" // new_line('A') // &
+                        "! " // error_msg
+            else
+                ! No valid output, provide minimal program with error
+                output = "! COMPILATION FAILED" // new_line('A') // &
+                        "! Error: " // error_msg // new_line('A') // &
+                        "program main" // new_line('A') // &
+                        "    implicit none" // new_line('A') // &
+                        "    ! Original code could not be parsed" // new_line('A') // &
+                        "end program main" // new_line('A')
+            end if
+            return
+        end if
         
         ! Debug: check if we got a valid program index
         if (prog_index <= 0) then
-            ! For empty or minimal input, create a basic program
-            output = "program main" // new_line('A') // &
-                     "    implicit none" // new_line('A') // &
-                     "end program main" // new_line('A')
+            error_msg = "Parsing succeeded but no valid program unit was created"
+            output = "! COMPILATION FAILED" // new_line('A') // &
+                    "! Error: " // error_msg // new_line('A') // &
+                    "program main" // new_line('A') // &
+                    "    implicit none" // new_line('A') // &
+                    "    ! Original code could not be structured as a program" // new_line('A') // &
+                    "end program main" // new_line('A')
             return
         end if
         
@@ -1382,5 +1415,187 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         call standardize_ast(arena, prog_index)
         fortran_code = generate_code_from_arena(arena, prog_index)
     end subroutine emit_fortran
+
+    ! Basic syntax validation to catch common errors
+    subroutine validate_basic_syntax(source, tokens, error_msg)
+        character(len=*), intent(in) :: source
+        type(token_t), intent(in) :: tokens(:)
+        character(len=:), allocatable, intent(out) :: error_msg
+        
+        integer :: i, line_num, col_num
+        character(len=:), allocatable :: source_lines(:)
+        logical :: in_if_statement, found_then, expecting_then
+        
+        error_msg = ""
+        
+        ! Split source into lines for error reporting
+        call split_into_lines(source, source_lines)
+        
+        ! Check for common syntax errors
+        in_if_statement = .false.
+        found_then = .false.
+        expecting_then = .false.
+        
+        do i = 1, size(tokens)
+            if (tokens(i)%kind == TK_EOF) exit
+            
+            ! Check for if statement without then
+            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "if") then
+                in_if_statement = .true.
+                expecting_then = .true.
+                found_then = .false.
+            else if (in_if_statement .and. tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "then") then
+                found_then = .true.
+                expecting_then = .false.
+            else if (expecting_then .and. tokens(i)%kind == TK_NEWLINE) then
+                ! Found newline before 'then' - this is an error
+                line_num = tokens(i)%line
+                col_num = tokens(i)%column
+                error_msg = format_syntax_error("Missing 'then' after 'if' condition", &
+                                              line_num, col_num, source_lines, &
+                                              "Add 'then' after the if condition")
+                return
+            else if (in_if_statement .and. &
+                    (tokens(i)%kind == TK_KEYWORD .and. &
+                    (tokens(i)%text == "print" .or. tokens(i)%text == "call" .or. &
+                     tokens(i)%text == "do" .or. tokens(i)%text == "if"))) then
+                ! Found another statement before 'then'
+                if (expecting_then) then
+                    line_num = tokens(i)%line
+                    col_num = tokens(i)%column
+                    error_msg = format_syntax_error("Missing 'then' in if statement", &
+                                                  line_num, col_num, source_lines, &
+                                                  "Add 'then' at the end of the if condition")
+                    return
+                end if
+            end if
+            
+            ! Reset if statement tracking when we find 'end if'
+            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "end") then
+                if (i + 1 <= size(tokens) .and. tokens(i+1)%text == "if") then
+                    in_if_statement = .false.
+                    expecting_then = .false.
+                end if
+            end if
+        end do
+        
+        ! Check for completely invalid input (no Fortran keywords found)
+        call check_for_fortran_content(tokens, error_msg)
+        if (error_msg /= "") return
+        
+    end subroutine validate_basic_syntax
+    
+    ! Check if input contains any recognizable Fortran content
+    subroutine check_for_fortran_content(tokens, error_msg)
+        type(token_t), intent(in) :: tokens(:)
+        character(len=:), allocatable, intent(out) :: error_msg
+        
+        integer :: i, keyword_count, total_meaningful_tokens
+        logical :: has_fortran_keywords
+        
+        keyword_count = 0
+        total_meaningful_tokens = 0
+        has_fortran_keywords = .false.
+        
+        do i = 1, size(tokens)
+            if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE) cycle
+            
+            total_meaningful_tokens = total_meaningful_tokens + 1
+            
+            if (tokens(i)%kind == TK_KEYWORD) then
+                keyword_count = keyword_count + 1
+                
+                ! Check for common Fortran keywords
+                if (tokens(i)%text == "program" .or. tokens(i)%text == "function" .or. &
+                    tokens(i)%text == "subroutine" .or. tokens(i)%text == "module" .or. &
+                    tokens(i)%text == "integer" .or. tokens(i)%text == "real" .or. &
+                    tokens(i)%text == "character" .or. tokens(i)%text == "logical" .or. &
+                    tokens(i)%text == "implicit" .or. tokens(i)%text == "none" .or. &
+                    tokens(i)%text == "end" .or. tokens(i)%text == "if" .or. &
+                    tokens(i)%text == "do" .or. tokens(i)%text == "print") then
+                    has_fortran_keywords = .true.
+                end if
+            end if
+        end do
+        
+        ! If we have meaningful tokens but no Fortran keywords, it's probably not Fortran
+        if (total_meaningful_tokens > 3 .and. .not. has_fortran_keywords) then
+            error_msg = "Input does not appear to be valid Fortran code. " // &
+                       "No recognized Fortran keywords found."
+        else if (total_meaningful_tokens > 0 .and. keyword_count == 0) then
+            error_msg = "No Fortran keywords found in input. " // &
+                       "Please check that this is valid Fortran syntax."
+        end if
+        
+    end subroutine check_for_fortran_content
+    
+    ! Format a syntax error message with location info
+    function format_syntax_error(message, line, column, source_lines, suggestion) result(formatted)
+        character(len=*), intent(in) :: message
+        integer, intent(in) :: line, column
+        character(len=*), intent(in) :: source_lines(:)
+        character(len=*), intent(in), optional :: suggestion
+        character(len=:), allocatable :: formatted
+        
+        character(len=50) :: location_str
+        
+        write(location_str, '("at line ", I0, ", column ", I0)') line, column
+        formatted = trim(message) // " " // trim(location_str)
+        
+        ! Add source line context if available
+        if (line > 0 .and. line <= size(source_lines)) then
+            formatted = formatted // new_line('A') // &
+                       "  Source: " // source_lines(line)
+            if (column > 0 .and. column <= len(source_lines(line))) then
+                formatted = formatted // new_line('A') // &
+                           "  " // repeat(" ", 9 + column - 1) // "^"
+            end if
+        end if
+        
+        ! Add suggestion if provided
+        if (present(suggestion)) then
+            formatted = formatted // new_line('A') // &
+                       "  Suggestion: " // suggestion
+        end if
+    end function format_syntax_error
+    
+    ! Split source code into lines
+    subroutine split_into_lines(source, lines)
+        character(len=*), intent(in) :: source
+        character(len=:), allocatable, intent(out) :: lines(:)
+        
+        integer :: i, line_count, start_pos, current_pos, max_line_len
+        character(len=500) :: temp_lines(100)  ! Max 100 lines, 500 chars each
+        
+        line_count = 1
+        start_pos = 1
+        max_line_len = 0
+        
+        ! Count and split lines
+        do current_pos = 1, len(source)
+            if (source(current_pos:current_pos) == new_line('A')) then
+                if (line_count <= 100) then
+                    temp_lines(line_count) = source(start_pos:current_pos-1)
+                    max_line_len = max(max_line_len, current_pos - start_pos)
+                end if
+                line_count = line_count + 1
+                start_pos = current_pos + 1
+            end if
+        end do
+        
+        ! Add the last line if it doesn't end with newline
+        if (start_pos <= len(source) .and. line_count <= 100) then
+            temp_lines(line_count) = source(start_pos:len(source))
+            max_line_len = max(max_line_len, len(source) - start_pos + 1)
+        end if
+        
+        ! Allocate and copy the actual lines
+        if (line_count > 100) line_count = 100
+        allocate(character(len=max(max_line_len, 1)) :: lines(line_count))
+        do i = 1, line_count
+            lines(i) = trim(temp_lines(i))
+        end do
+        
+    end subroutine split_into_lines
 
 end module frontend
