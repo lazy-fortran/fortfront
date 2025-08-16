@@ -17,6 +17,13 @@ test_*.txt
 test_results*
 test_output*
 
+# Executable test binaries
+test_go_style_simple
+test_minimal_components
+test_simple_plugin_registry
+test_standalone_events
+test_output
+
 # Temporary files
 *.tmp
 *.temp
@@ -35,3 +42,12 @@ coverage_filtered.info
 *.gcno
 *.info
 test_old_api.o
+
+# Fortran build artifacts
+*.mod
+*.o
+*.a
+*.so
+
+# Log files
+*.log
