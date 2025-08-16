@@ -142,7 +142,11 @@ contains
         ! Add new entry
         this%size = this%size + 1
 
-        ! Allocate and copy the node
+        ! Explicitly allocate new node to avoid assignment operator issues
+        if (allocated(this%entries(this%size)%node)) then
+            ! This should not happen for new entries, but handle it safely
+            deallocate(this%entries(this%size)%node)
+        end if
         allocate (this%entries(this%size)%node, source=node)
 
         ! Set metadata
@@ -519,9 +523,10 @@ contains
         lhs%chunk_size = rhs%chunk_size
         lhs%initial_capacity = rhs%initial_capacity
         
-        ! Deep copy allocatable array
+        ! Deep copy allocatable array using Fortran automatic reallocation
         if (allocated(rhs%entries)) then
-            allocate(lhs%entries(rhs%capacity))
+            ! Use slice assignment to trigger automatic reallocation
+            lhs%entries = rhs%entries(1:rhs%capacity)
             do i = 1, rhs%size
                 lhs%entries(i) = rhs%entries(i)  ! Uses ast_entry_assign
             end do
@@ -568,13 +573,13 @@ contains
             lhs%node_type = rhs%node_type
         end if
         
-        ! Copy child indices
+        ! Copy child indices using automatic reallocation
         if (allocated(rhs%child_indices)) then
-            allocate(lhs%child_indices(size(rhs%child_indices)))
-            lhs%child_indices = rhs%child_indices
+            lhs%child_indices = rhs%child_indices  ! Automatic allocation for regular arrays
         end if
         
-        ! Deep copy the node using allocate(source=) for polymorphic copying
+        ! Deep copy the polymorphic node using explicit allocation to avoid problematic assignment operators
+        if (allocated(lhs%node)) deallocate(lhs%node)
         if (allocated(rhs%node)) then
             allocate(lhs%node, source=rhs%node)
         end if
