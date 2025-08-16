@@ -28,6 +28,10 @@ test_output
 *.tmp
 *.temp
 
+# Debug binaries - prevent accidental commit of debug executables
+debug_error_test
+debug_*_test
+
 # Draft directory - never commit draft work
 draft/
 !draft/.gitkeep

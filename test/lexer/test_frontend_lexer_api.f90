@@ -21,10 +21,9 @@ program test_frontend_lexer_api
     print *
     if (all_passed) then
         print *, 'All lexer API tests passed!'
-        stop 0
     else
         print *, 'Some lexer API tests failed!'
-        stop 1
+        error stop 1  ! Use error stop for actual failures
     end if
 
 contains

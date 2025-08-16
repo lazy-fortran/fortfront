@@ -159,12 +159,16 @@ contains
         character(len=:), allocatable, intent(out) :: only_list(:)
         character(len=:), allocatable, intent(out) :: rename_list(:)
 
-        character(len=100) :: temp_only(50)
-        character(len=100) :: temp_rename(50)
+        character(len=:), allocatable :: temp_only(:)
+        character(len=:), allocatable :: temp_rename(:)
         type(token_t) :: token
         integer :: count
         character(len=:), allocatable :: item_name, old_name
 
+        ! Allocate temporary arrays to avoid stack overflow
+        allocate(character(len=100) :: temp_only(50))
+        allocate(character(len=100) :: temp_rename(50))
+        
         count = 0
         temp_only = ""
         temp_rename = ""

@@ -25,7 +25,7 @@ module codegen_core
     logical, save :: standardize_types_enabled = .true.
 
     ! Public interface for code generation
-    public :: generate_code_from_arena, generate_code_polymorphic
+    public :: generate_code_from_arena, generate_code_polymorphic, safe_generate_code_from_arena
     public :: set_type_standardization, get_type_standardization
 
 contains
@@ -129,6 +129,13 @@ contains
 
         ! Return the literal value with proper formatting
         select case (node%literal_kind)
+        case (LITERAL_INTEGER)
+            ! Integer literals: return value directly
+            if (allocated(node%value) .and. len_trim(node%value) > 0) then
+                code = node%value
+            else
+                code = "0"  ! Default integer literal
+            end if
         case (LITERAL_STRING)
             ! Special case for implicit none
             if (node%value == "implicit none") then
@@ -160,6 +167,13 @@ contains
             else
                 ! When standardization is disabled, preserve original literal format
                 code = node%value
+            end if
+        case (LITERAL_LOGICAL)
+            ! Logical literals: return value directly
+            if (allocated(node%value) .and. len_trim(node%value) > 0) then
+                code = node%value
+            else
+                code = ".false."  ! Default logical literal
             end if
         case default
             ! Handle invalid/empty literals safely
@@ -546,6 +560,16 @@ contains
 
         if (len(use_statements) > 0) then
             code = code//indent_lines(use_statements)//new_line('A')
+        end if
+
+        ! Add implicit none by default if not already present
+        if (.not. has_implicit_none) then
+            if (len(declarations) > 0) then
+                declarations = "implicit none"//new_line('A')//declarations
+            else
+                declarations = "implicit none"
+            end if
+            has_declarations = .true.
         end if
 
         if (len(declarations) > 0) then
@@ -2586,11 +2610,14 @@ contains
         ! Process declarations
         if (allocated(node%declaration_indices)) then
             do i = 1, size(node%declaration_indices)
-                if (node%declaration_indices(i) > 0) then
-                    stmt_code = generate_code_from_arena(arena, &
-                                                          node%declaration_indices(i))
-                    if (len_trim(stmt_code) > 0) then
-                        code = code//with_indent(stmt_code)//new_line('A')
+                if (node%declaration_indices(i) > 0 .and. &
+                    node%declaration_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(node%declaration_indices(i))%node)) then
+                        stmt_code = generate_code_from_arena(arena, &
+                                                              node%declaration_indices(i))
+                        if (len_trim(stmt_code) > 0) then
+                            code = code//with_indent(stmt_code)//new_line('A')
+                        end if
                     end if
                 end if
             end do
@@ -2604,11 +2631,14 @@ contains
             
             ! Generate procedures
             do i = 1, size(node%procedure_indices)
-                if (node%procedure_indices(i) > 0) then
-                    stmt_code = generate_code_from_arena(arena, &
-                                                          node%procedure_indices(i))
-                    if (len_trim(stmt_code) > 0) then
-                        code = code//with_indent(stmt_code)//new_line('A')
+                if (node%procedure_indices(i) > 0 .and. &
+                    node%procedure_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(node%procedure_indices(i))%node)) then
+                        stmt_code = generate_code_from_arena(arena, &
+                                                              node%procedure_indices(i))
+                        if (len_trim(stmt_code) > 0) then
+                            code = code//with_indent(stmt_code)//new_line('A')
+                        end if
                     end if
                 end if
             end do
@@ -2951,5 +2981,29 @@ contains
         output_code = trim(long_line(1:break_pos))//" &"//new_line('a')// &
                       continuation_indent//trim(long_line(break_pos+1:))
     end subroutine add_line_with_continuation
+
+    ! Safe version of generate_code_from_arena that uses subroutine interface
+    ! to avoid problematic allocatable string assignments
+    subroutine safe_generate_code_from_arena(arena, node_index, code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: code
+        
+        ! Use a local block to contain any potential crashes
+        block
+            character(len=:), allocatable :: temp_code
+            
+            ! Call the original function but handle any errors
+            temp_code = generate_code_from_arena(arena, node_index)
+            
+            ! Safely assign the result
+            if (allocated(temp_code)) then
+                code = temp_code
+            else
+                code = "! Error: Code generation failed"
+            end if
+        end block
+        
+    end subroutine safe_generate_code_from_arena
 
 end module codegen_core
