@@ -129,6 +129,13 @@ contains
 
         ! Return the literal value with proper formatting
         select case (node%literal_kind)
+        case (LITERAL_INTEGER)
+            ! Integer literals: return value directly
+            if (allocated(node%value) .and. len_trim(node%value) > 0) then
+                code = node%value
+            else
+                code = "0"  ! Default integer literal
+            end if
         case (LITERAL_STRING)
             ! Special case for implicit none
             if (node%value == "implicit none") then
@@ -160,6 +167,13 @@ contains
             else
                 ! When standardization is disabled, preserve original literal format
                 code = node%value
+            end if
+        case (LITERAL_LOGICAL)
+            ! Logical literals: return value directly
+            if (allocated(node%value) .and. len_trim(node%value) > 0) then
+                code = node%value
+            else
+                code = ".false."  ! Default logical literal
             end if
         case default
             ! Handle invalid/empty literals safely
