@@ -163,7 +163,8 @@ contains
                         this%context, arena, root_node_index)
                     
                     ! Store results in shared context
-                    analyzer_results = this%analyzers(analyzer_index)%analyzer%get_results()
+                    analyzer_results = &
+                        this%analyzers(analyzer_index)%analyzer%get_results()
                     call this%context%store_result(execution_order(i), analyzer_results)
                 end if
             end if
