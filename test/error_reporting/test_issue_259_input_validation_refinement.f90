@@ -9,7 +9,7 @@ program test_issue_259_input_validation_refinement
     passed_count = 0
     
     print *, '=== Issue #259 Input Validation Refinement ==='
-    print *, 'Testing input validation fixes for overly strict validation'
+    print *, 'Testing that input validation refinement fixes are working correctly'
     print *
 
     ! Test Category 1: Comments-only input should be accepted
@@ -60,14 +60,17 @@ program test_issue_259_input_validation_refinement
     print *, '  Tests failing (demonstrating bugs):', test_count - passed_count
     print *
     
-    if (passed_count >= 4 .and. (test_count - passed_count) >= 2) then
-        print *, 'SUCCESS: Tests demonstrate validation issues (some fail as expected)'
-        print *, 'This demonstrates the bugs that need to be fixed in Issue #259.'
-        print *, 'Comments and assignments work, but identifier-only expressions fail.'
+    if (passed_count == test_count) then
+        print *, 'SUCCESS: All validation tests pass - Issue #259 has been fixed!'
+        print *, 'All previously problematic inputs are now correctly accepted:'
+        print *, '- Comments-only input is accepted'
+        print *, '- Mathematical expressions without keywords are accepted'
+        print *, '- Lazy Fortran constructs are properly validated'
         stop 0
     else
-        print *, 'UNEXPECTED: Test results do not match expected validation behavior'
-        print *, 'Either too few failures or validation has been completely fixed.'
+        print *, 'FAILURE: Some validation tests still failing:'
+        print *, '  Tests failing:', test_count - passed_count
+        print *, 'Issue #259 validation refinement is not complete.'
         stop 1
     end if
 
@@ -80,13 +83,9 @@ contains
         test_count = test_count + 1
         if (result) then
             passed_count = passed_count + 1
-            if (index(test_name, 'should work') > 0) then
-                print *, '  CORRECT PASS:', test_name, '(validation works for this case)'
-            else
-                print *, '  UNEXPECTED PASS:', test_name, '(should fail with current validation)'
-            end if
+            print *, '  PASS:', test_name
         else
-            print *, '  EXPECTED FAIL:', test_name, '(demonstrates validation bug)'
+            print *, '  FAIL:', test_name
         end if
     end subroutine
 
