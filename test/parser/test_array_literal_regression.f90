@@ -71,7 +71,7 @@ contains
         block
             character(len=:), allocatable :: test_cases(:)
             
-            test_cases = [ character(len=16) :: &
+            test_cases = [ character(len=18) :: &
                 "[1, 2, 3]", &         ! Integer array
                 "[1.0, 2.5, 3.14]", &  ! Real array
                 "[.true., .false.]", & ! Logical array
