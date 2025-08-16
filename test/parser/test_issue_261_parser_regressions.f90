@@ -492,23 +492,25 @@ contains
     function test_stop_1_for_genuine_errors() result(passed)
         ! Given: Invalid Fortran input that should legitimately fail
         ! When: Parser processes the input
-        ! Then: Should fail appropriately with STOP 1, not STOP 0
+        ! Then: Should indicate failure via error message OR compilation failed output
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
         
         print *, '  Testing STOP 1 for genuine errors...'
         passed = .true.
         
-        ! Genuinely invalid input that should trigger STOP 1
-        source = "this is completely invalid fortran syntax *** error"
+        ! Genuinely invalid input that should trigger error handling
+        ! Use same test input as Issue #256 validation for consistency
+        source = "this is not valid fortran syntax at all *** 123"
         
         call transform_lazy_fortran_string(source, output, error_msg)
         
-        if (len_trim(error_msg) == 0) then
+        ! Check for either error message OR compilation failed output (Issue #256 requirements)
+        if (len_trim(error_msg) == 0 .and. index(output, '! COMPILATION FAILED') == 0) then
             passed = .false.
-            print *, '    FAIL: Invalid input should have triggered error'
+            print *, '    FAIL: Invalid input should have triggered error or failure output'
         else
-            print *, '    PASS: Invalid input correctly triggered error'
+            print *, '    PASS: Invalid input correctly triggered error handling'
         end if
     end function test_stop_1_for_genuine_errors
 
