@@ -66,24 +66,34 @@ contains
         character(len=500) :: candidate_path
         integer :: i
         
-        ! List of candidate paths to check
-        character(len=50), dimension(10) :: candidates = [ &
+        ! List of common build hash patterns to check (update when needed)
+        character(len=50), dimension(20) :: build_patterns = [ &
             "build/gfortran_266FF454AB2555FE/app/fortfront   ", &
             "build/gfortran_9ABCD662468F5A74/app/fortfront   ", &
+            "build/gfortran_C79DEB301B8081FC/app/fortfront   ", &
+            "build/gfortran_C523F0F8A99FF060/app/fortfront   ", &
+            "build/gfortran_1F2DC83CBD1DC595/app/fortfront   ", &
+            "build/gfortran_35CFD5CFC35942D6/app/fortfront   ", &
+            "build/gfortran_4AE9E4ED7A89B913/app/fortfront   ", &
+            "build/gfortran_66DBF6172AF51040/app/fortfront   ", &
+            "build/gfortran_A56298966DD7666C/app/fortfront   ", &
+            "build/gfortran_E3D58E6D75301430/app/fortfront   ", &
+            "build/gfortran_9CBC8EEC13D00A4A/app/fortfront   ", &
             "./build/gfortran_266FF454AB2555FE/app/fortfront ", &
             "./build/gfortran_9ABCD662468F5A74/app/fortfront ", &
+            "./build/gfortran_C79DEB301B8081FC/app/fortfront ", &
+            "./build/gfortran_C523F0F8A99FF060/app/fortfront ", &
             "fortfront                                       ", &
             "./fortfront                                     ", &
             "app/fortfront                                   ", &
             "./app/fortfront                                 ", &
-            "../fortfront                                    ", &
-            "../app/fortfront                                " ]
+            "../fortfront                                    " ]
         
         executable_path = ""
         
         ! Check each candidate path
-        do i = 1, size(candidates)
-            candidate_path = trim(candidates(i))
+        do i = 1, size(build_patterns)
+            candidate_path = trim(build_patterns(i))
             inquire(file=candidate_path, exist=file_exists)
             
             if (file_exists) then
@@ -92,30 +102,8 @@ contains
             end if
         end do
         
-        ! If no specific path found, try a more general search
-        ! Check for any build directory pattern
-        call try_find_in_build_dirs(executable_path)
-        
     end function find_fortfront_executable
     
-    ! Try to find executable in build directories
-    subroutine try_find_in_build_dirs(executable_path)
-        character(len=:), allocatable, intent(out) :: executable_path
-        character(len=200) :: build_dir_pattern
-        logical :: dir_exists
-        
-        executable_path = ""
-        
-        ! Try common build directory patterns
-        build_dir_pattern = "build"
-        inquire(file=build_dir_pattern, exist=dir_exists)
-        
-        if (dir_exists) then
-            ! For simplicity in this fix, we'll use the first known path
-            ! This can be enhanced later with proper directory traversal
-            executable_path = "build/gfortran_266FF454AB2555FE/app/fortfront"
-        end if
-    end subroutine try_find_in_build_dirs
     
     subroutine test_basic_io()
         integer :: exit_code
