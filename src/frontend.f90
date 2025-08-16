@@ -1459,14 +1459,13 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
     end subroutine analyze_semantics
     
     subroutine emit_fortran(arena, prog_index, fortran_code)
-        type(ast_arena_t), intent(inout) :: arena  ! Changed to inout to avoid copying
-        integer, intent(inout) :: prog_index  ! Changed to inout for standardize_ast
+        type(ast_arena_t), intent(in) :: arena  ! Made intent(in) to prevent corruption
+        integer, intent(in) :: prog_index  ! Made intent(in) to prevent modification
         character(len=:), allocatable, intent(out) :: fortran_code
         
-        ! Standardize in place to avoid double free from arena copying
-        ! NOTE: This modifies the original arena - if we need immutability,
-        ! we need to implement proper deep copy for all AST node types
-        call standardize_ast(arena, prog_index)
+        ! CRITICAL FIX: Do NOT call standardize_ast here - it causes double standardization
+        ! and memory corruption when called in error paths. Standardization happens once
+        ! in the main transform pipeline only.
         fortran_code = generate_code_from_arena(arena, prog_index)
     end subroutine emit_fortran
 
@@ -2039,7 +2038,9 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     end if
                 case ("module")
                     ! Check if this is not "end module"
-                    if (i == 1 .or. (i > 1 .and. tokens(i-1)%text /= "end")) then
+                    if (i == 1) then
+                        module_count = module_count + 1
+                    else if (i > 1 .and. tokens(i-1)%text /= "end") then
                         module_count = module_count + 1
                     end if
                 case ("end")
