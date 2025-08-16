@@ -922,17 +922,19 @@ contains
 
     ! Create use statement node and add to stack
     function push_use_statement(arena, module_name, only_list, rename_list, &
-                                has_only, line, column, parent_index) result(use_index)
+                                has_only, line, column, parent_index, &
+                                url_spec) result(use_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
+        character(len=*), intent(in), optional :: url_spec
         logical, intent(in), optional :: has_only
         integer, intent(in), optional :: line, column, parent_index
         integer :: use_index
         type(use_statement_node) :: use_stmt
 
         use_stmt = create_use_statement(module_name, only_list, rename_list, &
-                                        has_only, line, column)
+                                        has_only, line, column, url_spec)
         call arena%push(use_stmt, "use_statement", parent_index)
         use_index = arena%size
 

@@ -27,14 +27,16 @@ contains
 
     ! Parse use statement: use module_name [, only: item1, item2, new_name => old_name]
     function parse_use_statement(parser, arena) result(stmt_index)
+        use url_utilities, only: extract_module_from_url
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
         type(token_t) :: token
         character(len=:), allocatable :: module_name
+        character(len=:), allocatable :: url_spec
         character(len=:), allocatable :: only_list(:)
         character(len=:), allocatable :: rename_list(:)
-        logical :: has_only
+        logical :: has_only, is_valid_url
         integer :: line, column
 
         ! Consume 'use' keyword
@@ -42,15 +44,41 @@ contains
         line = token%line
         column = token%column
 
-        ! Get module name
+        ! Get module name (can be identifier or string for Go-style imports)
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER) then
             token = parser%consume()
             module_name = token%text
+            url_spec = ""  ! No URL for regular imports
+        else if (token%kind == TK_STRING) then
+            ! Go-style import with URL
+            token = parser%consume()
+            url_spec = token%text
+            
+            ! Remove quotes from the URL string
+            if (len(url_spec) >= 2) then
+                if ((url_spec(1:1) == '"' .and. &
+                     url_spec(len(url_spec):len(url_spec)) == '"') .or. &
+                    (url_spec(1:1) == "'" .and. &
+                     url_spec(len(url_spec):len(url_spec)) == "'")) then
+                    url_spec = url_spec(2:len(url_spec)-1)
+                end if
+            end if
+            
+            ! Extract module name from URL
+            call extract_module_from_url(url_spec, module_name, is_valid_url)
+            
+            if (.not. is_valid_url) then
+                ! Invalid URL - return placeholder
+                stmt_index = push_literal(arena, &
+                    "! Invalid URL in use statement", &
+                    LITERAL_STRING, token%line, token%column)
+                return
+            end if
         else
             ! Invalid use statement - return placeholder
             stmt_index = push_literal(arena, "! Invalid use statement", &
-                                       LITERAL_STRING, token%line, token%column)
+                                      LITERAL_STRING, token%line, token%column)
             return
         end if
 
@@ -79,8 +107,15 @@ contains
         end if
 
         ! Create use statement node
-        stmt_index = push_use_statement(arena, module_name, only_list, rename_list, &
-                                        has_only, line, column, parent_index=0)
+        if (len_trim(url_spec) > 0) then
+            stmt_index = push_use_statement(arena, module_name, only_list, &
+                                           rename_list, has_only, line, column, &
+                                           parent_index=0, url_spec=url_spec)
+        else
+            stmt_index = push_use_statement(arena, module_name, only_list, &
+                                           rename_list, has_only, line, column, &
+                                           parent_index=0)
+        end if
 
     end function parse_use_statement
 
