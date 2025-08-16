@@ -49,16 +49,10 @@ contains
             return
         end if
         
-        ! Check if input contains only EOF tokens (effectively empty)
-        if (has_only_meaningless_tokens(tokens)) then
-            error_msg = "[SYNTAX_ERROR] Empty input - no meaningful tokens to process"
-            return
-        end if
-        
         ! Split source into lines for error reporting (memory-safe version)
         call split_into_lines(source, source_lines)
         
-        ! Check for invalid/garbage input first (Issue #256 requirement #4 & #5)
+        ! Check for Fortran content first - this correctly handles comments-only input
         call check_for_fortran_content(tokens, error_msg)
         if (error_msg /= "") then
             ! Found invalid input patterns - provide comprehensive error
@@ -75,6 +69,11 @@ contains
             end if
             return
         end if
+        
+        ! If we reach here, check_for_fortran_content validated the input as acceptable
+        ! (including comment-only input). No need to check for meaningless tokens.
+        ! The original meaningless tokens check is now redundant since check_for_fortran_content
+        ! handles all cases including empty input and comment-only input.
         
         ! Check for incomplete statements first (most critical syntax errors)
         call check_incomplete_statements(tokens, source_lines, error_msg)
@@ -256,6 +255,12 @@ contains
         
         ! Phase 1: Check for comment-only input (always valid)
         is_comment_only = (comment_count > 0 .and. total_meaningful_tokens == 0)
+        
+        ! DEBUG: Print values for troubleshooting
+        ! print *, 'DEBUG check_for_fortran_content:'
+        ! print *, '  comment_count =', comment_count
+        ! print *, '  total_meaningful_tokens =', total_meaningful_tokens  
+        ! print *, '  is_comment_only =', is_comment_only
         
         ! Phase 2: Check for specifically invalid patterns first (stricter check)
         if (contains_invalid_patterns(tokens)) then
