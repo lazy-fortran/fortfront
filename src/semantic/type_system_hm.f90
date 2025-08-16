@@ -398,13 +398,11 @@ contains
         integer, intent(in) :: depth
         integer :: i, args_size
         
-        ! Prevent infinite recursion by limiting depth
-        if (depth > 5) return  ! Conservative depth limit
+        ! Note: depth passed to handle recursion
         
         if (.not. allocated(rhs%args)) return
         
         args_size = size(rhs%args)
-        if (args_size > 20) return  ! Reasonable upper limit, but allow size 0
         
         ! Allocate destination array (even if size 0)
         allocate(lhs%args(args_size))

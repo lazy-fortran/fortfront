@@ -160,11 +160,7 @@ contains
         ! Add new entry
         this%size = this%size + 1
 
-        ! Perform safe deep copy for polymorphic AST nodes
-        if (allocated(this%entries(this%size)%node)) then
-            ! This should not happen for new entries, but handle it safely
-            deallocate(this%entries(this%size)%node)
-        end if
+        ! Deep copy polymorphic AST node
         allocate (this%entries(this%size)%node, source=node)
 
         ! Set metadata
