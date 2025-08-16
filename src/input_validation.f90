@@ -253,6 +253,12 @@ contains
         ! Phase 1: Check for comment-only input (always valid)
         is_comment_only = (comment_count > 0 .and. total_meaningful_tokens == 0)
         
+        ! DEBUG: Print values for troubleshooting
+        ! print *, 'DEBUG check_for_fortran_content:'
+        ! print *, '  comment_count =', comment_count
+        ! print *, '  total_meaningful_tokens =', total_meaningful_tokens  
+        ! print *, '  is_comment_only =', is_comment_only
+        
         ! Phase 2: Check for specifically invalid patterns first (stricter check)
         if (contains_invalid_patterns(tokens)) then
             error_msg = "Input does not appear to be valid Fortran code. " // &
