@@ -82,7 +82,8 @@ contains
         executable_path = ""
         
         ! Strategy 1: Use find command to dynamically locate fortfront executable
-        call execute_command_line('find build -name "fortfront" -type f 2>/dev/null | head -1 > fortfront_search.txt', exitstat=exit_code)
+        call execute_command_line('find build -name "fortfront" -type f | head -1 > fortfront_search.txt', &
+                                  exitstat=exit_code)
         if (exit_code == 0) then
             open(newunit=unit_num, file='fortfront_search.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
