@@ -92,7 +92,8 @@ jobs:
           --output-file coverage_filtered.info \
           --rc branch_coverage=1 \
           --ignore-errors mismatch \
-          --ignore-errors unused
+          --ignore-errors unused \
+          --ignore-errors inconsistent
         
         # Convert to Cobertura XML for coverage-action
         pip install lcov_cobertura
