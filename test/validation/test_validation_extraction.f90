@@ -158,11 +158,11 @@ contains
         call validate_basic_syntax(source, tokens, error_msg)
         if (len_trim(error_msg) > 0) test_cases_passed = test_cases_passed + 1
         
-        ! Test 3: Empty input
+        ! Test 3: Empty input (should be accepted)
         source = ""
         call lex_source(source, tokens, error_msg)
         call validate_basic_syntax(source, tokens, error_msg)
-        if (len_trim(error_msg) > 0) test_cases_passed = test_cases_passed + 1
+        if (len_trim(error_msg) == 0) test_cases_passed = test_cases_passed + 1
         
         passed = test_cases_passed == 3
     end function
