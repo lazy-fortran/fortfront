@@ -6,18 +6,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Build
 ```bash
-fpm build
+# Standard build
+fpm build --flag "-cpp -fmax-stack-var-size=65536"
+
+# Or use the convenience script (recommended)
+./build.sh
 ```
 
 ### Run all tests
 ```bash
-fpm test
+# Standard test
+fpm test --flag "-cpp -fmax-stack-var-size=65536"
+
+# Or use the convenience script (recommended)
+./test.sh
 ```
 
 ### Run tests with coverage (Linux only)
 ```bash
 fpm clean --all
-fpm test --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
+fpm test --profile debug --flag '-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g'
 lcov --capture --directory build/ --output-file coverage.info \
   --rc branch_coverage=1 \
   --ignore-errors inconsistent
@@ -44,6 +52,10 @@ fpm test <test_name>
 ## Development Tips
 
 - Do not always use `fpm clean all`. Only use clean in cases where all other fixes fail
+- **GCC 15.1.1 Compatibility**: Always use `-fmax-stack-var-size=65536` flag when building or testing
+  - This resolves compilation issues with large module files (specifically `parser_expressions_module.mod`)
+  - The issue manifests as: "Reading module '*.mod' at line X column Y: Expected right parenthesis"
+  - Use provided build scripts (./build.sh, ./test.sh) which include this flag automatically
 - **Avoid Using Shell Redirection Tricks**
   - Never use `2>&1` or similar shell redirection techniques blindly
   - These can mask underlying issues and make debugging more difficult

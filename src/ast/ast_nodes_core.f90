@@ -188,9 +188,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Deep copy inferred_type using safe mono_type assignment
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type, source=rhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%name)) then
@@ -221,9 +224,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Deep copy inferred_type using safe mono_type assignment
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type, source=rhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         lhs%target_index = rhs%target_index
@@ -257,9 +263,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Deep copy inferred_type using safe mono_type assignment
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type, source=rhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         lhs%pointer_index = rhs%pointer_index
@@ -287,9 +296,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Deep copy inferred_type using safe mono_type assignment
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type, source=rhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         
         ! Copy derived class fields
@@ -319,9 +331,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Deep copy inferred_type using safe mono_type assignment
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type, source=rhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         
         ! Copy derived class fields
@@ -354,9 +369,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Deep copy inferred_type using safe mono_type assignment
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type, source=rhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         lhs%left_index = rhs%left_index
@@ -416,9 +434,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Deep copy inferred_type using safe mono_type assignment
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type, source=rhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
@@ -452,9 +473,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Deep copy inferred_type using safe mono_type assignment
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type, source=rhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         ! Copy derived class fields
         if (allocated(rhs%element_indices)) lhs%element_indices = rhs%element_indices
@@ -525,9 +549,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Deep copy inferred_type using safe mono_type assignment
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type, source=rhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         
         ! Copy derived class fields
@@ -586,9 +613,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        ! Deep copy inferred_type using safe mono_type assignment
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type, source=rhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else if (allocated(lhs%inferred_type)) then
+            deallocate(lhs%inferred_type)
         end if
         
         ! Copy derived class fields

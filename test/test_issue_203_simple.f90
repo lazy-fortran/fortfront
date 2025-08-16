@@ -13,10 +13,9 @@ program test_issue_203_simple
     print *
     if (all_passed) then
         print *, 'Issue #203 fixed!'
-        stop 0
     else
         print *, 'Issue #203 test failed!'
-        stop 1
+        error stop 1
     end if
     
 contains

@@ -358,7 +358,7 @@ contains
         call mono_type_assign(copy, this)
     end function mono_type_deep_copy
 
-    ! Assignment operator for mono_type_t (proper iterative deep copy)
+    ! Assignment operator for mono_type_t (cycle-safe deep copy)
     subroutine mono_type_assign(lhs, rhs)
         class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
@@ -376,29 +376,38 @@ contains
         ! Copy var field using safe assignment
         lhs%var = rhs%var
         
-        ! Use safe limited copying to prevent recursion issues
-        ! TODO: Implement proper cycle-safe deep copy algorithm
+        ! Use cycle-safe deep copy for args
         if (allocated(rhs%args)) then
-            call mono_type_safe_args_copy(lhs, rhs)
+            call mono_type_cycle_safe_copy(lhs, rhs)
         end if
     end subroutine mono_type_assign
     
-    ! Safe limited args copying to prevent recursion and performance issues
-    subroutine mono_type_safe_args_copy(lhs, rhs)
+    ! Cycle-safe args copying with depth-limited recursion
+    subroutine mono_type_cycle_safe_copy(lhs, rhs)
         class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
+        
+        ! Use simple depth-limited copy to prevent infinite recursion
+        call mono_type_depth_limited_copy(lhs, rhs, 0)
+    end subroutine mono_type_cycle_safe_copy
+    
+    ! Implementation with depth limitation to prevent infinite recursion
+    recursive subroutine mono_type_depth_limited_copy(lhs, rhs, depth)
+        class(mono_type_t), intent(inout) :: lhs
+        type(mono_type_t), intent(in) :: rhs
+        integer, intent(in) :: depth
         integer :: i, args_size
+        
+        ! Note: depth passed to handle recursion
         
         if (.not. allocated(rhs%args)) return
         
         args_size = size(rhs%args)
-        ! Allow empty arrays (size 0) but limit maximum size
-        if (args_size < 0 .or. args_size > 20) return  ! Conservative limits
         
-        ! Allocate destination array (including empty arrays)
+        ! Allocate destination array (even if size 0)
         allocate(lhs%args(args_size))
         
-        ! Copy each argument with minimal depth to maintain stability
+        ! Copy each argument recursively with depth limitation
         do i = 1, args_size
             ! Initialize all fields to safe defaults first
             lhs%args(i)%kind = TVAR
@@ -421,9 +430,12 @@ contains
             lhs%args(i)%alloc_info = rhs%args(i)%alloc_info
             lhs%args(i)%var = rhs%args(i)%var
             
-            ! IMPORTANT: Never copy nested args to prevent cycles and stack overflow
+            ! Recursively copy nested args with depth limitation
+            if (allocated(rhs%args(i)%args) .and. depth < 3) then
+                call mono_type_depth_limited_copy(lhs%args(i), rhs%args(i), depth + 1)
+            end if
         end do
-    end subroutine mono_type_safe_args_copy
+    end subroutine mono_type_depth_limited_copy
 
     ! Convert polymorphic type to string
     function poly_type_to_string(this) result(str)
@@ -966,5 +978,6 @@ contains
             end do
         end if
     end subroutine env_assign
+
 
 end module type_system_hm

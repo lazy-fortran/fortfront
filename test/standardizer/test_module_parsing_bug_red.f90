@@ -18,10 +18,9 @@ program test_module_parsing_bug_red
     print *
     if (all_passed) then
         print *, 'SUCCESS: All tests pass - Issue #253 has been fixed!'
-        stop 0  ! Exit 0 for success
     else
         print *, 'Module parsing bug tests completed - failures expected until fix'
-        stop 1  ! Exit 1 for failures  
+        error stop 1  ! Use error stop for actual failures
     end if
 
 contains

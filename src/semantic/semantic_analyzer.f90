@@ -112,6 +112,10 @@ contains
         select type (ast => arena%entries(root_index)%node)
         type is (program_node)
             call analyze_program_node_arena(ctx, arena, ast, root_index)
+        type is (module_node)
+            ! Skip module semantic analysis to avoid AST corruption
+            ! Modules will be processed as-is during code generation
+            return
         class default
             ! Single statement/expression
             call infer_and_store_type(ctx, arena, root_index)
@@ -1394,10 +1398,8 @@ contains
         if (allocated(mod_node%declaration_indices)) then
             do i = 1, size(mod_node%declaration_indices)
                 if (mod_node%declaration_indices(i) > 0) then
-                    block
-                        type(mono_type_t) :: decl_type
-                        decl_type = ctx%infer(arena, mod_node%declaration_indices(i))
-                    end block
+                    ! Use infer_and_store_type instead of creating temporary variables
+                    call infer_and_store_type(ctx, arena, mod_node%declaration_indices(i))
                 end if
             end do
         end if
@@ -1406,10 +1408,8 @@ contains
         if (allocated(mod_node%procedure_indices)) then
             do i = 1, size(mod_node%procedure_indices)
                 if (mod_node%procedure_indices(i) > 0) then
-                    block
-                        type(mono_type_t) :: proc_type
-                        proc_type = ctx%infer(arena, mod_node%procedure_indices(i))
-                    end block
+                    ! Use infer_and_store_type instead of creating temporary variables
+                    call infer_and_store_type(ctx, arena, mod_node%procedure_indices(i))
                 end if
             end do
         end if

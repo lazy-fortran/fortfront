@@ -1,348 +1,356 @@
-# Core Type Analyzer Plugin Architecture Design
+# Issue #256 Error Reporting Refinement Architecture
 
-## Architecture Overview
+## Problem Analysis
 
-The Core Type Analyzer Plugin Architecture extracts the Hindley-Milner type inference logic from the monolithic `semantic_analyzer.f90` (2155+ lines) into a focused, event-driven plugin system. This design preserves all existing functionality while enabling extensibility for future semantic analysis capabilities.
+The comprehensive error reporting infrastructure implemented in PR #258 successfully addresses all Issue #256 requirements but has introduced critical validation issues that are breaking legitimate test cases. The current implementation is **too strict** in its input validation, rejecting valid lazy Fortran constructs.
 
-## Design Principles
+## Current Status Assessment
 
-- **SOLID Compliance**: Each analyzer has a single responsibility with clean interfaces
-- **Event-Driven Architecture**: Plugins communicate through well-defined events
-- **Dependency Resolution**: Automatic execution ordering based on plugin dependencies
-- **Zero Functionality Loss**: Complete preservation of existing type inference capabilities
-- **Performance-Oriented**: Efficient event dispatch and minimal overhead
-- **Testable Design**: Each plugin is independently testable with clear contracts
+### ✅ Successfully Implemented (PR #258)
+- Comprehensive error reporting infrastructure with structured error handling
+- Line and column information for precise error location
+- Source context with visual indicators pointing to errors  
+- Helpful suggestions for fixing common syntax errors
+- Elimination of silent fallback behavior
+- Meaningful error output instead of empty programs
 
-## System Components
+### ❌ Critical Issues Requiring Fixes
+1. **Overly Strict Input Validation**: Rejects valid Fortran comments and expressions
+2. **CLI Integration Test Failures**: Shell glob expansion issues in Fortran tests
+3. **Parser Pipeline Regressions**: Many tests showing "STOP 0" failures
+4. **Array Literal Parsing Issues**: "Expected ',' or ']'" errors suggest bracket parsing regressions
+5. **Arena Memory Management**: "Cannot update invalid arena" warnings
 
-### 1. Event System Core
+## Design Principles for Refinement
 
-#### Event Types
+- **Preserve Existing Infrastructure**: Maintain the solid error reporting foundation
+- **Selective Validation Relaxation**: Fix overly strict validation without compromising error detection
+- **Zero Functionality Regression**: Ensure all existing test cases pass
+- **Maintain Error Quality**: Keep high-quality error messages while accepting valid input
+- **Clean Architecture**: Apply SOLID principles to validation logic refinements
+
+## Root Cause Analysis
+
+### Input Validation Over-Strictness
+
+The current `check_for_fortran_content` function in `frontend.f90` incorrectly rejects:
+- Pure comments (`! This is a comment`) 
+- Expressions without explicit keywords
+- Valid lazy Fortran constructs that don't contain traditional keywords
+
+**Problem Location**: Lines 1488-1497 in `frontend.f90`
 ```fortran
-integer, parameter :: EVENT_NODE_ENTER = 1
-integer, parameter :: EVENT_NODE_EXIT = 2
-integer, parameter :: EVENT_SCOPE_ENTER = 3
-integer, parameter :: EVENT_SCOPE_EXIT = 4
-integer, parameter :: EVENT_TYPE_INFERRED = 5
-integer, parameter :: EVENT_ANALYSIS_COMPLETE = 6
-integer, parameter :: EVENT_ERROR_DETECTED = 7
-integer, parameter :: EVENT_BUILTIN_REQUIRED = 8
+! Current logic incorrectly rejects valid input
+if (total_meaningful_tokens > 3 .and. .not. has_fortran_keywords) then
+    error_msg = "Input does not appear to be valid Fortran code. " // &
+               "No recognized Fortran keywords found."
 ```
 
-#### Event Data Structures
+### CLI Integration Test Issues
+
+**Problem Location**: Lines 71-72 in `test/system/test_cli_integration.f90`
 ```fortran
-type :: analysis_event_t
-    integer :: event_type
-    integer :: node_index
-    integer :: source_analyzer_id
-    class(*), allocatable :: event_data
-    logical :: consumed = .false.
-    logical :: propagate = .true.
-end type
-
-type :: event_subscription_t
-    integer :: event_type
-    integer :: analyzer_id
-    procedure(event_handler_interface), pointer :: handler => null()
-end type
+! Shell glob doesn't expand in Fortran execute_command_line
+command = 'echo "print *, ''test''" | ./build/gfortran_*/app/fortfront > ' // &
+          '/tmp/fortfront_test_output.txt 2>/tmp/fortfront_test_error.txt'
 ```
 
-### 2. Core Type Analyzer Plugin
+### Parser Pipeline Regressions
 
-#### Extracted Functionality from semantic_analyzer.f90
-- **Type Inference Methods**: `infer_type`, `infer_assignment`, `infer_binary_op`, `infer_function_call`
-- **Literal Type Inference**: `infer_literal`, `infer_identifier`
-- **Array Operations**: `infer_array_literal`, `infer_array_slice`, `infer_implied_do_loop`
-- **Type Unification**: `unify_types`, `occurs_check`
-- **Type Generalization**: `generalize_type`, `instantiate_type_scheme`
-- **Builtin Functions**: `get_builtin_function_type` management
-- **Substitution Management**: Complete substitution composition and application
+Multiple parser tests showing "STOP 0" failures suggest that enhanced error reporting may be triggering error conditions in previously working code paths.
 
-#### Core Plugin Interface
+## Solution Architecture
+
+### 1. Intelligent Input Validation Refinement
+
+**File**: `src/frontend.f90`
+
+#### Enhanced Validation Strategy
+Replace the current binary keyword-based validation with a multi-phase approach:
+
+1. **Comment-Only Detection**: Accept input that contains only comments
+2. **Expression Recognition**: Accept mathematical expressions, assignments, and procedure calls
+3. **Syntax Structure Validation**: Validate meaningful constructs without requiring keywords
+4. **Graceful Degradation**: Provide helpful suggestions instead of outright rejection
+
+#### Implementation Approach
 ```fortran
-type, extends(base_analyzer_t) :: core_type_analyzer_t
-    type(semantic_context_t) :: context
-    integer, allocatable :: subscribed_events(:)
-contains
-    procedure :: analyze => core_type_analyze
-    procedure :: handle_node_enter => on_node_enter
-    procedure :: handle_node_exit => on_node_exit
-    procedure :: handle_scope_change => on_scope_change
-    procedure :: infer_node_type => infer_type_for_node
-    procedure :: validate_assignment => validate_assignment_types
-    procedure :: register_builtin => register_builtin_function
-end type
+subroutine check_for_fortran_content(tokens, error_msg)
+    ! Phase 1: Check for pure comments (always valid)
+    ! Phase 2: Check for valid expressions and statements  
+    ! Phase 3: Check for meaningful syntax constructs
+    ! Phase 4: Only reject truly invalid input
+end subroutine
 ```
 
-### 3. Analysis Orchestrator
+### 2. CLI Integration Test Robustness
 
-#### Plugin Registration and Management
+**File**: `test/system/test_cli_integration.f90`
+
+#### Executable Path Resolution
+Replace shell glob expansion with proper executable discovery:
 ```fortran
-type :: analysis_orchestrator_t
-    type(plugin_registry_t) :: registry
-    type(event_dispatcher_t) :: dispatcher
-    type(dependency_resolver_t) :: resolver
-    type(analysis_cache_t) :: cache
-    type(semantic_context_t) :: shared_context
-    logical :: events_enabled = .true.
-contains
-    procedure :: register_plugin => orchestrator_register_plugin
-    procedure :: execute_analysis => orchestrator_execute_analysis
-    procedure :: dispatch_event => orchestrator_dispatch_event
-    procedure :: resolve_execution_order => orchestrator_resolve_order
-    procedure :: validate_plugin_compatibility => validate_compatibility
-end type
+function find_fortfront_executable() result(path)
+    ! Use proper file system search instead of shell globs
+    ! Implement fallback mechanisms for different build configurations
+end function
 ```
 
-#### Plugin Lifecycle Management
-1. **Registration Phase**: Plugin registration with dependency declaration
-2. **Validation Phase**: Dependency resolution and compatibility checking
-3. **Initialization Phase**: Plugin initialization with shared context
-4. **Analysis Phase**: Event-driven execution with proper ordering
-5. **Cleanup Phase**: Resource deallocation and result aggregation
+### 3. Parser Error Handling Refinement
 
-### 4. Enhanced Base Analyzer
+**Files**: Multiple parser modules
 
-#### Extended Base Class
-```fortran
-type, abstract, extends(base_analyzer_t) :: event_aware_analyzer_t
-    integer, allocatable :: subscribed_events(:)
-    logical :: event_processing_enabled = .true.
-    real :: event_processing_priority = 1.0
-contains
-    procedure(event_handler_interface), deferred :: handle_event
-    procedure :: subscribe_to_event => analyzer_subscribe_event
-    procedure :: unsubscribe_from_event => analyzer_unsubscribe_event
-    procedure :: emit_event => analyzer_emit_event
-    procedure :: get_event_subscriptions => analyzer_get_subscriptions
-end type
+#### Error Recovery Enhancement
+- Review error handling in parser pipeline to prevent false positives
+- Ensure error reporting doesn't interfere with successful parsing
+- Add defensive checks for arena state before operations
+
+### 4. Array Literal Parsing Fix
+
+**File**: `src/parser/parser_expressions.f90`
+
+#### Bracket Syntax Parsing
+- Review array literal parsing logic for regression issues
+- Ensure proper error recovery in expression parsing
+- Validate bracket matching and comma separation
+
+## File Structure and Implementation Plan
+
+### Core Validation Refinement
+```
+src/
+├── frontend.f90                    # Enhanced input validation logic
+├── input_validation.f90            # NEW: Extracted validation logic
+└── error_reporting.f90            # Maintain existing infrastructure
 ```
 
-## File Structure and Module Organization
-
-### Core Event System
+### Test Infrastructure Improvements  
 ```
-src/semantic/
-├── events/
-│   ├── analysis_events.f90          # Event type definitions and data structures
-│   ├── event_dispatcher.f90         # Central event routing and dispatch
-│   ├── event_subscription.f90       # Subscription management
-│   └── event_handlers.f90           # Common event handler interfaces
+test/system/
+├── test_cli_integration.f90        # Fixed executable path resolution
+├── test_validation_refinement.f90  # NEW: Validation-specific tests
+└── test_error_reporting_edge_cases.f90  # NEW: Edge case validation
 ```
 
-### Plugin Infrastructure
+### Parser Pipeline Robustness
 ```
-src/semantic/
-├── plugins/
-│   ├── base_plugin_analyzer.f90     # Enhanced base class with events
-│   ├── plugin_registry.f90          # Plugin registration and discovery
-│   ├── dependency_resolver.f90      # Plugin dependency resolution
-│   └── plugin_lifecycle.f90         # Plugin initialization and cleanup
+src/parser/
+├── parser_expressions.f90          # Array literal parsing fixes
+├── parser_core.f90                # Error handling improvements
+└── parser_state.f90               # Existing error tracking (maintain)
 ```
 
-### Core Type Analyzer Plugin
-```
-src/semantic/
-├── plugins/
-│   ├── core_type_analyzer/
-│   │   ├── core_type_analyzer.f90   # Main plugin implementation
-│   │   ├── type_inference_engine.f90 # Extracted HM inference logic
-│   │   ├── builtin_type_manager.f90  # Builtin function type management
-│   │   ├── assignment_validator.f90  # Assignment type validation
-│   │   └── array_type_handler.f90    # Array-specific type operations
-```
+## Implementation Phases
 
-### Analysis Orchestration
-```
-src/semantic/
-├── orchestration/
-│   ├── analysis_orchestrator.f90    # Main orchestrator implementation
-│   ├── execution_planner.f90        # Analysis execution planning
-│   ├── result_aggregator.f90        # Plugin result aggregation
-│   └── context_manager.f90          # Shared context management
-```
+### Phase 1: Input Validation Refinement
+**Priority**: CRITICAL
+**Files**: `src/frontend.f90`, new `src/input_validation.f90`
 
-## Event System Architecture
+1. **Extract Validation Logic**: Move validation to dedicated module
+2. **Implement Smart Detection**: 
+   - Accept comment-only input
+   - Recognize valid expressions without keywords
+   - Validate syntax structure intelligently
+3. **Preserve Error Quality**: Maintain helpful error messages for truly invalid input
 
-### Event Flow Design
-1. **Analysis Start**: Orchestrator emits `EVENT_ANALYSIS_COMPLETE` to initialize plugins
-2. **Node Processing**: For each AST node, emit `EVENT_NODE_ENTER`
-3. **Type Inference**: Core Type Analyzer processes node and emits `EVENT_TYPE_INFERRED`
-4. **Node Completion**: Emit `EVENT_NODE_EXIT` after all plugins process node
-5. **Scope Management**: Emit `EVENT_SCOPE_ENTER`/`EVENT_SCOPE_EXIT` for scope changes
-6. **Error Handling**: Emit `EVENT_ERROR_DETECTED` for type errors or conflicts
+### Phase 2: CLI Integration Fixes  
+**Priority**: HIGH
+**Files**: `test/system/test_cli_integration.f90`
 
-### Event Subscription Model
-```fortran
-! Plugin registers interest in specific events
-call orchestrator%dispatcher%subscribe(EVENT_NODE_ENTER, plugin_id, handler_proc)
-call orchestrator%dispatcher%subscribe(EVENT_TYPE_INFERRED, plugin_id, validation_proc)
+1. **Replace Shell Globs**: Implement proper executable discovery
+2. **Add Error Diagnostics**: Better failure reporting in CLI tests
+3. **Cross-Platform Compatibility**: Ensure tests work on different systems
 
-! Event dispatch with priority ordering
-call orchestrator%dispatcher%dispatch(event, subscriber_priorities)
-```
+### Phase 3: Parser Pipeline Stabilization
+**Priority**: HIGH
+**Files**: Parser modules, arena management
 
-### Event Data Payload
-```fortran
-type :: type_inference_event_data_t
-    integer :: node_index
-    type(mono_type_t) :: inferred_type
-    logical :: inference_successful
-    character(len=256) :: error_message
-    integer :: confidence_level
-end type
+1. **Review Error Propagation**: Ensure error reporting doesn't break parsing
+2. **Fix Arena Warnings**: Address "Cannot update invalid arena" issues
+3. **Array Literal Parsing**: Fix bracket syntax regression
 
-type :: scope_event_data_t
-    character(len=64) :: scope_name
-    integer :: scope_level
-    logical :: entering_scope
-    integer :: parent_scope_index
-end type
-```
+### Phase 4: Comprehensive Testing
+**Priority**: MEDIUM
+**Files**: New test modules
+
+1. **Validation Edge Cases**: Test boundary conditions for input validation
+2. **Regression Prevention**: Ensure all existing functionality preserved
+3. **Error Message Quality**: Validate that error messages remain helpful
 
 ## Interface Definitions
 
-### Event Handler Interface
+### Enhanced Input Validation
 ```fortran
-abstract interface
-    subroutine event_handler_interface(this, event, context, arena)
-        import :: event_aware_analyzer_t, analysis_event_t, semantic_context_t, ast_arena_t
-        class(event_aware_analyzer_t), intent(inout) :: this
-        type(analysis_event_t), intent(inout) :: event
-        type(semantic_context_t), intent(inout) :: context
-        type(ast_arena_t), intent(inout) :: arena
-    end subroutine
-end interface
-```
+module input_validation
+    implicit none
+    private
 
-### Plugin Registration Interface
-```fortran
-abstract interface
-    subroutine plugin_factory_interface(plugin, config)
-        import :: event_aware_analyzer_t
-        class(event_aware_analyzer_t), allocatable, intent(out) :: plugin
-        class(*), intent(in), optional :: config
-    end subroutine
-end interface
-```
+    public :: validate_fortran_input
+    public :: is_comment_only_input
+    public :: is_valid_expression
+    public :: has_meaningful_syntax
 
-### Type Inference Interface
-```fortran
-abstract interface
-    function type_inference_interface(this, context, arena, node_index) result(typ)
-        import :: core_type_analyzer_t, semantic_context_t, ast_arena_t, mono_type_t
-        class(core_type_analyzer_t), intent(inout) :: this
-        type(semantic_context_t), intent(inout) :: context
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: node_index
-        type(mono_type_t) :: typ
+contains
+    
+    logical function validate_fortran_input(tokens, error_msg)
+        type(token_t), intent(in) :: tokens(:)
+        character(len=:), allocatable, intent(out) :: error_msg
+        ! Smart validation that accepts valid lazy Fortran
     end function
-end interface
+
+    logical function is_comment_only_input(tokens)
+        ! Detect input containing only comments (always valid)
+    end function
+
+    logical function is_valid_expression(tokens)
+        ! Detect mathematical expressions, assignments, calls
+    end function
+
+    logical function has_meaningful_syntax(tokens)
+        ! Check for valid syntax constructs without requiring keywords
+    end function
+
+end module
 ```
 
-## Migration Strategy
-
-### Phase 1: Event System Foundation
-1. Implement core event system without breaking existing code
-2. Create enhanced base analyzer with event awareness
-3. Develop plugin registry and orchestrator skeleton
-4. Maintain existing `semantic_analyzer.f90` functionality alongside new system
-
-### Phase 2: Core Type Analyzer Extraction
-1. Extract type inference methods from `semantic_analyzer.f90` into plugin
-2. Implement event-driven communication between type analyzer and orchestrator
-3. Create comprehensive test suite covering all extracted functionality
-4. Validate that plugin produces identical results to monolithic implementation
-
-### Phase 3: Integration and Optimization
-1. Replace calls to monolithic analyzer with orchestrator
-2. Implement dependency resolution for existing analyzer plugins
-3. Optimize event dispatch performance and memory usage
-4. Remove deprecated code paths from `semantic_analyzer.f90`
-
-### Phase 4: Extension and Documentation
-1. Implement additional analyzer plugins (Issues #191-194)
-2. Create plugin development documentation and examples
-3. Performance benchmarking and optimization
-4. Production deployment validation
-
-## Test Architecture
-
-### Unit Testing Strategy
+### CLI Test Utilities
 ```fortran
-! Each plugin component has isolated unit tests
-test/semantic/plugins/
-├── test_core_type_analyzer.f90      # Core type inference tests
-├── test_event_dispatcher.f90        # Event system tests
-├── test_plugin_registry.f90         # Plugin registration tests
-├── test_dependency_resolver.f90     # Dependency resolution tests
-└── test_analysis_orchestrator.f90   # Integration tests
+module cli_test_utilities
+    implicit none
+    private
+
+    public :: find_fortfront_executable
+    public :: run_fortfront_with_input
+    public :: check_output_validity
+
+contains
+
+    function find_fortfront_executable() result(path)
+        character(len=:), allocatable :: path
+        ! Robust executable discovery without shell globs
+    end function
+
+end module
 ```
 
-### Integration Testing Approach
-- **Regression Tests**: Validate identical behavior to monolithic analyzer
-- **Event Flow Tests**: Verify proper event dispatch and handling
-- **Dependency Tests**: Validate plugin execution ordering
-- **Performance Tests**: Ensure no significant performance degradation
-- **Error Handling Tests**: Validate robust error propagation and recovery
+## Test-Driven Development Strategy
 
-### Test Coverage Requirements
-- **Line Coverage**: Minimum 95% for all plugin components
-- **Branch Coverage**: Minimum 90% for complex type inference logic
-- **Integration Coverage**: 100% coverage of existing semantic analyzer functionality
-- **Event Coverage**: All event types must have comprehensive test scenarios
+### RED Phase Tests
+**Purpose**: Validate that fixes address the specific issues
+```fortran
+! Test comment-only input acceptance
+call test_comment_only_input()
+
+! Test expression recognition  
+call test_mathematical_expressions()
+
+! Test CLI path resolution
+call test_executable_discovery()
+
+! Test array literal parsing
+call test_array_bracket_syntax()
+```
+
+### GREEN Phase Implementation
+**Purpose**: Implement minimal fixes to pass the failing tests
+1. Relax input validation for comments and expressions
+2. Fix CLI executable path resolution
+3. Address parser pipeline regressions
+4. Fix array literal parsing issues
+
+### REFACTOR Phase Improvements
+**Purpose**: Clean up implementation while maintaining functionality
+1. Extract validation logic to dedicated module
+2. Improve error message quality
+3. Add comprehensive edge case testing
+4. Optimize performance
+
+## Error Handling Strategy
+
+### Validation Error Hierarchy
+1. **Accept**: Valid Fortran input (comments, expressions, statements)
+2. **Warn**: Potentially problematic but valid input
+3. **Error**: Invalid syntax with specific suggestions
+4. **Fatal**: Completely unparseable input
+
+### Error Message Consistency
+- Maintain existing high-quality error formatting
+- Provide specific suggestions for common issues
+- Include location information and source context
+- Suggest alternatives for rejected input
 
 ## Integration Points
 
-### Existing Codebase Integration
-1. **AST Arena Compatibility**: Full compatibility with existing arena-based AST storage
-2. **Type System Integration**: Seamless integration with `type_system_hm.f90`
-3. **Scope Manager Compatibility**: Preservation of existing scope management
-4. **Frontend Integration**: Transparent integration with `frontend.f90` compilation pipeline
+### Existing Infrastructure Preservation
+- **Error Reporting Module**: No changes to core infrastructure
+- **Parser State**: Maintain existing error tracking capabilities
+- **AST Arena**: Preserve existing arena management
+- **Frontend Pipeline**: Enhance validation without disrupting flow
+
+### Backward Compatibility
+- **API Compatibility**: Maintain existing function signatures
+- **Test Compatibility**: Ensure all existing tests pass
+- **Output Compatibility**: Preserve expected output formats
+- **Configuration Compatibility**: Maintain existing CLI behavior
+
+## Success Criteria
+
+### Functional Requirements
+- ✅ All existing tests pass without modification
+- ✅ Comments-only input accepted and processed
+- ✅ Valid expressions processed without keyword requirements
+- ✅ CLI integration tests pass with proper executable discovery
+- ✅ Array literal parsing works correctly
+- ✅ Arena memory management warnings eliminated
+
+### Quality Requirements
+- ✅ Error messages remain helpful and specific
+- ✅ Location information provided for actual errors
+- ✅ Suggestions offered for fixable issues
+- ✅ No silent failures or empty output generation
+- ✅ Performance impact < 5% for validation improvements
+
+### Architecture Requirements
+- ✅ Clean separation of validation logic
+- ✅ Maintainable and testable code structure
+- ✅ SOLID principles applied to new components
+- ✅ Minimal coupling between validation and parsing
+- ✅ Extensible design for future enhancements
+
+## Risk Mitigation
+
+### Regression Prevention
+- **Comprehensive Test Suite**: Run full test suite before/after changes
+- **Incremental Implementation**: Make minimal changes to fix specific issues
+- **Rollback Strategy**: Keep existing functionality as fallback
+- **Version Control**: Careful branch management and review process
 
 ### Performance Considerations
-- **Event Dispatch Overhead**: < 5% performance impact for event-driven architecture
-- **Memory Usage**: Efficient event queue management with bounded memory growth
-- **Plugin Loading**: Lazy plugin initialization to minimize startup overhead
-- **Type Inference Cache**: Preservation of existing type inference caching mechanisms
-
-## Error Handling and Validation
-
-### Plugin Validation
-- **Interface Compliance**: Automatic validation of plugin interface implementation
-- **Dependency Validation**: Circular dependency detection and resolution
-- **Event Contract Validation**: Verification of proper event handling contracts
-- **Type Safety**: Compile-time verification of type inference correctness
-
-### Error Recovery
-- **Plugin Failure Isolation**: Individual plugin failures do not compromise entire analysis
-- **Graceful Degradation**: Fallback to reduced functionality when plugins fail
-- **Error Propagation**: Clear error reporting through event system
-- **Recovery Mechanisms**: Automatic retry and alternative plugin selection
+- **Validation Optimization**: Ensure smart validation doesn't slow parsing
+- **Memory Management**: Prevent memory leaks in error handling
+- **Resource Usage**: Monitor impact of enhanced error reporting
+- **Scalability**: Ensure solution works for large files
 
 ## Future Extensibility
 
-### Plugin Development Framework
-- **Plugin Templates**: Standard templates for common analyzer patterns
-- **Development Tools**: Code generation tools for plugin boilerplate
-- **Testing Framework**: Standardized testing utilities for plugin development
-- **Documentation Generator**: Automatic documentation generation from plugin interfaces
+### Plugin Architecture Readiness
+The refinements maintain compatibility with the planned Core Type Analyzer Plugin Architecture (DESIGN.md), ensuring that enhanced error reporting integrates seamlessly with the event-driven plugin system.
 
-### Advanced Features
-- **Plugin Hot-Reloading**: Dynamic plugin loading without restart (future consideration)
-- **Distributed Analysis**: Plugin execution across multiple processes (future consideration)
-- **Custom Event Types**: Support for user-defined event types and handlers
-- **Plugin Marketplace**: Registry system for third-party plugin distribution
+### Error Reporting Evolution
+- **Structured Error Types**: Foundation for more sophisticated error categorization
+- **Error Recovery**: Enhanced error recovery strategies for partial compilation
+- **IDE Integration**: Error format compatible with IDE integration requirements
+- **Automated Fixes**: Foundation for suggesting automated code corrections
 
 ## Conclusion
 
-This Core Type Analyzer Plugin Architecture provides a robust, extensible foundation for semantic analysis while preserving all existing functionality. The event-driven design enables clean separation of concerns and facilitates future enhancement without architectural disruption.
+This architectural refinement addresses the critical validation issues in Issue #256 while preserving the robust error reporting infrastructure. The solution focuses on intelligent input validation that accepts legitimate lazy Fortran constructs while maintaining high-quality error messages for actual syntax issues.
 
-The architecture serves as the foundation for Issues #191-194, providing the plugin infrastructure necessary for implementing specialized analyzers for control flow, usage tracking, and source reconstruction. The modular design ensures that each analyzer can be developed, tested, and maintained independently while participating in a coordinated analysis pipeline.
+The key insight is that the error reporting infrastructure is fundamentally sound—the issue is overly aggressive input validation that needs surgical refinement rather than architectural overhaul. This approach ensures maximum preservation of the excellent work done in PR #258 while fixing the specific issues causing test failures.
 
-Key benefits of this architecture:
-- **Maintainability**: Clear separation of concerns and single responsibility principle
-- **Testability**: Independent testing of each component with comprehensive coverage
-- **Extensibility**: Easy addition of new analyzer plugins without core changes
-- **Performance**: Efficient event dispatch with minimal overhead
-- **Reliability**: Robust error handling and plugin failure isolation
+**Primary Benefits:**
+- **Maintains Error Quality**: Preserves excellent error reporting infrastructure
+- **Fixes Validation Issues**: Accepts valid Fortran input that was incorrectly rejected
+- **Ensures Test Compatibility**: All existing tests will pass with minimal changes
+- **Clean Architecture**: Proper separation of concerns for validation logic
+- **Future Compatibility**: Ready for plugin architecture integration

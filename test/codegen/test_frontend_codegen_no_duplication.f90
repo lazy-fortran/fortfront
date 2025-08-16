@@ -15,10 +15,9 @@ program test_codegen_no_duplication
     ! Report results
     if (all_passed) then
         print '(a)', "All no-duplication tests passed"
-        stop 0
     else
         print '(a)', "Some no-duplication tests failed"
-        stop 1
+        error stop 1  ! Use error stop for actual failures
     end if
 
 contains
