@@ -75,7 +75,7 @@ jobs:
     - name: Run tests with coverage
       run: |
         fpm clean --all
-        fpm test --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
+        fpm test --profile debug --flag '-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g'
 
     - name: Generate coverage data for coverage-action
       run: |
@@ -263,7 +263,7 @@ jobs:
       shell: cmd
       run: |
         echo "Running all tests..."
-        fpm test --flag -cpp
+        fpm test --flag "-cpp -fmax-stack-var-size=65536"
 
   # macOS CI temporarily disabled due to runner issues
   # test-macos:
