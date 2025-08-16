@@ -1808,7 +1808,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         
         ! Consider valid if has balanced structure and not too many unknowns
         is_valid = (identifier_count > 0) .and. &
-                  (has_assignment .or. has_function_call .or. (operator_count > 0 .and. number_count > 0)) .and. &
+                  (has_assignment .or. has_function_call .or. (operator_count > 0)) .and. &
                   (unknown_count <= 2)
     end function is_likely_valid_fortran
     

@@ -125,22 +125,20 @@ fortfront uses a multi-phase validation approach:
 
 This ensures lazy Fortran expressions are properly accepted while preventing meaningless input from causing confusing transformation failures.
 
-#### Known Issue: Overly Strict Mathematical Expression Validation
+#### Mathematical Expression Validation
 
-**Current Bug (Issue #259):** The validation logic incorrectly requires BOTH operators AND numbers for mathematical expressions, causing valid identifier-only expressions to be rejected:
+**Fixed (Issue #259):** The validation logic now correctly accepts mathematical expressions with operators, whether they contain numbers or only identifiers:
 
 ```bash
-# These SHOULD work but are currently rejected:
-echo "a + b" | fortfront          # ❌ Currently fails: no numbers present
-echo "x * y" | fortfront          # ❌ Currently fails: no numbers present  
-echo "(a + b) * c" | fortfront    # ❌ Currently fails: no numbers present
-
-# These work correctly (contain numbers):
-echo "x + 1" | fortfront          # ✅ Works: has both operators and numbers
-echo "a * 2.0" | fortfront        # ✅ Works: has both operators and numbers
+# All mathematical expressions now work correctly:
+echo "a + b" | fortfront          # ✅ Works: identifier-only expressions accepted
+echo "x * y" | fortfront          # ✅ Works: identifier-only expressions accepted
+echo "(a + b) * c" | fortfront    # ✅ Works: complex identifier expressions accepted
+echo "x + 1" | fortfront          # ✅ Works: expressions with numbers accepted
+echo "a * 2.0" | fortfront        # ✅ Works: expressions with numbers accepted
 ```
 
-**Planned Fix:** The validation logic will be refined to accept mathematical expressions with operators even when they contain only identifiers (no numeric literals). This supports lazy Fortran's goal of allowing concise mathematical expressions without requiring explicit numeric constants.
+**Implementation:** The validation function `is_likely_valid_fortran` in `src/frontend.f90` was updated to accept mathematical expressions based on the presence of operators alone, rather than requiring both operators and numbers. This supports lazy Fortran's goal of allowing concise mathematical expressions with identifiers only.
 
 ### Integration with fortrun
 
@@ -179,10 +177,10 @@ end if
 The `transform_lazy_fortran_string` subroutine performs input validation and returns appropriate error messages:
 
 ```fortran
-! Valid mathematical expression
+! Valid mathematical expression (now works with identifiers only)
 input = "a + b * c"
 call transform_lazy_fortran_string(input, output, error_msg)
-! After Issue #259 fix: error_msg will be empty, output contains transformed code
+! error_msg will be empty, output contains transformed code
 
 ! Invalid input 
 input = "random text without fortran structure"
