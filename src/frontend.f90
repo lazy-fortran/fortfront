@@ -3,7 +3,7 @@ module frontend
     ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
     
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
-                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR
+                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
@@ -1490,15 +1490,22 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         type(token_t), intent(in) :: tokens(:)
         character(len=:), allocatable, intent(out) :: error_msg
         
-        integer :: i, keyword_count, total_meaningful_tokens
-        logical :: has_fortran_keywords
+        integer :: i, keyword_count, total_meaningful_tokens, comment_count
+        logical :: has_fortran_keywords, is_comment_only, is_valid_expression
         
         keyword_count = 0
         total_meaningful_tokens = 0
+        comment_count = 0
         has_fortran_keywords = .false.
         
         do i = 1, size(tokens)
             if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE) cycle
+            
+            ! Count comments separately
+            if (tokens(i)%kind == TK_COMMENT) then
+                comment_count = comment_count + 1
+                cycle
+            end if
             
             total_meaningful_tokens = total_meaningful_tokens + 1
             
@@ -1518,16 +1525,102 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
         end do
         
-        ! If we have meaningful tokens but no Fortran keywords, it's probably not Fortran
-        if (total_meaningful_tokens > 3 .and. .not. has_fortran_keywords) then
+        ! Phase 1: Check for comment-only input (always valid)
+        is_comment_only = (comment_count > 0 .and. total_meaningful_tokens == 0)
+        
+        ! Phase 2: Check for valid expressions (assignments, math, function calls)
+        is_valid_expression = is_likely_fortran_expression(tokens)
+        
+        ! Phase 3: Accept input if it looks like valid Fortran
+        if (is_comment_only .or. is_valid_expression .or. has_fortran_keywords .or. &
+            total_meaningful_tokens == 0) then
+            ! Accept comments, expressions, keywords, or empty input
+            error_msg = ""
+        ! Phase 4: Only reject clearly invalid input
+        else if (total_meaningful_tokens > 2 .and. .not. has_any_fortran_patterns(tokens)) then
             error_msg = "Input does not appear to be valid Fortran code. " // &
-                       "No recognized Fortran keywords found."
-        else if (total_meaningful_tokens > 0 .and. keyword_count == 0) then
-            error_msg = "No Fortran keywords found in input. " // &
-                       "Please check that this is valid Fortran syntax."
+                       "No recognized Fortran patterns found."
         end if
         
     end subroutine check_for_fortran_content
+    
+    ! Check if tokens represent a likely Fortran expression
+    logical function is_likely_fortran_expression(tokens) result(is_expression)
+        type(token_t), intent(in) :: tokens(:)
+        integer :: i, identifier_count, operator_count, paren_count
+        logical :: has_assignment, has_function_call
+        
+        identifier_count = 0
+        operator_count = 0
+        paren_count = 0
+        has_assignment = .false.
+        has_function_call = .false.
+        
+        do i = 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_IDENTIFIER)
+                identifier_count = identifier_count + 1
+                ! Check for function call pattern: identifier followed by (
+                if (i < size(tokens) .and. tokens(i+1)%text == "(") then
+                    has_function_call = .true.
+                end if
+            case (TK_OPERATOR)
+                operator_count = operator_count + 1
+                ! Check for assignment operator
+                if (tokens(i)%text == "=") then
+                    has_assignment = .true.
+                end if
+                ! Check for parentheses in operator tokens
+                if (tokens(i)%text == "(" .or. tokens(i)%text == ")") then
+                    paren_count = paren_count + 1
+                end if
+            end select
+        end do
+        
+        ! Consider it a valid expression if:
+        ! - Has identifiers and operators (mathematical expression)
+        ! - Has assignment pattern (variable assignment)
+        ! - Has function call pattern
+        ! - Has reasonable balance of tokens
+        is_expression = (identifier_count > 0) .and. &
+                       (has_assignment .or. has_function_call .or. &
+                        (operator_count > 0 .and. identifier_count >= operator_count))
+    end function is_likely_fortran_expression
+    
+    ! Check if tokens have any recognizable Fortran patterns
+    logical function has_any_fortran_patterns(tokens) result(has_patterns)
+        type(token_t), intent(in) :: tokens(:)
+        integer :: i, identifier_count, number_count, special_char_count, unknown_count
+        
+        identifier_count = 0
+        number_count = 0
+        special_char_count = 0
+        unknown_count = 0
+        
+        do i = 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_IDENTIFIER)
+                identifier_count = identifier_count + 1
+            case (TK_NUMBER)
+                number_count = number_count + 1
+            case (TK_UNKNOWN)
+                unknown_count = unknown_count + 1
+                ! Count characters that are unlikely in Fortran
+                if (len(tokens(i)%text) > 0) then
+                    if (index(tokens(i)%text, '@') > 0 .or. &
+                        index(tokens(i)%text, '#') > 0 .or. &
+                        index(tokens(i)%text, '$') > 0 .or. &
+                        index(tokens(i)%text, '%') > 0) then
+                        special_char_count = special_char_count + 1
+                    end if
+                end if
+            end select
+        end do
+        
+        ! Has patterns if it has identifiers/numbers and not too many special/unknown chars
+        has_patterns = (identifier_count > 0 .or. number_count > 0) .and. &
+                      (special_char_count + unknown_count < 3)
+    end function has_any_fortran_patterns
     
     ! Format a syntax error message with location info
     function format_syntax_error(message, line, column, source_lines, suggestion) result(formatted)

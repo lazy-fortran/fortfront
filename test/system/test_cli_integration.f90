@@ -59,16 +59,83 @@ contains
         end if
     end function check_if_windows
     
+    ! Find the fortfront executable using multiple search strategies
+    function find_fortfront_executable() result(executable_path)
+        character(len=:), allocatable :: executable_path
+        logical :: file_exists
+        character(len=500) :: candidate_path
+        integer :: i
+        
+        ! List of candidate paths to check
+        character(len=50), dimension(10) :: candidates = [ &
+            "build/gfortran_266FF454AB2555FE/app/fortfront   ", &
+            "build/gfortran_9ABCD662468F5A74/app/fortfront   ", &
+            "./build/gfortran_266FF454AB2555FE/app/fortfront ", &
+            "./build/gfortran_9ABCD662468F5A74/app/fortfront ", &
+            "fortfront                                       ", &
+            "./fortfront                                     ", &
+            "app/fortfront                                   ", &
+            "./app/fortfront                                 ", &
+            "../fortfront                                    ", &
+            "../app/fortfront                                " ]
+        
+        executable_path = ""
+        
+        ! Check each candidate path
+        do i = 1, size(candidates)
+            candidate_path = trim(candidates(i))
+            inquire(file=candidate_path, exist=file_exists)
+            
+            if (file_exists) then
+                executable_path = trim(candidate_path)
+                return
+            end if
+        end do
+        
+        ! If no specific path found, try a more general search
+        ! Check for any build directory pattern
+        call try_find_in_build_dirs(executable_path)
+        
+    end function find_fortfront_executable
+    
+    ! Try to find executable in build directories
+    subroutine try_find_in_build_dirs(executable_path)
+        character(len=:), allocatable, intent(out) :: executable_path
+        character(len=200) :: build_dir_pattern
+        logical :: dir_exists
+        
+        executable_path = ""
+        
+        ! Try common build directory patterns
+        build_dir_pattern = "build"
+        inquire(file=build_dir_pattern, exist=dir_exists)
+        
+        if (dir_exists) then
+            ! For simplicity in this fix, we'll use the first known path
+            ! This can be enhanced later with proper directory traversal
+            executable_path = "build/gfortran_266FF454AB2555FE/app/fortfront"
+        end if
+    end subroutine try_find_in_build_dirs
+    
     subroutine test_basic_io()
         integer :: exit_code
         character(len=1000) :: output_line
         character(len=512) :: command
+        character(len=:), allocatable :: executable_path
         logical :: success
         
         call test_start("Basic CLI I/O")
         
+        ! Find the fortfront executable
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+        
         ! Run: echo "print *, 'test'" | fortfront
-        command = 'echo "print *, ''test''" | ./build/gfortran_*/app/fortfront > ' // &
+        command = 'echo "print *, ''test''" | ' // executable_path // ' > ' // &
                   '/tmp/fortfront_test_output.txt 2>/tmp/fortfront_test_error.txt'
         call execute_command_line(command, exitstat=exit_code)
         
@@ -85,18 +152,29 @@ contains
         call test_result(success)
         if (.not. success) then
             print *, "  Failed to run basic CLI command"
+            print *, "  Executable path: ", executable_path
+            print *, "  Exit code: ", exit_code
         end if
     end subroutine test_basic_io
     
     subroutine test_error_handling()
         integer :: exit_code
         character(len=512) :: command
+        character(len=:), allocatable :: executable_path
         logical :: success
         
         call test_start("Error handling")
         
+        ! Find the fortfront executable
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+        
         ! Run with invalid input
-        command = 'echo "invalid fortran code @#$%" | ./build/gfortran_*/app/fortfront > ' // &
+        command = 'echo "invalid fortran code @#$%" | ' // executable_path // ' > ' // &
                   '/tmp/fortfront_test_output2.txt 2>/tmp/fortfront_test_error2.txt'
         call execute_command_line(command, exitstat=exit_code)
         
@@ -106,6 +184,7 @@ contains
         call test_result(success)
         if (.not. success) then
             print *, "  Error handling failed"
+            print *, "  Exit code: ", exit_code
         end if
     end subroutine test_error_handling
     
@@ -113,12 +192,21 @@ contains
         integer :: exit_code
         character(len=1000) :: output_line
         character(len=512) :: command
+        character(len=:), allocatable :: executable_path
         logical :: success
         
         call test_start("Empty input produces valid program")
         
+        ! Find the fortfront executable
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+        
         ! Run with empty input
-        command = 'echo "" | ./build/gfortran_*/app/fortfront > ' // &
+        command = 'echo "" | ' // executable_path // ' > ' // &
                   '/tmp/fortfront_test_output3.txt 2>/tmp/fortfront_test_error3.txt'
         call execute_command_line(command, exitstat=exit_code)
         
@@ -135,6 +223,7 @@ contains
         call test_result(success)
         if (.not. success) then
             print *, "  Empty input handling failed"
+            print *, "  Exit code: ", exit_code
         end if
     end subroutine test_empty_input
     
