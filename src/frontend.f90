@@ -1289,9 +1289,40 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
         end if
         
+        ! Check if validation passed but we have no meaningful content to parse
+        ! This handles cases where input is only comments, whitespace, or empty
+        block
+            integer :: meaningful_tokens
+            integer :: i
+            
+            meaningful_tokens = 0
+            do i = 1, size(tokens)
+                if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE .or. &
+                    tokens(i)%kind == TK_COMMENT) cycle
+                meaningful_tokens = meaningful_tokens + 1
+            end do
+            
+            if (meaningful_tokens == 0) then
+                ! Create minimal program for empty/meaningless input
+                output = "program main" // new_line('A') // &
+                         "    implicit none" // new_line('A') // &
+                         "end program main" // new_line('A')
+                return
+            end if
+        end block
+        
         ! Check if we have any tokens to parse
         if (size(tokens) == 0) then
             ! No tokens - create minimal program
+            output = "program main" // new_line('A') // &
+                     "    implicit none" // new_line('A') // &
+                     "end program main" // new_line('A')
+            return
+        end if
+        
+        ! Check if we have only meaningless tokens (whitespace, comments, newlines)
+        if (has_only_meaningless_tokens(tokens)) then
+            ! Only meaningless tokens - create minimal program
             output = "program main" // new_line('A') // &
                      "    implicit none" // new_line('A') // &
                      "end program main" // new_line('A')
@@ -1729,6 +1760,26 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end if
         
     end function contains_invalid_patterns
+    
+    ! Check if tokens contain only meaningless content (whitespace, comments, newlines, EOF)
+    logical function has_only_meaningless_tokens(tokens) result(only_meaningless)
+        type(token_t), intent(in) :: tokens(:)
+        integer :: i
+        
+        only_meaningless = .true.
+        
+        do i = 1, size(tokens)
+            ! Skip EOF, newlines, and comments - these are meaningless for program structure
+            if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE .or. &
+                tokens(i)%kind == TK_COMMENT) then
+                cycle
+            end if
+            
+            ! If we find any other token, input has meaningful content
+            only_meaningless = .false.
+            return
+        end do
+    end function has_only_meaningless_tokens
     
     ! Format a syntax error message with location info
     function format_syntax_error(message, line, column, source_lines, suggestion) result(formatted)

@@ -20,11 +20,8 @@ program fortfront_cli
         input_text = input_text // trim(line) // new_line('A')
     end do
     
-    ! Check if we got input
-    if (len(input_text) == 0) then
-        write(error_unit, '(A)') 'No input received from stdin'
-        stop 1
-    end if
+    ! Allow empty input - let the frontend handle it gracefully
+    ! Empty input should generate a minimal valid program
     
     ! Transform lazy fortran to standard fortran
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
