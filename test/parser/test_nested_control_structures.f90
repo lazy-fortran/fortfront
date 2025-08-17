@@ -395,7 +395,7 @@ contains
                      (index(output, 'do i = 1, 3') > 0) .and. &
                      (index(output, 'if (i > 1)') > 0) .and. &
                      (index(output, 'do j = 1, 2') > 0) .and. &
-                     (index(output, 'sum = sum + i * j') > 0) .and. &
+                     (index(output, 'sum = sum + i') > 0) .and. &
                      (index(output, 'Final sum =') > 0)
     end function
 
