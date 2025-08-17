@@ -1761,7 +1761,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 ! Look for 'then' on the same line
                 found_then = .false.
                 j = i + 1
-                do while (j <= size(tokens) .and. tokens(j)%line == tokens(i)%line)
+                do while (j <= size(tokens))
+                    if (tokens(j)%line /= tokens(i)%line) exit
                     if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == "then") then
                         found_then = .true.
                         exit
@@ -1773,7 +1774,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 if (.not. found_then) then
                     ! Check if there are non-whitespace tokens after 'if' on the same line
                     j = i + 1
-                    do while (j <= size(tokens) .and. tokens(j)%line == tokens(i)%line)
+                    do while (j <= size(tokens))
+                        if (tokens(j)%line /= tokens(i)%line) exit
                         if (tokens(j)%kind /= TK_EOF .and. tokens(j)%kind /= TK_NEWLINE) then
                             ! Found content without 'then' - format error
                             error_msg = format_if_syntax_error_simple(source, tokens(i)%line, tokens(i)%column)
