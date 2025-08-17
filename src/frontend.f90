@@ -3,7 +3,8 @@ module frontend
     ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
     
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
-                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN
+                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
+                           TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
@@ -1542,6 +1543,9 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         total_meaningful_tokens = 0
         has_fortran_keywords = .false.
         
+        ! Initialize error message to empty (success case)
+        error_msg = ""
+        
         do i = 1, size(tokens)
             if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE) cycle
             
@@ -1563,16 +1567,54 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
         end do
         
-        ! If we have meaningful tokens but no Fortran keywords, it's probably not Fortran
-        if (total_meaningful_tokens > 3 .and. .not. has_fortran_keywords) then
+        ! Check for completely invalid input (no Fortran keywords AND no valid expressions)
+        ! Allow lazy Fortran syntax (assignments, expressions) even without keywords
+        if (total_meaningful_tokens > 10 .and. .not. has_fortran_keywords .and. &
+            .not. looks_like_lazy_fortran(tokens)) then
             error_msg = "Input does not appear to be valid Fortran code. " // &
                        "No recognized Fortran keywords found."
-        else if (total_meaningful_tokens > 0 .and. keyword_count == 0) then
+        else if (total_meaningful_tokens > 0 .and. keyword_count == 0 .and. &
+                .not. looks_like_lazy_fortran(tokens)) then
             error_msg = "No Fortran keywords found in input. " // &
                        "Please check that this is valid Fortran syntax."
         end if
         
     end subroutine check_for_fortran_content
+    
+    ! Check if tokens look like valid lazy Fortran (assignments, expressions, etc.)
+    function looks_like_lazy_fortran(tokens) result(is_lazy_fortran)
+        type(token_t), intent(in) :: tokens(:)
+        logical :: is_lazy_fortran
+        
+        integer :: i
+        logical :: has_assignment, has_identifier, has_number_or_string
+        
+        has_assignment = .false.
+        has_identifier = .false.
+        has_number_or_string = .false.
+        
+        do i = 1, size(tokens)
+            if (tokens(i)%kind == TK_EOF) exit
+            
+            ! Look for assignment operator
+            if (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == "=") then
+                has_assignment = .true.
+            end if
+            
+            ! Look for identifiers
+            if (tokens(i)%kind == TK_IDENTIFIER) then
+                has_identifier = .true.
+            end if
+            
+            ! Look for numbers or strings
+            if (tokens(i)%kind == TK_NUMBER .or. tokens(i)%kind == TK_STRING) then
+                has_number_or_string = .true.
+            end if
+        end do
+        
+        ! If we have identifiers and assignments, it's probably lazy Fortran
+        is_lazy_fortran = has_identifier .and. (has_assignment .or. has_number_or_string)
+    end function looks_like_lazy_fortran
     
     ! Format a syntax error message with location info
     function format_syntax_error(message, line, column, source_lines, suggestion) result(formatted)
