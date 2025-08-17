@@ -594,8 +594,10 @@ contains
         end do
         
         ! Consider valid if has balanced structure and not too many unknowns
+        ! Accept single identifiers as valid expressions (for lazy Fortran)
         is_valid = (identifier_count > 0) .and. &
-                  (has_assignment .or. has_function_call .or. (operator_count > 0)) .and. &
+                  (has_assignment .or. has_function_call .or. (operator_count > 0) .or. &
+                   (identifier_count == 1 .and. number_count == 0 .and. operator_count == 0)) .and. &
                   (unknown_count <= 2)
     end function is_likely_valid_fortran
     
