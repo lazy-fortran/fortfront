@@ -141,7 +141,7 @@ echo "if (x > 0) then; do j = 1, x; print *, j; end do; end if" | fortfront
 - Invalid syntax patterns (`123 ++ 456`)
 - Incomplete control structures (missing `then`, `end if`, etc.)
 
-For detailed validation specifications, see the [Input Validation Guide](docs/INPUT_VALIDATION.md).
+Invalid input is rejected with helpful error messages identifying specific syntax issues.
 
 
 
