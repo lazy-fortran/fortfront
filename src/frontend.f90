@@ -342,21 +342,20 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 !                 trim(start_str)//" to "//trim(end_str))
             end block
 
-            ! Check if this unit has any non-whitespace content
+            ! Check if this unit has any meaningful content
             block
                 logical :: unit_has_content
                 integer :: j
                 unit_has_content = .false.
                 do j = unit_start, unit_end
                     if (tokens(j)%kind /= TK_EOF .and. &
-                        tokens(j)%kind /= TK_NEWLINE .and. &
-                        tokens(j)%kind /= TK_COMMENT) then
+                        tokens(j)%kind /= TK_NEWLINE) then
                         unit_has_content = .true.
                         exit
                     end if
                 end do
                 
-                ! Skip units without content
+                ! Skip units without any meaningful content (only EOF/newlines)
                 if (.not. unit_has_content) then
                     i = unit_end + 1
                     cycle
@@ -640,8 +639,9 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
         end do
         
-        ! If only comments/newlines (no real statements), don't create a program wrapper
-        if (.not. has_content) then
+        ! For lazy Fortran, comments-only input should still create a program unit
+        ! Only skip if there are no tokens at all (completely empty)
+        if (.not. has_content .and. size(tokens) <= 1) then
             unit_index = 0
             return
         end if
@@ -1257,7 +1257,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         allocate(character(len=0) :: error_msg)
         error_msg = ""
         
-        ! Handle empty input
+        ! Handle empty or whitespace-only input
         if (len_trim(input) == 0) then
             output = "program main" // new_line('A') // &
                      "    implicit none" // new_line('A') // &
@@ -1536,12 +1536,14 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         type(token_t), intent(in) :: tokens(:)
         character(len=:), allocatable, intent(out) :: error_msg
         
-        integer :: i, keyword_count, total_meaningful_tokens
-        logical :: has_fortran_keywords
+        integer :: i, keyword_count, total_meaningful_tokens, comment_count
+        logical :: has_fortran_keywords, has_comments_only
         
         keyword_count = 0
         total_meaningful_tokens = 0
+        comment_count = 0
         has_fortran_keywords = .false.
+        has_comments_only = .false.
         
         ! Initialize error message to empty (success case)
         error_msg = ""
@@ -1550,6 +1552,11 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE) cycle
             
             total_meaningful_tokens = total_meaningful_tokens + 1
+            
+            ! Count comments as valid content
+            if (tokens(i)%kind == TK_COMMENT) then
+                comment_count = comment_count + 1
+            end if
             
             if (tokens(i)%kind == TK_KEYWORD) then
                 keyword_count = keyword_count + 1
@@ -1567,16 +1574,29 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
         end do
         
+        ! Check if we have only comments (valid lazy Fortran)
+        has_comments_only = (comment_count > 0 .and. comment_count == total_meaningful_tokens)
+        
+        ! Allow comments-only input as valid lazy Fortran
+        if (has_comments_only) then
+            ! Comments-only input is valid
+            return
+        end if
+        
         ! Check for completely invalid input (no Fortran keywords AND no valid expressions)
         ! Allow lazy Fortran syntax (assignments, expressions) even without keywords
         if (total_meaningful_tokens > 10 .and. .not. has_fortran_keywords .and. &
             .not. looks_like_lazy_fortran(tokens)) then
             error_msg = "Input does not appear to be valid Fortran code. " // &
-                       "No recognized Fortran keywords found."
-        else if (total_meaningful_tokens > 0 .and. keyword_count == 0 .and. &
-                .not. looks_like_lazy_fortran(tokens)) then
-            error_msg = "No Fortran keywords found in input. " // &
+                       "No recognized Fortran keywords or valid expressions found."
+        else if (total_meaningful_tokens > 5 .and. keyword_count == 0 .and. &
+                .not. looks_like_lazy_fortran(tokens) .and. comment_count == 0) then
+            error_msg = "No Fortran keywords or valid expressions found in input. " // &
                        "Please check that this is valid Fortran syntax."
+        else if (total_meaningful_tokens > 1 .and. keyword_count == 0 .and. &
+                .not. looks_like_lazy_fortran(tokens) .and. comment_count == 0) then
+            error_msg = "Input does not appear to be valid Fortran syntax. " // &
+                       "No recognized language constructs found."
         end if
         
     end subroutine check_for_fortran_content
@@ -1586,24 +1606,44 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         type(token_t), intent(in) :: tokens(:)
         logical :: is_lazy_fortran
         
-        integer :: i
-        logical :: has_assignment, has_identifier, has_number_or_string
+        integer :: i, meaningful_token_count
+        logical :: has_assignment, has_identifier, has_number_or_string, has_function_call
+        logical :: has_operators, has_valid_structure
         
         has_assignment = .false.
         has_identifier = .false.
         has_number_or_string = .false.
+        has_function_call = .false.
+        has_operators = .false.
+        meaningful_token_count = 0
         
         do i = 1, size(tokens)
-            if (tokens(i)%kind == TK_EOF) exit
+            if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE .or. tokens(i)%kind == TK_COMMENT) cycle
+            
+            meaningful_token_count = meaningful_token_count + 1
             
             ! Look for assignment operator
             if (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == "=") then
                 has_assignment = .true.
             end if
             
+            ! Look for other mathematical operators
+            if (tokens(i)%kind == TK_OPERATOR .and. &
+                (tokens(i)%text == "+" .or. tokens(i)%text == "-" .or. &
+                 tokens(i)%text == "*" .or. tokens(i)%text == "/" .or. &
+                 tokens(i)%text == "(" .or. tokens(i)%text == ")")) then
+                has_operators = .true.
+            end if
+            
             ! Look for identifiers
             if (tokens(i)%kind == TK_IDENTIFIER) then
                 has_identifier = .true.
+                
+                ! Check for function call pattern: identifier followed by "("
+                if (i + 1 <= size(tokens) .and. tokens(i+1)%kind == TK_OPERATOR .and. &
+                    tokens(i+1)%text == "(") then
+                    has_function_call = .true.
+                end if
             end if
             
             ! Look for numbers or strings
@@ -1612,8 +1652,39 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
         end do
         
-        ! If we have identifiers and assignments, it's probably lazy Fortran
-        is_lazy_fortran = has_identifier .and. (has_assignment .or. has_number_or_string)
+        ! Determine if this looks like valid lazy Fortran
+        has_valid_structure = .false.
+        
+        ! Single identifier is valid lazy Fortran
+        if (meaningful_token_count == 1 .and. has_identifier) then
+            has_valid_structure = .true.
+        end if
+        
+        ! Assignment expressions are valid
+        if (has_identifier .and. has_assignment) then
+            has_valid_structure = .true.
+        end if
+        
+        ! Function calls are valid
+        if (has_function_call) then
+            has_valid_structure = .true.
+        end if
+        
+        ! Simple expressions with numbers/strings and identifiers (require operators or assignment)
+        if (has_identifier .and. has_number_or_string .and. meaningful_token_count <= 5 .and. &
+            (has_assignment .or. has_operators)) then
+            has_valid_structure = .true.
+        end if
+        
+        ! Mathematical expressions are valid only if they're not too long and have reasonable structure
+        if (has_identifier .and. has_operators .and. &
+            (has_number_or_string .or. meaningful_token_count > 2) .and. &
+            meaningful_token_count <= 8 .and. has_assignment) then
+            ! Only accept mathematical expressions if they also have assignment
+            has_valid_structure = .true.
+        end if
+        
+        is_lazy_fortran = has_valid_structure
     end function looks_like_lazy_fortran
     
     ! Format a syntax error message with location info
