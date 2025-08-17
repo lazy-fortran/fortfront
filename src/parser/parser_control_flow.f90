@@ -16,7 +16,8 @@ module parser_control_flow_module
     use parser_utils, only: analyze_declaration_structure
     use ast_core
     use ast_factory, only: push_if, push_do_loop, push_do_while, push_select_case, &
-                           push_assignment, push_identifier, push_literal, push_where
+                           push_assignment, push_identifier, push_literal, push_where, &
+                           push_case_block, push_case_default, push_select_case_with_default
     implicit none
     private
 
@@ -634,8 +635,12 @@ contains
         ! Parse case blocks
         allocate (case_indices(0))
         case_count = 0
+        
+        block
+            integer :: default_case_index
+            default_case_index = 0
 
-        do while (parser%current_token <= size(parser%tokens))
+            do while (parser%current_token <= size(parser%tokens))
             case_token = parser%peek()
             
             ! Safety check for EOF
@@ -647,61 +652,51 @@ contains
                 if (case_token%text == "case") then
                     ! Parse case block
                     block
-                        type(case_wrapper) :: new_case
                         type(token_t) :: value_token
-                        class(ast_node), allocatable :: case_value
+                        integer :: case_block_index
+                        integer, allocatable :: value_indices(:)
+                        integer, allocatable :: body_indices(:)
 
                         case_token = parser%consume()  ! consume 'case'
 
                         ! Check for default case
                         value_token = parser%peek()
             if (value_token%kind == TK_KEYWORD .and. value_token%text == "default") then
+                            ! Handle default case
                             value_token = parser%consume()  ! consume 'default'
-                            new_case%case_type = "case_default"
+                            
+                            ! Parse case body statements
+                            block
+                                character(len=16) :: end_keywords(2)
+                                
+                                ! Define end keywords for case blocks
+                                end_keywords(1) = "case"
+                                end_keywords(2) = "end"
+                                
+                                ! Use the unified statement body parser
+                                body_indices = parse_statement_body(parser, arena, end_keywords)
+                            end block
+                            
+                            ! Create default case node
+                            default_case_index = push_case_default(arena, body_indices, &
+                                                                   line=case_token%line, &
+                                                                   column=case_token%column)
                         else
-                            new_case%case_type = "case"
-
+                            ! Handle regular case
+                            
                             ! Expect '('
                  if (value_token%kind == TK_OPERATOR .and. value_token%text == "(") then
                                 value_token = parser%consume()  ! consume '('
 
                                 ! Parse case value
                                 block
-                                    type(token_t), allocatable :: value_tokens(:)
-                                    integer :: remaining_count, j
-
-                                    ! Count remaining tokens until ')' with EOF safety
-                                    remaining_count = 0
-                                    do j = parser%current_token, size(parser%tokens)
-                                        ! Check bounds and EOF before accessing token
-                                        if (j > size(parser%tokens)) then
-                                            exit  ! EOF reached
-                                        end if
-                                        if (parser%tokens(j)%kind == TK_EOF) then
-                                            exit  ! Explicit EOF check
-                                        end if
-                                        if (parser%tokens(j)%kind == TK_OPERATOR .and. &
-                                            parser%tokens(j)%text == ")") then
-                                            exit
-                                        end if
-                                        remaining_count = remaining_count + 1
-                                    end do
-
-                                    if (remaining_count > 0) then
-                                        allocate (value_tokens(remaining_count))
-                                        value_tokens = parser%tokens(&
-                                            parser%current_token:parser%current_token+&
-                                            remaining_count-1)
-                                        ! Parse the value as a primary expression
-                                        block
-                                            integer :: value_index
-                                            value_index = parse_primary(parser, arena)
-                               if (value_index > 0 .and. value_index <= arena%size) then
-                                    if (allocated(arena%entries(value_index)%node)) then
-                                        new_case%value = arena%entries(value_index)%node
-                                                end if
-                                            end if
-                                        end block
+                                    integer :: value_index
+                                    value_index = parse_primary(parser, arena)
+                                    if (value_index > 0) then
+                                        allocate(value_indices(1))
+                                        value_indices(1) = value_index
+                                    else
+                                        allocate(value_indices(0))
                                     end if
                                 end block
 
@@ -710,40 +705,34 @@ contains
                  if (value_token%kind == TK_OPERATOR .and. value_token%text == ")") then
                                     value_token = parser%consume()  ! consume ')'
                                 end if
+                            else
+                                ! Error: expected '(' after case
+                                allocate(value_indices(0))
+                            end if
+                            
+                            ! Parse case body statements
+                            block
+                                character(len=16) :: end_keywords(2)
+                                
+                                ! Define end keywords for case blocks
+                                end_keywords(1) = "case"
+                                end_keywords(2) = "end"
+                                
+                                ! Use the unified statement body parser
+                                body_indices = parse_statement_body(parser, arena, end_keywords)
+                            end block
+                            
+                            ! Create case block node
+                            if (allocated(value_indices) .and. size(value_indices) > 0) then
+                                case_block_index = push_case_block(arena, value_indices, &
+                                                                   body_indices, &
+                                                                   line=case_token%line, &
+                                                                   column=case_token%column)
+                                ! Add to case indices array
+                                case_indices = [case_indices, case_block_index]
+                                case_count = case_count + 1
                             end if
                         end if
-
-                        ! Parse case body statements using the standard pattern
-                        block
-                            integer, allocatable :: body_indices(:)
-                            integer :: body_count
-                            character(len=16) :: end_keywords(2)
-                            
-                            ! Define end keywords for case blocks
-                            end_keywords(1) = "case"
-                            end_keywords(2) = "end"
-                            
-                            ! Use the unified statement body parser
-                            body_indices = parse_statement_body(parser, arena, end_keywords)
-
-                            ! Convert body indices to ast_node_wrapper array
-                            if (allocated(body_indices) .and. size(body_indices) > 0) then
-                                allocate (new_case%body(size(body_indices)))
-                                do body_count = 1, size(body_indices)
-     if (body_indices(body_count) > 0 .and. body_indices(body_count) <= arena%size) then
-                       if (allocated(arena%entries(body_indices(body_count))%node)) then
-           new_case%body(body_count)%node = arena%entries(body_indices(body_count))%node
-                        new_case%body(body_count)%stack_index = body_indices(body_count)
-                                        end if
-                                    end if
-                                end do
-                            else
-                                allocate (new_case%body(0))
-                            end if
-                        end block
-
-                        ! Add to cases array (simplified for now)
-                        case_count = case_count + 1
                     end block
                 else if (case_token%text == "end") then
                     ! Check for 'end select'
@@ -770,10 +759,18 @@ contains
                 ! Not a keyword, skip
                 parser%current_token = parser%current_token + 1
             end if
-        end do
+            end do
 
-        ! Create select case node
-        select_index = push_select_case(arena, expr_index, line=line, column=column)
+            ! Create select case node with case indices
+            if (default_case_index > 0) then
+                select_index = push_select_case_with_default(arena, expr_index, case_indices, &
+                                                            default_case_index, &
+                                                            line=line, column=column)
+            else
+                select_index = push_select_case(arena, expr_index, case_indices, &
+                                                line=line, column=column)
+            end if
+        end block
 
         if (allocated(case_indices)) deallocate (case_indices)
     end function parse_select_case
