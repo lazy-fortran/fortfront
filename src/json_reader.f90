@@ -8,6 +8,7 @@ module json_reader
     use ast_core
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     use string_types, only: string_t
+    use path_validation, only: validate_input_path, path_validation_result_t
     ! Note: Using core AST nodes only - no dialect-specific imports
     implicit none
     private
@@ -26,6 +27,13 @@ contains
         type(json_file) :: json
         logical :: found, status_ok
         character(len=:), allocatable :: error_msg
+        type(path_validation_result_t) :: validation_result
+
+        ! Validate file path for security
+        validation_result = validate_input_path(filename)
+        if (.not. validation_result%is_valid()) then
+            error stop "Path validation failed: " // validation_result%get_message()
+        end if
 
         ! Load JSON file
         call json%load(filename=filename)
@@ -137,6 +145,13 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: root_index
         type(json_file) :: json
+        type(path_validation_result_t) :: validation_result
+
+        ! Validate file path for security
+        validation_result = validate_input_path(filename)
+        if (.not. validation_result%is_valid()) then
+            error stop "Path validation failed: " // validation_result%get_message()
+        end if
 
         ! Load JSON file
         call json%load(filename=filename)
@@ -680,6 +695,13 @@ contains
         integer, intent(out) :: root_index
         type(semantic_context_t), intent(out) :: sem_ctx
         type(json_file) :: json
+        type(path_validation_result_t) :: validation_result
+
+        ! Validate file path for security
+        validation_result = validate_input_path(filename)
+        if (.not. validation_result%is_valid()) then
+            error stop "Path validation failed: " // validation_result%get_message()
+        end if
 
         ! Load JSON file
         call json%load(filename=filename)
