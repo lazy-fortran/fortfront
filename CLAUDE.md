@@ -62,7 +62,13 @@ fpm test <test_name>
 
 ## Architecture Overview
 
-fortfront is a Fortran frontend that processes code through four distinct phases:
+fortfront is a Fortran frontend that processes code through four distinct phases, with input validation as a supporting module:
+
+**Input Validation** (`src/input_validation.f90`) - Dedicated validation module (Issue #262)
+   - Comprehensive input validation with enhanced error reporting
+   - Standalone module independent of frontend transformation pipeline
+   - Supports editor integration, build tools, and educational applications
+   - Clean API with no circular dependencies
 
 1. **Lexer** (`src/lexer/`) - Tokenizes Fortran source code
    - Core module: `lexer_core.f90`
@@ -108,8 +114,9 @@ Tests are organized by compilation phase:
 - `test/semantic/` - Semantic analysis and type inference tests
 - `test/codegen/` - Code generation tests
 - `test/standardizer/` - AST standardization tests
+- `test/validation/` - Input validation module tests
 
-Total: 246 test files as of latest count.
+Total: 290 test files as of latest count.
 
 ### Common Development Patterns
 
