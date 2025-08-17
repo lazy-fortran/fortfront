@@ -594,7 +594,7 @@ contains
                 result_typ = create_mono_type(TREAL)
             end if
 
-        case ("<", ">", "<=", ">=", "==", "/=")
+        case ("<", ">", "<=", ">=", "==", "/=", ".lt.", ".gt.", ".le.", ".ge.", ".eq.", ".ne.")
             ! Comparison operations: operands must be compatible
             if (is_compatible(left_typ, right_typ, compat_level)) then
                 result_typ = create_mono_type(TLOGICAL)  ! Boolean as logical

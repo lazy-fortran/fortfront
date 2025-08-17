@@ -93,10 +93,21 @@ contains
                         then_token = parser%consume()  ! consume 'else'
                         else_body_indices = parse_if_body(parser, arena, if_index)
                         exit
-              else if (then_token%text == "endif" .or. then_token%text == "end if") then
-                        ! End of if statement
+              else if (then_token%text == "endif") then
+                        ! End of if statement - single token
                         then_token = parser%consume()
                         exit
+                    else if (then_token%text == "end") then
+                        ! Check if next token is "if" (two tokens: "end if")
+                        if (parser%current_token + 1 <= size(parser%tokens)) then
+                  if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                            parser%tokens(parser%current_token + 1)%text == "if") then
+                                ! End of if statement - two tokens
+                                then_token = parser%consume()  ! consume "end"
+                                then_token = parser%consume()  ! consume "if"
+                                exit
+                            end if
+                        end if
                     else
                         ! Other statement, stop parsing if block
                         exit
@@ -255,8 +266,7 @@ contains
 
             ! Check for end of body
             if (token%kind == TK_KEYWORD) then
-                if (token%text == "elseif" .or. token%text == "else if" .or. &
-                    token%text == "endif" .or. token%text == "end if") then
+                if (token%text == "elseif" .or. token%text == "endif") then
                     exit
                 else if (token%text == "else") then
                     ! Check if next token is "if" (for "else if")
@@ -375,7 +385,7 @@ contains
 
     ! Additional control flow parsing functions
 
-    function parse_do_loop(parser, arena) result(loop_index)
+    recursive function parse_do_loop(parser, arena) result(loop_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: loop_index
@@ -481,54 +491,64 @@ contains
                     end if
                 end block
 
-                ! Parse statement until end of line
-                stmt_start = parser%current_token
-                stmt_end = stmt_start
-
-                ! Find end of current statement (same line)
-                do j = stmt_start, size(parser%tokens)
-                    if (parser%tokens(j)%kind == TK_EOF) then
-                        stmt_end = j
-                        exit
-                    end if
-   if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
-                        stmt_end = j - 1
-                        exit
-                    end if
-                    stmt_end = j
-                end do
-
-                ! Extract statement tokens
-                if (stmt_end >= stmt_start) then
-                    allocate (stmt_tokens(stmt_end - stmt_start + 2))
-           stmt_tokens(1:stmt_end - stmt_start + 1) = parser%tokens(stmt_start:stmt_end)
-                    ! Add EOF token
-                    stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
-                    stmt_tokens(stmt_end - stmt_start + 2)%text = ""
-              stmt_tokens(stmt_end - stmt_start + 2)%line = parser%tokens(stmt_end)%line
-      stmt_tokens(stmt_end - stmt_start + 2)%column = parser%tokens(stmt_end)%column + 1
-
-                    ! Parse the statement (may return multiple indices for &
-                    ! multi-variable declarations)
-                    block
-                        integer, allocatable :: stmt_indices(:)
-                        integer :: k
-                        stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, loop_index)
-
-                        ! Add all parsed statements to body
-                        do k = 1, size(stmt_indices)
-                            if (stmt_indices(k) > 0) then
-                                body_indices = [body_indices, stmt_indices(k)]
+                ! Check if this is a control structure that needs special handling
+                block
+                    type(token_t) :: current_token
+                    integer :: stmt_index
+                    integer :: old_pos
+                    
+                    current_token = parser%peek()
+                    old_pos = parser%current_token
+                    stmt_index = 0
+                    
+                    ! Handle control structures as complete units
+                    if (current_token%kind == TK_KEYWORD) then
+                        if (current_token%text == "if") then
+                            ! Parse complete if statement
+                            stmt_index = parse_if(parser, arena)
+                            if (stmt_index > 0) then
+                                ! Set parent relationship
+                                arena%entries(stmt_index)%parent_index = loop_index
+                                call arena%add_child(loop_index, stmt_index)
+                                body_indices = [body_indices, stmt_index]
                                 body_count = body_count + 1
                             end if
-                        end do
-                    end block
-
-                    deallocate (stmt_tokens)
-                end if
-
-                ! Move to next statement
-                parser%current_token = stmt_end + 1
+                        else if (current_token%text == "do") then
+                            ! Parse nested do loop
+                            stmt_index = parse_do_loop(parser, arena)
+                            if (stmt_index > 0) then
+                                ! Set parent relationship
+                                arena%entries(stmt_index)%parent_index = loop_index
+                                call arena%add_child(loop_index, stmt_index)
+                                body_indices = [body_indices, stmt_index]
+                                body_count = body_count + 1
+                            end if
+                        else if (current_token%text == "select") then
+                            ! Parse select case
+                            stmt_index = parse_select_case(parser, arena)
+                            if (stmt_index > 0) then
+                                ! Set parent relationship
+                                arena%entries(stmt_index)%parent_index = loop_index
+                                call arena%add_child(loop_index, stmt_index)
+                                body_indices = [body_indices, stmt_index]
+                                body_count = body_count + 1
+                            end if
+                        else
+                            ! Parse other statements line by line
+                            call parse_simple_statement_in_loop(parser, arena, loop_index, &
+                                                                 body_indices, body_count)
+                        end if
+                    else
+                        ! Parse non-keyword statements line by line
+                        call parse_simple_statement_in_loop(parser, arena, loop_index, &
+                                                             body_indices, body_count)
+                    end if
+                    
+                    ! If parser position didn't advance, force advance to prevent infinite loop
+                    if (parser%current_token == old_pos) then
+                        parser%current_token = parser%current_token + 1
+                    end if
+                end block
             end do
 
             ! Update the do loop node with the actual body indices
@@ -1730,5 +1750,63 @@ contains
         if (length == 0) length = 1  ! At least one token
     end function parse_expression_length
 
+    
+    ! Helper subroutine for parsing simple statements in do loop
+    subroutine parse_simple_statement_in_loop(parser, arena, loop_index, body_indices, body_count)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: loop_index
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer, intent(inout) :: body_count
+        
+        integer :: stmt_start, stmt_end, j
+        type(token_t), allocatable :: stmt_tokens(:)
+        integer, allocatable :: stmt_indices(:)
+        integer :: k
+        
+        ! Parse statement until end of line
+        stmt_start = parser%current_token
+        stmt_end = stmt_start
+
+        ! Find end of current statement (same line)
+        do j = stmt_start, size(parser%tokens)
+            if (parser%tokens(j)%kind == TK_EOF) then
+                stmt_end = j
+                exit
+            end if
+            if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
+                stmt_end = j - 1
+                exit
+            end if
+            stmt_end = j
+        end do
+
+        ! Extract statement tokens
+        if (stmt_end >= stmt_start) then
+            allocate (stmt_tokens(stmt_end - stmt_start + 2))
+            stmt_tokens(1:stmt_end - stmt_start + 1) = parser%tokens(stmt_start:stmt_end)
+            ! Add EOF token
+            stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
+            stmt_tokens(stmt_end - stmt_start + 2)%text = ""
+            stmt_tokens(stmt_end - stmt_start + 2)%line = parser%tokens(stmt_end)%line
+            stmt_tokens(stmt_end - stmt_start + 2)%column = parser%tokens(stmt_end)%column + 1
+
+            ! Parse the statement (may return multiple indices for multi-variable declarations)
+            stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, loop_index)
+
+            ! Add all parsed statements to body
+            do k = 1, size(stmt_indices)
+                if (stmt_indices(k) > 0) then
+                    body_indices = [body_indices, stmt_indices(k)]
+                    body_count = body_count + 1
+                end if
+            end do
+
+            deallocate (stmt_tokens)
+        end if
+
+        ! Move to next statement
+        parser%current_token = stmt_end + 1
+    end subroutine parse_simple_statement_in_loop
     
 end module parser_control_flow_module

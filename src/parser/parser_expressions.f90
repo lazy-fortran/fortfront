@@ -246,7 +246,10 @@ contains
             if (op_token%kind == TK_OPERATOR .and. &
                 (op_token%text == "==" .or. op_token%text == "/=" .or. &
                  op_token%text == "<=" .or. op_token%text == ">=" .or. &
-                 op_token%text == "<" .or. op_token%text == ">")) then
+                 op_token%text == "<" .or. op_token%text == ">" .or. &
+                 op_token%text == ".eq." .or. op_token%text == ".ne." .or. &
+                 op_token%text == ".lt." .or. op_token%text == ".le." .or. &
+                 op_token%text == ".gt." .or. op_token%text == ".ge.")) then
                 op_token = parser%consume()
                 right_index = parse_concatenation(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &

@@ -519,13 +519,103 @@ contains
                 end if
             end if
 
-            ! Check for .or. (4 characters)
+            ! Check for .or. and comparison operators (4 characters)
             if (remaining >= 4) then
                 if (source(pos:pos + 3) == ".or.") then
                     ! Found .or.
                     pos = pos + 4
                     col_num = col_num + 4
                     word = ".or."
+
+                    token_count = token_count + 1
+                    if (token_count > size(tokens)) then
+                        call resize_tokens(tokens)
+                    end if
+                    tokens(token_count)%kind = TK_OPERATOR
+                    tokens(token_count)%text = word
+                    tokens(token_count)%line = line_num
+                    tokens(token_count)%column = start_col
+                    return
+                else if (source(pos:pos + 3) == ".eq.") then
+                    ! Found .eq.
+                    pos = pos + 4
+                    col_num = col_num + 4
+                    word = ".eq."
+
+                    token_count = token_count + 1
+                    if (token_count > size(tokens)) then
+                        call resize_tokens(tokens)
+                    end if
+                    tokens(token_count)%kind = TK_OPERATOR
+                    tokens(token_count)%text = word
+                    tokens(token_count)%line = line_num
+                    tokens(token_count)%column = start_col
+                    return
+                else if (source(pos:pos + 3) == ".ne.") then
+                    ! Found .ne.
+                    pos = pos + 4
+                    col_num = col_num + 4
+                    word = ".ne."
+
+                    token_count = token_count + 1
+                    if (token_count > size(tokens)) then
+                        call resize_tokens(tokens)
+                    end if
+                    tokens(token_count)%kind = TK_OPERATOR
+                    tokens(token_count)%text = word
+                    tokens(token_count)%line = line_num
+                    tokens(token_count)%column = start_col
+                    return
+                else if (source(pos:pos + 3) == ".gt.") then
+                    ! Found .gt.
+                    pos = pos + 4
+                    col_num = col_num + 4
+                    word = ".gt."
+
+                    token_count = token_count + 1
+                    if (token_count > size(tokens)) then
+                        call resize_tokens(tokens)
+                    end if
+                    tokens(token_count)%kind = TK_OPERATOR
+                    tokens(token_count)%text = word
+                    tokens(token_count)%line = line_num
+                    tokens(token_count)%column = start_col
+                    return
+                else if (source(pos:pos + 3) == ".ge.") then
+                    ! Found .ge.
+                    pos = pos + 4
+                    col_num = col_num + 4
+                    word = ".ge."
+
+                    token_count = token_count + 1
+                    if (token_count > size(tokens)) then
+                        call resize_tokens(tokens)
+                    end if
+                    tokens(token_count)%kind = TK_OPERATOR
+                    tokens(token_count)%text = word
+                    tokens(token_count)%line = line_num
+                    tokens(token_count)%column = start_col
+                    return
+                else if (source(pos:pos + 3) == ".lt.") then
+                    ! Found .lt.
+                    pos = pos + 4
+                    col_num = col_num + 4
+                    word = ".lt."
+
+                    token_count = token_count + 1
+                    if (token_count > size(tokens)) then
+                        call resize_tokens(tokens)
+                    end if
+                    tokens(token_count)%kind = TK_OPERATOR
+                    tokens(token_count)%text = word
+                    tokens(token_count)%line = line_num
+                    tokens(token_count)%column = start_col
+                    return
+                else if (source(pos:pos + 3) == ".le.") then
+                    ! Found .le.
+                    pos = pos + 4
+                    col_num = col_num + 4
+                    word = ".le."
 
                     token_count = token_count + 1
                     if (token_count > size(tokens)) then
