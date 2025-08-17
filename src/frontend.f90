@@ -1477,8 +1477,9 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         ! Split source into lines for error reporting
         call split_into_lines(source, source_lines)
         
-        ! Note: Advanced syntax error checking is disabled to avoid false positives
-        ! The parser and semantic analyzer will catch actual syntax errors
+        ! Check for missing 'then' in if statements - temporarily disabled to avoid segfault
+        ! call check_if_then_syntax_simple(tokens, source, error_msg)
+        ! if (error_msg /= "") return
         
         ! Check for completely invalid input (no Fortran keywords found)
         call check_for_fortran_content(tokens, error_msg)
@@ -1730,5 +1731,111 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
         end do
     end function is_whitespace_only
+    
+    
+    ! Simple and safe check for missing 'then' in if statements
+    subroutine check_if_then_syntax_simple(tokens, source, error_msg)
+        type(token_t), intent(in) :: tokens(:)
+        character(len=*), intent(in) :: source
+        character(len=:), allocatable, intent(out) :: error_msg
+        
+        integer :: i, j
+        logical :: found_then
+        
+        error_msg = ""
+        
+        ! Return early if no tokens
+        if (size(tokens) == 0) return
+        
+        do i = 1, size(tokens)
+            ! Look for 'if' keyword
+            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "if") then
+                ! Skip 'else if' constructs
+                if (i > 1 .and. tokens(i-1)%kind == TK_KEYWORD .and. &
+                    tokens(i-1)%text == "else") then
+                    cycle
+                end if
+                
+                ! Look for 'then' on the same line
+                found_then = .false.
+                j = i + 1
+                do while (j <= size(tokens) .and. tokens(j)%line == tokens(i)%line)
+                    if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == "then") then
+                        found_then = .true.
+                        exit
+                    end if
+                    j = j + 1
+                end do
+                
+                ! If no 'then' found and there are meaningful tokens after 'if'
+                if (.not. found_then) then
+                    ! Check if there are non-whitespace tokens after 'if' on the same line
+                    j = i + 1
+                    do while (j <= size(tokens) .and. tokens(j)%line == tokens(i)%line)
+                        if (tokens(j)%kind /= TK_EOF .and. tokens(j)%kind /= TK_NEWLINE) then
+                            ! Found content without 'then' - format error
+                            error_msg = format_if_syntax_error_simple(source, tokens(i)%line, tokens(i)%column)
+                            return
+                        end if
+                        j = j + 1
+                    end do
+                end if
+            end if
+        end do
+    end subroutine check_if_then_syntax_simple
+    
+    ! Format error message for missing 'then' with line/column info and context
+    function format_if_syntax_error_simple(source, line, column) result(formatted)
+        character(len=*), intent(in) :: source
+        integer, intent(in) :: line, column
+        character(len=:), allocatable :: formatted
+        
+        character(len=200) :: line_text
+        integer :: line_start, line_end, pos, current_line
+        
+        ! Build basic error message with location
+        formatted = "Missing 'then' keyword in if statement at line " // &
+                   trim(adjustl(int_to_str(line))) // ", column " // &
+                   trim(adjustl(int_to_str(column)))
+        
+        ! Try to extract the source line for context
+        line_start = 1
+        current_line = 1
+        line_end = 0
+        
+        ! Find the start and end of the target line
+        do pos = 1, len(source)
+            if (source(pos:pos) == new_line('A')) then
+                if (current_line == line) then
+                    line_end = pos - 1
+                    exit
+                end if
+                current_line = current_line + 1
+                line_start = pos + 1
+            end if
+        end do
+        
+        ! Handle last line without newline
+        if (current_line == line .and. line_end == 0) then
+            line_end = len(source)
+        end if
+        
+        ! Add source context if we found the line
+        if (line_end > 0 .and. line_start <= line_end .and. line_end - line_start + 1 <= 200) then
+            line_text(1:line_end-line_start+1) = source(line_start:line_end)
+            formatted = formatted // new_line('A') // &
+                       "  Source: " // line_text(1:line_end-line_start+1)
+            
+            ! Add pointer if column is reasonable
+            if (column > 0 .and. column <= line_end - line_start + 1) then
+                formatted = formatted // new_line('A') // &
+                           "  " // repeat(" ", 9 + column - 1) // "^"
+            end if
+        end if
+        
+        ! Add suggestion
+        formatted = formatted // new_line('A') // &
+                   "  Suggestion: Add 'then' after the if condition"
+    end function format_if_syntax_error_simple
 
 end module frontend
