@@ -2588,6 +2588,15 @@ contains
                         stmt_index = parse_call_statement(parser, arena)
                     case ("if")
                         stmt_index = parse_if_simple(parser, arena)
+                    case ("do", "select", "where")
+                        ! CRITICAL FIX for Issue #255: These are not handled in parse_program_statement
+                        ! For now, skip them - they should be handled by a different path
+                        block
+                            integer :: construct_start, construct_end
+                            call find_control_flow_boundary_local(parser%tokens, parser%current_token, construct_start, construct_end)
+                            parser%current_token = construct_end + 1
+                            stmt_index = 0  ! Skip - don't add to body
+                        end block
                     case ("stop")
                         stmt_index = parse_stop_statement(parser, arena)
                     case ("return")
@@ -3530,5 +3539,163 @@ contains
         
     end function skip_unknown_statement
 
+    ! CRITICAL FIX for Issue #255: Control flow boundary detection for parse_program_statement
+    subroutine find_control_flow_boundary_local(tokens, start_pos, stmt_start, stmt_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer, intent(out) :: stmt_start, stmt_end
+        integer :: i, nesting_level
+        logical :: in_if_block, in_do_loop, in_select_case, in_where
+
+        stmt_start = start_pos
+        stmt_end = start_pos
+        in_if_block = .false.
+        in_do_loop = .false.
+        in_select_case = .false.
+        in_where = .false.
+        nesting_level = 0
+
+        ! Check what type of construct we're starting with
+        if (start_pos <= size(tokens) .and. tokens(start_pos)%kind == TK_KEYWORD) then
+            select case (tokens(start_pos)%text)
+            case ("if")
+                ! Check if it's if-then (multi-line) or simple if
+                if (start_pos + 1 <= size(tokens)) then
+                    ! Look for "then" keyword to determine if it's multi-line
+                    block
+                        integer :: j
+                        logical :: found_then
+                        found_then = .false.
+                        do j = start_pos + 1, min(start_pos + 10, size(tokens))
+                            if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == "then") then
+                                found_then = .true.
+                                exit
+                            end if
+                            if (tokens(j)%kind == TK_EOF .or. tokens(j)%line > tokens(start_pos)%line) then
+                                exit
+                            end if
+                        end do
+                        if (found_then) then
+                            in_if_block = .true.
+                            nesting_level = 1
+                        end if
+                    end block
+                end if
+            case ("do")
+                in_do_loop = .true.
+                nesting_level = 1
+            case ("select")
+                in_select_case = .true.
+                nesting_level = 1
+            case ("where")
+                in_where = .true.
+                nesting_level = 1
+            end select
+        end if
+
+        if (nesting_level > 0) then
+            ! Multi-line construct - find matching end with proper nesting
+            i = start_pos
+            do while (i <= size(tokens) .and. nesting_level > 0)
+                if (tokens(i)%kind == TK_EOF) exit
+
+                ! Check for nested constructs (but skip the first one at start_pos)
+                if (i /= start_pos .and. tokens(i)%kind == TK_KEYWORD) then
+                    select case (tokens(i)%text)
+                    case ("if")
+                        if (in_if_block) then
+                            ! Check for if-then
+                            if (i + 1 <= size(tokens)) then
+                                block
+                                    integer :: j
+                                    logical :: found_then
+                                    found_then = .false.
+                                    do j = i + 1, min(i + 10, size(tokens))
+                                        if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == "then") then
+                                            found_then = .true.
+                                            exit
+                                        end if
+                                        if (tokens(j)%kind == TK_EOF .or. tokens(j)%line > tokens(i)%line) then
+                                            exit
+                                        end if
+                                    end do
+                                    if (found_then) then
+                                        nesting_level = nesting_level + 1
+                                    end if
+                                end block
+                            end if
+                        end if
+                    case ("do")
+                        if (in_do_loop) then
+                            nesting_level = nesting_level + 1
+                        end if
+                    case ("select")
+                        if (in_select_case) then
+                            nesting_level = nesting_level + 1
+                        end if
+                    case ("where")
+                        if (in_where) then
+                            nesting_level = nesting_level + 1
+                        end if
+                    case ("end")
+                        ! Check for end constructs
+                        if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == TK_KEYWORD) then
+                            select case (tokens(i + 1)%text)
+                            case ("if")
+                                if (in_if_block) then
+                                    nesting_level = nesting_level - 1
+                                    if (nesting_level == 0) then
+                                        stmt_end = i + 1  ! Include both "end" and "if"
+                                        exit
+                                    end if
+                                end if
+                            case ("do")
+                                if (in_do_loop) then
+                                    nesting_level = nesting_level - 1
+                                    if (nesting_level == 0) then
+                                        stmt_end = i + 1  ! Include both "end" and "do"
+                                        exit
+                                    end if
+                                end if
+                            case ("select")
+                                if (in_select_case) then
+                                    nesting_level = nesting_level - 1
+                                    if (nesting_level == 0) then
+                                        stmt_end = i + 1  ! Include both "end" and "select"
+                                        exit
+                                    end if
+                                end if
+                            case ("where")
+                                if (in_where) then
+                                    nesting_level = nesting_level - 1
+                                    if (nesting_level == 0) then
+                                        stmt_end = i + 1  ! Include both "end" and "where"
+                                        exit
+                                    end if
+                                end if
+                            end select
+                        end if
+                    case ("endif")
+                        if (in_if_block) then
+                            nesting_level = nesting_level - 1
+                            if (nesting_level == 0) then
+                                stmt_end = i  ! Just "endif"
+                                exit
+                            end if
+                        end if
+                    end select
+                end if
+
+                i = i + 1
+            end do
+
+            if (stmt_end == start_pos) then
+                stmt_end = i - 1  ! Couldn't find matching end
+            end if
+        else
+            ! Not a control flow construct or simple if - shouldn't reach here in current usage
+            stmt_end = start_pos
+        end if
+    end subroutine find_control_flow_boundary_local
 
 end module parser_statements_module

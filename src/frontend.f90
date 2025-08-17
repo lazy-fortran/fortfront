@@ -8,7 +8,7 @@ module frontend
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
     use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
-                                          parse_select_case
+                                          parse_select_case, parse_if, parse_where_construct
     use ast_core
     use ast_factory, only: push_program, push_literal
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
@@ -662,8 +662,15 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             ! Module definition
             unit_index = parse_statement_dispatcher(tokens, arena)
         else if (is_program_start(tokens, 1)) then
-            ! Program definition
-            unit_index = parse_statement_dispatcher(tokens, arena)
+            ! CRITICAL FIX for Issue #255: Check if program contains control flow constructs
+            ! If so, use enhanced parse_all_statements instead of parse_program_statement
+            if (contains_control_flow_constructs(tokens)) then
+                ! Extract program body and parse with enhanced logic
+                unit_index = parse_program_with_control_flow(tokens, arena)
+            else
+                ! Program definition with simple statements only
+                unit_index = parse_statement_dispatcher(tokens, arena)
+            end if
         else
             ! If we're in explicit program unit mode, don't create
             ! implicit program wrappers
@@ -696,98 +703,176 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
     end function parse_program_unit
 
     ! Parse all statements in a token array (for lazy fortran)
+    ! CRITICAL FIX for Issue #255: Use single parser state with direct parser calls
     function parse_all_statements(tokens, arena) result(prog_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer :: prog_index
         integer, allocatable :: body_indices(:)
-        integer :: i, stmt_start, stmt_end, stmt_index
-        type(token_t), allocatable :: stmt_tokens(:)
+        integer :: stmt_index
+        type(parser_state_t) :: parser
+        type(token_t), allocatable :: working_tokens(:)
 
         allocate (body_indices(0))
 
-        ! Parse each statement
-        i = 1
-        do while (i <= size(tokens))
-            if (tokens(i)%kind == TK_EOF) then
-                ! call log_verbose("parse_all", "Hit EOF token at position "// &
-                !                  trim(adjustl(int_to_str(i))))
-                exit
+        ! CRITICAL FIX: Create a single parser state for the entire token sequence
+        ! and let the specialized parsers consume tokens naturally
+        
+        ! Ensure we have EOF token
+        if (size(tokens) == 0 .or. tokens(size(tokens))%kind /= TK_EOF) then
+            allocate (working_tokens(size(tokens) + 1))
+            if (size(tokens) > 0) then
+                working_tokens(1:size(tokens)) = tokens
+                working_tokens(size(tokens) + 1)%kind = TK_EOF
+                working_tokens(size(tokens) + 1)%text = ""
+                working_tokens(size(tokens) + 1)%line = tokens(size(tokens))%line
+                working_tokens(size(tokens) + 1)%column = tokens(size(tokens))%column + 1
+            else
+                working_tokens(1)%kind = TK_EOF
+                working_tokens(1)%text = ""
+                working_tokens(1)%line = 1
+                working_tokens(1)%column = 1
             end if
+        else
+            allocate (working_tokens(size(tokens)))
+            working_tokens = tokens
+        end if
 
-            ! Special handling for comments - treat as standalone statements
-            if (tokens(i)%kind == TK_COMMENT) then
-                ! Create a token array with just the comment and EOF
-                allocate (stmt_tokens(2))
-                stmt_tokens(1) = tokens(i)
-                stmt_tokens(2)%kind = TK_EOF
-                stmt_tokens(2)%text = ""
-                stmt_tokens(2)%line = tokens(i)%line
-                stmt_tokens(2)%column = tokens(i)%column + len(tokens(i)%text)
+        parser = create_parser_state(working_tokens)
+
+        ! Parse statements one by one using the single parser state
+        do while (.not. parser%is_at_end())
+            ! Skip newlines, EOF, and empty tokens
+            block
+                type(token_t) :: current_token
+                current_token = parser%peek()
                 
-                ! Parse the comment
-                stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
-                if (stmt_index > 0) then
-                    body_indices = [body_indices, stmt_index]
+                if (current_token%kind == TK_EOF) then
+                    exit
                 end if
-                
-                deallocate (stmt_tokens)
-                i = i + 1
-                cycle
-            end if
-
-            ! Find statement boundary
-            call find_statement_boundary(tokens, i, stmt_start, stmt_end)
-
-            if (stmt_end >= stmt_start) then
-                ! Extract statement tokens
-                allocate (stmt_tokens(stmt_end - stmt_start + 2))
-                stmt_tokens(1:stmt_end - stmt_start + 1) = tokens(stmt_start:stmt_end)
-                ! Add EOF token
-                stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
-                stmt_tokens(stmt_end - stmt_start + 2)%text = ""
-                stmt_tokens(stmt_end - stmt_start + 2)%line = tokens(stmt_end)%line
-             stmt_tokens(stmt_end - stmt_start + 2)%column = tokens(stmt_end)%column + 1
-
-                ! Parse the statement
-                stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
-                if (stmt_index > 0) then
-                    body_indices = [body_indices, stmt_index]
+                if (current_token%kind == TK_NEWLINE) then
+                    current_token = parser%consume()
+                    cycle
                 end if
 
-                deallocate (stmt_tokens)
+                ! Special handling for comments
+                if (current_token%kind == TK_COMMENT) then
+                    block
+                        type(token_t), allocatable :: comment_tokens(:)
+                        allocate (comment_tokens(2))
+                        comment_tokens(1) = parser%consume()
+                        comment_tokens(2)%kind = TK_EOF
+                        comment_tokens(2)%text = ""
+                        comment_tokens(2)%line = comment_tokens(1)%line
+                        comment_tokens(2)%column = comment_tokens(1)%column + len(comment_tokens(1)%text)
+                        
+                        stmt_index = parse_statement_dispatcher(comment_tokens, arena)
+                        if (stmt_index > 0) then
+                            body_indices = [body_indices, stmt_index]
+                        end if
+                        deallocate (comment_tokens)
+                    end block
+                    cycle
+                end if
+
+                ! CRITICAL FIX: For control flow constructs, call specialized parsers directly
+                ! For other statements, call the dispatcher with current parser state
+                if (current_token%kind == TK_KEYWORD) then
+                    select case (current_token%text)
+                    case ("if")
+                        ! Direct call to if parser
+                        stmt_index = parse_if(parser, arena)
+                    case ("do")
+                        ! Direct call to do loop parser
+                        stmt_index = parse_do_loop(parser, arena)
+                    case ("select")
+                        ! Direct call to select case parser  
+                        stmt_index = parse_select_case(parser, arena)
+                    case ("where")
+                        ! Direct call to where construct parser
+                        stmt_index = parse_where_construct(parser, arena)
+                case default
+                    ! For other statements, extract current statement tokens and use dispatcher
+                    block
+                        integer :: current_pos, stmt_start, stmt_end
+                        type(token_t), allocatable :: stmt_tokens(:)
+                        
+                        current_pos = parser%current_token
+                        call find_statement_boundary(working_tokens, current_pos, stmt_start, stmt_end)
+                        
+                        if (stmt_end >= stmt_start) then
+                            allocate (stmt_tokens(stmt_end - stmt_start + 2))
+                            stmt_tokens(1:stmt_end - stmt_start + 1) = working_tokens(stmt_start:stmt_end)
+                            stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
+                            stmt_tokens(stmt_end - stmt_start + 2)%text = ""
+                            stmt_tokens(stmt_end - stmt_start + 2)%line = working_tokens(stmt_end)%line
+                            stmt_tokens(stmt_end - stmt_start + 2)%column = working_tokens(stmt_end)%column + 1
+                            
+                            stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
+                            deallocate (stmt_tokens)
+                            
+                            ! Advance parser manually for non-control-flow statements
+                            parser%current_token = stmt_end + 1
+                        else
+                            stmt_index = 0
+                            current_token = parser%consume()  ! Advance to avoid infinite loop
+                        end if
+                    end block
+                end select
+            else
+                ! Non-keyword statements (expressions, assignments, etc.)
+                block
+                    integer :: current_pos, stmt_start, stmt_end
+                    type(token_t), allocatable :: stmt_tokens(:)
+                    
+                    current_pos = parser%current_token
+                    call find_statement_boundary(working_tokens, current_pos, stmt_start, stmt_end)
+                    
+                    if (stmt_end >= stmt_start) then
+                        allocate (stmt_tokens(stmt_end - stmt_start + 2))
+                        stmt_tokens(1:stmt_end - stmt_start + 1) = working_tokens(stmt_start:stmt_end)
+                        stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
+                        stmt_tokens(stmt_end - stmt_start + 2)%text = ""
+                        stmt_tokens(stmt_end - stmt_start + 2)%line = working_tokens(stmt_end)%line
+                        stmt_tokens(stmt_end - stmt_start + 2)%column = working_tokens(stmt_end)%column + 1
+                        
+                        stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
+                        deallocate (stmt_tokens)
+                        
+                        ! Advance parser manually
+                        parser%current_token = stmt_end + 1
+                    else
+                        stmt_index = 0
+                        current_token = parser%consume()  ! Advance to avoid infinite loop
+                    end if
+                end block
             end if
 
-            i = stmt_end + 1
-            ! call log_verbose("parse_all", "Next statement starts at token "// &
-            !                  trim(adjustl(int_to_str(i)))//" of "// &
-            !                  trim(adjustl(int_to_str(size(tokens)))))
-
-            ! Debug: Show next token if available
-            if (i <= size(tokens)) then
-                ! call log_verbose("parse_all", "Next token: '"//tokens(i)%text// &
-                !      "' (kind="//trim(adjustl(int_to_str(tokens(i)%kind)))// &
-                !      ", line="//trim(adjustl(int_to_str(tokens(i)%line)))//")")
+            ! Add parsed statement to body
+            if (stmt_index > 0) then
+                body_indices = [body_indices, stmt_index]
             end if
 
-            ! Check bounds
-            if (i > size(tokens)) then
-                ! call log_verbose("parse_all", "Reached end of tokens array")
-                exit
-            end if
+                ! Safety check to prevent infinite loops
+                if (parser%is_at_end()) then
+                    exit
+                end if
+            end block
         end do
 
         ! Create program node with all statements
-        ! Only create program node if we have actual statements
         if (size(body_indices) > 0) then
             prog_index = push_program(arena, "main", body_indices, 1, 1)
         else
             prog_index = 0
         end if
+
+        deallocate (working_tokens)
     end function parse_all_statements
 
-    ! Find statement boundary (handles multi-line constructs)
-    subroutine find_statement_boundary(tokens, start_pos, stmt_start, stmt_end)
+    ! Find control flow construct boundary (handles nested structures)
+    ! CRITICAL FIX for Issue #255: Properly handle nested control flow boundaries
+    subroutine find_control_flow_boundary(tokens, start_pos, stmt_start, stmt_end)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         integer, intent(out) :: stmt_start, stmt_end
@@ -802,7 +887,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         in_function = .false.
         nesting_level = 0
 
-        ! Check for multi-line constructs
+        ! Check what type of construct we're starting with
         if (is_if_then_start(tokens, start_pos)) then
             in_if_block = .true.
             nesting_level = 1
@@ -819,12 +904,12 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end if
 
         if (nesting_level > 0) then
-            ! Multi-line construct - find matching end
+            ! Multi-line construct - find matching end with proper nesting
             i = start_pos
             do while (i <= size(tokens) .and. nesting_level > 0)
                 if (tokens(i)%kind == TK_EOF) exit
 
-                ! Check for nested constructs
+                ! Check for nested constructs (but skip the first one at start_pos)
                 if (i /= start_pos) then
                     if (in_if_block .and. is_if_then_start(tokens, i)) then
                         nesting_level = nesting_level + 1
@@ -881,41 +966,55 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 stmt_end = i - 1  ! Couldn't find matching end
             end if
         else
-            ! Single-line statement - find end of line or comment
-            ! Track parentheses to handle array literals (/ ... /)
-            block
-                integer :: paren_depth
-                paren_depth = 0
-                i = start_pos
-                do while (i <= size(tokens))
-                    ! Track parentheses depth
-                    if (tokens(i)%kind == TK_OPERATOR) then
-                        if (tokens(i)%text == "(") then
-                            paren_depth = paren_depth + 1
-                        else if (tokens(i)%text == ")") then
-                            paren_depth = paren_depth - 1
-                        end if
-                    end if
-                    
-                    if (tokens(i)%kind == TK_EOF) then
-                        stmt_end = i - 1
-                        exit
-                    else if (tokens(i)%kind == TK_COMMENT .and. i > start_pos) then
-                        ! Stop before comment - let comment be parsed separately
-                        stmt_end = i - 1
-                        exit
-                    else if (i < size(tokens) .and. tokens(i)%line < tokens(i + 1)%line .and. &
-                             paren_depth == 0) then
-                        ! Only end statement at line break if parentheses are balanced
-                        stmt_end = i
-                        exit
-                    else
-                        stmt_end = i
-                        i = i + 1
-                    end if
-                end do
-            end block
+            ! Not a control flow construct - shouldn't reach here
+            stmt_end = start_pos
         end if
+    end subroutine find_control_flow_boundary
+
+    ! Find statement boundary (handles multi-line constructs)
+    subroutine find_statement_boundary(tokens, start_pos, stmt_start, stmt_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer, intent(out) :: stmt_start, stmt_end
+        integer :: i
+
+        stmt_start = start_pos
+        stmt_end = start_pos
+
+        ! Single-line statement - find end of line or comment
+        ! Track parentheses to handle array literals (/ ... /)
+        block
+            integer :: paren_depth
+            paren_depth = 0
+            i = start_pos
+            do while (i <= size(tokens))
+                ! Track parentheses depth
+                if (tokens(i)%kind == TK_OPERATOR) then
+                    if (tokens(i)%text == "(") then
+                        paren_depth = paren_depth + 1
+                    else if (tokens(i)%text == ")") then
+                        paren_depth = paren_depth - 1
+                    end if
+                end if
+                
+                if (tokens(i)%kind == TK_EOF) then
+                    stmt_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_COMMENT .and. i > start_pos) then
+                    ! Stop before comment - let comment be parsed separately
+                    stmt_end = i - 1
+                    exit
+                else if (i < size(tokens) .and. tokens(i)%line < tokens(i + 1)%line .and. &
+                         paren_depth == 0) then
+                    ! Only end statement at line break if parentheses are balanced
+                    stmt_end = i
+                    exit
+                else
+                    stmt_end = i
+                    i = i + 1
+                end if
+            end do
+        end block
     end subroutine find_statement_boundary
 
     ! Helper functions to detect program unit types
@@ -1473,5 +1572,125 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         ! in the main transform pipeline only.
         fortran_code = generate_code_from_arena(arena, prog_index)
     end subroutine emit_fortran
+
+    ! CRITICAL FIX for Issue #255: Helper functions for control flow program parsing
+    
+    ! Check if program contains control flow constructs
+    logical function contains_control_flow_constructs(tokens)
+        type(token_t), intent(in) :: tokens(:)
+        integer :: i
+        
+        contains_control_flow_constructs = .false.
+        
+        do i = 1, size(tokens)
+            if (tokens(i)%kind == TK_KEYWORD) then
+                select case (tokens(i)%text)
+                case ("do")
+                    ! Check if it's a do loop (not just "do" followed by something else)
+                    if (is_do_loop_start(tokens, i) .or. is_do_while_start(tokens, i)) then
+                        contains_control_flow_constructs = .true.
+                        return
+                    end if
+                case ("if")
+                    ! Check if it's a multi-line if-then construct
+                    if (is_if_then_start(tokens, i)) then
+                        contains_control_flow_constructs = .true.
+                        return
+                    end if
+                case ("select")
+                    if (is_select_case_start(tokens, i)) then
+                        contains_control_flow_constructs = .true.
+                        return
+                    end if
+                case ("where")
+                    ! where constructs are also control flow
+                    contains_control_flow_constructs = .true.
+                    return
+                end select
+            end if
+        end do
+    end function contains_control_flow_constructs
+    
+    ! Parse program with control flow constructs using enhanced logic
+    function parse_program_with_control_flow(tokens, arena) result(prog_index)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: prog_index
+        
+        integer :: prog_start, prog_end, body_start, body_end
+        character(len=:), allocatable :: program_name
+        type(token_t), allocatable :: body_tokens(:)
+        integer :: body_prog_index
+        integer, allocatable :: final_body(:)
+        
+        ! Find program boundaries
+        prog_start = 1
+        prog_end = size(tokens)
+        
+        ! Extract program name (skip "program" keyword)
+        program_name = "main"
+        if (prog_start + 1 <= size(tokens) .and. tokens(prog_start + 1)%kind == TK_IDENTIFIER) then
+            program_name = tokens(prog_start + 1)%text
+            body_start = prog_start + 2
+        else
+            body_start = prog_start + 1
+        end if
+        
+        ! Find program body end (before "end program")
+        body_end = prog_end
+        block
+            integer :: i
+            do i = prog_end, prog_start, -1
+                if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "end") then
+                    if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == TK_KEYWORD .and. &
+                        tokens(i + 1)%text == "program") then
+                        body_end = i - 1
+                        exit
+                    end if
+                end if
+            end do
+        end block
+        
+        ! Extract body tokens
+        if (body_end >= body_start) then
+            allocate (body_tokens(body_end - body_start + 1))
+            body_tokens = tokens(body_start:body_end)
+            
+            ! Parse body using enhanced parse_all_statements
+            body_prog_index = parse_all_statements(body_tokens, arena)
+            
+            ! Extract body from the temporary program node
+            if (body_prog_index > 0) then
+                block
+                    type(program_node), pointer :: temp_prog
+                    if (allocated(arena%entries(body_prog_index)%node)) then
+                        select type(node => arena%entries(body_prog_index)%node)
+                        type is (program_node)
+                            temp_prog => node
+                            if (allocated(temp_prog%body_indices)) then
+                                final_body = temp_prog%body_indices
+                            else
+                                allocate (final_body(0))
+                            end if
+                        class default
+                            allocate (final_body(1))
+                            final_body(1) = body_prog_index
+                        end select
+                    else
+                        allocate (final_body(0))
+                    end if
+                end block
+            else
+                allocate (final_body(0))
+            end if
+            
+            deallocate (body_tokens)
+        else
+            allocate (final_body(0))
+        end if
+        
+        ! Create final program node with extracted body
+        prog_index = push_program(arena, program_name, final_body, 1, 1)
+    end function parse_program_with_control_flow
 
 end module frontend
