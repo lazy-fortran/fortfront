@@ -15,6 +15,9 @@ module interface_analyzer
         character(:), allocatable :: intent  ! in, out, inout
         logical :: is_optional = .false.
         integer :: source_location = 0
+    contains
+        procedure :: assign_parameter_info
+        generic :: assignment(=) => assign_parameter_info
     end type
 
     ! Interface signature
@@ -28,6 +31,9 @@ module interface_analyzer
         logical :: is_recursive = .false.
         integer :: source_location = 0
         integer :: parameter_count = 0
+    contains
+        procedure :: assign_interface_signature
+        generic :: assignment(=) => assign_interface_signature
     end type
 
     ! Interface comparison result
@@ -37,6 +43,9 @@ module interface_analyzer
         integer, allocatable :: mismatch_locations(:)
         integer :: signature_count = 0
         integer :: mismatch_count = 0
+    contains
+        procedure :: assign_interface_comparison_result
+        generic :: assignment(=) => assign_interface_comparison_result
     end type
 
     ! Interface analyzer plugin
@@ -416,5 +425,108 @@ contains
         
         match = .true.
     end function
+
+    ! Assignment operators for deep copy
+    subroutine assign_parameter_info(lhs, rhs)
+        class(parameter_info_t), intent(inout) :: lhs
+        type(parameter_info_t), intent(in) :: rhs
+        
+        ! Clear existing allocations
+        if (allocated(lhs%name)) deallocate(lhs%name)
+        if (allocated(lhs%type_spec)) deallocate(lhs%type_spec)
+        if (allocated(lhs%intent)) deallocate(lhs%intent)
+        
+        ! Deep copy allocatable components
+        if (allocated(rhs%name)) then
+            allocate(character(len(rhs%name)) :: lhs%name)
+            lhs%name = rhs%name
+        end if
+        
+        if (allocated(rhs%type_spec)) then
+            allocate(character(len(rhs%type_spec)) :: lhs%type_spec)
+            lhs%type_spec = rhs%type_spec
+        end if
+        
+        if (allocated(rhs%intent)) then
+            allocate(character(len(rhs%intent)) :: lhs%intent)
+            lhs%intent = rhs%intent
+        end if
+        
+        ! Copy scalar values
+        lhs%is_optional = rhs%is_optional
+        lhs%source_location = rhs%source_location
+    end subroutine
+
+    subroutine assign_interface_signature(lhs, rhs)
+        class(interface_signature_t), intent(inout) :: lhs
+        type(interface_signature_t), intent(in) :: rhs
+        
+        integer :: i
+        
+        ! Clear existing allocations
+        if (allocated(lhs%name)) deallocate(lhs%name)
+        if (allocated(lhs%return_type)) deallocate(lhs%return_type)
+        if (allocated(lhs%parameters)) deallocate(lhs%parameters)
+        
+        ! Deep copy allocatable components
+        if (allocated(rhs%name)) then
+            allocate(character(len(rhs%name)) :: lhs%name)
+            lhs%name = rhs%name
+        end if
+        
+        if (allocated(rhs%return_type)) then
+            allocate(character(len(rhs%return_type)) :: lhs%return_type)
+            lhs%return_type = rhs%return_type
+        end if
+        
+        if (allocated(rhs%parameters)) then
+            allocate(lhs%parameters(size(rhs%parameters)))
+            do i = 1, size(rhs%parameters)
+                lhs%parameters(i) = rhs%parameters(i)
+            end do
+        end if
+        
+        ! Copy scalar values
+        lhs%is_function = rhs%is_function
+        lhs%is_pure = rhs%is_pure
+        lhs%is_elemental = rhs%is_elemental
+        lhs%is_recursive = rhs%is_recursive
+        lhs%source_location = rhs%source_location
+        lhs%parameter_count = rhs%parameter_count
+    end subroutine
+
+    subroutine assign_interface_comparison_result(lhs, rhs)
+        class(interface_comparison_result_t), intent(inout) :: lhs
+        type(interface_comparison_result_t), intent(in) :: rhs
+        
+        integer :: i
+        
+        ! Clear existing allocations
+        if (allocated(lhs%signatures)) deallocate(lhs%signatures)
+        if (allocated(lhs%mismatched_procedures)) deallocate(lhs%mismatched_procedures)
+        if (allocated(lhs%mismatch_locations)) deallocate(lhs%mismatch_locations)
+        
+        ! Deep copy allocatable components
+        if (allocated(rhs%signatures)) then
+            allocate(lhs%signatures(size(rhs%signatures)))
+            do i = 1, size(rhs%signatures)
+                lhs%signatures(i) = rhs%signatures(i)
+            end do
+        end if
+        
+        if (allocated(rhs%mismatched_procedures)) then
+            allocate(character(len(rhs%mismatched_procedures)) :: lhs%mismatched_procedures(size(rhs%mismatched_procedures)))
+            lhs%mismatched_procedures = rhs%mismatched_procedures
+        end if
+        
+        if (allocated(rhs%mismatch_locations)) then
+            allocate(lhs%mismatch_locations(size(rhs%mismatch_locations)))
+            lhs%mismatch_locations = rhs%mismatch_locations
+        end if
+        
+        ! Copy scalar values
+        lhs%signature_count = rhs%signature_count
+        lhs%mismatch_count = rhs%mismatch_count
+    end subroutine
 
 end module interface_analyzer

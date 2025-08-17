@@ -22,6 +22,9 @@ module variable_usage_tracker_module
         integer, allocatable :: usage_counts(:)
         integer, allocatable :: node_indices(:)
         integer :: total_count = 0
+    contains
+        procedure :: assign_usage_info
+        generic :: assignment(=) => assign_usage_info
     end type variable_usage_info_t
 
     ! Expression visitor interface
@@ -1202,5 +1205,35 @@ contains
             end do
         end if
     end function count_variable_usage
+
+    ! Assignment operator for variable_usage_info_t to handle deep copying
+    subroutine assign_usage_info(lhs, rhs)
+        class(variable_usage_info_t), intent(inout) :: lhs
+        type(variable_usage_info_t), intent(in) :: rhs
+        
+        ! Clear any existing allocations
+        if (allocated(lhs%variable_names)) deallocate(lhs%variable_names)
+        if (allocated(lhs%usage_counts)) deallocate(lhs%usage_counts)
+        if (allocated(lhs%node_indices)) deallocate(lhs%node_indices)
+        
+        ! Deep copy allocatable arrays
+        if (allocated(rhs%variable_names)) then
+            allocate(character(len(rhs%variable_names)) :: lhs%variable_names(size(rhs%variable_names)))
+            lhs%variable_names = rhs%variable_names
+        end if
+        
+        if (allocated(rhs%usage_counts)) then
+            allocate(lhs%usage_counts(size(rhs%usage_counts)))
+            lhs%usage_counts = rhs%usage_counts
+        end if
+        
+        if (allocated(rhs%node_indices)) then
+            allocate(lhs%node_indices(size(rhs%node_indices)))
+            lhs%node_indices = rhs%node_indices
+        end if
+        
+        ! Copy scalar value
+        lhs%total_count = rhs%total_count
+    end subroutine assign_usage_info
 
 end module variable_usage_tracker_module

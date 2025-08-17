@@ -27,6 +27,9 @@ module source_reconstruction_analyzer
         type(source_map_t) :: node_map
         integer :: total_lines = 0
         character(:), allocatable :: line_starts(:)  ! Character positions of line starts
+    contains
+        procedure :: assign_source_reconstruction_result
+        generic :: assignment(=) => assign_source_reconstruction_result
     end type
 
     ! Source reconstruction analyzer plugin
@@ -55,6 +58,9 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
+        ! Clear any previous results to prevent memory allocation bugs
+        call clear_source_reconstruction_result(this%result)
+        
         ! For now, create a basic mapping from AST nodes to source locations
         ! In full implementation, this would:
         ! 1. Store original source text
@@ -69,7 +75,8 @@ contains
         class(source_reconstruction_analyzer_t), intent(in) :: this
         class(*), allocatable :: results
         
-        ! Return the source reconstruction result
+        ! Return the source reconstruction result - ensure not already allocated
+        if (allocated(results)) deallocate(results)
         allocate(source_reconstruction_result_t :: results)
         select type(results)
         type is (source_reconstruction_result_t)
@@ -215,6 +222,19 @@ contains
         location_str = "unknown"
     end function
 
+    ! Clear source reconstruction result to prevent memory allocation bugs
+    subroutine clear_source_reconstruction_result(result)
+        type(source_reconstruction_result_t), intent(inout) :: result
+        
+        ! Deallocate all allocatable arrays safely
+        if (allocated(result%original_source)) deallocate(result%original_source)
+        if (allocated(result%line_starts)) deallocate(result%line_starts)
+        if (allocated(result%node_map%node_indices)) deallocate(result%node_map%node_indices)
+        if (allocated(result%node_map%locations)) deallocate(result%node_map%locations)
+        result%node_map%entry_count = 0
+        result%total_lines = 0
+    end subroutine
+
     ! Helper subroutines
     subroutine build_source_mapping(result, arena, root_index)
         type(source_reconstruction_result_t), intent(inout) :: result
@@ -238,7 +258,10 @@ contains
             return
         end if
         
-        ! Allocate mapping arrays
+        ! Allocate mapping arrays - ensure not already allocated
+        if (allocated(result%node_map%node_indices)) deallocate(result%node_map%node_indices)
+        if (allocated(result%node_map%locations)) deallocate(result%node_map%locations)
+        
         allocate(result%node_map%node_indices(valid_nodes))
         allocate(result%node_map%locations(valid_nodes))
         
@@ -316,5 +339,40 @@ contains
         
         line_count = max_line
     end function
+
+    ! Assignment operator for source_reconstruction_result_t
+    subroutine assign_source_reconstruction_result(lhs, rhs)
+        class(source_reconstruction_result_t), intent(inout) :: lhs
+        type(source_reconstruction_result_t), intent(in) :: rhs
+        
+        ! Clear any existing allocations
+        call clear_source_reconstruction_result(lhs)
+        
+        ! Deep copy allocatable components
+        if (allocated(rhs%original_source)) then
+            allocate(character(len(rhs%original_source)) :: lhs%original_source)
+            lhs%original_source = rhs%original_source
+        end if
+        
+        if (allocated(rhs%line_starts)) then
+            allocate(character(len(rhs%line_starts)) :: lhs%line_starts(size(rhs%line_starts)))
+            lhs%line_starts = rhs%line_starts
+        end if
+        
+        ! Copy source map data
+        if (allocated(rhs%node_map%node_indices)) then
+            allocate(lhs%node_map%node_indices(size(rhs%node_map%node_indices)))
+            lhs%node_map%node_indices = rhs%node_map%node_indices
+        end if
+        
+        if (allocated(rhs%node_map%locations)) then
+            allocate(lhs%node_map%locations(size(rhs%node_map%locations)))
+            lhs%node_map%locations = rhs%node_map%locations
+        end if
+        
+        ! Copy scalar values
+        lhs%node_map%entry_count = rhs%node_map%entry_count
+        lhs%total_lines = rhs%total_lines
+    end subroutine
 
 end module source_reconstruction_analyzer
