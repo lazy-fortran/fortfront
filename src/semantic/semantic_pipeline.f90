@@ -148,7 +148,6 @@ contains
         
         character(len=32), allocatable :: execution_order(:)
         integer :: i, analyzer_index
-        class(*), allocatable :: analyzer_results
         
         ! Get dependency-ordered execution sequence
         execution_order = this%dep_graph%get_execution_order()
@@ -162,10 +161,17 @@ contains
                     call this%analyzers(analyzer_index)%analyzer%analyze( &
                         this%context, arena, root_node_index)
                     
-                    ! Store results in shared context
-                    analyzer_results = &
-                        this%analyzers(analyzer_index)%analyzer%get_results()
-                    call this%context%store_result(execution_order(i), analyzer_results)
+                    ! Safe transfer of results to shared context
+                    ! Use block scope to ensure proper cleanup
+                    block
+                        class(*), allocatable :: temp_results
+                        temp_results = &
+                            this%analyzers(analyzer_index)%analyzer%get_results()
+                        if (allocated(temp_results)) then
+                            call this%context%store_result(execution_order(i), temp_results)
+                        end if
+                        ! temp_results automatically deallocated at end of block
+                    end block
                 end if
             end if
         end do
@@ -291,6 +297,7 @@ contains
 
     ! Shared context methods
     subroutine store_result(this, analyzer_name, result_data)
+        use semantic_analyzer, only: semantic_context_t
         class(shared_context_t), intent(inout) :: this
         character(*), intent(in) :: analyzer_name
         class(*), intent(in) :: result_data
@@ -305,7 +312,7 @@ contains
         do i = 1, this%result_count
             temp_results(i)%analyzer_name = this%results(i)%analyzer_name
             if (allocated(this%results(i)%result_data)) then
-                ! Simple copy for common types
+                ! Safe copy for all supported types
                 select type(src => this%results(i)%result_data)
                 type is (integer)
                     allocate(integer :: temp_results(i)%result_data)
@@ -319,8 +326,15 @@ contains
                     type is (logical)
                         dst = src
                     end select
+                type is (semantic_context_t)
+                    allocate(semantic_context_t :: temp_results(i)%result_data)
+                    select type(dst => temp_results(i)%result_data)
+                    type is (semantic_context_t)
+                        ! Use proper assignment operator for deep copy
+                        dst = src
+                    end select
                 class default
-                    ! For other types, just reference (unsafe but works for testing)
+                    ! For unknown types, use source allocation (may be unsafe)
                     allocate(temp_results(i)%result_data, source=src)
                 end select
             end if
@@ -341,7 +355,15 @@ contains
             type is (logical)
                 dst = src
             end select
+        type is (semantic_context_t)
+            allocate(semantic_context_t :: temp_results(this%result_count + 1)%result_data)
+            select type(dst => temp_results(this%result_count + 1)%result_data)
+            type is (semantic_context_t)
+                ! Use proper assignment operator for deep copy
+                dst = src
+            end select
         class default
+            ! For unknown types, use source allocation (may be unsafe)
             allocate(temp_results(this%result_count + 1)%result_data, source=src)
         end select
         
@@ -351,6 +373,7 @@ contains
     end subroutine
 
     function get_result(this, analyzer_name) result(result_data)
+        use semantic_analyzer, only: semantic_context_t
         class(shared_context_t), intent(in) :: this
         character(*), intent(in) :: analyzer_name
         class(*), allocatable :: result_data
@@ -360,7 +383,7 @@ contains
         do i = 1, this%result_count
             if (trim(this%results(i)%analyzer_name) == trim(analyzer_name)) then
                 if (allocated(this%results(i)%result_data)) then
-                    ! Safe copy for common types
+                    ! Safe copy for all supported types
                     select type(src => this%results(i)%result_data)
                     type is (integer)
                         allocate(integer :: result_data)
@@ -374,7 +397,15 @@ contains
                         type is (logical)
                             dst = src
                         end select
+                    type is (semantic_context_t)
+                        allocate(semantic_context_t :: result_data)
+                        select type(dst => result_data)
+                        type is (semantic_context_t)
+                            ! Use proper assignment operator for deep copy
+                            dst = src
+                        end select
                     class default
+                        ! For unknown types, use source allocation (may be unsafe)
                         allocate(result_data, source=src)
                     end select
                 end if
