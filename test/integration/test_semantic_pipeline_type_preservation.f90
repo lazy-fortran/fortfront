@@ -62,7 +62,7 @@ contains
 
         ! Verify AST was created with semantic information
         if (allocated(result%arena%entries)) then
-            if (result%arena%count > 0) then
+            if (result%arena%size > 0) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Simple expression pipeline type preservation"
             else
@@ -102,7 +102,7 @@ contains
 
         ! Verify function type information was preserved
         if (allocated(result%arena%entries)) then
-            if (result%arena%count > 0) then
+            if (result%arena%size > 0) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Function declaration pipeline type preservation"
             else
@@ -139,7 +139,7 @@ contains
 
         ! Verify complex expression type information was preserved
         if (allocated(result%arena%entries)) then
-            if (result%arena%count > 0) then
+            if (result%arena%size > 0) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Complex expression pipeline type preservation"
             else
@@ -176,7 +176,7 @@ contains
 
         ! Verify nested function type information was preserved
         if (allocated(result%arena%entries)) then
-            if (result%arena%count > 0) then
+            if (result%arena%size > 0) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Nested function calls pipeline type preservation"
             else
@@ -215,7 +215,7 @@ contains
 
         ! Verify assignment type information was preserved
         if (allocated(result%arena%entries)) then
-            if (result%arena%count > 0) then
+            if (result%arena%size > 0) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Assignment pipeline type preservation"
             else
@@ -253,7 +253,7 @@ contains
 
         ! Verify array type information was preserved
         if (allocated(result%arena%entries)) then
-            if (result%arena%count > 0) then
+            if (result%arena%size > 0) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Array operations pipeline type preservation"
             else
@@ -334,7 +334,7 @@ contains
 
         ! Verify all statement type information was preserved
         if (allocated(result%arena%entries)) then
-            if (result%arena%count > 0) then
+            if (result%arena%size > 0) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Multi-statement pipeline type preservation"
             else
@@ -374,7 +374,7 @@ contains
 
         ! Verify type information was preserved through transformations
         if (allocated(result%arena%entries)) then
-            if (result%arena%count > 0) then
+            if (result%arena%size > 0) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Semantic transformation type preservation"
             else
@@ -423,7 +423,7 @@ contains
 
         ! Verify complete type consistency was maintained
         if (allocated(result%arena%entries)) then
-            if (result%arena%count > 0) then
+            if (result%arena%size > 0) then
                 ! Additional validation could check specific nodes for type information
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: End-to-end type consistency preservation"

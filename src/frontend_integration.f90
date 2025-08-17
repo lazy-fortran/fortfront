@@ -3,7 +3,7 @@ module frontend_integration
     ! Provides a unified compilation result type and interface for integration testing
     
     use frontend, only: transform_lazy_fortran_string
-    use ast_core, only: ast_arena_t
+    use ast_core, only: ast_arena_t, init_ast_arena
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     implicit none
     private

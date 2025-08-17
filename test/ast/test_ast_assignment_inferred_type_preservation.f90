@@ -3,9 +3,10 @@ program test_ast_assignment_inferred_type_preservation
     ! Tests that AST node assignments properly preserve semantic information
     use ast_core
     use ast_nodes_data
-    use ast_nodes_expressions  
+    use ast_nodes_core
     use ast_nodes_control
     use ast_nodes_io
+    use ast_nodes_procedure
     use type_system_hm
     use iso_fortran_env, only: error_unit
     implicit none
@@ -165,13 +166,13 @@ contains
         ! Given: A function call node with inferred_type
         ! When: Node is assigned to another function_call
         ! Then: inferred_type should be preserved in the copy
-        type(function_call_node) :: original, copy
+        type(call_or_subscript_node) :: original, copy
         type(mono_type_t) :: int_type, real_type, fun_type
 
         test_count = test_count + 1
 
         ! Create original function call with inferred type
-        original%function_name = "sqrt"
+        original%name = "sqrt"
         original%line = 35
         original%column = 40
         allocate(original%arg_indices(1))
@@ -195,7 +196,7 @@ contains
                     if (copy%inferred_type%args(1)%kind == TREAL .and. &
                         copy%inferred_type%args(2)%kind == TREAL) then
                         ! Also check other fields were copied
-                        if (copy%function_name == "sqrt" .and. allocated(copy%arg_indices)) then
+                        if (copy%name == "sqrt" .and. allocated(copy%arg_indices)) then
                             if (size(copy%arg_indices) == 1 .and. copy%arg_indices(1) == 5) then
                                 pass_count = pass_count + 1
                                 write (*, '(A)') "PASS: Function call assignment with inferred_type preservation"
@@ -312,7 +313,8 @@ contains
 
         ! Create original if node with inferred type
         original%condition_index = 20
-        original%then_block_index = 21
+        allocate(original%then_body_indices(1))
+        original%then_body_indices(1) = 21
         original%line = 65
         original%column = 70
 
@@ -328,11 +330,15 @@ contains
         if (allocated(copy%inferred_type)) then
             if (copy%inferred_type%kind == TLOGICAL) then
                 ! Also check other fields were copied
-                if (copy%condition_index == 20 .and. copy%then_block_index == 21) then
-                    pass_count = pass_count + 1
-                    write (*, '(A)') "PASS: If node assignment with inferred_type preservation"
+                if (copy%condition_index == 20 .and. allocated(copy%then_body_indices)) then
+                    if (size(copy%then_body_indices) == 1 .and. copy%then_body_indices(1) == 21) then
+                        pass_count = pass_count + 1
+                        write (*, '(A)') "PASS: If node assignment with inferred_type preservation"
+                    else
+                        write (*, '(A)') "FAIL: If node assignment - base fields not preserved"
+                    end if
                 else
-                    write (*, '(A)') "FAIL: If node assignment - base fields not preserved"
+                    write (*, '(A)') "FAIL: If node assignment - then_body_indices not preserved"
                 end if
             else
                 write (*, '(A)') "FAIL: If node assignment - inferred_type kind incorrect"
@@ -408,13 +414,13 @@ contains
         ! Given: Nested AST structure with multiple inferred_types
         ! When: Assignment operations occur at different levels
         ! Then: All inferred_type information should be preserved
-        type(function_call_node) :: func_original, func_copy
+        type(call_or_subscript_node) :: func_original, func_copy
         type(mono_type_t) :: arg_type, result_type, fun_type
 
         test_count = test_count + 1
 
         ! Create function call with inferred types
-        func_original%function_name = "complex_func"
+        func_original%name = "complex_func"
         func_original%line = 85
         func_original%column = 90
         allocate(func_original%arg_indices(2))
