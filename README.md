@@ -162,6 +162,9 @@ Invalid input is rejected with helpful error messages identifying specific synta
 **⚠️ Current Limitations:**
 - Semicolon (`;`) statement separation is not supported - use line breaks instead
 - Select case parsing has known issues in nested contexts
+- Do loops inside if statements produce unparsed sections in complex cases
+- Nested if statements with multiple levels may generate structural errors
+- Full program structures (program...end program) have parsing limitations
 - Some complex nested control patterns may generate unparsed sections
 - Multiple sequential control structures may not all be processed
 
