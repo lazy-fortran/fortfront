@@ -18,6 +18,7 @@ module call_graph_analyzer
         procedure :: get_results => get_call_graph_results
         procedure :: get_name => get_call_graph_analyzer_name
         procedure :: assign => assign_call_graph_analyzer
+        procedure :: get_dependencies => get_call_graph_dependencies
         
         ! Analysis methods for fluff rules
         procedure :: find_unused_procedures
@@ -158,6 +159,17 @@ contains
             current_depth = 1 + calculate_max_depth(call_graph, callees(i))
             max_depth = max(max_depth, current_depth)
         end do
+    end function
+
+    function get_call_graph_dependencies(this) result(deps)
+        class(call_graph_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! Call graph analyzer has no dependencies
+        allocate(deps(0))
+        
+        associate(dummy => this)
+        end associate
     end function
 
 end module call_graph_analyzer

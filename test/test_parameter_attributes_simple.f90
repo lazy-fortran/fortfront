@@ -15,10 +15,9 @@ program test_parameter_attributes_simple
     
     if (all_passed) then
         print *, 'PASS: Parameter attribute tests passed'
-        stop 0
     else
         print *, 'FAIL: Parameter attribute tests failed'
-        stop 1
+        error stop 1
     end if
     
 contains

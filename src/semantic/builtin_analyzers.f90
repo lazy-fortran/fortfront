@@ -30,6 +30,7 @@ module builtin_analyzers
         procedure :: get_results => get_symbol_results
         procedure :: get_name => get_symbol_analyzer_name
         procedure :: assign => assign_symbol_analyzer
+        procedure :: get_dependencies => get_symbol_dependencies
     end type
 
     ! Type inference analyzer - performs Hindley-Milner type inference  
@@ -40,6 +41,7 @@ module builtin_analyzers
         procedure :: get_results => get_type_results  
         procedure :: get_name => get_type_analyzer_name
         procedure :: assign => assign_type_analyzer
+        procedure :: get_dependencies => get_type_dependencies
     end type
 
     ! Scope management analyzer - builds scope hierarchy
@@ -50,6 +52,7 @@ module builtin_analyzers
         procedure :: get_results => get_scope_results
         procedure :: get_name => get_scope_analyzer_name
         procedure :: assign => assign_scope_analyzer
+        procedure :: get_dependencies => get_scope_dependencies
     end type
 
 contains
@@ -201,5 +204,40 @@ contains
             error stop "Type mismatch in scope_analyzer assignment"
         end select
     end subroutine
+
+    ! Dependency functions for builtin analyzers
+    function get_symbol_dependencies(this) result(deps)
+        class(symbol_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! Symbol analyzer has no dependencies - runs first
+        allocate(deps(0))
+        
+        associate(dummy => this)
+        end associate
+    end function
+
+    function get_type_dependencies(this) result(deps)
+        class(type_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! Type analyzer depends on symbols
+        allocate(deps(1))
+        deps(1) = "symbol_analyzer"
+        
+        associate(dummy => this)
+        end associate
+    end function
+
+    function get_scope_dependencies(this) result(deps)
+        class(scope_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! Scope analyzer has no dependencies for now
+        allocate(deps(0))
+        
+        associate(dummy => this)
+        end associate
+    end function
 
 end module builtin_analyzers

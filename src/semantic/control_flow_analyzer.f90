@@ -1,12 +1,12 @@
 module control_flow_analyzer
     use semantic_analyzer_base, only: semantic_analyzer_t
     use ast_core, only: ast_arena_t
-    use control_flow_graph_module, only: control_flow_graph_t, basic_block_t, cfg_edge_t, &
-                                         create_control_flow_graph, &
-                                         cfg_find_unreachable_code => find_unreachable_code, &
-                                         get_unreachable_statements, is_block_reachable, &
-                                         EDGE_UNCONDITIONAL, EDGE_TRUE_BRANCH, EDGE_FALSE_BRANCH, &
-                                         EDGE_LOOP_BACK, EDGE_BREAK, EDGE_CONTINUE, EDGE_RETURN
+    use control_flow_graph_module, only: control_flow_graph_t, basic_block_t, &
+        cfg_edge_t, create_control_flow_graph, &
+        cfg_find_unreachable_code => find_unreachable_code, &
+        get_unreachable_statements, is_block_reachable, &
+        EDGE_UNCONDITIONAL, EDGE_TRUE_BRANCH, EDGE_FALSE_BRANCH, &
+        EDGE_LOOP_BACK, EDGE_BREAK, EDGE_CONTINUE, EDGE_RETURN
     use cfg_builder_module, only: build_control_flow_graph
     implicit none
     private
@@ -22,6 +22,7 @@ module control_flow_analyzer
         procedure :: get_results => get_control_flow_results
         procedure :: get_name => get_control_flow_analyzer_name
         procedure :: assign => assign_control_flow_analyzer
+        procedure :: get_dependencies => get_control_flow_dependencies
         
         ! Analysis methods for fluff rules
         procedure :: find_unreachable_code
@@ -255,6 +256,17 @@ contains
         end do
         
         complexity = branch_count
+    end function
+
+    function get_control_flow_dependencies(this) result(deps)
+        class(control_flow_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! Control flow analyzer has no dependencies
+        allocate(deps(0))
+        
+        associate(dummy => this)
+        end associate
     end function
 
 end module control_flow_analyzer

@@ -2,8 +2,8 @@ module parser_core
     use lexer_core
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_expression, parse_logical_or, &
-          parse_logical_and, parse_comparison, parse_member_access, parse_term, &
-          parse_factor, parse_primary
+          parse_logical_and, parse_comparison, parse_concatenation, parse_term, &
+          parse_factor, parse_power, parse_unary, parse_primary
     use parser_statements_module, only: parse_function_definition, &
                                         parse_subroutine_definition, &
                                         parse_interface_block, parse_module
@@ -159,12 +159,16 @@ contains
         character(len=:), allocatable, intent(out) :: only_list(:)
         character(len=:), allocatable, intent(out) :: rename_list(:)
 
-        character(len=100) :: temp_only(50)
-        character(len=100) :: temp_rename(50)
+        character(len=:), allocatable :: temp_only(:)
+        character(len=:), allocatable :: temp_rename(:)
         type(token_t) :: token
         integer :: count
         character(len=:), allocatable :: item_name, old_name
 
+        ! Allocate temporary arrays to avoid stack overflow
+        allocate(character(len=100) :: temp_only(50))
+        allocate(character(len=100) :: temp_rename(50))
+        
         count = 0
         temp_only = ""
         temp_rename = ""

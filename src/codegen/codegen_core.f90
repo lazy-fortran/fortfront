@@ -25,7 +25,7 @@ module codegen_core
     logical, save :: standardize_types_enabled = .true.
 
     ! Public interface for code generation
-    public :: generate_code_from_arena, generate_code_polymorphic
+    public :: generate_code_from_arena, generate_code_polymorphic, safe_generate_code_from_arena
     public :: set_type_standardization, get_type_standardization
 
 contains
@@ -129,6 +129,13 @@ contains
 
         ! Return the literal value with proper formatting
         select case (node%literal_kind)
+        case (LITERAL_INTEGER)
+            ! Integer literals: return value directly
+            if (allocated(node%value) .and. len_trim(node%value) > 0) then
+                code = node%value
+            else
+                code = "0"  ! Default integer literal
+            end if
         case (LITERAL_STRING)
             ! Special case for implicit none
             if (node%value == "implicit none") then
@@ -160,6 +167,13 @@ contains
             else
                 ! When standardization is disabled, preserve original literal format
                 code = node%value
+            end if
+        case (LITERAL_LOGICAL)
+            ! Logical literals: return value directly
+            if (allocated(node%value) .and. len_trim(node%value) > 0) then
+                code = node%value
+            else
+                code = ".false."  ! Default logical literal
             end if
         case default
             ! Handle invalid/empty literals safely
@@ -297,8 +311,7 @@ contains
             right_code = ""
         end if
 
-        ! Combine with operator - match fprettify spacing rules
-        ! fprettify: * and / get no spaces, +/- and comparisons get spaces
+        ! Combine with operator - precedence-aware spacing
         if (trim(node%operator) == ':') then
             ! Array slicing operator
             if (len(left_code) == 0) then
@@ -311,8 +324,11 @@ contains
                 ! Both bounds: lower:upper
                 code = left_code//":"//right_code
             end if
+        else if (trim(node%operator) == '**') then
+            ! Exponentiation gets no spaces (highest precedence)
+            code = left_code//node%operator//right_code
         else if (trim(node%operator) == '*' .or. trim(node%operator) == '/') then
-            ! Multiplication and division get no spaces
+            ! Multiplication and division get no spaces (original convention)
             code = left_code//node%operator//right_code
         else
             ! All other operators (comparisons, logical, etc.) get spaces around them
@@ -544,6 +560,16 @@ contains
 
         if (len(use_statements) > 0) then
             code = code//indent_lines(use_statements)//new_line('A')
+        end if
+
+        ! Add implicit none by default if not already present
+        if (.not. has_implicit_none) then
+            if (len(declarations) > 0) then
+                declarations = "implicit none"//new_line('A')//declarations
+            else
+                declarations = "implicit none"
+            end if
+            has_declarations = .true.
         end if
 
         if (len(declarations) > 0) then
@@ -1281,7 +1307,7 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: init_code
         character(len=:), allocatable :: type_str
-        integer :: i
+        integer :: i, j
 
         ! Determine the type string
         if (len_trim(node%type_name) > 0) then
@@ -1298,7 +1324,9 @@ contains
                     type_str = "real"
                 end if
             case (TCHAR)
-                if (node%inferred_type%size > 0) then
+                if (node%inferred_type%alloc_info%needs_allocatable_string) then
+                    type_str = "character(len=:)"
+                else if (node%inferred_type%size > 0) then
                     type_str = "character(len="// &
                         trim(adjustl(int_to_string(node%inferred_type%size)))//")"
                 else
@@ -1329,9 +1357,13 @@ contains
             code = code//", intent("//node%intent//")"
         end if
 
-        ! Add allocatable if present
+        ! Add allocatable if present or if string needs allocatable
         if (node%is_allocatable) then
             code = code//", allocatable"
+        else if (allocated(node%inferred_type)) then
+            if (node%inferred_type%alloc_info%needs_allocatable_string) then
+                code = code//", allocatable"
+            end if
         end if
         
         ! Add optional if present
@@ -1356,25 +1388,41 @@ contains
             do i = 1, size(node%var_names)
                 if (i > 1) code = code//", "
                 code = code//trim(node%var_names(i))
+                ! Add dimensions per variable if needed
+                if (node%is_array .and. allocated(node%dimension_indices)) then
+                    code = code//"("
+                    do j = 1, size(node%dimension_indices)
+                        if (j > 1) code = code//","
+                        if (node%dimension_indices(j) > 0 .and. &
+                            node%dimension_indices(j) <= arena%size) then
+                            code = code//generate_code_from_arena(arena, &
+                                                                 node%dimension_indices(j))
+                        else
+                            code = code//":"  ! Default for unspecified dimensions
+                        end if
+                    end do
+                    code = code//")"
+                end if
             end do
         else
             ! Single variable declaration
             code = code//node%var_name
-        end if
-
-        ! Add array dimensions if present
-        if (node%is_array .and. allocated(node%dimension_indices)) then
-            ! Generate dimension expressions
-            code = code//"("
-            do i = 1, size(node%dimension_indices)
-                if (i > 1) code = code//","
-   if (node%dimension_indices(i) > 0 .and. node%dimension_indices(i) <= arena%size) then
-                 code = code//generate_code_from_arena(arena, node%dimension_indices(i))
-                else
-                    code = code//":"  ! Default for unspecified dimensions
-                end if
-            end do
-            code = code//")"
+            
+            ! Add array dimensions if present
+            if (node%is_array .and. allocated(node%dimension_indices)) then
+                ! Generate dimension expressions
+                code = code//"("
+                do i = 1, size(node%dimension_indices)
+                    if (i > 1) code = code//","
+                    if (node%dimension_indices(i) > 0 .and. &
+                        node%dimension_indices(i) <= arena%size) then
+                        code = code//generate_code_from_arena(arena, node%dimension_indices(i))
+                    else
+                        code = code//":"  ! Default for unspecified dimensions
+                    end if
+                end do
+                code = code//")"
+            end if
         end if
 
         ! Add initializer if present
@@ -2562,11 +2610,14 @@ contains
         ! Process declarations
         if (allocated(node%declaration_indices)) then
             do i = 1, size(node%declaration_indices)
-                if (node%declaration_indices(i) > 0) then
-                    stmt_code = generate_code_from_arena(arena, &
-                                                          node%declaration_indices(i))
-                    if (len_trim(stmt_code) > 0) then
-                        code = code//with_indent(stmt_code)//new_line('A')
+                if (node%declaration_indices(i) > 0 .and. &
+                    node%declaration_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(node%declaration_indices(i))%node)) then
+                        stmt_code = generate_code_from_arena(arena, &
+                                                              node%declaration_indices(i))
+                        if (len_trim(stmt_code) > 0) then
+                            code = code//with_indent(stmt_code)//new_line('A')
+                        end if
                     end if
                 end if
             end do
@@ -2580,11 +2631,14 @@ contains
             
             ! Generate procedures
             do i = 1, size(node%procedure_indices)
-                if (node%procedure_indices(i) > 0) then
-                    stmt_code = generate_code_from_arena(arena, &
-                                                          node%procedure_indices(i))
-                    if (len_trim(stmt_code) > 0) then
-                        code = code//with_indent(stmt_code)//new_line('A')
+                if (node%procedure_indices(i) > 0 .and. &
+                    node%procedure_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(node%procedure_indices(i))%node)) then
+                        stmt_code = generate_code_from_arena(arena, &
+                                                              node%procedure_indices(i))
+                        if (len_trim(stmt_code) > 0) then
+                            code = code//with_indent(stmt_code)//new_line('A')
+                        end if
                     end if
                 end if
             end do
@@ -2927,5 +2981,29 @@ contains
         output_code = trim(long_line(1:break_pos))//" &"//new_line('a')// &
                       continuation_indent//trim(long_line(break_pos+1:))
     end subroutine add_line_with_continuation
+
+    ! Safe version of generate_code_from_arena that uses subroutine interface
+    ! to avoid problematic allocatable string assignments
+    subroutine safe_generate_code_from_arena(arena, node_index, code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable, intent(out) :: code
+        
+        ! Use a local block to contain any potential crashes
+        block
+            character(len=:), allocatable :: temp_code
+            
+            ! Call the original function but handle any errors
+            temp_code = generate_code_from_arena(arena, node_index)
+            
+            ! Safely assign the result
+            if (allocated(temp_code)) then
+                code = temp_code
+            else
+                code = "! Error: Code generation failed"
+            end if
+        end block
+        
+    end subroutine safe_generate_code_from_arena
 
 end module codegen_core

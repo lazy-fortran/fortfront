@@ -56,6 +56,21 @@ contains
                 end do
             end if
             
+        type is (module_node)
+            ! Check module declarations
+            if (allocated(node%declaration_indices)) then
+                do i = 1, size(node%declaration_indices)
+                    call check_all_assignments(ctx, arena, node%declaration_indices(i))
+                end do
+            end if
+            
+            ! Check module procedures
+            if (allocated(node%procedure_indices)) then
+                do i = 1, size(node%procedure_indices)
+                    call check_all_assignments(ctx, arena, node%procedure_indices(i))
+                end do
+            end if
+            
         type is (function_def_node)
             ! Enter function scope and set up parameters
             call ctx%scopes%enter_function(node%name)

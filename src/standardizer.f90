@@ -17,6 +17,9 @@ module standardizer
     
     ! Type standardization configuration for standardizer
     logical, save :: standardizer_type_standardization_enabled = .true.
+    
+    ! Constants
+    integer, parameter :: INVALID_INTEGER = -999999
 
     public :: standardize_ast
     public :: standardize_ast_json
@@ -26,13 +29,19 @@ module standardizer
 contains
 
     ! Main standardization entry point
-    recursive subroutine standardize_ast(arena, root_index)
+    recursive subroutine standardize_ast(arena, root_index, in_module)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
+        logical, intent(in), optional :: in_module
         integer :: i
+        logical :: is_in_module
 
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
+
+        ! Determine if we're inside a module context
+        is_in_module = .false.
+        if (present(in_module)) is_in_module = in_module
 
         select type (node => arena%entries(root_index)%node)
         type is (program_node)
@@ -54,11 +63,15 @@ contains
                 call standardize_program(arena, node, root_index)
             end if
         type is (function_def_node)
-            ! Wrap standalone function in a program
-            call wrap_function_in_program(arena, root_index)
+            ! Only wrap standalone functions in a program, skip if inside module
+            if (.not. is_in_module) then
+                call wrap_function_in_program(arena, root_index)
+            end if
         type is (subroutine_def_node)
-            ! Wrap standalone subroutine in a program
-            call wrap_subroutine_in_program(arena, root_index)
+            ! Only wrap standalone subroutines in a program, skip if inside module
+            if (.not. is_in_module) then
+                call wrap_subroutine_in_program(arena, root_index)
+            end if
         type is (module_node)
             ! Modules don't need wrapping - standardize their contents
             call standardize_module(arena, node, root_index)
@@ -96,7 +109,10 @@ contains
         call insert_variable_declarations(arena, prog, prog_index)
         
         ! Mark variables that need allocatable due to array reassignment (Issue 188)
-        call mark_allocatable_for_array_reassignments(arena, prog)
+        call mark_allocatable_for_array_reassignments(arena, prog, prog_index)
+        
+        ! Mark variables that need allocatable due to string length changes (Issue 218)
+        call mark_allocatable_for_string_length_changes(arena, prog)
 
         ! Check if we need to insert a contains statement
         if (has_functions .or. has_subroutines) then
@@ -121,22 +137,24 @@ contains
         integer, intent(in) :: mod_index
         integer :: i
         
-        ! Standardize declarations in the module
+        ! Standardize declarations in the module (pass in_module=.true.)
         if (allocated(mod%declaration_indices)) then
             do i = 1, size(mod%declaration_indices)
                 if (mod%declaration_indices(i) > 0 .and. &
                     mod%declaration_indices(i) <= arena%size) then
-                    call standardize_ast(arena, mod%declaration_indices(i))
+                    call standardize_ast(arena, mod%declaration_indices(i), &
+                                       in_module=.true.)
                 end if
             end do
         end if
         
-        ! Standardize procedures in the module
+        ! Standardize procedures in the module (pass in_module=.true.)
         if (allocated(mod%procedure_indices)) then
             do i = 1, size(mod%procedure_indices)
                 if (mod%procedure_indices(i) > 0 .and. &
                     mod%procedure_indices(i) <= arena%size) then
-                    call standardize_ast(arena, mod%procedure_indices(i))
+                    call standardize_ast(arena, mod%procedure_indices(i), &
+                                       in_module=.true.)
                 end if
             end do
         end if
@@ -539,18 +557,84 @@ contains
                                                             var_names(i))) then
                             decl_idx = decl_idx + 1
                     ! Create declaration node
-                    decl_node%type_name = trim(var_types(i))
-                    decl_node%var_name = trim(var_names(i))
-                    
-                    ! Check if this variable is an array by looking it up in the arena
+                    ! Parse the type string - it might contain dimension info
                     block
+                        integer :: comma_pos, dim_pos, paren_pos, iostat
+                        logical :: has_dimension_attr
+                        character(len=20) :: dim_str
+                        integer :: dim_size
                         logical :: found_array_type
                         integer :: j
-                        found_array_type = .false.
                         
-                        ! Search for the identifier node with this name to check &
-                        ! its inferred type
-                        do j = 1, arena%size
+                        has_dimension_attr = .false.
+                        comma_pos = index(var_types(i), ',')
+                        if (comma_pos > 0) then
+                            ! Has attributes like dimension - extract just the base type
+                            decl_node%type_name = trim(var_types(i)(1:comma_pos-1))
+                            
+                            ! Check for dimension attribute
+                            dim_pos = index(var_types(i), 'dimension(')
+                            if (dim_pos > 0) then
+                                has_dimension_attr = .true.
+                                ! Extract dimension value
+                                paren_pos = index(var_types(i)(dim_pos:), ')')
+                                if (paren_pos > 10) then  ! Must have at least 1 character after dimension(
+                                    ! paren_pos is relative to dim_pos, so we extract from dim_pos+10 to dim_pos+paren_pos-2
+                                    dim_str = var_types(i)(dim_pos+10:dim_pos+paren_pos-2)
+                                    
+                                    ! Check if it's a deferred shape (:) - indicates allocatable
+                                    if (trim(dim_str) == ':') then
+                                        decl_node%is_array = .true.
+                                        decl_node%is_allocatable = .true.
+                                        if (allocated(decl_node%dimension_indices)) &
+                                            deallocate(decl_node%dimension_indices)
+                                        allocate(decl_node%dimension_indices(1))
+                                        decl_node%dimension_indices(1) = 0  ! 0 indicates deferred shape
+                                    else
+                                        ! Try to parse as integer
+                                        read(dim_str, *, iostat=iostat) dim_size
+                                        if (iostat == 0) then
+                                            ! Successfully parsed dimension
+                                            decl_node%is_array = .true.
+                                            if (allocated(decl_node%dimension_indices)) &
+                                                deallocate(decl_node%dimension_indices)
+                                            allocate(decl_node%dimension_indices(1))
+                                            ! Create literal node for the size
+                                            block
+                                                type(literal_node) :: size_literal
+                                                character(len=20) :: size_str
+                                                write(size_str, '(i0)') dim_size
+                                                size_literal = create_literal(trim(size_str), &
+                                                                             LITERAL_INTEGER, 1, 1)
+                                                call arena%push(size_literal, "literal", prog_index)
+                                                decl_node%dimension_indices(1) = arena%size
+                                            end block
+                                        end if
+                                    end if
+                                else
+                                    iostat = 1  ! Invalid dimension string
+                                end if
+                            end if
+                            
+                            ! Check for explicit allocatable attribute
+                            if (index(var_types(i), 'allocatable') > 0) then
+                                decl_node%is_allocatable = .true.
+                            end if
+                        else
+                            decl_node%type_name = trim(var_types(i))
+                        end if
+                        
+                        decl_node%var_name = trim(var_names(i))
+                        
+                        ! Check if this variable is an array by looking it up in the arena
+                        ! But only if we haven't already set it from dimension attribute
+                        found_array_type = has_dimension_attr  ! If we already parsed dimension, we found it
+                        
+                        ! Only search if we haven't already determined it's an array
+                        if (.not. has_dimension_attr) then
+                            ! Search for the identifier node with this name to check &
+                            ! its inferred type
+                            do j = 1, arena%size
                             if (allocated(arena%entries(j)%node)) then
                                 select type (node => arena%entries(j)%node)
                                 type is (identifier_node)
@@ -590,6 +674,7 @@ contains
                                 end select
                             end if
                         end do
+                        end if  ! .not. has_dimension_attr
                         
                         if (.not. found_array_type) then
                             decl_node%is_array = .false.
@@ -645,10 +730,19 @@ contains
 
         select type (stmt => arena%entries(stmt_index)%node)
         type is (declaration_node)
-            ! Mark this variable as already declared - don't generate implicit &
-            ! declaration
-            call mark_variable_declared(stmt%var_name, var_names, &
-                                         var_declared, var_count)
+            ! Mark variables as already declared - don't generate implicit 
+            ! declarations
+            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                ! Handle multi-variable declaration
+                do i = 1, size(stmt%var_names)
+                    call mark_variable_declared(stmt%var_names(i), var_names, &
+                                               var_declared, var_count)
+                end do
+            else
+                ! Handle single variable declaration
+                call mark_variable_declared(stmt%var_name, var_names, &
+                                           var_declared, var_count)
+            end if
         type is (assignment_node)
             call collect_assignment_vars(arena, stmt_index, var_names, &
                                           var_types, var_declared, var_count, &
@@ -938,9 +1032,22 @@ contains
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
                         type is (declaration_node)
+                            ! Check single variable declaration
                             if (trim(stmt%var_name) == trim(var_name)) then
                                 has_decl = .true.
                                 return
+                            end if
+                            ! Check multi-variable declaration
+                            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                                block
+                                    integer :: j
+                                    do j = 1, size(stmt%var_names)
+                                        if (trim(stmt%var_names(j)) == trim(var_name)) then
+                                            has_decl = .true.
+                                            return
+                                        end if
+                                    end do
+                                end block
                             end if
                         end select
                     end if
@@ -1090,6 +1197,157 @@ contains
         end select
     end function is_array_expression
     
+    ! Check if array literal contains an implied do loop
+    function has_implied_do_loop(arena, array_node) result(has_implied)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: array_node
+        logical :: has_implied
+        
+        has_implied = .false.
+        
+        if (allocated(array_node%element_indices)) then
+            if (size(array_node%element_indices) == 1) then
+                ! Check if the single element is a do_loop_node
+                if (array_node%element_indices(1) > 0 .and. &
+                    array_node%element_indices(1) <= arena%size) then
+                    if (allocated(arena%entries(array_node%element_indices(1))%node)) then
+                        select type (elem => arena%entries(array_node%element_indices(1))%node)
+                        type is (do_loop_node)
+                            has_implied = .true.
+                        class default
+                        end select
+                    end if
+                end if
+            end if
+        end if
+    end function has_implied_do_loop
+    
+    ! Calculate size of implied do loop
+    function get_implied_do_size(arena, do_node_index) result(size)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: do_node_index
+        integer :: size
+        
+        size = -1  ! Return -1 if we can't determine the size
+        
+        if (do_node_index <= 0 .or. do_node_index > arena%size) return
+        if (.not. allocated(arena%entries(do_node_index)%node)) return
+        
+        select type (do_node => arena%entries(do_node_index)%node)
+        type is (do_loop_node)
+            ! Try to calculate size from start, end, and step expressions
+            ! For now, we'll handle simple integer literals
+            if (do_node%start_expr_index > 0 .and. do_node%end_expr_index > 0) then
+                size = calculate_loop_size(arena, do_node%start_expr_index, &
+                                          do_node%end_expr_index, do_node%step_expr_index)
+            end if
+        end select
+    end function get_implied_do_size
+    
+    ! Calculate loop size from start, end, and step expressions
+    function calculate_loop_size(arena, start_idx, end_idx, step_idx) result(size)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: start_idx, end_idx, step_idx
+        integer :: size
+        integer :: start_val, end_val, step_val
+        
+        size = -1
+        
+        ! Get start value
+        start_val = get_integer_literal_value(arena, start_idx)
+        if (start_val == INVALID_INTEGER) then
+            return
+        end if
+        
+        ! Get end value
+        end_val = get_integer_literal_value(arena, end_idx)
+        if (end_val == INVALID_INTEGER) then
+            return
+        end if
+        
+        ! Get step value (default to 1 if not specified)
+        if (step_idx > 0) then
+            step_val = get_integer_literal_value(arena, step_idx)
+            if (step_val == INVALID_INTEGER) step_val = 1
+        else
+            step_val = 1
+        end if
+        
+        ! Calculate size
+        if (step_val /= 0) then
+            if (step_val > 0) then
+                ! Forward iteration
+                if (end_val >= start_val) then
+                    size = (end_val - start_val) / step_val + 1
+                else
+                    size = 0  ! No iterations
+                end if
+            else
+                ! Backward iteration
+                if (start_val >= end_val) then
+                    size = (start_val - end_val) / abs(step_val) + 1
+                else
+                    size = 0  ! No iterations
+                end if
+            end if
+        end if
+    end function calculate_loop_size
+    
+    ! Get integer value from a literal node
+    recursive function get_integer_literal_value(arena, expr_idx) result(value)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_idx
+        integer :: value
+        
+        value = INVALID_INTEGER  ! Error value
+        
+        if (expr_idx <= 0 .or. expr_idx > arena%size) then
+            return
+        end if
+        if (.not. allocated(arena%entries(expr_idx)%node)) then
+            return
+        end if
+        
+        select type (node => arena%entries(expr_idx)%node)
+        type is (literal_node)
+            ! Try using literal_kind instead of literal_type
+            if (node%literal_kind == LITERAL_INTEGER .and. allocated(node%value)) then
+                block
+                    integer :: iostat
+                    read(node%value, *, iostat=iostat) value
+                    if (iostat /= 0) then
+                        value = INVALID_INTEGER
+                    end if
+                end block
+            end if
+        type is (binary_op_node)
+            ! Handle simple binary operations for compile-time constants
+            if (allocated(node%operator)) then
+                if (node%left_index > 0 .and. node%right_index > 0) then
+                    block
+                        integer :: left_val, right_val
+                        left_val = get_integer_literal_value(arena, node%left_index)
+                        right_val = get_integer_literal_value(arena, node%right_index)
+                        if (left_val /= INVALID_INTEGER .and. &
+                            right_val /= INVALID_INTEGER) then
+                            select case(node%operator)
+                            case("-")
+                                value = left_val - right_val
+                            case("+")
+                                value = left_val + right_val
+                            case("*")
+                                value = left_val * right_val
+                            case("/")
+                                if (right_val /= 0) value = left_val / right_val
+                            end select
+                        end if
+                    end block
+                end if
+            end if
+        class default
+        end select
+    end function get_integer_literal_value
+    
     ! Get array variable type declaration from an array expression
     function get_array_var_type(arena, expr_index) result(var_type)
         type(ast_arena_t), intent(in) :: arena
@@ -1130,8 +1388,25 @@ contains
                     end if
                 end if
                 
-                write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
-                    ", dimension(", size(node%element_indices), ")"
+                ! Check if this is an implied do loop
+                if (has_implied_do_loop(arena, node)) then
+                    ! Calculate the size from the implied do loop bounds
+                    block
+                        integer :: implied_size
+                        implied_size = get_implied_do_size(arena, node%element_indices(1))
+                        if (implied_size > 0) then
+                            write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                                ", dimension(", implied_size, ")"
+                        else
+                            ! Can't determine size, use allocatable
+                            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                        end if
+                    end block
+                else
+                    ! Regular array literal with explicit elements
+                    write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                        ", dimension(", size(node%element_indices), ")"
+                end if
             end if
         type is (call_or_subscript_node)
             ! For array slices, try to calculate the size
@@ -1762,9 +2037,10 @@ contains
     end subroutine get_standardizer_type_standardization
 
     ! Mark variables that need allocatable due to array reassignment patterns (Issue 188)
-    subroutine mark_allocatable_for_array_reassignments(arena, prog)
+    subroutine mark_allocatable_for_array_reassignments(arena, prog, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(in) :: prog
+        integer, intent(in) :: prog_index
         character(len=64), allocatable :: assigned_vars(:)
         integer, allocatable :: assignment_counts(:)
         integer :: var_count, i, j
@@ -1791,7 +2067,8 @@ contains
             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                 if (allocated(arena%entries(prog%body_indices(i))%node)) then
                     call mark_declarations_allocatable(arena, prog%body_indices(i), &
-                                                      assigned_vars, assignment_counts, var_count)
+                                                      assigned_vars, assignment_counts, &
+                                                      var_count, prog_index)
                 end if
             end if
         end do
@@ -1873,12 +2150,13 @@ contains
     
     ! Mark declaration nodes as allocatable for variables with multiple assignments
     recursive subroutine mark_declarations_allocatable(arena, stmt_index, assigned_vars, &
-                                                      assignment_counts, var_count)
+                                                      assignment_counts, var_count, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(in) :: assigned_vars(:)
         integer, intent(in) :: assignment_counts(:)
         integer, intent(in) :: var_count
+        integer, intent(in) :: prog_index
         integer :: i
         
         if (stmt_index <= 0 .or. stmt_index > arena%size) return
@@ -1886,32 +2164,264 @@ contains
         
         select type (stmt => arena%entries(stmt_index)%node)
         type is (declaration_node)
-            ! Check if this declaration needs allocatable
-            do i = 1, var_count
-                if (trim(stmt%var_name) == trim(assigned_vars(i))) then
-                    ! Variable has multiple array assignments
-                    if (assignment_counts(i) > 1) then
-                        ! Only mark as allocatable if:
-                        ! 1. It's an array
-                        ! 2. Not already allocatable
-                        ! 3. Not a procedure parameter (skip those)
-                        if (stmt%is_array .and. &
-                            .not. stmt%is_allocatable .and. &
-                            .not. is_procedure_parameter(arena, stmt_index)) then
-                            stmt%is_allocatable = .true.
-                            ! Update to deferred shape
-                            if (allocated(stmt%dimension_indices)) then
-                                if (size(stmt%dimension_indices) > 0) then
-                                    stmt%dimension_indices(1) = 0  ! Deferred shape
+            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                ! Handle multi-variable declaration - need to check if splitting required
+                call handle_multi_variable_declaration_allocatable(arena, stmt_index, &
+                                                                  assigned_vars, &
+                                                                  assignment_counts, &
+                                                                  var_count, prog_index)
+            else
+                ! Handle single variable declaration
+                do i = 1, var_count
+                    if (trim(stmt%var_name) == trim(assigned_vars(i))) then
+                        ! Variable has multiple array assignments
+                        if (assignment_counts(i) > 1) then
+                            ! Only mark as allocatable if:
+                            ! 1. It's an array
+                            ! 2. Not already allocatable
+                            ! 3. Not a procedure parameter (skip those)
+                            if (stmt%is_array .and. &
+                                .not. stmt%is_allocatable .and. &
+                                .not. is_procedure_parameter(arena, stmt_index)) then
+                                stmt%is_allocatable = .true.
+                                ! Update ALL dimensions to deferred shape
+                                if (allocated(stmt%dimension_indices)) then
+                                    ! Set all dimensions to 0 (deferred shape)
+                                    ! This converts fixed dimensions like (10) or (3,4) 
+                                    ! to deferred shapes (:) or (:,:)
+                                    stmt%dimension_indices = 0
                                 end if
                             end if
                         end if
+                        exit
                     end if
+                end do
+            end if
+        end select
+    end subroutine mark_declarations_allocatable
+    
+    ! Handle multi-variable declarations where only some variables need allocatable
+    subroutine handle_multi_variable_declaration_allocatable(arena, decl_index, &
+                                                            assigned_vars, &
+                                                            assignment_counts, &
+                                                            var_count, prog_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+        character(len=64), intent(in) :: assigned_vars(:)
+        integer, intent(in) :: assignment_counts(:)
+        integer, intent(in) :: var_count
+        integer, intent(in) :: prog_index
+        
+        integer :: i, j
+        logical, allocatable :: needs_allocatable(:)
+        logical :: any_needs_allocatable, all_need_allocatable
+        
+        if (decl_index <= 0 .or. decl_index > arena%size) return
+        if (.not. allocated(arena%entries(decl_index)%node)) return
+        
+        select type (decl => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            if (.not. decl%is_multi_declaration .or. &
+                .not. allocated(decl%var_names)) return
+            
+            ! Determine which variables need allocatable
+            allocate(needs_allocatable(size(decl%var_names)))
+            needs_allocatable = .false.
+            
+            do i = 1, size(decl%var_names)
+                do j = 1, var_count
+                    if (trim(decl%var_names(i)) == trim(assigned_vars(j))) then
+                        if (assignment_counts(j) > 1) then
+                            ! Only mark as needing allocatable if:
+                            ! 1. It's an array
+                            ! 2. Not already allocatable
+                            ! 3. Not a procedure parameter
+                            if (decl%is_array .and. &
+                                .not. decl%is_allocatable .and. &
+                                .not. is_procedure_parameter(arena, decl_index)) then
+                                needs_allocatable(i) = .true.
+                            end if
+                        end if
+                        exit
+                    end if
+                end do
+            end do
+            
+            ! Check if any or all need allocatable
+            any_needs_allocatable = any(needs_allocatable)
+            all_need_allocatable = all(needs_allocatable)
+            
+            if (.not. any_needs_allocatable) then
+                ! No variables need allocatable, leave declaration as-is
+                return
+            else if (all_need_allocatable) then
+                ! All variables need allocatable, just mark the declaration
+                decl%is_allocatable = .true.
+                if (allocated(decl%dimension_indices)) then
+                    ! Set all dimensions to 0 (deferred shape)
+                    decl%dimension_indices = 0
+                end if
+            else
+                ! Mixed case: Split the declaration into allocatable and non-allocatable
+                call split_multi_variable_declaration(arena, decl_index, &
+                                                    needs_allocatable, prog_index)
+            end if
+            
+        end select
+    end subroutine handle_multi_variable_declaration_allocatable
+    
+    ! Split multi-variable declaration into allocatable and non-allocatable parts
+    subroutine split_multi_variable_declaration(arena, decl_index, &
+                                               needs_allocatable, prog_index)
+        use ast_factory, only: push_multi_declaration
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+        logical, intent(in) :: needs_allocatable(:)
+        integer, intent(in) :: prog_index
+        
+        type(declaration_node), pointer :: orig_decl
+        character(len=:), allocatable :: allocatable_vars(:), non_allocatable_vars(:)
+        integer :: i, alloc_count, non_alloc_count
+        integer :: new_alloc_index, new_non_alloc_index
+        integer, allocatable :: deferred_dims(:)
+        
+        if (decl_index <= 0 .or. decl_index > arena%size) return
+        if (.not. allocated(arena%entries(decl_index)%node)) return
+        
+        select type (orig_decl => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            if (.not. orig_decl%is_multi_declaration .or. &
+                .not. allocated(orig_decl%var_names)) return
+            
+            ! Count variables in each group
+            alloc_count = count(needs_allocatable)
+            non_alloc_count = size(needs_allocatable) - alloc_count
+            
+            if (alloc_count == 0 .or. non_alloc_count == 0) return
+            
+            ! Allocate arrays for variable names
+            allocate(character(len=100) :: allocatable_vars(alloc_count))
+            allocate(character(len=100) :: non_allocatable_vars(non_alloc_count))
+            
+            ! Split variable names
+            alloc_count = 0
+            non_alloc_count = 0
+            do i = 1, size(orig_decl%var_names)
+                if (needs_allocatable(i)) then
+                    alloc_count = alloc_count + 1
+                    allocatable_vars(alloc_count) = trim(orig_decl%var_names(i))
+                else
+                    non_alloc_count = non_alloc_count + 1
+                    non_allocatable_vars(non_alloc_count) = &
+                        trim(orig_decl%var_names(i))
+                end if
+            end do
+            
+            ! Create deferred shape dimensions for allocatable variables
+            if (orig_decl%is_array .and. allocated(orig_decl%dimension_indices)) then
+                allocate(deferred_dims(size(orig_decl%dimension_indices)))
+                deferred_dims = 0  ! 0 means deferred shape (:)
+            end if
+            
+            ! Create new allocatable declaration
+            new_alloc_index = push_multi_declaration(arena, &
+                orig_decl%type_name, &
+                allocatable_vars, &
+                kind_value=merge(orig_decl%kind_value, 0, orig_decl%has_kind), &
+                dimension_indices=deferred_dims, &
+                initializer_index=merge(orig_decl%initializer_index, 0, &
+                                      orig_decl%has_initializer), &
+                is_allocatable=.true., &
+                is_pointer=orig_decl%is_pointer, &
+                is_target=orig_decl%is_target, &
+                intent_value=merge(orig_decl%intent, "", orig_decl%has_intent), &
+                is_optional=orig_decl%is_optional, &
+                line=orig_decl%line, &
+                column=orig_decl%column, &
+                parent_index=prog_index)
+            
+            ! Create new non-allocatable declaration
+            new_non_alloc_index = push_multi_declaration(arena, &
+                orig_decl%type_name, &
+                non_allocatable_vars, &
+                kind_value=merge(orig_decl%kind_value, 0, orig_decl%has_kind), &
+                dimension_indices=orig_decl%dimension_indices, &
+                initializer_index=merge(orig_decl%initializer_index, 0, &
+                                      orig_decl%has_initializer), &
+                is_allocatable=.false., &
+                is_pointer=orig_decl%is_pointer, &
+                is_target=orig_decl%is_target, &
+                intent_value=merge(orig_decl%intent, "", orig_decl%has_intent), &
+                is_optional=orig_decl%is_optional, &
+                line=orig_decl%line, &
+                column=orig_decl%column, &
+                parent_index=prog_index)
+            
+            ! Update program body_indices to include new declarations
+            call update_program_body_indices(arena, prog_index, decl_index, &
+                                            new_alloc_index, new_non_alloc_index)
+            
+            ! Clean up
+            if (allocated(deferred_dims)) deallocate(deferred_dims)
+            deallocate(allocatable_vars)
+            deallocate(non_allocatable_vars)
+            
+        end select
+    end subroutine split_multi_variable_declaration
+    
+    ! Update program body_indices to replace old declaration with new ones
+    subroutine update_program_body_indices(arena, prog_index, old_decl_index, &
+                                         new_alloc_index, new_non_alloc_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: prog_index, old_decl_index
+        integer, intent(in) :: new_alloc_index, new_non_alloc_index
+        
+        integer, allocatable :: new_body_indices(:)
+        integer :: i, old_pos, new_size
+        
+        if (prog_index <= 0 .or. prog_index > arena%size) return
+        if (.not. allocated(arena%entries(prog_index)%node)) return
+        
+        select type (prog => arena%entries(prog_index)%node)
+        type is (program_node)
+            if (.not. allocated(prog%body_indices)) return
+            
+            ! Find position of old declaration
+            old_pos = 0
+            do i = 1, size(prog%body_indices)
+                if (prog%body_indices(i) == old_decl_index) then
+                    old_pos = i
                     exit
                 end if
             end do
+            
+            if (old_pos == 0) return  ! Old declaration not found
+            
+            ! Create new body_indices array (one element larger)
+            new_size = size(prog%body_indices) + 1
+            allocate(new_body_indices(new_size))
+            
+            ! Copy elements before the old declaration
+            if (old_pos > 1) then
+                new_body_indices(1:old_pos-1) = prog%body_indices(1:old_pos-1)
+            end if
+            
+            ! Insert the two new declarations
+            new_body_indices(old_pos) = new_alloc_index
+            new_body_indices(old_pos+1) = new_non_alloc_index
+            
+            ! Copy elements after the old declaration
+            if (old_pos < size(prog%body_indices)) then
+                new_body_indices(old_pos+2:new_size) = &
+                    prog%body_indices(old_pos+1:size(prog%body_indices))
+            end if
+            
+            ! Replace the program's body_indices
+            deallocate(prog%body_indices)
+            prog%body_indices = new_body_indices
+            
         end select
-    end subroutine mark_declarations_allocatable
+    end subroutine update_program_body_indices
     
     ! Check if assignment value is an array expression
     function is_array_assignment(arena, value_index) result(is_array)
@@ -1950,5 +2460,123 @@ contains
             is_param = .true.
         end select
     end function is_procedure_parameter
+
+    ! Mark declaration nodes as allocatable for strings with length changes (Issue 218)
+    subroutine mark_allocatable_for_string_length_changes(arena, prog)
+        type(ast_arena_t), intent(inout) :: arena
+        type(program_node), intent(in) :: prog
+        character(len=64), allocatable :: string_vars_needing_allocatable(:)
+        integer :: var_count, i, j
+        
+        
+        ! First pass: collect variables that need allocatable strings
+        allocate(string_vars_needing_allocatable(100))
+        var_count = 0
+        
+        if (allocated(prog%body_indices)) then
+            do i = 1, size(prog%body_indices)
+                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                    call collect_string_vars_needing_allocatable(arena, prog%body_indices(i), &
+                        string_vars_needing_allocatable, var_count)
+                end if
+            end do
+        end if
+        
+        
+        ! Second pass: mark the corresponding declarations
+        if (var_count > 0 .and. allocated(prog%body_indices)) then
+            do i = 1, size(prog%body_indices)
+                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                        select type (stmt => arena%entries(prog%body_indices(i))%node)
+                        type is (declaration_node)
+                            ! Check if this declaration needs to be marked
+                            do j = 1, var_count
+                                if (trim(stmt%var_name) == trim(string_vars_needing_allocatable(j))) then
+                                    if (allocated(stmt%inferred_type)) then
+                                        stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
+                                        ! Clear type_name so codegen uses inferred_type
+                                        stmt%type_name = ""
+                                    else
+                                        ! Create an inferred_type for the declaration
+                                        allocate(stmt%inferred_type)
+                                        stmt%inferred_type%kind = TCHAR
+                                        stmt%inferred_type%size = 0  ! Unknown size for allocatable
+                                        stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
+                                        ! Clear type_name so codegen uses inferred_type
+                                        stmt%type_name = ""
+                                    end if
+                                    exit
+                                end if
+                            end do
+                        end select
+                    end if
+                end if
+            end do
+        end if
+        
+        deallocate(string_vars_needing_allocatable)
+    end subroutine mark_allocatable_for_string_length_changes
+    
+    ! Recursively collect variables that need allocatable strings
+    recursive subroutine collect_string_vars_needing_allocatable(arena, stmt_index, &
+                                                               var_list, var_count)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: stmt_index
+        character(len=64), intent(inout) :: var_list(:)
+        integer, intent(inout) :: var_count
+        character(len=:), allocatable :: var_name
+        integer :: i, j
+        
+        if (stmt_index <= 0 .or. stmt_index > arena%size) return
+        if (.not. allocated(arena%entries(stmt_index)%node)) return
+        
+        select type (stmt => arena%entries(stmt_index)%node)
+        type is (assignment_node)
+            ! Check if assignment target has needs_allocatable_string flag
+            if (stmt%target_index > 0 .and. stmt%target_index <= arena%size) then
+                if (allocated(arena%entries(stmt%target_index)%node)) then
+                    select type (target => arena%entries(stmt%target_index)%node)
+                    type is (identifier_node)
+                        if (allocated(target%inferred_type)) then
+                            if (target%inferred_type%alloc_info%needs_allocatable_string) then
+                                var_name = target%name
+                                ! Add to list if not already present
+                                do j = 1, var_count
+                                    if (trim(var_list(j)) == trim(var_name)) return  ! Already in list
+                                end do
+                                if (var_count < size(var_list)) then
+                                    var_count = var_count + 1
+                                    var_list(var_count) = var_name
+                                end if
+                            end if
+                        end if
+                    end select
+                end if
+            end if
+        type is (do_loop_node)
+            ! Recursively process loop body
+            if (allocated(stmt%body_indices)) then
+                do i = 1, size(stmt%body_indices)
+                    call collect_string_vars_needing_allocatable(arena, stmt%body_indices(i), &
+                                                                var_list, var_count)
+                end do
+            end if
+        type is (if_node)
+            ! Recursively process if branches
+            if (allocated(stmt%then_body_indices)) then
+                do i = 1, size(stmt%then_body_indices)
+                    call collect_string_vars_needing_allocatable(arena, stmt%then_body_indices(i), &
+                                                                var_list, var_count)
+                end do
+            end if
+            if (allocated(stmt%else_body_indices)) then
+                do i = 1, size(stmt%else_body_indices)
+                    call collect_string_vars_needing_allocatable(arena, stmt%else_body_indices(i), &
+                                                                var_list, var_count)
+                end do
+            end if
+        end select
+    end subroutine collect_string_vars_needing_allocatable
 
 end module standardizer

@@ -4,11 +4,12 @@ program fortfront_cli
     implicit none
     
     character(len=:), allocatable :: input_text, output_text, error_msg
-    character(len=1000) :: line
+    character(len=:), allocatable :: line  ! Changed to allocatable to avoid stack overflow
     integer :: iostat
     
     ! Read all input from stdin
     allocate(character(len=0) :: input_text)
+    allocate(character(len=1000) :: line)  ! Allocate with reasonable size
     
     do
         read(input_unit, '(A)', iostat=iostat) line
@@ -20,18 +21,21 @@ program fortfront_cli
         input_text = input_text // trim(line) // new_line('A')
     end do
     
-    ! Check if we got input
-    if (len(input_text) == 0) then
-        write(error_unit, '(A)') 'No input received from stdin'
-        stop 1
-    end if
+    ! Allow empty input - let the frontend handle it gracefully
+    ! Empty input should generate a minimal valid program
     
     ! Transform lazy fortran to standard fortran
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
     
-    if (error_msg /= "") then
+    ! For syntax/parsing errors, the error information is included in output_text
+    ! Only stop with error code for system-level failures
+    if (error_msg /= "" .and. index(error_msg, "Cannot open") > 0) then
+        ! System-level error (file I/O, etc.) - report to stderr and exit with error
         write(error_unit, '(A)') trim(error_msg)
         stop 1
+    else if (error_msg /= "") then
+        ! Syntax/parsing error - report to stderr but continue with output
+        write(error_unit, '(A)') trim(error_msg)
     end if
     
     ! Write output to stdout

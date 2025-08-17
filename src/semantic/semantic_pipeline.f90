@@ -1,6 +1,7 @@
 module semantic_pipeline
     use ast_core, only: ast_arena_t
     use semantic_analyzer_base, only: semantic_analyzer_t
+    use dependency_graph, only: dependency_graph_t, create_dependency_graph
     ! Import all analyzer types for safe allocation
     use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t
     use call_graph_analyzer, only: call_graph_analyzer_t
@@ -12,24 +13,44 @@ module semantic_pipeline
     implicit none
     private
 
-    public :: semantic_pipeline_t, analyzer_ptr
-    public :: create_pipeline, destroy_pipeline
+    public :: semantic_pipeline_t, analyzer_ptr, analysis_result_t, shared_context_t
+    public :: create_pipeline, destroy_pipeline, create_shared_context
 
     ! Wrapper for analyzer pointers to allow arrays
     type :: analyzer_ptr
         class(semantic_analyzer_t), allocatable :: analyzer
     end type
 
+    ! Analysis result storage
+    type :: analysis_result_t
+        character(len=32) :: analyzer_name = ""
+        class(*), allocatable :: result_data
+    end type
+
+    ! Shared context for multi-pass analysis
+    type :: shared_context_t
+        type(analysis_result_t), allocatable :: results(:)
+        integer :: result_count = 0
+    contains
+        procedure :: store_result
+        procedure :: get_result
+        procedure :: has_result
+        procedure :: clear_results
+    end type
+
     ! Pipeline manager for semantic analysis
     type :: semantic_pipeline_t
         type(analyzer_ptr), allocatable :: analyzers(:)
         integer :: analyzer_count = 0
+        type(dependency_graph_t) :: dep_graph
+        type(shared_context_t) :: context
     contains
         procedure :: register_analyzer
         procedure :: run_analysis
         procedure :: get_analyzer_count
         procedure :: get_analyzer
         procedure :: clear_analyzers
+        procedure :: find_analyzer_by_name
         final :: cleanup_pipeline
     end type
 
@@ -41,6 +62,17 @@ contains
         pipeline%analyzer_count = 0
         ! Initialize empty analyzers array
         allocate(pipeline%analyzers(0))
+        
+        ! Initialize dependency graph and shared context
+        pipeline%dep_graph = create_dependency_graph()
+        pipeline%context = create_shared_context()
+    end function
+
+    function create_shared_context() result(context)
+        type(shared_context_t) :: context
+        
+        context%result_count = 0
+        allocate(context%results(0))
     end function
 
     subroutine destroy_pipeline(pipeline)
@@ -68,23 +100,32 @@ contains
         ! SAFE: Use type-specific allocation and deep copy via assignment operator
         select type(a => analyzer)
         type is (symbol_analyzer_t)
-            allocate(symbol_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(symbol_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (type_analyzer_t)
-            allocate(type_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(type_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (scope_analyzer_t)
-            allocate(scope_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(scope_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (call_graph_analyzer_t)
-            allocate(call_graph_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(call_graph_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (control_flow_analyzer_t)
-            allocate(control_flow_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(control_flow_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (usage_tracker_analyzer_t)
-            allocate(usage_tracker_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(usage_tracker_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (source_reconstruction_analyzer_t)
-            allocate(source_reconstruction_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(source_reconstruction_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (interface_analyzer_t)
-            allocate(interface_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(interface_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         type is (simple_test_analyzer_t)
-            allocate(simple_test_analyzer_t :: temp_analyzers(this%analyzer_count + 1)%analyzer)
+            allocate(simple_test_analyzer_t :: &
+                temp_analyzers(this%analyzer_count + 1)%analyzer)
         class default
             error stop "Unknown analyzer type in register_analyzer"
         end select
@@ -95,6 +136,9 @@ contains
         ! Update pipeline
         call move_alloc(temp_analyzers, this%analyzers)
         this%analyzer_count = this%analyzer_count + 1
+        
+        ! Add to dependency graph
+        call this%dep_graph%add_node(analyzer%get_name(), analyzer%get_dependencies())
     end subroutine
 
     subroutine run_analysis(this, arena, root_node_index)
@@ -102,18 +146,27 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_node_index
         
-        integer :: i
-        integer :: dummy_context
+        character(len=32), allocatable :: execution_order(:)
+        integer :: i, analyzer_index
+        class(*), allocatable :: analyzer_results
         
-        ! For now, use a simple non-allocatable context
-        ! The allocatable class(*) was causing issues
-        dummy_context = 0
+        ! Get dependency-ordered execution sequence
+        execution_order = this%dep_graph%get_execution_order()
         
-        ! Run each registered analyzer
-        do i = 1, this%analyzer_count
-            if (allocated(this%analyzers(i)%analyzer)) then
-                call this%analyzers(i)%analyzer%analyze( &
-                    dummy_context, arena, root_node_index)
+        ! Run analyzers in dependency order
+        do i = 1, size(execution_order)
+            analyzer_index = this%find_analyzer_by_name(execution_order(i))
+            if (analyzer_index > 0) then
+                if (allocated(this%analyzers(analyzer_index)%analyzer)) then
+                    ! Use shared context for multi-pass analysis
+                    call this%analyzers(analyzer_index)%analyzer%analyze( &
+                        this%context, arena, root_node_index)
+                    
+                    ! Store results in shared context
+                    analyzer_results = &
+                        this%analyzers(analyzer_index)%analyzer%get_results()
+                    call this%context%store_result(execution_order(i), analyzer_results)
+                end if
             end if
         end do
     end subroutine
@@ -208,6 +261,24 @@ contains
         this%analyzer_count = 0
     end subroutine
 
+    function find_analyzer_by_name(this, name) result(index)
+        class(semantic_pipeline_t), intent(in) :: this
+        character(*), intent(in) :: name
+        integer :: index
+        
+        integer :: i
+        
+        index = 0
+        do i = 1, this%analyzer_count
+            if (allocated(this%analyzers(i)%analyzer)) then
+                if (trim(this%analyzers(i)%analyzer%get_name()) == trim(name)) then
+                    index = i
+                    return
+                end if
+            end if
+        end do
+    end function
+
     subroutine cleanup_pipeline(this)
         type(semantic_pipeline_t), intent(inout) :: this
         
@@ -215,7 +286,129 @@ contains
         if (allocated(this%analyzers)) then
             deallocate(this%analyzers)
         end if
-        ! Shared context no longer used
+        ! Shared context cleanup handled automatically
+    end subroutine
+
+    ! Shared context methods
+    subroutine store_result(this, analyzer_name, result_data)
+        class(shared_context_t), intent(inout) :: this
+        character(*), intent(in) :: analyzer_name
+        class(*), intent(in) :: result_data
+        
+        type(analysis_result_t), allocatable :: temp_results(:)
+        integer :: i
+        
+        ! Grow results array
+        allocate(temp_results(this%result_count + 1))
+        
+        ! Copy existing results
+        do i = 1, this%result_count
+            temp_results(i)%analyzer_name = this%results(i)%analyzer_name
+            if (allocated(this%results(i)%result_data)) then
+                ! Simple copy for common types
+                select type(src => this%results(i)%result_data)
+                type is (integer)
+                    allocate(integer :: temp_results(i)%result_data)
+                    select type(dst => temp_results(i)%result_data)
+                    type is (integer)
+                        dst = src
+                    end select
+                type is (logical)
+                    allocate(logical :: temp_results(i)%result_data)
+                    select type(dst => temp_results(i)%result_data)
+                    type is (logical)
+                        dst = src
+                    end select
+                class default
+                    ! For other types, just reference (unsafe but works for testing)
+                    allocate(temp_results(i)%result_data, source=src)
+                end select
+            end if
+        end do
+        
+        ! Add new result
+        temp_results(this%result_count + 1)%analyzer_name = trim(analyzer_name)
+        select type(src => result_data)
+        type is (integer)
+            allocate(integer :: temp_results(this%result_count + 1)%result_data)
+            select type(dst => temp_results(this%result_count + 1)%result_data)
+            type is (integer)
+                dst = src
+            end select
+        type is (logical)
+            allocate(logical :: temp_results(this%result_count + 1)%result_data)
+            select type(dst => temp_results(this%result_count + 1)%result_data)
+            type is (logical)
+                dst = src
+            end select
+        class default
+            allocate(temp_results(this%result_count + 1)%result_data, source=src)
+        end select
+        
+        ! Update context
+        call move_alloc(temp_results, this%results)
+        this%result_count = this%result_count + 1
+    end subroutine
+
+    function get_result(this, analyzer_name) result(result_data)
+        class(shared_context_t), intent(in) :: this
+        character(*), intent(in) :: analyzer_name
+        class(*), allocatable :: result_data
+        
+        integer :: i
+        
+        do i = 1, this%result_count
+            if (trim(this%results(i)%analyzer_name) == trim(analyzer_name)) then
+                if (allocated(this%results(i)%result_data)) then
+                    ! Safe copy for common types
+                    select type(src => this%results(i)%result_data)
+                    type is (integer)
+                        allocate(integer :: result_data)
+                        select type(dst => result_data)
+                        type is (integer)
+                            dst = src
+                        end select
+                    type is (logical)
+                        allocate(logical :: result_data)
+                        select type(dst => result_data)
+                        type is (logical)
+                            dst = src
+                        end select
+                    class default
+                        allocate(result_data, source=src)
+                    end select
+                end if
+                return
+            end if
+        end do
+        
+        ! Result not found - return unallocated
+    end function
+
+    function has_result(this, analyzer_name) result(found)
+        class(shared_context_t), intent(in) :: this
+        character(*), intent(in) :: analyzer_name
+        logical :: found
+        
+        integer :: i
+        
+        found = .false.
+        do i = 1, this%result_count
+            if (trim(this%results(i)%analyzer_name) == trim(analyzer_name)) then
+                found = .true.
+                return
+            end if
+        end do
+    end function
+
+    subroutine clear_results(this)
+        class(shared_context_t), intent(inout) :: this
+        
+        if (allocated(this%results)) then
+            deallocate(this%results)
+        end if
+        allocate(this%results(0))
+        this%result_count = 0
     end subroutine
 
 end module semantic_pipeline

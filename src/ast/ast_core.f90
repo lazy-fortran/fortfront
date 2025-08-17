@@ -2,11 +2,10 @@ module ast_core
     ! Compatibility module that re-exports all AST modules
     ! This allows existing code to continue working during the transition
     !
-    ! WARNING: AST Node Copying is STRICTLY FORBIDDEN
-    ! ===============================================
-    ! Do NOT create any functions that copy AST nodes. Nodes contain
-    ! complex allocatable components that will cause segmentation faults
-    ! and memory corruption if copied. Use ONLY the visitor pattern.
+    ! AST Node Copying is now SAFE with cycle-protected memory management
+    ! =====================================================================
+    ! AST nodes can be safely copied using proper assignment operators that
+    ! implement depth-limited copying for mono_type_t structures.
     
     use type_system_hm, only: mono_type_t
     use intrinsic_registry, only: get_intrinsic_info
@@ -237,16 +236,18 @@ contains
         if (present(column)) node%column = column
     end function create_subroutine_call
 
-    function create_use_statement(module_name, only_list, rename_list, has_only, &
-            line, column) result(node)
+    function create_use_statement(module_name, only_list, rename_list, &
+            has_only, line, column, url_spec) result(node)
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
+        character(len=*), intent(in), optional :: url_spec
         logical, intent(in), optional :: has_only
         integer, intent(in), optional :: line, column
         type(use_statement_node) :: node
         integer :: i
 
         node%module_name = module_name
+        if (present(url_spec)) node%url_spec = url_spec
         if (present(has_only)) node%has_only = has_only
         
         if (present(only_list)) then

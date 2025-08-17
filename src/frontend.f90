@@ -3,7 +3,7 @@ module frontend
     ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
     
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
-                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR
+                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
@@ -23,6 +23,11 @@ module frontend
     use json_reader, only: json_read_tokens_from_file, json_read_ast_from_file, &
                             json_read_semantic_from_file
     use stdlib_logger, only: global_logger
+    use input_validation, only: validate_basic_syntax, check_missing_then_statements, &
+                                check_incomplete_statements, check_for_fortran_content, &
+                                check_missing_end_constructs, contains_invalid_patterns, &
+                                has_only_meaningless_tokens, format_enhanced_error, &
+                                format_syntax_error, split_into_lines
 
     implicit none
     private
@@ -105,7 +110,7 @@ contains
         block
             character(len=:), allocatable :: line
             allocate (character(len=0) :: source)
-            allocate (character(len=1000) :: line)
+            allocate (character(len=1000) :: line)  ! Allocatable - safe from stack overflow
 
             do
                 read (unit, '(A)', iostat=iostat) line
@@ -1263,6 +1268,56 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         call lex_source(input, tokens, error_msg)
         if (error_msg /= "") return
         
+        ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
+        call validate_basic_syntax(input, tokens, error_msg)
+        if (error_msg /= "") then
+            ! Issue #256 requirement #4: No silent fallback to empty programs
+            ! Issue #256 requirement #5: Meaningful output for invalid syntax
+            ! Always preserve the error message for reporting and include it in output
+            
+            ! Store the original error message for unit tests and CLI
+            block
+                character(len=:), allocatable :: original_error
+                original_error = error_msg
+                
+                output = "! COMPILATION FAILED - SYNTAX ERROR" // new_line('A') // &
+                        "! " // original_error // new_line('A') // &
+                        "!" // new_line('A') // &
+                        "! fortfront could not parse the input due to syntax errors." // new_line('A') // &
+                        "! Please fix the errors above and try again." // new_line('A') // &
+                        "program main" // new_line('A') // &
+                        "    implicit none" // new_line('A') // &
+                        "    ! ERROR: Original code could not be parsed" // new_line('A') // &
+                        "end program main" // new_line('A')
+                
+                ! Restore the original error message for unit tests and CLI error reporting
+                error_msg = original_error
+            end block
+            return
+        end if
+        
+        ! Check if validation passed but we have no meaningful content to parse
+        ! This handles cases where input is only comments, whitespace, or empty
+        block
+            integer :: meaningful_tokens
+            integer :: i
+            
+            meaningful_tokens = 0
+            do i = 1, size(tokens)
+                if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE .or. &
+                    tokens(i)%kind == TK_COMMENT) cycle
+                meaningful_tokens = meaningful_tokens + 1
+            end do
+            
+            if (meaningful_tokens == 0) then
+                ! Create minimal program for empty/meaningless input
+                output = "program main" // new_line('A') // &
+                         "    implicit none" // new_line('A') // &
+                         "end program main" // new_line('A')
+                return
+            end if
+        end block
+        
         ! Check if we have any tokens to parse
         if (size(tokens) == 0) then
             ! No tokens - create minimal program
@@ -1272,17 +1327,54 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             return
         end if
         
-        ! Phase 2: Parsing
-        call init_ast_arena(arena)
-        call parse_tokens(tokens, arena, prog_index, error_msg)
-        if (error_msg /= "") return
-        
-        ! Debug: check if we got a valid program index
-        if (prog_index <= 0) then
-            ! For empty or minimal input, create a basic program
+        ! Check if we have only meaningless tokens (whitespace, comments, newlines)
+        if (has_only_meaningless_tokens(tokens)) then
+            ! Only meaningless tokens - create minimal program
             output = "program main" // new_line('A') // &
                      "    implicit none" // new_line('A') // &
                      "end program main" // new_line('A')
+            return
+        end if
+        
+        ! Phase 2: Parsing
+        call init_ast_arena(arena)
+        call parse_tokens(tokens, arena, prog_index, error_msg)
+        if (error_msg /= "") then
+            ! Enhanced error reporting for parsing failures (Issue #256 requirements)
+            if (prog_index > 0) then
+                call emit_fortran(arena, prog_index, output)
+                ! Append comprehensive error information to output
+                output = output // new_line('A') // &
+                        "! COMPILATION FAILED - PARSING ERROR" // new_line('A') // &
+                        "! " // error_msg // new_line('A') // &
+                        "!" // new_line('A') // &
+                        "! fortfront encountered errors while parsing the code structure." // new_line('A') // &
+                        "! The partial output above may be incomplete or incorrect." // new_line('A')
+            else
+                ! No valid output, provide meaningful error information
+                output = "! COMPILATION FAILED - PARSING ERROR" // new_line('A') // &
+                        "! " // error_msg // new_line('A') // &
+                        "!" // new_line('A') // &
+                        "! fortfront could not understand the structure of your code." // new_line('A') // &
+                        "! Please check for missing keywords, unmatched parentheses," // new_line('A') // &
+                        "! or other structural issues." // new_line('A') // &
+                        "program main" // new_line('A') // &
+                        "    implicit none" // new_line('A') // &
+                        "    ! ERROR: Original code could not be parsed" // new_line('A') // &
+                        "end program main" // new_line('A')
+            end if
+            return
+        end if
+        
+        ! Debug: check if we got a valid program index
+        if (prog_index <= 0) then
+            error_msg = "Parsing succeeded but no valid program unit was created"
+            output = "! COMPILATION FAILED" // new_line('A') // &
+                    "! Error: " // error_msg // new_line('A') // &
+                    "program main" // new_line('A') // &
+                    "    implicit none" // new_line('A') // &
+                    "    ! Original code could not be structured as a program" // new_line('A') // &
+                    "end program main" // new_line('A')
             return
         end if
         
@@ -1372,14 +1464,13 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
     end subroutine analyze_semantics
     
     subroutine emit_fortran(arena, prog_index, fortran_code)
-        type(ast_arena_t), intent(inout) :: arena  ! Changed to inout to avoid copying
-        integer, intent(inout) :: prog_index  ! Changed to inout for standardize_ast
+        type(ast_arena_t), intent(in) :: arena  ! Made intent(in) to prevent corruption
+        integer, intent(in) :: prog_index  ! Made intent(in) to prevent modification
         character(len=:), allocatable, intent(out) :: fortran_code
         
-        ! Standardize in place to avoid double free from arena copying
-        ! NOTE: This modifies the original arena - if we need immutability,
-        ! we need to implement proper deep copy for all AST node types
-        call standardize_ast(arena, prog_index)
+        ! CRITICAL FIX: Do NOT call standardize_ast here - it causes double standardization
+        ! and memory corruption when called in error paths. Standardization happens once
+        ! in the main transform pipeline only.
         fortran_code = generate_code_from_arena(arena, prog_index)
     end subroutine emit_fortran
 

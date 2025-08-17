@@ -6,7 +6,8 @@ module interface_analyzer
     implicit none
     private
 
-    public :: interface_analyzer_t
+    public :: interface_analyzer_t, interface_signature_t, parameter_info_t
+    public :: interface_comparison_result_t, parameters_compatible
 
     ! Parameter information
     type :: parameter_info_t
@@ -15,9 +16,6 @@ module interface_analyzer
         character(:), allocatable :: intent  ! in, out, inout
         logical :: is_optional = .false.
         integer :: source_location = 0
-    contains
-        procedure :: assign_parameter_info
-        generic :: assignment(=) => assign_parameter_info
     end type
 
     ! Interface signature
@@ -31,9 +29,6 @@ module interface_analyzer
         logical :: is_recursive = .false.
         integer :: source_location = 0
         integer :: parameter_count = 0
-    contains
-        procedure :: assign_interface_signature
-        generic :: assignment(=) => assign_interface_signature
     end type
 
     ! Interface comparison result
@@ -43,9 +38,6 @@ module interface_analyzer
         integer, allocatable :: mismatch_locations(:)
         integer :: signature_count = 0
         integer :: mismatch_count = 0
-    contains
-        procedure :: assign_interface_comparison_result
-        generic :: assignment(=) => assign_interface_comparison_result
     end type
 
     ! Interface analyzer plugin
@@ -57,6 +49,7 @@ module interface_analyzer
         procedure :: get_results => get_interface_results
         procedure :: get_name => get_interface_analyzer_name
         procedure :: assign => assign_interface_analyzer
+        procedure :: get_dependencies => get_interface_dependencies
         
         ! Analysis methods for fluff rules
         procedure :: extract_interface_signature
@@ -150,7 +143,8 @@ contains
         ! Check parameter compatibility
         if (allocated(sig1%parameters) .and. allocated(sig2%parameters)) then
             do i = 1, sig1%parameter_count
-                if (.not. parameters_compatible(sig1%parameters(i), sig2%parameters(i))) then
+                if (.not. parameters_compatible(sig1%parameters(i), &
+                                                 sig2%parameters(i))) then
                     return
                 end if
             end do
@@ -254,7 +248,8 @@ contains
         do i = 1, arena%size
             if (is_procedure_node_type(arena, i)) then
                 signature_count = signature_count + 1
-                call extract_signature_from_node(temp_signatures(signature_count), arena, i)
+                call extract_signature_from_node(temp_signatures(signature_count), &
+                                                  arena, i)
             end if
         end do
         
@@ -265,6 +260,8 @@ contains
     end subroutine
 
     subroutine extract_signature_from_node(signature, arena, node_index)
+        use ast_nodes_data, only: parameter_declaration_node, INTENT_IN, INTENT_OUT, &
+                                  INTENT_INOUT, INTENT_NONE
         type(interface_signature_t), intent(out) :: signature
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
@@ -272,8 +269,7 @@ contains
         ! Initialize signature
         signature%source_location = node_index
         
-        ! This is a simplified extraction - full implementation would
-        ! examine the actual node type and extract detailed information
+        ! Extract complete signature information from AST nodes
         select type (node => arena%entries(node_index)%node)
         class is (function_def_node)
             signature%is_function = .true.
@@ -282,8 +278,25 @@ contains
             else
                 signature%name = "unnamed_function"
             end if
-            signature%return_type = "unknown"  ! Would extract from node
-            signature%parameter_count = 0  ! Would count from node
+            
+            ! Extract return type
+            if (allocated(node%return_type)) then
+                signature%return_type = node%return_type
+            else
+                signature%return_type = "unknown"
+            end if
+            
+            ! Extract parameters from param_indices
+            if (allocated(node%param_indices)) then
+                signature%parameter_count = size(node%param_indices)
+                if (signature%parameter_count > 0) then
+                    allocate(signature%parameters(signature%parameter_count))
+                    call extract_parameters_from_indices(signature%parameters, &
+                                                        arena, node%param_indices)
+                end if
+            else
+                signature%parameter_count = 0
+            end if
             
         class is (subroutine_def_node)
             signature%is_function = .false.
@@ -292,19 +305,137 @@ contains
             else
                 signature%name = "unnamed_subroutine"
             end if
-            signature%parameter_count = 0  ! Would count from node
+            
+            ! Extract parameters from param_indices
+            if (allocated(node%param_indices)) then
+                signature%parameter_count = size(node%param_indices)
+                if (signature%parameter_count > 0) then
+                    allocate(signature%parameters(signature%parameter_count))
+                    call extract_parameters_from_indices(signature%parameters, &
+                                                        arena, node%param_indices)
+                end if
+            else
+                signature%parameter_count = 0
+            end if
             
         class default
             signature%name = "unknown_procedure"
             signature%is_function = .false.
             signature%parameter_count = 0
         end select
+    end subroutine
+
+    ! Extract parameter details from parameter declaration nodes
+    subroutine extract_parameters_from_indices(parameters, arena, param_indices)
+        use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
+                                  INTENT_IN, INTENT_OUT, INTENT_INOUT, INTENT_NONE
+        type(parameter_info_t), intent(out) :: parameters(:)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_indices(:)
         
-        ! Would extract parameter information in full implementation
-        if (signature%parameter_count > 0) then
-            allocate(signature%parameters(signature%parameter_count))
-            ! Fill parameter details...
-        end if
+        integer :: i, param_idx
+        
+        do i = 1, size(param_indices)
+            param_idx = param_indices(i)
+            
+            if (param_idx > 0 .and. param_idx <= arena%size) then
+                if (allocated(arena%entries(param_idx)%node)) then
+                    call extract_single_parameter(parameters(i), arena, param_idx)
+                end if
+            end if
+        end do
+    end subroutine
+
+    ! Extract information from a single parameter node
+    subroutine extract_single_parameter(param_info, arena, node_index)
+        use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
+                                  INTENT_IN, INTENT_OUT, INTENT_INOUT, INTENT_NONE
+        type(parameter_info_t), intent(out) :: param_info
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        
+        ! Initialize parameter info
+        param_info%source_location = node_index
+        param_info%is_optional = .false.
+        
+        select type (node => arena%entries(node_index)%node)
+        class is (parameter_declaration_node)
+            ! Extract from parameter_declaration_node
+            if (allocated(node%name)) then
+                param_info%name = node%name
+            else
+                param_info%name = "unknown_param"
+            end if
+            
+            if (allocated(node%type_name)) then
+                if (node%has_kind .and. node%kind_value > 0) then
+                    ! Create type string with kind
+                    block
+                        character(len=100) :: temp_str
+                        write(temp_str, '(A,"(kind=",I0,")")') &
+                            trim(node%type_name), node%kind_value
+                        param_info%type_spec = trim(temp_str)
+                    end block
+                else
+                    param_info%type_spec = node%type_name
+                end if
+            else
+                param_info%type_spec = "unknown"
+            end if
+            
+            ! Extract intent
+            select case (node%intent_type)
+            case (INTENT_IN)
+                param_info%intent = "in"
+            case (INTENT_OUT)
+                param_info%intent = "out"
+            case (INTENT_INOUT)
+                param_info%intent = "inout"
+            case default
+                param_info%intent = "none"
+            end select
+            
+            param_info%is_optional = node%is_optional
+            
+        class is (declaration_node)
+            ! Extract from declaration_node (for older parsing)
+            if (allocated(node%var_name)) then
+                param_info%name = node%var_name
+            else
+                param_info%name = "unknown_param"
+            end if
+            
+            if (allocated(node%type_name)) then
+                if (node%has_kind .and. node%kind_value > 0) then
+                    block
+                        character(len=100) :: temp_str
+                        write(temp_str, '(A,"(kind=",I0,")")') &
+                            trim(node%type_name), node%kind_value
+                        param_info%type_spec = trim(temp_str)
+                    end block
+                else
+                    param_info%type_spec = node%type_name
+                end if
+            else
+                param_info%type_spec = "unknown"
+            end if
+            
+            ! Extract intent from string
+            if (allocated(node%intent)) then
+                param_info%intent = node%intent
+            else
+                param_info%intent = "none"
+            end if
+            
+            param_info%is_optional = node%is_optional
+            
+        class default
+            ! Fallback for unknown node types
+            param_info%name = "unknown_param"
+            param_info%type_spec = "unknown"
+            param_info%intent = "none"
+            param_info%is_optional = .false.
+        end select
     end subroutine
 
     subroutine find_signature_mismatches(result)
@@ -328,10 +459,12 @@ contains
             do j = i + 1, result%signature_count
                 if (result%signatures(i)%name == result%signatures(j)%name) then
                     ! Same name - check if signatures match
-                    if (.not. signatures_match(result%signatures(i), result%signatures(j))) then
+                    if (.not. signatures_match(result%signatures(i), &
+                                               result%signatures(j))) then
                         mismatch_count = mismatch_count + 1
                         temp_mismatches(mismatch_count) = result%signatures(i)%name
-                        temp_locations(mismatch_count) = result%signatures(i)%source_location
+                        temp_locations(mismatch_count) = &
+                            result%signatures(i)%source_location
                     end if
                 end if
             end do
@@ -340,8 +473,10 @@ contains
         if (mismatch_count > 0) then
             allocate(character(len=256) :: result%mismatched_procedures(mismatch_count))
             allocate(result%mismatch_locations(mismatch_count))
-            result%mismatched_procedures(1:mismatch_count) = temp_mismatches(1:mismatch_count)
-            result%mismatch_locations(1:mismatch_count) = temp_locations(1:mismatch_count)
+            result%mismatched_procedures(1:mismatch_count) = &
+                temp_mismatches(1:mismatch_count)
+            result%mismatch_locations(1:mismatch_count) = &
+                temp_locations(1:mismatch_count)
         else
             allocate(character(0) :: result%mismatched_procedures(0))
             allocate(result%mismatch_locations(0))
@@ -417,7 +552,8 @@ contains
         ! Check all parameters
         if (allocated(sig1%parameters) .and. allocated(sig2%parameters)) then
             do i = 1, sig1%parameter_count
-                if (.not. parameters_compatible(sig1%parameters(i), sig2%parameters(i))) then
+                if (.not. parameters_compatible(sig1%parameters(i), &
+                                                 sig2%parameters(i))) then
                     return
                 end if
             end do
@@ -426,107 +562,15 @@ contains
         match = .true.
     end function
 
-    ! Assignment operators for deep copy
-    subroutine assign_parameter_info(lhs, rhs)
-        class(parameter_info_t), intent(inout) :: lhs
-        type(parameter_info_t), intent(in) :: rhs
+    function get_interface_dependencies(this) result(deps)
+        class(interface_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
         
-        ! Clear existing allocations
-        if (allocated(lhs%name)) deallocate(lhs%name)
-        if (allocated(lhs%type_spec)) deallocate(lhs%type_spec)
-        if (allocated(lhs%intent)) deallocate(lhs%intent)
+        ! Interface analyzer has no dependencies
+        allocate(deps(0))
         
-        ! Deep copy allocatable components
-        if (allocated(rhs%name)) then
-            allocate(character(len(rhs%name)) :: lhs%name)
-            lhs%name = rhs%name
-        end if
-        
-        if (allocated(rhs%type_spec)) then
-            allocate(character(len(rhs%type_spec)) :: lhs%type_spec)
-            lhs%type_spec = rhs%type_spec
-        end if
-        
-        if (allocated(rhs%intent)) then
-            allocate(character(len(rhs%intent)) :: lhs%intent)
-            lhs%intent = rhs%intent
-        end if
-        
-        ! Copy scalar values
-        lhs%is_optional = rhs%is_optional
-        lhs%source_location = rhs%source_location
-    end subroutine
-
-    subroutine assign_interface_signature(lhs, rhs)
-        class(interface_signature_t), intent(inout) :: lhs
-        type(interface_signature_t), intent(in) :: rhs
-        
-        integer :: i
-        
-        ! Clear existing allocations
-        if (allocated(lhs%name)) deallocate(lhs%name)
-        if (allocated(lhs%return_type)) deallocate(lhs%return_type)
-        if (allocated(lhs%parameters)) deallocate(lhs%parameters)
-        
-        ! Deep copy allocatable components
-        if (allocated(rhs%name)) then
-            allocate(character(len(rhs%name)) :: lhs%name)
-            lhs%name = rhs%name
-        end if
-        
-        if (allocated(rhs%return_type)) then
-            allocate(character(len(rhs%return_type)) :: lhs%return_type)
-            lhs%return_type = rhs%return_type
-        end if
-        
-        if (allocated(rhs%parameters)) then
-            allocate(lhs%parameters(size(rhs%parameters)))
-            do i = 1, size(rhs%parameters)
-                lhs%parameters(i) = rhs%parameters(i)
-            end do
-        end if
-        
-        ! Copy scalar values
-        lhs%is_function = rhs%is_function
-        lhs%is_pure = rhs%is_pure
-        lhs%is_elemental = rhs%is_elemental
-        lhs%is_recursive = rhs%is_recursive
-        lhs%source_location = rhs%source_location
-        lhs%parameter_count = rhs%parameter_count
-    end subroutine
-
-    subroutine assign_interface_comparison_result(lhs, rhs)
-        class(interface_comparison_result_t), intent(inout) :: lhs
-        type(interface_comparison_result_t), intent(in) :: rhs
-        
-        integer :: i
-        
-        ! Clear existing allocations
-        if (allocated(lhs%signatures)) deallocate(lhs%signatures)
-        if (allocated(lhs%mismatched_procedures)) deallocate(lhs%mismatched_procedures)
-        if (allocated(lhs%mismatch_locations)) deallocate(lhs%mismatch_locations)
-        
-        ! Deep copy allocatable components
-        if (allocated(rhs%signatures)) then
-            allocate(lhs%signatures(size(rhs%signatures)))
-            do i = 1, size(rhs%signatures)
-                lhs%signatures(i) = rhs%signatures(i)
-            end do
-        end if
-        
-        if (allocated(rhs%mismatched_procedures)) then
-            allocate(character(len(rhs%mismatched_procedures)) :: lhs%mismatched_procedures(size(rhs%mismatched_procedures)))
-            lhs%mismatched_procedures = rhs%mismatched_procedures
-        end if
-        
-        if (allocated(rhs%mismatch_locations)) then
-            allocate(lhs%mismatch_locations(size(rhs%mismatch_locations)))
-            lhs%mismatch_locations = rhs%mismatch_locations
-        end if
-        
-        ! Copy scalar values
-        lhs%signature_count = rhs%signature_count
-        lhs%mismatch_count = rhs%mismatch_count
-    end subroutine
+        associate(dummy => this)
+        end associate
+    end function
 
 end module interface_analyzer

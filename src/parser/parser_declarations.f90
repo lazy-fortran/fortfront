@@ -27,9 +27,9 @@ contains
         character(len=:), allocatable :: type_name, var_name
         integer :: line, column, kind_value
         logical :: has_kind, is_array, is_allocatable, is_pointer, is_target
-        logical :: has_intent, is_optional
+        logical :: has_intent, is_optional, has_global_dimensions
         character(len=:), allocatable :: intent
-        integer, allocatable :: dimension_indices(:)
+        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
 
         ! Get type name (real, integer, etc.)
         type_token = parser%consume()
@@ -43,6 +43,7 @@ contains
         is_target = .false.
         has_intent = .false.
         is_optional = .false.
+        has_global_dimensions = .false.
 
         ! Check for kind specification (e.g., real(8)) or derived type (e.g., &
         ! type(point))
@@ -128,11 +129,11 @@ contains
 
                 ! Parse attribute (handle allocatable, pointer, target, and intent)
                 var_token = parser%peek()
-                if (var_token%kind == TK_IDENTIFIER .and. &
+                if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                     var_token%text == "allocatable") then
                     is_allocatable = .true.
                     var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. &
+                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "pointer") then
                     is_pointer = .true.
                     var_token = parser%consume()
@@ -140,6 +141,44 @@ contains
                          var_token%text == "target") then
                     is_target = .true.
                     var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "dimension") then
+                    has_global_dimensions = .true.
+                    var_token = parser%consume()
+                    
+                    ! Parse dimension specification
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        ! Parse dimensions
+                        call parse_array_dimensions(parser, arena, global_dimension_indices)
+                        
+                        ! Consume ')'
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()
+                        end if
+                    end if
+                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
+                         var_token%text == "dimension") then
+                    has_global_dimensions = .true.
+                    var_token = parser%consume()
+                    
+                    ! Parse dimension specification
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        ! Parse dimensions
+                        call parse_array_dimensions(parser, arena, global_dimension_indices)
+                        
+                        ! Consume ')'
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()
+                        end if
+                    end if
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "intent") then
                     has_intent = .true.
@@ -266,70 +305,89 @@ contains
                 ! print *, "DEBUG: No initializer found"
             end if
 
-            ! Create declaration node with or without initializer
-            if (has_kind .and. is_array) then
-                if (has_intent) then
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                        kind_value=kind_value, &
-                        initializer_index=initializer_index, &
-                        dimension_indices=dimension_indices, &
-                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                        is_target=is_target, intent_value=intent, &
-                        is_optional=is_optional, line=line, column=column)
+            ! Determine final array status and dimensions
+            block
+                logical :: final_is_array
+                integer, allocatable :: final_dimension_indices(:)
+                
+                ! Per-variable dimensions take precedence over global dimensions
+                if (is_array) then
+                    final_is_array = .true.
+                    final_dimension_indices = dimension_indices
+                else if (has_global_dimensions) then
+                    final_is_array = .true.
+                    final_dimension_indices = global_dimension_indices
                 else
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                        kind_value=kind_value, &
-                        initializer_index=initializer_index, &
-                        dimension_indices=dimension_indices, &
-                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                        is_target=is_target, is_optional=is_optional, &
-                        line=line, column=column)
+                    final_is_array = .false.
                 end if
-            else if (has_kind) then
-                if (has_intent) then
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                        kind_value=kind_value, initializer_index=initializer_index, &
-                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                        is_target=is_target, intent_value=intent, &
-                        is_optional=is_optional, line=line, column=column)
+            
+                ! Create declaration node with or without initializer
+                if (has_kind .and. final_is_array) then
+                    if (has_intent) then
+                        decl_index = push_declaration(arena, type_name, var_name, &
+                            kind_value=kind_value, &
+                            initializer_index=initializer_index, &
+                            dimension_indices=final_dimension_indices, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, intent_value=intent, &
+                            is_optional=is_optional, line=line, column=column)
+                    else
+                        decl_index = push_declaration(arena, type_name, var_name, &
+                            kind_value=kind_value, &
+                            initializer_index=initializer_index, &
+                            dimension_indices=final_dimension_indices, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, is_optional=is_optional, &
+                            line=line, column=column)
+                    end if
+                else if (has_kind) then
+                    if (has_intent) then
+                        decl_index = push_declaration(arena, type_name, var_name, &
+                            kind_value=kind_value, &
+                            initializer_index=initializer_index, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, intent_value=intent, &
+                            is_optional=is_optional, line=line, column=column)
+                    else
+                        decl_index = push_declaration(arena, type_name, var_name, &
+                            kind_value=kind_value, &
+                            initializer_index=initializer_index, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, is_optional=is_optional, &
+                            line=line, column=column)
+                    end if
+                else if (final_is_array) then
+                    if (has_intent) then
+                        decl_index = push_declaration(arena, type_name, var_name, &
+                            initializer_index=initializer_index, &
+                            dimension_indices=final_dimension_indices, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, intent_value=intent, &
+                            is_optional=is_optional, line=line, column=column)
+                    else
+                        decl_index = push_declaration(arena, type_name, var_name, &
+                            initializer_index=initializer_index, &
+                            dimension_indices=final_dimension_indices, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, is_optional=is_optional, &
+                            line=line, column=column)
+                    end if
                 else
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                        kind_value=kind_value, initializer_index=initializer_index, &
-                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                        is_target=is_target, is_optional=is_optional, &
-                        line=line, column=column)
+                    if (has_intent) then
+                        decl_index = push_declaration(arena, type_name, var_name, &
+                            initializer_index=initializer_index, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, intent_value=intent, &
+                            is_optional=is_optional, line=line, column=column)
+                    else
+                        decl_index = push_declaration(arena, type_name, var_name, &
+                            initializer_index=initializer_index, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, is_optional=is_optional, &
+                            line=line, column=column)
+                    end if
                 end if
-            else if (is_array) then
-                if (has_intent) then
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                        initializer_index=initializer_index, &
-                        dimension_indices=dimension_indices, &
-                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                        is_target=is_target, intent_value=intent, &
-                        is_optional=is_optional, line=line, column=column)
-                else
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                        initializer_index=initializer_index, &
-                        dimension_indices=dimension_indices, &
-                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                        is_target=is_target, is_optional=is_optional, &
-                        line=line, column=column)
-                end if
-            else
-                if (has_intent) then
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                        initializer_index=initializer_index, &
-                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                        is_target=is_target, intent_value=intent, &
-                        is_optional=is_optional, line=line, column=column)
-                else
-                    decl_index = push_declaration(arena, type_name, var_name, &
-                        initializer_index=initializer_index, &
-                        is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                        is_target=is_target, is_optional=is_optional, &
-                        line=line, column=column)
-                end if
-            end if
+            end block
         end block
 
         ! Handle additional variables in multi-variable declarations like &
@@ -353,12 +411,26 @@ contains
                     ! Use same type information as the first variable
                     block
                         integer :: additional_decl_index
-                        if (has_kind .and. is_array) then
+                        logical :: final_is_array
+                        integer, allocatable :: final_dimension_indices(:)
+                        
+                        ! Per-variable dimensions take precedence over global
+                        if (is_array) then
+                            final_is_array = .true.
+                            final_dimension_indices = dimension_indices
+                        else if (has_global_dimensions) then
+                            final_is_array = .true.
+                            final_dimension_indices = global_dimension_indices
+                        else
+                            final_is_array = .false.
+                        end if
+                        
+                        if (has_kind .and. final_is_array) then
                             if (has_intent) then
                                 additional_decl_index = push_declaration( &
                                     arena, type_name, var_name, &
                                     kind_value=kind_value, &
-                                    dimension_indices=dimension_indices, &
+                                    dimension_indices=final_dimension_indices, &
                                     is_allocatable=is_allocatable, &
                                     is_pointer=is_pointer, &
                                     is_target=is_target, intent_value=intent, &
@@ -368,7 +440,7 @@ contains
                                 additional_decl_index = push_declaration( &
                                     arena, type_name, var_name, &
                                     kind_value=kind_value, &
-                                    dimension_indices=dimension_indices, &
+                                    dimension_indices=final_dimension_indices, &
                                     is_allocatable=is_allocatable, &
                                     is_pointer=is_pointer, &
                                     is_target=is_target, &
@@ -396,11 +468,11 @@ contains
                                     is_optional=is_optional, &
                                     line=line, column=column)
                             end if
-                        else if (is_array) then
+                        else if (final_is_array) then
                             if (has_intent) then
                                 additional_decl_index = push_declaration( &
                                     arena, type_name, var_name, &
-                                    dimension_indices=dimension_indices, &
+                                    dimension_indices=final_dimension_indices, &
                                     is_allocatable=is_allocatable, &
                                     is_pointer=is_pointer, &
                                     is_target=is_target, &
@@ -410,7 +482,7 @@ contains
                             else
                                 additional_decl_index = push_declaration( &
                                     arena, type_name, var_name, &
-                                    dimension_indices=dimension_indices, &
+                                    dimension_indices=final_dimension_indices, &
                                     is_allocatable=is_allocatable, &
                                     is_pointer=is_pointer, &
                                     is_target=is_target, &
@@ -752,8 +824,8 @@ contains
         character(len=:), allocatable :: intent
         integer :: decl_count, decl_index
         character(len=:), allocatable :: var_name
-        logical :: is_array
-        integer, allocatable :: dimension_indices(:)
+        logical :: is_array, has_global_dimensions
+        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
 
         allocate (decl_indices(0))
         decl_count = 0
@@ -770,6 +842,8 @@ contains
         is_target = .false.
         has_intent = .false.
         is_optional = .false.
+        has_global_dimensions = .false.
+        has_global_dimensions = .false.
 
         ! Check for kind specification (e.g., real(8))
         var_token = parser%peek()
@@ -807,11 +881,11 @@ contains
 
                 ! Parse attribute
                 var_token = parser%peek()
-                if (var_token%kind == TK_IDENTIFIER .and. &
+                if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                     var_token%text == "allocatable") then
                     is_allocatable = .true.
                     var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. &
+                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "pointer") then
                     is_pointer = .true.
                     var_token = parser%consume()
@@ -819,6 +893,44 @@ contains
                          var_token%text == "target") then
                     is_target = .true.
                     var_token = parser%consume()
+                else if (var_token%kind == TK_IDENTIFIER .and. &
+                         var_token%text == "dimension") then
+                    has_global_dimensions = .true.
+                    var_token = parser%consume()
+                    
+                    ! Parse dimension specification
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        ! Parse dimensions
+                        call parse_array_dimensions(parser, arena, global_dimension_indices)
+                        
+                        ! Consume ')'
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()
+                        end if
+                    end if
+                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
+                         var_token%text == "dimension") then
+                    has_global_dimensions = .true.
+                    var_token = parser%consume()
+                    
+                    ! Parse dimension specification
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        var_token = parser%consume()  ! consume '('
+                        
+                        ! Parse dimensions
+                        call parse_array_dimensions(parser, arena, global_dimension_indices)
+                        
+                        ! Consume ')'
+                        var_token = parser%peek()
+                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                            var_token = parser%consume()
+                        end if
+                    end if
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "intent") then
                     has_intent = .true.
@@ -897,15 +1009,16 @@ contains
                 var_token = parser%consume()
                 var_name = var_token%text
 
-                ! Check for array dimensions
+                ! Check for array dimensions (per-variable) or use global dimensions
                 var_token = parser%peek()
-                is_array = .false.
+                is_array = has_global_dimensions  ! Start with global dimensions
+                
                 if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
                     ! Consume '('
                     var_token = parser%consume()
                     is_array = .true.
 
-                    ! Parse dimensions
+                    ! Parse per-variable dimensions (overrides global)
                     call parse_array_dimensions(parser, arena, dimension_indices)
 
                     ! Consume ')'
@@ -918,6 +1031,9 @@ contains
                         decl_indices = [decl_index]
                         return
                     end if
+                else if (has_global_dimensions) then
+                    ! Use global dimensions
+                    dimension_indices = global_dimension_indices
                 end if
 
                 ! Create declaration node - use push_declaration for individual variables

@@ -59,6 +59,7 @@ module ast_nodes_misc
     ! Use statement node
     type, extends(ast_node), public :: use_statement_node
         character(len=:), allocatable :: module_name
+        character(len=:), allocatable :: url_spec          ! Optional URL specification for Go-style imports
         type(string_t), allocatable :: only_list(:)       ! Optional only clause items
         type(string_t), allocatable :: rename_list(:)     ! Optional rename
         ! mappings (new_name => old_name)
@@ -295,6 +296,8 @@ contains
         call json%add(obj, 'column', this%column)
         if (allocated(this%module_name)) call json%add(obj, 'module_name', &
             this%module_name)
+        if (allocated(this%url_spec)) call json%add(obj, 'url_spec', &
+            this%url_spec)
         call json%add(obj, 'has_only', this%has_only)
         call json%add(parent, obj)
     end subroutine use_statement_to_json
@@ -314,6 +317,7 @@ contains
         end if
         ! Copy specific components
         if (allocated(rhs%module_name)) lhs%module_name = rhs%module_name
+        if (allocated(rhs%url_spec)) lhs%url_spec = rhs%url_spec
         if (allocated(rhs%only_list)) then
             if (allocated(lhs%only_list)) deallocate(lhs%only_list)
             allocate(lhs%only_list(size(rhs%only_list)))

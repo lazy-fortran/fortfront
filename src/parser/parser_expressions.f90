@@ -18,7 +18,7 @@ module parser_expressions_module
     ! Public expression parsing interface
     public :: parse_expression
     public :: parse_range, parse_logical_eqv, parse_logical_or, parse_logical_and, parse_comparison
-    public :: parse_member_access, parse_term, parse_factor, parse_primary
+    public :: parse_concatenation, parse_term, parse_factor, parse_power, parse_unary, parse_primary
 
 contains
 
@@ -164,7 +164,8 @@ contains
                 op_token = parser%consume()  ! consume operator
                 right_index = parse_logical_or(parser, arena)
                 if (right_index > 0) then
-              expr_index = push_binary_op(arena, expr_index, right_index, op_token%text)
+                    expr_index = push_binary_op(arena, expr_index, right_index, &
+                        op_token%text)
                 else
                     exit
                 end if
@@ -190,7 +191,8 @@ contains
                 op_token = parser%consume()  ! consume operator
                 right_index = parse_logical_and(parser, arena)
                 if (right_index > 0) then
-              expr_index = push_binary_op(arena, expr_index, right_index, op_token%text)
+                    expr_index = push_binary_op(arena, expr_index, right_index, &
+                        op_token%text)
                 else
                     exit
                 end if
@@ -216,7 +218,8 @@ contains
                 op_token = parser%consume()  ! consume operator
                 right_index = parse_comparison(parser, arena)
                 if (right_index > 0) then
-              expr_index = push_binary_op(arena, expr_index, right_index, op_token%text)
+                    expr_index = push_binary_op(arena, expr_index, right_index, &
+                        op_token%text)
                 else
                     exit
                 end if
@@ -234,16 +237,40 @@ contains
         integer :: right_index
         type(token_t) :: op_token
 
-        expr_index = parse_member_access(parser, arena)
+        expr_index = parse_concatenation(parser, arena)
 
-        do while (.not. parser%is_at_end())
+        ! Make comparison operators non-associative (Issue #216)
+        ! Parse at most ONE comparison operator
+        if (.not. parser%is_at_end()) then
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
                 (op_token%text == "==" .or. op_token%text == "/=" .or. &
                  op_token%text == "<=" .or. op_token%text == ">=" .or. &
                  op_token%text == "<" .or. op_token%text == ">")) then
                 op_token = parser%consume()
-                right_index = parse_member_access(parser, arena)
+                right_index = parse_concatenation(parser, arena)
+                expr_index = push_binary_op(arena, expr_index, right_index, &
+                                             op_token%text, op_token%line, &
+                                             op_token%column)
+            end if
+        end if
+    end function parse_comparison
+
+    ! Parse string concatenation operator (//) - Issue #214
+    function parse_concatenation(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+        integer :: right_index
+        type(token_t) :: op_token
+
+        expr_index = parse_term(parser, arena)
+
+        do while (.not. parser%is_at_end())
+            op_token = parser%peek()
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == "//") then
+                op_token = parser%consume()
+                right_index = parse_term(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
                                              op_token%text, op_token%line, &
                                              op_token%column)
@@ -251,7 +278,7 @@ contains
                 exit
             end if
         end do
-    end function parse_comparison
+    end function parse_concatenation
 
     ! Parse member access operator (%)
     function parse_member_access(parser, arena) result(expr_index)
@@ -277,7 +304,7 @@ contains
         do while (.not. parser%is_at_end())
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
-       (op_token%text == "+" .or. op_token%text == "-" .or. op_token%text == "//")) then
+                (op_token%text == "+" .or. op_token%text == "-")) then
                 op_token = parser%consume()
                 right_index = parse_factor(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
@@ -289,7 +316,7 @@ contains
         end do
     end function parse_term
 
-    ! Parse multiplication, division, and power
+    ! Parse multiplication and division
     function parse_factor(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -297,14 +324,14 @@ contains
         integer :: right_index
         type(token_t) :: op_token
 
-        expr_index = parse_primary(parser, arena)
+        expr_index = parse_unary(parser, arena)
 
         do while (.not. parser%is_at_end())
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
-       (op_token%text == "*" .or. op_token%text == "/" .or. op_token%text == "**")) then
+                (op_token%text == "*" .or. op_token%text == "/")) then
                 op_token = parser%consume()
-                right_index = parse_primary(parser, arena)
+                right_index = parse_unary(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
                                              op_token%text, op_token%line, &
                                              op_token%column)
@@ -314,6 +341,75 @@ contains
         end do
     end function parse_factor
 
+    ! Parse exponentiation (**) - right-associative
+    recursive function parse_power(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+        integer :: right_index
+        type(token_t) :: op_token
+
+        expr_index = parse_primary(parser, arena)
+
+        ! Right-associative: a ** b ** c = a ** (b ** c)
+        if (.not. parser%is_at_end()) then
+            op_token = parser%peek()
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == "**") then
+                op_token = parser%consume()
+                ! Recursive call for right-associativity  
+                right_index = parse_power(parser, arena)
+                expr_index = push_binary_op(arena, expr_index, right_index, &
+                                             op_token%text, op_token%line, &
+                                             op_token%column)
+            end if
+        end if
+    end function parse_power
+
+    ! Parse unary operators (+, -, .NOT.) - Issue #215
+    recursive function parse_unary(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+        type(token_t) :: op_token
+
+        op_token = parser%peek()
+
+        if (op_token%kind == TK_OPERATOR .and. &
+            (op_token%text == "-" .or. op_token%text == "+" .or. &
+             op_token%text == ".not.")) then
+            ! Unary operator
+            op_token = parser%consume()
+            expr_index = parse_power(parser, arena)  ! Parse the operand
+            
+            if (expr_index > 0) then
+                if (op_token%text == "-") then
+                    ! Create unary minus as 0 - operand
+                    block
+                        integer :: zero_index
+                        zero_index = push_literal(arena, "0", LITERAL_INTEGER, &
+                                                  op_token%line, op_token%column)
+                        expr_index = push_binary_op(arena, zero_index, expr_index, "-")
+                    end block
+                else if (op_token%text == "+") then
+                    ! Unary plus - just return the operand
+                    ! expr_index already contains the operand
+                else if (op_token%text == ".not.") then
+                    ! Create logical NOT as .false. .not. operand
+                    block
+                        integer :: false_index
+                        false_index = push_literal(arena, ".false.", LITERAL_LOGICAL, &
+                                                   op_token%line, op_token%column)
+                        expr_index = push_binary_op(arena, false_index, expr_index, ".not.")
+                    end block
+                end if
+            else
+                expr_index = 0
+            end if
+        else
+            ! No unary operator, parse power expression  
+            expr_index = parse_power(parser, arena)
+        end if
+    end function parse_unary
     ! Parse primary expressions (literals, identifiers, parentheses)
     recursive function parse_primary(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
@@ -329,19 +425,19 @@ contains
             current = parser%consume()
             if (index(current%text, '.') > 0) then
                 ! Contains decimal point - classify as real
-         expr_index = push_literal(arena, current%text, LITERAL_REAL, &
-                                   current%line, current%column)
+                expr_index = push_literal(arena, current%text, LITERAL_REAL, &
+                    current%line, current%column)
             else
                 ! No decimal point - classify as integer
-      expr_index = push_literal(arena, current%text, LITERAL_INTEGER, &
-                                 current%line, current%column)
+                expr_index = push_literal(arena, current%text, &
+                    LITERAL_INTEGER, current%line, current%column)
             end if
 
         case (TK_STRING)
             ! Parse string literal
             current = parser%consume()
-       expr_index = push_literal(arena, current%text, LITERAL_STRING, &
-                                  current%line, current%column)
+            expr_index = push_literal(arena, current%text, LITERAL_STRING, &
+                current%line, current%column)
 
         case (TK_IDENTIFIER)
             ! Parse identifier or function call
@@ -427,7 +523,8 @@ contains
                         end block
                     end if
                 else
-         expr_index = push_identifier(arena, current%text, current%line, current%column)
+                    expr_index = push_identifier(arena, current%text, &
+                        current%line, current%column)
                 end if
             end block
 
@@ -495,7 +592,14 @@ contains
                                         end block
                                     end if
 
-                                   temp_indices(element_count) = parse_primary(parser, arena)
+                                    temp_indices(element_count) = parse_unary(parser, arena)
+
+                                    ! Check if element parsing failed
+                                    if (temp_indices(element_count) <= 0) then
+                                        ! Element parsing failed - return error
+                                        expr_index = 0
+                                        return
+                                    end if
 
                                     ! Check for comma or closing /
                                     current = parser%peek()
@@ -538,30 +642,6 @@ contains
                         end if
                     end if
                 end block
-            else if (current%text == "-" .or. current%text == "+") then
-                ! Unary operator
-                block
-                    type(token_t) :: op_token
-                    integer :: operand_index
-                    op_token = parser%consume()
-                    operand_index = parse_primary(parser, arena)
-                    if (operand_index > 0) then
-                        ! Create unary expression as binary op with zero
-                        if (op_token%text == "-") then
-                            ! For unary minus, create 0 - operand
-                            block
-                                integer :: zero_index
-  zero_index = push_literal(arena, "0", LITERAL_INTEGER, op_token%line, op_token%column)
-                      expr_index = push_binary_op(arena, zero_index, operand_index, "-")
-                            end block
-                        else
-                            ! For unary plus, just return the operand
-                            expr_index = operand_index
-                        end if
-                    else
-                        expr_index = 0
-                    end if
-                end block
             else if (current%text == "[") then
                 ! Array literal: [1, 2, 3]
                 block
@@ -600,7 +680,33 @@ contains
                                 end block
                             end if
 
-                           temp_indices(element_count) = parse_comparison(parser, arena)
+                            ! Check for trailing comma: if we expect an element but find ']'
+                            current = parser%peek()
+                            if (current%text == "]") then
+                                write (error_unit, *) &
+                                    'Error: Trailing comma in array literal at line ', &
+                                    current%line, ', column ', current%column
+                                expr_index = 0
+                                return
+                            end if
+                            
+                            ! Check for leading comma: if this is the first element and we find ','
+                            if (element_count == 1 .and. current%text == ",") then
+                                write (error_unit, *) &
+                                    'Error: Leading comma in array literal at line ', &
+                                    current%line, ', column ', current%column
+                                expr_index = 0
+                                return
+                            end if
+
+                            temp_indices(element_count) = parse_comparison(parser, arena)
+
+                            ! Check if element parsing failed
+                            if (temp_indices(element_count) <= 0) then
+                                ! Element parsing failed - return error
+                                expr_index = 0
+                                return
+                            end if
 
                             ! Check for comma or closing bracket
                             current = parser%peek()
@@ -646,8 +752,9 @@ contains
                                                 ! Expect comma
                                                 current = parser%peek()
                                                 if (current%text /= ",") then
-                write (error_unit, *) 'Error: Expected "," after loop start at line ', &
-                                                        current%line
+                                write (error_unit, *) &
+                                    'Error: Expected "," after loop start at line ', &
+                                    current%line
                                                     expr_index = 0
                                                     return
                                                 end if
@@ -667,8 +774,9 @@ contains
                                                 ! Expect closing parenthesis
                                                 current = parser%peek()
                                                 if (current%text /= ")") then
-           write (error_unit, *) 'Error: Expected ")" after implied do loop at line ', &
-                                                        current%line
+                                write (error_unit, *) &
+                                    'Error: Expected ")" after implied do loop at line ', &
+                                    current%line
                                                     expr_index = 0
                                                     return
                                                 end if
@@ -677,8 +785,9 @@ contains
                                                 ! Expect closing bracket
                                                 current = parser%peek()
                                                 if (current%text /= "]") then
-           write (error_unit, *) 'Error: Expected "]" after implied do loop at line ', &
-                                                        current%line
+                                write (error_unit, *) &
+                                    'Error: Expected "]" after implied do loop at line ', &
+                                    current%line
                                                     expr_index = 0
                                                     return
                                                 end if
@@ -721,7 +830,8 @@ contains
                                 exit
                             else
                                 ! Error: expected comma or closing bracket
-         write (error_unit, *) 'Error: Expected "," or "]" in array literal at line ', &
+                                write (error_unit, *) &
+                                    'Error: Expected "," or "]" in array literal at line ', &
                                     current%line, ', column ', current%column
                                 expr_index = 0
                                 return
@@ -735,25 +845,6 @@ contains
                                                          bracket_token%line, &
                                                          bracket_token%column, &
                                                          syntax_style="modern")
-                    end if
-                end block
-            else if (current%text == ".not.") then
-                ! Logical NOT operator
-                block
-                    type(token_t) :: op_token
-                    integer :: operand_index
-                    op_token = parser%consume()
-                    operand_index = parse_primary(parser, arena)
-                    if (operand_index > 0) then
-                        ! Create unary NOT expression as binary op with false
-                        block
-                            integer :: false_index
-             false_index = push_literal(arena, ".false.", LITERAL_LOGICAL, &
-                                         op_token%line, op_token%column)
-                 expr_index = push_binary_op(arena, false_index, operand_index, ".not.")
-                        end block
-                    else
-                        expr_index = 0
                     end if
                 end block
             else if (current%text == ".") then
@@ -771,28 +862,33 @@ contains
                                 current = parser%consume()  ! consume first '.'
                                 current = parser%consume()  ! consume 'true'/'false'
                                 current = parser%consume()  ! consume second '.'
-    expr_index = push_literal(arena, "."//trim(next_token%text)//".", LITERAL_LOGICAL, &
-                                                          current%line, current%column)
+                expr_index = push_literal(arena, &
+                    "."//trim(next_token%text)//".", LITERAL_LOGICAL, &
+                    current%line, current%column)
                             else
                                 ! Not a logical literal
-      expr_index = push_literal(arena, "", LITERAL_STRING, current%line, current%column)
+                                expr_index = push_literal(arena, "", &
+                                    LITERAL_STRING, current%line, current%column)
                                 current = parser%consume()
                             end if
                         else
                             ! Not a logical literal pattern
-      expr_index = push_literal(arena, "", LITERAL_STRING, current%line, current%column)
+                                expr_index = push_literal(arena, "", &
+                                    LITERAL_STRING, current%line, current%column)
                             current = parser%consume()
                         end if
                     else
                         ! Not enough tokens
-      expr_index = push_literal(arena, "", LITERAL_STRING, current%line, current%column)
+                                expr_index = push_literal(arena, "", &
+                                    LITERAL_STRING, current%line, current%column)
                         current = parser%consume()
                     end if
                 end block
             else
                 ! Unrecognized operator - create error node
-expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text//"'", &
-                                          LITERAL_STRING, current%line, current%column)
+                expr_index = push_literal(arena, &
+                    "!ERROR: Unrecognized operator '"//current%text//"'", &
+                    LITERAL_STRING, current%line, current%column)
                 current = parser%consume()
             end if
 
@@ -800,20 +896,20 @@ expr_index = push_literal(arena, "!ERROR: Unrecognized operator '"//current%text
             ! Handle logical constants
             current = parser%consume()
             if (current%text == ".true." .or. current%text == ".false.") then
-      expr_index = push_literal(arena, current%text, LITERAL_LOGICAL, &
-                                 current%line, current%column)
+                expr_index = push_literal(arena, current%text, &
+                    LITERAL_LOGICAL, current%line, current%column)
             else
                 ! Other keywords - create error node
-      expr_index = push_literal(arena, &
-          "!ERROR: Unexpected keyword '"//current%text//"' in expression", &
-                                          LITERAL_STRING, current%line, current%column)
+                expr_index = push_literal(arena, &
+                    "!ERROR: Unexpected keyword '"//current%text//"' in expression", &
+                    LITERAL_STRING, current%line, current%column)
             end if
 
         case default
             ! Unrecognized token - create error node and skip
-      expr_index = push_literal(arena, &
-          "!ERROR: Unrecognized token in expression", LITERAL_STRING, &
-          current%line, current%column)
+            expr_index = push_literal(arena, &
+                "!ERROR: Unrecognized token in expression", LITERAL_STRING, &
+                current%line, current%column)
             current = parser%consume()
         end select
         

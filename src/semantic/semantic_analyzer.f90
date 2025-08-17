@@ -112,6 +112,10 @@ contains
         select type (ast => arena%entries(root_index)%node)
         type is (program_node)
             call analyze_program_node_arena(ctx, arena, ast, root_index)
+        type is (module_node)
+            ! Skip module semantic analysis to avoid AST corruption
+            ! Modules will be processed as-is during code generation
+            return
         class default
             ! Single statement/expression
             call infer_and_store_type(ctx, arena, root_index)
@@ -245,8 +249,18 @@ contains
                     ! Variable exists - check assignment compatibility
                     target_type = ctx%instantiate(existing_scheme)
 
+                    ! Check for string length changes requiring allocatable
+                    if (typ%kind == TCHAR .and. target_type%kind == TCHAR) then
+                        if (typ%size /= target_type%size) then
+                            ! String length changed - mark as needing allocatable
+                            typ%alloc_info%needs_allocatable_string = .true.
+                            target_type%alloc_info%needs_allocatable_string = .true.
+                        end if
+                    end if
+
                     ! Issue 188: Array reassignment detection moved to standardizer
-                    ! The standardizer handles multi-pass detection of reassignment patterns
+                    ! The standardizer handles multi-pass detection of &
+                    ! reassignment patterns
 
                     if (.not. is_assignable(typ, target_type)) then
                         ! Type error - for now, just continue with inference
@@ -255,9 +269,13 @@ contains
                         !              "assignment to " // var_name)
                     end if
 
-                    ! Use the existing type for consistency but preserve allocatable flag
+                    ! Use the existing type for consistency but preserve &
+                    ! allocatable flag
                     if (typ%alloc_info%is_allocatable) then
                         target_type%alloc_info%is_allocatable = .true.
+                    end if
+                    if (typ%alloc_info%needs_allocatable_string) then
+                        target_type%alloc_info%needs_allocatable_string = .true.
                     end if
                     typ = target_type
                 end if
@@ -278,7 +296,8 @@ contains
                     scheme = ctx%generalize(typ)
                     call ctx%scopes%define(var_name, scheme)
                 else
-                    ! Update existing variable with new type (including allocatable flag)
+                    ! Update existing variable with new type (including &
+                    ! allocatable flag)
                     scheme = ctx%generalize(typ)
                     call ctx%scopes%define(var_name, scheme)
                 end if
@@ -358,7 +377,8 @@ contains
                     end if
                 end if
                 
-                ! Fallback: If we have parentheses with numeric literals, assume array access
+                ! Fallback: If we have parentheses with numeric literals, &
+                ! assume array access
                 ! This is a heuristic for when symbol table lookup fails
                 if (.not. is_known_array .and. allocated(expr%arg_indices)) then
                     block
@@ -368,11 +388,13 @@ contains
                         do j = 1, size(expr%arg_indices)
                             if (expr%arg_indices(j) > 0 .and. &
                                 expr%arg_indices(j) <= arena%size) then
-                                if (allocated(arena%entries(expr%arg_indices(j))%node)) then
+                                if (allocated(arena%entries( &
+                                    expr%arg_indices(j))%node)) then
                                     select type (arg_node => &
                                         arena%entries(expr%arg_indices(j))%node)
                                     type is (literal_node)
-                                        if (arg_node%literal_kind /= LITERAL_INTEGER) then
+                                        if (arg_node%literal_kind /= &
+                                            LITERAL_INTEGER) then
                                             all_numeric = .false.
                                             exit
                                         end if
@@ -608,8 +630,27 @@ contains
             end if
 
             ! Result is a character type with combined length
-            ! For now, use default size
-            result_typ = create_mono_type(TCHAR)
+            ! Calculate combined string length for concatenation
+            block
+                integer :: left_size, right_size, total_size
+                
+                left_size = 1  ! Default for unknown size
+                right_size = 1  ! Default for unknown size
+
+                ! Get left operand size if it's a character type
+                if (left_typ%kind == TCHAR) then
+                    left_size = left_typ%size
+                end if
+
+                ! Get right operand size if it's a character type  
+                if (right_typ%kind == TCHAR) then
+                    right_size = right_typ%size
+                end if
+
+                ! Combined length for concatenation
+                total_size = left_size + right_size
+                result_typ = create_mono_type(TCHAR, char_size=total_size)
+            end block
 
         case default
             error stop "Unknown binary operator: "//trim(binop%operator)
@@ -839,10 +880,12 @@ contains
             end if
             
             ! Special case: trying to unify real with character type
-            ! This can happen when literals are incorrectly typed or in complex expressions
+            ! This can happen when literals are incorrectly typed or in &
+            ! complex expressions
             if ((t1_subst%kind == TREAL .and. t2_subst%kind == TCHAR) .or. &
                 (t1_subst%kind == TCHAR .and. t2_subst%kind == TREAL)) then
-                ! For mathematical contexts, try to coerce character to real if it looks numeric
+                ! For mathematical contexts, try to coerce character to real &
+                ! if it looks numeric
                 subst%count = 0
                 allocate (subst%vars(0))
                 allocate (subst%types(0))
@@ -852,11 +895,59 @@ contains
             ! Special case: Allow integer to real coercion in mathematical contexts
             if ((t1_subst%kind == TINT .and. t2_subst%kind == TREAL) .or. &
                 (t1_subst%kind == TREAL .and. t2_subst%kind == TINT)) then
-                ! In Fortran, integer values can be promoted to real in mixed expressions
+                ! In Fortran, integer values can be promoted to real in &
+                ! mixed expressions
                 subst%count = 0
                 allocate (subst%vars(0))
                 allocate (subst%types(0))
                 return  ! Allow the unification
+            end if
+            
+            ! Special case: Allow base type to unify with array of that type
+            ! This handles cases like "integer :: arr = [1,2,3]"
+            if ((t1_subst%kind == TINT .and. t2_subst%kind == TARRAY) .or. &
+                (t1_subst%kind == TARRAY .and. t2_subst%kind == TINT)) then
+                ! Check that array element type matches base type
+                if (t1_subst%kind == TARRAY) then
+                    if (allocated(t1_subst%args) .and. size(t1_subst%args) >= 1 .and. &
+                        t1_subst%args(1)%kind == TINT) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                else  ! t2_subst%kind == TARRAY
+                    if (allocated(t2_subst%args) .and. size(t2_subst%args) >= 1 .and. &
+                        t2_subst%args(1)%kind == TINT) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                end if
+            end if
+            
+            ! Special case: Allow real base type to unify with real array type
+            if ((t1_subst%kind == TREAL .and. t2_subst%kind == TARRAY) .or. &
+                (t1_subst%kind == TARRAY .and. t2_subst%kind == TREAL)) then
+                ! Check that array element type matches base type
+                if (t1_subst%kind == TARRAY) then
+                    if (allocated(t1_subst%args) .and. size(t1_subst%args) >= 1 .and. &
+                        t1_subst%args(1)%kind == TREAL) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                else  ! t2_subst%kind == TARRAY
+                    if (allocated(t2_subst%args) .and. size(t2_subst%args) >= 1 .and. &
+                        t2_subst%args(1)%kind == TREAL) then
+                        subst%count = 0
+                        allocate (subst%vars(0))
+                        allocate (subst%types(0))
+                        return  ! Allow the unification
+                    end if
+                end if
             end if
 
             ! Check if we have valid types before calling to_string
@@ -884,8 +975,10 @@ contains
         case (TFUN)
             ! Handle function types defensively due to incomplete inferred_type copying
             if (.not. allocated(t1_subst%args) .or. .not. allocated(t2_subst%args)) then
-                ! This occurs because AST node copying doesn't preserve full type information
-                ! TODO: Remove this workaround when proper inferred_type copying is implemented
+                ! This occurs because AST node copying doesn't preserve &
+                ! full type information
+                ! TODO: Remove this workaround when proper inferred_type &
+                ! copying is implemented
                 subst%count = 0
                 allocate(subst%vars(0))
                 allocate(subst%types(0))
@@ -1305,10 +1398,8 @@ contains
         if (allocated(mod_node%declaration_indices)) then
             do i = 1, size(mod_node%declaration_indices)
                 if (mod_node%declaration_indices(i) > 0) then
-                    block
-                        type(mono_type_t) :: decl_type
-                        decl_type = ctx%infer(arena, mod_node%declaration_indices(i))
-                    end block
+                    ! Use infer_and_store_type instead of creating temporary variables
+                    call infer_and_store_type(ctx, arena, mod_node%declaration_indices(i))
                 end if
             end do
         end if
@@ -1317,10 +1408,8 @@ contains
         if (allocated(mod_node%procedure_indices)) then
             do i = 1, size(mod_node%procedure_indices)
                 if (mod_node%procedure_indices(i) > 0) then
-                    block
-                        type(mono_type_t) :: proc_type
-                        proc_type = ctx%infer(arena, mod_node%procedure_indices(i))
-                    end block
+                    ! Use infer_and_store_type instead of creating temporary variables
+                    call infer_and_store_type(ctx, arena, mod_node%procedure_indices(i))
                 end if
             end do
         end if

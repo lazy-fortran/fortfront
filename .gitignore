@@ -17,9 +17,20 @@ test_*.txt
 test_results*
 test_output*
 
+# Executable test binaries
+test_go_style_simple
+test_minimal_components
+test_simple_plugin_registry
+test_standalone_events
+test_output
+
 # Temporary files
 *.tmp
 *.temp
+
+# Debug binaries - prevent accidental commit of debug executables
+debug_error_test
+debug_*_test
 
 # Draft directory - never commit draft work
 draft/
@@ -35,3 +46,12 @@ coverage_filtered.info
 *.gcno
 *.info
 test_old_api.o
+
+# Fortran build artifacts
+*.mod
+*.o
+*.a
+*.so
+
+# Log files
+*.log

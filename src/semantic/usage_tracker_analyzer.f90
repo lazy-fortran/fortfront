@@ -17,9 +17,6 @@ module usage_tracker_analyzer
         type(variable_usage_info_t) :: usage_info
         integer, allocatable :: unused_node_indices(:)
         integer, allocatable :: undefined_node_indices(:)
-    contains
-        procedure :: assign_usage_result
-        generic :: assignment(=) => assign_usage_result
     end type
 
     ! Usage tracker analyzer plugin  
@@ -31,6 +28,7 @@ module usage_tracker_analyzer
         procedure :: get_results => get_usage_results
         procedure :: get_name => get_usage_analyzer_name
         procedure :: assign => assign_usage_tracker_analyzer
+        procedure :: get_dependencies => get_usage_dependencies
         
         ! Analysis methods for fluff rules
         procedure :: find_unused_variables
@@ -47,9 +45,6 @@ contains
         class(*), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
-        
-        ! Clear any previous results to prevent memory allocation bugs
-        call clear_usage_result(this%result)
         
         ! Initialize usage info
         this%result%usage_info = create_variable_usage_info()
@@ -68,8 +63,7 @@ contains
         class(usage_tracker_analyzer_t), intent(in) :: this
         class(*), allocatable :: results
         
-        ! Return the usage analysis result - ensure not already allocated
-        if (allocated(results)) deallocate(results)
+        ! Return the usage analysis result
         allocate(usage_analysis_result_t :: results)
         select type(results)
         type is (usage_analysis_result_t)
@@ -91,50 +85,12 @@ contains
         
         select type(rhs)
         type is (usage_tracker_analyzer_t)
-            ! Clear previous result to prevent memory allocation bugs
-            call clear_usage_result(lhs%result)
-            
             ! Deep copy the result
             lhs%result = rhs%result
             lhs%analysis_complete = rhs%analysis_complete
         class default
             error stop "Type mismatch in usage_tracker_analyzer assignment"
         end select
-    end subroutine
-
-    ! Assignment operator for usage_analysis_result_t
-    subroutine assign_usage_result(lhs, rhs)
-        class(usage_analysis_result_t), intent(inout) :: lhs
-        type(usage_analysis_result_t), intent(in) :: rhs
-        
-        ! Clear any existing allocations
-        call clear_usage_result(lhs)
-        
-        ! Deep copy unused variables
-        if (allocated(rhs%unused_variables)) then
-            allocate(character(len(rhs%unused_variables)) :: lhs%unused_variables(size(rhs%unused_variables)))
-            lhs%unused_variables = rhs%unused_variables
-        end if
-        
-        ! Deep copy undefined variables
-        if (allocated(rhs%undefined_variables)) then
-            allocate(character(len(rhs%undefined_variables)) :: lhs%undefined_variables(size(rhs%undefined_variables)))
-            lhs%undefined_variables = rhs%undefined_variables
-        end if
-        
-        ! Deep copy node indices
-        if (allocated(rhs%unused_node_indices)) then
-            allocate(lhs%unused_node_indices(size(rhs%unused_node_indices)))
-            lhs%unused_node_indices = rhs%unused_node_indices
-        end if
-        
-        if (allocated(rhs%undefined_node_indices)) then
-            allocate(lhs%undefined_node_indices(size(rhs%undefined_node_indices)))
-            lhs%undefined_node_indices = rhs%undefined_node_indices
-        end if
-        
-        ! Copy usage_info - this assumes variable_usage_info_t has proper assignment
-        lhs%usage_info = rhs%usage_info
     end subroutine
 
     ! Analysis methods for fluff rules
@@ -214,8 +170,6 @@ contains
         if (allocated(this%result%usage_info%variable_names)) then
             do i = 1, size(this%result%usage_info%variable_names)
                 if (this%result%usage_info%variable_names(i) == variable_name) then
-                    ! Deallocate before reallocating to prevent memory allocation bug
-                    deallocate(locations)
                     allocate(locations(1))
                     locations(1) = this%result%usage_info%node_indices(i)
                     exit
@@ -223,23 +177,6 @@ contains
             end do
         end if
     end function
-
-    ! Clear usage analysis result to prevent memory allocation bugs
-    subroutine clear_usage_result(result)
-        type(usage_analysis_result_t), intent(inout) :: result
-        
-        ! Deallocate all allocatable arrays safely
-        if (allocated(result%unused_variables)) deallocate(result%unused_variables)
-        if (allocated(result%undefined_variables)) deallocate(result%undefined_variables)
-        if (allocated(result%unused_node_indices)) deallocate(result%unused_node_indices)
-        if (allocated(result%undefined_node_indices)) deallocate(result%undefined_node_indices)
-        
-        ! Clear usage info arrays
-        if (allocated(result%usage_info%variable_names)) deallocate(result%usage_info%variable_names)
-        if (allocated(result%usage_info%usage_counts)) deallocate(result%usage_info%usage_counts)
-        if (allocated(result%usage_info%node_indices)) deallocate(result%usage_info%node_indices)
-        result%usage_info%total_count = 0
-    end subroutine
 
     ! Helper subroutines for analysis
     subroutine collect_variable_usage(result, arena, root_index)
@@ -282,12 +219,9 @@ contains
             end if
         end do
         
-        ! Store results - ensure arrays are not already allocated
-        if (allocated(result%usage_info%variable_names)) deallocate(result%usage_info%variable_names)
-        if (allocated(result%usage_info%usage_counts)) deallocate(result%usage_info%usage_counts)
-        if (allocated(result%usage_info%node_indices)) deallocate(result%usage_info%node_indices)
-        
-        allocate(character(len(temp_names(1))) :: result%usage_info%variable_names(count))
+        ! Store results
+        allocate(character(len(temp_names(1))) :: &
+            result%usage_info%variable_names(count))
         allocate(result%usage_info%usage_counts(count))
         allocate(result%usage_info%node_indices(count))
         
@@ -295,7 +229,8 @@ contains
         result%usage_info%usage_counts(1:count) = temp_counts(1:count)
         result%usage_info%total_count = count
         
-        ! For simplicity, set node indices to root (would need more sophisticated tracking)
+        ! For simplicity, set node indices to root (would need more &
+        ! sophisticated tracking)
         do i = 1, count
             result%usage_info%node_indices(i) = root_index
         end do
@@ -312,7 +247,8 @@ contains
         ! Find variables with zero usage (declared but not used)
         unused_count = 0
         if (allocated(result%usage_info%variable_names)) then
-            allocate(character(len(result%usage_info%variable_names(1))) :: temp_unused(size(result%usage_info%variable_names)))
+            allocate(character(len(result%usage_info%variable_names(1))) :: &
+                temp_unused(size(result%usage_info%variable_names)))
             
             do i = 1, size(result%usage_info%usage_counts)
                 if (result%usage_info%usage_counts(i) == 0) then
@@ -322,11 +258,8 @@ contains
             end do
             
             if (unused_count > 0) then
-                ! Ensure arrays are not already allocated
-                if (allocated(result%unused_variables)) deallocate(result%unused_variables)
-                if (allocated(result%unused_node_indices)) deallocate(result%unused_node_indices)
-                
-                allocate(character(len(temp_unused(1))) :: result%unused_variables(unused_count))
+                allocate(character(len(temp_unused(1))) :: &
+                    result%unused_variables(unused_count))
                 result%unused_variables(1:unused_count) = temp_unused(1:unused_count)
                 
                 allocate(result%unused_node_indices(unused_count))
@@ -335,18 +268,10 @@ contains
                     result%unused_node_indices(i) = root_index ! Simplified
                 end do
             else
-                ! Ensure arrays are not already allocated
-                if (allocated(result%unused_variables)) deallocate(result%unused_variables)
-                if (allocated(result%unused_node_indices)) deallocate(result%unused_node_indices)
-                
                 allocate(character(0) :: result%unused_variables(0))
                 allocate(result%unused_node_indices(0))
             end if
         else
-            ! Ensure arrays are not already allocated
-            if (allocated(result%unused_variables)) deallocate(result%unused_variables)
-            if (allocated(result%unused_node_indices)) deallocate(result%unused_node_indices)
-            
             allocate(character(0) :: result%unused_variables(0))
             allocate(result%unused_node_indices(0))
         end if
@@ -359,11 +284,6 @@ contains
         
         ! For now, assume all variables are defined somewhere
         ! Full implementation would check against declarations
-        
-        ! Ensure arrays are not already allocated
-        if (allocated(result%undefined_variables)) deallocate(result%undefined_variables)
-        if (allocated(result%undefined_node_indices)) deallocate(result%undefined_node_indices)
-        
         allocate(character(0) :: result%undefined_variables(0))
         allocate(result%undefined_node_indices(0))
         
@@ -372,5 +292,16 @@ contains
         ! 2. Compare usage against declarations  
         ! 3. Flag variables used but not declared
     end subroutine
+
+    function get_usage_dependencies(this) result(deps)
+        class(usage_tracker_analyzer_t), intent(in) :: this
+        character(len=32), allocatable :: deps(:)
+        
+        ! Usage tracker analyzer has no dependencies
+        allocate(deps(0))
+        
+        associate(dummy => this)
+        end associate
+    end function
 
 end module usage_tracker_analyzer
