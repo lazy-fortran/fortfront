@@ -17,6 +17,9 @@ module frontend_integration
         character(len=:), allocatable :: generated_code
         type(ast_arena_t) :: arena
         type(semantic_context_t) :: semantic_context
+    contains
+        procedure :: assign => compilation_result_assign
+        generic :: assignment(=) => assign
     end type compilation_result_t
     
 contains
@@ -46,5 +49,28 @@ contains
         end if
         
     end function compile_source
+    
+    ! Assignment operator for compilation_result_t
+    subroutine compilation_result_assign(lhs, rhs)
+        class(compilation_result_t), intent(out) :: lhs
+        type(compilation_result_t), intent(in) :: rhs
+        
+        lhs%success = rhs%success
+        
+        if (allocated(rhs%error_message)) then
+            lhs%error_message = rhs%error_message
+        else
+            if (allocated(lhs%error_message)) deallocate(lhs%error_message)
+        end if
+        
+        if (allocated(rhs%generated_code)) then
+            lhs%generated_code = rhs%generated_code
+        else
+            if (allocated(lhs%generated_code)) deallocate(lhs%generated_code)
+        end if
+        
+        lhs%arena = rhs%arena                    ! Uses ast_arena_t assignment
+        lhs%semantic_context = rhs%semantic_context  ! Uses semantic_context_t assignment
+    end subroutine compilation_result_assign
     
 end module frontend_integration
