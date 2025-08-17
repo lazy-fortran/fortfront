@@ -1,1 +1,0 @@
-genhtml performance_coverage.info --output-directory performance_coverage_html --branch-coverage --legend
