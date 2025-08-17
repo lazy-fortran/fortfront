@@ -426,10 +426,10 @@ echo "if x > 0" | fortfront
 
 **Error Output:**
 ```
-Error at line 1, column 9: Missing 'then' keyword
-Source: if x > 0
-               ^
-Suggestion: Add 'then' after the condition: if x > 0 then
+Missing 'then' keyword in if statement at line 1, column 1
+  Source: if x > 0
+           ^
+  Suggestion: Add 'then' after the if condition
 ```
 
 ### Handling Invalid Input
