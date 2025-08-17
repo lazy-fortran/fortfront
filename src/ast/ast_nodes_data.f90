@@ -46,6 +46,8 @@ module ast_nodes_data
         ! attribute is present
         logical :: is_target = .false.                 ! Whether target
         ! attribute is present
+        logical :: is_parameter = .false.              ! Whether parameter
+        ! attribute is present (for constants)
     contains
         procedure :: accept => declaration_accept
         procedure :: to_json => declaration_to_json
@@ -147,6 +149,7 @@ contains
         lhs%is_allocatable = rhs%is_allocatable
         lhs%is_pointer = rhs%is_pointer
         lhs%is_target = rhs%is_target
+        lhs%is_parameter = rhs%is_parameter
         if (allocated(rhs%dimension_indices)) then
             if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
             allocate(lhs%dimension_indices(size(rhs%dimension_indices)))
