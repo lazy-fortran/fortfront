@@ -50,7 +50,7 @@ echo "arr = [1, 2.0, 3]" | fortfront          # Mixed numeric types
 
 - **Pure CLI Interface**: No API dependencies, works as standalone command
 - **High Performance**: <0.05ms average transformation time
-- **Robust Error Handling**: Graceful fallback for invalid syntax
+- **Enhanced Error Reporting**: Clear error messages with line/column info and fix suggestions
 - **Comprehensive Testing**: Unit tests for transformation function + CLI system tests
 - **Standard Compliant**: Generates clean, standard Fortran code
 - **Type Inference**: Hindley-Milner algorithm for automatic variable typing
@@ -406,6 +406,37 @@ input = "! This is just a comment"
 call transform_lazy_fortran_string(input, output, error_msg)
 ! error_msg is empty, output contains minimal valid program
 ```
+
+## Error Reporting
+
+fortfront provides comprehensive error reporting with detailed information to help fix syntax issues:
+
+### Error Message Features
+
+- **Precise Location**: Line and column numbers for each error
+- **Clear Descriptions**: Specific problem identification (e.g., "Missing 'then' keyword")
+- **Fix Suggestions**: Actionable advice when possible (e.g., "Add 'then' after condition")
+- **Source Context**: Shows the problematic source line with position indicators
+
+### Example Error Output
+
+```bash
+echo "if x > 0" | fortfront
+```
+
+**Error Output:**
+```
+Error at line 1, column 9: Missing 'then' keyword
+Source: if x > 0
+               ^
+Suggestion: Add 'then' after the condition: if x > 0 then
+```
+
+### Handling Invalid Input
+
+- **No Silent Failures**: All syntax errors are explicitly reported
+- **Meaningful Fallback**: Invalid syntax produces error comments in output rather than empty programs
+- **Comprehensive Validation**: Comments-only files and simple expressions are properly accepted
 
 ## License
 

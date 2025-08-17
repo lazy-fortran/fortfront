@@ -115,8 +115,20 @@ Tests are organized by compilation phase:
 - `test/codegen/` - Code generation tests
 - `test/standardizer/` - AST standardization tests
 - `test/validation/` - Input validation module tests
+- `test/error_reporting/` - Error reporting and validation tests
 
 Total: 290 test files as of latest count.
+
+### Error Reporting (Issue #256)
+
+Enhanced error reporting provides comprehensive feedback:
+
+- **Location Information**: Precise line and column numbers for all errors  
+- **Clear Messages**: Specific problem identification with actionable descriptions
+- **Fix Suggestions**: Helpful recommendations when syntax errors can be resolved
+- **Source Context**: Display of problematic source lines with position indicators
+- **No Silent Failures**: All syntax errors explicitly reported, no silent fallbacks
+- **Validation Coverage**: Comments-only input and simple expressions properly accepted
 
 ### Common Development Patterns
 
