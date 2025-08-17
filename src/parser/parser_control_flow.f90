@@ -635,6 +635,11 @@ contains
 
         do while (parser%current_token <= size(parser%tokens))
             case_token = parser%peek()
+            
+            ! Safety check for EOF
+            if (case_token%kind == TK_EOF) then
+                exit
+            end if
 
             if (case_token%kind == TK_KEYWORD) then
                 if (case_token%text == "case") then
@@ -699,75 +704,22 @@ contains
                             end if
                         end if
 
-                        ! Parse case body statements until next 'case' or 'end select'
+                        ! Parse case body statements using the standard pattern
                         block
                             integer, allocatable :: body_indices(:)
-                            integer :: stmt_index, body_count
-                            type(token_t) :: next_token
-
-                            allocate (body_indices(0))
-                            body_count = 0
-
-                            ! Parse statements until next case or end select
-                            do while (parser%current_token <= size(parser%tokens))
-                                next_token = parser%peek()
-
-                                if (next_token%kind == TK_KEYWORD) then
-                       if (next_token%text == "case" .or. next_token%text == "end") then
-                                        exit
-                                    end if
-                                end if
-
-                                ! Parse a statement
-                                block
-                                    type(token_t), allocatable :: stmt_tokens(:)
-                                    integer :: stmt_start, stmt_end, k
-
-                                    stmt_start = parser%current_token
-                                    stmt_end = stmt_start
-
-                                    ! Find end of statement (same line)
-                                    do k = stmt_start, size(parser%tokens)
-                                        if (parser%tokens(k)%kind == TK_EOF) then
-                                            stmt_end = k
-                                            exit
-                                        end if
-   if (k > stmt_start .and. parser%tokens(k)%line > parser%tokens(stmt_start)%line) then
-                                            stmt_end = k - 1
-                                            exit
-                                        end if
-                                        stmt_end = k
-                                    end do
-
-                                    if (stmt_end >= stmt_start) then
-                                       allocate (stmt_tokens(stmt_end - stmt_start + 2))
-           stmt_tokens(1:stmt_end - stmt_start + 1) = parser%tokens(stmt_start:stmt_end)
-                                    stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
-                                        stmt_tokens(stmt_end - stmt_start + 2)%text = ""
-
-                                        block
-                                            integer, allocatable :: stmt_indices(:)
-                                            integer :: m
-                          stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
-
-                                            do m = 1, size(stmt_indices)
-                                                if (stmt_indices(m) > 0) then
-                                          body_indices = [body_indices, stmt_indices(m)]
-                                                    body_count = body_count + 1
-                                                end if
-                                            end do
-                                        end block
-
-                                        deallocate (stmt_tokens)
-                                    end if
-
-                                    parser%current_token = stmt_end + 1
-                                end block
-                            end do
+                            integer :: body_count
+                            character(len=16) :: end_keywords(2)
+                            
+                            ! Define end keywords for case blocks
+                            end_keywords(1) = "case"
+                            end_keywords(2) = "end"
+                            
+                            ! Use the unified statement body parser
+                            body_indices = parse_statement_body(parser, arena, end_keywords)
 
                             ! Convert body indices to ast_node_wrapper array
-                            if (body_count > 0) then
-                                allocate (new_case%body(body_count))
+                            if (allocated(body_indices) .and. size(body_indices) > 0) then
+                                allocate (new_case%body(size(body_indices)))
                                 do body_count = 1, size(body_indices)
      if (body_indices(body_count) > 0 .and. body_indices(body_count) <= arena%size) then
                        if (allocated(arena%entries(body_indices(body_count))%node)) then
@@ -793,7 +745,13 @@ contains
                             case_token = parser%consume()  ! consume 'end'
                             case_token = parser%consume()  ! consume 'select'
                             exit
+                        else
+                            ! Not 'end select', skip this 'end' token
+                            parser%current_token = parser%current_token + 1
                         end if
+                    else
+                        ! No token after 'end', skip
+                        parser%current_token = parser%current_token + 1
                     end if
                 else
                     ! Other keyword, skip
@@ -903,6 +861,26 @@ contains
                     end block
                 else
                     stmt_index = parse_do_loop(parser, arena)
+                    if (stmt_index <= 0) stmt_index = 0
+                end if
+            case ("select")
+                ! Parse select case statement - need to handle parent index
+                if (present(parent_index)) then
+                    block
+                        integer :: nested_select_index
+                        nested_select_index = parse_select_case(parser, arena)
+                        if (nested_select_index > 0 .and. present(parent_index)) then
+                            ! Update the nested select's parent_index
+                            arena%entries(nested_select_index)%parent_index = parent_index
+                            ! Add it as a child to the parent
+                            call arena%add_child(parent_index, nested_select_index)
+                            stmt_index = nested_select_index
+                        else
+                            stmt_index = 0
+                        end if
+                    end block
+                else
+                    stmt_index = parse_select_case(parser, arena)
                     if (stmt_index <= 0) stmt_index = 0
                 end if
             case ("print")
