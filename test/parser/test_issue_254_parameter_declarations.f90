@@ -144,10 +144,11 @@ contains
         call transform_lazy_fortran_string(input, output, error_msg)
         
         ! Should succeed without errors and include parameter in output
+        ! Note: dimension(3) attribute gets normalized to array syntax sizes(3)
         success = (len_trim(error_msg) == 0) .and. &
                   (index(output, 'parameter') > 0) .and. &
                   (index(output, 'sizes') > 0) .and. &
-                  (index(output, 'dimension') > 0)
+                  (index(output, '(3)') > 0)
         
         if (.not. success) then
             print *, '    Error:', error_msg
