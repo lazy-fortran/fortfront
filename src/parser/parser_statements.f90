@@ -2623,7 +2623,9 @@ contains
                         ! For now, skip them - they should be handled by a different path
                         block
                             integer :: construct_start, construct_end
-                            call find_control_flow_boundary_local(parser%tokens, parser%current_token, construct_start, construct_end)
+                            call find_control_flow_boundary_local(parser%tokens, &
+                                                               parser%current_token, &
+                                                               construct_start, construct_end)
                             parser%current_token = construct_end + 1
                             stmt_index = 0  ! Skip - don't add to body
                         end block
