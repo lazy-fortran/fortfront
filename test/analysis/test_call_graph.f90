@@ -315,6 +315,8 @@ contains
         
         ! Check that factorial calls itself
         callees = get_procedure_callees(graph, "factorial")
+        
+        
         if (size(callees) < 1) then
             print *, "FAILED: Expected factorial to call itself"
             all_tests_passed = .false.
