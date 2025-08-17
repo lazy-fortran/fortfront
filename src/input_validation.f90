@@ -498,16 +498,14 @@ contains
         end if
     end function format_syntax_error
 
-    ! Split source code into lines
+    ! Split source code into lines with dynamic allocation to prevent buffer overflow
     subroutine split_into_lines(source, lines)
         character(len=*), intent(in) :: source
         character(len=:), allocatable, intent(out) :: lines(:)
         
         integer :: i, line_count, start_pos, current_pos, max_line_len
-        character(len=:), allocatable :: temp_lines(:)  ! Allocatable to avoid stack overflow
-        integer :: actual_line_count
-        integer, parameter :: max_lines = 100
-        integer, parameter :: max_line_length = 500
+        character(len=:), allocatable :: temp_lines(:)
+        integer :: line_length
         
         ! Handle empty source
         if (len(source) == 0) then
@@ -516,46 +514,61 @@ contains
             return
         end if
         
-        ! Allocate temporary storage for lines
-        allocate(character(len=max_line_length) :: temp_lines(max_lines))
-        
-        line_count = 0
-        start_pos = 1
-        max_line_len = 0
-        
-        ! Count and split lines
+        ! First pass: count lines to determine array size
+        line_count = 1  ! At least one line even if no newlines
         do current_pos = 1, len(source)
             if (source(current_pos:current_pos) == new_line('A')) then
                 line_count = line_count + 1
-                if (line_count <= max_lines) then
-                    temp_lines(line_count) = source(start_pos:current_pos-1)
-                    max_line_len = max(max_line_len, current_pos - start_pos)
+            end if
+        end do
+        
+        ! Second pass: determine maximum line length
+        max_line_len = 0
+        start_pos = 1
+        do current_pos = 1, len(source)
+            if (source(current_pos:current_pos) == new_line('A')) then
+                line_length = current_pos - start_pos
+                max_line_len = max(max_line_len, line_length)
+                start_pos = current_pos + 1
+            end if
+        end do
+        
+        ! Check the last line if it doesn't end with newline
+        if (start_pos <= len(source)) then
+            line_length = len(source) - start_pos + 1
+            max_line_len = max(max_line_len, line_length)
+        end if
+        
+        ! Ensure minimum length
+        max_line_len = max(max_line_len, 1)
+        
+        ! Dynamically allocate storage for all lines
+        allocate(character(len=max_line_len) :: temp_lines(line_count))
+        
+        ! Third pass: extract lines
+        i = 1
+        start_pos = 1
+        do current_pos = 1, len(source)
+            if (source(current_pos:current_pos) == new_line('A')) then
+                if (current_pos > start_pos) then
+                    temp_lines(i) = source(start_pos:current_pos-1)
+                else
+                    temp_lines(i) = ""
                 end if
+                i = i + 1
                 start_pos = current_pos + 1
             end if
         end do
         
         ! Add the last line if it doesn't end with newline
-        if (start_pos <= len(source)) then
-            line_count = line_count + 1
-            if (line_count <= max_lines) then
-                temp_lines(line_count) = source(start_pos:len(source))
-                max_line_len = max(max_line_len, len(source) - start_pos + 1)
-            end if
+        if (start_pos <= len(source) .and. i <= line_count) then
+            temp_lines(i) = source(start_pos:len(source))
         end if
         
-        ! Ensure we have at least one line and don't exceed the limit
-        actual_line_count = max(1, min(line_count, max_lines))
-        max_line_len = max(max_line_len, 1)
-        
-        ! Allocate and copy the actual lines safely
-        allocate(character(len=max_line_len) :: lines(actual_line_count))
-        do i = 1, actual_line_count
-            if (i <= line_count) then
-                lines(i) = trim(temp_lines(i))
-            else
-                lines(i) = ""
-            end if
+        ! Allocate output array and copy lines
+        allocate(character(len=max_line_len) :: lines(line_count))
+        do i = 1, line_count
+            lines(i) = temp_lines(i)
         end do
         
     end subroutine split_into_lines
