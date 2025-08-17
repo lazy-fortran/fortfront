@@ -123,25 +123,47 @@ echo "matrix(i, j) = value" | fortfront
 
 **Control structures:**
 ```bash
-echo "if (x > 0) then; print *, x; end if" | fortfront
-echo "do i = 1, 5; print *, i; end do" | fortfront
+echo "if (x > 0) then
+print *, x
+end if" | fortfront
+
+echo "do i = 1, 5
+print *, i
+end do" | fortfront
 ```
 
 **Nested control structures:**
 ```bash
-# Nested loops and conditionals
-echo "do i = 1, 3; if (i > 1) then; print *, i; end if; end do" | fortfront
+# Nested if inside do loop
+echo "do i = 1, 3
+    if (i > 1) then
+        print *, i
+    end if
+end do" | fortfront
 
-# Complex nested patterns
-echo "if (x > 0) then; do j = 1, x; print *, j; end do; end if" | fortfront
+# Nested do loops  
+echo "do i = 1, 2
+    do j = 1, 2
+        print *, i, j
+    end do
+end do" | fortfront
 ```
 
 **❌ Rejected Input Types:**
 - Random text without Fortran structure
 - Invalid syntax patterns (`123 ++ 456`)
 - Incomplete control structures (missing `then`, `end if`, etc.)
+- Semicolon statement separation (not currently supported)
+- Select case constructs within nested structures
+- Complex nested patterns with else clauses
 
 Invalid input is rejected with helpful error messages identifying specific syntax issues.
+
+**⚠️ Current Limitations:**
+- Semicolon (`;`) statement separation is not supported - use line breaks instead
+- Select case parsing has known issues in nested contexts
+- Some complex nested control patterns may generate unparsed sections
+- Multiple sequential control structures may not all be processed
 
 
 
