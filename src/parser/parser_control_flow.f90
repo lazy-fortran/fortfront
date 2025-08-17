@@ -338,7 +338,7 @@ contains
                         end do
                     end block
 
-                    deallocate (stmt_tokens)
+                    if (allocated(stmt_tokens)) deallocate (stmt_tokens)
                 end if
 
                 ! Move to next statement
@@ -670,9 +670,16 @@ contains
                                     type(token_t), allocatable :: value_tokens(:)
                                     integer :: remaining_count, j
 
-                                    ! Count remaining tokens until ')'
+                                    ! Count remaining tokens until ')' with EOF safety
                                     remaining_count = 0
                                     do j = parser%current_token, size(parser%tokens)
+                                        ! Check bounds and EOF before accessing token
+                                        if (j > size(parser%tokens)) then
+                                            exit  ! EOF reached
+                                        end if
+                                        if (parser%tokens(j)%kind == TK_EOF) then
+                                            exit  ! Explicit EOF check
+                                        end if
                                         if (parser%tokens(j)%kind == TK_OPERATOR .and. &
                                             parser%tokens(j)%text == ")") then
                                             exit
@@ -1161,7 +1168,7 @@ contains
                         end do
                     end block
 
-                    deallocate (stmt_tokens)
+                    if (allocated(stmt_tokens)) deallocate (stmt_tokens)
                 end if
 
                 parser%current_token = stmt_end + 1
@@ -1545,26 +1552,31 @@ contains
         allocate(body_indices(100))  ! Initial allocation
         
         do while (.not. parser%is_at_end())
-            token = parser%peek()
-            
-            ! Check for 'end associate'
-            if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                if (parser%current_token + 1 <= size(parser%tokens)) then
-                    if (parser%tokens(parser%current_token + 1)%kind == &
-                        TK_KEYWORD .and. &
-                        parser%tokens(parser%current_token + 1)%text == &
-                        "associate") then
-                        token = parser%consume()  ! consume 'end'
-                        token = parser%consume()  ! consume 'associate'
-                        exit
+            ! Track position to prevent infinite loops
+            block
+                integer :: old_pos
+                old_pos = parser%current_token
+                
+                token = parser%peek()
+                
+                ! Check for 'end associate'
+                if (token%kind == TK_KEYWORD .and. token%text == "end") then
+                    if (parser%current_token + 1 <= size(parser%tokens)) then
+                        if (parser%tokens(parser%current_token + 1)%kind == &
+                            TK_KEYWORD .and. &
+                            parser%tokens(parser%current_token + 1)%text == &
+                            "associate") then
+                            token = parser%consume()  ! consume 'end'
+                            token = parser%consume()  ! consume 'associate'
+                            exit
+                        end if
                     end if
                 end if
-            end if
-            
-            ! Handle EOF
-            if (token%kind == TK_EOF) then
-                exit
-            end if
+                
+                ! Handle EOF
+                if (token%kind == TK_EOF) then
+                    exit
+                end if
             
             ! Parse a single statement by trying to identify its end
             block
@@ -1619,11 +1631,15 @@ contains
                     stmt_end = j
                 end do
                 
-                ! Extract statement tokens
-                if (stmt_end >= stmt_start) then
+                ! Extract statement tokens with bounds validation
+                if (stmt_end >= stmt_start .and. stmt_start >= 1 .and. &
+                    stmt_end <= size(parser%tokens)) then
                     allocate(stmt_tokens(stmt_end - stmt_start + 1))
                     do j = 1, stmt_end - stmt_start + 1
-                        stmt_tokens(j) = parser%tokens(stmt_start + j - 1)
+                        if (stmt_start + j - 1 >= 1 .and. &
+                            stmt_start + j - 1 <= size(parser%tokens)) then
+                            stmt_tokens(j) = parser%tokens(stmt_start + j - 1)
+                        end if
                     end do
                     
                     ! Parse the statement - handle ASSOCIATE constructs specially
@@ -1688,6 +1704,12 @@ contains
                     parser%current_token = parser%current_token + 1
                 end if
             end block
+            
+            ! If parser position didn't advance, force advance to prevent infinite loop
+            if (parser%current_token == old_pos) then
+                parser%current_token = parser%current_token + 1
+            end if
+        end block
         end do
         
         ! Create ASSOCIATE node
