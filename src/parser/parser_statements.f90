@@ -2531,7 +2531,7 @@ contains
 
                 ! Debug: Show what tokens are being parsed
                 if (program_name == "test") then
-                    print *, "DEBUG: Program parsing token:", trim(first_token%text), "kind:", first_token%kind
+                    ! DEBUG: Program parsing token
                 end if
                 
                 ! Handle different statement types
@@ -2592,25 +2592,25 @@ contains
                         stmt_index = parse_function_definition(parser, arena)
                     case ("recursive")
                         ! Handle recursive function/subroutine definitions
-                        print *, "DEBUG: Found recursive keyword in program parsing"
+                        ! DEBUG: Found recursive keyword in program parsing
                         ! Consume 'recursive' and check next token
                         token = parser%consume()
                         token = parser%peek()
                         if (token%kind == TK_KEYWORD) then
                             if (token%text == "function") then
-                                print *, "DEBUG: Parsing recursive function"
+                                ! DEBUG: Parsing recursive function
                                 stmt_index = parse_function_definition(parser, arena)
-                                print *, "DEBUG: Recursive function parsed, index:", stmt_index
+                                ! DEBUG: Recursive function parsed
                             else if (token%text == "subroutine") then
-                                print *, "DEBUG: Parsing recursive subroutine"
+                                ! DEBUG: Parsing recursive subroutine
                                 stmt_index = parse_subroutine_definition(parser, arena)
                             else
-                                print *, "DEBUG: Unknown keyword after recursive:", trim(token%text)
+                                ! DEBUG: Unknown keyword after recursive
                                 ! Unknown after recursive - skip
                                 stmt_index = 0
                             end if
                         else
-                            print *, "DEBUG: No keyword after recursive"
+                            ! DEBUG: No keyword after recursive
                             ! No keyword after recursive - skip
                             stmt_index = 0
                         end if

@@ -300,9 +300,9 @@ contains
                 ! Parse the initializer expression
                 initializer_index = parse_comparison(parser, arena)
                 ! Debug output
-                ! print *, "DEBUG: Parsed initializer, index =", initializer_index
+                ! DEBUG: Parsed initializer
             else
-                ! print *, "DEBUG: No initializer found"
+                ! DEBUG: No initializer found
             end if
 
             ! Determine final array status and dimensions

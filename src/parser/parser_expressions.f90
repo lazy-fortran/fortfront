@@ -533,7 +533,7 @@ contains
 
         case (TK_OPERATOR)
             ! Debug: print operator
-            ! print *, "DEBUG parse_primary: operator = '", trim(current%text), "'"
+            ! DEBUG parse_primary: operator handling
             ! Check for parentheses or legacy array literal
             if (current%text == "(") then
                 ! Check for legacy array literal: (/ ... /) FIRST before consuming
