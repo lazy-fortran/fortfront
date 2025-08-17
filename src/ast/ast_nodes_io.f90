@@ -93,16 +93,9 @@ contains
     subroutine print_statement_assign(lhs, rhs)
         class(print_statement_node), intent(inout) :: lhs
         class(print_statement_node), intent(in) :: rhs
-        ! Copy base fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific fields
         if (allocated(rhs%expression_indices)) then
             if (allocated(lhs%expression_indices)) deallocate(lhs%expression_indices)
@@ -129,16 +122,10 @@ contains
     subroutine write_statement_assign(lhs, rhs)
         class(write_statement_node), intent(inout) :: lhs
         class(write_statement_node), intent(in) :: rhs
-        ! Copy base fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         ! Copy specific fields
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
         if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
@@ -188,16 +175,9 @@ contains
     subroutine read_statement_assign(lhs, rhs)
         class(read_statement_node), intent(inout) :: lhs
         class(read_statement_node), intent(in) :: rhs
-        ! Copy base fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific fields
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
         if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
@@ -244,16 +224,9 @@ contains
     subroutine format_descriptor_assign(lhs, rhs)
         class(format_descriptor_node), intent(inout) :: lhs
         class(format_descriptor_node), intent(in) :: rhs
-        ! Copy base fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific fields
         if (allocated(rhs%descriptor_type)) lhs%descriptor_type = rhs%descriptor_type
         lhs%width = rhs%width

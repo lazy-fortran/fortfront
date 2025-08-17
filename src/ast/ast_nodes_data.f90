@@ -123,16 +123,9 @@ contains
     subroutine declaration_assign(lhs, rhs)
         class(declaration_node), intent(inout) :: lhs
         class(declaration_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
-        ! Currently skipped due to mono_type_t self-referential structure causing
-        ! performance issues and potential infinite loops during assignment.
-        ! This is a temporary workaround that breaks semantic information flow.
-        if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy derived class fields
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
         if (allocated(rhs%var_name)) lhs%var_name = rhs%var_name
@@ -206,16 +199,9 @@ contains
     subroutine parameter_declaration_assign(lhs, rhs)
         class(parameter_declaration_node), intent(inout) :: lhs
         class(parameter_declaration_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
-        ! Currently skipped due to mono_type_t self-referential structure causing
-        ! performance issues and potential infinite loops during assignment.
-        ! This is a temporary workaround that breaks semantic information flow.
-        if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
@@ -250,16 +236,9 @@ contains
     subroutine module_assign(lhs, rhs)
         class(module_node), intent(inout) :: lhs
         class(module_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
-        ! Currently skipped due to mono_type_t self-referential structure causing
-        ! performance issues and potential infinite loops during assignment.
-        ! This is a temporary workaround that breaks semantic information flow.
-        if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         ! Handle declaration_indices array
@@ -295,16 +274,10 @@ contains
     subroutine derived_type_assign(lhs, rhs)
         class(derived_type_node), intent(inout) :: lhs
         class(derived_type_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
-        ! Currently skipped due to mono_type_t self-referential structure causing
-        ! performance issues and potential infinite loops during assignment.
-        ! This is a temporary workaround that breaks semantic information flow.
-        if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         ! Handle component_indices array

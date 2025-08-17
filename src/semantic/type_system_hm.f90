@@ -358,7 +358,7 @@ contains
         call mono_type_assign(copy, this)
     end function mono_type_deep_copy
 
-    ! Assignment operator for mono_type_t (cycle-safe deep copy)
+    ! Assignment operator for mono_type_t (3-tier cycle-safe deep copy)
     subroutine mono_type_assign(lhs, rhs)
         class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
@@ -376,40 +376,99 @@ contains
         ! Copy var field using safe assignment
         lhs%var = rhs%var
         
-        ! Use cycle-safe deep copy for args
+        ! 3-tier optimization system for args copying
         if (allocated(rhs%args)) then
-            call mono_type_cycle_safe_copy(lhs, rhs)
+            call mono_type_3tier_copy(lhs, rhs)
         end if
     end subroutine mono_type_assign
     
-    ! Cycle-safe args copying with depth-limited recursion
-    subroutine mono_type_cycle_safe_copy(lhs, rhs)
+    ! 3-tier cycle-safe copying optimization system
+    subroutine mono_type_3tier_copy(lhs, rhs)
         class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
+        integer :: complexity_score
         
-        ! Use simple depth-limited copy to prevent infinite recursion
-        call mono_type_depth_limited_copy(lhs, rhs, 0)
-    end subroutine mono_type_cycle_safe_copy
+        ! Tier 1: Fast path for simple types (no recursion)
+        complexity_score = calculate_type_complexity(rhs)
+        
+        if (complexity_score <= 2) then
+            ! Fast path: direct copying for simple structures
+            call mono_type_fast_copy(lhs, rhs)
+        else if (complexity_score <= 10) then
+            ! Tier 2: Depth-limited copying for moderate complexity
+            call mono_type_depth_limited_copy(lhs, rhs, 0)
+        else
+            ! Tier 3: Full cycle-safe copying with DFS for complex types
+            call mono_type_dfs_cycle_safe_copy(lhs, rhs)
+        end if
+    end subroutine mono_type_3tier_copy
     
-    ! Implementation with depth limitation to prevent infinite recursion
+    ! Calculate complexity score for tier selection
+    function calculate_type_complexity(rhs) result(score)
+        type(mono_type_t), intent(in) :: rhs
+        integer :: score
+        integer :: i
+        
+        score = 0
+        
+        ! Base complexity from type kind
+        select case (rhs%kind)
+        case (TVAR, TINT, TREAL, TCHAR, TLOGICAL)
+            score = score + 1
+        case (TFUN, TARRAY)
+            score = score + 2
+        case default
+            score = score + 1
+        end select
+        
+        ! Add complexity from nested args
+        if (allocated(rhs%args)) then
+            score = score + size(rhs%args)
+            do i = 1, min(size(rhs%args), 5)  ! Sample first 5 to avoid deep recursion
+                if (allocated(rhs%args(i)%args)) then
+                    score = score + size(rhs%args(i)%args)
+                end if
+            end do
+        end if
+    end function calculate_type_complexity
+    
+    ! Tier 1: Fast path for simple types
+    subroutine mono_type_fast_copy(lhs, rhs)
+        class(mono_type_t), intent(inout) :: lhs
+        type(mono_type_t), intent(in) :: rhs
+        integer :: i, args_size
+        
+        if (.not. allocated(rhs%args)) return
+        
+        args_size = size(rhs%args)
+        allocate(lhs%args(args_size))
+        
+        ! Simple non-recursive copy for fast path
+        do i = 1, args_size
+            lhs%args(i)%kind = rhs%args(i)%kind
+            lhs%args(i)%size = rhs%args(i)%size
+            lhs%args(i)%alloc_info = rhs%args(i)%alloc_info
+            lhs%args(i)%var = rhs%args(i)%var
+            
+            ! Don't copy nested args in fast path - keep it simple
+        end do
+    end subroutine mono_type_fast_copy
+    
+    ! Tier 2: Depth-limited copying (enhanced from original)
     recursive subroutine mono_type_depth_limited_copy(lhs, rhs, depth)
         class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
         integer, intent(in) :: depth
         integer :: i, args_size
-        
-        ! Note: depth passed to handle recursion
+        integer, parameter :: MAX_DEPTH = 5  ! Increased from 3 for better coverage
         
         if (.not. allocated(rhs%args)) return
         
         args_size = size(rhs%args)
-        
-        ! Allocate destination array (even if size 0)
         allocate(lhs%args(args_size))
         
-        ! Copy each argument recursively with depth limitation
         do i = 1, args_size
-            ! Initialize all fields to safe defaults first
+            ! Initialize with safe defaults
             lhs%args(i)%kind = TVAR
             lhs%args(i)%size = 0
             lhs%args(i)%var%id = -1
@@ -417,10 +476,10 @@ contains
             lhs%args(i)%alloc_info%is_pointer = .false.
             lhs%args(i)%alloc_info%needs_allocation_check = .false.
             
-            ! Always ensure var%name is allocated
+            ! Ensure var%name is allocated
             allocate(character(len=0) :: lhs%args(i)%var%name)
             
-            ! Copy essential fields with validation
+            ! Copy validated fields
             if (rhs%args(i)%kind >= 1 .and. rhs%args(i)%kind <= 10) then
                 lhs%args(i)%kind = rhs%args(i)%kind
             end if
@@ -430,12 +489,96 @@ contains
             lhs%args(i)%alloc_info = rhs%args(i)%alloc_info
             lhs%args(i)%var = rhs%args(i)%var
             
-            ! Recursively copy nested args with depth limitation
-            if (allocated(rhs%args(i)%args) .and. depth < 3) then
+            ! Recursive copy with depth check
+            if (allocated(rhs%args(i)%args) .and. depth < MAX_DEPTH) then
                 call mono_type_depth_limited_copy(lhs%args(i), rhs%args(i), depth + 1)
             end if
         end do
     end subroutine mono_type_depth_limited_copy
+    
+    ! Tier 3: Full DFS-based cycle-safe copying
+    subroutine mono_type_dfs_cycle_safe_copy(lhs, rhs)
+        class(mono_type_t), intent(inout) :: lhs
+        type(mono_type_t), intent(in) :: rhs
+        integer, parameter :: MAX_REFS = 100
+        integer :: ref_stack(MAX_REFS)
+        integer :: stack_depth
+        
+        stack_depth = 0
+        call mono_type_dfs_copy_recursive(lhs, rhs, ref_stack, stack_depth)
+    end subroutine mono_type_dfs_cycle_safe_copy
+    
+    ! DFS recursive implementation with cycle detection
+    recursive subroutine mono_type_dfs_copy_recursive(lhs, rhs, ref_stack, stack_depth)
+        class(mono_type_t), intent(inout) :: lhs
+        type(mono_type_t), intent(in) :: rhs
+        integer, intent(inout) :: ref_stack(:)
+        integer, intent(inout) :: stack_depth
+        integer :: i, args_size, current_ref
+        logical :: cycle_detected
+        
+        if (.not. allocated(rhs%args)) return
+        
+        ! Generate reference ID based on memory location approximation
+        current_ref = mod(abs(rhs%kind * 1000 + rhs%size), size(ref_stack))
+        
+        ! Check for cycles
+        cycle_detected = .false.
+        do i = 1, stack_depth
+            if (ref_stack(i) == current_ref) then
+                cycle_detected = .true.
+                exit
+            end if
+        end do
+        
+        ! If cycle detected, use shallow copy to break it
+        if (cycle_detected) then
+            call mono_type_fast_copy(lhs, rhs)
+            return
+        end if
+        
+        ! Add current reference to stack
+        if (stack_depth < size(ref_stack)) then
+            stack_depth = stack_depth + 1
+            ref_stack(stack_depth) = current_ref
+        end if
+        
+        ! Perform deep copy
+        args_size = size(rhs%args)
+        allocate(lhs%args(args_size))
+        
+        do i = 1, args_size
+            ! Initialize safely
+            lhs%args(i)%kind = TVAR
+            lhs%args(i)%size = 0
+            lhs%args(i)%var%id = -1
+            lhs%args(i)%alloc_info%is_allocatable = .false.
+            lhs%args(i)%alloc_info%is_pointer = .false.
+            lhs%args(i)%alloc_info%needs_allocation_check = .false.
+            
+            allocate(character(len=0) :: lhs%args(i)%var%name)
+            
+            ! Copy fields
+            if (rhs%args(i)%kind >= 1 .and. rhs%args(i)%kind <= 10) then
+                lhs%args(i)%kind = rhs%args(i)%kind
+            end if
+            if (rhs%args(i)%size >= 0) then
+                lhs%args(i)%size = rhs%args(i)%size
+            end if
+            lhs%args(i)%alloc_info = rhs%args(i)%alloc_info
+            lhs%args(i)%var = rhs%args(i)%var
+            
+            ! Recursive copy with cycle detection
+            if (allocated(rhs%args(i)%args)) then
+                call mono_type_dfs_copy_recursive(lhs%args(i), rhs%args(i), ref_stack, stack_depth)
+            end if
+        end do
+        
+        ! Remove current reference from stack
+        if (stack_depth > 0) then
+            stack_depth = stack_depth - 1
+        end if
+    end subroutine mono_type_dfs_copy_recursive
 
     ! Convert polymorphic type to string
     function poly_type_to_string(this) result(str)

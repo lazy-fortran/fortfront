@@ -185,16 +185,10 @@ contains
     subroutine program_assign(lhs, rhs)
         class(program_node), intent(inout) :: lhs
         class(program_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! Deep copy inferred_type using safe mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         ! Copy derived class fields
         if (allocated(rhs%name)) then
             lhs%name = rhs%name
@@ -221,16 +215,10 @@ contains
     subroutine assignment_assign(lhs, rhs)
         class(assignment_node), intent(inout) :: lhs
         class(assignment_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! Deep copy inferred_type using safe mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         ! Copy derived class fields
         lhs%target_index = rhs%target_index
         lhs%value_index = rhs%value_index
@@ -260,16 +248,10 @@ contains
     subroutine pointer_assignment_assign(lhs, rhs)
         class(pointer_assignment_node), intent(inout) :: lhs
         class(pointer_assignment_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! Deep copy inferred_type using safe mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         ! Copy derived class fields
         lhs%pointer_index = rhs%pointer_index
         lhs%target_index = rhs%target_index
@@ -293,16 +275,8 @@ contains
         class(identifier_node), intent(inout) :: lhs
         class(identifier_node), intent(in) :: rhs
         
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! Deep copy inferred_type using safe mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         
         ! Copy derived class fields
         if (allocated(rhs%name)) then
@@ -328,16 +302,8 @@ contains
         class(literal_node), intent(inout) :: lhs
         class(literal_node), intent(in) :: rhs
         
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! Deep copy inferred_type using safe mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         
         ! Copy derived class fields
         if (allocated(rhs%value)) then
@@ -366,16 +332,10 @@ contains
     subroutine binary_op_assign(lhs, rhs)
         class(binary_op_node), intent(inout) :: lhs
         class(binary_op_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! Deep copy inferred_type using safe mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         ! Copy derived class fields
         lhs%left_index = rhs%left_index
         lhs%right_index = rhs%right_index
@@ -431,16 +391,10 @@ contains
     subroutine call_or_subscript_assign(lhs, rhs)
         class(call_or_subscript_node), intent(inout) :: lhs
         class(call_or_subscript_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! Deep copy inferred_type using safe mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
@@ -470,16 +424,10 @@ contains
     subroutine array_literal_assign(lhs, rhs)
         class(array_literal_node), intent(inout) :: lhs
         class(array_literal_node), intent(in) :: rhs
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! Deep copy inferred_type using safe mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         ! Copy derived class fields
         if (allocated(rhs%element_indices)) lhs%element_indices = rhs%element_indices
         if (allocated(rhs%element_type)) lhs%element_type = rhs%element_type
@@ -546,16 +494,8 @@ contains
         class(component_access_node), intent(inout) :: lhs
         class(component_access_node), intent(in) :: rhs
         
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! Deep copy inferred_type using safe mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         
         ! Copy derived class fields
         lhs%base_expr_index = rhs%base_expr_index
@@ -610,16 +550,8 @@ contains
         class(range_subscript_node), intent(inout) :: lhs
         class(range_subscript_node), intent(in) :: rhs
         
-        ! Copy base class fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        ! Deep copy inferred_type using safe mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            if (.not. allocated(lhs%inferred_type)) allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         
         ! Copy derived class fields
         lhs%base_expr_index = rhs%base_expr_index

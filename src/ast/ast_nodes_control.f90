@@ -284,15 +284,9 @@ contains
         class(if_node), intent(inout) :: lhs
         class(if_node), intent(in) :: rhs
         integer :: i
-        ! Copy base fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific fields
         lhs%condition_index = rhs%condition_index
         if (allocated(rhs%then_body_indices)) then
@@ -329,15 +323,9 @@ contains
     subroutine do_loop_assign(lhs, rhs)
         class(do_loop_node), intent(inout) :: lhs
         class(do_loop_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific components
         lhs%var_name = rhs%var_name
         if (allocated(rhs%label)) lhs%label = rhs%label
@@ -368,15 +356,9 @@ contains
     subroutine do_while_assign(lhs, rhs)
         class(do_while_node), intent(inout) :: lhs
         class(do_while_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific components
         lhs%condition_index = rhs%condition_index
         if (allocated(rhs%body_indices)) then
@@ -428,15 +410,9 @@ contains
     subroutine forall_assign(lhs, rhs)
         class(forall_node), intent(inout) :: lhs
         class(forall_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific components
         lhs%num_indices = rhs%num_indices
         if (allocated(rhs%index_names)) then
@@ -499,15 +475,9 @@ contains
     subroutine select_case_assign(lhs, rhs)
         class(select_case_node), intent(inout) :: lhs
         class(select_case_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific components
         lhs%selector_index = rhs%selector_index
         lhs%default_index = rhs%default_index
@@ -541,15 +511,9 @@ contains
     subroutine case_block_assign(lhs, rhs)
         class(case_block_node), intent(inout) :: lhs
         class(case_block_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Deep copy allocatable arrays
         if (allocated(rhs%value_indices)) then
             if (allocated(lhs%value_indices)) deallocate(lhs%value_indices)
@@ -587,15 +551,9 @@ contains
     subroutine case_range_assign(lhs, rhs)
         class(case_range_node), intent(inout) :: lhs
         class(case_range_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific components
         lhs%start_value = rhs%start_value
         lhs%end_value = rhs%end_value
@@ -623,15 +581,9 @@ contains
     subroutine case_default_assign(lhs, rhs)
         class(case_default_node), intent(inout) :: lhs
         class(case_default_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Deep copy allocatable array
         if (allocated(rhs%body_indices)) then
             if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
@@ -675,14 +627,8 @@ contains
         class(where_node), intent(in) :: rhs
         integer :: i
         
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         lhs%mask_expr_index = rhs%mask_expr_index
         if (allocated(rhs%where_body_indices)) then
             if (allocated(lhs%where_body_indices)) deallocate(lhs%where_body_indices)
@@ -730,14 +676,9 @@ contains
     subroutine cycle_assign(lhs, rhs)
         class(cycle_node), intent(inout) :: lhs
         class(cycle_node), intent(in) :: rhs
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine cycle_assign
 
@@ -764,14 +705,9 @@ contains
     subroutine exit_assign(lhs, rhs)
         class(exit_node), intent(inout) :: lhs
         class(exit_node), intent(in) :: rhs
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine exit_assign
 
@@ -801,14 +737,9 @@ contains
     subroutine stop_assign(lhs, rhs)
         class(stop_node), intent(inout) :: lhs
         class(stop_node), intent(in) :: rhs
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         lhs%stop_code_index = rhs%stop_code_index
         if (allocated(rhs%stop_message)) lhs%stop_message = rhs%stop_message
     end subroutine stop_assign
@@ -835,14 +766,9 @@ contains
     subroutine return_assign(lhs, rhs)
         class(return_node), intent(inout) :: lhs
         class(return_node), intent(in) :: rhs
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
     end subroutine return_assign
 
     ! Goto statement implementations
@@ -868,14 +794,10 @@ contains
     subroutine goto_assign(lhs, rhs)
         class(goto_node), intent(inout) :: lhs
         class(goto_node), intent(in) :: rhs
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine goto_assign
 
@@ -905,14 +827,10 @@ contains
     subroutine error_stop_assign(lhs, rhs)
         class(error_stop_node), intent(inout) :: lhs
         class(error_stop_node), intent(in) :: rhs
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
+        
         lhs%error_code_index = rhs%error_code_index
         if (allocated(rhs%error_message)) lhs%error_message = rhs%error_message
     end subroutine error_stop_assign
@@ -964,15 +882,8 @@ contains
         class(associate_node), intent(in) :: rhs
         integer :: i
 
-        ! Copy base fields
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
 
         ! Copy associations
         if (allocated(rhs%associations)) then
@@ -1110,14 +1021,9 @@ contains
     subroutine where_stmt_assign(lhs, rhs)
         class(where_stmt_node), intent(inout) :: lhs
         class(where_stmt_node), intent(in) :: rhs
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         lhs%mask_expr_index = rhs%mask_expr_index
         lhs%assignment_index = rhs%assignment_index
     end subroutine where_stmt_assign

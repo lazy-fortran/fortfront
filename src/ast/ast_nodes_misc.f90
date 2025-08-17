@@ -160,16 +160,9 @@ contains
     subroutine complex_literal_assign(lhs, rhs)
         class(complex_literal_node), intent(inout) :: lhs
         class(complex_literal_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific components
         lhs%real_index = rhs%real_index
         lhs%imag_index = rhs%imag_index
@@ -205,16 +198,9 @@ contains
     subroutine allocate_statement_assign(lhs, rhs)
         class(allocate_statement_node), intent(inout) :: lhs
         class(allocate_statement_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific components
         if (allocated(rhs%var_indices)) then
             if (allocated(lhs%var_indices)) deallocate(lhs%var_indices)
@@ -258,16 +244,9 @@ contains
     subroutine deallocate_statement_assign(lhs, rhs)
         class(deallocate_statement_node), intent(inout) :: lhs
         class(deallocate_statement_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific components
         if (allocated(rhs%var_indices)) then
             if (allocated(lhs%var_indices)) deallocate(lhs%var_indices)
@@ -305,16 +284,9 @@ contains
     subroutine use_statement_assign(lhs, rhs)
         class(use_statement_node), intent(inout) :: lhs
         class(use_statement_node), intent(in) :: rhs
-        ! Copy base class components
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        
+        ! Copy base class fields using new cycle-safe pattern
+        call lhs%copy_base_fields(lhs, rhs)
         ! Copy specific components
         if (allocated(rhs%module_name)) lhs%module_name = rhs%module_name
         if (allocated(rhs%url_spec)) lhs%url_spec = rhs%url_spec
