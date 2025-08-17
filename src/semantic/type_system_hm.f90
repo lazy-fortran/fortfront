@@ -24,9 +24,7 @@ module type_system_hm
     type :: type_var_t
         integer :: id
         character(len=:), allocatable :: name  ! e.g., 'a, 'b
-    contains
-        procedure :: assign => type_var_assign
-        generic :: assignment(=) => assign
+        ! Removed assignment operator to prevent memory corruption
     end type type_var_t
 
     ! Memory allocation attributes
@@ -51,8 +49,7 @@ module type_system_hm
         procedure :: equals => mono_type_equals
         procedure :: to_string => mono_type_to_string
         procedure :: deep_copy => mono_type_deep_copy
-        procedure :: assign => mono_type_assign
-        generic :: assignment(=) => assign
+        ! Removed assignment operator to prevent memory corruption
     end type mono_type_t
 
     ! Polymorphic type (type scheme)
@@ -62,8 +59,7 @@ module type_system_hm
     contains
         procedure :: to_string => poly_type_to_string
         procedure :: deep_copy => poly_type_deep_copy
-        procedure :: assign => poly_type_assign
-        generic :: assignment(=) => assign
+        ! Removed assignment operator to prevent memory corruption
     end type poly_type_t
 
     ! Type substitution (maps type variables to types)
@@ -77,8 +73,7 @@ module type_system_hm
         procedure :: apply => subst_apply_to_mono
         procedure :: apply_to_poly => subst_apply_to_poly
         procedure :: deep_copy => subst_deep_copy
-        procedure :: assign => subst_assign
-        generic :: assignment(=) => assign
+        ! Removed assignment operator to prevent memory corruption
     end type substitution_t
 
     ! Type environment (maps identifiers to type schemes)
@@ -94,28 +89,11 @@ module type_system_hm
         procedure :: remove => env_remove
         procedure :: apply_subst => env_apply_subst
         procedure :: deep_copy => env_deep_copy
-        procedure :: assign => env_assign
-        generic :: assignment(=) => assign
+        ! Removed assignment operator to prevent memory corruption
     end type type_env_t
 
 contains
 
-    ! Assignment operator for type_var_t (deep copy)
-    subroutine type_var_assign(lhs, rhs)
-        class(type_var_t), intent(inout) :: lhs
-        type(type_var_t), intent(in) :: rhs
-        
-        ! Deallocate existing allocatable components
-        if (allocated(lhs%name)) deallocate(lhs%name)
-
-        lhs%id = rhs%id
-        if (allocated(rhs%name)) then
-            lhs%name = rhs%name
-        else
-            ! Always ensure name is allocated to prevent finalizer crashes
-            allocate(character(len=0) :: lhs%name)
-        end if
-    end subroutine type_var_assign
 
     ! Constructor for type variable
     function create_type_var(id, name) result(tv)
@@ -184,7 +162,7 @@ contains
             allocate (pt%forall(size(forall_vars)))
             pt%forall = forall_vars
         end if
-        pt%mono = mono  ! Assignment now does deep copy
+        pt%mono = mono  ! Uses default assignment
     end function create_poly_type
 
     ! Helper function to create function type with two arguments
@@ -198,8 +176,8 @@ contains
         fun_type%var%id = -1
         allocate (character(len=0) :: fun_type%var%name)
         allocate (fun_type%args(2))
-        fun_type%args(1) = arg_type  ! Assignment now does deep copy
-        fun_type%args(2) = result_type  ! Assignment now does deep copy
+        fun_type%args(1) = arg_type  ! Uses default assignment
+        fun_type%args(2) = result_type  ! Uses default assignment
     end function create_fun_type
 
     ! Check if two monomorphic types are equal
@@ -349,236 +327,15 @@ contains
         end select
     end function mono_type_to_string
 
-    ! Deep copy a monomorphic type (recursive to handle ALL nesting levels)
-    recursive function mono_type_deep_copy(this) result(copy)
+    ! Deep copy a monomorphic type (using default assignment)
+    function mono_type_deep_copy(this) result(copy)
         class(mono_type_t), intent(in) :: this
         type(mono_type_t) :: copy
 
-        ! Just call the assignment which now does proper deep copy
-        call mono_type_assign(copy, this)
+        ! Use Fortran's default assignment behavior
+        copy = this
     end function mono_type_deep_copy
 
-    ! Assignment operator for mono_type_t (3-tier cycle-safe deep copy)
-    subroutine mono_type_assign(lhs, rhs)
-        class(mono_type_t), intent(inout) :: lhs
-        type(mono_type_t), intent(in) :: rhs
-        
-        ! Clean up existing allocatable components
-        if (allocated(lhs%args)) then
-            deallocate(lhs%args)
-        end if
-        
-        ! Copy scalar fields
-        lhs%kind = rhs%kind
-        lhs%size = rhs%size
-        lhs%alloc_info = rhs%alloc_info
-        
-        ! Copy var field using safe assignment
-        lhs%var = rhs%var
-        
-        ! 3-tier optimization system for args copying
-        if (allocated(rhs%args)) then
-            call mono_type_3tier_copy(lhs, rhs)
-        end if
-    end subroutine mono_type_assign
-    
-    ! 3-tier cycle-safe copying optimization system
-    subroutine mono_type_3tier_copy(lhs, rhs)
-        class(mono_type_t), intent(inout) :: lhs
-        type(mono_type_t), intent(in) :: rhs
-        integer :: complexity_score
-        
-        ! Tier 1: Fast path for simple types (no recursion)
-        complexity_score = calculate_type_complexity(rhs)
-        
-        if (complexity_score <= 2) then
-            ! Fast path: direct copying for simple structures
-            call mono_type_fast_copy(lhs, rhs)
-        else if (complexity_score <= 10) then
-            ! Tier 2: Depth-limited copying for moderate complexity
-            call mono_type_depth_limited_copy(lhs, rhs, 0)
-        else
-            ! Tier 3: Full cycle-safe copying with DFS for complex types
-            call mono_type_dfs_cycle_safe_copy(lhs, rhs)
-        end if
-    end subroutine mono_type_3tier_copy
-    
-    ! Calculate complexity score for tier selection
-    function calculate_type_complexity(rhs) result(score)
-        type(mono_type_t), intent(in) :: rhs
-        integer :: score
-        integer :: i
-        
-        score = 0
-        
-        ! Base complexity from type kind
-        select case (rhs%kind)
-        case (TVAR, TINT, TREAL, TCHAR, TLOGICAL)
-            score = score + 1
-        case (TFUN, TARRAY)
-            score = score + 2
-        case default
-            score = score + 1
-        end select
-        
-        ! Add complexity from nested args
-        if (allocated(rhs%args)) then
-            score = score + size(rhs%args)
-            do i = 1, min(size(rhs%args), 5)  ! Sample first 5 to avoid deep recursion
-                if (allocated(rhs%args(i)%args)) then
-                    score = score + size(rhs%args(i)%args)
-                end if
-            end do
-        end if
-    end function calculate_type_complexity
-    
-    ! Tier 1: Fast path for simple types
-    subroutine mono_type_fast_copy(lhs, rhs)
-        class(mono_type_t), intent(inout) :: lhs
-        type(mono_type_t), intent(in) :: rhs
-        integer :: i, args_size
-        
-        if (.not. allocated(rhs%args)) return
-        
-        args_size = size(rhs%args)
-        allocate(lhs%args(args_size))
-        
-        ! Simple non-recursive copy for fast path
-        do i = 1, args_size
-            lhs%args(i)%kind = rhs%args(i)%kind
-            lhs%args(i)%size = rhs%args(i)%size
-            lhs%args(i)%alloc_info = rhs%args(i)%alloc_info
-            lhs%args(i)%var = rhs%args(i)%var
-            
-            ! Don't copy nested args in fast path - keep it simple
-        end do
-    end subroutine mono_type_fast_copy
-    
-    ! Tier 2: Depth-limited copying (enhanced from original)
-    recursive subroutine mono_type_depth_limited_copy(lhs, rhs, depth)
-        class(mono_type_t), intent(inout) :: lhs
-        type(mono_type_t), intent(in) :: rhs
-        integer, intent(in) :: depth
-        integer :: i, args_size
-        integer, parameter :: MAX_DEPTH = 5  ! Increased from 3 for better coverage
-        
-        if (.not. allocated(rhs%args)) return
-        
-        args_size = size(rhs%args)
-        allocate(lhs%args(args_size))
-        
-        do i = 1, args_size
-            ! Initialize with safe defaults
-            lhs%args(i)%kind = TVAR
-            lhs%args(i)%size = 0
-            lhs%args(i)%var%id = -1
-            lhs%args(i)%alloc_info%is_allocatable = .false.
-            lhs%args(i)%alloc_info%is_pointer = .false.
-            lhs%args(i)%alloc_info%needs_allocation_check = .false.
-            
-            ! Ensure var%name is allocated
-            allocate(character(len=0) :: lhs%args(i)%var%name)
-            
-            ! Copy validated fields
-            if (rhs%args(i)%kind >= 1 .and. rhs%args(i)%kind <= 10) then
-                lhs%args(i)%kind = rhs%args(i)%kind
-            end if
-            if (rhs%args(i)%size >= 0) then
-                lhs%args(i)%size = rhs%args(i)%size
-            end if
-            lhs%args(i)%alloc_info = rhs%args(i)%alloc_info
-            lhs%args(i)%var = rhs%args(i)%var
-            
-            ! Recursive copy with depth check
-            if (allocated(rhs%args(i)%args) .and. depth < MAX_DEPTH) then
-                call mono_type_depth_limited_copy(lhs%args(i), rhs%args(i), depth + 1)
-            end if
-        end do
-    end subroutine mono_type_depth_limited_copy
-    
-    ! Tier 3: Full DFS-based cycle-safe copying
-    subroutine mono_type_dfs_cycle_safe_copy(lhs, rhs)
-        class(mono_type_t), intent(inout) :: lhs
-        type(mono_type_t), intent(in) :: rhs
-        integer, parameter :: MAX_REFS = 100
-        integer :: ref_stack(MAX_REFS)
-        integer :: stack_depth
-        
-        stack_depth = 0
-        call mono_type_dfs_copy_recursive(lhs, rhs, ref_stack, stack_depth)
-    end subroutine mono_type_dfs_cycle_safe_copy
-    
-    ! DFS recursive implementation with cycle detection
-    recursive subroutine mono_type_dfs_copy_recursive(lhs, rhs, ref_stack, stack_depth)
-        class(mono_type_t), intent(inout) :: lhs
-        type(mono_type_t), intent(in) :: rhs
-        integer, intent(inout) :: ref_stack(:)
-        integer, intent(inout) :: stack_depth
-        integer :: i, args_size, current_ref
-        logical :: cycle_detected
-        
-        if (.not. allocated(rhs%args)) return
-        
-        ! Generate reference ID based on memory location approximation
-        current_ref = mod(abs(rhs%kind * 1000 + rhs%size), size(ref_stack))
-        
-        ! Check for cycles
-        cycle_detected = .false.
-        do i = 1, stack_depth
-            if (ref_stack(i) == current_ref) then
-                cycle_detected = .true.
-                exit
-            end if
-        end do
-        
-        ! If cycle detected, use shallow copy to break it
-        if (cycle_detected) then
-            call mono_type_fast_copy(lhs, rhs)
-            return
-        end if
-        
-        ! Add current reference to stack
-        if (stack_depth < size(ref_stack)) then
-            stack_depth = stack_depth + 1
-            ref_stack(stack_depth) = current_ref
-        end if
-        
-        ! Perform deep copy
-        args_size = size(rhs%args)
-        allocate(lhs%args(args_size))
-        
-        do i = 1, args_size
-            ! Initialize safely
-            lhs%args(i)%kind = TVAR
-            lhs%args(i)%size = 0
-            lhs%args(i)%var%id = -1
-            lhs%args(i)%alloc_info%is_allocatable = .false.
-            lhs%args(i)%alloc_info%is_pointer = .false.
-            lhs%args(i)%alloc_info%needs_allocation_check = .false.
-            
-            allocate(character(len=0) :: lhs%args(i)%var%name)
-            
-            ! Copy fields
-            if (rhs%args(i)%kind >= 1 .and. rhs%args(i)%kind <= 10) then
-                lhs%args(i)%kind = rhs%args(i)%kind
-            end if
-            if (rhs%args(i)%size >= 0) then
-                lhs%args(i)%size = rhs%args(i)%size
-            end if
-            lhs%args(i)%alloc_info = rhs%args(i)%alloc_info
-            lhs%args(i)%var = rhs%args(i)%var
-            
-            ! Recursive copy with cycle detection
-            if (allocated(rhs%args(i)%args)) then
-                call mono_type_dfs_copy_recursive(lhs%args(i), rhs%args(i), ref_stack, stack_depth)
-            end if
-        end do
-        
-        ! Remove current reference from stack
-        if (stack_depth > 0) then
-            stack_depth = stack_depth - 1
-        end if
-    end subroutine mono_type_dfs_copy_recursive
 
     ! Convert polymorphic type to string
     function poly_type_to_string(this) result(str)
@@ -601,40 +358,10 @@ contains
     function poly_type_deep_copy(this) result(copy)
         class(poly_type_t), intent(in) :: this
         type(poly_type_t) :: copy
-        integer :: i
 
-        ! Deep copy forall variables
-        if (allocated(this%forall)) then
-            allocate (copy%forall(size(this%forall)))
-            do i = 1, size(this%forall)
-                copy%forall(i) = this%forall(i)
-            end do
-        end if
-
-        ! Deep copy mono type (assignment does deep copy)
-        copy%mono = this%mono
+        ! Use Fortran's default assignment behavior
+        copy = this
     end function poly_type_deep_copy
-
-    ! Assignment operator for poly_type_t (deep copy)
-    subroutine poly_type_assign(lhs, rhs)
-        class(poly_type_t), intent(inout) :: lhs
-        type(poly_type_t), intent(in) :: rhs
-        integer :: i
-        
-        ! Deallocate existing allocatable components
-        if (allocated(lhs%forall)) deallocate(lhs%forall)
-
-        ! Deep copy forall variables
-        if (allocated(rhs%forall)) then
-            allocate (lhs%forall(size(rhs%forall)))
-            do i = 1, size(rhs%forall)
-                lhs%forall(i) = rhs%forall(i)
-            end do
-        end if
-
-        ! Deep copy mono type (assignment operator handles deep copy)
-        lhs%mono = rhs%mono
-    end subroutine poly_type_assign
 
     ! Add a substitution
     subroutine subst_add(this, var, typ)
@@ -655,7 +382,7 @@ contains
             temp_vars(1:this%count) = this%vars(1:this%count)
             ! Deep copy mono types to avoid shared references
             do i = 1, this%count
-                temp_types(i) = this%types(i)  ! Assignment now does deep copy
+                temp_types(i) = this%types(i)  ! Uses default assignment
             end do
             ! Use move_alloc for O(1) array transfer - deep copy already done above
             call move_alloc(temp_vars, this%vars)
@@ -830,32 +557,6 @@ contains
         end if
     end function subst_deep_copy
 
-    ! Assignment operator for substitution_t (deep copy)
-    subroutine subst_assign(lhs, rhs)
-        class(substitution_t), intent(inout) :: lhs
-        type(substitution_t), intent(in) :: rhs
-        integer :: i, alloc_stat
-        
-        ! Memory safety handled through proper Fortran allocation patterns
-        
-        ! Deallocate existing allocatable components
-        if (allocated(lhs%vars)) deallocate(lhs%vars)
-        if (allocated(lhs%types)) deallocate(lhs%types)
-
-        lhs%count = rhs%count
-        if (rhs%count > 0 .and. allocated(rhs%vars) .and. allocated(rhs%types)) then
-            allocate (lhs%vars(size(rhs%vars)), stat=alloc_stat)
-            if (alloc_stat /= 0) error stop &
-                "Failed to allocate lhs%vars in subst_assign"
-            allocate (lhs%types(size(rhs%types)), stat=alloc_stat)
-            if (alloc_stat /= 0) error stop &
-                "Failed to allocate lhs%types in subst_assign"
-            do i = 1, rhs%count
-                lhs%vars(i) = rhs%vars(i)
-                lhs%types(i) = rhs%types(i)  ! Uses mono_type assignment (deep copy)
-            end do
-        end if
-    end subroutine subst_assign
 
     ! Occurs check - check if variable occurs in type
     logical function occurs_check(var, typ) result(occurs)
@@ -968,7 +669,7 @@ contains
 
         do i = 1, this%count
             if (this%names(i) == name) then
-                scheme = this%schemes(i)  ! Assignment now does deep copy
+                scheme = this%schemes(i)  ! Uses default assignment
                 return
             end if
         end do
@@ -996,7 +697,7 @@ contains
             allocate (temp_schemes(new_capacity))
             do i = 1, this%count
                 temp_names(i) = this%names(i)
-                temp_schemes(i) = this%schemes(i)  ! Assignment now does deep copy
+                temp_schemes(i) = this%schemes(i)  ! Uses default assignment
             end do
             ! Replace move_alloc with explicit deallocation and reallocation
             deallocate (this%names)
@@ -1013,7 +714,7 @@ contains
         ! Add new binding (use deep copy to avoid shared ownership)
         this%count = this%count + 1
         this%names(this%count) = name
-        this%schemes(this%count) = scheme  ! Assignment now does deep copy
+        this%schemes(this%count) = scheme  ! Uses default assignment
     end subroutine env_extend
 
     ! Extend type environment with multiple bindings
@@ -1047,7 +748,7 @@ contains
                 new_env%count = new_env%count + 1
                 new_env%names(new_env%count) = this%names(i)
                 new_env%schemes(new_env%count) = this%schemes(i)
-                ! Assignment now does deep copy
+                ! Uses default assignment
             end if
         end do
     end subroutine env_remove
@@ -1094,29 +795,6 @@ contains
         end if
     end function env_deep_copy
 
-    ! Assignment operator for type_env_t (deep copy)
-    subroutine env_assign(lhs, rhs)
-        class(type_env_t), intent(inout) :: lhs
-        type(type_env_t), intent(in) :: rhs
-        integer :: i
-        
-        ! Deallocate existing allocatable components
-        if (allocated(lhs%names)) deallocate(lhs%names)
-        if (allocated(lhs%schemes)) deallocate(lhs%schemes)
-
-        lhs%count = rhs%count
-        lhs%capacity = rhs%capacity
-
-        if (rhs%capacity > 0) then
-            allocate (character(len=256) :: lhs%names(rhs%capacity))
-            allocate (lhs%schemes(rhs%capacity))
-
-            do i = 1, rhs%count
-                lhs%names(i) = rhs%names(i)
-                lhs%schemes(i) = rhs%schemes(i)  ! Uses poly_type assignment (deep copy)
-            end do
-        end if
-    end subroutine env_assign
 
 
 end module type_system_hm
