@@ -29,6 +29,7 @@ module frontend
                                 check_missing_end_constructs, contains_invalid_patterns, &
                                 has_only_meaningless_tokens, format_enhanced_error, &
                                 format_syntax_error, split_into_lines
+    use path_validation, only: validate_input_path, validate_output_path, path_validation_result_t
 
     implicit none
     private
@@ -95,11 +96,19 @@ contains
         integer :: prog_index
         character(len=:), allocatable :: code, source
         integer :: unit, iostat
+        type(path_validation_result_t) :: validation_result
 
         ! Log compilation start
         call global_logger%log_debug("compile_source called with: "//trim(input_file))
 
         error_msg = ""
+        
+        ! Validate input file path for security
+        validation_result = validate_input_path(input_file)
+        if (.not. validation_result%is_valid()) then
+            error_msg = "Input path validation failed: " // validation_result%get_message()
+            return
+        end if
 
         ! Read source file
         open (newunit=unit, file=input_file, status='old', action='read', iostat=iostat)
@@ -166,8 +175,16 @@ contains
         type(ast_arena_t) :: arena
         integer :: prog_index
         character(len=:), allocatable :: code
+        type(path_validation_result_t) :: validation_result
 
         error_msg = ""
+        
+        ! Validate tokens JSON file path for security
+        validation_result = validate_input_path(tokens_json_file)
+        if (.not. validation_result%is_valid()) then
+            error_msg = "Tokens JSON path validation failed: " // validation_result%get_message()
+            return
+        end if
 
         ! Read tokens from JSON
         tokens = json_read_tokens_from_file(tokens_json_file)
@@ -203,8 +220,16 @@ contains
         type(ast_arena_t) :: arena
         integer :: prog_index
         character(len=:), allocatable :: code
+        type(path_validation_result_t) :: validation_result
 
         error_msg = ""
+        
+        ! Validate AST JSON file path for security
+        validation_result = validate_input_path(ast_json_file)
+        if (.not. validation_result%is_valid()) then
+            error_msg = "AST JSON path validation failed: " // validation_result%get_message()
+            return
+        end if
 
         ! Read AST from JSON - simplified for now
         call init_ast_arena(arena)
@@ -240,8 +265,16 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         type(ast_arena_t) :: arena
         integer :: prog_index
         character(len=:), allocatable :: code
+        type(path_validation_result_t) :: validation_result
 
         error_msg = ""
+        
+        ! Validate semantic JSON file path for security
+        validation_result = validate_input_path(semantic_json_file)
+        if (.not. validation_result%is_valid()) then
+            error_msg = "Semantic JSON path validation failed: " // validation_result%get_message()
+            return
+        end if
 
         ! Read annotated AST and semantic context from JSON - simplified
         call init_ast_arena(arena)
@@ -1054,6 +1087,14 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         character(len=*), intent(out) :: error_msg
 
         integer :: unit, iostat
+        type(path_validation_result_t) :: validation_result
+
+        ! Validate output file path for security
+        validation_result = validate_output_path(filename)
+        if (.not. validation_result%is_valid()) then
+            error_msg = "Output path validation failed: " // validation_result%get_message()
+            return
+        end if
 
      open (newunit=unit, file=filename, status='replace', action='write', iostat=iostat)
         if (iostat /= 0) then
