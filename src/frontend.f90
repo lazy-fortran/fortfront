@@ -1258,7 +1258,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         error_msg = ""
         
         ! Handle empty or whitespace-only input
-        if (len_trim(input) == 0) then
+        if (len_trim(input) == 0 .or. is_whitespace_only(input)) then
             output = "program main" // new_line('A') // &
                      "    implicit none" // new_line('A') // &
                      "end program main" // new_line('A')
@@ -1755,5 +1755,21 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end do
         
     end subroutine split_into_lines
+    
+    ! Check if input contains only whitespace characters (spaces, tabs, newlines)
+    function is_whitespace_only(input) result(is_whitespace)
+        character(len=*), intent(in) :: input
+        logical :: is_whitespace
+        integer :: i
+        
+        is_whitespace = .true.
+        do i = 1, len(input)
+            if (input(i:i) /= ' ' .and. input(i:i) /= char(9) .and. &  ! space and tab
+                input(i:i) /= new_line('A')) then                      ! newline
+                is_whitespace = .false.
+                exit
+            end if
+        end do
+    end function is_whitespace_only
 
 end module frontend
