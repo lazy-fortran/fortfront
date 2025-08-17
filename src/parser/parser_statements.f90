@@ -1728,6 +1728,7 @@ contains
             return_type_index = push_identifier(arena, "", line, column)
         end if
 
+        
         ! Create function definition node with body_indices from parsed function body
         func_index = push_function_def(arena, func_name, param_indices, &
                                        return_type_str, body_indices, line, &
@@ -2528,6 +2529,11 @@ contains
                 type(token_t) :: first_token
                 first_token = parser%peek()
 
+                ! Debug: Show what tokens are being parsed
+                if (program_name == "test") then
+                    print *, "DEBUG: Program parsing token:", trim(first_token%text), "kind:", first_token%kind
+                end if
+                
                 ! Handle different statement types
                 select case (first_token%kind)
                 case (TK_KEYWORD)
@@ -2584,6 +2590,30 @@ contains
                         stmt_index = parse_subroutine_definition(parser, arena)
                     case ("function")
                         stmt_index = parse_function_definition(parser, arena)
+                    case ("recursive")
+                        ! Handle recursive function/subroutine definitions
+                        print *, "DEBUG: Found recursive keyword in program parsing"
+                        ! Consume 'recursive' and check next token
+                        token = parser%consume()
+                        token = parser%peek()
+                        if (token%kind == TK_KEYWORD) then
+                            if (token%text == "function") then
+                                print *, "DEBUG: Parsing recursive function"
+                                stmt_index = parse_function_definition(parser, arena)
+                                print *, "DEBUG: Recursive function parsed, index:", stmt_index
+                            else if (token%text == "subroutine") then
+                                print *, "DEBUG: Parsing recursive subroutine"
+                                stmt_index = parse_subroutine_definition(parser, arena)
+                            else
+                                print *, "DEBUG: Unknown keyword after recursive:", trim(token%text)
+                                ! Unknown after recursive - skip
+                                stmt_index = 0
+                            end if
+                        else
+                            print *, "DEBUG: No keyword after recursive"
+                            ! No keyword after recursive - skip
+                            stmt_index = 0
+                        end if
                     case ("call")
                         stmt_index = parse_call_statement(parser, arena)
                     case ("if")

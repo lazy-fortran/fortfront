@@ -39,6 +39,7 @@ contains
         parser = create_parser_state(tokens)
         first_token = parser%peek()
 
+
         ! Dispatch based on first token
         select case (first_token%kind)
         case (TK_KEYWORD)
@@ -69,6 +70,24 @@ contains
                 stmt_index = parse_function_definition(parser, arena)
             case ("subroutine")
                 stmt_index = parse_subroutine_definition(parser, arena)
+            case ("recursive")
+                ! Handle recursive function/subroutine definitions (if recognized as keyword)
+                ! Consume 'recursive' and check next token
+                first_token = parser%consume()
+                first_token = parser%peek()
+                if (first_token%kind == TK_KEYWORD) then
+                    if (first_token%text == "function") then
+                        stmt_index = parse_function_definition(parser, arena)
+                    else if (first_token%text == "subroutine") then
+                        stmt_index = parse_subroutine_definition(parser, arena)
+                    else
+                        ! Unknown after recursive - return 0
+                        stmt_index = 0
+                    end if
+                else
+                    ! No keyword after recursive - return 0
+                    stmt_index = 0
+                end if
             case ("interface")
                 stmt_index = parse_interface_block(parser, arena)
             case ("module")
@@ -99,8 +118,29 @@ contains
                 stmt_index = parse_as_expression(tokens, arena)
             end select
         case (TK_IDENTIFIER)
-            ! Could be assignment or expression
-            stmt_index = parse_assignment_or_expression(parser, arena)
+            ! Special case: check for "recursive" keyword
+            if (first_token%text == "recursive") then
+                ! Handle recursive function/subroutine definitions
+                ! Consume 'recursive' and check next token
+                first_token = parser%consume()
+                first_token = parser%peek()
+                if (first_token%kind == TK_KEYWORD) then
+                    if (first_token%text == "function") then
+                        stmt_index = parse_function_definition(parser, arena)
+                    else if (first_token%text == "subroutine") then
+                        stmt_index = parse_subroutine_definition(parser, arena)
+                    else
+                        ! Unknown after recursive - fallback to normal parsing
+                        stmt_index = parse_assignment_or_expression(parser, arena)
+                    end if
+                else
+                    ! No keyword after recursive - fallback to normal parsing
+                    stmt_index = parse_assignment_or_expression(parser, arena)
+                end if
+            else
+                ! Could be assignment or expression
+                stmt_index = parse_assignment_or_expression(parser, arena)
+            end if
         case (TK_COMMENT)
             ! Parse comment
             stmt_index = parse_comment(parser, arena)
