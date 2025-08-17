@@ -1380,6 +1380,11 @@ contains
         if (node%is_target) then
             code = code//", target"
         end if
+        
+        ! Add parameter if present
+        if (node%is_parameter) then
+            code = code//", parameter"
+        end if
 
         ! Add variable names - handle both single and multi declarations
         code = code//" :: "
