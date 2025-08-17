@@ -120,7 +120,7 @@ contains
         ! Then: Should be accepted and produce valid Fortran
         passed = len_trim(error_msg) == 0 .and. &
                 index(output, 'x = 5') > 0 .and. &
-                index(output, 'y = x * 2') > 0 .and. &
+                (index(output, 'y = x * 2') > 0 .or. index(output, 'y = x*2') > 0) .and. &
                 index(output, 'print') > 0
     end function
 

@@ -1477,9 +1477,9 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         ! Split source into lines for error reporting
         call split_into_lines(source, source_lines)
         
-        ! Check for missing 'then' in if statements - temporarily disabled to avoid segfault
-        ! call check_if_then_syntax_simple(tokens, source, error_msg)
-        ! if (error_msg /= "") return
+        ! Check for missing 'then' in if statements
+        call check_if_then_syntax_simple(tokens, source, error_msg)
+        if (error_msg /= "") return
         
         ! Check for completely invalid input (no Fortran keywords found)
         call check_for_fortran_content(tokens, error_msg)
@@ -1751,9 +1751,11 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             ! Look for 'if' keyword
             if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "if") then
                 ! Skip 'else if' constructs
-                if (i > 1 .and. tokens(i-1)%kind == TK_KEYWORD .and. &
-                    tokens(i-1)%text == "else") then
-                    cycle
+                if (i > 1) then
+                    if (tokens(i-1)%kind == TK_KEYWORD .and. &
+                        tokens(i-1)%text == "else") then
+                        cycle
+                    end if
                 end if
                 
                 ! Look for 'then' on the same line
