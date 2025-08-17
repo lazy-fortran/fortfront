@@ -27,7 +27,7 @@ contains
         character(len=:), allocatable :: type_name, var_name
         integer :: line, column, kind_value
         logical :: has_kind, is_array, is_allocatable, is_pointer, is_target
-        logical :: has_intent, is_optional, has_global_dimensions
+        logical :: has_intent, is_optional, has_global_dimensions, is_parameter
         character(len=:), allocatable :: intent
         integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
 
@@ -44,6 +44,7 @@ contains
         has_intent = .false.
         is_optional = .false.
         has_global_dimensions = .false.
+        is_parameter = .false.
 
         ! Check for kind specification (e.g., real(8)) or derived type (e.g., &
         ! type(point))
@@ -140,6 +141,10 @@ contains
                 else if (var_token%kind == TK_IDENTIFIER .and. &
                          var_token%text == "target") then
                     is_target = .true.
+                    var_token = parser%consume()
+                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
+                         var_token%text == "parameter") then
+                    is_parameter = .true.
                     var_token = parser%consume()
                 else if (var_token%kind == TK_IDENTIFIER .and. &
                          var_token%text == "dimension") then
@@ -330,14 +335,14 @@ contains
                             dimension_indices=final_dimension_indices, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, line=line, column=column)
+                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
                     else
                         decl_index = push_declaration(arena, type_name, var_name, &
                             kind_value=kind_value, &
                             initializer_index=initializer_index, &
                             dimension_indices=final_dimension_indices, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, &
+                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
                             line=line, column=column)
                     end if
                 else if (has_kind) then
@@ -347,13 +352,13 @@ contains
                             initializer_index=initializer_index, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, line=line, column=column)
+                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
                     else
                         decl_index = push_declaration(arena, type_name, var_name, &
                             kind_value=kind_value, &
                             initializer_index=initializer_index, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, &
+                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
                             line=line, column=column)
                     end if
                 else if (final_is_array) then
@@ -363,13 +368,13 @@ contains
                             dimension_indices=final_dimension_indices, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, line=line, column=column)
+                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
                     else
                         decl_index = push_declaration(arena, type_name, var_name, &
                             initializer_index=initializer_index, &
                             dimension_indices=final_dimension_indices, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, &
+                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
                             line=line, column=column)
                     end if
                 else
@@ -378,12 +383,12 @@ contains
                             initializer_index=initializer_index, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, line=line, column=column)
+                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
                     else
                         decl_index = push_declaration(arena, type_name, var_name, &
                             initializer_index=initializer_index, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, &
+                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
                             line=line, column=column)
                     end if
                 end if
@@ -444,7 +449,7 @@ contains
                                     is_allocatable=is_allocatable, &
                                     is_pointer=is_pointer, &
                                     is_target=is_target, &
-                                    is_optional=is_optional, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
                                     line=line, column=column)
                             end if
                         else if (has_kind) then
@@ -456,7 +461,7 @@ contains
                                     is_pointer=is_pointer, &
                                     is_target=is_target, &
                                     intent_value=intent, &
-                                    is_optional=is_optional, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
                                     line=line, column=column)
                             else
                                 additional_decl_index = push_declaration( &
@@ -465,7 +470,7 @@ contains
                                     is_allocatable=is_allocatable, &
                                     is_pointer=is_pointer, &
                                     is_target=is_target, &
-                                    is_optional=is_optional, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
                                     line=line, column=column)
                             end if
                         else if (final_is_array) then
@@ -477,7 +482,7 @@ contains
                                     is_pointer=is_pointer, &
                                     is_target=is_target, &
                                     intent_value=intent, &
-                                    is_optional=is_optional, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
                                     line=line, column=column)
                             else
                                 additional_decl_index = push_declaration( &
@@ -486,7 +491,7 @@ contains
                                     is_allocatable=is_allocatable, &
                                     is_pointer=is_pointer, &
                                     is_target=is_target, &
-                                    is_optional=is_optional, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
                                     line=line, column=column)
                             end if
                         else
@@ -497,7 +502,7 @@ contains
                                     is_pointer=is_pointer, &
                                     is_target=is_target, &
                                     intent_value=intent, &
-                                    is_optional=is_optional, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
                                     line=line, column=column)
                             else
                                 additional_decl_index = push_declaration( &
@@ -505,7 +510,7 @@ contains
                                     is_allocatable=is_allocatable, &
                                     is_pointer=is_pointer, &
                                     is_target=is_target, &
-                                    is_optional=is_optional, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
                                     line=line, column=column)
                             end if
                         end if
@@ -820,7 +825,7 @@ contains
         character(len=:), allocatable :: type_name
         integer :: line, column, kind_value
         logical :: has_kind, is_allocatable, is_pointer, is_target
-        logical :: has_intent, is_optional
+        logical :: has_intent, is_optional, is_parameter
         character(len=:), allocatable :: intent
         integer :: decl_count, decl_index
         character(len=:), allocatable :: var_name
@@ -843,7 +848,7 @@ contains
         has_intent = .false.
         is_optional = .false.
         has_global_dimensions = .false.
-        has_global_dimensions = .false.
+        is_parameter = .false.
 
         ! Check for kind specification (e.g., real(8))
         var_token = parser%peek()
@@ -892,6 +897,10 @@ contains
                 else if (var_token%kind == TK_IDENTIFIER .and. &
                          var_token%text == "target") then
                     is_target = .true.
+                    var_token = parser%consume()
+                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
+                         var_token%text == "parameter") then
+                    is_parameter = .true.
                     var_token = parser%consume()
                 else if (var_token%kind == TK_IDENTIFIER .and. &
                          var_token%text == "dimension") then
@@ -1043,12 +1052,12 @@ contains
                             kind_value=kind_value, dimension_indices=dimension_indices, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, line=line, column=column)
+                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
                     else
                         decl_index = push_declaration(arena, type_name, var_name, &
                             kind_value=kind_value, dimension_indices=dimension_indices, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, &
+                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
                             line=line, column=column)
                     end if
                 else if (has_kind) then
@@ -1062,7 +1071,7 @@ contains
                         decl_index = push_declaration(arena, type_name, var_name, &
                             kind_value=kind_value, is_allocatable=is_allocatable, &
                             is_pointer=is_pointer, is_target=is_target, &
-                            is_optional=is_optional, line=line, column=column)
+                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
                     end if
                 else if (is_array) then
                     if (has_intent) then
@@ -1075,18 +1084,18 @@ contains
                         decl_index = push_declaration(arena, type_name, var_name, &
                             dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
                             is_pointer=is_pointer, is_target=is_target, &
-                            is_optional=is_optional, line=line, column=column)
+                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
                     end if
                 else
                     if (has_intent) then
                         decl_index = push_declaration(arena, type_name, var_name, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, line=line, column=column)
+                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
                     else
                         decl_index = push_declaration(arena, type_name, var_name, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, &
+                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
                             line=line, column=column)
                     end if
                 end if

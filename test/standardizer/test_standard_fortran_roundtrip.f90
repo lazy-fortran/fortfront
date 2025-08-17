@@ -299,13 +299,14 @@ contains
         call transform_lazy_fortran_string(input, output, error_msg)
         
         ! Should preserve parameter declarations (semantic equivalence)
+        ! Issue #254 fix: Now correctly preserves parameter attributes in output
         success = (len_trim(error_msg) == 0) .and. &
                   (index(output, 'program parameters') > 0) .and. &
                   (index(output, 'implicit none') > 0) .and. &
-                  (index(output, 'integer ::') > 0) .and. &
-                  (index(output, 'real(8) ::') > 0) .and. &
-                  (index(output, 'character(len=*) ::') > 0) .and. &
-                  (index(output, 'logical ::') > 0)
+                  (index(output, 'integer, parameter ::') > 0) .and. &
+                  (index(output, 'real(8), parameter ::') > 0) .and. &
+                  (index(output, 'character(len=*), parameter ::') > 0) .and. &
+                  (index(output, 'logical, parameter ::') > 0)
         
         if (.not. success) then
             print *, '    Error:', error_msg

@@ -231,7 +231,21 @@ contains
                 has_double_colon = .true.
                 exit
  else if (parser%tokens(i)%kind == TK_KEYWORD .or. parser%tokens(i)%kind == TK_EOF) then
-                exit
+                ! Allow declaration attribute keywords to continue search
+                if (parser%tokens(i)%text == "parameter" .or. &
+                    parser%tokens(i)%text == "optional" .or. &
+                    parser%tokens(i)%text == "intent" .or. &
+                    parser%tokens(i)%text == "allocatable" .or. &
+                    parser%tokens(i)%text == "pointer" .or. &
+                    parser%tokens(i)%text == "target" .or. &
+                    parser%tokens(i)%text == "dimension" .or. &
+                    parser%tokens(i)%text == "in" .or. &
+                    parser%tokens(i)%text == "out" .or. &
+                    parser%tokens(i)%text == "inout") then
+                    cycle  ! Continue searching
+                else
+                    exit   ! Stop on other keywords
+                end if
             end if
         end do
     end function has_double_colon

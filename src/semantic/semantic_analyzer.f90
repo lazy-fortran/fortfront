@@ -377,46 +377,12 @@ contains
                     end if
                 end if
                 
-                ! Fallback: If we have parentheses with numeric literals, &
-                ! assume array access
-                ! This is a heuristic for when symbol table lookup fails
-                if (.not. is_known_array .and. allocated(expr%arg_indices)) then
-                    block
-                        integer :: j
-                        logical :: all_numeric
-                        all_numeric = .true.
-                        do j = 1, size(expr%arg_indices)
-                            if (expr%arg_indices(j) > 0 .and. &
-                                expr%arg_indices(j) <= arena%size) then
-                                if (allocated(arena%entries( &
-                                    expr%arg_indices(j))%node)) then
-                                    select type (arg_node => &
-                                        arena%entries(expr%arg_indices(j))%node)
-                                    type is (literal_node)
-                                        if (arg_node%literal_kind /= &
-                                            LITERAL_INTEGER) then
-                                            all_numeric = .false.
-                                            exit
-                                        end if
-                                    class default
-                                        all_numeric = .false.
-                                        exit
-                                    end select
-                                else
-                                    all_numeric = .false.
-                                    exit
-                                end if
-                            else
-                                all_numeric = .false.
-                                exit
-                            end if
-                        end do
-                        ! If all arguments are integer literals, likely array access
-                        if (all_numeric) then
-                            is_known_array = .true.
-                        end if
-                    end block
-                end if
+                ! NEW LOGIC: Default to function call if not explicitly known as array
+                ! This follows the principle that if it's not a declared array variable,
+                ! it's likely a function call. Arrays must be explicitly declared.
+                ! The previous heuristic about "all numeric arguments = array access" 
+                ! was backwards because function calls like sin(1.0), factorial(5) 
+                ! commonly have literal arguments.
 
                 ! Set the disambiguation flag
                 expr%is_array_access = is_array_slice .or. is_known_array

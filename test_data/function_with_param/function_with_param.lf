@@ -1,7 +1,0 @@
-result = add_numbers(5.0, 3.0)
-print *, result
-
-real function add_numbers(a, b)
-  real :: a, b
-  add_numbers = a + b
-end function
