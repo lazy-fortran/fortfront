@@ -1,9 +1,10 @@
 module frontend
     ! fortfront - Core analysis frontend
     ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
-    
+
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
-                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_UNKNOWN
+                           TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
+                           TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
@@ -76,7 +77,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: unit_indices(:)
         integer :: container_index
-        
+
         ! For now, use a program node with a special flag to indicate multiple units
         ! The code generator will handle this specially
         container_index = push_program(arena, "__MULTI_UNIT__", unit_indices, 1, 1)
@@ -341,27 +342,26 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 !                 trim(start_str)//" to "//trim(end_str))
             end block
 
-            ! Check if this unit has any non-whitespace content
+            ! Check if this unit has any meaningful content
             block
                 logical :: unit_has_content
                 integer :: j
                 unit_has_content = .false.
                 do j = unit_start, unit_end
                     if (tokens(j)%kind /= TK_EOF .and. &
-                        tokens(j)%kind /= TK_NEWLINE .and. &
-                        tokens(j)%kind /= TK_COMMENT) then
+                        tokens(j)%kind /= TK_NEWLINE) then
                         unit_has_content = .true.
                         exit
                     end if
                 end do
-                
-                ! Skip units without content
+
+                ! Skip units without any meaningful content (only EOF/newlines)
                 if (.not. unit_has_content) then
                     i = unit_end + 1
                     cycle
                 end if
             end block
-            
+
             ! Skip empty units, units with just EOF, or single-token keywords
             ! that are part of larger constructs
             if (unit_end >= unit_start .and. &
@@ -628,7 +628,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         logical :: has_content
 
         ! Note: Parsing program unit
-        
+
         ! Check if tokens contain any real content (not just comments/EOF/newlines)
         has_content = .false.
         do i = 1, size(tokens)
@@ -638,9 +638,10 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 exit
             end if
         end do
-        
-        ! If only comments/newlines (no real statements), don't create a program wrapper
-        if (.not. has_content) then
+
+        ! For lazy Fortran, comments-only input should still create a program unit
+        ! Only skip if there are no tokens at all (completely empty)
+        if (.not. has_content .and. size(tokens) <= 1) then
             unit_index = 0
             return
         end if
@@ -684,7 +685,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                             exit
                         end if
                     end do
-                    
+
                     if (has_real_content) then
                         unit_index = parse_all_statements(tokens, arena)
                     else
@@ -724,13 +725,13 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 stmt_tokens(2)%text = ""
                 stmt_tokens(2)%line = tokens(i)%line
                 stmt_tokens(2)%column = tokens(i)%column + len(tokens(i)%text)
-                
+
                 ! Parse the comment
                 stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
                 if (stmt_index > 0) then
                     body_indices = [body_indices, stmt_index]
                 end if
-                
+
                 deallocate (stmt_tokens)
                 i = i + 1
                 cycle
@@ -896,7 +897,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                             paren_depth = paren_depth - 1
                         end if
                     end if
-                    
+
                     if (tokens(i)%kind == TK_EOF) then
                         stmt_end = i - 1
                         exit
@@ -1247,68 +1248,55 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         character(len=*), intent(in) :: input
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
-        
+
         ! Local variables for 4-phase pipeline
         type(token_t), allocatable :: tokens(:)
         type(ast_arena_t) :: arena
         integer :: prog_index
-        
+
         allocate(character(len=0) :: error_msg)
         error_msg = ""
-        
-        ! Handle empty input
-        if (len_trim(input) == 0) then
+
+        ! Handle empty or whitespace-only input
+        if (len_trim(input) == 0 .or. is_whitespace_only(input)) then
             output = "program main" // new_line('A') // &
                      "    implicit none" // new_line('A') // &
                      "end program main" // new_line('A')
             return
         end if
-        
+
         ! Phase 1: Lexical Analysis
         call lex_source(input, tokens, error_msg)
         if (error_msg /= "") return
-        
+
         ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
         call validate_basic_syntax(input, tokens, error_msg)
         if (error_msg /= "") then
             ! Issue #256 requirement #4: No silent fallback to empty programs
             ! Issue #256 requirement #5: Meaningful output for invalid syntax
             ! Always preserve the error message for reporting and include it in output
-            
-            ! Store the original error message for unit tests and CLI
-            block
-                character(len=:), allocatable :: original_error
-                original_error = error_msg
-                
-                output = "! COMPILATION FAILED - SYNTAX ERROR" // new_line('A') // &
-                        "! " // original_error // new_line('A') // &
-                        "!" // new_line('A') // &
-                        "! fortfront could not parse the input due to syntax errors." // new_line('A') // &
-                        "! Please fix the errors above and try again." // new_line('A') // &
-                        "program main" // new_line('A') // &
-                        "    implicit none" // new_line('A') // &
-                        "    ! ERROR: Original code could not be parsed" // new_line('A') // &
-                        "end program main" // new_line('A')
-                
-                ! Restore the original error message for unit tests and CLI error reporting
-                error_msg = original_error
-            end block
+            output = "! COMPILATION FAILED" // new_line('A') // &
+                    "! Error: " // error_msg // new_line('A') // &
+                    "program main" // new_line('A') // &
+                    "    implicit none" // new_line('A') // &
+                    "    ! Original code could not be parsed" // new_line('A') // &
+                    "end program main" // new_line('A')
             return
         end if
-        
+
         ! Check if validation passed but we have no meaningful content to parse
         ! This handles cases where input is only comments, whitespace, or empty
         block
             integer :: meaningful_tokens
             integer :: i
-            
+
             meaningful_tokens = 0
             do i = 1, size(tokens)
                 if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE .or. &
                     tokens(i)%kind == TK_COMMENT) cycle
                 meaningful_tokens = meaningful_tokens + 1
             end do
-            
+
             if (meaningful_tokens == 0) then
                 ! Create minimal program for empty/meaningless input
                 output = "program main" // new_line('A') // &
@@ -1317,7 +1305,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 return
             end if
         end block
-        
+
         ! Check if we have any tokens to parse
         if (size(tokens) == 0) then
             ! No tokens - create minimal program
@@ -1326,7 +1314,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                      "end program main" // new_line('A')
             return
         end if
-        
+
         ! Check if we have only meaningless tokens (whitespace, comments, newlines)
         if (has_only_meaningless_tokens(tokens)) then
             ! Only meaningless tokens - create minimal program
@@ -1335,7 +1323,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                      "end program main" // new_line('A')
             return
         end if
-        
+
         ! Phase 2: Parsing
         call init_ast_arena(arena)
         call parse_tokens(tokens, arena, prog_index, error_msg)
@@ -1365,7 +1353,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
             return
         end if
-        
+
         ! Debug: check if we got a valid program index
         if (prog_index <= 0) then
             error_msg = "Parsing succeeded but no valid program unit was created"
@@ -1377,10 +1365,10 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     "end program main" // new_line('A')
             return
         end if
-        
+
         ! Phase 3: Semantic Analysis
         call analyze_program_with_checks(arena, prog_index)
-        
+
         ! Phase 4: Standardization
         ! Skip standardization for multi-unit containers
         block
@@ -1396,12 +1384,12 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     end select
                 end if
             end if
-            
+
             if (.not. skip_standardization) then
                 call standardize_ast(arena, prog_index)
             end if
         end block
-        
+
         ! Phase 5: Code Generation
         output = generate_code_from_arena(arena, prog_index)
     end subroutine transform_lazy_fortran_string
@@ -1413,7 +1401,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(out) :: error_msg
         type(format_options_t), intent(in) :: format_opts
-        
+
         ! Save current indentation, line length, and type standardization configuration
         integer :: saved_size, saved_line_length
         character(len=1) :: saved_char
@@ -1422,16 +1410,16 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         call get_line_length_config(saved_line_length)
         call get_type_standardization(saved_standardize_types)
         call get_standardizer_type_standardization(saved_standardizer_types)
-        
+
         ! Set new configuration
         call set_indent_config(format_opts%indent_size, format_opts%indent_char)
         call set_line_length_config(format_opts%line_length)
         call set_type_standardization(format_opts%standardize_types)
         call set_standardizer_type_standardization(format_opts%standardize_types)
-        
+
         ! Call the regular transformation function
         call transform_lazy_fortran_string(input, output, error_msg)
-        
+
         ! Restore original configuration
         call set_indent_config(saved_size, saved_char)
         call set_line_length_config(saved_line_length)
@@ -1440,12 +1428,12 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
     end subroutine transform_lazy_fortran_string_with_format
 
     ! Simple interface functions for clean pipeline usage
-    
+
     subroutine lex_source(source_code, tokens, error_msg)
         character(len=*), intent(in) :: source_code
         type(token_t), allocatable, intent(out) :: tokens(:)
         character(len=:), allocatable, intent(out) :: error_msg
-        
+
         call tokenize_core(source_code, tokens)
         if (.not. allocated(tokens)) then
             allocate(character(len=22) :: error_msg)
@@ -1455,23 +1443,39 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             error_msg = ""
         end if
     end subroutine lex_source
-    
+
     subroutine analyze_semantics(arena, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
-        
+
         call analyze_program_with_checks(arena, prog_index)
     end subroutine analyze_semantics
-    
+
     subroutine emit_fortran(arena, prog_index, fortran_code)
         type(ast_arena_t), intent(in) :: arena  ! Made intent(in) to prevent corruption
         integer, intent(in) :: prog_index  ! Made intent(in) to prevent modification
         character(len=:), allocatable, intent(out) :: fortran_code
-        
+
         ! CRITICAL FIX: Do NOT call standardize_ast here - it causes double standardization
         ! and memory corruption when called in error paths. Standardization happens once
         ! in the main transform pipeline only.
         fortran_code = generate_code_from_arena(arena, prog_index)
     end subroutine emit_fortran
+
+    ! Check if input contains only whitespace characters (spaces, tabs, newlines)
+    function is_whitespace_only(input) result(is_whitespace)
+        character(len=*), intent(in) :: input
+        logical :: is_whitespace
+        integer :: i
+
+        is_whitespace = .true.
+        do i = 1, len(input)
+            if (input(i:i) /= ' ' .and. input(i:i) /= char(9) .and. &  ! space and tab
+                input(i:i) /= new_line('A')) then                      ! newline
+                is_whitespace = .false.
+                exit
+            end if
+        end do
+    end function is_whitespace_only
 
 end module frontend
