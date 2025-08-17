@@ -105,6 +105,7 @@ contains
                 call add_to_symbol_table(builder, node%name, node%name, "")
                 new_scope = node%name
                 
+                
                 ! Traverse body
                 if (allocated(node%body_indices)) then
                     do i = 1, size(node%body_indices)
@@ -124,6 +125,7 @@ contains
                 else
                     new_scope = node%name
                 end if
+                
                 
                 call builder%graph%add_proc(new_scope, node_index, &
                                            node%line, node%column)
