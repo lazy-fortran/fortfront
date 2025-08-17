@@ -256,6 +256,7 @@ contains
         integer :: stmt_count, i, n
         integer :: stmt_index
 
+
         allocate (body_indices(0))
         stmt_count = 0
 
@@ -266,7 +267,7 @@ contains
 
             ! Check for end of body
             if (token%kind == TK_KEYWORD) then
-                if (token%text == "elseif" .or. token%text == "endif") then
+                if (token%text == "elseif" .or. token%text == "endif" .or. token%text == "end if") then
                     exit
                 else if (token%text == "else") then
                     ! Check if next token is "if" (for "else if")
@@ -319,6 +320,7 @@ contains
                     stmt_tokens(stmt_end - stmt_start + 2)%text = ""
               stmt_tokens(stmt_end - stmt_start + 2)%line = parser%tokens(stmt_end)%line
       stmt_tokens(stmt_end - stmt_start + 2)%column = parser%tokens(stmt_end)%column + 1
+
 
                     ! Parse the statement (may return multiple indices for &
                     ! multi-variable declarations)
