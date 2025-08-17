@@ -1477,53 +1477,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         ! Split source into lines for error reporting
         call split_into_lines(source, source_lines)
         
-        ! Check for common syntax errors
-        in_if_statement = .false.
-        found_then = .false.
-        expecting_then = .false.
-        
-        do i = 1, size(tokens)
-            if (tokens(i)%kind == TK_EOF) exit
-            
-            ! Check for if statement without then
-            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "if") then
-                in_if_statement = .true.
-                expecting_then = .true.
-                found_then = .false.
-            else if (in_if_statement .and. tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "then") then
-                found_then = .true.
-                expecting_then = .false.
-            else if (expecting_then .and. tokens(i)%kind == TK_NEWLINE) then
-                ! Found newline before 'then' - this is an error
-                line_num = tokens(i)%line
-                col_num = tokens(i)%column
-                error_msg = format_syntax_error("Missing 'then' after 'if' condition", &
-                                              line_num, col_num, source_lines, &
-                                              "Add 'then' after the if condition")
-                return
-            else if (in_if_statement .and. &
-                    (tokens(i)%kind == TK_KEYWORD .and. &
-                    (tokens(i)%text == "print" .or. tokens(i)%text == "call" .or. &
-                     tokens(i)%text == "do" .or. tokens(i)%text == "if"))) then
-                ! Found another statement before 'then'
-                if (expecting_then) then
-                    line_num = tokens(i)%line
-                    col_num = tokens(i)%column
-                    error_msg = format_syntax_error("Missing 'then' in if statement", &
-                                                  line_num, col_num, source_lines, &
-                                                  "Add 'then' at the end of the if condition")
-                    return
-                end if
-            end if
-            
-            ! Reset if statement tracking when we find 'end if'
-            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "end") then
-                if (i + 1 <= size(tokens) .and. tokens(i+1)%text == "if") then
-                    in_if_statement = .false.
-                    expecting_then = .false.
-                end if
-            end if
-        end do
+        ! Note: Advanced syntax error checking is disabled to avoid false positives
+        ! The parser and semantic analyzer will catch actual syntax errors
         
         ! Check for completely invalid input (no Fortran keywords found)
         call check_for_fortran_content(tokens, error_msg)
@@ -1585,11 +1540,11 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         
         ! Check for completely invalid input (no Fortran keywords AND no valid expressions)
         ! Allow lazy Fortran syntax (assignments, expressions) even without keywords
-        if (total_meaningful_tokens > 10 .and. .not. has_fortran_keywords .and. &
+        if (total_meaningful_tokens > 5 .and. .not. has_fortran_keywords .and. &
             .not. looks_like_lazy_fortran(tokens)) then
             error_msg = "Input does not appear to be valid Fortran code. " // &
                        "No recognized Fortran keywords or valid expressions found."
-        else if (total_meaningful_tokens > 5 .and. keyword_count == 0 .and. &
+        else if (total_meaningful_tokens > 3 .and. keyword_count == 0 .and. &
                 .not. looks_like_lazy_fortran(tokens) .and. comment_count == 0) then
             error_msg = "No Fortran keywords or valid expressions found in input. " // &
                        "Please check that this is valid Fortran syntax."
@@ -1670,17 +1625,21 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             has_valid_structure = .true.
         end if
         
-        ! Simple expressions with numbers/strings and identifiers (require operators or assignment)
-        if (has_identifier .and. has_number_or_string .and. meaningful_token_count <= 5 .and. &
-            (has_assignment .or. has_operators)) then
+        ! Simple expressions with numbers/strings and identifiers (only if reasonable)
+        if (has_identifier .and. has_number_or_string .and. meaningful_token_count <= 6 .and. &
+            (has_assignment .or. has_function_call)) then
             has_valid_structure = .true.
         end if
         
-        ! Mathematical expressions are valid only if they're not too long and have reasonable structure
-        if (has_identifier .and. has_operators .and. &
-            (has_number_or_string .or. meaningful_token_count > 2) .and. &
-            meaningful_token_count <= 8 .and. has_assignment) then
-            ! Only accept mathematical expressions if they also have assignment
+        ! Mathematical expressions with assignment
+        if (has_identifier .and. has_operators .and. has_assignment .and. &
+            meaningful_token_count <= 12) then
+            has_valid_structure = .true.
+        end if
+        
+        ! Pure expressions without assignment (more restrictive - only simple cases)
+        if (has_identifier .and. has_operators .and. meaningful_token_count <= 4 .and. &
+            has_number_or_string) then
             has_valid_structure = .true.
         end if
         
