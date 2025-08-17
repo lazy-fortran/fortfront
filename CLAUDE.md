@@ -78,6 +78,9 @@ fortfront is a Fortran frontend that processes code through four distinct phases
    - Core module: `semantic_analyzer.f90`
    - Type system: `type_system_hm.f90` (Hindley-Milner type inference)
    - Scope management: `scope_manager.f90`
+   - **Extensible Pipeline**: `semantic_pipeline.f90` (Issue #202)
+   - Built-in analyzers: `builtin_analyzers.f90`
+   - Analysis plugins: `usage_tracker_analyzer.f90`, `source_reconstruction_analyzer.f90`
    - Produces typed AST with `semantic_context_t`
 
 4. **Code Generation** (`src/codegen/`) - Emits standard Fortran
@@ -116,7 +119,17 @@ When adding new features:
 3. Add semantic analysis for type checking
 4. Implement code generation
 5. Write comprehensive tests for each phase
+
+### Semantic Analysis Extension Patterns
+
+When adding new analysis capabilities:
+1. **Core Analyzers**: Extend `semantic_analyzer_t` for essential standardization features
+2. **Analysis Plugins**: Create specialized analyzers for external tool integration (fluff rules)
+3. **Result Types**: Define clear result types with proper assignment operators
+4. **Pipeline Integration**: Register analyzer in `semantic_pipeline.f90` type selection
+5. **Testing**: Add comprehensive tests covering analysis methods and error cases
 - we have four use cases for fortfront. 1. its own standardizer for lazy fortran. 2. fortrun that does module discovery and source and object cache. 3. fluff for static analysis and custom formatting of code, where it would be also ok to be very strict on dismissing original formatting (like ruff and black). 4. ffc the fortran fortran compiler that plugs fortfront to a hlfir llvm backend lowering chain like flang
+- **Extensible Semantic Analysis (Issue #202)**: Plugin-based semantic analysis pipeline allows external tools (especially fluff) to perform custom code analysis using built-in analyzers and analysis plugins
 - THE ASSIGNMENT OPERATOR ALWAYS HAS TO BE OVERLOADED TO DO A DEEP COPY FOR DERIVED TYPES WITH ALLOCATABLE MEMBERS
 
 ## Memory Management

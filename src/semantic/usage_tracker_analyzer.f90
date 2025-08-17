@@ -17,6 +17,9 @@ module usage_tracker_analyzer
         type(variable_usage_info_t) :: usage_info
         integer, allocatable :: unused_node_indices(:)
         integer, allocatable :: undefined_node_indices(:)
+    contains
+        procedure :: assign_usage_result
+        generic :: assignment(=) => assign_usage_result
     end type
 
     ! Usage tracker analyzer plugin  
@@ -29,6 +32,7 @@ module usage_tracker_analyzer
         procedure :: get_name => get_usage_analyzer_name
         procedure :: assign => assign_usage_tracker_analyzer
         procedure :: get_dependencies => get_usage_dependencies
+        procedure :: reset_state => reset_usage_tracker_state
         
         ! Analysis methods for fluff rules
         procedure :: find_unused_variables
@@ -45,6 +49,9 @@ contains
         class(*), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
+        
+        ! Reset state before analysis to handle repeated use
+        call this%reset_state()
         
         ! Initialize usage info
         this%result%usage_info = create_variable_usage_info()
@@ -177,6 +184,59 @@ contains
             end do
         end if
     end function
+
+    ! Assignment operator for usage_analysis_result_t
+    subroutine assign_usage_result(lhs, rhs)
+        class(usage_analysis_result_t), intent(inout) :: lhs
+        type(usage_analysis_result_t), intent(in) :: rhs
+        
+        ! Clear any existing allocations
+        if (allocated(lhs%unused_variables)) deallocate(lhs%unused_variables)
+        if (allocated(lhs%undefined_variables)) deallocate(lhs%undefined_variables)
+        if (allocated(lhs%unused_node_indices)) deallocate(lhs%unused_node_indices)
+        if (allocated(lhs%undefined_node_indices)) deallocate(lhs%undefined_node_indices)
+        
+        ! Deep copy allocatable arrays
+        if (allocated(rhs%unused_variables)) then
+            allocate(character(len(rhs%unused_variables)) :: lhs%unused_variables(size(rhs%unused_variables)))
+            lhs%unused_variables = rhs%unused_variables
+        end if
+        
+        if (allocated(rhs%undefined_variables)) then
+            allocate(character(len(rhs%undefined_variables)) :: lhs%undefined_variables(size(rhs%undefined_variables)))
+            lhs%undefined_variables = rhs%undefined_variables
+        end if
+        
+        if (allocated(rhs%unused_node_indices)) then
+            allocate(lhs%unused_node_indices(size(rhs%unused_node_indices)))
+            lhs%unused_node_indices = rhs%unused_node_indices
+        end if
+        
+        if (allocated(rhs%undefined_node_indices)) then
+            allocate(lhs%undefined_node_indices(size(rhs%undefined_node_indices)))
+            lhs%undefined_node_indices = rhs%undefined_node_indices
+        end if
+        
+        ! Copy usage_info (this has its own assignment operator)
+        lhs%usage_info = rhs%usage_info
+    end subroutine
+
+    ! Reset analyzer state for repeated use
+    subroutine reset_usage_tracker_state(this)
+        class(usage_tracker_analyzer_t), intent(inout) :: this
+        
+        ! Clear allocatable arrays in result
+        if (allocated(this%result%unused_variables)) deallocate(this%result%unused_variables)
+        if (allocated(this%result%undefined_variables)) deallocate(this%result%undefined_variables)
+        if (allocated(this%result%unused_node_indices)) deallocate(this%result%unused_node_indices)
+        if (allocated(this%result%undefined_node_indices)) deallocate(this%result%undefined_node_indices)
+        
+        ! Reset usage info
+        this%result%usage_info = create_variable_usage_info()
+        
+        ! Reset completion flag
+        this%analysis_complete = .false.
+    end subroutine
 
     ! Helper subroutines for analysis
     subroutine collect_variable_usage(result, arena, root_index)

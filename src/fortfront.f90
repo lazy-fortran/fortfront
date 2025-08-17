@@ -154,6 +154,16 @@ module fortfront
                                   is_identifier_defined_direct, get_unused_variables_direct, &
                                   get_symbols_in_scope_direct
     
+    ! NEW: Extensible Semantic Pipeline (issue #202)
+    use semantic_pipeline, only: semantic_pipeline_t, analyzer_ptr, create_pipeline
+    use semantic_analyzer_base, only: semantic_analyzer_t
+    use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t, &
+                                 call_graph_analyzer_t, control_flow_analyzer_t, &
+                                 usage_tracker_analyzer_t, source_reconstruction_analyzer_t, &
+                                 interface_analyzer_t
+    use semantic_pipeline_integration, only: analyze_semantics_with_pipeline, &
+                                             create_default_semantic_pipeline
+    
     implicit none
     public
     
@@ -262,6 +272,17 @@ module fortfront
               SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, SYMBOL_UNKNOWN, &
               is_identifier_defined_direct, get_unused_variables_direct, &
               get_symbols_in_scope_direct
+
+    ! Public extensible semantic pipeline APIs (issue #202)
+    public :: semantic_pipeline_t, analyzer_ptr, create_pipeline, &
+              semantic_analyzer_t, analyze_semantics_with_pipeline, &
+              create_default_semantic_pipeline
+
+    ! Public analysis plugin APIs for fluff integration
+    public :: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t, &
+              call_graph_analyzer_t, control_flow_analyzer_t, &
+              usage_tracker_analyzer_t, source_reconstruction_analyzer_t, &
+              interface_analyzer_t
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2
