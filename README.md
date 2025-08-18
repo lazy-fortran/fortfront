@@ -280,7 +280,7 @@ fortfront provides a plugin-based semantic analysis pipeline that external tools
 #### Basic Pipeline Usage
 
 ```fortran
-use ast_core, only: ast_arena_t, create_ast_arena
+use ast_arena, only: ast_arena_t, create_ast_arena
 use semantic_pipeline, only: semantic_pipeline_t, create_pipeline
 use builtin_analyzers, only: symbol_analyzer_t
 

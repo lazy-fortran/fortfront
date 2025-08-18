@@ -1,6 +1,18 @@
 module ast_core
-    ! Compatibility module that re-exports all AST modules
-    ! This allows existing code to continue working during the transition
+    ! DEPRECATED: This module implements an anti-pattern of re-exporting everything
+    ! ============================================================================
+    ! 
+    ! WARNING: This module creates hidden dependencies and tight coupling.
+    ! Please migrate to explicit imports from specific AST modules:
+    !
+    ! Instead of: use ast_core
+    ! Use specific imports like:
+    !   use ast_nodes_core, only: assignment_node, identifier_node
+    !   use ast_arena, only: ast_arena_t
+    !   use ast_factory, only: create_assignment
+    !
+    ! This module will be deprecated in a future release.
+    ! See Migration Guide in DOCS/AST_MIGRATION.md
     !
     ! AST Node Copying is now SAFE with cycle-protected memory management
     ! =====================================================================

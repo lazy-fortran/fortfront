@@ -1,7 +1,10 @@
 module call_graph_module
     use iso_fortran_env, only: error_unit
-    use ast_core
-    use ast_arena
+    ! Explicit AST imports replace ast_core god module
+    use ast_arena, only: ast_arena_t
+    use ast_nodes_core, only: program_node, call_or_subscript_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
+                                   subroutine_call_node
     implicit none
     private
 
