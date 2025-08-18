@@ -103,11 +103,8 @@ contains
         end if
         temp_array(size(temp_array)) = new_temp
         
-        ! Replace move_alloc with explicit deallocation and reallocation
-        if (allocated(tracker%temporaries)) deallocate(tracker%temporaries)
-        allocate(tracker%temporaries(size(temp_array)))
-        tracker%temporaries = temp_array
-        deallocate(temp_array)
+        ! Use move_alloc for safe transfer
+        call move_alloc(temp_array, tracker%temporaries)
 
         tracker%active_count = tracker%active_count + 1
         tracker%total_allocated = tracker%total_allocated + 1
@@ -293,7 +290,7 @@ contains
     ! Deep copy for temp_tracker_t
     subroutine temp_tracker_deep_copy(dst, src)
         class(temp_tracker_t), intent(out) :: dst
-        class(temp_tracker_t), intent(in) :: src
+        type(temp_tracker_t), intent(in) :: src
 
         integer :: i
 
@@ -331,7 +328,7 @@ contains
     ! Assignment operator
     subroutine temp_tracker_assign(dst, src)
         class(temp_tracker_t), intent(out) :: dst
-        class(temp_tracker_t), intent(in) :: src
+        type(temp_tracker_t), intent(in) :: src
         call temp_tracker_deep_copy(dst, src)
     end subroutine temp_tracker_assign
 

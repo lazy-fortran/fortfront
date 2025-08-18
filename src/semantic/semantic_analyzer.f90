@@ -44,6 +44,8 @@ module semantic_analyzer
         procedure :: deep_copy => semantic_context_deep_copy
         procedure :: validate_bounds => validate_array_access_bounds
         procedure :: check_conformance => check_array_shape_conformance
+        procedure :: assign => semantic_context_assign
+        generic :: assignment(=) => assign
     end type semantic_context_t
 
 contains
@@ -72,9 +74,32 @@ contains
         ! Initialize environment with builtin functions
         ctx%next_var_id = 1
 
-        ! Create real -> real type for math functions
-        real_type = create_mono_type(TREAL)
-        real_to_real = create_fun_type(real_type, real_type)
+        ! Create real -> real type for math functions safely
+        ! Avoid creating temporary objects that can cause double-free issues
+        real_type%kind = TREAL
+        real_type%size = 0
+        real_type%var%id = -1
+        allocate (character(len=0) :: real_type%var%name)
+        real_type%alloc_info%is_allocatable = .false.
+        real_type%alloc_info%is_pointer = .false.
+        real_type%alloc_info%is_target = .false.
+        real_type%alloc_info%is_allocated = .false.
+        real_type%alloc_info%needs_allocation_check = .false.
+        real_type%alloc_info%needs_allocatable_string = .false.
+        
+        real_to_real%kind = TFUN
+        real_to_real%size = 0
+        real_to_real%var%id = -1
+        allocate (character(len=0) :: real_to_real%var%name)
+        real_to_real%alloc_info%is_allocatable = .false.
+        real_to_real%alloc_info%is_pointer = .false.
+        real_to_real%alloc_info%is_target = .false.
+        real_to_real%alloc_info%is_allocated = .false.
+        real_to_real%alloc_info%needs_allocation_check = .false.
+        real_to_real%alloc_info%needs_allocatable_string = .false.
+        allocate (real_to_real%args(2))
+        real_to_real%args(1) = real_type
+        real_to_real%args(2) = real_type
 
         ! Create polymorphic type scheme (no type variables to generalize)
         builtin_scheme = create_poly_type(forall_vars=[type_var_t::], mono=real_to_real)
@@ -2129,5 +2154,19 @@ contains
             end select
         end if
     end subroutine set_character_substring_flag
+
+    ! Assignment operator for semantic_context_t (deep copy)
+    subroutine semantic_context_assign(lhs, rhs)
+        class(semantic_context_t), intent(out) :: lhs
+        type(semantic_context_t), intent(in) :: rhs
+
+        ! Deep copy all components to avoid shared ownership
+        lhs%env = rhs%env           ! Uses type_env_t assignment operator
+        lhs%scopes = rhs%scopes     ! Uses scope_stack_t assignment operator
+        lhs%next_var_id = rhs%next_var_id
+        lhs%subst = rhs%subst       ! Uses substitution_t assignment operator
+        lhs%param_tracker = rhs%param_tracker  ! Uses parameter_tracker_t assignment
+        lhs%temp_tracker = rhs%temp_tracker    ! Uses temp_tracker_t assignment operator
+    end subroutine semantic_context_assign
 
 end module semantic_analyzer

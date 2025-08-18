@@ -25,6 +25,8 @@ module type_system_hm
         integer :: id
         character(len=:), allocatable :: name  ! e.g., 'a, 'b
     contains
+        procedure :: assign => type_var_assign
+        generic :: assignment(=) => assign
     end type type_var_t
 
     ! Memory allocation attributes
@@ -49,6 +51,8 @@ module type_system_hm
         procedure :: equals => mono_type_equals
         procedure :: to_string => mono_type_to_string
         procedure :: deep_copy => mono_type_deep_copy
+        procedure :: assign => mono_type_assign
+        generic :: assignment(=) => assign
     end type mono_type_t
 
     ! Polymorphic type (type scheme)
@@ -58,6 +62,8 @@ module type_system_hm
     contains
         procedure :: to_string => poly_type_to_string
         procedure :: deep_copy => poly_type_deep_copy
+        procedure :: assign => poly_type_assign
+        generic :: assignment(=) => assign
     end type poly_type_t
 
     ! Type substitution (maps type variables to types)
@@ -71,6 +77,8 @@ module type_system_hm
         procedure :: apply => subst_apply_to_mono
         procedure :: apply_to_poly => subst_apply_to_poly
         procedure :: deep_copy => subst_deep_copy
+        procedure :: assign => subst_assign
+        generic :: assignment(=) => assign
     end type substitution_t
 
     ! Type environment (maps identifiers to type schemes)
@@ -86,6 +94,8 @@ module type_system_hm
         procedure :: remove => env_remove
         procedure :: apply_subst => env_apply_subst
         procedure :: deep_copy => env_deep_copy
+        procedure :: assign => env_assign
+        generic :: assignment(=) => assign
     end type type_env_t
 
 contains
@@ -133,6 +143,17 @@ contains
             allocate (character(len=0) :: result_type%var%name)
         end if
 
+        ! Initialize size to valid default
+        result_type%size = 0
+
+        ! Initialize allocation info to defaults
+        result_type%alloc_info%is_allocatable = .false.
+        result_type%alloc_info%is_pointer = .false.
+        result_type%alloc_info%is_target = .false.
+        result_type%alloc_info%is_allocated = .false.
+        result_type%alloc_info%needs_allocation_check = .false.
+        result_type%alloc_info%needs_allocatable_string = .false.
+
         if (present(args)) then
             allocate (result_type%args(size(args)))
             do i = 1, size(args)
@@ -171,6 +192,15 @@ contains
         ! Initialize var field to avoid undefined behavior
         fun_type%var%id = -1
         allocate (character(len=0) :: fun_type%var%name)
+        
+        ! Initialize allocation info to defaults
+        fun_type%alloc_info%is_allocatable = .false.
+        fun_type%alloc_info%is_pointer = .false.
+        fun_type%alloc_info%is_target = .false.
+        fun_type%alloc_info%is_allocated = .false.
+        fun_type%alloc_info%needs_allocation_check = .false.
+        fun_type%alloc_info%needs_allocatable_string = .false.
+        
         allocate (fun_type%args(2))
         fun_type%args(1) = arg_type  ! Uses default assignment
         fun_type%args(2) = result_type  ! Uses default assignment
@@ -791,6 +821,98 @@ contains
         end if
     end function env_deep_copy
 
+    ! Assignment operator for type_var_t (deep copy)
+    subroutine type_var_assign(lhs, rhs)
+        class(type_var_t), intent(out) :: lhs
+        type(type_var_t), intent(in) :: rhs
 
+        lhs%id = rhs%id
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        end if
+    end subroutine type_var_assign
+
+    ! Assignment operator for mono_type_t (cycle-safe deep copy)
+    subroutine mono_type_assign(lhs, rhs)
+        class(mono_type_t), intent(out) :: lhs
+        type(mono_type_t), intent(in) :: rhs
+
+        call mono_type_assign_with_depth(lhs, rhs, 0)
+    end subroutine mono_type_assign
+
+    ! Internal assignment with recursion depth tracking
+    recursive subroutine mono_type_assign_with_depth(lhs, rhs, depth)
+        class(mono_type_t), intent(out) :: lhs
+        type(mono_type_t), intent(in) :: rhs
+        integer, intent(in) :: depth
+        integer :: i
+
+        lhs%kind = rhs%kind
+        lhs%size = rhs%size
+        lhs%alloc_info = rhs%alloc_info
+        
+        ! Deep copy var
+        lhs%var = rhs%var
+
+        ! Cycle-safe copying of args array - limit recursion depth
+        if (allocated(rhs%args) .and. depth < 10) then
+            allocate(lhs%args(size(rhs%args)))
+            do i = 1, size(rhs%args)
+                ! Recursively copy with depth tracking
+                call mono_type_assign_with_depth(lhs%args(i), rhs%args(i), depth + 1)
+            end do
+        end if
+    end subroutine mono_type_assign_with_depth
+
+    ! Assignment operator for poly_type_t (deep copy)
+    subroutine poly_type_assign(lhs, rhs)
+        class(poly_type_t), intent(out) :: lhs
+        type(poly_type_t), intent(in) :: rhs
+        integer :: i
+
+        if (allocated(rhs%forall)) then
+            allocate(lhs%forall(size(rhs%forall)))
+            do i = 1, size(rhs%forall)
+                lhs%forall(i) = rhs%forall(i)
+            end do
+        end if
+        lhs%mono = rhs%mono
+    end subroutine poly_type_assign
+
+    ! Assignment operator for substitution_t (deep copy)
+    subroutine subst_assign(lhs, rhs)
+        class(substitution_t), intent(out) :: lhs
+        type(substitution_t), intent(in) :: rhs
+        integer :: i
+
+        lhs%count = rhs%count
+        if (allocated(rhs%vars)) then
+            allocate(lhs%vars(size(rhs%vars)))
+            allocate(lhs%types(size(rhs%types)))
+            do i = 1, rhs%count
+                lhs%vars(i) = rhs%vars(i)
+                lhs%types(i) = rhs%types(i)
+            end do
+        end if
+    end subroutine subst_assign
+
+    ! Assignment operator for type_env_t (deep copy)
+    subroutine env_assign(lhs, rhs)
+        class(type_env_t), intent(out) :: lhs
+        type(type_env_t), intent(in) :: rhs
+        integer :: i
+
+        lhs%count = rhs%count
+        lhs%capacity = rhs%capacity
+
+        if (allocated(rhs%names)) then
+            allocate(character(len=256) :: lhs%names(size(rhs%names)))
+            allocate(lhs%schemes(size(rhs%schemes)))
+            do i = 1, rhs%count
+                lhs%names(i) = rhs%names(i)
+                lhs%schemes(i) = rhs%schemes(i)
+            end do
+        end if
+    end subroutine env_assign
 
 end module type_system_hm

@@ -7,6 +7,9 @@ module parameter_tracker
         character(len=:), allocatable :: name
         character(len=:), allocatable :: intent  ! "in", "out", "inout", or ""
         logical :: is_optional = .false.
+    contains
+        procedure :: assign => parameter_info_assign
+        generic :: assignment(=) => assign
     end type parameter_info_t
 
     ! Parameter tracker for current scope
@@ -18,6 +21,8 @@ module parameter_tracker
         procedure :: get_parameter_intent
         procedure :: is_parameter
         procedure :: clear
+        procedure :: assign => parameter_tracker_assign
+        generic :: assignment(=) => assign
     end type parameter_tracker_t
 
 contains
@@ -39,10 +44,7 @@ contains
             new_size = size(this%params) * 2
             allocate(temp(new_size))
             temp(1:this%count) = this%params(1:this%count)
-            deallocate(this%params)
-            allocate(this%params(new_size))
-            this%params = temp
-            deallocate(temp)
+            call move_alloc(temp, this%params)
         end if
         
         ! Add parameter
@@ -109,5 +111,37 @@ contains
         end if
         this%count = 0
     end subroutine clear
+
+    ! Assignment operator for parameter_tracker_t (deep copy)
+    subroutine parameter_tracker_assign(lhs, rhs)
+        class(parameter_tracker_t), intent(out) :: lhs
+        type(parameter_tracker_t), intent(in) :: rhs
+        integer :: i
+
+        lhs%count = rhs%count
+
+        if (allocated(rhs%params)) then
+            allocate(lhs%params(size(rhs%params)))
+            do i = 1, rhs%count
+                lhs%params(i)%name = rhs%params(i)%name
+                lhs%params(i)%intent = rhs%params(i)%intent
+                lhs%params(i)%is_optional = rhs%params(i)%is_optional
+            end do
+        end if
+    end subroutine parameter_tracker_assign
+
+    ! Assignment operator for parameter_info_t (deep copy)
+    subroutine parameter_info_assign(lhs, rhs)
+        class(parameter_info_t), intent(out) :: lhs
+        type(parameter_info_t), intent(in) :: rhs
+
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        end if
+        if (allocated(rhs%intent)) then
+            lhs%intent = rhs%intent
+        end if
+        lhs%is_optional = rhs%is_optional
+    end subroutine parameter_info_assign
 
 end module parameter_tracker

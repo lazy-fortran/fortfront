@@ -85,17 +85,14 @@ contains
         
         ! Cycle-safe inferred_type copying using new 3-tier system
         if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) then
-                deallocate(lhs%inferred_type)
+            ! Allocate if not already allocated, or if different kind
+            if (.not. allocated(lhs%inferred_type)) then
+                allocate(lhs%inferred_type)
             end if
-            allocate(lhs%inferred_type)
             ! This now uses the enhanced 3-tier cycle-safe assignment
             lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) then
-                deallocate(lhs%inferred_type)
-            end if
         end if
+        ! Note: Don't deallocate if rhs not allocated - leave lhs as is
     end subroutine ast_node_copy_base_fields
 
     subroutine ast_node_wrapper_assign(lhs, rhs)
@@ -104,8 +101,18 @@ contains
         
         ! Deep copy the node if allocated
         if (allocated(rhs%node)) then
-            if (allocated(lhs%node)) deallocate(lhs%node)
-            allocate(lhs%node, source=rhs%node)
+            ! Only deallocate if we need to change type
+            if (allocated(lhs%node)) then
+                if (.not. same_type_as(lhs%node, rhs%node)) then
+                    deallocate(lhs%node)
+                end if
+            end if
+            if (.not. allocated(lhs%node)) then
+                allocate(lhs%node, source=rhs%node)
+            else
+                ! Use assignment if same type (safer)
+                lhs%node = rhs%node
+            end if
         end if
         
         ! Copy the stack index
