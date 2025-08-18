@@ -1794,9 +1794,22 @@ contains
             end if
         end do
 
-        ! Create array type - simplified system without nested args
+        ! Create array type using the promoted element type
         typ = create_mono_type(TARRAY)
         typ%size = size(arr_node%element_indices)
+        
+        ! Store element type information in a way the assignment inference can use
+        ! For now, we'll use a simpler approach and communicate via the array type's kind
+        if (elem_type%kind == TREAL) then
+            ! Use TREAL as the array's secondary kind indicator  
+            typ%var%id = TREAL  ! Store promoted element type in var%id
+        else if (elem_type%kind == TINT) then
+            typ%var%id = TINT
+        else if (elem_type%kind == TCHAR) then
+            typ%var%id = TCHAR
+        else
+            typ%var%id = TREAL  ! Default to real for mixed types
+        end if
 
     end function infer_array_literal
 

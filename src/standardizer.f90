@@ -1367,18 +1367,10 @@ contains
                     ! get_fortran_type_string handles TARRAY by extracting element type
                     elem_type_str = get_fortran_type_string(node%inferred_type)
                 else
-                    ! No inferred type, try to determine from elements
+                    ! No inferred type, try to determine from elements with promotion
                     if (size(node%element_indices) > 0) then
-                        ! Check the first element type
-                        expr_type => get_expression_type(arena, node%element_indices(1))
-                        if (associated(expr_type)) then
-                            elem_type_str = get_fortran_type_string(expr_type)
-                        else
-                            ! Try to infer from literal if possible
-                            elem_type_str = &
-                                infer_element_type_from_literal(arena, &
-                                node%element_indices(1))
-                        end if
+                        ! Use array element type promotion logic
+                        elem_type_str = infer_promoted_array_type(arena, node)
                     else
                         elem_type_str = "real(8)"  ! Default for empty arrays
                     end if
@@ -1440,6 +1432,56 @@ contains
             end select
         end select
     end function infer_element_type_from_literal
+    
+    ! Infer promoted type for array literal with mixed types
+    function infer_promoted_array_type(arena, array_node) result(type_str)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_literal_node), intent(in) :: array_node
+        character(len=:), allocatable :: type_str
+        integer :: i
+        logical :: has_real, has_integer, has_char, has_logical
+        
+        ! Initialize flags
+        has_real = .false.
+        has_integer = .false.
+        has_char = .false.
+        has_logical = .false.
+        
+        ! Check all elements to determine types present
+        do i = 1, size(array_node%element_indices)
+            if (array_node%element_indices(i) > 0 .and. &
+                array_node%element_indices(i) <= arena%size) then
+                if (allocated(arena%entries(array_node%element_indices(i))%node)) then
+                    select type (elem => arena%entries(array_node%element_indices(i))%node)
+                    type is (literal_node)
+                        select case (elem%literal_kind)
+                        case (LITERAL_INTEGER)
+                            has_integer = .true.
+                        case (LITERAL_REAL)
+                            has_real = .true.
+                        case (LITERAL_STRING)
+                            has_char = .true.
+                        case (LITERAL_LOGICAL)
+                            has_logical = .true.
+                        end select
+                    end select
+                end if
+            end if
+        end do
+        
+        ! Apply type promotion rules: real > integer > logical, character separate
+        if (has_real) then
+            type_str = "real(8)"  ! Real takes precedence
+        else if (has_integer) then
+            type_str = "integer"
+        else if (has_logical) then
+            type_str = "logical"
+        else if (has_char) then
+            type_str = "character"
+        else
+            type_str = "real(8)"  ! Default fallback
+        end if
+    end function infer_promoted_array_type
 
     ! Standardize existing declaration nodes (e.g., real -> real(8))
     subroutine standardize_declarations(arena, prog)
