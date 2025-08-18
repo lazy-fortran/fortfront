@@ -606,14 +606,14 @@ contains
             end select
         end do
         
-        ! Consider valid if has balanced structure and not too many unknowns
+        ! Consider valid if has balanced structure and no unknown tokens
         ! Accept single identifiers as valid expressions (for lazy Fortran)
         ! Accept numerical expressions (e.g., "2 + 3", "42 * 3.14")
         is_valid = ((identifier_count > 0) .or. (number_count > 0 .and. operator_count > 0)) .and. &
                   (has_assignment .or. has_function_call .or. (operator_count > 0) .or. &
                    (identifier_count == 1 .and. number_count == 0 .and. operator_count == 0) .or. &
-                   (number_count > 0 .and. operator_count >= 0)) .and. &
-                  (unknown_count <= 2)
+                   (number_count > 0 .and. operator_count > 0)) .and. &
+                  (unknown_count == 0)
     end function is_likely_valid_fortran
     
     ! Check if tokens have any recognizable Fortran patterns
