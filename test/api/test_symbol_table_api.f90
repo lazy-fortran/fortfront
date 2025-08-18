@@ -139,9 +139,7 @@ contains
         ! Create real -> real function type for sin
         real_type%kind = TREAL
         fun_type%kind = TFUN
-        allocate(fun_type%args(2))  ! [arg_type, return_type]
-        fun_type%args(1) = real_type  ! argument type
-        fun_type%args(2) = real_type  ! return type
+        ! Note: simplified type system doesn't support function args
         
         sin_scheme%mono = fun_type
         call ctx%scopes%define("sin", sin_scheme)

@@ -603,8 +603,6 @@ contains
         type(mono_type_t), allocatable, intent(out) :: node_type
         logical, intent(out) :: found
         
-        integer :: i
-        
         found = .false.
         if (node_exists(arena, node_index)) then
             if (allocated(arena%entries(node_index)%node)) then
@@ -620,13 +618,8 @@ contains
                         else
                             allocate(character(len=0) :: node_type%var%name)
                         end if
-                        if (allocated(src_type%args)) then
-                            allocate(node_type%args(size(src_type%args)))
-                            do i = 1, size(src_type%args)
-                                ! For now, shallow copy args to avoid recursion issues
-                                node_type%args(i) = src_type%args(i)
-                            end do
-                        end if
+                        ! Copy allocation info
+                        node_type%alloc_info = src_type%alloc_info
                     end associate
                     found = .true.
                 end if
@@ -1532,12 +1525,11 @@ contains
             info%is_signed = .false.
             info%array_rank = 0
         case (TARRAY)
-            if (allocated(mono%args)) then
-                if (size(mono%args) > 0) then
-                    info = mono_type_to_type_info(mono%args(1))  ! Element type
-                    info%array_rank = 1  ! Simple 1D array for now
-                end if
-            end if
+            ! In simplified type system, arrays don't have element type info
+            ! Provide reasonable defaults for array type info
+            info%bit_width = 32  ! Default to integer-like arrays
+            info%is_signed = .true.
+            info%array_rank = 1  ! Simple 1D array
         end select
     end function mono_type_to_type_info
     

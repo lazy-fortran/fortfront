@@ -10,7 +10,6 @@ program test_scope_pattern
     type :: mono_type_t
         integer :: kind
         type(type_var_t) :: var
-        type(mono_type_t), allocatable :: args(:)
         integer :: size
     end type
 
@@ -92,11 +91,6 @@ contains
         copy%kind = this%kind
         copy%var = this%var  ! This should do automatic deep copy
         copy%size = this%size
-
-        if (allocated(this%args)) then
-            allocate (copy%args(size(this%args)))
-            ! Would need recursive deep copy here
-        end if
     end function
 
     function poly_deep_copy(this) result(copy)
