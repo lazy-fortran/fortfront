@@ -1598,6 +1598,8 @@ contains
                             ! Check if this declaration is for a parameter
                             is_param_decl = .false.
                             param_idx = 0
+                            
+                            ! Check single variable declaration
                             do j = 1, n_params
                                 if (stmt%var_name == param_names(j)) then
                                     is_param_decl = .true.
@@ -1605,21 +1607,35 @@ contains
                                     exit
                                 end if
                             end do
+                            
+                            ! Check multi-variable declaration
+                            if (.not. is_param_decl .and. stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                                do j = 1, n_params
+                                    block
+                                        integer :: k
+                                        do k = 1, size(stmt%var_names)
+                                            if (trim(stmt%var_names(k)) == trim(param_names(j))) then
+                                                is_param_decl = .true.
+                                                param_idx = j
+                                                exit
+                                            end if
+                                        end do
+                                    end block
+                                    if (is_param_decl) exit
+                                end do
+                            end if
 
                             if (is_param_decl) then
-                                ! Update the declaration to have intent(in) and &
-                                ! preserve/enhance type
-                                if (stmt%type_name == "real") then
-                                    stmt%type_name = "real"
-                                    stmt%has_kind = .true.
-                                    stmt%kind_value = 8
-                                ! Keep integer, logical, character as-is
+                                ! Preserve existing explicit declaration - only ensure intent(in)
+                                ! Do NOT modify existing type information
+                                if (.not. stmt%has_intent) then
+                                    stmt%intent = "in"
+                                    stmt%has_intent = .true.
+                                    ! Update in arena only if we changed intent
+                                    arena%entries(func_def%body_indices(i))%node = stmt
                                 end if
-                                stmt%intent = "in"
-                                stmt%has_intent = .true.
+                                ! Mark this parameter as found (has explicit declaration)
                                 param_names_found(param_idx) = func_def%body_indices(i)
-                                ! Update in arena
-                                arena%entries(func_def%body_indices(i))%node = stmt
                             end if
                         end select
                     end if
