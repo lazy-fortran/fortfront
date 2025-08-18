@@ -86,7 +86,7 @@ contains
 
     ! Write AST to JSON file
     subroutine json_write_ast_to_file(ast, filename)
-        use ast_core, only: ast_node
+        use ast_base, only: ast_node
         class(ast_node), intent(in) :: ast
         character(len=*), intent(in) :: filename
 
@@ -111,7 +111,7 @@ contains
 
     ! Convert AST to JSON string
     function json_write_ast_to_string(ast) result(json_str)
-        use ast_core, only: ast_node
+        use ast_base, only: ast_node
         class(ast_node), intent(in) :: ast
         character(len=:), allocatable :: json_str
 

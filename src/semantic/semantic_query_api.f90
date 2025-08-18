@@ -77,7 +77,7 @@ module semantic_query_api
         type(mono_type_t) :: type_info
         integer :: definition_line = 0      ! Line where symbol is declared
         integer :: definition_column = 0    ! Column where symbol is declared  
-        logical :: is_used = .false.        ! Whether symbol is used (TODO: implement)
+        logical :: is_used = .false.        ! Whether symbol is used - populated by usage_tracker_analyzer
         logical :: is_parameter = .false.   ! Whether symbol is a parameter
         ! NOTE: definition_line/definition_column population requires connecting
         !       symbol declarations to AST node source locations during semantic 
