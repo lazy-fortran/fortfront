@@ -606,12 +606,14 @@ contains
             end select
         end do
         
-        ! Consider valid if has balanced structure and not too many unknowns
+        ! Consider valid if has balanced structure and no unknown tokens
         ! Accept single identifiers as valid expressions (for lazy Fortran)
-        is_valid = (identifier_count > 0) .and. &
+        ! Accept numerical expressions (e.g., "2 + 3", "42 * 3.14")
+        is_valid = ((identifier_count > 0) .or. (number_count > 0 .and. operator_count > 0)) .and. &
                   (has_assignment .or. has_function_call .or. (operator_count > 0) .or. &
-                   (identifier_count == 1 .and. number_count == 0 .and. operator_count == 0)) .and. &
-                  (unknown_count <= 2)
+                   (identifier_count == 1 .and. number_count == 0 .and. operator_count == 0) .or. &
+                   (number_count > 0 .and. operator_count > 0)) .and. &
+                  (unknown_count == 0)
     end function is_likely_valid_fortran
     
     ! Check if tokens have any recognizable Fortran patterns
@@ -668,13 +670,14 @@ contains
     ! Check if tokens represent a likely Fortran expression
     logical function is_likely_fortran_expression(tokens) result(is_expression)
         type(token_t), intent(in) :: tokens(:)
-        integer :: i, identifier_count, operator_count, paren_count, unknown_count
+        integer :: i, identifier_count, operator_count, paren_count, unknown_count, number_count
         logical :: has_assignment, has_function_call, has_invalid_chars
         
         identifier_count = 0
         operator_count = 0
         paren_count = 0
         unknown_count = 0
+        number_count = 0
         has_assignment = .false.
         has_function_call = .false.
         has_invalid_chars = .false.
@@ -687,6 +690,8 @@ contains
                 if (i < size(tokens) .and. tokens(i+1)%text == "(") then
                     has_function_call = .true.
                 end if
+            case (TK_NUMBER)
+                number_count = number_count + 1
             case (TK_OPERATOR)
                 operator_count = operator_count + 1
                 ! Check for assignment operator
@@ -717,11 +722,12 @@ contains
         ! - Has identifiers and operators (mathematical expression)
         ! - Has assignment pattern (variable assignment)  
         ! - Has function call pattern
+        ! - Has numbers and operators (numerical expression like "2 + 3")
         ! - Has reasonable balance of tokens
         else
-            is_expression = (identifier_count > 0) .and. &
+            is_expression = ((identifier_count > 0) .or. (number_count > 0 .and. operator_count > 0)) .and. &
                            (has_assignment .or. has_function_call .or. &
-                            (operator_count > 0 .and. identifier_count >= operator_count))
+                            (operator_count > 0 .and. (identifier_count + number_count) >= operator_count))
         end if
     end function is_likely_fortran_expression
 

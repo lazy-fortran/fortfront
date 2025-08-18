@@ -68,10 +68,8 @@ contains
                     type(ast_node_wrapper), allocatable :: new_dims(:)
                     allocate (new_dims(size(temp_dims)*2))
                     new_dims(1:size(temp_dims)) = temp_dims
-                    ! Replace move_alloc with explicit deallocation and reallocation
-                    deallocate (temp_dims)
-                    allocate (temp_dims(size(new_dims)))
-                    temp_dims = new_dims
+                    ! Use move_alloc for O(1) array transfer instead of O(n) copying
+                    call move_alloc(new_dims, temp_dims)
                 end block
             end if
 
