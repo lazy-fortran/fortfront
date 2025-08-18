@@ -339,8 +339,8 @@ contains
             ! Program already standardized, don't add more declarations
             allocate(declaration_indices(0))
         else
-            ! TEMPORARY: Disable program-level variable declarations to test function-level logic
-            ! call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
+            ! Generate program-level variable declarations
+            call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
             allocate(declaration_indices(0))
         end if
         n_declarations = 0
@@ -1520,8 +1520,8 @@ contains
             func_def%return_type = "real(8)"
         end if
 
-        ! TEMPORARY: Disable function-level logic
-        ! call reorganize_function_with_declarations(arena, func_def, func_index)
+        ! Comprehensive function reorganization with variable declarations
+        call reorganize_function_with_declarations(arena, func_def, func_index)
 
         ! Update the arena entry
         arena%entries(func_index)%node = func_def
@@ -1928,67 +1928,126 @@ contains
         end do
     end subroutine mark_variable_as_explicit
 
-    ! Standardize subroutine definitions similar to function definitions
+    ! Complete subroutine body reorganization with intelligent variable declarations
+    subroutine reorganize_subroutine_with_declarations(arena, sub_def, sub_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(subroutine_def_node), intent(inout) :: sub_def
+        integer, intent(in) :: sub_index
+        
+        ! Variable information storage
+        character(len=64), allocatable :: var_names(:)  
+        character(len=64), allocatable :: var_types(:)
+        logical, allocatable :: var_explicitly_declared(:)
+        logical, allocatable :: var_is_parameter(:)
+        logical, allocatable :: var_is_result(:)
+        integer :: var_count, max_vars
+        
+        ! Node indices
+        integer, allocatable :: new_body_indices(:)
+        integer, allocatable :: declaration_indices(:)
+        integer, allocatable :: executable_indices(:)
+        integer :: implicit_none_index
+        integer :: n_declarations, n_executables
+        integer :: i, j, total_new_body_size
+        
+        ! Initialize storage
+        max_vars = 50
+        allocate(var_names(max_vars))
+        allocate(var_types(max_vars))
+        allocate(var_explicitly_declared(max_vars))
+        allocate(var_is_parameter(max_vars))
+        allocate(var_is_result(max_vars))
+        var_count = 0
+        var_explicitly_declared = .false.
+        var_is_parameter = .false.
+        var_is_result = .false.
+        
+        ! Step 1: Collect parameter information
+        call collect_subroutine_parameters(arena, sub_def, var_names, var_types, &
+                                          var_explicitly_declared, var_is_parameter, &
+                                          var_is_result, var_count, max_vars)
+        
+        ! Step 2: Scan subroutine body to identify all variables and explicit declarations
+        call scan_subroutine_body_for_variables(arena, sub_def, var_names, var_types, &
+                                               var_explicitly_declared, var_is_parameter, &
+                                               var_is_result, var_count, max_vars)
+        
+        ! Step 3: Separate declarations from executable statements
+        call separate_subroutine_declarations_and_executables(arena, sub_def, declaration_indices, &
+                                                             executable_indices, n_declarations, n_executables)
+        
+        ! Step 4: Create new subroutine body with proper ordering
+        
+        ! Check if implicit none already exists, if not create one
+        implicit_none_index = 0
+        if (n_declarations > 0) then
+            ! Check if first declaration is already implicit none
+            if (allocated(arena%entries(declaration_indices(1))%node)) then
+                select type (first_decl => arena%entries(declaration_indices(1))%node)
+                type is (literal_node)
+                    if (allocated(first_decl%value)) then
+                        if (index(first_decl%value, "implicit none") > 0) then
+                            implicit_none_index = declaration_indices(1)
+                            ! Remove from declarations list since we'll add it separately
+                            if (n_declarations > 1) then
+                                declaration_indices(1:n_declarations-1) = declaration_indices(2:n_declarations)
+                            end if
+                            n_declarations = n_declarations - 1
+                        end if
+                    end if
+                end select
+            end if
+        end if
+        
+        ! Create implicit none if not found
+        if (implicit_none_index == 0) then
+            implicit_none_index = push_implicit_statement(arena, .true., &
+                                                         line=1, column=1, parent_index=sub_index)
+        end if
+        
+        ! Generate missing variable declarations - this modifies declaration_indices and n_declarations
+        call generate_missing_subroutine_declarations(arena, sub_index, var_names, var_types, &
+                                                     var_explicitly_declared, var_is_parameter, &
+                                                     var_count, declaration_indices, n_declarations)
+        
+        ! Calculate total new body size
+        total_new_body_size = 1 + n_declarations + n_executables  ! implicit none + declarations + executables
+        
+        ! Build the new body with proper order
+        allocate(new_body_indices(total_new_body_size))
+        
+        ! 1. Implicit none (always first)
+        new_body_indices(1) = implicit_none_index
+        j = 2
+        
+        ! 2. All variable declarations (existing + generated)
+        do i = 1, n_declarations
+            new_body_indices(j) = declaration_indices(i)
+            j = j + 1
+        end do
+        
+        ! 3. All executable statements (comes after ALL declarations)
+        do i = 1, n_executables
+            new_body_indices(j) = executable_indices(i)
+            j = j + 1
+        end do
+        
+        ! Update subroutine body
+        sub_def%body_indices = new_body_indices
+        
+        ! Update parent references
+        arena%entries(implicit_none_index)%parent_index = sub_index
+        
+    end subroutine reorganize_subroutine_with_declarations
+
+    ! Standardize subroutine definitions with comprehensive reorganization
     subroutine standardize_subroutine_def(arena, sub_def, sub_index)
         type(ast_arena_t), intent(inout) :: arena
         type(subroutine_def_node), intent(inout) :: sub_def
         integer, intent(in) :: sub_index
-        integer, allocatable :: new_body_indices(:)
-        integer :: implicit_none_index, i, j
-        logical :: has_implicit_none
 
-        ! Check if implicit none already exists
-        has_implicit_none = .false.
-        if (allocated(sub_def%body_indices)) then
-            do i = 1, size(sub_def%body_indices)
-                if (sub_def%body_indices(i) > 0 .and. sub_def%body_indices(i) <= arena%size) then
-                    if (allocated(arena%entries(sub_def%body_indices(i))%node)) then
-                        select type (node => arena%entries(sub_def%body_indices(i))%node)
-                        type is (literal_node)
-                            if (allocated(node%value)) then
-                                if (index(node%value, "implicit none") > 0) then
-                                    has_implicit_none = .true.
-                                    exit
-                                end if
-                            end if
-                        end select
-                    end if
-                end if
-            end do
-        end if
-
-        ! Add implicit none at the beginning of subroutine body if not present
-        if (allocated(sub_def%body_indices) .and. .not. has_implicit_none) then
-            ! Create implicit none statement node
-            implicit_none_index = push_implicit_statement(arena, .true., &
-                                                         line=1, column=1, parent_index=sub_index)
-
-            ! Create new body with implicit none at the beginning
-            allocate (new_body_indices(size(sub_def%body_indices) + 1))
-            new_body_indices(1) = implicit_none_index
-            do i = 1, size(sub_def%body_indices)
-                new_body_indices(i + 1) = sub_def%body_indices(i)
-            end do
-            sub_def%body_indices = new_body_indices
-
-            ! Update parent references
-            arena%entries(implicit_none_index)%parent_index = sub_index
-        else if (.not. allocated(sub_def%body_indices)) then
-            ! For empty body, just add implicit none
-            implicit_none_index = push_implicit_statement(arena, .true., &
-                                                         line=1, column=1, parent_index=sub_index)
-            
-            allocate(sub_def%body_indices(1))
-            sub_def%body_indices(1) = implicit_none_index
-            
-            ! Update parent references
-            arena%entries(implicit_none_index)%parent_index = sub_index
-        end if
-
-        ! Standardize parameters if present
-        if (allocated(sub_def%param_indices)) then
-            call standardize_subroutine_parameters(arena, sub_def, sub_index)
-        end if
+        ! Comprehensive subroutine reorganization with variable declarations
+        call reorganize_subroutine_with_declarations(arena, sub_def, sub_index)
 
         ! Update the arena entry
         arena%entries(sub_index)%node = sub_def
@@ -2157,13 +2216,13 @@ contains
             if (param_name(1:1) >= 'i' .and. param_name(1:1) <= 'n') then
                 type_name = "integer"
             else
-                type_name = "real"
+                type_name = "real(8)"
                 has_kind = .true.
                 kind_value = 8
             end if
         else
             ! Default to real for empty names
-            type_name = "real"
+            type_name = "real(8)"
             has_kind = .true.
             kind_value = 8
         end if
@@ -2860,5 +2919,219 @@ contains
         end if
         
     end function apply_fortran_implicit_typing
+
+    ! Collect subroutine parameter information
+    subroutine collect_subroutine_parameters(arena, sub_def, var_names, var_types, &
+                                            var_explicitly_declared, var_is_parameter, &
+                                            var_is_result, var_count, max_vars)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub_def
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_explicitly_declared(:)
+        logical, intent(inout) :: var_is_parameter(:)
+        logical, intent(inout) :: var_is_result(:)
+        integer, intent(inout) :: var_count
+        integer, intent(in) :: max_vars
+        
+        integer :: i
+        character(len=64) :: param_name
+        character(len=:), allocatable :: param_type
+        
+        if (.not. allocated(sub_def%param_indices)) return
+        
+        do i = 1, size(sub_def%param_indices)
+            if (sub_def%param_indices(i) > 0 .and. sub_def%param_indices(i) <= arena%size) then
+                if (allocated(arena%entries(sub_def%param_indices(i))%node)) then
+                    select type (param => arena%entries(sub_def%param_indices(i))%node)
+                    type is (identifier_node)
+                        param_name = param%name
+                        ! Apply Fortran implicit typing rules
+                        block
+                            logical :: dummy_has_kind
+                            integer :: dummy_kind_value
+                            call infer_parameter_type(param_name, param_type, dummy_has_kind, dummy_kind_value)
+                        end block
+                        call add_variable_to_list(param_name, param_type, .false., .true., .false., &
+                                                 var_names, var_types, var_explicitly_declared, &
+                                                 var_is_parameter, var_is_result, var_count, max_vars)
+                    end select
+                end if
+            end if
+        end do
+    end subroutine collect_subroutine_parameters
+
+    ! Scan subroutine body for variables and explicit declarations
+    subroutine scan_subroutine_body_for_variables(arena, sub_def, var_names, var_types, &
+                                                 var_explicitly_declared, var_is_parameter, &
+                                                 var_is_result, var_count, max_vars)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub_def
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_explicitly_declared(:)
+        logical, intent(inout) :: var_is_parameter(:)
+        logical, intent(inout) :: var_is_result(:)
+        integer, intent(inout) :: var_count
+        integer, intent(in) :: max_vars
+        
+        integer :: i
+        
+        if (.not. allocated(sub_def%body_indices)) return
+        
+        do i = 1, size(sub_def%body_indices)
+            if (sub_def%body_indices(i) > 0 .and. sub_def%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(sub_def%body_indices(i))%node)) then
+                    select type (stmt => arena%entries(sub_def%body_indices(i))%node)
+                    type is (declaration_node)
+                        ! Mark this variable as explicitly declared
+                        call mark_variable_as_explicit(stmt%var_name, var_names, var_explicitly_declared, var_count)
+                        
+                        ! If this is a multi-variable declaration
+                        if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                            block
+                                integer :: j
+                                do j = 1, size(stmt%var_names)
+                                    call mark_variable_as_explicit(stmt%var_names(j), var_names, &
+                                                                  var_explicitly_declared, var_count)
+                                end do
+                            end block
+                        end if
+                    end select
+                end if
+            end if
+        end do
+    end subroutine scan_subroutine_body_for_variables
+
+    ! Separate subroutine declarations from executables
+    subroutine separate_subroutine_declarations_and_executables(arena, sub_def, declaration_indices, &
+                                                               executable_indices, n_declarations, n_executables)
+        type(ast_arena_t), intent(inout) :: arena
+        type(subroutine_def_node), intent(in) :: sub_def
+        integer, allocatable, intent(out) :: declaration_indices(:)
+        integer, allocatable, intent(out) :: executable_indices(:)
+        integer, intent(out) :: n_declarations, n_executables
+        
+        integer, allocatable :: temp_declarations(:), temp_executables(:)
+        integer :: i, decl_count, exec_count
+        
+        ! Initialize counts
+        decl_count = 0
+        exec_count = 0
+        allocate(temp_declarations(100))  ! Fixed size for now
+        allocate(temp_executables(100))
+        
+        if (.not. allocated(sub_def%body_indices)) then
+            n_declarations = 0
+            n_executables = 0
+            allocate(declaration_indices(0))
+            allocate(executable_indices(0))
+            return
+        end if
+        
+        do i = 1, size(sub_def%body_indices)
+            if (sub_def%body_indices(i) > 0 .and. sub_def%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(sub_def%body_indices(i))%node)) then
+                    select type (stmt => arena%entries(sub_def%body_indices(i))%node)
+                    type is (declaration_node)
+                        ! Apply type standardization to existing declarations
+                        if (stmt%type_name == "real") then
+                            block
+                                type(declaration_node) :: standardized_decl
+                                standardized_decl = stmt
+                                standardized_decl%type_name = "real(8)"
+                                standardized_decl%has_kind = .true.
+                                standardized_decl%kind_value = 8
+                                ! Update the arena with standardized declaration
+                                arena%entries(sub_def%body_indices(i))%node = standardized_decl
+                            end block
+                        end if
+                        decl_count = decl_count + 1
+                        temp_declarations(decl_count) = sub_def%body_indices(i)
+                    class default
+                        exec_count = exec_count + 1
+                        temp_executables(exec_count) = sub_def%body_indices(i)
+                    end select
+                end if
+            end if
+        end do
+        
+        ! Copy to output arrays
+        n_declarations = decl_count
+        n_executables = exec_count
+        
+        allocate(declaration_indices(n_declarations))
+        allocate(executable_indices(n_executables))
+        
+        if (n_declarations > 0) then
+            declaration_indices(1:n_declarations) = temp_declarations(1:n_declarations)
+        end if
+        
+        if (n_executables > 0) then
+            executable_indices(1:n_executables) = temp_executables(1:n_executables)
+        end if
+    end subroutine separate_subroutine_declarations_and_executables
+
+    ! Generate missing subroutine declarations
+    subroutine generate_missing_subroutine_declarations(arena, sub_index, var_names, var_types, &
+                                                       var_explicitly_declared, var_is_parameter, &
+                                                       var_count, declaration_indices, n_declarations)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: sub_index
+        character(len=64), intent(in) :: var_names(:)
+        character(len=64), intent(in) :: var_types(:)
+        logical, intent(in) :: var_explicitly_declared(:)
+        logical, intent(in) :: var_is_parameter(:)
+        integer, intent(in) :: var_count
+        integer, allocatable, intent(inout) :: declaration_indices(:)
+        integer, intent(inout) :: n_declarations
+        
+        integer, allocatable :: new_declaration_indices(:)
+        integer :: i, original_declarations, total_declarations
+        integer :: new_decl_index
+        
+        original_declarations = n_declarations
+        total_declarations = original_declarations
+        
+        ! Count missing declarations
+        do i = 1, var_count
+            if (.not. var_explicitly_declared(i) .and. .not. var_is_parameter(i)) then
+                total_declarations = total_declarations + 1
+            end if
+        end do
+        
+        ! Allocate new array
+        allocate(new_declaration_indices(total_declarations))
+        
+        ! Copy existing declarations
+        if (original_declarations > 0) then
+            new_declaration_indices(1:original_declarations) = declaration_indices(1:original_declarations)
+        end if
+        
+        ! Generate missing declarations and parameter declarations
+        do i = 1, var_count
+            if (.not. var_explicitly_declared(i) .and. .not. var_is_parameter(i)) then
+                ! Create new declaration for undeclared local variables
+                new_decl_index = push_declaration(arena, trim(var_types(i)), trim(var_names(i)), &
+                                                 line=1, column=1, parent_index=sub_index)
+                
+                original_declarations = original_declarations + 1
+                new_declaration_indices(original_declarations) = new_decl_index
+            else if (var_is_parameter(i)) then
+                ! Create parameter declaration with intent(in)
+                new_decl_index = push_declaration(arena, trim(var_types(i)), trim(var_names(i)), &
+                                                 intent_value="in", &
+                                                 line=1, column=1, parent_index=sub_index)
+                
+                original_declarations = original_declarations + 1
+                new_declaration_indices(original_declarations) = new_decl_index
+            end if
+        end do
+        
+        ! Update output
+        deallocate(declaration_indices)
+        declaration_indices = new_declaration_indices
+        n_declarations = total_declarations
+    end subroutine generate_missing_subroutine_declarations
 
 end module standardizer
