@@ -22,21 +22,22 @@ contains
         logical :: assignable
 
         ! Handle type variables
-        if (from_type%kind == TVAR .or. to_type%kind == TVAR) then
+        if (.not. associated(from_type%data) .or. .not. associated(to_type%data)) return
+        if (from_type%data%kind == TVAR .or. to_type%data%kind == TVAR) then
             assignable = .true.  ! Type variables can unify with anything
             return
         end if
 
         ! Same type is always assignable
-        if (from_type%kind == to_type%kind) then
-            select case (from_type%kind)
+        if (from_type%data%kind == to_type%data%kind) then
+            select case (from_type%data%kind)
             case (TCHAR)
                 ! Character types must have compatible lengths
-                assignable = (to_type%size >= from_type%size)
+                assignable = (to_type%data%size >= from_type%data%size)
             case (TARRAY)
                 ! Simplified array compatibility - just check sizes
-                if (from_type%size > 0 .and. to_type%size > 0) then
-                    assignable = (from_type%size == to_type%size)
+                if (from_type%data%size > 0 .and. to_type%data%size > 0) then
+                    assignable = (from_type%data%size == to_type%data%size)
                 else
                     assignable = .true.  ! Dynamic arrays are compatible
                 end if
@@ -47,10 +48,10 @@ contains
         end if
 
         ! Check type promotion rules
-        select case (to_type%kind)
+        select case (to_type%data%kind)
         case (TREAL)
             ! Integer can be promoted to real
-            assignable = (from_type%kind == TINT)
+            assignable = (from_type%data%kind == TINT)
         case (TCHAR)
             ! Nothing promotes to character
             assignable = .false.
@@ -65,7 +66,8 @@ contains
         type(mono_type_t), intent(in) :: typ
         logical :: is_numeric
 
-        is_numeric = (typ%kind == TINT .or. typ%kind == TREAL)
+        if (.not. associated(typ%data)) return
+        is_numeric = (typ%data%kind == TINT .or. typ%data%kind == TREAL)
 
     end function is_numeric_type
 
@@ -79,14 +81,17 @@ contains
         compatible = .false.
 
         ! Type variables are always compatible
-        if (type1%kind == TVAR .or. type2%kind == TVAR) then
+        if (.not. associated(type1%data) .or. .not. associated(type2%data)) then
+            return
+        end if
+        if (type1%data%kind == TVAR .or. type2%data%kind == TVAR) then
             level = COMPAT_EXACT
             compatible = .true.
             return
         end if
 
         ! Same type is exactly compatible
-        if (type1%kind == type2%kind) then
+        if (type1%data%kind == type2%data%kind) then
             level = COMPAT_EXACT
             compatible = .true.
             return
@@ -108,16 +113,16 @@ contains
         integer :: compat_level
 
         ! If either is a type variable, return the other
-        if (type1%kind == TVAR) then
+        if (type1%data%kind == TVAR) then
             common_type = type2
             return
-        else if (type2%kind == TVAR) then
+        else if (type2%data%kind == TVAR) then
             common_type = type1
             return
         end if
 
         ! If same type, return it
-        if (type1%kind == type2%kind) then
+        if (type1%data%kind == type2%data%kind) then
             common_type = type1
             return
         end if
@@ -129,7 +134,10 @@ contains
         end if
 
         ! Otherwise, no common type
-        common_type%kind = 0  ! Invalid type
+        ! Create invalid type
+        allocate(common_type%data)
+        common_type%data%ref_count = 1
+        common_type%data%kind = 0  ! Invalid type
 
     end function get_common_type
 
@@ -150,7 +158,8 @@ contains
             if (allow_promotion) then
                 if (.not. is_assignable(arg_types(i), param_types(i))) return
             else
-                if (arg_types(i)%kind /= param_types(i)%kind) return
+                if (.not. associated(arg_types(i)%data) .or. .not. associated(param_types(i)%data)) return
+                if (arg_types(i)%data%kind /= param_types(i)%data%kind) return
             end if
         end do
 
@@ -166,13 +175,14 @@ contains
         conformant = .false.
 
         ! Both must be arrays
-        if (array1%kind /= TARRAY .or. array2%kind /= TARRAY) return
+        if (.not. associated(array1%data) .or. .not. associated(array2%data)) return
+        if (array1%data%kind /= TARRAY .or. array2%data%kind /= TARRAY) return
 
         ! Simplified array conformance - skip element type checking
 
         ! Check sizes (0 means dynamic/unknown size)
-        if (array1%size > 0 .and. array2%size > 0) then
-            conformant = (array1%size == array2%size)
+        if (array1%data%size > 0 .and. array2%data%size > 0) then
+            conformant = (array1%data%size == array2%data%size)
         else
             conformant = .true.  ! Dynamic arrays assumed conformant
         end if

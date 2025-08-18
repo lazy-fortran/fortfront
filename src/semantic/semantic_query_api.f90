@@ -144,9 +144,9 @@ contains
         var_info%name = var_name
         var_info%type_name = get_type_name(mono_type)
         var_info%is_defined = .true.
-        var_info%is_array = (mono_type%kind == TARRAY)
-        var_info%is_allocatable = mono_type%alloc_info%is_allocatable
-        var_info%is_pointer = mono_type%alloc_info%is_pointer
+        var_info%is_array = (mono_type%data%kind == TARRAY)
+        var_info%is_allocatable = mono_type%data%alloc_info%is_allocatable
+        var_info%is_pointer = mono_type%data%alloc_info%is_pointer
         
         if (var_info%is_array) then
             var_info%array_rank = 1  ! Simplified type system - default rank
@@ -178,7 +178,7 @@ contains
         if (.not. allocated(scheme)) then
             ! Check if it's a builtin function
             mono_type = this%context%get_builtin_function_type(func_name)
-            if (mono_type%kind /= 0) then
+            if (mono_type%data%kind /= 0) then
                 func_info%name = func_name
                 func_info%is_intrinsic = .true.
                 call extract_function_signature(mono_type, func_info)
@@ -190,7 +190,7 @@ contains
         ! Extract function type information
         mono_type = this%context%instantiate(scheme)
         
-        if (mono_type%kind /= TFUN) return  ! Not a function
+        if (mono_type%data%kind /= TFUN) return  ! Not a function
         
         func_info%name = func_name
         func_info%is_intrinsic = .false.
@@ -292,7 +292,7 @@ contains
         
         ! Check builtin functions
         builtin_type = this%context%get_builtin_function_type(symbol_name)
-        defined = (builtin_type%kind /= 0)
+        defined = (builtin_type%data%kind /= 0)
     end function query_is_symbol_defined
 
     ! Get symbol type (variable, function, etc.)
@@ -310,7 +310,7 @@ contains
         
         if (allocated(scheme)) then
             mono_type = this%context%instantiate(scheme)
-            if (mono_type%kind == TFUN) then
+            if (mono_type%data%kind == TFUN) then
                 symbol_type = SYMBOL_FUNCTION
             else
                 symbol_type = SYMBOL_VARIABLE
@@ -320,7 +320,7 @@ contains
         
         ! Check builtin functions
         builtin_type = this%context%get_builtin_function_type(symbol_name)
-        if (builtin_type%kind /= 0) then
+        if (builtin_type%data%kind /= 0) then
             symbol_type = SYMBOL_FUNCTION
         end if
     end function query_get_symbol_type
@@ -331,7 +331,7 @@ contains
         type(mono_type_t), intent(in) :: mono_type
         character(len=:), allocatable :: name
         
-        select case (mono_type%kind)
+        select case (mono_type%data%kind)
         case (TINT)
             name = "integer"
         case (TREAL)
@@ -357,7 +357,7 @@ contains
         integer :: rank
         
         rank = 0
-        if (mono_type%kind == TARRAY) then
+        if (mono_type%data%kind == TARRAY) then
             ! For Fortran arrays, rank is typically stored in size field or 
             ! can be inferred from the array structure
             ! For now, default to rank 1 which covers most cases
@@ -366,8 +366,8 @@ contains
             ! If size is > 1, it might indicate multi-dimensional
             ! This is a simplified heuristic until more sophisticated
             ! rank tracking is implemented in the type system
-            if (mono_type%size > 1) then
-                rank = mono_type%size
+            if (mono_type%data%size > 1) then
+                rank = mono_type%data%size
             end if
         end if
     end function get_array_rank
@@ -414,7 +414,7 @@ contains
         type(mono_type_t), intent(in) :: func_type
         type(function_info_t), intent(inout) :: func_info
         
-        if (func_type%kind /= TFUN) return
+        if (func_type%data%kind /= TFUN) return
         
         ! Simplified type system - generic function signature
         allocate(character(len=16) :: func_info%parameter_names(1))
@@ -432,12 +432,12 @@ contains
         type(type_info_t), intent(out) :: type_info
         
         type_info%kind_name = get_type_name(mono_type)
-        type_info%is_array = (mono_type%kind == TARRAY)
-        type_info%is_allocatable = mono_type%alloc_info%is_allocatable
-        type_info%is_pointer = mono_type%alloc_info%is_pointer
+        type_info%is_array = (mono_type%data%kind == TARRAY)
+        type_info%is_allocatable = mono_type%data%alloc_info%is_allocatable
+        type_info%is_pointer = mono_type%data%alloc_info%is_pointer
         
-        if (mono_type%kind == TCHAR) then
-            type_info%character_length = mono_type%size
+        if (mono_type%data%kind == TCHAR) then
+            type_info%character_length = mono_type%data%size
         end if
         
         if (type_info%is_array) then
@@ -617,7 +617,7 @@ contains
         
         ! Check builtin functions
         builtin_type = context%get_builtin_function_type(identifier_name)
-        defined = (builtin_type%kind /= 0)
+        defined = (builtin_type%data%kind /= 0)
     end function is_identifier_defined_direct
     
     ! Direct function to get unused variables (issue #196)  

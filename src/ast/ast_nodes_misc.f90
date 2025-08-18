@@ -329,11 +329,17 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
-        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
-        ! if (allocated(rhs%inferred_type)) then
-        !     lhs%inferred_type = rhs%inferred_type
-        ! end if
+        ! Copy inferred_type with reference-counted safety
+        if (allocated(rhs%inferred_type)) then
+            if (.not. allocated(lhs%inferred_type)) then
+                allocate(lhs%inferred_type)
+            end if
+            lhs%inferred_type = rhs%inferred_type  ! Reference-counted assignment
+        else
+            if (allocated(lhs%inferred_type)) then
+                deallocate(lhs%inferred_type)
+            end if
+        end if
         ! Copy specific components
         if (allocated(rhs%filename)) lhs%filename = rhs%filename
     end subroutine include_statement_assign
@@ -363,11 +369,17 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
-        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
-        ! if (allocated(rhs%inferred_type)) then
-        !     lhs%inferred_type = rhs%inferred_type
-        ! end if
+        ! Copy inferred_type with reference-counted safety
+        if (allocated(rhs%inferred_type)) then
+            if (.not. allocated(lhs%inferred_type)) then
+                allocate(lhs%inferred_type)
+            end if
+            lhs%inferred_type = rhs%inferred_type  ! Reference-counted assignment
+        else
+            if (allocated(lhs%inferred_type)) then
+                deallocate(lhs%inferred_type)
+            end if
+        end if
     end subroutine contains_assign
 
     ! Interface block implementations
@@ -398,11 +410,17 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
-        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
-        ! if (allocated(rhs%inferred_type)) then
-        !     lhs%inferred_type = rhs%inferred_type
-        ! end if
+        ! Copy inferred_type with reference-counted safety
+        if (allocated(rhs%inferred_type)) then
+            if (.not. allocated(lhs%inferred_type)) then
+                allocate(lhs%inferred_type)
+            end if
+            lhs%inferred_type = rhs%inferred_type  ! Reference-counted assignment
+        else
+            if (allocated(lhs%inferred_type)) then
+                deallocate(lhs%inferred_type)
+            end if
+        end if
         ! Copy specific components
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%kind)) lhs%kind = rhs%kind
@@ -441,11 +459,17 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
-        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
-        ! if (allocated(rhs%inferred_type)) then
-        !     lhs%inferred_type = rhs%inferred_type
-        ! end if
+        ! Copy inferred_type with reference-counted safety
+        if (allocated(rhs%inferred_type)) then
+            if (.not. allocated(lhs%inferred_type)) then
+                allocate(lhs%inferred_type)
+            end if
+            lhs%inferred_type = rhs%inferred_type  ! Reference-counted assignment
+        else
+            if (allocated(lhs%inferred_type)) then
+                deallocate(lhs%inferred_type)
+            end if
+        end if
         ! Copy comment text
         if (allocated(rhs%text)) lhs%text = rhs%text
     end subroutine comment_assign
@@ -502,11 +526,17 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
-        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
-        ! if (allocated(rhs%inferred_type)) then
-        !     lhs%inferred_type = rhs%inferred_type
-        ! end if
+        ! Copy inferred_type with reference-counted safety
+        if (allocated(rhs%inferred_type)) then
+            if (.not. allocated(lhs%inferred_type)) then
+                allocate(lhs%inferred_type)
+            end if
+            lhs%inferred_type = rhs%inferred_type  ! Reference-counted assignment
+        else
+            if (allocated(lhs%inferred_type)) then
+                deallocate(lhs%inferred_type)
+            end if
+        end if
         
         ! Copy implicit statement specific fields
         lhs%is_none = rhs%is_none

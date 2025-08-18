@@ -37,23 +37,30 @@ module type_system_hm
         logical :: needs_allocatable_string = .false.  ! String needs allocatable len
     end type allocation_info_t
 
-    ! Monomorphic type - with proper function type support
-    type :: mono_type_t
+    ! Forward declaration for shared type data
+    type :: shared_type_data_t
+        integer :: ref_count = 1
         integer :: kind  ! TVAR, TINT, TREAL, etc.
         type(type_var_t) :: var  ! for TVAR
         integer :: size  ! for TCHAR(len=size), TARRAY(size)
         type(allocation_info_t) :: alloc_info  ! Memory allocation attributes
-        ! Function type arguments - restored for proper type checking
+        ! Function type arguments with reference tracking
         type(mono_type_t), allocatable :: args(:)  ! For TFUN and TARRAY
+        logical :: has_cycles = .false.  ! Track if this type contains cycles
+    end type shared_type_data_t
+    
+    ! Monomorphic type with reference-counted sharing
+    type :: mono_type_t
+        type(shared_type_data_t), pointer :: data => null()  ! Shared type data
     contains
         procedure :: equals => mono_type_equals
         procedure :: to_string => mono_type_to_string
         procedure :: deep_copy => mono_type_deep_copy
-        ! TEMPORARY: Assignment disabled to prevent double-free crash during finalization
-        ! The comprehensive test passes functionally but crashes on program cleanup
-        ! Need to investigate proper finalizer or reference counting approach
-        ! procedure :: assign => mono_type_assign
-        ! generic :: assignment(=) => assign
+        procedure :: assign => mono_type_assign
+        procedure :: clone => mono_type_clone  ! True deep copy without sharing
+        procedure :: finalize => mono_type_finalize
+        generic :: assignment(=) => assign
+        final :: mono_type_final
     end type mono_type_t
 
     ! Polymorphic type (type scheme)
@@ -120,7 +127,7 @@ contains
         end if
     end function create_type_var
 
-    ! Constructor for monomorphic type
+    ! Constructor for monomorphic type with reference counting
     function create_mono_type(kind, var, args, char_size) result(result_type)
         integer, intent(in) :: kind
         type(type_var_t), intent(in), optional :: var
@@ -129,40 +136,44 @@ contains
         type(mono_type_t) :: result_type
         integer :: i
 
-        result_type%kind = kind
+        ! Allocate new shared data
+        allocate(result_type%data)
+        result_type%data%ref_count = 1
+        result_type%data%kind = kind
+        result_type%data%has_cycles = .false.
 
         if (present(var)) then
-            result_type%var = var
+            result_type%data%var = var
         else
             ! Initialize var field even for non-TVAR types to avoid undefined behavior
-            result_type%var%id = -1
-            result_type%var%name = ""
+            result_type%data%var%id = -1
+            result_type%data%var%name = ""
         end if
 
         ! Initialize size to valid default
-        result_type%size = 0
+        result_type%data%size = 0
 
         ! Initialize allocation info to defaults
-        result_type%alloc_info%is_allocatable = .false.
-        result_type%alloc_info%is_pointer = .false.
-        result_type%alloc_info%is_target = .false.
-        result_type%alloc_info%is_allocated = .false.
-        result_type%alloc_info%needs_allocation_check = .false.
-        result_type%alloc_info%needs_allocatable_string = .false.
+        result_type%data%alloc_info%is_allocatable = .false.
+        result_type%data%alloc_info%is_pointer = .false.
+        result_type%data%alloc_info%is_target = .false.
+        result_type%data%alloc_info%is_allocated = .false.
+        result_type%data%alloc_info%needs_allocation_check = .false.
+        result_type%data%alloc_info%needs_allocatable_string = .false.
 
         ! Handle nested args for function and array types
         if (present(args) .and. size(args) > 0) then
-            allocate(result_type%args(size(args)))
+            allocate(result_type%data%args(size(args)))
             do i = 1, size(args)
-                result_type%args(i) = args(i)  ! Deep copy
+                result_type%data%args(i) = args(i)  ! Reference-counted assignment
             end do
         end if
 
-        if (present(char_size)) result_type%size = char_size
+        if (present(char_size)) result_type%data%size = char_size
 
         ! Set defaults
-        if (kind == TCHAR .and. .not. present(char_size)) result_type%size = 1
-        if (kind == TARRAY) result_type%size = 0  ! arrays don't use size field same way
+        if (kind == TCHAR .and. .not. present(char_size)) result_type%data%size = 1
+        if (kind == TARRAY) result_type%data%size = 0  ! arrays don't use size field same way
 
     end function create_mono_type
 
@@ -184,24 +195,29 @@ contains
         type(mono_type_t), intent(in) :: arg_type, result_type
         type(mono_type_t) :: fun_type
 
-        fun_type%kind = TFUN
-        fun_type%size = 0
+        ! Allocate new shared data
+        allocate(fun_type%data)
+        fun_type%data%ref_count = 1
+        fun_type%data%kind = TFUN
+        fun_type%data%size = 0
+        fun_type%data%has_cycles = .false.
+        
         ! Initialize var field to avoid undefined behavior
-        fun_type%var%id = -1
-        fun_type%var%name = ""
+        fun_type%data%var%id = -1
+        fun_type%data%var%name = ""
         
         ! Initialize allocation info to defaults
-        fun_type%alloc_info%is_allocatable = .false.
-        fun_type%alloc_info%is_pointer = .false.
-        fun_type%alloc_info%is_target = .false.
-        fun_type%alloc_info%is_allocated = .false.
-        fun_type%alloc_info%needs_allocation_check = .false.
-        fun_type%alloc_info%needs_allocatable_string = .false.
+        fun_type%data%alloc_info%is_allocatable = .false.
+        fun_type%data%alloc_info%is_pointer = .false.
+        fun_type%data%alloc_info%is_target = .false.
+        fun_type%data%alloc_info%is_allocated = .false.
+        fun_type%data%alloc_info%needs_allocation_check = .false.
+        fun_type%data%alloc_info%needs_allocatable_string = .false.
         
         ! Store function arguments properly for type checking
-        allocate(fun_type%args(2))
-        fun_type%args(1) = arg_type    ! argument type
-        fun_type%args(2) = result_type ! return type
+        allocate(fun_type%data%args(2))
+        fun_type%data%args(1) = arg_type    ! argument type
+        fun_type%data%args(2) = result_type ! return type
     end function create_fun_type
 
     ! Check if two monomorphic types are equal
@@ -211,39 +227,48 @@ contains
 
         equal = .false.
 
-        if (this%kind /= other%kind) return
+        ! Handle null pointers
+        if (.not. associated(this%data) .or. .not. associated(other%data)) return
+        
+        ! Fast equality check - same data pointer
+        if (associated(this%data, other%data)) then
+            equal = .true.
+            return
+        end if
 
-        select case (this%kind)
+        if (this%data%kind /= other%data%kind) return
+
+        select case (this%data%kind)
         case (TVAR)
-            equal = (this%var%id == other%var%id)
+            equal = (this%data%var%id == other%data%var%id)
         case (TINT, TREAL, TLOGICAL)
             equal = .true.
         case (TCHAR)
-            equal = (this%size == other%size)
+            equal = (this%data%size == other%data%size)
         case (TFUN)
             ! Function types must have matching argument structure
             equal = .true.
-            if (allocated(this%args) .and. allocated(other%args)) then
-                if (size(this%args) /= size(other%args)) then
+            if (allocated(this%data%args) .and. allocated(other%data%args)) then
+                if (size(this%data%args) /= size(other%data%args)) then
                     equal = .false.
                 else
-                    do i = 1, size(this%args)
-                        if (.not. this%args(i)%equals(other%args(i))) then
+                    do i = 1, size(this%data%args)
+                        if (.not. this%data%args(i)%equals(other%data%args(i))) then
                             equal = .false.
                             exit
                         end if
                     end do
                 end if
-            else if (allocated(this%args) .neqv. allocated(other%args)) then
+            else if (allocated(this%data%args) .neqv. allocated(other%data%args)) then
                 equal = .false.
             end if
         case (TARRAY)
             equal = .true.
-            if (this%size /= other%size) equal = .false.
+            if (this%data%size /= other%data%size) equal = .false.
             ! Check element type if present
-            if (allocated(this%args) .and. allocated(other%args)) then
-                if (size(this%args) > 0 .and. size(other%args) > 0) then
-                    equal = equal .and. this%args(1)%equals(other%args(1))
+            if (allocated(this%data%args) .and. allocated(other%data%args)) then
+                if (size(this%data%args) > 0 .and. size(other%data%args) > 0) then
+                    equal = equal .and. this%data%args(1)%equals(other%data%args(1))
                 end if
             end if
         end select
@@ -254,34 +279,39 @@ contains
         class(mono_type_t), intent(in) :: this
         character(len=:), allocatable :: str
 
-        select case (this%kind)
+        if (.not. associated(this%data)) then
+            str = "<null type>"
+            return
+        end if
+
+        select case (this%data%kind)
         case (TVAR)
-            str = this%var%name
+            str = this%data%var%name
         case (TINT)
             str = "integer"
         case (TREAL)
             str = "real(8)"
         case (TCHAR)
-            if (this%size > 0) then
+            if (this%data%size > 0) then
                 block
                     character(len=20) :: size_str
-                    write (size_str, '(i0)') this%size
+                    write (size_str, '(i0)') this%data%size
                     str = "character(len="//trim(size_str)//")"
                 end block
             else
                 str = "character(*)"
             end if
         case (TFUN)
-            if (allocated(this%args) .and. size(this%args) >= 2) then
-                str = this%args(1)%to_string() // " -> " // this%args(2)%to_string()
+            if (allocated(this%data%args) .and. size(this%data%args) >= 2) then
+                str = this%data%args(1)%to_string() // " -> " // this%data%args(2)%to_string()
             else
                 str = "function"
             end if
         case (TARRAY)
-            if (this%size > 0) then
+            if (this%data%size > 0) then
                 block
                     character(len=20) :: size_str
-                    write (size_str, '(i0)') this%size
+                    write (size_str, '(i0)') this%data%size
                     str = "array("//trim(size_str)//")"
                 end block
             else
@@ -292,55 +322,87 @@ contains
         end select
     end function mono_type_to_string
 
-    ! Deep copy a monomorphic type (simplified to avoid memory issues)
+    ! Deep copy a monomorphic type (true deep copy without sharing)
     function mono_type_deep_copy(this) result(copy)
         class(mono_type_t), intent(in) :: this
         type(mono_type_t) :: copy
 
-        ! Use the cycle-safe assignment operator
-        copy = this
+        ! Use true deep copy to create independent type
+        copy = this%clone()
     end function mono_type_deep_copy
-
-    ! Minimal assignment operator to prevent double-free during finalization
+    
+    ! Reference-counted assignment operator
     subroutine mono_type_assign(lhs, rhs)
         class(mono_type_t), intent(inout) :: lhs
         class(mono_type_t), intent(in) :: rhs
-        integer :: i
 
-        ! Copy simple fields with safe handling of allocatable components
-        lhs%kind = rhs%kind
-        ! Copy type variable fields individually to avoid shared allocatable strings
-        lhs%var%id = rhs%var%id
-        if (allocated(rhs%var%name)) then
-            if (allocated(lhs%var%name)) deallocate(lhs%var%name)
-            lhs%var%name = rhs%var%name  ! Fortran automatically allocates and copies
-        else
-            if (allocated(lhs%var%name)) deallocate(lhs%var%name)
-        end if
-        lhs%size = rhs%size
-        lhs%alloc_info = rhs%alloc_info
+        ! If assigning to self, do nothing
+        if (associated(lhs%data, rhs%data)) return
         
-        ! For args: only allocate fresh memory, no deep copying of nested args
-        if (allocated(rhs%args)) then
-            if (allocated(lhs%args)) deallocate(lhs%args)
-            allocate(lhs%args(size(rhs%args)))
-            
-            ! Copy only the top-level fields to avoid nested shared references
-            do i = 1, size(rhs%args)
-                lhs%args(i)%kind = rhs%args(i)%kind
-                ! Copy type variable fields individually for safety
-                lhs%args(i)%var%id = rhs%args(i)%var%id
-                if (allocated(rhs%args(i)%var%name)) then
-                    lhs%args(i)%var%name = rhs%args(i)%var%name
-                end if
-                lhs%args(i)%size = rhs%args(i)%size
-                lhs%args(i)%alloc_info = rhs%args(i)%alloc_info
-                ! Leave nested args unallocated to prevent double-free
-            end do
+        ! Decrement reference count of old data
+        call lhs%finalize()
+        
+        ! Share the new data and increment reference count
+        if (associated(rhs%data)) then
+            lhs%data => rhs%data
+            lhs%data%ref_count = lhs%data%ref_count + 1
         else
-            if (allocated(lhs%args)) deallocate(lhs%args)
+            lhs%data => null()
         end if
     end subroutine mono_type_assign
+    
+    ! True deep copy without sharing (for breaking cycles)
+    recursive function mono_type_clone(this) result(copy)
+        class(mono_type_t), intent(in) :: this
+        type(mono_type_t) :: copy
+        integer :: i
+
+        if (.not. associated(this%data)) then
+            copy%data => null()
+            return
+        end if
+        
+        ! Allocate new independent data
+        allocate(copy%data)
+        copy%data%ref_count = 1
+        copy%data%kind = this%data%kind
+        copy%data%var = this%data%var  ! Deep copy var fields
+        copy%data%size = this%data%size
+        copy%data%alloc_info = this%data%alloc_info
+        copy%data%has_cycles = .false.  ! Reset cycle detection
+        
+        ! Deep copy args array if present
+        if (allocated(this%data%args)) then
+            allocate(copy%data%args(size(this%data%args)))
+            do i = 1, size(this%data%args)
+                copy%data%args(i) = this%data%args(i)%clone()  ! Recursive clone
+            end do
+        end if
+    end function mono_type_clone
+    
+    ! Finalize: decrement reference count and deallocate if needed
+    subroutine mono_type_finalize(this)
+        class(mono_type_t), intent(inout) :: this
+        
+        if (associated(this%data)) then
+            this%data%ref_count = this%data%ref_count - 1
+            if (this%data%ref_count <= 0) then
+                ! Deallocate args before deallocating data to avoid cycles
+                if (allocated(this%data%args)) then
+                    deallocate(this%data%args)
+                end if
+                deallocate(this%data)
+            end if
+            this%data => null()
+        end if
+    end subroutine mono_type_finalize
+    
+    ! Final cleanup procedure
+    subroutine mono_type_final(this)
+        type(mono_type_t), intent(inout) :: this
+        
+        call this%finalize()
+    end subroutine mono_type_final
 
 
     ! Convert polymorphic type to string
@@ -434,26 +496,28 @@ contains
 
         ! Initialize result to avoid undefined behavior
         result_typ = typ
+        
+        if (.not. associated(typ%data)) return
 
-        select case (typ%kind)
+        select case (typ%data%kind)
         case (TVAR)
             ! Apply substitution to type variable
-            call this%lookup(typ%var, lookup_result)
+            call this%lookup(typ%data%var, lookup_result)
             if (allocated(lookup_result)) then
                 result_typ = lookup_result
             end if
 
         case (TFUN, TARRAY)
-            ! Apply substitution to nested arguments
-            if (allocated(typ%args)) then
-                allocate(result_typ%args(size(typ%args)))
-                do i = 1, size(typ%args)
-                    call this%apply(typ%args(i), result_typ%args(i))
+            ! Apply substitution to nested arguments - need to clone first
+            result_typ = typ%clone()  ! Start with independent copy
+            if (allocated(typ%data%args) .and. associated(result_typ%data)) then
+                do i = 1, size(typ%data%args)
+                    call this%apply(typ%data%args(i), result_typ%data%args(i))
                 end do
             end if
 
         case default
-            ! Already deep copied, nothing more to do
+            ! Already copied, nothing more to do
         end select
     end subroutine subst_apply_to_mono
 
@@ -560,15 +624,17 @@ contains
         integer :: i
 
         occurs = .false.
+        
+        if (.not. associated(typ%data)) return
 
-        select case (typ%kind)
+        select case (typ%data%kind)
         case (TVAR)
-            occurs = (var%id == typ%var%id)
+            occurs = (var%id == typ%data%var%id)
         case (TFUN, TARRAY)
             ! Check in nested arguments
-            if (allocated(typ%args)) then
-                do i = 1, size(typ%args)
-                    if (occurs_check(var, typ%args(i))) then
+            if (allocated(typ%data%args)) then
+                do i = 1, size(typ%data%args)
+                    if (occurs_check(var, typ%data%args(i))) then
                         occurs = .true.
                         exit
                     end if
@@ -604,26 +670,28 @@ contains
         recursive subroutine collect_vars(t)
             type(mono_type_t), intent(in) :: t
             integer :: k
+            
+            if (.not. associated(t%data)) return
 
-            select case (t%kind)
+            select case (t%data%kind)
             case (TVAR)
                 ! Check if already collected
                 found = .false.
                 do j = 1, count
-                    if (temp_vars(j)%id == t%var%id) then
+                    if (temp_vars(j)%id == t%data%var%id) then
                         found = .true.
                         exit
                     end if
                 end do
                 if (.not. found) then
                     count = count + 1
-                    temp_vars(count) = t%var
+                    temp_vars(count) = t%data%var
                 end if
             case (TFUN, TARRAY)
                 ! Collect variables from nested arguments
-                if (allocated(t%args)) then
-                    do k = 1, size(t%args)
-                        call collect_vars(t%args(k))
+                if (allocated(t%data%args)) then
+                    do k = 1, size(t%data%args)
+                        call collect_vars(t%data%args(k))
                     end do
                 end if
             end select

@@ -619,7 +619,7 @@ contains
                             allocate(character(len=0) :: node_type%var%name)
                         end if
                         ! Copy allocation info
-                        node_type%alloc_info = src_type%alloc_info
+                        node_type%data%alloc_info = src_type%data%alloc_info
                     end associate
                     found = .true.
                 end if

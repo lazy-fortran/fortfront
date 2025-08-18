@@ -8,32 +8,32 @@ program test_mono_type_empty_args
     print *, "Testing simplified mono_type assignment..."
     
     ! Initialize rhs with function type
-    rhs%kind = TFUN
-    rhs%var%id = 1
-    rhs%var%name = "fn"
-    rhs%size = 0
+    rhs%data%kind = TFUN
+    rhs%data%var%id = 1
+    rhs%data%var%name = "fn"
+    rhs%data%size = 0
     
     ! Test simplified type system assignment
     test_passed = .true.
     lhs = rhs
     
     ! Verify the assignment worked correctly
-    if (lhs%kind /= TFUN) then
+    if (lhs%data%kind /= TFUN) then
         print *, "ERROR: Kind not copied correctly"
         test_passed = .false.
     end if
     
-    if (lhs%var%id /= 1) then
+    if (lhs%data%var%id /= 1) then
         print *, "ERROR: var%id not copied correctly"
         test_passed = .false.
     end if
     
-    if (lhs%var%name /= "fn") then
+    if (lhs%data%var%name /= "fn") then
         print *, "ERROR: var%name not copied correctly"
         test_passed = .false.
     end if
     
-    if (lhs%size /= 0) then
+    if (lhs%data%size /= 0) then
         print *, "ERROR: size not copied correctly"
         test_passed = .false.
     end if

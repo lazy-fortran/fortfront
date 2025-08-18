@@ -1314,7 +1314,7 @@ contains
             type_str = node%type_name
         else if (allocated(node%inferred_type)) then
             ! Handle type inference
-            select case (node%inferred_type%kind)
+            select case (node%inferred_type%data%kind)
             case (TINT)
                 type_str = "integer"
             case (TREAL)
@@ -1324,11 +1324,11 @@ contains
                     type_str = "real"
                 end if
             case (TCHAR)
-                if (node%inferred_type%alloc_info%needs_allocatable_string) then
+                if (node%inferred_type%data%alloc_info%needs_allocatable_string) then
                     type_str = "character(len=:)"
-                else if (node%inferred_type%size > 0) then
+                else if (node%inferred_type%data%size > 0) then
                     type_str = "character(len="// &
-                        trim(adjustl(int_to_string(node%inferred_type%size)))//")"
+                        trim(adjustl(int_to_string(node%inferred_type%data%size)))//")"
                 else
                     type_str = "character"
                 end if
@@ -1361,7 +1361,7 @@ contains
         if (node%is_allocatable) then
             code = code//", allocatable"
         else if (allocated(node%inferred_type)) then
-            if (node%inferred_type%alloc_info%needs_allocatable_string) then
+            if (node%inferred_type%data%alloc_info%needs_allocatable_string) then
                 code = code//", allocatable"
             end if
         end if

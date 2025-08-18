@@ -83,16 +83,12 @@ contains
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
         
-        ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-        ! The issue is that shared allocatable components in mono_type_t cause
-        ! double-free errors during program finalization. This breaks type
-        ! information flow but prevents crashes until proper solution implemented.
-        ! TODO: Implement proper cycle-safe deep copying or reference counting
+        ! Copy inferred_type with reference-counted safety
         if (allocated(rhs%inferred_type)) then
-            ! Skip copying for now - this breaks semantic information but prevents crashes
-            if (allocated(lhs%inferred_type)) then
-                deallocate(lhs%inferred_type)
+            if (.not. allocated(lhs%inferred_type)) then
+                allocate(lhs%inferred_type)
             end if
+            lhs%inferred_type = rhs%inferred_type  ! Reference-counted assignment
         else
             if (allocated(lhs%inferred_type)) then
                 deallocate(lhs%inferred_type)

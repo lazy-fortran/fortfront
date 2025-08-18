@@ -623,13 +623,11 @@ contains
             lhs%child_indices = rhs%child_indices  ! Automatic allocation for regular arrays
         end if
         
-        ! TEMPORARY: Skip deep copying to avoid memory corruption in polymorphic copying
-        ! TODO: Re-implement when memory safety issues are resolved
-        ! Deep copy the polymorphic node using explicit allocation
-        ! if (allocated(lhs%node)) deallocate(lhs%node)
-        ! if (allocated(rhs%node)) then
-        !     allocate(lhs%node, source=rhs%node)
-        ! end if
+        ! Deep copy the polymorphic node using explicit allocation with memory safety
+        if (allocated(lhs%node)) deallocate(lhs%node)
+        if (allocated(rhs%node)) then
+            allocate(lhs%node, source=rhs%node)
+        end if
     end subroutine ast_entry_assign
 
 end module ast_arena
