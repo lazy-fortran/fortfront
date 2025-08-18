@@ -834,15 +834,17 @@ contains
 
     ! Assignment operator for mono_type_t (cycle-safe deep copy)
     subroutine mono_type_assign(lhs, rhs)
-        class(mono_type_t), intent(out) :: lhs
+        class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
 
+        ! Manual deallocation to avoid double-free
+        if (allocated(lhs%args)) deallocate(lhs%args)
         call mono_type_assign_with_depth(lhs, rhs, 0)
     end subroutine mono_type_assign
 
     ! Internal assignment with recursion depth tracking
     recursive subroutine mono_type_assign_with_depth(lhs, rhs, depth)
-        class(mono_type_t), intent(out) :: lhs
+        class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
         integer, intent(in) :: depth
         integer :: i
@@ -856,6 +858,7 @@ contains
 
         ! Cycle-safe copying of args array - limit recursion depth
         if (allocated(rhs%args) .and. depth < 10) then
+            if (allocated(lhs%args)) deallocate(lhs%args)
             allocate(lhs%args(size(rhs%args)))
             do i = 1, size(rhs%args)
                 ! Recursively copy with depth tracking
@@ -866,10 +869,11 @@ contains
 
     ! Assignment operator for poly_type_t (deep copy)
     subroutine poly_type_assign(lhs, rhs)
-        class(poly_type_t), intent(out) :: lhs
+        class(poly_type_t), intent(inout) :: lhs
         type(poly_type_t), intent(in) :: rhs
         integer :: i
 
+        if (allocated(lhs%forall)) deallocate(lhs%forall)
         if (allocated(rhs%forall)) then
             allocate(lhs%forall(size(rhs%forall)))
             do i = 1, size(rhs%forall)
@@ -881,10 +885,13 @@ contains
 
     ! Assignment operator for substitution_t (deep copy)
     subroutine subst_assign(lhs, rhs)
-        class(substitution_t), intent(out) :: lhs
+        class(substitution_t), intent(inout) :: lhs
         type(substitution_t), intent(in) :: rhs
         integer :: i
 
+        if (allocated(lhs%vars)) deallocate(lhs%vars)
+        if (allocated(lhs%types)) deallocate(lhs%types)
+        
         lhs%count = rhs%count
         if (allocated(rhs%vars)) then
             allocate(lhs%vars(size(rhs%vars)))
@@ -898,10 +905,13 @@ contains
 
     ! Assignment operator for type_env_t (deep copy)
     subroutine env_assign(lhs, rhs)
-        class(type_env_t), intent(out) :: lhs
+        class(type_env_t), intent(inout) :: lhs
         type(type_env_t), intent(in) :: rhs
         integer :: i
 
+        if (allocated(lhs%names)) deallocate(lhs%names)
+        if (allocated(lhs%schemes)) deallocate(lhs%schemes)
+        
         lhs%count = rhs%count
         lhs%capacity = rhs%capacity
 

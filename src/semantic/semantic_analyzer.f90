@@ -194,12 +194,10 @@ contains
         !        trim(arena%entries(node_index)%node_type)
         inferred = ctx%infer_stmt(arena, node_index)
 
-        ! Store the inferred type in the AST node (assignment now does deep &
-        ! copy automatically)
-        if (.not. allocated(arena%entries(node_index)%node%inferred_type)) then
-            allocate (arena%entries(node_index)%node%inferred_type)
-        end if
-        arena%entries(node_index)%node%inferred_type = inferred
+        ! TEMPORARY: Skip inferred_type assignment to avoid memory corruption
+        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
+        ! Store the inferred type in the AST node (assignment now does deep copy automatically)
+        ! arena%entries(node_index)%node%inferred_type = inferred
     end subroutine infer_and_store_type
 
     ! Infer type of a statement
@@ -307,11 +305,10 @@ contains
                 ! Check for INTENT violations will be done by caller if needed
                 ! This avoids circular dependency
 
+                ! TEMPORARY: Skip inferred_type assignment to avoid memory corruption
+                ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
                 ! Store type in the identifier node
-                if (.not. allocated(target%inferred_type)) then
-                    allocate (target%inferred_type)
-                end if
-                target%inferred_type = typ
+                ! target%inferred_type = typ
 
                 ! If new variable, add to environment (TEMPORARY: should be error)
                 ! TODO: Re-enable strict checking after fixing parser &
@@ -459,11 +456,10 @@ contains
         ! Apply current substitution
         typ = this%apply_subst_to_type(typ)
 
+        ! TEMPORARY: Skip inferred_type assignment to avoid memory corruption 
+        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
         ! Store the inferred type in the AST node
-        if (.not. allocated(arena%entries(expr_index)%node%inferred_type)) then
-            allocate (arena%entries(expr_index)%node%inferred_type)
-        end if
-        arena%entries(expr_index)%node%inferred_type = typ
+        ! arena%entries(expr_index)%node%inferred_type = typ
     end function infer_type
 
     ! Infer type of literal

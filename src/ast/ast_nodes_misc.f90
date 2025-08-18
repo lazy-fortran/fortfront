@@ -329,13 +329,11 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
+        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
+        ! if (allocated(rhs%inferred_type)) then
+        !     lhs%inferred_type = rhs%inferred_type
+        ! end if
         ! Copy specific components
         if (allocated(rhs%filename)) lhs%filename = rhs%filename
     end subroutine include_statement_assign
@@ -365,13 +363,11 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
+        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
+        ! if (allocated(rhs%inferred_type)) then
+        !     lhs%inferred_type = rhs%inferred_type
+        ! end if
     end subroutine contains_assign
 
     ! Interface block implementations
@@ -402,13 +398,11 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
+        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
+        ! if (allocated(rhs%inferred_type)) then
+        !     lhs%inferred_type = rhs%inferred_type
+        ! end if
         ! Copy specific components
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%kind)) lhs%kind = rhs%kind
@@ -447,13 +441,11 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
+        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
+        ! if (allocated(rhs%inferred_type)) then
+        !     lhs%inferred_type = rhs%inferred_type
+        ! end if
         ! Copy comment text
         if (allocated(rhs%text)) lhs%text = rhs%text
     end subroutine comment_assign
@@ -510,13 +502,11 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
+        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
+        ! if (allocated(rhs%inferred_type)) then
+        !     lhs%inferred_type = rhs%inferred_type
+        ! end if
         
         ! Copy implicit statement specific fields
         lhs%is_none = rhs%is_none

@@ -83,15 +83,12 @@ contains
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
         
-        ! Cycle-safe inferred_type copying using new 3-tier system
-        if (allocated(rhs%inferred_type)) then
-            ! Allocate if not already allocated, or if different kind
-            if (.not. allocated(lhs%inferred_type)) then
-                allocate(lhs%inferred_type)
-            end if
-            ! This now uses the enhanced 3-tier cycle-safe assignment
-            lhs%inferred_type = rhs%inferred_type
-        end if
+        ! TEMPORARY: Skip inferred_type copying to avoid memory corruption
+        ! TODO: Implement cycle-safe deep copy for mono_type_t self-referential structures
+        ! This breaks semantic information flow but prevents double-free crashes
+        ! if (allocated(rhs%inferred_type)) then
+        !     lhs%inferred_type = rhs%inferred_type
+        ! end if
         ! Note: Don't deallocate if rhs not allocated - leave lhs as is
     end subroutine ast_node_copy_base_fields
 
