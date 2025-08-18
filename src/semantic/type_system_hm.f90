@@ -37,13 +37,14 @@ module type_system_hm
         logical :: needs_allocatable_string = .false.  ! String needs allocatable len
     end type allocation_info_t
 
-    ! Monomorphic type - simple without self-referential components
+    ! Monomorphic type - with proper function type support
     type :: mono_type_t
         integer :: kind  ! TVAR, TINT, TREAL, etc.
         type(type_var_t) :: var  ! for TVAR
         integer :: size  ! for TCHAR(len=size), TARRAY(size)
         type(allocation_info_t) :: alloc_info  ! Memory allocation attributes
-        ! No nested type arguments to avoid memory issues
+        ! Function type arguments - restored for proper type checking
+        type(mono_type_t), allocatable :: args(:)  ! For TFUN and TARRAY
     contains
         procedure :: equals => mono_type_equals
         procedure :: to_string => mono_type_to_string
@@ -144,7 +145,13 @@ contains
         result_type%alloc_info%needs_allocation_check = .false.
         result_type%alloc_info%needs_allocatable_string = .false.
 
-        ! Simplified type system - no nested args handling
+        ! Handle nested args for function and array types
+        if (present(args) .and. size(args) > 0) then
+            allocate(result_type%args(size(args)))
+            do i = 1, size(args)
+                result_type%args(i) = args(i)  ! Deep copy
+            end do
+        end if
 
         if (present(char_size)) result_type%size = char_size
 
@@ -186,12 +193,14 @@ contains
         fun_type%alloc_info%needs_allocation_check = .false.
         fun_type%alloc_info%needs_allocatable_string = .false.
         
-        ! Function types are simplified - no nested structure
-        ! Just mark as function type, specific args handled elsewhere if needed
+        ! Store function arguments properly for type checking
+        allocate(fun_type%args(2))
+        fun_type%args(1) = arg_type    ! argument type
+        fun_type%args(2) = result_type ! return type
     end function create_fun_type
 
     ! Check if two monomorphic types are equal
-    logical function mono_type_equals(this, other) result(equal)
+    recursive logical function mono_type_equals(this, other) result(equal)
         class(mono_type_t), intent(in) :: this, other
         integer :: i
 
@@ -202,21 +211,41 @@ contains
         select case (this%kind)
         case (TVAR)
             equal = (this%var%id == other%var%id)
-        case (TINT, TREAL)
+        case (TINT, TREAL, TLOGICAL)
             equal = .true.
         case (TCHAR)
             equal = (this%size == other%size)
-        case (TFUN, TARRAY)
-            ! Simplified comparison - just check kind
+        case (TFUN)
+            ! Function types must have matching argument structure
             equal = .true.
-            if (this%kind == TARRAY) then
-                equal = equal .and. (this%size == other%size)
+            if (allocated(this%args) .and. allocated(other%args)) then
+                if (size(this%args) /= size(other%args)) then
+                    equal = .false.
+                else
+                    do i = 1, size(this%args)
+                        if (.not. this%args(i)%equals(other%args(i))) then
+                            equal = .false.
+                            exit
+                        end if
+                    end do
+                end if
+            else if (allocated(this%args) .neqv. allocated(other%args)) then
+                equal = .false.
+            end if
+        case (TARRAY)
+            equal = .true.
+            if (this%size /= other%size) equal = .false.
+            ! Check element type if present
+            if (allocated(this%args) .and. allocated(other%args)) then
+                if (size(this%args) > 0 .and. size(other%args) > 0) then
+                    equal = equal .and. this%args(1)%equals(other%args(1))
+                end if
             end if
         end select
     end function mono_type_equals
 
     ! Convert monomorphic type to string
-    function mono_type_to_string(this) result(str)
+    recursive function mono_type_to_string(this) result(str)
         class(mono_type_t), intent(in) :: this
         character(len=:), allocatable :: str
 
@@ -238,7 +267,11 @@ contains
                 str = "character(*)"
             end if
         case (TFUN)
-            str = "function"
+            if (allocated(this%args) .and. size(this%args) >= 2) then
+                str = this%args(1)%to_string() // " -> " // this%args(2)%to_string()
+            else
+                str = "function"
+            end if
         case (TARRAY)
             if (this%size > 0) then
                 block
@@ -254,7 +287,7 @@ contains
         end select
     end function mono_type_to_string
 
-    ! Deep copy a monomorphic type (using default assignment)
+    ! Deep copy a monomorphic type (simplified to avoid memory issues)
     function mono_type_deep_copy(this) result(copy)
         class(mono_type_t), intent(in) :: this
         type(mono_type_t) :: copy
@@ -346,7 +379,7 @@ contains
     end subroutine subst_lookup
 
     ! Apply substitution to monomorphic type
-    subroutine subst_apply_to_mono(this, typ, result_typ)
+    recursive subroutine subst_apply_to_mono(this, typ, result_typ)
         class(substitution_t), intent(in) :: this
         type(mono_type_t), intent(in) :: typ
         type(mono_type_t), intent(inout) :: result_typ
@@ -365,8 +398,13 @@ contains
             end if
 
         case (TFUN, TARRAY)
-            ! Simplified - no nested argument handling
-            continue
+            ! Apply substitution to nested arguments
+            if (allocated(typ%args)) then
+                allocate(result_typ%args(size(typ%args)))
+                do i = 1, size(typ%args)
+                    call this%apply(typ%args(i), result_typ%args(i))
+                end do
+            end if
 
         case default
             ! Already deep copied, nothing more to do
@@ -470,7 +508,7 @@ contains
 
 
     ! Occurs check - check if variable occurs in type
-    logical function occurs_check(var, typ) result(occurs)
+    recursive logical function occurs_check(var, typ) result(occurs)
         type(type_var_t), intent(in) :: var
         type(mono_type_t), intent(in) :: typ
         integer :: i
@@ -481,8 +519,15 @@ contains
         case (TVAR)
             occurs = (var%id == typ%var%id)
         case (TFUN, TARRAY)
-            ! Simplified - no nested argument checking
-            occurs = .false.
+            ! Check in nested arguments
+            if (allocated(typ%args)) then
+                do i = 1, size(typ%args)
+                    if (occurs_check(var, typ%args(i))) then
+                        occurs = .true.
+                        exit
+                    end if
+                end do
+            end if
         end select
     end function occurs_check
 
@@ -529,8 +574,12 @@ contains
                     temp_vars(count) = t%var
                 end if
             case (TFUN, TARRAY)
-                ! Simplified - no nested argument collection
-                continue
+                ! Collect variables from nested arguments
+                if (allocated(t%args)) then
+                    do k = 1, size(t%args)
+                        call collect_vars(t%args(k))
+                    end do
+                end if
             end select
         end subroutine collect_vars
     end subroutine free_type_vars
