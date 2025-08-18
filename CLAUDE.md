@@ -151,6 +151,71 @@ When adding new analysis capabilities:
 - **Extensible Semantic Analysis (Issue #202)**: Plugin-based semantic analysis pipeline allows external tools (especially fluff) to perform custom code analysis using built-in analyzers and analysis plugins
 - THE ASSIGNMENT OPERATOR ALWAYS HAS TO BE OVERLOADED TO DO A DEEP COPY FOR DERIVED TYPES WITH ALLOCATABLE MEMBERS
 
+## Error Handling Architecture
+
+fortfront uses structured error handling instead of `error_stop` for better library integration and user experience:
+
+### Key Principles
+- **Never use `error_stop`** in production code - use `result_t` pattern instead
+- **Return structured errors** with context, suggestions, and severity levels
+- **Enable graceful degradation** - components continue operating after errors
+- **Support library integration** - host applications can handle errors appropriately
+
+### Error Handling Patterns
+```fortran
+use error_handling
+
+! Basic validation pattern
+function validate_input(input) result(validation_result)
+    type(result_t) :: validation_result
+    
+    if (invalid_condition) then
+        validation_result = create_error_result( &
+            "Specific error description", &
+            ERROR_VALIDATION, &
+            component="module_name", &
+            context="function_name", &
+            suggestion="How to fix this issue" &
+        )
+        return
+    end if
+    
+    validation_result = success_result()
+end function
+
+! Factory result pattern (for node creation)
+function safe_create_node(...) result(factory_result)
+    type(factory_result_t) :: factory_result
+    
+    validation = validate_inputs(...)
+    if (validation%is_failure()) then
+        factory_result%result = validation
+        return
+    end if
+    
+    ! Create node successfully
+    factory_result%node_index = new_index
+    factory_result%result = success_result()
+end function
+```
+
+### Error Severity Levels
+- `ERROR_INFO`: Informational messages
+- `ERROR_WARNING`: Issues that don't prevent operation
+- `ERROR_ERROR`: Failures that prevent operation  
+- `ERROR_CRITICAL`: Severe failures requiring immediate attention
+
+### Error Categories
+- `ERROR_VALIDATION`: Input validation failures
+- `ERROR_TYPE_SYSTEM`: Type checking and inference errors
+- `ERROR_MEMORY`: Memory allocation issues
+- `ERROR_IO`: Input/output operation failures
+- `ERROR_PARSER`: Parsing and syntax errors
+- `ERROR_SEMANTIC`: Semantic analysis errors
+- `ERROR_INTERNAL`: Internal consistency errors
+
+See `docs/ERROR_HANDLING_GUIDE.md` for comprehensive examples and migration patterns.
+
 ## Memory Management
 
 ### Known Limitations
