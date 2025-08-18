@@ -155,67 +155,8 @@ contains
         
         if (index > 0 .and. index <= this%analyzer_count) then
             if (allocated(this%analyzers(index)%analyzer)) then
-                ! Type-specific allocation + assignment
-                select type(a => this%analyzers(index)%analyzer)
-                type is (simple_test_analyzer_t)
-                    allocate(simple_test_analyzer_t :: analyzer)
-                    ! Direct assignment for test analyzer
-                    select type(analyzer)
-                    type is (simple_test_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (symbol_analyzer_t)
-                    allocate(symbol_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (symbol_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (type_analyzer_t)
-                    allocate(type_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (type_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (scope_analyzer_t)
-                    allocate(scope_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (scope_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (call_graph_analyzer_t)
-                    allocate(call_graph_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (call_graph_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (control_flow_analyzer_t)
-                    allocate(control_flow_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (control_flow_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (usage_tracker_analyzer_t)
-                    allocate(usage_tracker_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (usage_tracker_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (source_reconstruction_analyzer_t)
-                    allocate(source_reconstruction_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (source_reconstruction_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (interface_analyzer_t)
-                    allocate(interface_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (interface_analyzer_t)
-                        analyzer = a
-                    end select
-                class default
-                    ! Should not happen if registered properly
-                    return
-                end select
+                ! Simple polymorphic copy using source allocation
+                allocate(analyzer, source=this%analyzers(index)%analyzer)
             end if
         end if
     end function
