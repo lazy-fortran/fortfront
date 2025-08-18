@@ -10,7 +10,10 @@ module frontend
     use parser_dispatcher_module, only: parse_statement_dispatcher
     use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
                                           parse_select_case
-    use ast_core
+    ! Migrated from ast_core: use explicit imports for better dependency management
+    use ast_arena, only: ast_arena_t, init_ast_arena
+    use ast_nodes_core, only: program_node
+    use ast_base, only: LITERAL_STRING
     use ast_factory, only: push_program, push_literal
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                    analyze_program
