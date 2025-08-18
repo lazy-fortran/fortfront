@@ -339,8 +339,9 @@ contains
             ! Program already standardized, don't add more declarations
             allocate(declaration_indices(0))
         else
-            ! Collect and generate variable declarations
-            call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
+            ! TEMPORARY: Disable program-level variable declarations to test function-level logic
+            ! call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
+            allocate(declaration_indices(0))
         end if
         n_declarations = 0
         if (allocated(declaration_indices)) n_declarations = size(declaration_indices)
@@ -1503,14 +1504,11 @@ contains
         end do
     end subroutine standardize_subprograms
 
-    ! Standardize a function definition
+    ! Standardize a function definition with complete variable declaration handling
     subroutine standardize_function_def(arena, func_def, func_index)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
         integer, intent(in) :: func_index
-        integer, allocatable :: new_body_indices(:)
-        integer :: implicit_none_index, i, j
-        character(len=:), allocatable :: return_type_str
 
         ! Standardize return type
         if (allocated(func_def%return_type)) then
@@ -1522,180 +1520,413 @@ contains
             func_def%return_type = "real(8)"
         end if
 
-        ! Add implicit none at the beginning of function body
-        if (allocated(func_def%body_indices)) then
-            ! Create implicit none statement node
-            implicit_none_index = push_implicit_statement(arena, .true., &
-                                                         line=1, column=1, parent_index=func_index)
-
-            ! Create new body with implicit none at the beginning
-            allocate (new_body_indices(size(func_def%body_indices) + 1))
-            new_body_indices(1) = implicit_none_index
-            do i = 1, size(func_def%body_indices)
-                new_body_indices(i + 1) = func_def%body_indices(i)
-            end do
-            func_def%body_indices = new_body_indices
-        end if
-
-        ! Standardize parameter declarations
-        call standardize_function_parameters(arena, func_def, func_index)
+        ! TEMPORARY: Disable function-level logic
+        ! call reorganize_function_with_declarations(arena, func_def, func_index)
 
         ! Update the arena entry
         arena%entries(func_index)%node = func_def
     end subroutine standardize_function_def
 
-    ! Standardize function parameters by updating existing declarations or &
-    ! adding new ones
-    subroutine standardize_function_parameters(arena, func_def, func_index)
+    ! Complete function body reorganization with intelligent variable declarations
+    subroutine reorganize_function_with_declarations(arena, func_def, func_index)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
         integer, intent(in) :: func_index
-        type(declaration_node) :: param_decl
-        integer, allocatable :: new_body_indices(:)
-        integer, allocatable :: param_names_found(:)
-        integer :: i, j, n_params, n_body, param_idx
-        character(len=64) :: param_name
-        character(len=64), allocatable :: param_names(:)
-        logical :: is_param_decl, param_updated
-
-        if (.not. allocated(func_def%param_indices)) return
-        n_params = size(func_def%param_indices)
-        if (n_params == 0) return
-
-        ! Get parameter names
-        allocate (param_names(n_params))
-        allocate (param_names_found(n_params))
-        param_names_found = 0
         
-        ! Initialize all param_names to avoid undefined behavior
-        do i = 1, n_params
-            param_names(i) = ""
+        ! Variable information storage
+        character(len=64), allocatable :: var_names(:)  
+        character(len=64), allocatable :: var_types(:)
+        logical, allocatable :: var_explicitly_declared(:)
+        logical, allocatable :: var_is_parameter(:)
+        logical, allocatable :: var_is_result(:)
+        integer :: var_count, max_vars
+        
+        ! Node indices
+        integer, allocatable :: new_body_indices(:)
+        integer, allocatable :: declaration_indices(:)
+        integer, allocatable :: executable_indices(:)
+        integer :: implicit_none_index
+        integer :: n_declarations, n_executables
+        integer :: i, j, total_new_body_size
+        
+        ! Initialize storage
+        max_vars = 50
+        allocate(var_names(max_vars))
+        allocate(var_types(max_vars))
+        allocate(var_explicitly_declared(max_vars))
+        allocate(var_is_parameter(max_vars))
+        allocate(var_is_result(max_vars))
+        var_count = 0
+        var_explicitly_declared = .false.
+        var_is_parameter = .false.
+        var_is_result = .false.
+        
+        ! Step 1: Collect parameter information
+        call collect_function_parameters(arena, func_def, var_names, var_types, &
+                                        var_explicitly_declared, var_is_parameter, &
+                                        var_is_result, var_count, max_vars)
+        
+        ! Step 2: Collect result variable information  
+        call collect_function_result_variable(arena, func_def, var_names, var_types, &
+                                             var_explicitly_declared, var_is_parameter, &
+                                             var_is_result, var_count, max_vars)
+        
+        ! Step 3: Scan function body to identify all variables and explicit declarations
+        call scan_function_body_for_variables(arena, func_def, var_names, var_types, &
+                                             var_explicitly_declared, var_is_parameter, &
+                                             var_is_result, var_count, max_vars)
+        
+        ! Step 4: Separate declarations from executable statements
+        call separate_declarations_and_executables(arena, func_def, declaration_indices, &
+                                                  executable_indices, n_declarations, n_executables)
+        
+        ! Step 5: Create new function body with proper ordering
+        
+        ! Create implicit none
+        implicit_none_index = push_implicit_statement(arena, .true., &
+                                                     line=1, column=1, parent_index=func_index)
+        
+        ! Generate missing variable declarations - this modifies declaration_indices and n_declarations
+        call generate_missing_declarations(arena, func_index, var_names, var_types, &
+                                         var_explicitly_declared, var_is_parameter, &
+                                         var_is_result, var_count, declaration_indices, &
+                                         n_declarations)
+        
+        ! Calculate total new body size
+        total_new_body_size = 1 + n_declarations + n_executables  ! implicit none + declarations + executables
+        
+        ! Build the new body with proper order
+        allocate(new_body_indices(total_new_body_size))
+        
+        ! 1. Implicit none (always first)
+        new_body_indices(1) = implicit_none_index
+        j = 2
+        
+        ! 2. All variable declarations (existing + generated)
+        do i = 1, n_declarations
+            new_body_indices(j) = declaration_indices(i)
+            j = j + 1
         end do
+        
+        ! 3. All executable statements (comes after ALL declarations)
+        do i = 1, n_executables
+            new_body_indices(j) = executable_indices(i)
+            j = j + 1
+        end do
+        
+        ! Update function body
+        func_def%body_indices = new_body_indices
+        
+        ! Update parent references
+        arena%entries(implicit_none_index)%parent_index = func_index
+        
+    end subroutine reorganize_function_with_declarations
 
-        do i = 1, n_params
-   if (func_def%param_indices(i) > 0 .and. func_def%param_indices(i) <= arena%size) then
+    ! Collect function parameter information
+    subroutine collect_function_parameters(arena, func_def, var_names, var_types, &
+                                          var_explicitly_declared, var_is_parameter, &
+                                          var_is_result, var_count, max_vars)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_def
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_explicitly_declared(:)
+        logical, intent(inout) :: var_is_parameter(:)
+        logical, intent(inout) :: var_is_result(:)
+        integer, intent(inout) :: var_count
+        integer, intent(in) :: max_vars
+        
+        integer :: i
+        character(len=64) :: param_name
+        character(len=:), allocatable :: param_type
+        
+        if (.not. allocated(func_def%param_indices)) return
+        
+        do i = 1, size(func_def%param_indices)
+            if (func_def%param_indices(i) > 0 .and. func_def%param_indices(i) <= arena%size) then
                 if (allocated(arena%entries(func_def%param_indices(i))%node)) then
                     select type (param => arena%entries(func_def%param_indices(i))%node)
                     type is (identifier_node)
-                        param_names(i) = param%name
-                    type is (parameter_declaration_node)
-                        param_names(i) = param%name
-                    type is (declaration_node)
-                        param_names(i) = param%var_name
-                    class default
-                        ! Try to get a reasonable default name
-                        write(param_names(i), '(a,i0)') "param", i
+                        param_name = param%name
+                        ! Apply Fortran implicit typing rules
+                        block
+                            logical :: dummy_has_kind
+                            integer :: dummy_kind_value
+                            call infer_parameter_type(param_name, param_type, dummy_has_kind, dummy_kind_value)
+                        end block
+                        call add_variable_to_list(param_name, param_type, .false., .true., .false., &
+                                                 var_names, var_types, var_explicitly_declared, &
+                                                 var_is_parameter, var_is_result, var_count, max_vars)
                     end select
-                else
-                    ! Node not allocated, create default name
-                    write(param_names(i), '(a,i0)') "param", i
                 end if
-            else
-                ! Invalid index, create default name
-                write(param_names(i), '(a,i0)') "param", i
             end if
         end do
+    end subroutine collect_function_parameters
 
-        ! Update existing parameter declarations and track what we find
-        if (allocated(func_def%body_indices)) then
-            do i = 1, size(func_def%body_indices)
-     if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= arena%size) then
-                    if (allocated(arena%entries(func_def%body_indices(i))%node)) then
-                      select type (stmt => arena%entries(func_def%body_indices(i))%node)
-                        type is (declaration_node)
-                            ! Check if this declaration is for a parameter
-                            is_param_decl = .false.
-                            param_idx = 0
-                            
-                            ! Check single variable declaration
-                            do j = 1, n_params
-                                if (stmt%var_name == param_names(j)) then
-                                    is_param_decl = .true.
-                                    param_idx = j
-                                    exit
-                                end if
-                            end do
-                            
-                            ! Check multi-variable declaration
-                            if (.not. is_param_decl .and. stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
-                                do j = 1, n_params
-                                    block
-                                        integer :: k
-                                        do k = 1, size(stmt%var_names)
-                                            if (trim(stmt%var_names(k)) == trim(param_names(j))) then
-                                                is_param_decl = .true.
-                                                param_idx = j
-                                                exit
-                                            end if
-                                        end do
-                                    end block
-                                    if (is_param_decl) exit
+    ! Collect function result variable information
+    subroutine collect_function_result_variable(arena, func_def, var_names, var_types, &
+                                               var_explicitly_declared, var_is_parameter, &
+                                               var_is_result, var_count, max_vars)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_def
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_explicitly_declared(:)
+        logical, intent(inout) :: var_is_parameter(:)
+        logical, intent(inout) :: var_is_result(:)
+        integer, intent(inout) :: var_count
+        integer, intent(in) :: max_vars
+        
+        character(len=64) :: result_name
+        character(len=:), allocatable :: result_type
+        
+        if (allocated(func_def%result_variable)) then
+            result_name = func_def%result_variable
+            ! Apply Fortran implicit typing rules for result variable
+            block
+                logical :: dummy_has_kind
+                integer :: dummy_kind_value
+                call infer_parameter_type(result_name, result_type, dummy_has_kind, dummy_kind_value)
+            end block
+            call add_variable_to_list(result_name, result_type, .false., .false., .true., &
+                                     var_names, var_types, var_explicitly_declared, &
+                                     var_is_parameter, var_is_result, var_count, max_vars)
+        end if
+    end subroutine collect_function_result_variable
+
+    ! Scan function body to identify all variables and explicit declarations
+    subroutine scan_function_body_for_variables(arena, func_def, var_names, var_types, &
+                                               var_explicitly_declared, var_is_parameter, &
+                                               var_is_result, var_count, max_vars)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_def
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_explicitly_declared(:)
+        logical, intent(inout) :: var_is_parameter(:)
+        logical, intent(inout) :: var_is_result(:)
+        integer, intent(inout) :: var_count
+        integer, intent(in) :: max_vars
+        
+        integer :: i
+        
+        if (.not. allocated(func_def%body_indices)) return
+        
+        do i = 1, size(func_def%body_indices)
+            if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(func_def%body_indices(i))%node)) then
+                    select type (stmt => arena%entries(func_def%body_indices(i))%node)
+                    type is (declaration_node)
+                        ! Mark this variable as explicitly declared
+                        call mark_variable_as_explicit(stmt%var_name, var_names, var_explicitly_declared, var_count)
+                        
+                        ! If this is a multi-variable declaration
+                        if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                            block
+                                integer :: j
+                                do j = 1, size(stmt%var_names)
+                                    call mark_variable_as_explicit(stmt%var_names(j), var_names, &
+                                                                  var_explicitly_declared, var_count)
                                 end do
-                            end if
+                            end block
+                        end if
+                    end select
+                end if
+            end if
+        end do
+    end subroutine scan_function_body_for_variables
 
-                            if (is_param_decl) then
-                                ! Preserve existing explicit declaration EXACTLY as written
-                                ! Do NOT modify user's explicit type, intent, or format
-                                ! Mark this parameter as found (has explicit declaration)
-                                param_names_found(param_idx) = func_def%body_indices(i)
+    ! Separate declarations from executable statements
+    subroutine separate_declarations_and_executables(arena, func_def, declaration_indices, &
+                                                    executable_indices, n_declarations, n_executables)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_def
+        integer, allocatable, intent(out) :: declaration_indices(:)
+        integer, allocatable, intent(out) :: executable_indices(:)
+        integer, intent(out) :: n_declarations, n_executables
+        
+        integer :: i, temp_decl_count, temp_exec_count
+        integer, allocatable :: temp_decl_indices(:), temp_exec_indices(:)
+        
+        if (.not. allocated(func_def%body_indices)) then
+            n_declarations = 0
+            n_executables = 0
+            allocate(declaration_indices(0))
+            allocate(executable_indices(0))
+            return
+        end if
+        
+        ! Allocate temporary arrays
+        allocate(temp_decl_indices(size(func_def%body_indices)))
+        allocate(temp_exec_indices(size(func_def%body_indices)))
+        temp_decl_count = 0
+        temp_exec_count = 0
+        
+        ! Separate statements
+        do i = 1, size(func_def%body_indices)
+            if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(func_def%body_indices(i))%node)) then
+                    select type (stmt => arena%entries(func_def%body_indices(i))%node)
+                    type is (declaration_node)
+                        temp_decl_count = temp_decl_count + 1
+                        temp_decl_indices(temp_decl_count) = func_def%body_indices(i)
+                    class default
+                        ! Skip implicit none - we'll add a new one
+                        select type (stmt)
+                        type is (literal_node)
+                            if (allocated(stmt%value)) then
+                                if (index(stmt%value, "implicit none") > 0) then
+                                    cycle  ! Skip existing implicit none
+                                end if
                             end if
                         end select
-                    end if
+                        
+                        temp_exec_count = temp_exec_count + 1
+                        temp_exec_indices(temp_exec_count) = func_def%body_indices(i)
+                    end select
                 end if
-            end do
-        end if
-
-        ! Critical fix: Process explicit declarations BEFORE auto-generation
-        ! Step 1: Count actual parameters needing auto-generation (not already explicitly declared)
-        n_body = 0
-        if (allocated(func_def%body_indices)) n_body = size(func_def%body_indices)
-
-        j = 0
-        do i = 1, n_params
-            if (param_names_found(i) == 0) j = j + 1
+            end if
         end do
+        
+        ! Allocate final arrays with correct sizes
+        n_declarations = temp_decl_count
+        n_executables = temp_exec_count
+        allocate(declaration_indices(n_declarations))
+        allocate(executable_indices(n_executables))
+        
+        ! Copy data
+        declaration_indices(1:n_declarations) = temp_decl_indices(1:n_declarations)
+        executable_indices(1:n_executables) = temp_exec_indices(1:n_executables)
+    end subroutine separate_declarations_and_executables
 
-        if (j > 0) then
-            ! We need to add some parameter declarations
-            allocate (new_body_indices(n_body + j))
-
-            ! Copy implicit none (should be first) if it exists
-            if (n_body > 0) then
-                new_body_indices(1) = func_def%body_indices(1)
-                j = 2
-            else
-                j = 1
+    ! Generate missing variable declarations
+    subroutine generate_missing_declarations(arena, func_index, var_names, var_types, &
+                                           var_explicitly_declared, var_is_parameter, &
+                                           var_is_result, var_count, declaration_indices, &
+                                           n_declarations)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: func_index
+        character(len=64), intent(in) :: var_names(:)
+        character(len=64), intent(in) :: var_types(:)
+        logical, intent(in) :: var_explicitly_declared(:)
+        logical, intent(in) :: var_is_parameter(:)
+        logical, intent(in) :: var_is_result(:)
+        integer, intent(in) :: var_count
+        integer, allocatable, intent(inout) :: declaration_indices(:)
+        integer, intent(inout) :: n_declarations
+        
+        integer :: i, new_decl_count
+        integer, allocatable :: temp_indices(:), new_declaration_indices(:)
+        type(declaration_node) :: new_decl
+        character(len=:), allocatable :: full_type
+        logical :: has_kind
+        integer :: kind_value
+        
+        ! Count how many new declarations we need
+        new_decl_count = 0
+        do i = 1, var_count
+            if (.not. var_explicitly_declared(i)) then
+                new_decl_count = new_decl_count + 1
             end if
-
-            ! Step 2: Add ONLY missing parameter declarations (preserve explicit ones)
-            do i = 1, n_params
-                if (param_names_found(i) == 0) then
-                    ! Create declaration node with intent(in) ONLY for missing parameters
-                    param_decl%type_name = "real"
-                    param_decl%var_name = param_names(i)
-                    param_decl%has_kind = .true.
-                    param_decl%kind_value = 8
-                    param_decl%intent = "in"
-                    param_decl%has_intent = .true.
-                    param_decl%line = 1
-                    param_decl%column = 1
-                    call arena%push(param_decl, "param_decl", func_index)
-                    new_body_indices(j) = arena%size
-                    j = j + 1
+        end do
+        
+        if (new_decl_count == 0) return
+        
+        ! Create temporary array for all declarations
+        allocate(temp_indices(n_declarations + new_decl_count))
+        
+        ! Copy existing declarations
+        temp_indices(1:n_declarations) = declaration_indices(1:n_declarations)
+        
+        ! Generate new declarations for missing variables
+        do i = 1, var_count
+            if (.not. var_explicitly_declared(i)) then
+                ! Parse type to check for kind specification
+                call infer_parameter_type(var_names(i), full_type, has_kind, kind_value)
+                
+                ! Create declaration node
+                new_decl%var_name = var_names(i)
+                new_decl%type_name = trim(full_type)
+                new_decl%has_kind = has_kind
+                new_decl%kind_value = kind_value
+                
+                ! Set intent for parameters only
+                if (var_is_parameter(i)) then
+                    new_decl%has_intent = .true.
+                    new_decl%intent = "in"
+                else
+                    new_decl%has_intent = .false.
                 end if
-            end do
-
-            ! Step 3: Copy rest of body (preserving explicit declarations)
-            if (n_body > 1) then
-                do i = 2, n_body
-                    new_body_indices(j) = func_def%body_indices(i)
-                    j = j + 1
-                end do
+                
+                new_decl%line = 1
+                new_decl%column = 1
+                
+                call arena%push(new_decl, "auto_decl", func_index)
+                n_declarations = n_declarations + 1
+                temp_indices(n_declarations) = arena%size
             end if
+        end do
+        
+        ! Update declaration_indices
+        allocate(new_declaration_indices(n_declarations))
+        new_declaration_indices(1:n_declarations) = temp_indices(1:n_declarations)
+        declaration_indices = new_declaration_indices
+    end subroutine generate_missing_declarations
 
-            func_def%body_indices = new_body_indices
+    ! Add a variable to the variable list (avoiding duplicates)
+    subroutine add_variable_to_list(var_name, var_type, explicitly_declared, is_parameter, is_result, &
+                                   var_names, var_types, var_explicitly_declared, &
+                                   var_is_parameter, var_is_result, var_count, max_vars)
+        character(len=*), intent(in) :: var_name, var_type
+        logical, intent(in) :: explicitly_declared, is_parameter, is_result
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_explicitly_declared(:)
+        logical, intent(inout) :: var_is_parameter(:)
+        logical, intent(inout) :: var_is_result(:)
+        integer, intent(inout) :: var_count
+        integer, intent(in) :: max_vars
+        
+        integer :: i
+        
+        ! Check if variable already exists
+        do i = 1, var_count
+            if (trim(var_names(i)) == trim(var_name)) then
+                ! Update existing entry
+                if (explicitly_declared) var_explicitly_declared(i) = .true.
+                if (is_parameter) var_is_parameter(i) = .true.
+                if (is_result) var_is_result(i) = .true.
+                return
+            end if
+        end do
+        
+        ! Add new variable
+        if (var_count < max_vars) then
+            var_count = var_count + 1
+            var_names(var_count) = var_name
+            var_types(var_count) = var_type
+            var_explicitly_declared(var_count) = explicitly_declared
+            var_is_parameter(var_count) = is_parameter
+            var_is_result(var_count) = is_result
         end if
-    end subroutine standardize_function_parameters
+    end subroutine add_variable_to_list
+
+    ! Mark a variable as explicitly declared
+    subroutine mark_variable_as_explicit(var_name, var_names, var_explicitly_declared, var_count)
+        character(len=*), intent(in) :: var_name
+        character(len=64), intent(in) :: var_names(:)
+        logical, intent(inout) :: var_explicitly_declared(:)
+        integer, intent(in) :: var_count
+        
+        integer :: i
+        
+        do i = 1, var_count
+            if (trim(var_names(i)) == trim(var_name)) then
+                var_explicitly_declared(i) = .true.
+                return
+            end if
+        end do
+    end subroutine mark_variable_as_explicit
 
     ! Standardize subroutine definitions similar to function definitions
     subroutine standardize_subroutine_def(arena, sub_def, sub_index)
