@@ -16,6 +16,7 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **Pure CLI Interface**: No API dependencies, works as standalone command
 - **High Performance**: <0.05ms average transformation time  
 - **Enhanced Error Reporting**: Clear error messages with line/column info
+- **Mixed Construct Support**: Handles modules with implicit main programs
 - **Comprehensive Testing**: Unit tests for transformation + CLI system tests
 - **Standard Compliant**: Generates clean, standard Fortran code
 - **Type Inference**: Automatic variable typing algorithm
@@ -38,19 +39,36 @@ fpm test
 ### Command Line Interface
 
 ```bash
-# Basic usage
+# Basic usage - simple statements
 echo "x = 42" | fortfront
+
+# Mixed constructs - module with main program
+echo -e "module math\ninteger :: pi = 3\nend module\n\ninteger :: x\nx = pi * 2\nprint *, x" | fortfront
 
 # With file input/output  
 fortfront < input.lf > output.f90
 ```
 
-**Expected Output:**
+**Expected Output (simple):**
 ```fortran
 program main
     implicit none
     integer :: x
     x = 42
+end program main
+```
+
+**Expected Output (mixed constructs):**
+```fortran
+module math
+    integer :: pi = 3
+end module math
+program main
+    implicit none
+    integer :: x
+
+    x = pi*2
+    print *, x
 end program main
 ```
 
@@ -76,7 +94,8 @@ fortfront provides comprehensive error reporting:
 ## Documentation
 
 - **Detailed Guides**: See `docs/` folder for comprehensive documentation
-- **API Reference**: `docs/SEMANTIC_EXTENSIBILITY_GUIDE.md` for plugin development
+- **Mixed Constructs**: `docs/MIXED_CONSTRUCTS_GUIDE.md` for module + main program support
+- **API Reference**: `docs/SEMANTIC_EXTENSIBILITY_GUIDE.md` for plugin development  
 - **Error Handling**: `docs/ERROR_HANDLING_GUIDE.md` for library integration
 - **Build System**: `CLAUDE.md` for development setup and build instructions
 
