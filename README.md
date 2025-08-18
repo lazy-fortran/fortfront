@@ -9,7 +9,7 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **Output**: Writes standard fortran to stdout
 - **Pipeline**: 4-phase transformation (lexer → parser → analysis → codegen)
 - **Type Inference**: Automatic variable type detection 
-- **Integration**: Designed for use with fortrun build orchestrator
+- **Integration**: Designed for use with [fortrun](https://github.com/lazy-fortran/fortrun) build orchestrator
 
 ## Features
 
