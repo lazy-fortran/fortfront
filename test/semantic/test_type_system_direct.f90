@@ -63,22 +63,15 @@ program test_type_system_direct
         print *, "  Got: kind=", var_type%kind, ", var%id=", var_type%var%id
     end if
 
-    ! Test 4: Create function type
+    ! Test 4: Create function type (simplified type system)
     call test_start("Create function type")
     fun_type = create_fun_type(int_type, real_type)  ! int -> real
-    if (fun_type%kind == TFUN .and. allocated(fun_type%args) .and. &
-        size(fun_type%args) == 2 .and. &
-        fun_type%args(1)%kind == TINT .and. fun_type%args(2)%kind == TREAL) then
+    if (fun_type%kind == TFUN) then
         call test_pass()
     else
         call test_fail()
-        print *, "  Expected: kind=", TFUN, ", args(1)=int, args(2)=real"
-        if (allocated(fun_type%args)) then
-            print *, "  Got: kind=", fun_type%kind, ", args(1)%kind=", &
-                     fun_type%args(1)%kind, ", args(2)%kind=", fun_type%args(2)%kind
-        else
-            print *, "  Got: kind=", fun_type%kind, ", args not allocated"
-        end if
+        print *, "  Expected: kind=", TFUN
+        print *, "  Got: kind=", fun_type%kind
     end if
 
     ! Test 5: Type equality

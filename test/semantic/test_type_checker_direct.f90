@@ -145,15 +145,11 @@ contains
         
         int_type = create_mono_type(TINT)
         
-        ! Create array types with same size
-        allocate(int_array1%args(1))
-        int_array1%args(1) = int_type
-        int_array1 = create_mono_type(TARRAY, args=int_array1%args)
+        ! Create array types with same size (simplified type system)
+        int_array1 = create_mono_type(TARRAY)
         int_array1%size = 10
         
-        allocate(int_array2%args(1))
-        int_array2%args(1) = int_type
-        int_array2 = create_mono_type(TARRAY, args=int_array2%args)
+        int_array2 = create_mono_type(TARRAY)
         int_array2%size = 10
         
         conformant = check_array_conformance(int_array1, int_array2)

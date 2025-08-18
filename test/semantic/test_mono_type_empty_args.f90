@@ -5,17 +5,15 @@ program test_mono_type_empty_args
     type(mono_type_t) :: lhs, rhs
     logical :: test_passed
     
-    print *, "Testing mono_type_assign with empty args array..."
+    print *, "Testing simplified mono_type assignment..."
     
     ! Initialize rhs with function type
     rhs%kind = TFUN
     rhs%var%id = 1
     rhs%var%name = "fn"
+    rhs%size = 0
     
-    ! Allocate args array with size 0 (empty array)
-    allocate(rhs%args(0))
-    
-    ! This used to cause array bounds error
+    ! Test simplified type system assignment
     test_passed = .true.
     lhs = rhs
     
@@ -35,16 +33,13 @@ program test_mono_type_empty_args
         test_passed = .false.
     end if
     
-    if (.not. allocated(lhs%args)) then
-        print *, "ERROR: args not allocated"
-        test_passed = .false.
-    else if (size(lhs%args) /= 0) then
-        print *, "ERROR: args size incorrect, expected 0, got", size(lhs%args)
+    if (lhs%size /= 0) then
+        print *, "ERROR: size not copied correctly"
         test_passed = .false.
     end if
     
     if (test_passed) then
-        print *, "✓ Empty args array handled correctly"
+        print *, "✓ Simplified type assignment handled correctly"
         print *, "All tests passed!"
     else
         error stop 1

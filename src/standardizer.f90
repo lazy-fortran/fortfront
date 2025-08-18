@@ -1083,12 +1083,8 @@ contains
                 type_str = "character(*)"
             end if
         case (TARRAY)
-            ! For arrays, get the element type
-            if (allocated(mono_type%args) .and. size(mono_type%args) > 0) then
-                type_str = get_fortran_type_string(mono_type%args(1))
-            else
-                type_str = "real(8)"  ! Default array element type
-            end if
+            ! Simplified type system - arrays default to real element type
+            type_str = "real(8)"  ! Default array element type
         case default
             type_str = "real(8)"  ! Default fallback
         end select

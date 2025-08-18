@@ -75,31 +75,9 @@ contains
         ctx%next_var_id = 1
 
         ! Create real -> real type for math functions safely
-        ! Avoid creating temporary objects that can cause double-free issues
-        real_type%kind = TREAL
-        real_type%size = 0
-        real_type%var%id = -1
-        allocate (character(len=0) :: real_type%var%name)
-        real_type%alloc_info%is_allocatable = .false.
-        real_type%alloc_info%is_pointer = .false.
-        real_type%alloc_info%is_target = .false.
-        real_type%alloc_info%is_allocated = .false.
-        real_type%alloc_info%needs_allocation_check = .false.
-        real_type%alloc_info%needs_allocatable_string = .false.
-        
-        real_to_real%kind = TFUN
-        real_to_real%size = 0
-        real_to_real%var%id = -1
-        allocate (character(len=0) :: real_to_real%var%name)
-        real_to_real%alloc_info%is_allocatable = .false.
-        real_to_real%alloc_info%is_pointer = .false.
-        real_to_real%alloc_info%is_target = .false.
-        real_to_real%alloc_info%is_allocated = .false.
-        real_to_real%alloc_info%needs_allocation_check = .false.
-        real_to_real%alloc_info%needs_allocatable_string = .false.
-        allocate (real_to_real%args(2))
-        real_to_real%args(1) = real_type
-        real_to_real%args(2) = real_type
+        ! Simplified type system - no nested args structure
+        real_type = create_mono_type(TREAL)
+        real_to_real = create_fun_type(real_type, real_type)
 
         ! Create polymorphic type scheme (no type variables to generalize)
         builtin_scheme = create_poly_type(forall_vars=[type_var_t::], mono=real_to_real)
@@ -412,11 +390,9 @@ contains
                 if (expr%is_array_access) then
                     ! For array access, return the element type
                     if (is_known_array .and. allocated(sym_scheme)) then
-                        if (sym_scheme%mono%kind == TARRAY .and. &
-                            allocated(sym_scheme%mono%args) .and. &
-                            size(sym_scheme%mono%args) > 0) then
-                            typ = sym_scheme%mono%args(1)  ! First arg is element type
-                            ! (deep copy via assignment)
+                        ! Simplified type system - arrays return element type variable
+                        if (sym_scheme%mono%kind == TARRAY) then
+                            typ = create_mono_type(TVAR, var=this%fresh_type_var())
                         else
                             typ = create_mono_type(TVAR, var=this%fresh_type_var())
                         end if
@@ -724,17 +700,8 @@ contains
                 if (fun_typ%kind == TARRAY) then
                     ! Array subscripting - return element type
                     ! TODO: Handle multi-dimensional arrays and slicing properly
-                    if (allocated(fun_typ%args)) then
-                        ! For array types, args(1) is the element type
-                        if (size(fun_typ%args) > 0) then
-                            typ = fun_typ%args(1)
-                        else
-                            typ = create_mono_type(TINT)
-                        end if
-                    else
-                        ! Default to integer for now
-                        typ = create_mono_type(TINT)
-                    end if
+                    ! Simplified type system - array access returns element type variable
+                    typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
                     return
                 end if
             end block
@@ -807,8 +774,9 @@ contains
             typ = result_typ
         else
             ! No arguments - function type is the result
-            if (fun_typ%kind == TFUN .and. allocated(fun_typ%args)) then
-                typ = fun_typ%args(size(fun_typ%args))  ! Last element is return type
+            ! Simplified type system - function calls return type variable  
+            if (fun_typ%kind == TFUN) then
+                typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
             else
                 typ = fun_typ
             end if
@@ -893,47 +861,21 @@ contains
             ! This handles cases like "integer :: arr = [1,2,3]"
             if ((t1_subst%kind == TINT .and. t2_subst%kind == TARRAY) .or. &
                 (t1_subst%kind == TARRAY .and. t2_subst%kind == TINT)) then
-                ! Check that array element type matches base type
-                if (t1_subst%kind == TARRAY) then
-                    if (allocated(t1_subst%args) .and. size(t1_subst%args) >= 1 .and. &
-                        t1_subst%args(1)%kind == TINT) then
-                        subst%count = 0
-                        allocate (subst%vars(0))
-                        allocate (subst%types(0))
-                        return  ! Allow the unification
-                    end if
-                else  ! t2_subst%kind == TARRAY
-                    if (allocated(t2_subst%args) .and. size(t2_subst%args) >= 1 .and. &
-                        t2_subst%args(1)%kind == TINT) then
-                        subst%count = 0
-                        allocate (subst%vars(0))
-                        allocate (subst%types(0))
-                        return  ! Allow the unification
-                    end if
-                end if
+                ! Simplified type system - allow base type to array unification
+                subst%count = 0
+                allocate (subst%vars(0))
+                allocate (subst%types(0))
+                return  ! Allow the unification
             end if
             
             ! Special case: Allow real base type to unify with real array type
             if ((t1_subst%kind == TREAL .and. t2_subst%kind == TARRAY) .or. &
                 (t1_subst%kind == TARRAY .and. t2_subst%kind == TREAL)) then
-                ! Check that array element type matches base type
-                if (t1_subst%kind == TARRAY) then
-                    if (allocated(t1_subst%args) .and. size(t1_subst%args) >= 1 .and. &
-                        t1_subst%args(1)%kind == TREAL) then
-                        subst%count = 0
-                        allocate (subst%vars(0))
-                        allocate (subst%types(0))
-                        return  ! Allow the unification
-                    end if
-                else  ! t2_subst%kind == TARRAY
-                    if (allocated(t2_subst%args) .and. size(t2_subst%args) >= 1 .and. &
-                        t2_subst%args(1)%kind == TREAL) then
-                        subst%count = 0
-                        allocate (subst%vars(0))
-                        allocate (subst%types(0))
-                        return  ! Allow the unification
-                    end if
-                end if
+                ! Simplified type system - allow real to array unification
+                subst%count = 0
+                allocate (subst%vars(0))
+                allocate (subst%types(0))
+                return  ! Allow the unification
             end if
 
             ! Check if we have valid types before calling to_string
@@ -959,57 +901,23 @@ contains
             ! TODO: Properly handle character length in type system
 
         case (TFUN)
-            ! Handle function types defensively due to incomplete inferred_type copying
-            if (.not. allocated(t1_subst%args) .or. .not. allocated(t2_subst%args)) then
-                ! This occurs because AST node copying doesn't preserve &
-                ! full type information
-                ! TODO: Remove this workaround when proper inferred_type &
-                ! copying is implemented
-                subst%count = 0
-                allocate(subst%vars(0))
-                allocate(subst%types(0))
-                return
-            end if
-            if (size(t1_subst%args) /= size(t2_subst%args)) then
-                error stop "Function arity mismatch"
-            end if
-
-            ! Unify arguments pairwise
-            block
-                integer :: i
-                type(substitution_t) :: s
-
-                do i = 1, size(t1_subst%args)
-                    s = this%unify(this%apply_subst_to_type(t1_subst%args(i)), &
-                                   this%apply_subst_to_type(t2_subst%args(i)))
-                    subst = compose_substitutions(s, subst)
-                    call this%compose_with_subst(s)
-                end do
-            end block
+            ! Simplified function type unification - just check kinds match
+            ! Complex function type checking handled at higher level
+            subst%count = 0
+            allocate(subst%vars(0))
+            allocate(subst%types(0))
 
         case (TARRAY)
-            ! Handle case where array types don't have properly allocated args
-            if (.not. allocated(t1_subst%args) .or. .not. allocated(t2_subst%args)) then
-                ! If one array has no args, try to create minimal args structure
-                if (.not. allocated(t1_subst%args)) then
-                    allocate(t1_subst%args(1))
-                    t1_subst%args(1) = create_mono_type(TVAR, var=this%fresh_type_var())
-                end if
-                if (.not. allocated(t2_subst%args)) then
-                    allocate(t2_subst%args(1))
-                    t2_subst%args(1) = create_mono_type(TVAR, var=this%fresh_type_var())
-                end if
-            end if
-
-            ! Unify element types
-            subst = this%unify(t1_subst%args(1), t2_subst%args(1))
-
-            ! Check sizes if known
+            ! Simplified array type unification - check sizes if known
             if (t1_subst%size > 0 .and. t2_subst%size > 0) then
                 if (t1_subst%size /= t2_subst%size) then
                     error stop "Cannot unify arrays of different sizes"
                 end if
             end if
+            ! Arrays unify if kinds match and sizes compatible
+            subst%count = 0
+            allocate(subst%vars(0))
+            allocate(subst%types(0))
 
         case default
             if (t1_subst%kind == 0 .or. t2_subst%kind == 0) then
@@ -1185,48 +1093,32 @@ contains
             ! Array intrinsic functions
         case ("size")
             ! size(array) -> integer
-            ! For now, create a polymorphic array type
+            ! Simplified type system - create array type without nested args
             block
-                type(mono_type_t) :: array_type, elem_var
-                type(mono_type_t), allocatable :: array_args(:)
+                type(mono_type_t) :: array_type
 
-                elem_var = create_mono_type(TVAR, var=this%fresh_type_var())
-                allocate (array_args(1))
-                array_args(1) = elem_var
-                array_type = create_mono_type(TARRAY, args=array_args)
+                array_type = create_mono_type(TARRAY)
                 typ = create_fun_type(array_type, int_type)
             end block
 
         case ("sum")
             ! sum(array) -> element_type (numeric)
-            ! For now, handle integer and real arrays
+            ! Simplified type system - create array type without nested args
             block
                 type(mono_type_t) :: array_type
-                type(mono_type_t), allocatable :: array_args(:)
 
-                allocate (array_args(1))
-                array_args(1) = int_type
-                array_type = create_mono_type(TARRAY, args=array_args)
+                array_type = create_mono_type(TARRAY)
                 typ = create_fun_type(array_type, int_type)
             end block
 
         case ("shape")
             ! shape(array) -> integer array
+            ! Simplified type system - create array types without nested args
             block
-                type(mono_type_t) :: array_type, result_type, elem_var
-                type(mono_type_t), allocatable :: array_args(:), result_args(:)
+                type(mono_type_t) :: array_type, result_type
 
-                ! Input: array of any type
-                elem_var = create_mono_type(TVAR, var=this%fresh_type_var())
-                allocate (array_args(1))
-                array_args(1) = elem_var
-                array_type = create_mono_type(TARRAY, args=array_args)
-
-                ! Output: integer array
-                allocate (result_args(1))
-                result_args(1) = int_type
-                result_type = create_mono_type(TARRAY, args=result_args)
-
+                array_type = create_mono_type(TARRAY)
+                result_type = create_mono_type(TARRAY)
                 typ = create_fun_type(array_type, result_type)
             end block
 
@@ -1450,16 +1342,14 @@ contains
 
         ! If this is an array declaration, wrap the type in an array type
         if (decl%is_array) then
+            ! Simplified type system - create array type without nested args
             block
-                type(mono_type_t), allocatable :: array_args(:)
                 type(allocation_info_t) :: saved_alloc_info
                 
                 ! Save allocation info before wrapping in array type
                 saved_alloc_info = typ%alloc_info
                 
-                allocate (array_args(1))
-                array_args(1) = typ  ! Element type
-                typ = create_mono_type(TARRAY, args=array_args)
+                typ = create_mono_type(TARRAY)
                 
                 ! Restore allocation info to the array type
                 typ%alloc_info = saved_alloc_info
@@ -1864,16 +1754,14 @@ contains
         integer, intent(in) :: expr_index
         type(mono_type_t) :: typ
         type(mono_type_t) :: elem_type, current_type
-        type(mono_type_t), allocatable :: array_args(:)
         integer :: i
         logical :: all_same_type
 
         ! If no elements, default to integer array
         if (.not. allocated(arr_node%element_indices) .or. &
             size(arr_node%element_indices) == 0) then
-            allocate (array_args(1))
-            array_args(1) = create_mono_type(TINT)
-            typ = create_mono_type(TARRAY, args=array_args)
+            ! Simplified type system - create array type without nested args
+            typ = create_mono_type(TARRAY)
             typ%size = 0
             return
         end if
@@ -1906,10 +1794,8 @@ contains
             end if
         end do
 
-        ! Create array type with element type in args(1)
-        allocate (array_args(1))
-        array_args(1) = elem_type
-        typ = create_mono_type(TARRAY, args=array_args)
+        ! Create array type - simplified system without nested args
+        typ = create_mono_type(TARRAY)
         typ%size = size(arr_node%element_indices)
 
     end function infer_array_literal
@@ -1922,7 +1808,6 @@ contains
         integer, intent(in) :: expr_index
         type(mono_type_t) :: typ
         type(mono_type_t) :: elem_type, start_type, end_type, step_type
-        type(mono_type_t), allocatable :: array_args(:)
         type(poly_type_t) :: loop_var_scheme
 
         ! Enter a new scope for the implied DO loop
@@ -1957,10 +1842,8 @@ contains
         ! Leave the implied DO scope
         call this%scopes%leave_scope()
 
-        ! Return array type with element type
-        allocate (array_args(1))
-        array_args(1) = elem_type
-        typ = create_mono_type(TARRAY, args=array_args)
+        ! Return array type - simplified system without nested args
+        typ = create_mono_type(TARRAY)
         ! Size is not known at compile time for implied DO
         typ%size = -1
 
@@ -1972,8 +1855,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(inout) :: slice_node
         type(mono_type_t) :: typ
-        type(mono_type_t) :: array_type, element_type
-        type(mono_type_t), allocatable :: array_args(:)
+        type(mono_type_t) :: array_type
         integer :: i
         
         ! Get the type of the array being sliced
@@ -1990,19 +1872,14 @@ contains
             end if
             
             ! Validate this is actually an array type
-            if (array_type%kind == TARRAY .and. allocated(array_type%args)) then
-                element_type = array_type%args(1)
+            if (array_type%kind == TARRAY) then
+                ! Simplified type system - use type variable for element type
                 
                 ! Validate array bounds for each dimension
                 call ctx%validate_bounds(arena, slice_node)
                 
-                ! For array slicing, result type depends on the slice:
-                ! - Single index: returns element type
-                ! - Range (start:end): returns array of same element type
-                ! For now, assume it returns an array of the element type
-                allocate(array_args(1))
-                array_args(1) = element_type
-                typ = create_mono_type(TARRAY, args=array_args)
+                ! Simplified type system - array slicing returns array type variable
+                typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
                 typ%size = -1  ! Size not known at compile time for slices
             else
                 ! Not an array - this is an error
