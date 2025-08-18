@@ -514,13 +514,9 @@ contains
             do i = 1, this%count
                 temp_types(i) = this%types(i)  ! Assignment now does deep copy
             end do
-            ! Replace move_alloc with explicit deallocation and reallocation
-            deallocate (this%vars)
-            deallocate (this%types)
-            allocate (this%vars(size(temp_vars)))
-            allocate (this%types(size(temp_types)))
-            this%vars = temp_vars
-            this%types = temp_types
+            ! Use move_alloc for O(1) array transfer - deep copy already done above
+            call move_alloc(temp_vars, this%vars)
+            call move_alloc(temp_types, this%types)
         end if
 
         this%count = this%count + 1
