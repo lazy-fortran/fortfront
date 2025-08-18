@@ -97,6 +97,7 @@ fortfront provides comprehensive error reporting:
 
 ## Documentation
 
+- **Variable Declarations**: `docs/VARIABLE_DECLARATIONS.md` for automatic declaration generation
 - **Detailed Guides**: See `docs/` folder for comprehensive documentation
 - **API Reference**: `docs/SEMANTIC_EXTENSIBILITY_GUIDE.md` for plugin development
 - **Error Handling**: `docs/ERROR_HANDLING_GUIDE.md` for library integration
