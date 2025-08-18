@@ -1634,14 +1634,8 @@ contains
                             end if
 
                             if (is_param_decl) then
-                                ! Preserve existing explicit declaration - only ensure intent(in)
-                                ! Do NOT modify existing type information
-                                if (.not. stmt%has_intent) then
-                                    stmt%intent = "in"
-                                    stmt%has_intent = .true.
-                                    ! Update in arena only if we changed intent
-                                    arena%entries(func_def%body_indices(i))%node = stmt
-                                end if
+                                ! Preserve existing explicit declaration EXACTLY as written
+                                ! Do NOT modify user's explicit type, intent, or format
                                 ! Mark this parameter as found (has explicit declaration)
                                 param_names_found(param_idx) = func_def%body_indices(i)
                             end if
@@ -1651,11 +1645,11 @@ contains
             end do
         end if
 
-        ! Add declarations for parameters not found
+        ! Critical fix: Process explicit declarations BEFORE auto-generation
+        ! Step 1: Count actual parameters needing auto-generation (not already explicitly declared)
         n_body = 0
         if (allocated(func_def%body_indices)) n_body = size(func_def%body_indices)
 
-        ! Count how many new declarations we need
         j = 0
         do i = 1, n_params
             if (param_names_found(i) == 0) j = j + 1
@@ -1673,10 +1667,10 @@ contains
                 j = 1
             end if
 
-            ! Add missing parameter declarations
+            ! Step 2: Add ONLY missing parameter declarations (preserve explicit ones)
             do i = 1, n_params
                 if (param_names_found(i) == 0) then
-                    ! Create declaration node with intent(in)
+                    ! Create declaration node with intent(in) ONLY for missing parameters
                     param_decl%type_name = "real"
                     param_decl%var_name = param_names(i)
                     param_decl%has_kind = .true.
@@ -1691,7 +1685,7 @@ contains
                 end if
             end do
 
-            ! Copy rest of body (skip first if it was implicit none)
+            ! Step 3: Copy rest of body (preserving explicit declarations)
             if (n_body > 1) then
                 do i = 2, n_body
                     new_body_indices(j) = func_def%body_indices(i)
