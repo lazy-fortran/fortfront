@@ -47,6 +47,7 @@ module type_system_hm
         ! Function type arguments with reference tracking
         type(mono_type_t), allocatable :: args(:)  ! For TFUN and TARRAY
         logical :: has_cycles = .false.  ! Track if this type contains cycles
+        logical :: being_finalized = .false.  ! Prevent recursive finalization
     end type shared_type_data_t
     
     ! Monomorphic type with reference-counted sharing
@@ -141,6 +142,7 @@ contains
         result_type%data%ref_count = 1
         result_type%data%kind = kind
         result_type%data%has_cycles = .false.
+        result_type%data%being_finalized = .false.
 
         if (present(var)) then
             result_type%data%var = var
@@ -201,6 +203,7 @@ contains
         fun_type%data%kind = TFUN
         fun_type%data%size = 0
         fun_type%data%has_cycles = .false.
+        fun_type%data%being_finalized = .false.
         
         ! Initialize var field to avoid undefined behavior
         fun_type%data%var%id = -1
@@ -331,7 +334,7 @@ contains
         copy = this%clone()
     end function mono_type_deep_copy
     
-    ! Reference-counted assignment operator
+    ! Simplified assignment operator using deep copy (temporary fix)
     subroutine mono_type_assign(lhs, rhs)
         class(mono_type_t), intent(inout) :: lhs
         class(mono_type_t), intent(in) :: rhs
@@ -339,16 +342,11 @@ contains
         ! If assigning to self, do nothing
         if (associated(lhs%data, rhs%data)) return
         
-        ! Decrement reference count of old data
+        ! Finalize old data
         call lhs%finalize()
         
-        ! Share the new data and increment reference count
-        if (associated(rhs%data)) then
-            lhs%data => rhs%data
-            lhs%data%ref_count = lhs%data%ref_count + 1
-        else
-            lhs%data => null()
-        end if
+        ! Use deep copy instead of reference counting to avoid double-free
+        lhs = rhs%clone()
     end subroutine mono_type_assign
     
     ! True deep copy without sharing (for breaking cycles)
@@ -370,6 +368,7 @@ contains
         copy%data%size = this%data%size
         copy%data%alloc_info = this%data%alloc_info
         copy%data%has_cycles = .false.  ! Reset cycle detection
+        copy%data%being_finalized = .false.
         
         ! Deep copy args array if present
         if (allocated(this%data%args)) then
@@ -380,19 +379,16 @@ contains
         end if
     end function mono_type_clone
     
-    ! Finalize: decrement reference count and deallocate if needed
+    ! Simplified finalize: just deallocate (no reference counting)
     subroutine mono_type_finalize(this)
         class(mono_type_t), intent(inout) :: this
         
         if (associated(this%data)) then
-            this%data%ref_count = this%data%ref_count - 1
-            if (this%data%ref_count <= 0) then
-                ! Deallocate args before deallocating data to avoid cycles
-                if (allocated(this%data%args)) then
-                    deallocate(this%data%args)
-                end if
-                deallocate(this%data)
+            ! Simple deallocation without reference counting
+            if (allocated(this%data%args)) then
+                deallocate(this%data%args)
             end if
+            deallocate(this%data)
             this%data => null()
         end if
     end subroutine mono_type_finalize
