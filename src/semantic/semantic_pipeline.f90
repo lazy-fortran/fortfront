@@ -2,14 +2,7 @@ module semantic_pipeline
     use ast_core, only: ast_arena_t
     use semantic_analyzer_base, only: semantic_analyzer_t
     use dependency_graph, only: dependency_graph_t, create_dependency_graph
-    ! Import all analyzer types for safe allocation
-    use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t
-    use call_graph_analyzer, only: call_graph_analyzer_t
-    use control_flow_analyzer, only: control_flow_analyzer_t
-    use usage_tracker_analyzer, only: usage_tracker_analyzer_t
-    use source_reconstruction_analyzer, only: source_reconstruction_analyzer_t
-    use interface_analyzer, only: interface_analyzer_t
-    use test_analyzer, only: simple_test_analyzer_t
+    ! No longer need hard-coded analyzer imports thanks to polymorphic allocation
     implicit none
     private
 
@@ -97,38 +90,9 @@ contains
             call move_alloc(this%analyzers(i)%analyzer, temp_analyzers(i)%analyzer)
         end do
         
-        ! SAFE: Use type-specific allocation and deep copy via assignment operator
-        select type(a => analyzer)
-        type is (symbol_analyzer_t)
-            allocate(symbol_analyzer_t :: &
-                temp_analyzers(this%analyzer_count + 1)%analyzer)
-        type is (type_analyzer_t)
-            allocate(type_analyzer_t :: &
-                temp_analyzers(this%analyzer_count + 1)%analyzer)
-        type is (scope_analyzer_t)
-            allocate(scope_analyzer_t :: &
-                temp_analyzers(this%analyzer_count + 1)%analyzer)
-        type is (call_graph_analyzer_t)
-            allocate(call_graph_analyzer_t :: &
-                temp_analyzers(this%analyzer_count + 1)%analyzer)
-        type is (control_flow_analyzer_t)
-            allocate(control_flow_analyzer_t :: &
-                temp_analyzers(this%analyzer_count + 1)%analyzer)
-        type is (usage_tracker_analyzer_t)
-            allocate(usage_tracker_analyzer_t :: &
-                temp_analyzers(this%analyzer_count + 1)%analyzer)
-        type is (source_reconstruction_analyzer_t)
-            allocate(source_reconstruction_analyzer_t :: &
-                temp_analyzers(this%analyzer_count + 1)%analyzer)
-        type is (interface_analyzer_t)
-            allocate(interface_analyzer_t :: &
-                temp_analyzers(this%analyzer_count + 1)%analyzer)
-        type is (simple_test_analyzer_t)
-            allocate(simple_test_analyzer_t :: &
-                temp_analyzers(this%analyzer_count + 1)%analyzer)
-        class default
-            error stop "Unknown analyzer type in register_analyzer"
-        end select
+        ! Use polymorphic allocation instead of hard-coded types
+        ! This removes the dependency injection violation while maintaining compatibility
+        allocate(temp_analyzers(this%analyzer_count + 1)%analyzer, source=analyzer)
         
         ! Deep copy using overloaded assignment operator
         temp_analyzers(this%analyzer_count + 1)%analyzer = analyzer
@@ -191,67 +155,8 @@ contains
         
         if (index > 0 .and. index <= this%analyzer_count) then
             if (allocated(this%analyzers(index)%analyzer)) then
-                ! Type-specific allocation + assignment
-                select type(a => this%analyzers(index)%analyzer)
-                type is (simple_test_analyzer_t)
-                    allocate(simple_test_analyzer_t :: analyzer)
-                    ! Direct assignment for test analyzer
-                    select type(analyzer)
-                    type is (simple_test_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (symbol_analyzer_t)
-                    allocate(symbol_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (symbol_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (type_analyzer_t)
-                    allocate(type_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (type_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (scope_analyzer_t)
-                    allocate(scope_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (scope_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (call_graph_analyzer_t)
-                    allocate(call_graph_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (call_graph_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (control_flow_analyzer_t)
-                    allocate(control_flow_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (control_flow_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (usage_tracker_analyzer_t)
-                    allocate(usage_tracker_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (usage_tracker_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (source_reconstruction_analyzer_t)
-                    allocate(source_reconstruction_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (source_reconstruction_analyzer_t)
-                        analyzer = a
-                    end select
-                type is (interface_analyzer_t)
-                    allocate(interface_analyzer_t :: analyzer)
-                    select type(analyzer)
-                    type is (interface_analyzer_t)
-                        analyzer = a
-                    end select
-                class default
-                    ! Should not happen if registered properly
-                    return
-                end select
+                ! Simple polymorphic copy using source allocation
+                allocate(analyzer, source=this%analyzers(index)%analyzer)
             end if
         end if
     end function
