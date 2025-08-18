@@ -504,8 +504,22 @@ contains
         integer, intent(in), optional :: line, column
         type(end_statement_node) :: node
 
-        if (present(line)) node%line = line
-        if (present(column)) node%column = column
+        ! Input validation
+        if (present(line)) then
+            if (line < 1) then
+                node%line = 1  ! Default to line 1 for invalid input
+            else
+                node%line = line
+            end if
+        end if
+        
+        if (present(column)) then
+            if (column < 1) then
+                node%column = 1  ! Default to column 1 for invalid input
+            else
+                node%column = column
+            end if
+        end if
     end function create_end_statement
 
     ! Backward compatibility wrapper for create_declaration

@@ -39,7 +39,7 @@ program main
     use utilities
     implicit none
     call greet
-    !ERROR: Unexpected keyword 'end' in expression
+    ! Successfully parses 'end' statement
 end program main
 ```
 
