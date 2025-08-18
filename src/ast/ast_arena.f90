@@ -238,6 +238,11 @@ contains
         class(ast_arena_t), intent(inout) :: this
         integer :: parent_idx, i, j
         
+        ! Defensive check for empty arena
+        if (this%size <= 0) then
+            return  ! Nothing to pop
+        end if
+        
         ! Get parent of the node being removed
         parent_idx = this%entries(this%size)%parent_index
         
