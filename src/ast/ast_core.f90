@@ -63,6 +63,7 @@ module ast_core
                               use_statement_node, include_statement_node, &
                               contains_node, interface_block_node, &
                               comment_node, implicit_statement_node, &
+                              end_statement_node, &
                               implicit_type_spec_t, implicit_letter_spec_t
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node, &
                                 range_expression_node, array_operation_node, &
@@ -97,7 +98,7 @@ module ast_core
     public :: complex_literal_node, allocate_statement_node, &
               deallocate_statement_node
     public :: use_statement_node, include_statement_node, contains_node, &
-              interface_block_node, comment_node
+              interface_block_node, comment_node, end_statement_node
     public :: array_bounds_node, array_slice_node, range_expression_node, &
               array_operation_node
     public :: get_array_bounds_node, get_array_slice_node, get_range_expression_node, &
@@ -498,6 +499,14 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_comment
+
+    function create_end_statement(line, column) result(node)
+        integer, intent(in), optional :: line, column
+        type(end_statement_node) :: node
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_end_statement
 
     ! Backward compatibility wrapper for create_declaration
     function create_declaration_wrapper(type_name, var_name, kind_value, &

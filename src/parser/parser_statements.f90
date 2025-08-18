@@ -21,7 +21,7 @@ module parser_statements_module
     public :: parse_goto_statement, parse_error_stop_statement
     public :: parse_cycle_statement, parse_exit_statement
     public :: parse_allocate_statement, parse_deallocate_statement
-    public :: parse_call_statement
+    public :: parse_call_statement, parse_end_statement
 
 contains
 
@@ -720,6 +720,26 @@ contains
         ! Create RETURN node
         return_index = push_return(arena, line=line, column=column, parent_index=parent_index)
     end function parse_return_statement
+
+    ! Parse END statement (for implicit main program termination)
+    function parse_end_statement(parser, arena, parent_index) result(end_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
+        integer :: end_index
+        
+        type(token_t) :: token
+        integer :: line, column
+        
+        ! Consume 'end' keyword
+        token = parser%peek()
+        line = token%line
+        column = token%column
+        token = parser%consume()
+        
+        ! Create END statement node
+        end_index = push_end_statement(arena, line=line, column=column, parent_index=parent_index)
+    end function parse_end_statement
     
     ! Parse GOTO statement: go to label
     function parse_goto_statement(parser, arena) result(goto_index)

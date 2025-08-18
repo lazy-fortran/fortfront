@@ -81,6 +81,8 @@ contains
             code = generate_code_use_statement(node)
         type is (contains_node)
             code = "contains"
+        type is (end_statement_node)
+            code = "end"
         type is (array_literal_node)
             code = generate_code_array_literal(arena, node, node_index)
         type is (stop_node)
@@ -419,10 +421,55 @@ contains
                         stmt_code = generate_code_from_arena(arena, &
                                                              node%body_indices(i))
                         if (len_trim(stmt_code) > 0) then
-                            if (len(code) > 0) then
-                                code = code//new_line('A')
-                            end if
-                            code = code//stmt_code
+                            ! Skip empty main programs that only contain implicit none
+                            ! This is a regression fix for Issue #321 mixed construct handling
+                            block
+                                logical :: is_empty_main_program
+                                is_empty_main_program = .false.
+                                
+                                ! Check if this is a main program with only implicit none
+                                if (index(stmt_code, "program main") > 0 .and. &
+                                    index(stmt_code, "implicit none") > 0 .and. &
+                                    index(stmt_code, "end program main") > 0) then
+                                    ! Debug: Found potential empty main program
+                                    ! print *, "DEBUG: Found potential empty main program"
+                                    ! Count non-whitespace, non-comment lines
+                                    block
+                                        character(len=:), allocatable :: lines(:)
+                                        integer :: line_count, meaningful_lines, j
+                                        character(len=1000) :: temp_line
+                                        
+                                        ! Simple check: if the code only has 3 non-empty lines
+                                        ! (program main, implicit none, end program main)
+                                        ! then it's likely an empty program
+                                        meaningful_lines = 0
+                                        line_count = 1
+                                        do j = 1, len_trim(stmt_code)
+                                            if (stmt_code(j:j) == new_line('A')) then
+                                                line_count = line_count + 1
+                                            end if
+                                        end do
+                                        
+                                        ! Check if this looks like an empty main program
+                                        ! by looking for the specific pattern
+                                        if (line_count <= 4 .and. &  ! Very few lines
+                                            index(stmt_code, "use ") == 0 .and. &  ! No use statements
+                                            index(stmt_code, "call ") == 0 .and. &  ! No calls
+                                            index(stmt_code, "=") == 0 .and. &  ! No assignments
+                                            index(stmt_code, "write") == 0 .and. &  ! No write statements
+                                            index(stmt_code, "print") == 0) then  ! No print statements
+                                            is_empty_main_program = .true.
+                                        end if
+                                    end block
+                                end if
+                                
+                                if (.not. is_empty_main_program) then
+                                    if (len(code) > 0) then
+                                        code = code//new_line('A')
+                                    end if
+                                    code = code//stmt_code
+                                end if
+                            end block
                         end if
                     end if
                 end do
@@ -505,6 +552,9 @@ contains
                     type is (contains_node)
                         ! Handle contains specially - it goes between exec and functions
                         ! We'll process it later, not here
+                        continue
+                    type is (end_statement_node)
+                        ! End statement is executable - add to exec section
                         continue
                     type is (function_def_node)
                         ! Functions go after contains, not in executable section
@@ -600,6 +650,9 @@ contains
                         select type (child_node => arena%entries(child_indices(j))%node)
                         type is (contains_node)
                             has_contains = .true.
+                        type is (end_statement_node)
+                            ! End statement doesn't affect program structure
+                            continue
                         type is (function_def_node)
                             has_subprograms = .true.
                         type is (subroutine_def_node)
