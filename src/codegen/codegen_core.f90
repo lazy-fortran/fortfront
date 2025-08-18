@@ -2249,12 +2249,8 @@ contains
             allocate(param_names(0))
         end if
         
-        ! Generate parameter declarations using semantic type information
-        call generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
-        
-        ! Generate result variable declaration if present and not explicitly declared
-        call generate_result_variable_declaration_from_semantics(arena, proc_node, indent, code)
-        
+        ! CRITICAL FIX: Process existing declarations FIRST before auto-generation
+        ! This ensures explicit declarations are respected and take precedence
         i = 1
 
         do while (i <= size(body_indices))
@@ -2465,6 +2461,14 @@ contains
                 i = i + 1
             end if
         end do
+        
+        ! CRITICAL FIX: Generate parameter declarations AFTER processing existing declarations
+        ! This ensures explicit declarations are processed first and take precedence
+        call generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
+        
+        ! Generate result variable declaration if present and not explicitly declared
+        call generate_result_variable_declaration_from_semantics(arena, proc_node, indent, code)
+        
     end function generate_grouped_body_with_params
     
     ! Find parameter information by name
