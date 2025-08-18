@@ -791,11 +791,8 @@ contains
             allocate(temp_buffer(builder%buffer_capacity))
             temp_buffer(1:builder%buffer_size) = builder%statement_buffer(1:builder%buffer_size)
             
-            ! Replace move_alloc with explicit deallocation and reallocation
-            if (allocated(builder%statement_buffer)) deallocate(builder%statement_buffer)
-            allocate(builder%statement_buffer(builder%buffer_capacity))
-            builder%statement_buffer(1:builder%buffer_size) = temp_buffer(1:builder%buffer_size)
-            deallocate(temp_buffer)
+            ! Use move_alloc for O(1) performance instead of O(n) copying
+            call move_alloc(temp_buffer, builder%statement_buffer)
         end if
         
         builder%buffer_size = builder%buffer_size + 1
