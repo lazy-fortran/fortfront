@@ -68,12 +68,12 @@ contains
         
         call test_start("Proper deallocation sequence validation")
         
-        arena = create_ast_arena()
+        arena = create_ast_arena(8)  ! Small initial capacity to force growth
         initial_stats = arena%get_stats()
         initial_memory = initial_stats%memory_usage
         
-        ! Create complex node structure
-        do i = 1, 15
+        ! Create complex node structure that will exceed minimum capacity (256)
+        do i = 1, 300
             if (mod(i, 2) == 0) then
                 id_node = create_identifier("var_" // char(48 + mod(i, 10)))
                 call arena%push(id_node, "identifier")
@@ -83,7 +83,7 @@ contains
             end if
         end do
         
-        ! Verify memory allocation occurred
+        ! Verify memory allocation occurred (capacity should have grown)
         final_stats = arena%get_stats()
         if (final_stats%memory_usage <= initial_memory) then
             call test_fail("Memory allocation not detected")
@@ -157,8 +157,8 @@ contains
         
         ! Perform multiple growth and cleanup cycles
         do cycle = 1, 3
-            ! Force growth
-            do i = 1, 20
+            ! Force growth by adding nodes to exceed minimum capacity (256)
+            do i = 1, 300
                 id_node = create_identifier("cycle_" // char(48 + cycle) // "_node_" // char(48 + mod(i, 10)))
                 call arena%push(id_node, "identifier")
             end do
