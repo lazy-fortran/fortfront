@@ -1,6 +1,5 @@
 module semantic_pipeline
     use ast_core, only: ast_arena_t
-    use safe_allocation_registry, only: safe_allocate_and_copy
     use semantic_analyzer_base, only: semantic_analyzer_t
     use dependency_graph, only: dependency_graph_t, create_dependency_graph
     ! No longer need hard-coded analyzer imports thanks to polymorphic allocation
@@ -91,11 +90,12 @@ contains
             call move_alloc(this%analyzers(i)%analyzer, temp_analyzers(i)%analyzer)
         end do
         
-        ! Use polymorphic allocation instead of hard-coded types
-        ! This removes the dependency injection violation while maintaining compatibility
+        ! SOLUTION: Use polymorphic allocation to eliminate hard-coded type dependencies
+        ! This resolves the dependency injection violation by accepting any semantic_analyzer_t
+        ! subtype without the pipeline needing to know about specific analyzer implementations.
         allocate(temp_analyzers(this%analyzer_count + 1)%analyzer, source=analyzer)
         
-        ! Deep copy using overloaded assignment operator
+        ! Deep copy using overloaded assignment operator  
         temp_analyzers(this%analyzer_count + 1)%analyzer = analyzer
         
         ! Update pipeline
@@ -240,13 +240,8 @@ contains
                         dst = src
                     end select
                 class default
-                    block
-                        logical :: allocation_success
-                        call safe_allocate_and_copy(temp_results(i)%result_data, src, allocation_success)
-                        if (.not. allocation_success) then
-                            print *, "WARNING: Unknown type in semantic pipeline result allocation"
-                        end if
-                    end block
+                    ! For unknown types, use source allocation (may be unsafe)
+                    allocate(temp_results(i)%result_data, source=src)
                 end select
             end if
         end do
@@ -274,13 +269,8 @@ contains
                 dst = src
             end select
         class default
-            block
-                logical :: allocation_success
-                call safe_allocate_and_copy(temp_results(this%result_count + 1)%result_data, src, allocation_success)
-                if (.not. allocation_success) then
-                    print *, "WARNING: Unknown type in semantic pipeline new result allocation"
-                end if
-            end block
+            ! For unknown types, use source allocation (may be unsafe)
+            allocate(temp_results(this%result_count + 1)%result_data, source=src)
         end select
         
         ! Update context
@@ -321,13 +311,8 @@ contains
                             dst = src
                         end select
                     class default
-                        block
-                            logical :: allocation_success
-                            call safe_allocate_and_copy(result_data, src, allocation_success)
-                            if (.not. allocation_success) then
-                                print *, "WARNING: Unknown type in semantic pipeline get_result"
-                            end if
-                        end block
+                        ! For unknown types, use source allocation (may be unsafe)
+                        allocate(result_data, source=src)
                     end select
                 end if
                 return
