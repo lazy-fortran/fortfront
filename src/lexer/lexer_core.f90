@@ -615,10 +615,8 @@ contains
 
         allocate (temp(size(tokens)*2))
         temp(1:size(tokens)) = tokens
-        ! Replace move_alloc with explicit deallocation and reallocation
-        deallocate (tokens)
-        allocate (tokens(size(temp)))
-        tokens = temp
+        ! Use move_alloc for O(1) array transfer instead of O(n) copying
+        call move_alloc(temp, tokens)
     end subroutine resize_tokens
 
     ! Convert token type to string name
