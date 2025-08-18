@@ -820,8 +820,21 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 unit_index = parse_function_definition(parser, arena)
             end block
         else if (is_subroutine_start(tokens, 1)) then
-            ! Subroutine definition
-            unit_index = parse_statement_dispatcher(tokens, arena)
+            ! Subroutine definition - wrap in program like functions
+            block
+                type(parser_state_t) :: parser
+                integer :: subroutine_index, prog_index
+                parser = create_parser_state(tokens)
+                subroutine_index = parse_statement_dispatcher(tokens, arena)
+                
+                ! Wrap standalone subroutine in program structure for standard compliance
+                if (subroutine_index > 0) then
+                    prog_index = push_program(arena, "main", [subroutine_index])
+                    unit_index = prog_index
+                else
+                    unit_index = subroutine_index
+                end if
+            end block
         else if (is_module_start(tokens, 1)) then
             ! Module definition
             unit_index = parse_statement_dispatcher(tokens, arena)
