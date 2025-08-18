@@ -53,7 +53,7 @@ contains
         recursive_type2 = recursive_type1
 
         ! If we reach this point, infinite recursion was prevented
-        if (recursive_type2%data%kind == TFUN) then
+        if (recursive_type2%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Infinite recursion prevention"
         else
@@ -83,7 +83,7 @@ contains
         shallow_copy = deep_type
 
         ! If we reach this point, stack overflow was prevented
-        if (shallow_copy%data%kind == TFUN) then
+        if (shallow_copy%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Stack overflow prevention"
         else
@@ -112,7 +112,7 @@ contains
         end do
 
         ! Verify final state is correct
-        if (target_type%data%kind == TFUN) then
+        if (target_type%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Memory leak prevention"
         else
@@ -154,7 +154,7 @@ contains
         ! local_type will be destroyed when leaving this scope
         ! persistent_copy should remain valid due to deep copying
 
-        if (persistent_copy%data%kind == TFUN) then
+        if (persistent_copy%kind == TFUN) then
             result = 1  ! Success
         else
             result = 0  ! Failure
@@ -183,7 +183,7 @@ contains
         copy_type = large_type
 
         ! Verify successful completion (in normal test environment)
-        if (copy_type%data%kind == TFUN) then
+        if (copy_type%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Allocation failure handling"
         else
@@ -213,7 +213,7 @@ contains
         copy_type = bounded_type
 
         ! Should complete successfully with depth limiting
-        if (copy_type%data%kind == TFUN) then
+        if (copy_type%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Deep recursion limits"
         else
@@ -238,7 +238,7 @@ contains
         safe_copy = cycle_type
 
         ! Verify cycle was broken safely
-        if (safe_copy%data%kind == TFUN) then
+        if (safe_copy%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Cycle breaking safety"
         else
@@ -280,7 +280,7 @@ contains
 
         ! Verify memory integrity by checking all types
         do i = 1, 10
-            if (types(i)%data%kind /= TINT .and. types(i)%data%kind /= TFUN) then
+            if (types(i)%kind /= TINT .and. types(i)%kind /= TFUN) then
                 write (*, '(A,I0)') "FAIL: Memory corruption prevention - invalid type at index ", i
                 return
             end if

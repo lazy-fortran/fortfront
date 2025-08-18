@@ -48,10 +48,10 @@ contains
         char_type = create_mono_type(TCHAR, char_size=10)
         logical_type = create_mono_type(TLOGICAL)
         
-        if (int_type%data%kind == TINT .and. &
-            real_type%data%kind == TREAL .and. &
-            char_type%data%kind == TCHAR .and. char_type%data%size == 10 .and. &
-            logical_type%data%kind == TLOGICAL) then
+        if (int_type%kind == TINT .and. &
+            real_type%kind == TREAL .and. &
+            char_type%kind == TCHAR .and. char_type%size == 10 .and. &
+            logical_type%kind == TLOGICAL) then
             call test_pass()
         else
             call test_fail("Primitive types not created correctly")
@@ -70,7 +70,7 @@ contains
         
         if (var1%id == 1 .and. var1%name == "a" .and. &
             var2%id == 2 .and. var2%name == "b" .and. &
-            var_type%data%kind == TVAR .and. var_type%data%var%id == 1) then
+            var_type%kind == TVAR .and. var_type%var%id == 1) then
             call test_pass()
         else
             call test_fail("Type variables not created correctly")
@@ -86,7 +86,7 @@ contains
         real_type = create_mono_type(TREAL)
         fun_type = create_fun_type(int_type, real_type)
         
-        if (fun_type%data%kind == TFUN) then
+        if (fun_type%kind == TFUN) then
             call test_pass()
         else
             call test_fail("Function type not created correctly")
@@ -105,10 +105,10 @@ contains
         allocate(elem_types(1))
         elem_types(1) = int_type
         array_type = create_mono_type(TARRAY, args=elem_types)
-        array_type%data%size = 100  ! Set size explicitly
+        array_type%size = 100  ! Set size explicitly
         
-        if (array_type%data%kind == TARRAY .and. &
-            array_type%data%size == 100) then
+        if (array_type%kind == TARRAY .and. &
+            array_type%size == 100) then
             call test_pass()
         else
             call test_fail("Array type not created correctly")
@@ -147,7 +147,7 @@ contains
         
         result_type = apply_substitution(subst, var_type)
         
-        if (result_type%data%kind == TINT) then
+        if (result_type%kind == TINT) then
             call test_pass()
         else
             call test_fail("Type substitution not working")
@@ -220,7 +220,7 @@ contains
         
         if (allocated(poly_type%forall) .and. &
             size(poly_type%forall) == 1 .and. &
-            poly_type%mono%data%kind == TFUN) then
+            poly_type%mono%kind == TFUN) then
             call test_pass()
         else
             call test_fail("Polymorphic type not created correctly")

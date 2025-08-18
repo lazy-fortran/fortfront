@@ -77,7 +77,7 @@ contains
                     type is (identifier_node)
                         if (allocated(target%inferred_type)) then
                             ! Check if the type has allocatable flag set
-                            if (.not. target%inferred_type%data%alloc_info%needs_allocatable_string) then
+                            if (.not. target%inferred_type%alloc_info%needs_allocatable_string) then
                                 print *, 'FAIL: String length change not detected - needs_allocatable_string flag not set'
                                 test_string_length_change_detection = .false.
                                 return
@@ -135,20 +135,20 @@ contains
             inferred_type = ctx%infer(arena, stmt_index)
 
             ! Verify type is character with correct length
-            if (inferred_type%data%kind /= TCHAR) then
+            if (inferred_type%kind /= TCHAR) then
                 print *, 'FAIL: Type is not character'
                 test_single_string_assignment = .false.
                 return
             end if
 
-            if (inferred_type%data%size /= 5) then
-                print *, 'FAIL: String length incorrect, expected 5, got:', inferred_type%data%size
+            if (inferred_type%size /= 5) then
+                print *, 'FAIL: String length incorrect, expected 5, got:', inferred_type%size
                 test_single_string_assignment = .false.
                 return
             end if
 
             ! Single assignment should NOT need allocatable
-            if (inferred_type%data%alloc_info%needs_allocatable_string) then
+            if (inferred_type%alloc_info%needs_allocatable_string) then
                 print *, 'FAIL: Single assignment should not need allocatable'
                 test_single_string_assignment = .false.
                 return
@@ -197,7 +197,7 @@ contains
                         return
                     end if
 
-                    if (.not. target%inferred_type%data%alloc_info%needs_allocatable_string) then
+                    if (.not. target%inferred_type%alloc_info%needs_allocatable_string) then
                         print *, 'FAIL: Multiple length changes should need allocatable'
                         test_multiple_string_lengths = .false.
                         return

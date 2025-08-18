@@ -40,38 +40,38 @@ program test_type_system_direct
     int_type = create_mono_type(TINT)
     real_type = create_mono_type(TREAL)
     char_type = create_mono_type(TCHAR, char_size=10)
-    if (int_type%data%kind == TINT .and. real_type%data%kind == TREAL .and. &
-        char_type%data%kind == TCHAR .and. char_type%data%size == 10) then
+    if (int_type%kind == TINT .and. real_type%kind == TREAL .and. &
+        char_type%kind == TCHAR .and. char_type%size == 10) then
         call test_pass()
     else
         call test_fail()
         print *, "  Expected: int(kind=", TINT, "), real(kind=", TREAL, &
                  "), char(kind=", TCHAR, ",size=10)"
-        print *, "  Got: int(kind=", int_type%data%kind, "), real(kind=", &
-                 real_type%data%kind, "), char(kind=", char_type%data%kind, &
-                 ",size=", char_type%data%size, ")"
+        print *, "  Got: int(kind=", int_type%kind, "), real(kind=", &
+                 real_type%kind, "), char(kind=", char_type%kind, &
+                 ",size=", char_type%size, ")"
     end if
 
     ! Test 3: Create type variable type
     call test_start("Create type variable type")
     var_type = create_mono_type(TVAR, var=var1)
-    if (var_type%data%kind == TVAR .and. var_type%data%var%id == 1) then
+    if (var_type%kind == TVAR .and. var_type%var%id == 1) then
         call test_pass()
     else
         call test_fail()
         print *, "  Expected: kind=", TVAR, ", var%id=1"
-        print *, "  Got: kind=", var_type%data%kind, ", var%id=", var_type%data%var%id
+        print *, "  Got: kind=", var_type%kind, ", var%id=", var_type%var%id
     end if
 
     ! Test 4: Create function type (simplified type system)
     call test_start("Create function type")
     fun_type = create_fun_type(int_type, real_type)  ! int -> real
-    if (fun_type%data%kind == TFUN) then
+    if (fun_type%kind == TFUN) then
         call test_pass()
     else
         call test_fail()
         print *, "  Expected: kind=", TFUN
-        print *, "  Got: kind=", fun_type%data%kind
+        print *, "  Got: kind=", fun_type%kind
     end if
 
     ! Test 5: Type equality
@@ -88,14 +88,14 @@ program test_type_system_direct
     call test_start("Create polymorphic type")
     scheme = create_poly_type([var1], var_type)  ! forall a. a
     if (allocated(scheme%forall) .and. size(scheme%forall) == 1 .and. &
-        scheme%forall(1)%id == 1 .and. scheme%mono%data%kind == TVAR) then
+        scheme%forall(1)%id == 1 .and. scheme%mono%kind == TVAR) then
         call test_pass()
     else
         call test_fail()
         print *, "  Expected: forall with 1 var, mono is type var"
         if (allocated(scheme%forall)) then
             print *, "  Got: forall size=", size(scheme%forall), &
-                     ", mono%kind=", scheme%mono%data%kind
+                     ", mono%kind=", scheme%mono%kind
         else
             print *, "  Got: forall not allocated"
         end if

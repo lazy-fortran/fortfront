@@ -97,7 +97,7 @@ contains
             allocate(node%inferred_type)
             allocate(node%inferred_type%data)
             node%inferred_type%data%ref_count = 1
-            node%inferred_type%data%kind = TINT
+            node%inferred_type%kind = TINT
             node%inferred_type%data%has_cycles = .false.
         end select
         
@@ -106,7 +106,7 @@ contains
             allocate(node%inferred_type)
             allocate(node%inferred_type%data)
             node%inferred_type%data%ref_count = 1
-            node%inferred_type%data%kind = TREAL
+            node%inferred_type%kind = TREAL
             node%inferred_type%data%has_cycles = .false.
         end select
 

@@ -212,7 +212,7 @@ contains
         if (.not. allocated(arena%entries(index)%node%inferred_type)) return
         
         ! Safe read-only access to basic type kind
-        type_kind = arena%entries(index)%node%inferred_type%data%kind
+        type_kind = arena%entries(index)%node%inferred_type%kind
     end function get_node_type_kind
 
     ! Get type details without dangerous deep copy (safe read-only access)
@@ -238,10 +238,10 @@ contains
         
         ! Safe read-only access to type details
         associate (node_type => arena%entries(index)%node%inferred_type)
-            kind = node_type%data%kind
-            type_size = node_type%data%size
-            is_allocatable = node_type%data%alloc_info%is_allocatable
-            is_pointer = node_type%data%alloc_info%is_pointer
+            kind = node_type%kind
+            type_size = node_type%size
+            is_allocatable = node_type%alloc_info%is_allocatable
+            is_pointer = node_type%alloc_info%is_pointer
             found = .true.
         end associate
     end subroutine get_node_type_details

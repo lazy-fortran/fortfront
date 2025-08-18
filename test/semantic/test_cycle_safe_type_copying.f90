@@ -49,7 +49,7 @@ contains
         real_type2 = real_type1
 
         ! Verify types were copied correctly
-        if (int_type2%data%kind == TINT .and. real_type2%data%kind == TREAL) then
+        if (int_type2%kind == TINT .and. real_type2%kind == TREAL) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Simple type copying"
         else
@@ -74,7 +74,7 @@ contains
         fun_type2 = fun_type1
 
         ! Verify function type was copied correctly (simplified type system)
-        if (fun_type2%data%kind == TFUN) then
+        if (fun_type2%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Function type copying"
         else
@@ -100,7 +100,7 @@ contains
         outer_fun2 = outer_fun1
 
         ! Verify nested function type was copied correctly (simplified type system)
-        if (outer_fun2%data%kind == TFUN) then
+        if (outer_fun2%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Recursive function type copying"
         else
@@ -130,7 +130,7 @@ contains
         nested_type2 = nested_type1
 
         ! Verify basic structure is preserved (simplified type system)
-        if (nested_type2%data%kind == TFUN) then
+        if (nested_type2%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Deeply nested function type copying"
         else
@@ -154,7 +154,7 @@ contains
         fun_type2 = fun_type1
 
         ! Verify the type was copied without issues
-        if (fun_type2%data%kind == TFUN) then
+        if (fun_type2%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Simple cycle detection test"
         else
@@ -180,7 +180,7 @@ contains
         type_a = type_c  ! This creates a more complex reference pattern
 
         ! Verify operation completed successfully
-        if (type_a%data%kind == TFUN) then
+        if (type_a%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Complex cycle detection test"
         else
@@ -206,7 +206,7 @@ contains
         fun_b_copy = fun_b
 
         ! Verify both copies are valid
-        if (fun_a_copy%data%kind == TFUN .and. fun_b_copy%data%kind == TFUN) then
+        if (fun_a_copy%kind == TFUN .and. fun_b_copy%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Mutual recursion type copying"
         else
@@ -230,7 +230,7 @@ contains
         self_fun_copy = self_fun
 
         ! Verify copy succeeded (simplified type system)
-        if (self_fun_copy%data%kind == TFUN) then
+        if (self_fun_copy%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Self-referential function copying"
         else
@@ -258,7 +258,7 @@ contains
         fun_b_copy = fun_b
 
         ! Verify both copies are valid and independent (simplified type system)
-        if (fun_a_copy%data%kind == TFUN .and. fun_b_copy%data%kind == TFUN) then
+        if (fun_a_copy%kind == TFUN .and. fun_b_copy%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Multiple reference sharing copying"
         else
@@ -281,16 +281,16 @@ contains
         original = create_fun_type(int_type, real_type)
         
         ! Set additional properties
-        original%data%size = 42
-        original%data%alloc_info%is_allocatable = .true.
-        original%data%alloc_info%is_pointer = .false.
+        original%size = 42
+        original%alloc_info%is_allocatable = .true.
+        original%alloc_info%is_pointer = .false.
 
         ! Test deep copy preservation
         copy = original
 
         ! Verify all properties were preserved (simplified type system)
-        if (copy%data%kind == TFUN .and. copy%data%size == 42) then
-            if (copy%data%alloc_info%is_allocatable .and. .not. copy%data%alloc_info%is_pointer) then
+        if (copy%kind == TFUN .and. copy%size == 42) then
+            if (copy%alloc_info%is_allocatable .and. .not. copy%alloc_info%is_pointer) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Copy preservation test"
             else

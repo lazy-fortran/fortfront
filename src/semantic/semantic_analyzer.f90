@@ -251,11 +251,11 @@ contains
                     target_type = ctx%instantiate(existing_scheme)
 
                     ! Check for string length changes requiring allocatable
-                    if (typ%data%kind == TCHAR .and. target_type%data%kind == TCHAR) then
-                        if (typ%data%size /= target_type%data%size) then
+                    if (typ%kind == TCHAR .and. target_type%kind == TCHAR) then
+                        if (typ%size /= target_type%size) then
                             ! String length changed - mark as needing allocatable
-                            typ%data%alloc_info%needs_allocatable_string = .true.
-                            target_type%data%alloc_info%needs_allocatable_string = .true.
+                            typ%alloc_info%needs_allocatable_string = .true.
+                            target_type%alloc_info%needs_allocatable_string = .true.
                         end if
                     end if
 
@@ -272,11 +272,11 @@ contains
 
                     ! Use the existing type for consistency but preserve &
                     ! allocatable flag
-                    if (typ%data%alloc_info%is_allocatable) then
-                        target_type%data%alloc_info%is_allocatable = .true.
+                    if (typ%alloc_info%is_allocatable) then
+                        target_type%alloc_info%is_allocatable = .true.
                     end if
-                    if (typ%data%alloc_info%needs_allocatable_string) then
-                        target_type%data%alloc_info%needs_allocatable_string = .true.
+                    if (typ%alloc_info%needs_allocatable_string) then
+                        target_type%alloc_info%needs_allocatable_string = .true.
                     end if
                     typ = target_type
                 end if
@@ -370,8 +370,8 @@ contains
                 if (allocated(sym_scheme)) then
                     ! Check if the type is an array type
                     ! Safety check: ensure mono type is properly initialized
-                    if (sym_scheme%mono%data%kind > 0) then
-                        select case (sym_scheme%mono%data%kind)
+                    if (sym_scheme%mono%kind > 0) then
+                        select case (sym_scheme%mono%kind)
                         case (TARRAY)
                             is_known_array = .true.
                         end select
@@ -393,7 +393,7 @@ contains
                     ! For array access, return the element type
                     if (is_known_array .and. allocated(sym_scheme)) then
                         ! Simplified type system - arrays return element type variable
-                        if (sym_scheme%mono%data%kind == TARRAY) then
+                        if (sym_scheme%mono%kind == TARRAY) then
                             typ = create_mono_type(TVAR, var=this%fresh_type_var())
                         else
                             typ = create_mono_type(TVAR, var=this%fresh_type_var())
@@ -522,19 +522,19 @@ contains
                     
                     ! Propagate allocation attributes from operands
                     ! Result is allocatable if either operand is allocatable
-                    result_typ%data%alloc_info%is_allocatable = &
-                        left_typ%data%alloc_info%is_allocatable .or. &
-                        right_typ%data%alloc_info%is_allocatable
+                    result_typ%alloc_info%is_allocatable = &
+                        left_typ%alloc_info%is_allocatable .or. &
+                        right_typ%alloc_info%is_allocatable
                     ! Result involves pointers if either operand is a pointer
-                    result_typ%data%alloc_info%is_pointer = &
-                        left_typ%data%alloc_info%is_pointer .or. &
-                        right_typ%data%alloc_info%is_pointer
+                    result_typ%alloc_info%is_pointer = &
+                        left_typ%alloc_info%is_pointer .or. &
+                        right_typ%alloc_info%is_pointer
                     ! Result needs allocation check if either operand does
-                    result_typ%data%alloc_info%needs_allocation_check = &
-                        left_typ%data%alloc_info%is_allocatable .or. &
-                        right_typ%data%alloc_info%is_allocatable .or. &
-                        left_typ%data%alloc_info%is_pointer .or. &
-                        right_typ%data%alloc_info%is_pointer
+                    result_typ%alloc_info%needs_allocation_check = &
+                        left_typ%alloc_info%is_allocatable .or. &
+                        right_typ%alloc_info%is_allocatable .or. &
+                        left_typ%alloc_info%is_pointer .or. &
+                        right_typ%alloc_info%is_pointer
                 else
                     ! For type variables, unify as before
                     result_typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
@@ -580,14 +580,14 @@ contains
             ! String concatenation
             ! For now, just check both are character types
             ! The result will have combined length
-            if (left_typ%data%kind == TCHAR .or. left_typ%data%kind == TVAR) then
+            if (left_typ%kind == TCHAR .or. left_typ%kind == TVAR) then
                 ! Left is char or will be inferred as char
             else
                 s1 = ctx%unify(left_typ, create_mono_type(TCHAR))
                 call ctx%compose_with_subst(s1)
             end if
 
-            if (right_typ%data%kind == TCHAR .or. right_typ%data%kind == TVAR) then
+            if (right_typ%kind == TCHAR .or. right_typ%kind == TVAR) then
                 ! Right is char or will be inferred as char
             else
                 s2 = ctx%unify(right_typ, create_mono_type(TCHAR))
@@ -603,13 +603,13 @@ contains
                 right_size = 1  ! Default for unknown size
 
                 ! Get left operand size if it's a character type
-                if (left_typ%data%kind == TCHAR) then
-                    left_size = left_typ%data%size
+                if (left_typ%kind == TCHAR) then
+                    left_size = left_typ%size
                 end if
 
                 ! Get right operand size if it's a character type  
-                if (right_typ%data%kind == TCHAR) then
-                    right_size = right_typ%data%size
+                if (right_typ%kind == TCHAR) then
+                    right_size = right_typ%size
                 end if
 
                 ! Combined length for concatenation
@@ -632,7 +632,7 @@ contains
                 integer :: size_bytes
                 
                 ! Determine type string and size
-                select case (result_typ%data%kind)
+                select case (result_typ%kind)
                 case (TINT)
                     type_str = "integer"
                     size_bytes = 4
@@ -644,7 +644,7 @@ contains
                     size_bytes = 4
                 case (TCHAR)
                     type_str = "character"
-                    size_bytes = result_typ%data%size
+                    size_bytes = result_typ%size
                 case default
                     type_str = "unknown"
                     size_bytes = 4
@@ -691,7 +691,7 @@ contains
         ! Get function type
         fun_typ = ctx%get_builtin_function_type(call_node%name)
 
-        if (fun_typ%data%kind == 0) then
+        if (fun_typ%kind == 0) then
             ! Unknown function - look up in environment
             block
                 type(identifier_node) :: fun_ident
@@ -700,7 +700,7 @@ contains
                 fun_typ = infer_identifier(ctx, fun_ident)
 
                 ! If this is an array type, we're doing array subscripting
-                if (fun_typ%data%kind == TARRAY) then
+                if (fun_typ%kind == TARRAY) then
                     ! Array subscripting - return element type
                     ! TODO: Handle multi-dimensional arrays and slicing properly
                     ! Simplified type system - array access returns element type variable
@@ -720,9 +720,9 @@ contains
                     arg_types(i) = infer_type(ctx, arena, call_node%arg_indices(i))
 
                     ! Check if we got a valid type
-                    if (arg_types(i)%data%kind < TVAR .or. arg_types(i)%data%kind > TARRAY) then
+                    if (arg_types(i)%kind < TVAR .or. arg_types(i)%kind > TARRAY) then
                         print *, "WARNING: Invalid type inferred for argument ", i
-                        print *, "  Type kind: ", arg_types(i)%data%kind
+                        print *, "  Type kind: ", arg_types(i)%kind
                         ! Create a type variable as fallback
                         arg_types(i) = create_mono_type(TVAR, var=ctx%fresh_type_var())
                     end if
@@ -733,7 +733,7 @@ contains
             end do
 
             ! Check if we're dealing with an array (already handled above)
-            if (fun_typ%data%kind == TARRAY) then
+            if (fun_typ%kind == TARRAY) then
                 ! This case should have been handled above
                 print *, "WARNING: Array type in function call unification"
                 typ = create_mono_type(TINT)
@@ -754,7 +754,7 @@ contains
 
                     ! Unify current function type with expected
                     ! Check if we're trying to unify incompatible types
-                  if (result_typ%data%kind /= TFUN .and. expected_fun_type%data%kind == TFUN) then
+                  if (result_typ%kind /= TFUN .and. expected_fun_type%kind == TFUN) then
                         ! Create a type variable as result
                         tv = ctx%fresh_type_var()
                         result_typ = create_mono_type(TVAR, var=tv)
@@ -778,7 +778,7 @@ contains
         else
             ! No arguments - function type is the result
             ! Simplified type system - function calls return type variable  
-            if (fun_typ%data%kind == TFUN) then
+            if (fun_typ%kind == TFUN) then
                 typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
             else
                 typ = fun_typ
@@ -803,32 +803,32 @@ contains
         subst%count = 0
 
         ! Handle type variables
-        if (t1_subst%data%kind == TVAR) then
-            if (t2_subst%data%kind == TVAR .and. t1_subst%data%var%id == t2_subst%data%var%id) then
+        if (t1_subst%kind == TVAR) then
+            if (t2_subst%kind == TVAR .and. t1_subst%var%id == t2_subst%var%id) then
                 ! Same variable - empty substitution
                 return
-            else if (occurs_check(t1_subst%data%var, t2_subst)) then
+            else if (occurs_check(t1_subst%var, t2_subst)) then
                 error stop "Occurs check failed - infinite type"
             else
-                call subst%add(t1_subst%data%var, t2_subst)
+                call subst%add(t1_subst%var, t2_subst)
             end if
             return
-        else if (t2_subst%data%kind == TVAR) then
-            if (occurs_check(t2_subst%data%var, t1_subst)) then
+        else if (t2_subst%kind == TVAR) then
+            if (occurs_check(t2_subst%var, t1_subst)) then
                 error stop "Occurs check failed - infinite type"
             else
-                call subst%add(t2_subst%data%var, t1_subst)
+                call subst%add(t2_subst%var, t1_subst)
             end if
             return
         end if
 
         ! Both are concrete types
-        if (t1_subst%data%kind /= t2_subst%data%kind) then
+        if (t1_subst%kind /= t2_subst%kind) then
 
             ! Special case: trying to unify integer with function type
             ! likely means array subscripting
-            if ((t1_subst%data%kind == TINT .and. t2_subst%data%kind == TFUN) .or. &
-                (t1_subst%data%kind == TFUN .and. t2_subst%data%kind == TINT)) then
+            if ((t1_subst%kind == TINT .and. t2_subst%kind == TFUN) .or. &
+                (t1_subst%kind == TFUN .and. t2_subst%kind == TINT)) then
                 ! Return empty substitution to continue
                 subst%count = 0
                 allocate (subst%vars(0))
@@ -839,8 +839,8 @@ contains
             ! Special case: trying to unify real with character type
             ! This can happen when literals are incorrectly typed or in &
             ! complex expressions
-            if ((t1_subst%data%kind == TREAL .and. t2_subst%data%kind == TCHAR) .or. &
-                (t1_subst%data%kind == TCHAR .and. t2_subst%data%kind == TREAL)) then
+            if ((t1_subst%kind == TREAL .and. t2_subst%kind == TCHAR) .or. &
+                (t1_subst%kind == TCHAR .and. t2_subst%kind == TREAL)) then
                 ! For mathematical contexts, try to coerce character to real &
                 ! if it looks numeric
                 subst%count = 0
@@ -850,8 +850,8 @@ contains
             end if
             
             ! Special case: Allow integer to real coercion in mathematical contexts
-            if ((t1_subst%data%kind == TINT .and. t2_subst%data%kind == TREAL) .or. &
-                (t1_subst%data%kind == TREAL .and. t2_subst%data%kind == TINT)) then
+            if ((t1_subst%kind == TINT .and. t2_subst%kind == TREAL) .or. &
+                (t1_subst%kind == TREAL .and. t2_subst%kind == TINT)) then
                 ! In Fortran, integer values can be promoted to real in &
                 ! mixed expressions
                 subst%count = 0
@@ -862,8 +862,8 @@ contains
             
             ! Special case: Allow base type to unify with array of that type
             ! This handles cases like "integer :: arr = [1,2,3]"
-            if ((t1_subst%data%kind == TINT .and. t2_subst%data%kind == TARRAY) .or. &
-                (t1_subst%data%kind == TARRAY .and. t2_subst%data%kind == TINT)) then
+            if ((t1_subst%kind == TINT .and. t2_subst%kind == TARRAY) .or. &
+                (t1_subst%kind == TARRAY .and. t2_subst%kind == TINT)) then
                 ! Simplified type system - allow base type to array unification
                 subst%count = 0
                 allocate (subst%vars(0))
@@ -872,8 +872,8 @@ contains
             end if
             
             ! Special case: Allow real base type to unify with real array type
-            if ((t1_subst%data%kind == TREAL .and. t2_subst%data%kind == TARRAY) .or. &
-                (t1_subst%data%kind == TARRAY .and. t2_subst%data%kind == TREAL)) then
+            if ((t1_subst%kind == TREAL .and. t2_subst%kind == TARRAY) .or. &
+                (t1_subst%kind == TARRAY .and. t2_subst%kind == TREAL)) then
                 ! Simplified type system - allow real to array unification
                 subst%count = 0
                 allocate (subst%vars(0))
@@ -882,18 +882,18 @@ contains
             end if
 
             ! Check if we have valid types before calling to_string
-            if (t1_subst%data%kind >= TVAR .and. t1_subst%data%kind <= TARRAY .and. &
-                t2_subst%data%kind >= TVAR .and. t2_subst%data%kind <= TARRAY) then
+            if (t1_subst%kind >= TVAR .and. t1_subst%kind <= TARRAY .and. &
+                t2_subst%kind >= TVAR .and. t2_subst%kind <= TARRAY) then
                 error stop "Type mismatch: cannot unify "// &
                     t1_subst%to_string()//" with "//t2_subst%to_string()
             else
                 print *, "ERROR: Invalid type kinds in unify_types: ", &
-                    t1_subst%data%kind, " and ", t2_subst%data%kind
+                    t1_subst%kind, " and ", t2_subst%kind
                 error stop "Type mismatch: invalid type kinds"
             end if
         end if
 
-        select case (t1_subst%data%kind)
+        select case (t1_subst%kind)
         case (TINT, TREAL, TLOGICAL)
             ! Base types unify if equal (already checked kind)
 
@@ -912,8 +912,8 @@ contains
 
         case (TARRAY)
             ! Simplified array type unification - check sizes if known
-            if (t1_subst%data%size > 0 .and. t2_subst%data%size > 0) then
-                if (t1_subst%data%size /= t2_subst%data%size) then
+            if (t1_subst%size > 0 .and. t2_subst%size > 0) then
+                if (t1_subst%size /= t2_subst%size) then
                     error stop "Cannot unify arrays of different sizes"
                 end if
             end if
@@ -923,7 +923,7 @@ contains
             allocate(subst%types(0))
 
         case default
-            if (t1_subst%data%kind == 0 .or. t2_subst%data%kind == 0) then
+            if (t1_subst%kind == 0 .or. t2_subst%kind == 0) then
                 ! Return empty substitution for uninitialized types
                 ! This can happen with undefined functions
                 return
@@ -1019,8 +1019,8 @@ contains
         type(mono_type_t) :: result_typ
 
         ! Validate input type
-        if (typ%data%kind < TVAR .or. typ%data%kind > TARRAY) then
-            print *, "WARNING: Invalid input type kind in apply_current_substitution:", typ%data%kind
+        if (typ%kind < TVAR .or. typ%kind > TARRAY) then
+            print *, "WARNING: Invalid input type kind in apply_current_substitution:", typ%kind
             result_typ = typ  ! Return copy of input to avoid corruption
             return
         end if
@@ -1028,8 +1028,8 @@ contains
         call this%subst%apply(typ, result_typ)
         
         ! Validate result type
-        if (result_typ%data%kind < TVAR .or. result_typ%data%kind > TARRAY) then
-            print *, "WARNING: Invalid result type kind in apply_current_substitution:", result_typ%data%kind
+        if (result_typ%kind < TVAR .or. result_typ%kind > TARRAY) then
+            print *, "WARNING: Invalid result type kind in apply_current_substitution:", result_typ%kind
             result_typ = typ  ! Return copy of input to avoid corruption
         end if
     end function apply_current_substitution
@@ -1051,7 +1051,7 @@ contains
 
         ! Safety check: ensure name is not empty
         if (len_trim(name) == 0) then
-            typ%data%kind = 0
+            typ%kind = 0
             return
         end if
 
@@ -1179,7 +1179,7 @@ contains
 
         case default
             ! Return empty type to indicate not found
-            typ%data%kind = 0
+            typ%kind = 0
         end select
     end function get_builtin_function_type
 
@@ -1340,8 +1340,8 @@ contains
         end select
         
         ! Set allocation attributes
-        typ%data%alloc_info%is_allocatable = decl%is_allocatable
-        typ%data%alloc_info%is_pointer = decl%is_pointer
+        typ%alloc_info%is_allocatable = decl%is_allocatable
+        typ%alloc_info%is_pointer = decl%is_pointer
 
         ! If this is an array declaration, wrap the type in an array type
         if (decl%is_array) then
@@ -1350,12 +1350,12 @@ contains
                 type(allocation_info_t) :: saved_alloc_info
                 
                 ! Save allocation info before wrapping in array type
-                saved_alloc_info = typ%data%alloc_info
+                saved_alloc_info = typ%alloc_info
                 
                 typ = create_mono_type(TARRAY)
                 
                 ! Restore allocation info to the array type
-                typ%data%alloc_info = saved_alloc_info
+                typ%alloc_info = saved_alloc_info
                 ! TODO: Set array size from dimension_indices
             end block
         end if
@@ -1765,7 +1765,7 @@ contains
             size(arr_node%element_indices) == 0) then
             ! Simplified type system - create array type without nested args
             typ = create_mono_type(TARRAY)
-            typ%data%size = 0
+            typ%size = 0
             return
         end if
 
@@ -1778,20 +1778,20 @@ contains
             current_type = this%infer(arena, arr_node%element_indices(i))
 
             ! If types differ, we need to find common type
-            if (current_type%data%kind /= elem_type%data%kind) then
+            if (current_type%kind /= elem_type%kind) then
                 all_same_type = .false.
                 ! Promote to real if mixing integer and real
-                if ((elem_type%data%kind == TINT .and. current_type%data%kind == TREAL) .or. &
-                    (elem_type%data%kind == TREAL .and. current_type%data%kind == TINT)) then
+                if ((elem_type%kind == TINT .and. current_type%kind == TREAL) .or. &
+                    (elem_type%kind == TREAL .and. current_type%kind == TINT)) then
                     elem_type = create_mono_type(TREAL)
-                    elem_type%data%size = 8  ! real(8)
+                    elem_type%size = 8  ! real(8)
                 end if
-            else if (current_type%data%kind == TCHAR .and. elem_type%data%kind == TCHAR) then
+            else if (current_type%kind == TCHAR .and. elem_type%kind == TCHAR) then
                 ! For character types, find maximum length
-                if (current_type%data%size > elem_type%data%size) then
-                    elem_type%data%size = current_type%data%size
+                if (current_type%size > elem_type%size) then
+                    elem_type%size = current_type%size
                     all_same_type = .false.  ! Different lengths
-                else if (current_type%data%size /= elem_type%data%size) then
+                else if (current_type%size /= elem_type%size) then
                     all_same_type = .false.  ! Different lengths
                 end if
             end if
@@ -1799,19 +1799,19 @@ contains
 
         ! Create array type using the promoted element type
         typ = create_mono_type(TARRAY)
-        typ%data%size = size(arr_node%element_indices)
+        typ%size = size(arr_node%element_indices)
         
         ! Store element type information in a way the assignment inference can use
         ! For now, we'll use a simpler approach and communicate via the array type's kind
-        if (elem_type%data%kind == TREAL) then
+        if (elem_type%kind == TREAL) then
             ! Use TREAL as the array's secondary kind indicator  
-            typ%data%var%id = TREAL  ! Store promoted element type in var%id
-        else if (elem_type%data%kind == TINT) then
-            typ%data%var%id = TINT
-        else if (elem_type%data%kind == TCHAR) then
-            typ%data%var%id = TCHAR
+            typ%var%id = TREAL  ! Store promoted element type in var%id
+        else if (elem_type%kind == TINT) then
+            typ%var%id = TINT
+        else if (elem_type%kind == TCHAR) then
+            typ%var%id = TCHAR
         else
-            typ%data%var%id = TREAL  ! Default to real for mixed types
+            typ%var%id = TREAL  ! Default to real for mixed types
         end if
 
     end function infer_array_literal
@@ -1861,7 +1861,7 @@ contains
         ! Return array type - simplified system without nested args
         typ = create_mono_type(TARRAY)
         ! Size is not known at compile time for implied DO
-        typ%data%size = -1
+        typ%size = -1
 
     end function infer_implied_do_loop
 
@@ -1879,7 +1879,7 @@ contains
             array_type = ctx%infer(arena, slice_node%array_index)
             
             ! Check if this is actually a character substring operation
-            if (array_type%data%kind == TCHAR) then
+            if (array_type%kind == TCHAR) then
                 ! This is a character substring, not an array slice!
                 ! Set the flag to indicate this is a character substring
                 call set_character_substring_flag(arena, slice_node)
@@ -1888,7 +1888,7 @@ contains
             end if
             
             ! Validate this is actually an array type
-            if (array_type%data%kind == TARRAY) then
+            if (array_type%kind == TARRAY) then
                 ! Simplified type system - use type variable for element type
                 
                 ! Validate array bounds for each dimension
@@ -1896,7 +1896,7 @@ contains
                 
                 ! Simplified type system - array slicing returns array type variable
                 typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
-                typ%data%size = -1  ! Size not known at compile time for slices
+                typ%size = -1  ! Size not known at compile time for slices
             else
                 ! Not an array - this is an error
                 print *, "ERROR: Attempting to slice non-array type"

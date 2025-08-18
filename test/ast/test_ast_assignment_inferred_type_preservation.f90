@@ -63,7 +63,7 @@ contains
 
         ! Verify inferred type was preserved
         if (allocated(copy%inferred_type)) then
-            if (copy%inferred_type%data%kind == TREAL) then
+            if (copy%inferred_type%kind == TREAL) then
                 ! Also check other fields were copied
                 if (copy%name == "variable_x" .and. copy%line == 10 .and. copy%column == 5) then
                     pass_count = pass_count + 1
@@ -104,7 +104,7 @@ contains
 
         ! Verify inferred type was preserved
         if (allocated(copy%inferred_type)) then
-            if (copy%inferred_type%data%kind == TINT) then
+            if (copy%inferred_type%kind == TINT) then
                 ! Also check other fields were copied
                 if (copy%value == "42" .and. copy%literal_kind == LITERAL_INTEGER) then
                     pass_count = pass_count + 1
@@ -146,7 +146,7 @@ contains
 
         ! Verify inferred type was preserved
         if (allocated(copy%inferred_type)) then
-            if (copy%inferred_type%data%kind == TREAL) then
+            if (copy%inferred_type%kind == TREAL) then
                 ! Also check other fields were copied
                 if (copy%operator == "+" .and. copy%left_index == 1 .and. copy%right_index == 2) then
                     pass_count = pass_count + 1
@@ -190,7 +190,7 @@ contains
 
         ! Verify inferred type was preserved (simplified type system)
         if (allocated(copy%inferred_type)) then
-            if (copy%inferred_type%data%kind == TFUN) then
+            if (copy%inferred_type%kind == TFUN) then
                 ! Also check other fields were copied
                 if (copy%name == "sqrt" .and. allocated(copy%arg_indices)) then
                     if (size(copy%arg_indices) == 1 .and. copy%arg_indices(1) == 5) then
@@ -235,7 +235,7 @@ contains
 
         ! Verify inferred type was preserved
         if (allocated(copy%inferred_type)) then
-            if (copy%inferred_type%data%kind == TINT) then
+            if (copy%inferred_type%kind == TINT) then
                 ! Also check other fields were copied
                 if (copy%type_name == "integer" .and. copy%var_name == "counter") then
                     pass_count = pass_count + 1
@@ -276,7 +276,7 @@ contains
 
         ! Verify inferred type was preserved
         if (allocated(copy%inferred_type)) then
-            if (copy%inferred_type%data%kind == TREAL) then
+            if (copy%inferred_type%kind == TREAL) then
                 ! Also check other fields were copied
                 if (copy%target_index == 10 .and. copy%value_index == 11) then
                     pass_count = pass_count + 1
@@ -318,7 +318,7 @@ contains
 
         ! Verify inferred type was preserved
         if (allocated(copy%inferred_type)) then
-            if (copy%inferred_type%data%kind == TLOGICAL) then
+            if (copy%inferred_type%kind == TLOGICAL) then
                 ! Also check other fields were copied
                 if (copy%condition_index == 20 .and. allocated(copy%then_body_indices)) then
                     if (size(copy%then_body_indices) == 1 .and. copy%then_body_indices(1) == 21) then
@@ -368,7 +368,7 @@ contains
 
         ! Verify complex inferred type was preserved (simplified type system)
         if (allocated(copy%inferred_type)) then
-            if (copy%inferred_type%data%kind == TFUN) then
+            if (copy%inferred_type%kind == TFUN) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Complex expression inferred_type preservation"
             else
@@ -412,7 +412,7 @@ contains
 
         ! Verify nested structure preservation (simplified type system)
         if (allocated(func_copy%inferred_type)) then
-            if (func_copy%inferred_type%data%kind == TFUN) then
+            if (func_copy%inferred_type%kind == TFUN) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Nested structure inferred_type preservation"
             else
@@ -454,7 +454,7 @@ contains
 
         ! Verify type structure was copied correctly (simplified type system)
         if (allocated(ident_copy%inferred_type)) then
-            if (ident_copy%inferred_type%data%kind == TFUN) then
+            if (ident_copy%inferred_type%kind == TFUN) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Cycle-safe type copying in assignment"
             else

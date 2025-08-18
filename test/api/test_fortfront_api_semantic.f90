@@ -123,7 +123,7 @@ contains
                     type is (assignment_node)
                     ! Check if type was inferred
                     if (allocated(stmt_node%inferred_type)) then
-                        if (stmt_node%inferred_type%data%kind /= TINT) then
+                        if (stmt_node%inferred_type%kind /= TINT) then
                             print *, '  FAIL: Expected integer type for x'
                             test_type_inference = .false.
                             return
@@ -138,7 +138,7 @@ contains
                             logical :: type_found
                             call get_type_for_node(arena, stmt_node%target_index, node_type, type_found)
                             if (type_found .and. allocated(node_type)) then
-                                if (node_type%data%kind /= TINT) then
+                                if (node_type%kind /= TINT) then
                                     print *, '  FAIL: Expected integer type for x identifier'
                                     test_type_inference = .false.
                                     return

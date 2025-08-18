@@ -640,7 +640,7 @@ contains
                                 type is (identifier_node)
                                     if (trim(node%name) == trim(var_names(i))) then
                                         if (allocated(node%inferred_type)) then
-                                            if (node%inferred_type%data%kind == TARRAY) then
+                                            if (node%inferred_type%kind == TARRAY) then
                                                 found_array_type = .true.
                                                 decl_node%is_array = .true.
                                                 ! Use fixed-size array if size is known
@@ -648,13 +648,13 @@ contains
                                                     decl_node%dimension_indices)) &
                                                     deallocate(decl_node%dimension_indices)
                                                 allocate(decl_node%dimension_indices(1))
-                                                if (node%inferred_type%data%size > 0 .and. &
-                                                    .not. node%inferred_type%data%alloc_info%is_allocatable) then
+                                                if (node%inferred_type%size > 0 .and. &
+                                                    .not. node%inferred_type%alloc_info%is_allocatable) then
                                                     ! Create literal node for the size
                                                     block
                                                         type(literal_node) :: size_literal
                                                         character(len=20) :: size_str
-                                                        write(size_str, '(i0)') node%inferred_type%data%size
+                                                        write(size_str, '(i0)') node%inferred_type%size
                                                         size_literal = &
                                                             create_literal(trim(size_str), &
                                                             LITERAL_INTEGER, 1, 1)
@@ -1061,7 +1061,7 @@ contains
         type(mono_type_t), intent(in) :: mono_type
         character(len=:), allocatable :: type_str
 
-        select case (mono_type%data%kind)
+        select case (mono_type%kind)
         case (TINT)
             type_str = "integer"
         case (TREAL)
@@ -1073,10 +1073,10 @@ contains
         case (TLOGICAL)
             type_str = "logical"
         case (TCHAR)
-            if (mono_type%data%size > 0) then
+            if (mono_type%size > 0) then
                 block
                     character(len=20) :: size_str
-                    write (size_str, '(i0)') mono_type%data%size
+                    write (size_str, '(i0)') mono_type%size
                     type_str = "character(len="//trim(size_str)//")"
                 end block
             else
@@ -1095,7 +1095,7 @@ contains
         type(mono_type_t), intent(in) :: mono_type
         logical :: is_array
         
-        is_array = (mono_type%data%kind == TARRAY)
+        is_array = (mono_type%kind == TARRAY)
     end function is_array_type
     
     ! Get the type of an expression from the AST
@@ -1130,7 +1130,7 @@ contains
                     ! This is an array slice, so result is an array
                     ! We need to get the base array type
                     allocate(expr_type)
-                    expr_type%data%kind = TARRAY
+                    expr_type%kind = TARRAY
                     ! TODO: Set proper element type
                 end if
             end if
@@ -2532,15 +2532,15 @@ contains
                             do j = 1, var_count
                                 if (trim(stmt%var_name) == trim(string_vars_needing_allocatable(j))) then
                                     if (allocated(stmt%inferred_type)) then
-                                        stmt%inferred_type%data%alloc_info%needs_allocatable_string = .true.
+                                        stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
                                         ! Clear type_name so codegen uses inferred_type
                                         stmt%type_name = ""
                                     else
                                         ! Create an inferred_type for the declaration
                                         allocate(stmt%inferred_type)
-                                        stmt%inferred_type%data%kind = TCHAR
-                                        stmt%inferred_type%data%size = 0  ! Unknown size for allocatable
-                                        stmt%inferred_type%data%alloc_info%needs_allocatable_string = .true.
+                                        stmt%inferred_type%kind = TCHAR
+                                        stmt%inferred_type%size = 0  ! Unknown size for allocatable
+                                        stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
                                         ! Clear type_name so codegen uses inferred_type
                                         stmt%type_name = ""
                                     end if
@@ -2577,7 +2577,7 @@ contains
                     select type (target => arena%entries(stmt%target_index)%node)
                     type is (identifier_node)
                         if (allocated(target%inferred_type)) then
-                            if (target%inferred_type%data%alloc_info%needs_allocatable_string) then
+                            if (target%inferred_type%alloc_info%needs_allocatable_string) then
                                 var_name = target%name
                                 ! Add to list if not already present
                                 do j = 1, var_count

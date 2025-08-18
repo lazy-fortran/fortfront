@@ -40,7 +40,7 @@ contains
 
         ! Check if inferred type is properly set
         if (allocated(ident%inferred_type)) then
-            if (ident%inferred_type%data%kind == TINT) then
+            if (ident%inferred_type%kind == TINT) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Identifier with inferred type"
             else
@@ -70,7 +70,7 @@ contains
 
         ! Check if inferred type is properly set
         if (allocated(lit%inferred_type)) then
-            if (lit%inferred_type%data%kind == TREAL) then
+            if (lit%inferred_type%kind == TREAL) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Literal with inferred type"
             else
@@ -113,7 +113,7 @@ contains
 
             ! Check if inferred type is properly set
             if (allocated(assign%inferred_type)) then
-                if (assign%inferred_type%data%kind == TREAL) then
+                if (assign%inferred_type%kind == TREAL) then
                     pass_count = pass_count + 1
                     write (*, '(A)') "PASS: Assignment with inferred type"
                 else

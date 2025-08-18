@@ -33,7 +33,7 @@ contains
         write (*, '(A)') "Function type created successfully"
 
         ! Check function type
-        if (fun_type%data%kind == TFUN) then
+        if (fun_type%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Basic function type creation"
         else
@@ -59,7 +59,7 @@ contains
         write (*, '(A)') "Polymorphic type created successfully"
 
         ! Check poly type
-        if (poly_type%mono%data%kind == TFUN) then
+        if (poly_type%mono%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Polymorphic type creation"
         else
