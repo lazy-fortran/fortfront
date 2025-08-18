@@ -49,7 +49,9 @@ module type_system_hm
         procedure :: equals => mono_type_equals
         procedure :: to_string => mono_type_to_string
         procedure :: deep_copy => mono_type_deep_copy
-        ! Remove custom assignment to use default Fortran behavior
+        ! TEMPORARY: Assignment disabled to prevent double-free crash during finalization
+        ! The comprehensive test passes functionally but crashes on program cleanup
+        ! Need to investigate proper finalizer or reference counting approach
         ! procedure :: assign => mono_type_assign
         ! generic :: assignment(=) => assign
     end type mono_type_t
@@ -299,8 +301,46 @@ contains
         copy = this
     end function mono_type_deep_copy
 
-    ! Note: Custom assignment removed - using default Fortran assignment behavior
-    ! This allows proper deep copying of allocatable components
+    ! Minimal assignment operator to prevent double-free during finalization
+    subroutine mono_type_assign(lhs, rhs)
+        class(mono_type_t), intent(inout) :: lhs
+        class(mono_type_t), intent(in) :: rhs
+        integer :: i
+
+        ! Copy simple fields with safe handling of allocatable components
+        lhs%kind = rhs%kind
+        ! Copy type variable fields individually to avoid shared allocatable strings
+        lhs%var%id = rhs%var%id
+        if (allocated(rhs%var%name)) then
+            if (allocated(lhs%var%name)) deallocate(lhs%var%name)
+            lhs%var%name = rhs%var%name  ! Fortran automatically allocates and copies
+        else
+            if (allocated(lhs%var%name)) deallocate(lhs%var%name)
+        end if
+        lhs%size = rhs%size
+        lhs%alloc_info = rhs%alloc_info
+        
+        ! For args: only allocate fresh memory, no deep copying of nested args
+        if (allocated(rhs%args)) then
+            if (allocated(lhs%args)) deallocate(lhs%args)
+            allocate(lhs%args(size(rhs%args)))
+            
+            ! Copy only the top-level fields to avoid nested shared references
+            do i = 1, size(rhs%args)
+                lhs%args(i)%kind = rhs%args(i)%kind
+                ! Copy type variable fields individually for safety
+                lhs%args(i)%var%id = rhs%args(i)%var%id
+                if (allocated(rhs%args(i)%var%name)) then
+                    lhs%args(i)%var%name = rhs%args(i)%var%name
+                end if
+                lhs%args(i)%size = rhs%args(i)%size
+                lhs%args(i)%alloc_info = rhs%args(i)%alloc_info
+                ! Leave nested args unallocated to prevent double-free
+            end do
+        else
+            if (allocated(lhs%args)) deallocate(lhs%args)
+        end if
+    end subroutine mono_type_assign
 
 
     ! Convert polymorphic type to string
