@@ -14,7 +14,7 @@ module semantic_analyzer
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 range_expression_node, get_array_slice_node
     use parameter_tracker
-    use expression_temporary_tracker_module
+    use expression_temporary_tracker_module, only: temp_tracker_t, create_temp_tracker
     use constant_folding, only: fold_constants_in_arena
     implicit none
     private
@@ -1826,12 +1826,12 @@ contains
         class(semantic_context_t), intent(in) :: this
         type(semantic_context_t) :: copy
 
-        copy%env = this%env              ! Uses type_env_t assignment (deep copy)
-        copy%scopes = this%scopes        ! Uses scope_stack_t assignment (deep copy)
+        ! Use explicit deep copy procedures to avoid double-free errors
+        copy%env = this%env%deep_copy()              ! Uses type_env_t deep_copy method
+        copy%scopes = this%scopes%deep_copy()        ! Uses scope_stack_t deep_copy method  
         copy%next_var_id = this%next_var_id
-        copy%subst = this%subst          ! Uses substitution_t assignment (deep copy)
-        ! Uses temp_tracker_t assignment (deep copy)
-        copy%temp_tracker = this%temp_tracker
+        copy%subst = this%subst%deep_copy()          ! Uses substitution_t deep_copy method
+        copy%temp_tracker = this%temp_tracker  ! Uses temp_tracker_t assignment operator (calls deep_copy)
     end function semantic_context_deep_copy
 
 
