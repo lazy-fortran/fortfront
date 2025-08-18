@@ -487,6 +487,19 @@ contains
 
     subroutine ast_arena_clear(this)
         class(ast_arena_t), intent(inout) :: this
+        type(ast_entry_t), allocatable :: fresh_entries(:)
+        
+        ! Clear by replacing the entire entries array with a fresh one
+        ! This leverages Fortran's automatic cleanup when the old array is deallocated
+        if (allocated(this%entries)) then
+            ! Allocate fresh array with same capacity but clear entries
+            allocate(fresh_entries(this%capacity))
+            
+            ! Replace entries array - old entries are automatically cleaned up
+            call move_alloc(fresh_entries, this%entries)
+        end if
+        
+        ! Reset arena state counters
         this%size = 0
         this%current_index = 0
         this%max_depth = 0
@@ -608,12 +621,16 @@ contains
         
         ! Copy allocatable strings
         if (allocated(rhs%node_type)) then
-            lhs%node_type = rhs%node_type
+            lhs%node_type = rhs%node_type  ! Automatic reallocation
+        else
+            if (allocated(lhs%node_type)) deallocate(lhs%node_type)
         end if
         
         ! Copy child indices using automatic reallocation
         if (allocated(rhs%child_indices)) then
             lhs%child_indices = rhs%child_indices  ! Automatic allocation for regular arrays
+        else
+            if (allocated(lhs%child_indices)) deallocate(lhs%child_indices)
         end if
         
         ! Deep copy the polymorphic node using explicit allocation
