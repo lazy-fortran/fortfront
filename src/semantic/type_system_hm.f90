@@ -855,15 +855,9 @@ contains
                 temp_names(i) = this%names(i)
                 temp_schemes(i) = this%schemes(i)  ! Assignment now does deep copy
             end do
-            ! Replace move_alloc with explicit deallocation and reallocation
-            deallocate (this%names)
-            deallocate (this%schemes)
-            allocate (character(len=256) :: this%names(new_capacity))
-            allocate (this%schemes(new_capacity))
-            do i = 1, this%count
-                this%names(i) = temp_names(i)
-                this%schemes(i) = temp_schemes(i)
-            end do
+            ! Use move_alloc for O(1) performance instead of O(n) copying
+            call move_alloc(temp_names, this%names)
+            call move_alloc(temp_schemes, this%schemes)
             this%capacity = new_capacity
         end if
 

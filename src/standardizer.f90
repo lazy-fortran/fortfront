@@ -2416,9 +2416,8 @@ contains
                     prog%body_indices(old_pos+1:size(prog%body_indices))
             end if
             
-            ! Replace the program's body_indices
-            deallocate(prog%body_indices)
-            prog%body_indices = new_body_indices
+            ! Replace the program's body_indices using move_alloc for O(1) performance
+            call move_alloc(new_body_indices, prog%body_indices)
             
         end select
     end subroutine update_program_body_indices

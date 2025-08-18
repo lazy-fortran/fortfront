@@ -151,15 +151,9 @@ contains
                     temp_names(j) = this%env%names(j)
                     temp_schemes(j) = this%env%schemes(j)
                 end do
-                ! Replace move_alloc with explicit deallocation and reallocation
-                deallocate (this%env%names)
-                deallocate (this%env%schemes)
-                allocate (character(len=256) :: this%env%names(new_capacity))
-                allocate (this%env%schemes(new_capacity))
-                do j = 1, this%env%count
-                    this%env%names(j) = temp_names(j)
-                    this%env%schemes(j) = temp_schemes(j)
-                end do
+                ! Use move_alloc for O(1) performance instead of O(n) copying
+                call move_alloc(temp_names, this%env%names)
+                call move_alloc(temp_schemes, this%env%schemes)
                 this%env%capacity = new_capacity
             end if
 
@@ -211,10 +205,8 @@ contains
                     end do
                 end block
             end if
-            ! Replace move_alloc with explicit deallocation and reallocation
-            deallocate (this%scopes)
-            allocate (this%scopes(new_capacity))
-            this%scopes = temp_scopes
+            ! Use move_alloc for O(1) performance instead of O(n) copying
+            call move_alloc(temp_scopes, this%scopes)
             this%capacity = new_capacity
         end if
 
