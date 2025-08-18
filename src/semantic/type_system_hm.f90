@@ -100,6 +100,21 @@ module type_system_hm
 
 contains
 
+    ! Initialize mono_type_t to safe state (no allocatable components)
+    subroutine init_mono_type(mt)
+        type(mono_type_t), intent(out) :: mt
+        mt%kind = TINT  ! Safe default
+        mt%size = 0
+        mt%var%id = -1
+        allocate(character(len=0) :: mt%var%name)
+        mt%alloc_info%is_allocatable = .false.
+        mt%alloc_info%is_pointer = .false.
+        mt%alloc_info%is_target = .false.
+        mt%alloc_info%is_allocated = .false.
+        mt%alloc_info%needs_allocation_check = .false.
+        mt%alloc_info%needs_allocatable_string = .false.
+        ! args is left unallocated (null state)
+    end subroutine init_mono_type
 
     ! Constructor for type variable
     function create_type_var(id, name) result(tv)
@@ -202,8 +217,11 @@ contains
         fun_type%alloc_info%needs_allocatable_string = .false.
         
         allocate (fun_type%args(2))
-        fun_type%args(1) = arg_type  ! Uses default assignment
-        fun_type%args(2) = result_type  ! Uses default assignment
+        ! Initialize args elements to safe state before assignment
+        call init_mono_type(fun_type%args(1))
+        call init_mono_type(fun_type%args(2))
+        fun_type%args(1) = arg_type  ! Now safe to use assignment
+        fun_type%args(2) = result_type  ! Now safe to use assignment
     end function create_fun_type
 
     ! Check if two monomorphic types are equal
@@ -834,11 +852,9 @@ contains
 
     ! Assignment operator for mono_type_t (cycle-safe deep copy)
     subroutine mono_type_assign(lhs, rhs)
-        class(mono_type_t), intent(inout) :: lhs
+        class(mono_type_t), intent(out) :: lhs
         type(mono_type_t), intent(in) :: rhs
 
-        ! Manual deallocation to avoid double-free
-        if (allocated(lhs%args)) deallocate(lhs%args)
         call mono_type_assign_with_depth(lhs, rhs, 0)
     end subroutine mono_type_assign
 
@@ -861,9 +877,14 @@ contains
             if (allocated(lhs%args)) deallocate(lhs%args)
             allocate(lhs%args(size(rhs%args)))
             do i = 1, size(rhs%args)
+                ! Initialize target before assignment
+                call init_mono_type(lhs%args(i))
                 ! Recursively copy with depth tracking
                 call mono_type_assign_with_depth(lhs%args(i), rhs%args(i), depth + 1)
             end do
+        else
+            ! Clear args if source doesn't have them or depth limit reached
+            if (allocated(lhs%args)) deallocate(lhs%args)
         end if
     end subroutine mono_type_assign_with_depth
 
