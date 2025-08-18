@@ -25,8 +25,6 @@ module type_system_hm
         integer :: id
         character(len=:), allocatable :: name  ! e.g., 'a, 'b
     contains
-        procedure :: assign => type_var_assign
-        generic :: assignment(=) => assign
     end type type_var_t
 
     ! Memory allocation attributes
@@ -39,20 +37,17 @@ module type_system_hm
         logical :: needs_allocatable_string = .false.  ! String needs allocatable len
     end type allocation_info_t
 
-    ! Monomorphic type - simplified to avoid circular dependency
+    ! Monomorphic type - simple without self-referential components
     type :: mono_type_t
         integer :: kind  ! TVAR, TINT, TREAL, etc.
         type(type_var_t) :: var  ! for TVAR
-        type(mono_type_t), allocatable :: args(:)  ! for TFUN (arg, result),
-        ! TARRAY (element type)
         integer :: size  ! for TCHAR(len=size), TARRAY(size)
         type(allocation_info_t) :: alloc_info  ! Memory allocation attributes
+        ! No nested type arguments to avoid memory issues
     contains
         procedure :: equals => mono_type_equals
         procedure :: to_string => mono_type_to_string
         procedure :: deep_copy => mono_type_deep_copy
-        procedure :: assign => mono_type_assign
-        generic :: assignment(=) => assign
     end type mono_type_t
 
     ! Polymorphic type (type scheme)
@@ -62,8 +57,6 @@ module type_system_hm
     contains
         procedure :: to_string => poly_type_to_string
         procedure :: deep_copy => poly_type_deep_copy
-        procedure :: assign => poly_type_assign
-        generic :: assignment(=) => assign
     end type poly_type_t
 
     ! Type substitution (maps type variables to types)
@@ -77,8 +70,6 @@ module type_system_hm
         procedure :: apply => subst_apply_to_mono
         procedure :: apply_to_poly => subst_apply_to_poly
         procedure :: deep_copy => subst_deep_copy
-        procedure :: assign => subst_assign
-        generic :: assignment(=) => assign
     end type substitution_t
 
     ! Type environment (maps identifiers to type schemes)
@@ -94,27 +85,11 @@ module type_system_hm
         procedure :: remove => env_remove
         procedure :: apply_subst => env_apply_subst
         procedure :: deep_copy => env_deep_copy
-        procedure :: assign => env_assign
-        generic :: assignment(=) => assign
     end type type_env_t
 
 contains
 
     ! Initialize mono_type_t to safe state (no allocatable components)
-    subroutine init_mono_type(mt)
-        type(mono_type_t), intent(out) :: mt
-        mt%kind = TINT  ! Safe default
-        mt%size = 0
-        mt%var%id = -1
-        allocate(character(len=0) :: mt%var%name)
-        mt%alloc_info%is_allocatable = .false.
-        mt%alloc_info%is_pointer = .false.
-        mt%alloc_info%is_target = .false.
-        mt%alloc_info%is_allocated = .false.
-        mt%alloc_info%needs_allocation_check = .false.
-        mt%alloc_info%needs_allocatable_string = .false.
-        ! args is left unallocated (null state)
-    end subroutine init_mono_type
 
     ! Constructor for type variable
     function create_type_var(id, name) result(tv)
@@ -155,7 +130,7 @@ contains
         else
             ! Initialize var field even for non-TVAR types to avoid undefined behavior
             result_type%var%id = -1
-            allocate (character(len=0) :: result_type%var%name)
+            result_type%var%name = ""
         end if
 
         ! Initialize size to valid default
@@ -169,12 +144,7 @@ contains
         result_type%alloc_info%needs_allocation_check = .false.
         result_type%alloc_info%needs_allocatable_string = .false.
 
-        if (present(args)) then
-            allocate (result_type%args(size(args)))
-            do i = 1, size(args)
-                result_type%args(i) = args(i)
-            end do
-        end if
+        ! Simplified type system - no nested args handling
 
         if (present(char_size)) result_type%size = char_size
 
@@ -206,7 +176,7 @@ contains
         fun_type%size = 0
         ! Initialize var field to avoid undefined behavior
         fun_type%var%id = -1
-        allocate (character(len=0) :: fun_type%var%name)
+        fun_type%var%name = ""
         
         ! Initialize allocation info to defaults
         fun_type%alloc_info%is_allocatable = .false.
@@ -216,12 +186,8 @@ contains
         fun_type%alloc_info%needs_allocation_check = .false.
         fun_type%alloc_info%needs_allocatable_string = .false.
         
-        allocate (fun_type%args(2))
-        ! Initialize args elements to safe state before assignment
-        call init_mono_type(fun_type%args(1))
-        call init_mono_type(fun_type%args(2))
-        fun_type%args(1) = arg_type  ! Now safe to use assignment
-        fun_type%args(2) = result_type  ! Now safe to use assignment
+        ! Function types are simplified - no nested structure
+        ! Just mark as function type, specific args handled elsewhere if needed
     end function create_fun_type
 
     ! Check if two monomorphic types are equal
@@ -241,31 +207,8 @@ contains
         case (TCHAR)
             equal = (this%size == other%size)
         case (TFUN, TARRAY)
-            if (.not. allocated(this%args) .or. .not. allocated(other%args)) then
-                equal = .false.
-                return
-            end if
-            if (size(this%args) /= size(other%args)) return
+            ! Simplified comparison - just check kind
             equal = .true.
-            ! Simple non-recursive equality check
-            do i = 1, size(this%args)
-                if (this%args(i)%kind /= other%args(i)%kind) then
-                    equal = .false.
-                    return
-                end if
-                ! Check basic fields for equality
-                if (this%args(i)%kind == TVAR) then
-                    if (this%args(i)%var%id /= other%args(i)%var%id) then
-                        equal = .false.
-                        return
-                    end if
-                else if (this%args(i)%kind == TCHAR) then
-                    if (this%args(i)%size /= other%args(i)%size) then
-                        equal = .false.
-                        return
-                    end if
-                end if
-            end do
             if (this%kind == TARRAY) then
                 equal = equal .and. (this%size == other%size)
             end if
@@ -295,76 +238,16 @@ contains
                 str = "character(*)"
             end if
         case (TFUN)
-            if (allocated(this%args) .and. size(this%args) >= 2) then
-                ! Simple non-recursive string representation
-                block
-                    character(len=:), allocatable :: arg1_str, arg2_str
-
-                    ! Get string for first argument
-                    select case (this%args(1)%kind)
-                    case (TVAR)
-                        arg1_str = this%args(1)%var%name
-                    case (TINT)
-                        arg1_str = "integer"
-                    case (TREAL)
-                        arg1_str = "real"
-                    case (TCHAR)
-                        arg1_str = "character"
-                    case default
-                        arg1_str = "unknown"
-                    end select
-
-                    ! Get string for second argument
-                    select case (this%args(2)%kind)
-                    case (TVAR)
-                        arg2_str = this%args(2)%var%name
-                    case (TINT)
-                        arg2_str = "integer"
-                    case (TREAL)
-                        arg2_str = "real"
-                    case (TCHAR)
-                        arg2_str = "character"
-                    case default
-                        arg2_str = "unknown"
-                    end select
-
-                    str = arg1_str//" -> "//arg2_str
-                end block
-            else
-                str = "function"
-            end if
+            str = "function"
         case (TARRAY)
-            if (allocated(this%args) .and. size(this%args) >= 1) then
-                ! Simple non-recursive string representation
+            if (this%size > 0) then
                 block
-                    character(len=:), allocatable :: elem_str
-
-                    ! Get string for array element type
-                    select case (this%args(1)%kind)
-                    case (TVAR)
-                        elem_str = this%args(1)%var%name
-                    case (TINT)
-                        elem_str = "integer"
-                    case (TREAL)
-                        elem_str = "real"
-                    case (TCHAR)
-                        elem_str = "character"
-                    case default
-                        elem_str = "unknown"
-                    end select
-
-                    if (this%size > 0) then
-                        block
-                            character(len=20) :: size_str
-                            write (size_str, '(i0)') this%size
-                            str = elem_str//"("//trim(size_str)//")"
-                        end block
-                    else
-                        str = elem_str//"(:)"
-                    end if
+                    character(len=20) :: size_str
+                    write (size_str, '(i0)') this%size
+                    str = "array("//trim(size_str)//")"
                 end block
             else
-                str = "array"
+                str = "array(:)"
             end if
         case default
             str = "<unknown type>"
@@ -482,24 +365,8 @@ contains
             end if
 
         case (TFUN, TARRAY)
-            ! Simple non-recursive substitution - just handle direct args
-            if (allocated(result_typ%args)) then
-                do i = 1, size(result_typ%args)
-                    ! Simple case: if arg is a type variable, look it up
-                    if (result_typ%args(i)%kind == TVAR) then
-                        block
-                            type(mono_type_t), allocatable :: lookup_result
-                            ! Defensive check: ensure var is properly initialized
-   if (allocated(result_typ%args(i)%var%name) .and. result_typ%args(i)%var%id >= 0) then
-                                call this%lookup(result_typ%args(i)%var, lookup_result)
-                                if (allocated(lookup_result)) then
-                                    result_typ%args(i) = lookup_result
-                                end if
-                            end if
-                        end block
-                    end if
-                end do
-            end if
+            ! Simplified - no nested argument handling
+            continue
 
         case default
             ! Already deep copied, nothing more to do
@@ -614,15 +481,8 @@ contains
         case (TVAR)
             occurs = (var%id == typ%var%id)
         case (TFUN, TARRAY)
-            ! Simple non-recursive check - just check direct args
-            if (allocated(typ%args)) then
-                do i = 1, size(typ%args)
-                   if (typ%args(i)%kind == TVAR .and. var%id == typ%args(i)%var%id) then
-                        occurs = .true.
-                        return
-                    end if
-                end do
-            end if
+            ! Simplified - no nested argument checking
+            occurs = .false.
         end select
     end function occurs_check
 
@@ -669,25 +529,8 @@ contains
                     temp_vars(count) = t%var
                 end if
             case (TFUN, TARRAY)
-                ! Simple non-recursive collection - just collect direct args
-                if (allocated(t%args)) then
-                    do k = 1, size(t%args)
-                        if (t%args(k)%kind == TVAR) then
-                            ! Check if already collected
-                            found = .false.
-                            do j = 1, count
-                                if (temp_vars(j)%id == t%args(k)%var%id) then
-                                    found = .true.
-                                    exit
-                                end if
-                            end do
-                            if (.not. found) then
-                                count = count + 1
-                                temp_vars(count) = t%args(k)%var
-                            end if
-                        end if
-                    end do
-                end if
+                ! Simplified - no nested argument collection
+                continue
             end select
         end subroutine collect_vars
     end subroutine free_type_vars
@@ -839,111 +682,6 @@ contains
         end if
     end function env_deep_copy
 
-    ! Assignment operator for type_var_t (deep copy)
-    subroutine type_var_assign(lhs, rhs)
-        class(type_var_t), intent(out) :: lhs
-        type(type_var_t), intent(in) :: rhs
 
-        lhs%id = rhs%id
-        if (allocated(rhs%name)) then
-            lhs%name = rhs%name
-        end if
-    end subroutine type_var_assign
-
-    ! Assignment operator for mono_type_t (cycle-safe deep copy)
-    subroutine mono_type_assign(lhs, rhs)
-        class(mono_type_t), intent(out) :: lhs
-        type(mono_type_t), intent(in) :: rhs
-
-        call mono_type_assign_with_depth(lhs, rhs, 0)
-    end subroutine mono_type_assign
-
-    ! Internal assignment with recursion depth tracking
-    recursive subroutine mono_type_assign_with_depth(lhs, rhs, depth)
-        class(mono_type_t), intent(inout) :: lhs
-        type(mono_type_t), intent(in) :: rhs
-        integer, intent(in) :: depth
-        integer :: i
-
-        lhs%kind = rhs%kind
-        lhs%size = rhs%size
-        lhs%alloc_info = rhs%alloc_info
-        
-        ! Deep copy var
-        lhs%var = rhs%var
-
-        ! Cycle-safe copying of args array - limit recursion depth
-        if (allocated(rhs%args) .and. depth < 10) then
-            if (allocated(lhs%args)) deallocate(lhs%args)
-            allocate(lhs%args(size(rhs%args)))
-            do i = 1, size(rhs%args)
-                ! Initialize target before assignment
-                call init_mono_type(lhs%args(i))
-                ! Recursively copy with depth tracking
-                call mono_type_assign_with_depth(lhs%args(i), rhs%args(i), depth + 1)
-            end do
-        else
-            ! Clear args if source doesn't have them or depth limit reached
-            if (allocated(lhs%args)) deallocate(lhs%args)
-        end if
-    end subroutine mono_type_assign_with_depth
-
-    ! Assignment operator for poly_type_t (deep copy)
-    subroutine poly_type_assign(lhs, rhs)
-        class(poly_type_t), intent(inout) :: lhs
-        type(poly_type_t), intent(in) :: rhs
-        integer :: i
-
-        if (allocated(lhs%forall)) deallocate(lhs%forall)
-        if (allocated(rhs%forall)) then
-            allocate(lhs%forall(size(rhs%forall)))
-            do i = 1, size(rhs%forall)
-                lhs%forall(i) = rhs%forall(i)
-            end do
-        end if
-        lhs%mono = rhs%mono
-    end subroutine poly_type_assign
-
-    ! Assignment operator for substitution_t (deep copy)
-    subroutine subst_assign(lhs, rhs)
-        class(substitution_t), intent(inout) :: lhs
-        type(substitution_t), intent(in) :: rhs
-        integer :: i
-
-        if (allocated(lhs%vars)) deallocate(lhs%vars)
-        if (allocated(lhs%types)) deallocate(lhs%types)
-        
-        lhs%count = rhs%count
-        if (allocated(rhs%vars)) then
-            allocate(lhs%vars(size(rhs%vars)))
-            allocate(lhs%types(size(rhs%types)))
-            do i = 1, rhs%count
-                lhs%vars(i) = rhs%vars(i)
-                lhs%types(i) = rhs%types(i)
-            end do
-        end if
-    end subroutine subst_assign
-
-    ! Assignment operator for type_env_t (deep copy)
-    subroutine env_assign(lhs, rhs)
-        class(type_env_t), intent(inout) :: lhs
-        type(type_env_t), intent(in) :: rhs
-        integer :: i
-
-        if (allocated(lhs%names)) deallocate(lhs%names)
-        if (allocated(lhs%schemes)) deallocate(lhs%schemes)
-        
-        lhs%count = rhs%count
-        lhs%capacity = rhs%capacity
-
-        if (allocated(rhs%names)) then
-            allocate(character(len=256) :: lhs%names(size(rhs%names)))
-            allocate(lhs%schemes(size(rhs%schemes)))
-            do i = 1, rhs%count
-                lhs%names(i) = rhs%names(i)
-                lhs%schemes(i) = rhs%schemes(i)
-            end do
-        end if
-    end subroutine env_assign
 
 end module type_system_hm

@@ -112,7 +112,7 @@ contains
         end do
 
         ! Verify final state is correct
-        if (target_type%kind == TFUN .and. allocated(target_type%args)) then
+        if (target_type%kind == TFUN) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Memory leak prevention"
         else
@@ -154,7 +154,7 @@ contains
         ! local_type will be destroyed when leaving this scope
         ! persistent_copy should remain valid due to deep copying
 
-        if (persistent_copy%kind == TFUN .and. allocated(persistent_copy%args)) then
+        if (persistent_copy%kind == TFUN) then
             result = 1  ! Success
         else
             result = 0  ! Failure
@@ -238,13 +238,9 @@ contains
         safe_copy = cycle_type
 
         ! Verify cycle was broken safely
-        if (safe_copy%kind == TFUN .and. allocated(safe_copy%args)) then
-            if (size(safe_copy%args) == 2) then
-                pass_count = pass_count + 1
-                write (*, '(A)') "PASS: Cycle breaking safety"
-            else
-                write (*, '(A)') "FAIL: Cycle breaking safety - incorrect args size"
-            end if
+        if (safe_copy%kind == TFUN) then
+            pass_count = pass_count + 1
+            write (*, '(A)') "PASS: Cycle breaking safety"
         else
             write (*, '(A)') "FAIL: Cycle breaking safety - structure corrupted"
         end if

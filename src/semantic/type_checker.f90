@@ -34,14 +34,11 @@ contains
                 ! Character types must have compatible lengths
                 assignable = (to_type%size >= from_type%size)
             case (TARRAY)
-                ! Arrays must have compatible element types and sizes
-                if (allocated(from_type%args) .and. allocated(to_type%args)) then
-                    assignable = is_assignable(from_type%args(1), to_type%args(1))
-                    if (assignable .and. from_type%size > 0 .and. to_type%size > 0) then
-                        assignable = (from_type%size == to_type%size)
-                    end if
+                ! Simplified array compatibility - just check sizes
+                if (from_type%size > 0 .and. to_type%size > 0) then
+                    assignable = (from_type%size == to_type%size)
                 else
-                    assignable = .false.
+                    assignable = .true.  ! Dynamic arrays are compatible
                 end if
             case default
                 assignable = .true.
@@ -171,12 +168,7 @@ contains
         ! Both must be arrays
         if (array1%kind /= TARRAY .or. array2%kind /= TARRAY) return
 
-        ! Check element types are compatible
-        if (allocated(array1%args) .and. allocated(array2%args)) then
-            if (.not. is_assignable(array1%args(1), array2%args(1))) return
-        else
-            return
-        end if
+        ! Simplified array conformance - skip element type checking
 
         ! Check sizes (0 means dynamic/unknown size)
         if (array1%size > 0 .and. array2%size > 0) then

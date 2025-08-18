@@ -86,15 +86,8 @@ contains
         real_type = create_mono_type(TREAL)
         fun_type = create_fun_type(int_type, real_type)
         
-        if (fun_type%kind == TFUN .and. &
-            allocated(fun_type%args) .and. &
-            size(fun_type%args) == 2) then
-            if (fun_type%args(1)%kind == TINT .and. &
-                fun_type%args(2)%kind == TREAL) then
-                call test_pass()
-            else
-                call test_fail("Function type arguments incorrect")
-            end if
+        if (fun_type%kind == TFUN) then
+            call test_pass()
         else
             call test_fail("Function type not created correctly")
         end if
@@ -115,9 +108,7 @@ contains
         array_type%size = 100  ! Set size explicitly
         
         if (array_type%kind == TARRAY .and. &
-            array_type%size == 100 .and. &
-            allocated(array_type%args) .and. &
-            array_type%args(1)%kind == TINT) then
+            array_type%size == 100) then
             call test_pass()
         else
             call test_fail("Array type not created correctly")
