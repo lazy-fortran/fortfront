@@ -2,6 +2,14 @@
 
 Core analysis frontend for lazy fortran - transforms lazy Fortran to standard Fortran via CLI.
 
+## ⚠️ CRITICAL SYSTEM STATUS
+
+**fortfront is currently NON-FUNCTIONAL due to fundamental memory safety issues (Issue #276).** All input methods result in memory corruption crashes during semantic analysis initialization. The system requires complete architectural revision for functionality.
+
+**Root Cause:** Fundamental conflict between Fortran's automatic memory management and custom assignment operators for self-referential type structures.
+
+**Impact:** Unable to process any input - system crashes immediately during startup.
+
 ## Overview
 
 fortfront is a pure CLI tool that transforms lazy Fortran code to standard Fortran:
@@ -72,20 +80,20 @@ fpm test
 
 ### Command Line Interface
 
-Transform lazy Fortran to standard Fortran:
+**⚠️ SYSTEM NON-FUNCTIONAL:** Due to memory corruption in the type system (Issue #276), all examples below currently fail:
 
 ```bash
-# Basic usage - pipe lazy fortran through fortfront
-echo "x = 42" | fortfront
+# Basic usage - currently fails with memory corruption
+echo "x = 42" | fortfront          # ❌ Crashes: double-free error
 
-# With file input/output
-fortfront < input.lf > output.f90
+# With file input/output - currently fails  
+fortfront < input.lf > output.f90  # ❌ Crashes: double-free error
 
-# Example transformation
-echo -e "x = 42\ny = 3.14\nprint *, x + y" | fortfront
+# Example transformation - currently fails
+echo -e "x = 42\ny = 3.14\nprint *, x + y" | fortfront  # ❌ Crashes
 ```
 
-**Output:**
+**Expected Output (when functional):**
 ```fortran
 program main
     implicit none
@@ -104,35 +112,37 @@ fortfront uses a dedicated `input_validation` module to validate input and provi
 
 #### ✅ Accepted Input Types
 
+**⚠️ ALL INPUT TYPES CURRENTLY FAIL due to memory corruption (Issue #276):**
+
 **Comments and empty input:**
 ```bash
-echo "! This is a comment" | fortfront
-echo "" | fortfront  # Empty input generates minimal program
+echo "! This is a comment" | fortfront    # ❌ Crashes: memory corruption
+echo "" | fortfront                       # ❌ Crashes: memory corruption
 ```
 
 **Variable assignments:**
 ```bash
-echo "x = 42" | fortfront
-echo "result = 3.14 * radius" | fortfront
+echo "x = 42" | fortfront                 # ❌ Crashes: memory corruption
+echo "result = 3.14 * radius" | fortfront # ❌ Crashes: memory corruption
 ```
 
 **Mathematical expressions:**
 ```bash
-echo "a + b" | fortfront          # Simple operations
-echo "(x + y) * z" | fortfront    # Expressions with parentheses
-echo "x * y + z / 2.0" | fortfront # Mixed identifier/number expressions
+echo "a + b" | fortfront                  # ❌ Crashes: memory corruption
+echo "(x + y) * z" | fortfront            # ❌ Crashes: memory corruption
+echo "x * y + z / 2.0" | fortfront        # ❌ Crashes: memory corruption
 ```
 
 **Function calls:**
 ```bash
-echo "sqrt(x) + y" | fortfront
-echo "result = sin(angle)" | fortfront
+echo "sqrt(x) + y" | fortfront            # ❌ Crashes: memory corruption
+echo "result = sin(angle)" | fortfront    # ❌ Crashes: memory corruption
 ```
 
 **Array operations:**
 ```bash
-echo "arr(i)" | fortfront
-echo "matrix(i, j) = value" | fortfront
+echo "arr(i)" | fortfront                 # ❌ Crashes: memory corruption
+echo "matrix(i, j) = value" | fortfront   # ❌ Crashes: memory corruption
 ```
 
 #### ❌ Rejected Input Types
@@ -179,18 +189,20 @@ This modular approach ensures lazy Fortran expressions are properly accepted whi
 
 #### Mathematical Expression Validation
 
-**Fixed (Issue #259):** The validation logic now correctly accepts mathematical expressions with operators, whether they contain numbers or only identifiers:
+**⚠️ CRITICAL LIMITATION (Issue #276):** fortfront is currently non-functional due to fundamental memory safety issues in the type system architecture. All input methods result in memory corruption crashes during semantic analysis initialization.
 
 ```bash
-# All mathematical expressions now work correctly:
-echo "a + b" | fortfront          # ✅ Works: identifier-only expressions accepted
-echo "x * y" | fortfront          # ✅ Works: identifier-only expressions accepted
-echo "(a + b) * c" | fortfront    # ✅ Works: complex identifier expressions accepted
-echo "x + 1" | fortfront          # ✅ Works: expressions with numbers accepted
-echo "a * 2.0" | fortfront        # ✅ Works: expressions with numbers accepted
+# ALL examples currently fail with memory corruption:
+echo "a + b" | fortfront          # ❌ Crashes: double-free error in type system
+echo "x * y" | fortfront          # ❌ Crashes: double-free error in type system  
+echo "(a + b) * c" | fortfront    # ❌ Crashes: double-free error in type system
+echo "x + 1" | fortfront          # ❌ Crashes: double-free error in type system
+echo "a * 2.0" | fortfront        # ❌ Crashes: double-free error in type system
 ```
 
-**Implementation:** The validation functions were extracted from `src/frontend.f90` into the dedicated `src/input_validation.f90` module. The main validation logic now accepts mathematical expressions based on the presence of operators alone, rather than requiring both operators and numbers. This supports lazy Fortran's goal of allowing concise mathematical expressions with identifiers only.
+**Root Cause:** Fundamental conflict between Fortran's automatic memory management and custom assignment operators for self-referential `mono_type_t` structures. This represents an architectural boundary of the Fortran language's capabilities.
+
+**Status:** System requires complete architectural revision for functionality. See Issue #276 for technical details and alternative approaches.
 
 #### Standalone Validation Usage
 
