@@ -2250,22 +2250,7 @@ contains
         end if
         
         ! Generate parameter declarations using semantic type information
-        ! Always try to generate parameter declarations - the subroutine will check if parameters exist
-        ! DEBUG: Check if this is being called
-        if (allocated(code)) then
-            ! Store current length to see if new declarations are added
-            block
-                integer :: initial_length
-                initial_length = len(code)
-                call generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
-                ! If length changed, our function worked
-                if (len(code) > initial_length) then
-                    print *, "DEBUG: Added parameter declarations, length: ", initial_length, " -> ", len(code)
-                end if
-            end block
-        else
-            call generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
-        end if
+        call generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
         
         ! Generate result variable declaration if present and not explicitly declared
         call generate_result_variable_declaration_from_semantics(arena, proc_node, indent, code)
@@ -3038,8 +3023,6 @@ contains
         integer :: i, param_index
         character(len=:), allocatable :: param_type_str, param_name
         
-        ! DEBUG: Print that this function is being called
-        print *, "DEBUG: generate_parameter_declarations_from_semantics called"
         
         select type (proc_node)
         type is (function_def_node)
@@ -3056,30 +3039,23 @@ contains
                                 ! Get type from semantic analysis
                                 if (allocated(param_node%inferred_type)) then
                                     param_type_str = param_node%inferred_type%to_string()
-                                    print *, "DEBUG: param ", trim(param_name), " has inferred type: ", trim(param_type_str)
                                     ! Convert semantic type to Fortran declaration format
                                     if (param_type_str == "real(8)") then
                                         param_type_str = "real(8)"
-                                        print *, "DEBUG: using real(8) for ", trim(param_name)
                                     else if (param_type_str == "integer") then
                                         param_type_str = "integer"
-                                        print *, "DEBUG: using integer for ", trim(param_name)
                                     else if (index(param_type_str, "character") > 0) then
                                         ! Keep character types as-is from semantic analysis
                                         param_type_str = param_type_str
-                                        print *, "DEBUG: using character for ", trim(param_name)
                                     else if (param_node%inferred_type%kind == TVAR) then
                                         ! Type variable - apply Fortran implicit typing rules
-                                        print *, "DEBUG: type variable for ", trim(param_name), ", applying implicit rules"
                                         param_type_str = apply_implicit_typing_rules(param_name)
                                     else
                                         ! Fallback for unknown types - apply implicit typing rules
-                                        print *, "DEBUG: unknown type for ", trim(param_name), ", applying implicit rules"
                                         param_type_str = apply_implicit_typing_rules(param_name)
                                     end if
                                 else
                                     ! No semantic type information - apply Fortran implicit typing rules
-                                    print *, "DEBUG: no inferred type for ", trim(param_name), ", applying implicit rules"
                                     param_type_str = apply_implicit_typing_rules(param_name)
                                 end if
                                 
@@ -3230,8 +3206,6 @@ contains
         
         character :: first_char
         
-        ! DEBUG: Print the variable name and its inferred type
-        print *, "DEBUG: apply_implicit_typing_rules for: ", trim(var_name)
         
         if (len_trim(var_name) == 0) then
             type_str = "real(8)"  ! Fallback for empty names
@@ -3254,8 +3228,6 @@ contains
             type_str = "real(8)"
         end if
         
-        ! DEBUG: Print the result
-        print *, "DEBUG: ", trim(var_name), " -> ", trim(type_str)
     end function apply_implicit_typing_rules
 
 end module codegen_core
