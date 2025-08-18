@@ -166,7 +166,6 @@ contains
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
 
-        ! DEBUG: print *, "infer_and_store_type for node", node_index, "type:", &
         !        trim(arena%entries(node_index)%node_type)
         inferred = ctx%infer_stmt(arena, node_index)
 
