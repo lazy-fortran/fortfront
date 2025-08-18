@@ -619,17 +619,66 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     unit_end = unit_end - 1
                 end do
             else
-                ! Single line construct - find end of current line
-                current_line = tokens(start_pos)%line
-                i = start_pos
-                do while (i <= size(tokens))
-                    if (tokens(i)%line == current_line) then
-                        unit_end = i
-                        i = i + 1
-                    else
-                        exit
-                    end if
-                end do
+                ! For mixed module/main program files, check if remaining tokens
+                ! should be grouped as one implicit main program
+                if (has_explicit_program .and. &
+                    start_pos <= size(tokens) .and. &
+                    .not. is_function_start(tokens, start_pos) .and. &
+                    .not. is_subroutine_start(tokens, start_pos) .and. &
+                    .not. is_module_start(tokens, start_pos) .and. &
+                    .not. is_program_start(tokens, start_pos)) then
+                    ! Check if there are any meaningful tokens to group
+                    block
+                        logical :: has_meaningful_content
+                        integer :: check_pos
+                        has_meaningful_content = .false.
+                        do check_pos = start_pos, size(tokens)
+                            ! Only consider keywords, identifiers, numbers, strings, and operators as meaningful
+                            ! Skip EOF, newlines, comments, and any other token types
+                            if (tokens(check_pos)%kind == TK_KEYWORD .or. &
+                                tokens(check_pos)%kind == TK_IDENTIFIER .or. &
+                                tokens(check_pos)%kind == TK_NUMBER .or. &
+                                tokens(check_pos)%kind == TK_STRING .or. &
+                                tokens(check_pos)%kind == TK_OPERATOR) then
+                                has_meaningful_content = .true.
+                                exit
+                            end if
+                        end do
+                        
+                        if (has_meaningful_content) then
+                            ! This looks like implicit main program statements after explicit units
+                            ! Group all remaining non-explicit statements together
+                            unit_end = size(tokens)
+                            do while (unit_end > start_pos .and. tokens(unit_end)%kind == TK_EOF)
+                                unit_end = unit_end - 1
+                            end do
+                        else
+                            ! No meaningful content, treat as single line (will be skipped)
+                            current_line = tokens(start_pos)%line
+                            i = start_pos
+                            do while (i <= size(tokens))
+                                if (tokens(i)%line == current_line) then
+                                    unit_end = i
+                                    i = i + 1
+                                else
+                                    exit
+                                end if
+                            end do
+                        end if
+                    end block
+                else
+                    ! Single line construct - find end of current line
+                    current_line = tokens(start_pos)%line
+                    i = start_pos
+                    do while (i <= size(tokens))
+                        if (tokens(i)%line == current_line) then
+                            unit_end = i
+                            i = i + 1
+                        else
+                            exit
+                        end if
+                    end do
+                end if
             end if
 
             ! Skip empty lines (single EOF token on its own line)
@@ -702,33 +751,28 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             ! Program definition
             unit_index = parse_statement_dispatcher(tokens, arena)
         else
-            ! If we're in explicit program unit mode, don't create
-            ! implicit program wrappers
-            if (has_explicit_program) then
-                unit_index = 0
-            else
-                ! For lazy fortran, we need to parse ALL statements in the token array
-                ! But first check if we have any real content
-                block
-                    logical :: has_real_content
-                    integer :: k
-                    has_real_content = .false.
-                    do k = 1, size(tokens)
-                        if (tokens(k)%kind /= TK_EOF .and. &
-                            tokens(k)%kind /= TK_NEWLINE) then
-                            ! Include comments as real content for lazy fortran
-                            has_real_content = .true.
-                            exit
-                        end if
-                    end do
-
-                    if (has_real_content) then
-                        unit_index = parse_all_statements(tokens, arena)
-                    else
-                        unit_index = 0
+            ! For mixed module/main program files, we need to parse implicit main programs
+            ! even when explicit program units exist elsewhere in the file.
+            ! Check if we have any real content to parse as implicit main program
+            block
+                logical :: has_real_content
+                integer :: k
+                has_real_content = .false.
+                do k = 1, size(tokens)
+                    if (tokens(k)%kind /= TK_EOF .and. &
+                        tokens(k)%kind /= TK_NEWLINE) then
+                        ! Include comments as real content for lazy fortran
+                        has_real_content = .true.
+                        exit
                     end if
-                end block
-            end if
+                end do
+
+                if (has_real_content) then
+                    unit_index = parse_all_statements(tokens, arena)
+                else
+                    unit_index = 0
+                end if
+            end block
         end if
     end function parse_program_unit
 
