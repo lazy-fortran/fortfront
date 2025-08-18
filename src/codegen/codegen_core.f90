@@ -2327,16 +2327,21 @@ contains
                         group_kind = node%kind_value
                         group_has_kind = node%has_kind
                         
-                        ! Check intent and optional, preferring param_map for parameters
+                        ! Check intent and optional - preserve explicit declarations exactly as written
                         block
                             integer :: param_idx
                             param_idx = find_parameter_info(param_map, node%var_name)
                             if (param_idx > 0) then
-                                ! This is a parameter - use param_map information
-                                group_intent = param_map(param_idx)%intent_str
-                                group_is_optional = param_map(param_idx)%is_optional
+                                ! This is a parameter that's explicitly declared in the body
+                                ! PRESERVE the explicit declaration exactly as written - do NOT override with param_map
+                                if (node%has_intent) then
+                                    group_intent = node%intent
+                                else
+                                    group_intent = ""  ! No intent specified in explicit declaration
+                                end if
+                                group_is_optional = node%is_optional
                             else
-                                ! Regular declaration - use node information
+                                ! Regular local variable declaration - use node information
                                 if (node%has_intent) then
                                     group_intent = node%intent
                                 else
@@ -3013,6 +3018,99 @@ contains
     end subroutine safe_generate_code_from_arena
 
     ! Generate parameter declarations using semantic type information
+    ! Check if a variable is already explicitly declared in the function body
+    logical function is_variable_explicitly_declared(arena, proc_node, var_name)
+        type(ast_arena_t), intent(in) :: arena
+        class(ast_node), intent(in) :: proc_node
+        character(len=*), intent(in) :: var_name
+        
+        integer :: i, body_index
+        
+        is_variable_explicitly_declared = .false.
+        
+        ! Check if variable is explicitly declared in function body
+        
+        select type (proc_node)
+        type is (function_def_node)
+            if (allocated(proc_node%body_indices)) then
+                ! Check each body node for explicit declarations
+                do i = 1, size(proc_node%body_indices)
+                    body_index = proc_node%body_indices(i)
+                    if (body_index > 0 .and. body_index <= arena%size) then
+                        if (allocated(arena%entries(body_index)%node)) then
+                            select type (body_node => arena%entries(body_index)%node)
+                            type is (declaration_node)
+                                ! Check if this declaration matches the variable
+                                if (body_node%var_name == var_name) then
+                                    ! Found explicit declaration for this variable
+                                    is_variable_explicitly_declared = .true.
+                                    return
+                                end if
+                                ! Check multi-variable declarations
+                                if (body_node%is_multi_declaration .and. allocated(body_node%var_names)) then
+                                    block
+                                        integer :: j
+                                        do j = 1, size(body_node%var_names)
+                                            if (body_node%var_names(j) == var_name) then
+                                                is_variable_explicitly_declared = .true.
+                                                return
+                                            end if
+                                        end do
+                                    end block
+                                end if
+                            type is (parameter_declaration_node)
+                                ! DEBUG: Uncomment for debugging
+                                ! print *, "DEBUG: Found parameter_declaration_node for: '", trim(body_node%name), "'"
+                                if (body_node%name == var_name) then
+                                    is_variable_explicitly_declared = .true.
+                                    return
+                                end if
+                            class default
+                                ! Other node types - continue searching
+                            end select
+                        end if
+                    end if
+                end do
+            end if
+        type is (subroutine_def_node)
+            if (allocated(proc_node%body_indices)) then
+                do i = 1, size(proc_node%body_indices)
+                    body_index = proc_node%body_indices(i)
+                    if (body_index > 0 .and. body_index <= arena%size) then
+                        if (allocated(arena%entries(body_index)%node)) then
+                            select type (body_node => arena%entries(body_index)%node)
+                            type is (declaration_node)
+                                if (body_node%var_name == var_name) then
+                                    is_variable_explicitly_declared = .true.
+                                    return
+                                end if
+                                ! Check multi-variable declarations
+                                if (body_node%is_multi_declaration .and. allocated(body_node%var_names)) then
+                                    block
+                                        integer :: j
+                                        do j = 1, size(body_node%var_names)
+                                            if (body_node%var_names(j) == var_name) then
+                                                is_variable_explicitly_declared = .true.
+                                                return
+                                            end if
+                                        end do
+                                    end block
+                                end if
+                            type is (parameter_declaration_node)
+                                if (body_node%name == var_name) then
+                                    is_variable_explicitly_declared = .true.
+                                    return
+                                end if
+                            end select
+                        end if
+                    end if
+                end do
+            end if
+        end select
+        
+        ! Variable not found as explicitly declared
+    end function is_variable_explicitly_declared
+
     subroutine generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
         use type_system_hm, only: mono_type_t, TVAR
         type(ast_arena_t), intent(in) :: arena
@@ -3023,10 +3121,13 @@ contains
         integer :: i, param_index
         character(len=:), allocatable :: param_type_str, param_name, intent_str
         
+        ! Generate parameter declarations only for missing parameters
+        
         
         select type (proc_node)
         type is (function_def_node)
             if (allocated(proc_node%param_indices)) then
+                ! Process parameters for auto-declaration
                 do i = 1, size(proc_node%param_indices)
                     param_index = proc_node%param_indices(i)
                     if (param_index > 0 .and. param_index <= arena%size) then
@@ -3035,6 +3136,12 @@ contains
                             select type (param_node => arena%entries(param_index)%node)
                             type is (identifier_node)
                                 param_name = param_node%name
+                                
+                                ! Check if parameter is already explicitly declared - if so, skip auto-generation
+                                if (is_variable_explicitly_declared(arena, proc_node, param_name)) then
+                                    cycle  ! Skip this parameter, it's already explicitly declared
+                                end if
+                                
                                 intent_str = "intent(in)"  ! Default for identifier parameters
                                 
                                 ! Get type from semantic analysis
@@ -3064,6 +3171,12 @@ contains
                                 code = code//indent//param_type_str//", "//intent_str//" :: "//param_name//new_line('a')
                             type is (parameter_declaration_node)
                                 param_name = param_node%name
+                                
+                                ! Check if parameter is already explicitly declared - if so, skip auto-generation
+                                if (is_variable_explicitly_declared(arena, proc_node, param_name)) then
+                                    cycle  ! Skip this parameter, it's already explicitly declared
+                                end if
+                                
                                 ! Get proper intent from parameter declaration
                                 intent_str = "intent("//intent_type_to_string(param_node%intent_type)//")"
                                 if (param_node%intent_type == INTENT_NONE) then
@@ -3095,6 +3208,12 @@ contains
                             select type (param_node => arena%entries(param_index)%node)
                             type is (identifier_node)
                                 param_name = param_node%name
+                                
+                                ! Check if parameter is already explicitly declared - if so, skip auto-generation
+                                if (is_variable_explicitly_declared(arena, proc_node, param_name)) then
+                                    cycle  ! Skip this parameter, it's already explicitly declared
+                                end if
+                                
                                 intent_str = "intent(in)"  ! Default for identifier parameters
                                 
                                 ! Get type from semantic analysis
@@ -3120,6 +3239,12 @@ contains
                                 code = code//indent//param_type_str//", "//intent_str//" :: "//param_name//new_line('a')
                             type is (parameter_declaration_node)
                                 param_name = param_node%name
+                                
+                                ! Check if parameter is already explicitly declared - if so, skip auto-generation
+                                if (is_variable_explicitly_declared(arena, proc_node, param_name)) then
+                                    cycle  ! Skip this parameter, it's already explicitly declared
+                                end if
+                                
                                 ! Get proper intent from parameter declaration
                                 intent_str = "intent("//intent_type_to_string(param_node%intent_type)//")"
                                 if (param_node%intent_type == INTENT_NONE) then

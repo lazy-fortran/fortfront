@@ -787,6 +787,14 @@ contains
             end if
         type is (select_case_node)
             ! TODO: Handle select case when implemented
+        type is (function_def_node)
+            ! Skip function contents - functions handle their own variable declarations
+            ! This prevents the standardizer from duplicating function parameter declarations
+            return
+        type is (subroutine_def_node) 
+            ! Skip subroutine contents - subroutines handle their own variable declarations
+            ! This prevents the standardizer from duplicating subroutine parameter declarations
+            return
         end select
     end subroutine collect_statement_vars
 
