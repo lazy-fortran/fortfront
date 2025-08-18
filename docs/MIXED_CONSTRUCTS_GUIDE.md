@@ -216,8 +216,11 @@ echo -e "module test\nend module\nx = 42" | fortfront
 # Module with subroutines
 echo -e "module math\ncontains\nsubroutine add()\nend subroutine\nend module\ncall add()" | fortfront
 
-# Module with variables
+# Module with variables  
 echo -e "module data\ninteger :: n = 5\nend module\ninteger :: result\nresult = n" | fortfront
+
+# Complex example: multiple modules with functions
+echo -e "module constants\nreal :: pi = 3.14159\nend module\n\nmodule circle\nuse constants\ncontains\nreal function area(r)\nreal :: r\narea = pi * r * r\nend function\nend module\n\nreal :: radius = 2.0\nprint *, area(radius)" | fortfront
 ```
 
-All examples generate proper standard Fortran with both module and main program components.
+All examples generate proper standard Fortran with both module and main program components properly structured and type-inferred.
