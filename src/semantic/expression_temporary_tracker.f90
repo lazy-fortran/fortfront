@@ -103,11 +103,8 @@ contains
         end if
         temp_array(size(temp_array)) = new_temp
         
-        ! Replace move_alloc with explicit deallocation and reallocation
-        if (allocated(tracker%temporaries)) deallocate(tracker%temporaries)
-        allocate(tracker%temporaries(size(temp_array)))
-        tracker%temporaries = temp_array
-        deallocate(temp_array)
+        ! Use move_alloc for O(1) performance instead of O(n) copying
+        call move_alloc(temp_array, tracker%temporaries)
 
         tracker%active_count = tracker%active_count + 1
         tracker%total_allocated = tracker%total_allocated + 1
