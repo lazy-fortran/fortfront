@@ -17,10 +17,8 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **High Performance**: <0.05ms average transformation time  
 - **Enhanced Error Reporting**: Clear error messages with line/column info
 - **Mixed Construct Support**: Handles modules with implicit main programs
-- **Comprehensive Testing**: Unit tests for transformation + CLI system tests
 - **Standard Compliant**: Generates clean, standard Fortran code
 - **Type Inference**: Automatic variable typing algorithm
-- **Extensible Architecture**: Plugin-based analysis pipeline
 
 ## Building
 
@@ -44,9 +42,6 @@ echo "x = 42" | fortfront
 
 # Mixed constructs - module with main program
 echo -e "module math\ninteger :: pi = 3\nend module\n\ninteger :: x\nx = pi * 2\nprint *, x" | fortfront
-
-# With file input/output  
-cat input.lf | fortfront > output.f90
 ```
 
 **Expected Output (simple):**
@@ -74,31 +69,13 @@ end program main
 
 ### Integration with fortrun
 
-```bash
-# fortrun automatically uses fortfront for .lf files
-fortrun hello.lf
-
-# Explicit usage in build scripts  
-cat lazy_source.lf | fortfront > standard_source.f90
-gfortran standard_source.f90 -o program
-```
-
-## Error Reporting
-
-fortfront provides comprehensive error reporting:
-- **Precise Location**: Line and column numbers for each error
-- **Clear Descriptions**: Specific problem identification
-- **Fix Suggestions**: Actionable advice when possible
-- **Source Context**: Shows problematic source lines
+fortrun automatically uses fortfront for .lf files: `fortrun hello.lf`
 
 ## Documentation
 
-- **Detailed Guides**: See `docs/` folder for comprehensive documentation
-- **Mixed Constructs**: `docs/MIXED_CONSTRUCTS_GUIDE.md` for module + main program support
-- **API Reference**: `docs/SEMANTIC_EXTENSIBILITY_GUIDE.md` for plugin development  
-- **Error Handling**: `docs/ERROR_HANDLING_GUIDE.md` for library integration
-- **Build System**: `CLAUDE.md` for development setup and build instructions
+See `docs/` folder for detailed guides, API reference, and build instructions.
 
 ## License
 
 MIT License - see LICENSE file for details.
+
