@@ -2,7 +2,7 @@ module frontend_integration
     ! Higher-level compilation interface for fortfront
     ! Provides a unified compilation result type and interface for integration testing
     
-    use frontend, only: transform_lazy_fortran_string
+    use frontend, only: transform_lazy_fortran_string_with_arena
     use ast_core, only: ast_arena_t, init_ast_arena
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     implicit none
@@ -29,13 +29,12 @@ contains
         type(compilation_result_t) :: result
         
         character(len=:), allocatable :: output_code, error_msg
+        integer :: prog_index
         
-        ! Initialize the arena and semantic context
-        call init_ast_arena(result%arena)
-        result%semantic_context = create_semantic_context()
-        
-        ! Call the frontend transformation function
-        call transform_lazy_fortran_string(source_code, output_code, error_msg)
+        ! Call the frontend transformation function with arena exposure
+        call transform_lazy_fortran_string_with_arena(source_code, output_code, error_msg, &
+                                                      result%arena, prog_index, &
+                                                      result%semantic_context)
         
         ! Store results
         if (allocated(error_msg) .and. len(error_msg) > 0) then

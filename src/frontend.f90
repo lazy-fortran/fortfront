@@ -39,7 +39,8 @@ module frontend
     public :: compile_from_tokens_json, compile_from_ast_json, &
               compile_from_semantic_json
     public :: transform_lazy_fortran_string, &
-              transform_lazy_fortran_string_with_format, format_options_t
+              transform_lazy_fortran_string_with_format, format_options_t, &
+              transform_lazy_fortran_string_with_arena
     ! Debug functions for unit testing
     public :: find_program_unit_boundary, is_function_start, is_end_function, &
               parse_program_unit
@@ -1434,6 +1435,181 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         ! Phase 5: Code Generation
         output = generate_code_from_arena(arena, prog_index)
     end subroutine transform_lazy_fortran_string
+
+    ! String-based transformation function that exposes arena for integration testing
+    subroutine transform_lazy_fortran_string_with_arena(input, output, error_msg, &
+                                                       out_arena, out_prog_index, &
+                                                       out_semantic_context)
+        character(len=*), intent(in) :: input
+        character(len=:), allocatable, intent(out) :: output
+        character(len=:), allocatable, intent(out) :: error_msg
+        type(ast_arena_t), intent(out) :: out_arena
+        integer, intent(out) :: out_prog_index
+        type(semantic_context_t), intent(out) :: out_semantic_context
+
+        ! Local variables for 4-phase pipeline
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        integer :: prog_index
+
+        allocate(character(len=0) :: error_msg)
+        error_msg = ""
+        out_prog_index = 0
+
+        ! Initialize semantic context
+        out_semantic_context = create_semantic_context()
+
+        ! Handle empty or whitespace-only input
+        if (len_trim(input) == 0 .or. is_whitespace_only(input)) then
+            output = "program main" // new_line('A') // &
+                     "    implicit none" // new_line('A') // &
+                     "end program main" // new_line('A')
+            call init_ast_arena(out_arena)
+            return
+        end if
+
+        ! Phase 1: Lexical Analysis
+        call lex_source(input, tokens, error_msg)
+        if (error_msg /= "") then
+            call init_ast_arena(out_arena)
+            return
+        end if
+
+        ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
+        call validate_basic_syntax(input, tokens, error_msg)
+        if (error_msg /= "") then
+            ! Issue #256 requirement #4: No silent fallback to empty programs
+            ! Issue #256 requirement #5: Meaningful output for invalid syntax
+            ! Always preserve the error message for reporting and include it in output
+            output = "! COMPILATION FAILED" // new_line('A') // &
+                    "! Error: " // error_msg // new_line('A') // &
+                    "program main" // new_line('A') // &
+                    "    implicit none" // new_line('A') // &
+                    "    ! Original code could not be parsed" // new_line('A') // &
+                    "end program main" // new_line('A')
+            call init_ast_arena(out_arena)
+            return
+        end if
+
+        ! Check if validation passed but we have no meaningful content to parse
+        block
+            integer :: meaningful_tokens
+            integer :: i
+
+            meaningful_tokens = 0
+            do i = 1, size(tokens)
+                if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE .or. &
+                    tokens(i)%kind == TK_COMMENT) cycle
+                meaningful_tokens = meaningful_tokens + 1
+            end do
+
+            if (meaningful_tokens == 0) then
+                ! Create minimal program for empty/meaningless input
+                output = "program main" // new_line('A') // &
+                         "    implicit none" // new_line('A') // &
+                         "end program main" // new_line('A')
+                call init_ast_arena(out_arena)
+                return
+            end if
+        end block
+
+        ! Check if we have any tokens to parse
+        if (size(tokens) == 0) then
+            ! No tokens - create minimal program
+            output = "program main" // new_line('A') // &
+                     "    implicit none" // new_line('A') // &
+                     "end program main" // new_line('A')
+            call init_ast_arena(out_arena)
+            return
+        end if
+
+        ! Check if we have only meaningless tokens (whitespace, comments, newlines)
+        if (has_only_meaningless_tokens(tokens)) then
+            ! Only meaningless tokens - create minimal program
+            output = "program main" // new_line('A') // &
+                     "    implicit none" // new_line('A') // &
+                     "end program main" // new_line('A')
+            call init_ast_arena(out_arena)
+            return
+        end if
+
+        ! Phase 2: Parsing
+        call init_ast_arena(arena)
+        call parse_tokens(tokens, arena, prog_index, error_msg)
+        if (error_msg /= "") then
+            ! Enhanced error reporting for parsing failures (Issue #256 requirements)
+            if (prog_index > 0) then
+                call emit_fortran(arena, prog_index, output)
+                ! Append comprehensive error information to output
+                output = output // new_line('A') // &
+                        "! COMPILATION FAILED - PARSING ERROR" // new_line('A') // &
+                        "! " // error_msg // new_line('A') // &
+                        "!" // new_line('A') // &
+                        "! fortfront encountered errors while parsing the code structure." // new_line('A') // &
+                        "! The partial output above may be incomplete or incorrect." // new_line('A')
+            else
+                ! No valid output, provide meaningful error information
+                output = "! COMPILATION FAILED - PARSING ERROR" // new_line('A') // &
+                        "! " // error_msg // new_line('A') // &
+                        "!" // new_line('A') // &
+                        "! fortfront could not understand the structure of your code." // new_line('A') // &
+                        "! Please check for missing keywords, unmatched parentheses," // new_line('A') // &
+                        "! or other structural issues." // new_line('A') // &
+                        "program main" // new_line('A') // &
+                        "    implicit none" // new_line('A') // &
+                        "    ! ERROR: Original code could not be parsed" // new_line('A') // &
+                        "end program main" // new_line('A')
+            end if
+            out_arena = arena  ! Still expose the arena even if parsing failed
+            out_prog_index = prog_index
+            return
+        end if
+
+        ! Debug: check if we got a valid program index
+        if (prog_index <= 0) then
+            error_msg = "Parsing succeeded but no valid program unit was created"
+            output = "! COMPILATION FAILED" // new_line('A') // &
+                    "! Error: " // error_msg // new_line('A') // &
+                    "program main" // new_line('A') // &
+                    "    implicit none" // new_line('A') // &
+                    "    ! Original code could not be structured as a program" // new_line('A') // &
+                    "end program main" // new_line('A')
+            out_arena = arena
+            out_prog_index = prog_index
+            return
+        end if
+
+        ! Phase 3: Semantic Analysis
+        call analyze_program_with_checks(arena, prog_index)
+
+        ! Phase 4: Standardization
+        ! Skip standardization for multi-unit containers
+        block
+            logical :: skip_standardization
+            skip_standardization = .false.
+            if (prog_index > 0 .and. prog_index <= arena%size) then
+                if (allocated(arena%entries(prog_index)%node)) then
+                    select type (node => arena%entries(prog_index)%node)
+                    type is (program_node)
+                        if (node%name == "__MULTI_UNIT__") then
+                            skip_standardization = .true.
+                        end if
+                    end select
+                end if
+            end if
+
+            if (.not. skip_standardization) then
+                call standardize_ast(arena, prog_index)
+            end if
+        end block
+
+        ! Phase 5: Code Generation
+        output = generate_code_from_arena(arena, prog_index)
+
+        ! Expose the populated arena and program index
+        out_arena = arena
+        out_prog_index = prog_index
+    end subroutine transform_lazy_fortran_string_with_arena
 
     ! String-based transformation function with formatting options
     subroutine transform_lazy_fortran_string_with_format(input, output, &

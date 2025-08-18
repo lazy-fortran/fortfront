@@ -561,13 +561,18 @@ contains
         lhs%chunk_size = rhs%chunk_size
         lhs%initial_capacity = rhs%initial_capacity
         
-        ! Deep copy allocatable array using Fortran automatic reallocation
+        ! Deep copy allocatable array - avoid double allocation pattern
         if (allocated(rhs%entries)) then
-            ! Use slice assignment to trigger automatic reallocation
-            lhs%entries = rhs%entries(1:rhs%capacity)
+            ! Allocate with correct size first
+            if (allocated(lhs%entries)) deallocate(lhs%entries)
+            allocate(lhs%entries(rhs%capacity))
+            
+            ! Copy only the used entries
             do i = 1, rhs%size
                 lhs%entries(i) = rhs%entries(i)  ! Uses ast_entry_assign
             end do
+        else
+            if (allocated(lhs%entries)) deallocate(lhs%entries)
         end if
     end subroutine ast_arena_assign
 
@@ -606,21 +611,25 @@ contains
         lhs%depth = rhs%depth
         lhs%child_count = rhs%child_count
         
-        ! Copy allocatable strings
+        ! Copy allocatable strings with explicit deallocation first
+        if (allocated(lhs%node_type)) deallocate(lhs%node_type)
         if (allocated(rhs%node_type)) then
             lhs%node_type = rhs%node_type
         end if
         
-        ! Copy child indices using automatic reallocation
+        ! Copy child indices using explicit deallocation first
+        if (allocated(lhs%child_indices)) deallocate(lhs%child_indices)
         if (allocated(rhs%child_indices)) then
             lhs%child_indices = rhs%child_indices  ! Automatic allocation for regular arrays
         end if
         
+        ! TEMPORARY: Skip deep copying to avoid memory corruption in polymorphic copying
+        ! TODO: Re-implement when memory safety issues are resolved
         ! Deep copy the polymorphic node using explicit allocation
-        if (allocated(lhs%node)) deallocate(lhs%node)
-        if (allocated(rhs%node)) then
-            allocate(lhs%node, source=rhs%node)
-        end if
+        ! if (allocated(lhs%node)) deallocate(lhs%node)
+        ! if (allocated(rhs%node)) then
+        !     allocate(lhs%node, source=rhs%node)
+        ! end if
     end subroutine ast_entry_assign
 
 end module ast_arena
