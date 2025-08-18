@@ -3,6 +3,19 @@ module ast_arena
     implicit none
     private
 
+    ! DEPRECATED: This module implements a monolithic arena design with architectural issues
+    ! WARNING: Monolithic arena creates tight coupling, memory pressure, and scalability bottlenecks
+    ! MIGRATE TO: ast_hierarchical_factory for distributed node management with reference counting
+    ! DEPRECATION TIMELINE: Will be removed in favor of hierarchical architecture
+    ! 
+    ! ARCHITECTURAL ISSUES:
+    ! 1. Monolithic storage forces O(n) memory growth and tight coupling
+    ! 2. Index-based references create fragile dependencies without automatic cleanup  
+    ! 3. Large contiguous allocations cause memory pressure and poor cache locality
+    ! 4. No component isolation prevents parallel processing and testing
+    !
+    ! MIGRATION: See DOCS/AST_ARENA_ARCHITECTURE_ANALYSIS.md for migration guide
+
     ! Stack entry for AST nodes  
     type :: ast_entry_t
         class(ast_node), allocatable :: node    ! The AST node itself
@@ -68,6 +81,9 @@ contains
         type(ast_arena_t) :: arena
         integer :: cap
 
+        ! DEPRECATION WARNING: Arena pattern has architectural issues
+        ! Consider migrating to ast_hierarchical_factory for better memory management
+        
         ! Set defaults first
         arena%chunk_size = 1024  ! High-performance chunk size
         arena%initial_capacity = 256
