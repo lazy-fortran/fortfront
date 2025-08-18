@@ -152,12 +152,13 @@ contains
         
         call test_start("Cleanup after arena growth")
         
-        ! Create arena with small initial capacity
-        arena = create_ast_arena(4)
+        ! Create arena with minimum possible capacity (256)
+        arena = create_ast_arena(256)
         initial_capacity = arena%capacity
         
         ! Force growth by adding more nodes than initial capacity
-        do i = 1, 10
+        ! Need to exceed 256 to trigger growth
+        do i = 1, 257
             id_node = create_identifier("var_" // char(48 + mod(i, 10)))
             call arena%push(id_node, "identifier")
         end do
@@ -168,7 +169,7 @@ contains
             return
         end if
         
-        if (arena%size /= 10) then
+        if (arena%size /= 257) then
             call test_fail("Arena size incorrect after growth")
             return
         end if
@@ -191,6 +192,7 @@ contains
         type(ast_arena_t) :: arena1, arena2, arena3, arena4
         type(identifier_node) :: id_node
         logical :: all_states_clean
+        integer :: i
         
         call test_start("Cleanup consistency across different arena states")
         

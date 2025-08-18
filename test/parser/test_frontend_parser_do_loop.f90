@@ -69,7 +69,7 @@ contains
         end if
         
         ! Clean up arena
-        if (allocated(arena%entries)) deallocate(arena%entries)
+        call arena%clear()
 
     end subroutine test_do_loop_parsing
 
