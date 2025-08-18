@@ -2245,14 +2245,30 @@ contains
                     param_list = param_list//trim(param_names(p))
                 end if
             end do
-            
-            ! Generate single parameter declaration
-            if (len_trim(param_list) > 0) then
-                code = code//indent//"real(8), intent(in) :: "//param_list//new_line('a')
-            end if
         else
             allocate(param_names(0))
         end if
+        
+        ! Generate parameter declarations using semantic type information
+        ! Always try to generate parameter declarations - the subroutine will check if parameters exist
+        ! DEBUG: Check if this is being called
+        if (allocated(code)) then
+            ! Store current length to see if new declarations are added
+            block
+                integer :: initial_length
+                initial_length = len(code)
+                call generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
+                ! If length changed, our function worked
+                if (len(code) > initial_length) then
+                    print *, "DEBUG: Added parameter declarations, length: ", initial_length, " -> ", len(code)
+                end if
+            end block
+        else
+            call generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
+        end if
+        
+        ! Generate result variable declaration if present and not explicitly declared
+        call generate_result_variable_declaration_from_semantics(arena, proc_node, indent, code)
         
         i = 1
 
@@ -2263,8 +2279,8 @@ contains
                     type is (declaration_node)
                         ! Check if this is a parameter declaration that should be skipped
                         ! Parameters are already handled at the top of the function
-                        ! NUCLEAR OPTION: Skip ALL parameter declarations using simple name check
-                        if (trim(node%var_name) == "x" .or. trim(node%var_name) == "y" .or. trim(node%var_name) == "z") then
+                        ! Use intelligent parameter detection based on actual parameter list
+                        if (is_parameter_name(node%var_name, param_names)) then
                             ! This declaration is for a function parameter - skip it  
                             i = i + 1
                             cycle
@@ -3010,5 +3026,236 @@ contains
         end block
         
     end subroutine safe_generate_code_from_arena
+
+    ! Generate parameter declarations using semantic type information
+    subroutine generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
+        use type_system_hm, only: mono_type_t, TVAR
+        type(ast_arena_t), intent(in) :: arena
+        class(ast_node), intent(in) :: proc_node
+        character(len=*), intent(in) :: indent
+        character(len=:), allocatable, intent(inout) :: code
+        
+        integer :: i, param_index
+        character(len=:), allocatable :: param_type_str, param_name
+        
+        ! DEBUG: Print that this function is being called
+        print *, "DEBUG: generate_parameter_declarations_from_semantics called"
+        
+        select type (proc_node)
+        type is (function_def_node)
+            if (allocated(proc_node%param_indices)) then
+                do i = 1, size(proc_node%param_indices)
+                    param_index = proc_node%param_indices(i)
+                    if (param_index > 0 .and. param_index <= arena%size) then
+                        if (allocated(arena%entries(param_index)%node)) then
+                            ! Get parameter name
+                            select type (param_node => arena%entries(param_index)%node)
+                            type is (identifier_node)
+                                param_name = param_node%name
+                                
+                                ! Get type from semantic analysis
+                                if (allocated(param_node%inferred_type)) then
+                                    param_type_str = param_node%inferred_type%to_string()
+                                    print *, "DEBUG: param ", trim(param_name), " has inferred type: ", trim(param_type_str)
+                                    ! Convert semantic type to Fortran declaration format
+                                    if (param_type_str == "real(8)") then
+                                        param_type_str = "real(8)"
+                                        print *, "DEBUG: using real(8) for ", trim(param_name)
+                                    else if (param_type_str == "integer") then
+                                        param_type_str = "integer"
+                                        print *, "DEBUG: using integer for ", trim(param_name)
+                                    else if (index(param_type_str, "character") > 0) then
+                                        ! Keep character types as-is from semantic analysis
+                                        param_type_str = param_type_str
+                                        print *, "DEBUG: using character for ", trim(param_name)
+                                    else if (param_node%inferred_type%kind == TVAR) then
+                                        ! Type variable - apply Fortran implicit typing rules
+                                        print *, "DEBUG: type variable for ", trim(param_name), ", applying implicit rules"
+                                        param_type_str = apply_implicit_typing_rules(param_name)
+                                    else
+                                        ! Fallback for unknown types - apply implicit typing rules
+                                        print *, "DEBUG: unknown type for ", trim(param_name), ", applying implicit rules"
+                                        param_type_str = apply_implicit_typing_rules(param_name)
+                                    end if
+                                else
+                                    ! No semantic type information - apply Fortran implicit typing rules
+                                    print *, "DEBUG: no inferred type for ", trim(param_name), ", applying implicit rules"
+                                    param_type_str = apply_implicit_typing_rules(param_name)
+                                end if
+                                
+                                ! Generate individual parameter declaration to match test expectations
+                                code = code//indent//param_type_str//", intent(in) :: "//param_name//new_line('a')
+                            end select
+                        end if
+                    end if
+                end do
+            end if
+        type is (subroutine_def_node)
+            if (allocated(proc_node%param_indices)) then
+                do i = 1, size(proc_node%param_indices)
+                    param_index = proc_node%param_indices(i)
+                    if (param_index > 0 .and. param_index <= arena%size) then
+                        if (allocated(arena%entries(param_index)%node)) then
+                            ! Get parameter name
+                            select type (param_node => arena%entries(param_index)%node)
+                            type is (identifier_node)
+                                param_name = param_node%name
+                                
+                                ! Get type from semantic analysis
+                                if (allocated(param_node%inferred_type)) then
+                                    param_type_str = param_node%inferred_type%to_string()
+                                    ! Convert semantic type to Fortran declaration format
+                                    if (param_type_str == "real(8)") then
+                                        param_type_str = "real(8)"
+                                    else if (param_type_str == "integer") then
+                                        param_type_str = "integer"
+                                    else if (index(param_type_str, "character") > 0) then
+                                        param_type_str = param_type_str
+                                    else if (param_node%inferred_type%kind == TVAR) then
+                                        param_type_str = apply_implicit_typing_rules(param_name)
+                                    else
+                                        param_type_str = apply_implicit_typing_rules(param_name)
+                                    end if
+                                else
+                                    param_type_str = apply_implicit_typing_rules(param_name)
+                                end if
+                                
+                                ! Generate parameter declaration (subroutines can have intent(in), intent(out), intent(inout))
+                                code = code//indent//param_type_str//", intent(in) :: "//param_name//new_line('a')
+                            end select
+                        end if
+                    end if
+                end do
+            end if
+        end select
+    end subroutine generate_parameter_declarations_from_semantics
+
+    ! Generate result variable declaration using semantic type information
+    subroutine generate_result_variable_declaration_from_semantics(arena, proc_node, indent, code)
+        use type_system_hm, only: mono_type_t, TVAR
+        type(ast_arena_t), intent(in) :: arena
+        class(ast_node), intent(in) :: proc_node
+        character(len=*), intent(in) :: indent
+        character(len=:), allocatable, intent(inout) :: code
+        
+        character(len=:), allocatable :: result_type_str, result_name
+        logical :: result_declared_explicitly
+        integer :: i, body_index
+        
+        select type (proc_node)
+        type is (function_def_node)
+            if (allocated(proc_node%result_variable) .and. len_trim(proc_node%result_variable) > 0) then
+                result_name = proc_node%result_variable
+                result_declared_explicitly = .false.
+                
+                ! Check if result variable is already explicitly declared in function body
+                if (allocated(proc_node%body_indices)) then
+                    do i = 1, size(proc_node%body_indices)
+                        body_index = proc_node%body_indices(i)
+                        if (body_index > 0 .and. body_index <= arena%size) then
+                            if (allocated(arena%entries(body_index)%node)) then
+                                select type (body_node => arena%entries(body_index)%node)
+                                type is (declaration_node)
+                                    if (body_node%var_name == result_name) then
+                                        result_declared_explicitly = .true.
+                                        exit
+                                    end if
+                                end select
+                            end if
+                        end if
+                    end do
+                end if
+                
+                ! If not explicitly declared, try to infer type and generate declaration
+                if (.not. result_declared_explicitly) then
+                    ! Look for assignment nodes to infer the result type
+                    if (allocated(proc_node%body_indices)) then
+                        do i = 1, size(proc_node%body_indices)
+                            body_index = proc_node%body_indices(i)
+                            if (body_index > 0 .and. body_index <= arena%size) then
+                                if (allocated(arena%entries(body_index)%node)) then
+                                    select type (body_node => arena%entries(body_index)%node)
+                                    type is (assignment_node)
+                                        ! Check if this is assignment to result variable
+                                        if (body_node%target_index > 0 .and. body_node%target_index <= arena%size) then
+                                            if (allocated(arena%entries(body_node%target_index)%node)) then
+                                                select type (target_node => arena%entries(body_node%target_index)%node)
+                                                type is (identifier_node)
+                                                    if (target_node%name == result_name) then
+                                                        ! This assigns to result variable - use RHS type
+                                                        if (body_node%value_index > 0 .and. body_node%value_index <= arena%size) then
+                                                            if (allocated(arena%entries(body_node%value_index)%node)) then
+                                                                if (allocated(arena%entries(body_node%value_index)%node%inferred_type)) then
+                                                                    result_type_str = arena%entries(body_node%value_index)%node%inferred_type%to_string()
+                                                                    
+                                                                    ! Convert semantic type to Fortran declaration format
+                                                                    if (result_type_str == "real(8)") then
+                                                                        result_type_str = "real(8)"
+                                                                    else if (result_type_str == "integer") then
+                                                                        result_type_str = "integer"
+                                                                    else if (index(result_type_str, "character") > 0) then
+                                                                        result_type_str = result_type_str
+                                                                    else
+                                                                        result_type_str = "real(8)"  ! Default fallback
+                                                                    end if
+                                                                    
+                                                                    ! Generate result variable declaration
+                                                                    code = code//indent//result_type_str//" :: "//result_name//new_line('a')
+                                                                    return
+                                                                end if
+                                                            end if
+                                                        end if
+                                                    end if
+                                                end select
+                                            end if
+                                        end if
+                                    end select
+                                end if
+                            end if
+                        end do
+                    end if
+                    
+                    ! If we couldn't infer the type, use default
+                    result_type_str = "real(8)"
+                    code = code//indent//result_type_str//" :: "//result_name//new_line('a')
+                end if
+            end if
+        end select
+    end subroutine generate_result_variable_declaration_from_semantics
+
+    ! Apply Fortran implicit typing rules for variable names
+    function apply_implicit_typing_rules(var_name) result(type_str)
+        character(len=*), intent(in) :: var_name
+        character(len=:), allocatable :: type_str
+        
+        character :: first_char
+        
+        ! DEBUG: Print the variable name and its inferred type
+        print *, "DEBUG: apply_implicit_typing_rules for: ", trim(var_name)
+        
+        if (len_trim(var_name) == 0) then
+            type_str = "real(8)"  ! Fallback for empty names
+            return
+        end if
+        
+        ! Get first character and convert to lowercase
+        first_char = var_name(1:1)
+        if (first_char >= 'A' .and. first_char <= 'Z') then
+            first_char = char(ichar(first_char) + 32)  ! Convert to lowercase
+        end if
+        
+        ! Apply Fortran implicit typing rules
+        ! Variables starting with i, j, k, l, m, n are integer
+        ! All others are real
+        if (first_char == 'i' .or. first_char == 'j' .or. first_char == 'k' .or. &
+            first_char == 'l' .or. first_char == 'm' .or. first_char == 'n') then
+            type_str = "integer"
+        else
+            type_str = "real(8)"
+        end if
+        
+        ! DEBUG: Print the result
+        print *, "DEBUG: ", trim(var_name), " -> ", trim(type_str)
+    end function apply_implicit_typing_rules
 
 end module codegen_core
