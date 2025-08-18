@@ -6,11 +6,16 @@ program test_scope_pattern
         integer :: id
         character(len=:), allocatable :: name
     end type
-
-    type :: mono_type_t
+    
+    type :: shared_type_data_t
+        integer :: ref_count = 1
         integer :: kind
         type(type_var_t) :: var
         integer :: size
+    end type
+
+    type :: mono_type_t
+        type(shared_type_data_t), pointer :: data => null()
     end type
 
     type :: poly_type_t
@@ -31,21 +36,25 @@ program test_scope_pattern
 
     ! Entry 1
     entries(1)%name = "sin"
-    entries(1)%scheme%mono%kind = 1
-    entries(1)%scheme%mono%var%id = 1
-    entries(1)%scheme%mono%var%name = "real_to_real"
+    allocate(entries(1)%scheme%mono%data)
+    entries(1)%scheme%mono%data%ref_count = 1
+    entries(1)%scheme%mono%data%kind = 1
+    entries(1)%scheme%mono%data%var%id = 1
+    entries(1)%scheme%mono%data%var%name = "real_to_real"
 
     ! Entry 2
     entries(2)%name = "cos"
-    entries(2)%scheme%mono%kind = 1
-    entries(2)%scheme%mono%var%id = 2
-    entries(2)%scheme%mono%var%name = "real_to_real"
+    allocate(entries(2)%scheme%mono%data)
+    entries(2)%scheme%mono%data%ref_count = 1
+    entries(2)%scheme%mono%data%kind = 1
+    entries(2)%scheme%mono%data%var%id = 2
+    entries(2)%scheme%mono%data%var%name = "real_to_real"
 
     print *, "=== Test lookup pattern ==="
     call lookup("sin", result)
     if (allocated(result)) then
         print *, "Found result"
-        print *, "mono%var%name = ", result%mono%var%name
+        print *, "mono%var%name = ", result%mono%data%var%name
     else
         print *, "Not found"
     end if
@@ -88,9 +97,11 @@ contains
         class(mono_type_t), intent(in) :: this
         type(mono_type_t) :: copy
 
-        copy%kind = this%kind
-        copy%var = this%var  ! This should do automatic deep copy
-        copy%size = this%size
+        allocate(copy%data)
+        copy%data%ref_count = 1
+        copy%data%kind = this%data%kind
+        copy%data%var = this%data%var  ! This should do automatic deep copy
+        copy%data%size = this%data%size
     end function
 
     function poly_deep_copy(this) result(copy)

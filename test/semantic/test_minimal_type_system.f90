@@ -31,8 +31,8 @@ contains
         char_type = create_mono_type(TCHAR, char_size=10)
 
         ! Check types are created correctly
-        if (int_type%kind == TINT .and. real_type%kind == TREAL .and. char_type%kind == TCHAR) then
-            if (char_type%size == 10) then
+        if (int_type%data%kind == TINT .and. real_type%data%kind == TREAL .and. char_type%data%kind == TCHAR) then
+            if (char_type%data%size == 10) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Create basic mono types"
             else
@@ -55,7 +55,7 @@ contains
         copied = original%deep_copy()
 
         ! Check copy is correct
-        if (copied%kind == TREAL .and. copied%kind == original%kind) then
+        if (copied%data%kind == TREAL .and. copied%data%kind == original%data%kind) then
             pass_count = pass_count + 1
             write (*, '(A)') "PASS: Deep copy mono types"
         else
@@ -80,8 +80,8 @@ contains
         var_type2 = create_mono_type(TVAR, var=var2)
 
         ! Check type variables are different
-        if (var_type1%kind == TVAR .and. var_type2%kind == TVAR) then
-            if (var_type1%var%id /= var_type2%var%id) then
+        if (var_type1%data%kind == TVAR .and. var_type2%data%kind == TVAR) then
+            if (var_type1%data%var%id /= var_type2%data%var%id) then
                 pass_count = pass_count + 1
                 write (*, '(A)') "PASS: Type variable creation"
             else

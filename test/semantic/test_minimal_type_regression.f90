@@ -21,10 +21,10 @@ program test_minimal_type_regression
     test_passed = .true.
     
     ! Verify function type has args
-    if (.not. allocated(fun_type%args)) then
+    if (.not. allocated(fun_type%data%args)) then
         print *, "FAILED: Function type args not allocated"
         test_passed = .false.
-    else if (size(fun_type%args) /= 2) then
+    else if (size(fun_type%data%args) /= 2) then
         print *, "FAILED: Function type args wrong size"
         test_passed = .false.
     else

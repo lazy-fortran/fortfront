@@ -819,8 +819,11 @@ contains
         lhs%column = 15
         allocate(lhs%inferred_type)
         ! Initialize inferred_type with simple values
-        lhs%inferred_type%kind = 1  ! TINT
-        lhs%inferred_type%size = 0
+        allocate(lhs%inferred_type%data)
+        lhs%inferred_type%data%ref_count = 1
+        lhs%inferred_type%data%kind = 1  ! TINT
+        lhs%inferred_type%data%size = 0
+        lhs%inferred_type%data%has_cycles = .false.
 
         ! Set up rhs without inferred_type
         rhs%line = 95

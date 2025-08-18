@@ -1,5 +1,6 @@
 program test_symbol_table_api
     use fortfront
+    use type_system_hm, only: create_mono_type
     implicit none
     
     type(ast_arena_t) :: arena
@@ -120,7 +121,7 @@ contains
         type(poly_type_t) :: int_scheme
         
         ! Create integer type
-        int_type%kind = TINT
+        int_type = create_mono_type(TINT)
         int_scheme%mono = int_type
         
         ! Add test symbols to current scope
@@ -137,8 +138,8 @@ contains
         type(poly_type_t) :: sin_scheme
         
         ! Create real -> real function type for sin
-        real_type%kind = TREAL
-        fun_type%kind = TFUN
+        real_type = create_mono_type(TREAL)
+        fun_type = create_mono_type(TFUN)
         ! Note: simplified type system doesn't support function args
         
         sin_scheme%mono = fun_type

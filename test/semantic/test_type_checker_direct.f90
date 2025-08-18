@@ -130,7 +130,7 @@ contains
         ! Get common type between integer and real
         common_type = get_common_type(int_type, real_type)
         
-        if (common_type%kind == TREAL) then
+        if (common_type%data%kind == TREAL) then
             call test_pass()
         else
             call test_fail("Common type should be REAL for INT/REAL")
@@ -147,10 +147,10 @@ contains
         
         ! Create array types with same size (simplified type system)
         int_array1 = create_mono_type(TARRAY)
-        int_array1%size = 10
+        int_array1%data%size = 10
         
         int_array2 = create_mono_type(TARRAY)
-        int_array2%size = 10
+        int_array2%data%size = 10
         
         conformant = check_array_conformance(int_array1, int_array2)
         

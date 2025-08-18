@@ -95,13 +95,19 @@ contains
         select type (node => arena%entries(id_x_idx)%node)
         type is (identifier_node)
             allocate(node%inferred_type)
-            node%inferred_type%kind = TINT
+            allocate(node%inferred_type%data)
+            node%inferred_type%data%ref_count = 1
+            node%inferred_type%data%kind = TINT
+            node%inferred_type%data%has_cycles = .false.
         end select
         
         select type (node => arena%entries(id_y_idx)%node)
         type is (identifier_node)
             allocate(node%inferred_type)
-            node%inferred_type%kind = TREAL
+            allocate(node%inferred_type%data)
+            node%inferred_type%data%ref_count = 1
+            node%inferred_type%data%kind = TREAL
+            node%inferred_type%data%has_cycles = .false.
         end select
 
         ! Generate code

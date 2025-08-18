@@ -610,16 +610,20 @@ contains
                     allocate(node_type)
                     ! Manual deep copy to avoid issues with assignment operator
                     associate (src_type => arena%entries(node_index)%node%inferred_type)
-                        node_type%kind = src_type%kind
-                        node_type%size = src_type%size
-                        node_type%var%id = src_type%var%id
-                        if (allocated(src_type%var%name)) then
-                            node_type%var%name = src_type%var%name
+                        ! Allocate data pointer for the new mono_type_t
+                        allocate(node_type%data)
+                        node_type%data%ref_count = 1
+                        node_type%data%kind = src_type%data%kind
+                        node_type%data%size = src_type%data%size
+                        node_type%data%var%id = src_type%data%var%id
+                        if (allocated(src_type%data%var%name)) then
+                            node_type%data%var%name = src_type%data%var%name
                         else
-                            allocate(character(len=0) :: node_type%var%name)
+                            allocate(character(len=0) :: node_type%data%var%name)
                         end if
                         ! Copy allocation info
                         node_type%data%alloc_info = src_type%data%alloc_info
+                        node_type%data%has_cycles = src_type%data%has_cycles
                     end associate
                     found = .true.
                 end if
@@ -1505,9 +1509,9 @@ contains
         type(mono_type_t), intent(in) :: mono
         type(type_info_t) :: info
         
-        info%base_type = mono%kind
+        info%base_type = mono%data%kind
         
-        select case (mono%kind)
+        select case (mono%data%kind)
         case (TINT)
             info%bit_width = 32
             info%is_signed = .true.
