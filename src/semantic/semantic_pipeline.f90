@@ -90,11 +90,12 @@ contains
             call move_alloc(this%analyzers(i)%analyzer, temp_analyzers(i)%analyzer)
         end do
         
-        ! Use polymorphic allocation instead of hard-coded types
-        ! This removes the dependency injection violation while maintaining compatibility
+        ! SOLUTION: Use polymorphic allocation to eliminate hard-coded type dependencies
+        ! This resolves the dependency injection violation by accepting any semantic_analyzer_t
+        ! subtype without the pipeline needing to know about specific analyzer implementations.
         allocate(temp_analyzers(this%analyzer_count + 1)%analyzer, source=analyzer)
         
-        ! Deep copy using overloaded assignment operator
+        ! Deep copy using overloaded assignment operator  
         temp_analyzers(this%analyzer_count + 1)%analyzer = analyzer
         
         ! Update pipeline
