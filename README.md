@@ -18,7 +18,8 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **Enhanced Error Reporting**: Clear error messages with line/column info
 - **Comprehensive Testing**: Unit tests for transformation + CLI system tests
 - **Standard Compliant**: Generates clean, standard Fortran code
-- **Type Inference**: Automatic variable typing algorithm
+- **Automatic Variable Declarations**: Generates proper Fortran declarations for function parameters and variables
+- **Type Inference**: Automatic variable typing using Fortran implicit rules
 - **Extensible Architecture**: Plugin-based analysis pipeline
 
 ## Building
@@ -41,17 +42,38 @@ fpm test
 # Basic usage
 echo "x = 42" | fortfront
 
-# With file input/output  
-fortfront < input.lf > output.f90
+# Function with automatic variable declarations
+echo "function twice(x) result(y)
+y = 2*x
+end function" | fortfront
 ```
 
 **Expected Output:**
 ```fortran
 program main
     implicit none
-    integer :: x
-    x = 42
+contains
+    function twice(x) result(y)
+        implicit none
+        real(8), intent(in) :: x
+        real(8) :: y
+        y = 2*x
+    end function twice
 end program main
+```
+
+### Automatic Variable Declaration Examples
+
+```bash
+# Integer variables (i,j,k,l,m,n) 
+echo "function count(i) result(n)
+n = i + 1
+end function" | fortfront
+
+# Real variables (all others default to real(8))
+echo "function calculate(a, b) result(sum)
+sum = a + b
+end function" | fortfront
 ```
 
 ### Integration with fortrun
