@@ -46,7 +46,7 @@ echo "x = 42" | fortfront
 echo -e "module math\ninteger :: pi = 3\nend module\n\ninteger :: x\nx = pi * 2\nprint *, x" | fortfront
 
 # With file input/output  
-fortfront < input.lf > output.f90
+cat input.lf | fortfront > output.f90
 ```
 
 **Expected Output (simple):**
@@ -79,7 +79,7 @@ end program main
 fortrun hello.lf
 
 # Explicit usage in build scripts  
-fortfront < lazy_source.lf > standard_source.f90
+cat lazy_source.lf | fortfront > standard_source.f90
 gfortran standard_source.f90 -o program
 ```
 
