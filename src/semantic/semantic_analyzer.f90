@@ -1,5 +1,6 @@
 module semantic_analyzer
     ! Hindley-Milner type inference (Algorithm W) - dialect-agnostic
+    use iso_c_binding, only: c_loc, c_associated
     use type_system_hm, only: type_env_t, type_var_t, mono_type_t, poly_type_t, &
                               substitution_t, allocation_info_t, &
                               create_mono_type, create_type_var, &
@@ -41,10 +42,8 @@ module semantic_analyzer
         procedure :: get_builtin_function_type
         procedure :: compose_with_subst
         procedure :: deep_copy => semantic_context_deep_copy
-        procedure :: assign => semantic_context_assign
         procedure :: validate_bounds => validate_array_access_bounds
         procedure :: check_conformance => check_array_shape_conformance
-        generic :: assignment(=) => assign
     end type semantic_context_t
 
 contains
@@ -1087,7 +1086,20 @@ contains
         type(mono_type_t), intent(in) :: typ
         type(mono_type_t) :: result_typ
 
+        ! Validate input type
+        if (typ%kind < TVAR .or. typ%kind > TARRAY) then
+            print *, "WARNING: Invalid input type kind in apply_current_substitution:", typ%kind
+            result_typ = typ  ! Return copy of input to avoid corruption
+            return
+        end if
+
         call this%subst%apply(typ, result_typ)
+        
+        ! Validate result type
+        if (result_typ%kind < TVAR .or. result_typ%kind > TARRAY) then
+            print *, "WARNING: Invalid result type kind in apply_current_substitution:", result_typ%kind
+            result_typ = typ  ! Return copy of input to avoid corruption
+        end if
     end function apply_current_substitution
 
     ! Compose a substitution with the current one
@@ -1822,17 +1834,6 @@ contains
         copy%temp_tracker = this%temp_tracker
     end function semantic_context_deep_copy
 
-    subroutine semantic_context_assign(lhs, rhs)
-        class(semantic_context_t), intent(out) :: lhs
-        type(semantic_context_t), intent(in) :: rhs
-
-        lhs%env = rhs%env                ! Uses type_env_t assignment (deep copy)
-        lhs%scopes = rhs%scopes          ! Uses scope_stack_t assignment (deep copy)
-        lhs%next_var_id = rhs%next_var_id
-        lhs%subst = rhs%subst            ! Uses substitution_t assignment (deep copy)
-        lhs%param_tracker = rhs%param_tracker ! Uses parameter_tracker_t assignment
-        lhs%temp_tracker = rhs%temp_tracker   ! Uses temp_tracker_t assignment (deep copy)
-    end subroutine semantic_context_assign
 
     ! Infer type of array literal
     function infer_array_literal(this, arena, arr_node, expr_index) result(typ)

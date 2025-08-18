@@ -25,8 +25,6 @@ module type_system_hm
         integer :: id
         character(len=:), allocatable :: name  ! e.g., 'a, 'b
     contains
-        procedure :: assign => type_var_assign
-        generic :: assignment(=) => assign
     end type type_var_t
 
     ! Memory allocation attributes
@@ -51,8 +49,6 @@ module type_system_hm
         procedure :: equals => mono_type_equals
         procedure :: to_string => mono_type_to_string
         procedure :: deep_copy => mono_type_deep_copy
-        procedure :: assign => mono_type_assign
-        generic :: assignment(=) => assign
     end type mono_type_t
 
     ! Polymorphic type (type scheme)
@@ -62,8 +58,6 @@ module type_system_hm
     contains
         procedure :: to_string => poly_type_to_string
         procedure :: deep_copy => poly_type_deep_copy
-        procedure :: assign => poly_type_assign
-        generic :: assignment(=) => assign
     end type poly_type_t
 
     ! Type substitution (maps type variables to types)
@@ -77,8 +71,6 @@ module type_system_hm
         procedure :: apply => subst_apply_to_mono
         procedure :: apply_to_poly => subst_apply_to_poly
         procedure :: deep_copy => subst_deep_copy
-        procedure :: assign => substitution_assign
-        generic :: assignment(=) => assign
     end type substitution_t
 
     ! Type environment (maps identifiers to type schemes)
@@ -94,8 +86,6 @@ module type_system_hm
         procedure :: remove => env_remove
         procedure :: apply_subst => env_apply_subst
         procedure :: deep_copy => env_deep_copy
-        procedure :: assign => type_env_assign
-        generic :: assignment(=) => assign
     end type type_env_t
 
 contains
@@ -802,158 +792,5 @@ contains
     end function env_deep_copy
 
 
-
-    ! Assignment operators for memory safety
-    
-    ! Type variable assignment - safe because only allocates string
-    subroutine type_var_assign(lhs, rhs)
-        class(type_var_t), intent(inout) :: lhs
-        type(type_var_t), intent(in) :: rhs
-        
-        ! Self-assignment check not possible with polymorphic arguments
-        ! Fortran will handle this safely with proper deep copying
-        
-        lhs%id = rhs%id
-        if (allocated(rhs%name)) then
-            lhs%name = rhs%name  ! Fortran handles string allocation automatically
-        else
-            if (allocated(lhs%name)) deallocate(lhs%name)
-        end if
-    end subroutine type_var_assign
-    
-    ! Mono type assignment - cycle-safe with depth limiting
-    subroutine mono_type_assign(lhs, rhs)
-        class(mono_type_t), intent(inout) :: lhs
-        type(mono_type_t), intent(in) :: rhs
-        integer, parameter :: MAX_DEPTH = 50  ! Prevent stack overflow
-        
-        ! Self-assignment check not possible with polymorphic arguments
-        ! Fortran will handle this safely with proper deep copying
-        
-        call mono_type_copy_recursive(lhs, rhs, 0)
-    end subroutine mono_type_assign
-    
-    ! Recursive helper for mono type copying with depth limiting
-    recursive subroutine mono_type_copy_recursive(lhs, rhs, depth)
-        type(mono_type_t), intent(inout) :: lhs
-        type(mono_type_t), intent(in) :: rhs
-        integer, intent(in) :: depth
-        integer :: i
-        integer, parameter :: MAX_DEPTH = 50
-        
-        ! Prevent infinite recursion
-        if (depth > MAX_DEPTH) then
-            ! For deep structures, do shallow copy to break recursion
-            lhs%kind = rhs%kind
-            lhs%var = rhs%var  ! Uses type_var assignment
-            lhs%size = rhs%size
-            lhs%alloc_info = rhs%alloc_info
-            ! Skip copying args to prevent infinite recursion
-            if (allocated(lhs%args)) deallocate(lhs%args)
-            return
-        end if
-        
-        ! Copy basic fields
-        lhs%kind = rhs%kind
-        lhs%var = rhs%var  ! Uses type_var assignment
-        lhs%size = rhs%size
-        lhs%alloc_info = rhs%alloc_info
-        
-        ! Deep copy args array if present
-        if (allocated(rhs%args)) then
-            if (allocated(lhs%args)) deallocate(lhs%args)
-            allocate(lhs%args(size(rhs%args)))
-            do i = 1, size(rhs%args)
-                call mono_type_copy_recursive(lhs%args(i), rhs%args(i), depth + 1)
-            end do
-        else
-            if (allocated(lhs%args)) deallocate(lhs%args)
-        end if
-    end subroutine mono_type_copy_recursive
-    
-    ! Polymorphic type assignment
-    subroutine poly_type_assign(lhs, rhs)
-        class(poly_type_t), intent(inout) :: lhs
-        type(poly_type_t), intent(in) :: rhs
-        
-        ! Self-assignment check not possible with polymorphic arguments
-        ! Fortran will handle this safely with proper deep copying
-        
-        ! Copy forall variables
-        if (allocated(rhs%forall)) then
-            if (allocated(lhs%forall)) deallocate(lhs%forall)
-            allocate(lhs%forall(size(rhs%forall)))
-            lhs%forall = rhs%forall  ! Uses type_var assignment
-        else
-            if (allocated(lhs%forall)) deallocate(lhs%forall)
-        end if
-        
-        ! Copy mono type
-        lhs%mono = rhs%mono  ! Uses mono_type assignment
-    end subroutine poly_type_assign
-    
-    ! Substitution assignment
-    subroutine substitution_assign(lhs, rhs)
-        class(substitution_t), intent(inout) :: lhs
-        type(substitution_t), intent(in) :: rhs
-        integer :: i
-        
-        ! Self-assignment check not possible with polymorphic arguments
-        ! Fortran will handle this safely with proper deep copying
-        
-        lhs%count = rhs%count
-        
-        ! Copy arrays
-        if (allocated(rhs%vars)) then
-            if (allocated(lhs%vars)) deallocate(lhs%vars)
-            allocate(lhs%vars(size(rhs%vars)))
-            lhs%vars = rhs%vars  ! Uses type_var assignment
-        else
-            if (allocated(lhs%vars)) deallocate(lhs%vars)
-        end if
-        
-        if (allocated(rhs%types)) then
-            if (allocated(lhs%types)) deallocate(lhs%types)
-            allocate(lhs%types(size(rhs%types)))
-            do i = 1, size(rhs%types)
-                lhs%types(i) = rhs%types(i)  ! Uses mono_type assignment
-            end do
-        else
-            if (allocated(lhs%types)) deallocate(lhs%types)
-        end if
-    end subroutine substitution_assign
-    
-    ! Type environment assignment
-    subroutine type_env_assign(lhs, rhs)
-        class(type_env_t), intent(inout) :: lhs
-        type(type_env_t), intent(in) :: rhs
-        integer :: i
-        
-        ! Self-assignment check not possible with polymorphic arguments
-        ! Fortran will handle this safely with proper deep copying
-        
-        lhs%count = rhs%count
-        lhs%capacity = rhs%capacity
-        
-        ! Copy names array
-        if (allocated(rhs%names)) then
-            if (allocated(lhs%names)) deallocate(lhs%names)
-            allocate(character(len=256) :: lhs%names(size(rhs%names)))
-            lhs%names = rhs%names
-        else
-            if (allocated(lhs%names)) deallocate(lhs%names)
-        end if
-        
-        ! Copy schemes array
-        if (allocated(rhs%schemes)) then
-            if (allocated(lhs%schemes)) deallocate(lhs%schemes)
-            allocate(lhs%schemes(size(rhs%schemes)))
-            do i = 1, size(rhs%schemes)
-                lhs%schemes(i) = rhs%schemes(i)  ! Uses poly_type assignment
-            end do
-        else
-            if (allocated(lhs%schemes)) deallocate(lhs%schemes)
-        end if
-    end subroutine type_env_assign
 
 end module type_system_hm
