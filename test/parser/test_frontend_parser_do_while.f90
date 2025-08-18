@@ -80,7 +80,7 @@ contains
         end if
 
         ! Clean up arena
-        if (allocated(arena%entries)) deallocate(arena%entries)
+        call arena%clear()
         deallocate (tokens)
     end subroutine test_basic_do_while
 
