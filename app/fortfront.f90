@@ -4,20 +4,29 @@ program fortfront_cli
     implicit none
     
     character(len=:), allocatable :: input_text, output_text, error_msg
-    character(len=:), allocatable :: line  ! Changed to allocatable to avoid stack overflow
+    character(len=4096) :: line
     integer :: iostat
     
-    ! Read all input from stdin
+    ! Read all input from stdin - use approach that works for both pipes and redirection
     allocate(character(len=0) :: input_text)
-    allocate(character(len=1000) :: line)  ! Allocate with reasonable size
     
+    ! Read data line by line with explicit error handling for EOF
     do
         read(input_unit, '(A)', iostat=iostat) line
+        ! Check for EOF first
         if (iostat == iostat_end) exit
+        ! Check for other read errors
         if (iostat /= 0) then
-            write(error_unit, '(A)') 'Error reading from stdin'
-            stop 1
+            ! For file redirection, iostat might be positive
+            if (iostat > 0) then
+                ! Try to continue for recoverable errors
+                cycle
+            else
+                write(error_unit, '(A,I0)') 'Error reading from stdin: ', iostat
+                stop 1
+            end if
         end if
+        ! Successfully read a line
         input_text = input_text // trim(line) // new_line('A')
     end do
     

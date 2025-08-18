@@ -586,9 +586,8 @@ contains
                                             integer, allocatable :: new_indices(:)
                                             allocate (new_indices(size(temp_indices)*2))
                                             new_indices(1:size(temp_indices)) = temp_indices
-                                            deallocate (temp_indices)
-                                            allocate (temp_indices(size(new_indices)))
-                                            temp_indices = new_indices
+                                            ! Use move_alloc for O(1) array transfer instead of O(n) copying
+                                            call move_alloc(new_indices, temp_indices)
                                         end block
                                     end if
 
@@ -674,9 +673,8 @@ contains
                                     integer, allocatable :: new_indices(:)
                                     allocate (new_indices(size(temp_indices)*2))
                                     new_indices(1:size(temp_indices)) = temp_indices
-                                    deallocate (temp_indices)
-                                    allocate (temp_indices(size(new_indices)))
-                                    temp_indices = new_indices
+                                    ! Use move_alloc for O(1) array transfer instead of O(n) copying
+                                    call move_alloc(new_indices, temp_indices)
                                 end block
                             end if
 
