@@ -3021,7 +3021,7 @@ contains
         character(len=:), allocatable, intent(inout) :: code
         
         integer :: i, param_index
-        character(len=:), allocatable :: param_type_str, param_name
+        character(len=:), allocatable :: param_type_str, param_name, intent_str
         
         
         select type (proc_node)
@@ -3031,10 +3031,11 @@ contains
                     param_index = proc_node%param_indices(i)
                     if (param_index > 0 .and. param_index <= arena%size) then
                         if (allocated(arena%entries(param_index)%node)) then
-                            ! Get parameter name
+                            ! Get parameter name and intent information
                             select type (param_node => arena%entries(param_index)%node)
                             type is (identifier_node)
                                 param_name = param_node%name
+                                intent_str = "intent(in)"  ! Default for identifier parameters
                                 
                                 ! Get type from semantic analysis
                                 if (allocated(param_node%inferred_type)) then
@@ -3060,7 +3061,25 @@ contains
                                 end if
                                 
                                 ! Generate individual parameter declaration to match test expectations
-                                code = code//indent//param_type_str//", intent(in) :: "//param_name//new_line('a')
+                                code = code//indent//param_type_str//", "//intent_str//" :: "//param_name//new_line('a')
+                            type is (parameter_declaration_node)
+                                param_name = param_node%name
+                                ! Get proper intent from parameter declaration
+                                intent_str = "intent("//intent_type_to_string(param_node%intent_type)//")"
+                                if (param_node%intent_type == INTENT_NONE) then
+                                    intent_str = "intent(in)"  ! Default if no intent specified
+                                end if
+                                
+                                ! Get type from parameter declaration or apply implicit typing
+                                if (allocated(param_node%type_name) .and. len_trim(param_node%type_name) > 0) then
+                                    param_type_str = param_node%type_name
+                                else
+                                    ! Apply implicit typing rules
+                                    param_type_str = apply_implicit_typing_rules(param_name)
+                                end if
+                                
+                                ! Generate individual parameter declaration with proper intent
+                                code = code//indent//param_type_str//", "//intent_str//" :: "//param_name//new_line('a')
                             end select
                         end if
                     end if
@@ -3072,10 +3091,11 @@ contains
                     param_index = proc_node%param_indices(i)
                     if (param_index > 0 .and. param_index <= arena%size) then
                         if (allocated(arena%entries(param_index)%node)) then
-                            ! Get parameter name
+                            ! Get parameter name and intent information
                             select type (param_node => arena%entries(param_index)%node)
                             type is (identifier_node)
                                 param_name = param_node%name
+                                intent_str = "intent(in)"  ! Default for identifier parameters
                                 
                                 ! Get type from semantic analysis
                                 if (allocated(param_node%inferred_type)) then
@@ -3097,7 +3117,25 @@ contains
                                 end if
                                 
                                 ! Generate parameter declaration (subroutines can have intent(in), intent(out), intent(inout))
-                                code = code//indent//param_type_str//", intent(in) :: "//param_name//new_line('a')
+                                code = code//indent//param_type_str//", "//intent_str//" :: "//param_name//new_line('a')
+                            type is (parameter_declaration_node)
+                                param_name = param_node%name
+                                ! Get proper intent from parameter declaration
+                                intent_str = "intent("//intent_type_to_string(param_node%intent_type)//")"
+                                if (param_node%intent_type == INTENT_NONE) then
+                                    intent_str = "intent(in)"  ! Default if no intent specified
+                                end if
+                                
+                                ! Get type from parameter declaration or apply implicit typing
+                                if (allocated(param_node%type_name) .and. len_trim(param_node%type_name) > 0) then
+                                    param_type_str = param_node%type_name
+                                else
+                                    ! Apply implicit typing rules
+                                    param_type_str = apply_implicit_typing_rules(param_name)
+                                end if
+                                
+                                ! Generate parameter declaration with proper intent (subroutines can have intent(in), intent(out), intent(inout))
+                                code = code//indent//param_type_str//", "//intent_str//" :: "//param_name//new_line('a')
                             end select
                         end if
                     end if

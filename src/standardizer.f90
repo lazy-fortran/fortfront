@@ -816,7 +816,7 @@ contains
                     select type (target => arena%entries(assign%target_index)%node)
                     type is (identifier_node)
                         ! Check if the value is an array expression
-                        var_type = "real(8)"  ! Default type
+                        var_type = apply_fortran_implicit_typing(target%name)
                         
                         ! Try to get type from the value expression
                         if (assign%value_index > 0 .and. &
@@ -892,7 +892,7 @@ contains
                     var_types(var_count) = &
                         get_fortran_type_string(identifier%inferred_type)
                 else
-                    var_types(var_count) = "real(8)"  ! Default type
+                    var_types(var_count) = apply_fortran_implicit_typing(identifier%name)
                 end if
 
                 var_declared(var_count) = .true.
@@ -2577,5 +2577,39 @@ contains
             end if
         end select
     end subroutine collect_string_vars_needing_allocatable
+
+    ! Apply Fortran implicit typing rules for variable names
+    function apply_fortran_implicit_typing(var_name) result(type_str)
+        character(len=*), intent(in) :: var_name
+        character(len=:), allocatable :: type_str
+        
+        character :: first_char
+        
+        if (len_trim(var_name) == 0) then
+            type_str = "real(8)"  ! Fallback for empty names
+            return
+        end if
+        
+        ! Get first character and convert to lowercase
+        first_char = var_name(1:1)
+        if (first_char >= 'A' .and. first_char <= 'Z') then
+            first_char = char(ichar(first_char) + 32)  ! Convert to lowercase
+        end if
+        
+        ! Apply Fortran implicit typing rules
+        ! Variables starting with i, j, k, l, m, n are integer
+        ! All others are real
+        if (first_char == 'i' .or. first_char == 'j' .or. first_char == 'k' .or. &
+            first_char == 'l' .or. first_char == 'm' .or. first_char == 'n') then
+            type_str = "integer"
+        else
+            if (standardizer_type_standardization_enabled) then
+                type_str = "real(8)"
+            else
+                type_str = "real"
+            end if
+        end if
+        
+    end function apply_fortran_implicit_typing
 
 end module standardizer

@@ -483,9 +483,8 @@ contains
             ! Found in environment - instantiate the type scheme
             typ = ctx%instantiate(scheme)
         else
-            ! Not found - create fresh type variable (TEMPORARY: should be error)
-            ! TODO: Re-enable after fixing parser multi-variable declaration bug
-            typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+            ! Not found - apply Fortran implicit typing rules
+            typ = apply_implicit_typing_rules_semantic(ident%name)
         end if
     end function infer_identifier
 
@@ -1497,16 +1496,18 @@ contains
         if (allocated(func_def%param_indices)) then
             allocate (param_types(size(func_def%param_indices)))
             do i = 1, size(func_def%param_indices)
-                ! For now, assign fresh type variables to parameters
-                param_types(i) = create_mono_type(TVAR, var=ctx%fresh_type_var())
-
                 ! Add parameter to local scope - get from arena
                 if (allocated(arena%entries(func_def%param_indices(i))%node)) then
                     select type (param => arena%entries(func_def%param_indices(i))%node)
                     type is (identifier_node)
+                        ! Apply implicit typing rules to parameter
+                        param_types(i) = apply_implicit_typing_rules_semantic(param%name)
                         call ctx%scopes%define(param%name, &
                       create_poly_type(forall_vars=[type_var_t::], mono=param_types(i)))
                     type is (parameter_declaration_node)
+                        ! For declared parameters, use their declared type if available
+                        ! otherwise apply implicit typing rules
+                        param_types(i) = apply_implicit_typing_rules_semantic(param%name)
                         ! Track parameter with intent
                         call ctx%param_tracker%add_parameter(param%name, &
                             intent_type_to_string(param%intent_type), &
@@ -1514,6 +1515,9 @@ contains
                         call ctx%scopes%define(param%name, &
                       create_poly_type(forall_vars=[type_var_t::], mono=param_types(i)))
                     end select
+                else
+                    ! Fallback if parameter node not found
+                    param_types(i) = create_mono_type(TREAL)
                 end if
             end do
         else
@@ -1545,8 +1549,8 @@ contains
                 return_type = create_mono_type(TVAR, var=ctx%fresh_type_var())
             end select
         else
-            ! Infer return type (use a fresh type variable)
-            return_type = create_mono_type(TVAR, var=ctx%fresh_type_var())
+            ! Infer return type using Fortran implicit typing rules based on function name
+            return_type = apply_implicit_typing_rules_semantic(func_def%name)
         end if
 
         ! Build function type
@@ -1590,21 +1594,22 @@ contains
         ! Process parameters and add to local scope
         if (allocated(sub_def%param_indices)) then
             do i = 1, size(sub_def%param_indices)
-                ! For now, assign fresh type variables to parameters
                 if (allocated(arena%entries(sub_def%param_indices(i))%node)) then
                     select type (param => arena%entries(sub_def%param_indices(i))%node)
                     type is (identifier_node)
+                        ! Apply implicit typing rules to subroutine parameter
                         call ctx%scopes%define(param%name, &
                                           create_poly_type(forall_vars=[type_var_t::], &
-                                 mono=create_mono_type(TVAR, var=ctx%fresh_type_var())))
+                                 mono=apply_implicit_typing_rules_semantic(param%name)))
                     type is (parameter_declaration_node)
                         ! Track parameter with intent
                         call ctx%param_tracker%add_parameter(param%name, &
                             intent_type_to_string(param%intent_type), &
                             param%is_optional)
+                        ! Apply implicit typing rules to declared parameter
                         call ctx%scopes%define(param%name, &
                                           create_poly_type(forall_vars=[type_var_t::], &
-                                 mono=create_mono_type(TVAR, var=ctx%fresh_type_var())))
+                                 mono=apply_implicit_typing_rules_semantic(param%name)))
                     end select
                 end if
             end do
@@ -2128,5 +2133,35 @@ contains
             end select
         end if
     end subroutine set_character_substring_flag
+
+    ! Apply Fortran implicit typing rules for variable names in semantic analysis
+    function apply_implicit_typing_rules_semantic(var_name) result(typ)
+        character(len=*), intent(in) :: var_name
+        type(mono_type_t) :: typ
+        
+        character :: first_char
+        
+        if (len_trim(var_name) == 0) then
+            typ = create_mono_type(TREAL)  ! Fallback for empty names
+            return
+        end if
+        
+        ! Get first character and convert to lowercase
+        first_char = var_name(1:1)
+        if (first_char >= 'A' .and. first_char <= 'Z') then
+            first_char = char(ichar(first_char) + 32)  ! Convert to lowercase
+        end if
+        
+        ! Apply Fortran implicit typing rules
+        ! Variables starting with i, j, k, l, m, n are integer
+        ! All others are real
+        if (first_char == 'i' .or. first_char == 'j' .or. first_char == 'k' .or. &
+            first_char == 'l' .or. first_char == 'm' .or. first_char == 'n') then
+            typ = create_mono_type(TINT)
+        else
+            typ = create_mono_type(TREAL)
+        end if
+        
+    end function apply_implicit_typing_rules_semantic
 
 end module semantic_analyzer
