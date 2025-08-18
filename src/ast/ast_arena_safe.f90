@@ -90,16 +90,29 @@ contains
         ! ... Would need to add ALL node types here ...
         
         class default
-            ! Fallback - still unsafe but at least we know when it happens
-            print *, "WARNING: Using unsafe source= for unknown node type"
-            allocate(arena%entries(index)%node, source=node)
+            block
+                use ast_error_nodes, only: error_node_t, create_error_node
+                print *, "ERROR: Unknown AST node type - creating error placeholder"
+                allocate(error_node_t :: arena%entries(index)%node)
+                select type(error_node => arena%entries(index)%node)
+                type is (error_node_t)
+                    error_node = create_error_node("Unknown node type in arena storage", &
+                                                   "Could not safely store node")
+                end select
+            end block
         end select
         
         ! Set metadata
         if (present(node_type)) then
             arena%entries(index)%node_type = node_type
         else
-            arena%entries(index)%node_type = "unknown"
+            ! Check if we created an error node
+            select type(node_ref => arena%entries(index)%node)
+            type is (error_node_t)
+                arena%entries(index)%node_type = "error_node"
+            class default
+                arena%entries(index)%node_type = "unknown"
+            end select
         end if
         
         ! Update arena metadata

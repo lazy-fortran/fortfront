@@ -1,5 +1,6 @@
 module semantic_pipeline
     use ast_core, only: ast_arena_t
+    use safe_allocation_registry, only: safe_allocate_and_copy
     use semantic_analyzer_base, only: semantic_analyzer_t
     use dependency_graph, only: dependency_graph_t, create_dependency_graph
     ! No longer need hard-coded analyzer imports thanks to polymorphic allocation
@@ -239,8 +240,13 @@ contains
                         dst = src
                     end select
                 class default
-                    ! For unknown types, use source allocation (may be unsafe)
-                    allocate(temp_results(i)%result_data, source=src)
+                    block
+                        logical :: allocation_success
+                        call safe_allocate_and_copy(temp_results(i)%result_data, src, allocation_success)
+                        if (.not. allocation_success) then
+                            print *, "WARNING: Unknown type in semantic pipeline result allocation"
+                        end if
+                    end block
                 end select
             end if
         end do
@@ -268,8 +274,13 @@ contains
                 dst = src
             end select
         class default
-            ! For unknown types, use source allocation (may be unsafe)
-            allocate(temp_results(this%result_count + 1)%result_data, source=src)
+            block
+                logical :: allocation_success
+                call safe_allocate_and_copy(temp_results(this%result_count + 1)%result_data, src, allocation_success)
+                if (.not. allocation_success) then
+                    print *, "WARNING: Unknown type in semantic pipeline new result allocation"
+                end if
+            end block
         end select
         
         ! Update context
@@ -310,8 +321,13 @@ contains
                             dst = src
                         end select
                     class default
-                        ! For unknown types, use source allocation (may be unsafe)
-                        allocate(result_data, source=src)
+                        block
+                            logical :: allocation_success
+                            call safe_allocate_and_copy(result_data, src, allocation_success)
+                            if (.not. allocation_success) then
+                                print *, "WARNING: Unknown type in semantic pipeline get_result"
+                            end if
+                        end block
                     end select
                 end if
                 return
