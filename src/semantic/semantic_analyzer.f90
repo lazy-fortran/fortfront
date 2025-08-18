@@ -8,7 +8,7 @@ module semantic_analyzer
                               TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
     use scope_manager
     use type_checker
-    use ast_core
+    use ast_core  ! TODO: Migrate to explicit imports (complex due to extensive usage)
     use ast_nodes_data, only: intent_type_to_string
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 range_expression_node, get_array_slice_node
