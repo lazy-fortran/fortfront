@@ -1345,7 +1345,9 @@ contains
         code = type_str
 
         ! Add kind if present (but not for character which uses len)
-        if (node%has_kind .and. node%type_name /= "character") then
+        ! Also avoid adding kind if type_str already contains it (e.g., "real(8)")
+        if (node%has_kind .and. node%type_name /= "character" .and. &
+            index(type_str, "(") == 0) then
             code = code//"("//trim(adjustl(int_to_string(node%kind_value)))//")"
         else if (node%type_name == "character" .and. node%has_kind) then
             ! For character, kind_value is actually the length
@@ -2023,7 +2025,7 @@ contains
         if (present(is_optional)) opt_flag = is_optional
 
         stmt = type_name
-        if (has_kind) then
+        if (has_kind .and. index(type_name, "(") == 0) then
             stmt = stmt//"("//trim(adjustl(int_to_string(kind_value)))//")"
         end if
         if (len_trim(intent) > 0) then
@@ -3336,7 +3338,6 @@ contains
         logical :: result_declared_explicitly
         integer :: i, body_index
         
-        ! print *, "DEBUG: generate_result_variable_declaration_from_semantics called"
         
         select type (proc_node)
         type is (function_def_node)
