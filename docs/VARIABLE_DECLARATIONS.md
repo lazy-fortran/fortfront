@@ -102,15 +102,42 @@ end subroutine
 ```fortran
 subroutine process_data(input, output)
     implicit none
-    real(8), intent(in) :: input
+    integer, intent(in) :: input
     real(8), intent(in) :: output
     output = input * 2
 end subroutine process_data
 ```
 
-## Intent Attributes
+## Scope and Limitations
 
-Function parameters automatically get `intent(in)` by default. For subroutines, intent can be specified explicitly in the original code or defaults to `intent(in)`.
+### Automatic Declaration Scope
+Automatic variable declarations apply ONLY to:
+- **Function parameters**: All function parameters get `intent(in)` declarations
+- **Function result variables**: Result variables are declared without intent attributes
+- **Subroutine parameters**: All subroutine parameters get `intent(in)` declarations by default
+
+### Local Variable Limitations
+**LOCAL VARIABLES MUST BE EXPLICITLY DECLARED**
+
+Automatic declaration does NOT handle local variables inside functions or subroutines:
+
+```fortran
+! This will NOT work - temp must be declared explicitly
+function test_func(x) result(y)
+temp = 5  ! ERROR: temp not declared
+y = x + temp
+end function
+
+! Correct approach - explicit local variable declaration
+function test_func(x) result(y)
+integer :: temp  ! Must declare local variables
+temp = 5
+y = x + temp
+end function
+```
+
+### Intent Attributes
+Function and subroutine parameters automatically get `intent(in)` by default. Intent can be specified explicitly in the original code if needed.
 
 ## Mixed Explicit/Implicit Declarations
 
@@ -131,12 +158,14 @@ end function
 ```fortran
 function compute(x, y) result(z)
     implicit none
-    integer :: y
     real(8), intent(in) :: x  ! Auto-generated
+    integer :: y              ! Explicit declaration
     real(8) :: z              ! Auto-generated
     z = x + y
 end function compute
 ```
+
+**Note**: Declaration order in the output may vary - auto-generated declarations can appear before or after explicit declarations.
 
 ## Result Variable Handling
 
