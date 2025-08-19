@@ -73,9 +73,10 @@ jobs:
         python3 --version
 
     - name: Run tests with coverage
+      timeout-minutes: 15
       run: |
         fpm clean --all
-        fpm test --profile debug --flag '-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g'
+        timeout 900s fpm test --profile debug --flag '-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g' || exit 1
 
     - name: Generate coverage data for coverage-action
       run: |
@@ -261,10 +262,11 @@ jobs:
           ${{ runner.os }}-build-
 
     - name: Run all tests
+      timeout-minutes: 15
       shell: cmd
       run: |
         echo "Running all tests..."
-        fpm test --flag "-cpp -fmax-stack-var-size=65536"
+        timeout 900 fpm test --flag "-cpp -fmax-stack-var-size=65536" || exit 1
 
   # macOS CI temporarily disabled due to runner issues
   # test-macos:

@@ -54,11 +54,10 @@ program test_issue_261_parser_regressions
     if (all_passed) then
         print *, 'All Issue #261 regression tests passed!'
         print *, 'Parser regressions have been resolved.'
-        stop 0
     else
         print *, 'Some Issue #261 regression tests failed!'
         print *, 'Parser regressions are still present and need fixing.'
-        stop 1
+        error stop 'Issue #261 regression tests failed'
     end if
 
 contains
