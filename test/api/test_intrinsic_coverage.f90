@@ -3,7 +3,6 @@ program test_intrinsic_coverage
     use intrinsic_registry, only: registry_is_intrinsic => is_intrinsic_function, &
                                   registry_get_signature => get_intrinsic_signature, &
                                   get_intrinsic_info, initialize_intrinsic_registry
-    use error_handling, only: result_t
     implicit none
     
     logical :: all_tests_passed
@@ -229,13 +228,12 @@ contains
     end function test_helper_functions
     
     logical function test_registry_edge_cases()
-        type(result_t) :: init_result
         test_registry_edge_cases = .true.
         print *, "Testing registry edge cases..."
         
         ! Test double initialization (should be safe)
-        init_result = initialize_intrinsic_registry()
-        init_result = initialize_intrinsic_registry()
+        call initialize_intrinsic_registry()
+        call initialize_intrinsic_registry()
         
         print *, "  PASS: Double initialization handled safely"
         

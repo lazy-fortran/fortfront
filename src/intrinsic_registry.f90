@@ -1,5 +1,4 @@
 module intrinsic_registry
-    use error_handling, only: result_t, success_result, create_error_result, ERROR_INTERNAL
     implicit none
     private
 
@@ -30,13 +29,7 @@ contains
         character(len=:), allocatable, intent(out) :: signature
         integer :: i
 
-        if (.not. registry_initialized) then
-            block
-                type(result_t) :: init_result
-                init_result = initialize_intrinsic_registry()
-                ! In production, we should check init_result, but for now continue with existing behavior
-            end block
-        end if
+        if (.not. registry_initialized) call initialize_intrinsic_registry()
 
         is_intrinsic = .false.
         if (allocated(signature)) deallocate(signature)
@@ -73,15 +66,11 @@ contains
     end function get_intrinsic_signature
 
     ! Initialize the intrinsic function registry
-    function initialize_intrinsic_registry() result(init_result)
-        type(result_t) :: init_result
+    subroutine initialize_intrinsic_registry()
         integer, parameter :: NUM_INTRINSICS = 31
         integer :: i
 
-        if (registry_initialized) then
-            init_result = success_result()
-            return
-        end if
+        if (registry_initialized) return
 
         ! Allocate exact space for intrinsic functions
         allocate(intrinsic_functions(NUM_INTRINSICS))
@@ -250,19 +239,11 @@ contains
 
         ! Validate we used all allocated slots
         if (i /= NUM_INTRINSICS) then
-            init_result = create_error_result( &
-                "Intrinsic function count mismatch in initialization", &
-                ERROR_INTERNAL, &
-                component="intrinsic_registry", &
-                context="initialize_intrinsic_registry", &
-                suggestion="Check NUM_INTRINSICS constant matches actual function count" &
-            )
-            return
+            error stop "Intrinsic function count mismatch in initialization"
         end if
 
         registry_initialized = .true.
-        init_result = success_result()
-    end function initialize_intrinsic_registry
+    end subroutine initialize_intrinsic_registry
 
     ! Helper function to convert string to lowercase
     function to_lower(str) result(lower_str)
