@@ -21,6 +21,17 @@ module standardizer
     ! Constants
     integer, parameter :: INVALID_INTEGER = -999999
 
+    ! Variable information storage type for unified reorganization
+    type :: variable_info_t
+        character(len=64), allocatable :: names(:)
+        character(len=64), allocatable :: types(:)
+        logical, allocatable :: explicitly_declared(:)
+        logical, allocatable :: is_parameter(:)
+        logical, allocatable :: is_result(:)
+        integer :: count
+        integer :: max_vars
+    end type variable_info_t
+
     public :: standardize_ast
     public :: standardize_ast_json
     public :: set_standardizer_type_standardization, &
@@ -341,7 +352,6 @@ contains
         else
             ! Generate program-level variable declarations
             call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
-            allocate(declaration_indices(0))
         end if
         n_declarations = 0
         if (allocated(declaration_indices)) n_declarations = size(declaration_indices)
@@ -1533,67 +1543,301 @@ contains
         type(function_def_node), intent(inout) :: func_def
         integer, intent(in) :: func_index
         
+        ! Use unified reorganization system
+        call reorganize_procedure_with_declarations(arena, func_def%body_indices, func_index, &
+                                                   procedure_type='function', func_def=func_def)
+        
+        ! Update arena with modified function
+        arena%entries(func_index)%node = func_def
+        
+    end subroutine reorganize_function_with_declarations
+
+    ! ========================================
+    ! UNIFIED REORGANIZATION SYSTEM
+    ! ========================================
+    
+    ! Unified procedure reorganization with intelligent variable declarations
+    ! Eliminates code duplication between function and subroutine implementations
+    subroutine reorganize_procedure_with_declarations(arena, body_indices, procedure_index, &
+                                                     procedure_type, func_def, sub_def)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer, intent(in) :: procedure_index
+        character(len=*), intent(in) :: procedure_type
+        type(function_def_node), optional, intent(in) :: func_def
+        type(subroutine_def_node), optional, intent(in) :: sub_def
+        
         ! Variable information storage
-        character(len=64), allocatable :: var_names(:)  
-        character(len=64), allocatable :: var_types(:)
-        logical, allocatable :: var_explicitly_declared(:)
-        logical, allocatable :: var_is_parameter(:)
-        logical, allocatable :: var_is_result(:)
-        integer :: var_count, max_vars
+        type(variable_info_t) :: var_info
         
         ! Node indices
-        integer, allocatable :: new_body_indices(:)
         integer, allocatable :: declaration_indices(:)
         integer, allocatable :: executable_indices(:)
         integer :: implicit_none_index
         integer :: n_declarations, n_executables
-        integer :: i, j, total_new_body_size
         
-        ! Initialize storage
-        max_vars = 50
-        allocate(var_names(max_vars))
-        allocate(var_types(max_vars))
-        allocate(var_explicitly_declared(max_vars))
-        allocate(var_is_parameter(max_vars))
-        allocate(var_is_result(max_vars))
-        var_count = 0
-        var_explicitly_declared = .false.
-        var_is_parameter = .false.
-        var_is_result = .false.
+        ! Initialize variable collection system
+        call initialize_variable_info(var_info)
         
-        ! Step 1: Collect parameter information
-        call collect_function_parameters(arena, func_def, var_names, var_types, &
-                                        var_explicitly_declared, var_is_parameter, &
-                                        var_is_result, var_count, max_vars)
+        ! Step 1: Collect all variable information based on procedure type
+        call collect_procedure_variables(arena, var_info, procedure_type, func_def, sub_def)
         
-        ! Step 2: Collect result variable information  
-        call collect_function_result_variable(arena, func_def, var_names, var_types, &
-                                             var_explicitly_declared, var_is_parameter, &
-                                             var_is_result, var_count, max_vars)
+        ! Step 2: Separate existing declarations from executable statements
+        call separate_procedure_declarations(arena, body_indices, declaration_indices, &
+                                           executable_indices, n_declarations, n_executables)
         
-        ! Step 3: Scan function body to identify all variables and explicit declarations
-        call scan_function_body_for_variables(arena, func_def, var_names, var_types, &
-                                             var_explicitly_declared, var_is_parameter, &
-                                             var_is_result, var_count, max_vars)
+        ! Step 3: Handle implicit none statement correctly  
+        call ensure_single_implicit_none(arena, procedure_index, declaration_indices, &
+                                        n_declarations, implicit_none_index)
         
-        ! Step 4: Separate declarations from executable statements
-        call separate_declarations_and_executables(arena, func_def, declaration_indices, &
-                                                  executable_indices, n_declarations, n_executables)
+        ! Step 4: Generate missing variable declarations
         
-        ! Step 5: Create new function body with proper ordering
+        call generate_procedure_declarations(arena, procedure_index, var_info, &
+                                           declaration_indices, n_declarations, procedure_type)
         
-        ! Create implicit none
-        implicit_none_index = push_implicit_statement(arena, .true., &
-                                                     line=1, column=1, parent_index=func_index)
+        ! Step 5: Rebuild procedure body with proper ordering
+        call rebuild_procedure_body(arena, body_indices, implicit_none_index, &
+                                   declaration_indices, executable_indices, &
+                                   n_declarations, n_executables, procedure_index)
         
-        ! Generate missing variable declarations - this modifies declaration_indices and n_declarations
-        call generate_missing_declarations(arena, func_index, var_names, var_types, &
-                                         var_explicitly_declared, var_is_parameter, &
-                                         var_is_result, var_count, declaration_indices, &
-                                         n_declarations)
+        ! Cleanup
+        call deallocate_variable_info(var_info)
+        
+    end subroutine reorganize_procedure_with_declarations
+    
+    ! Initialize variable information storage
+    subroutine initialize_variable_info(var_info)
+        type(variable_info_t), intent(out) :: var_info
+        
+        var_info%max_vars = 50
+        allocate(var_info%names(var_info%max_vars))
+        allocate(var_info%types(var_info%max_vars))
+        allocate(var_info%explicitly_declared(var_info%max_vars))
+        allocate(var_info%is_parameter(var_info%max_vars))
+        allocate(var_info%is_result(var_info%max_vars))
+        
+        var_info%count = 0
+        var_info%explicitly_declared = .false.
+        var_info%is_parameter = .false.
+        var_info%is_result = .false.
+        
+    end subroutine initialize_variable_info
+    
+    ! Collect all variable information based on procedure type
+    subroutine collect_procedure_variables(arena, var_info, procedure_type, func_def, sub_def)
+        type(ast_arena_t), intent(in) :: arena
+        type(variable_info_t), intent(inout) :: var_info
+        character(len=*), intent(in) :: procedure_type
+        type(function_def_node), optional, intent(in) :: func_def
+        type(subroutine_def_node), optional, intent(in) :: sub_def
+        
+        if (procedure_type == 'function') then
+            if (.not. present(func_def)) error stop "Function def required for function procedure"
+            
+            ! Collect function parameters
+            call collect_function_parameters(arena, func_def, var_info%names, var_info%types, &
+                                            var_info%explicitly_declared, var_info%is_parameter, &
+                                            var_info%is_result, var_info%count, var_info%max_vars)
+            
+            ! Collect result variable information  
+            call collect_function_result_variable(arena, func_def, var_info%names, var_info%types, &
+                                                 var_info%explicitly_declared, var_info%is_parameter, &
+                                                 var_info%is_result, var_info%count, var_info%max_vars)
+            
+            ! Scan function body for variables
+            call scan_function_body_for_variables(arena, func_def, var_info%names, var_info%types, &
+                                                 var_info%explicitly_declared, var_info%is_parameter, &
+                                                 var_info%is_result, var_info%count, var_info%max_vars)
+        else if (procedure_type == 'subroutine') then
+            if (.not. present(sub_def)) error stop "Subroutine def required for subroutine procedure"
+            
+            ! Collect subroutine parameters
+            call collect_subroutine_parameters(arena, sub_def, var_info%names, var_info%types, &
+                                              var_info%explicitly_declared, var_info%is_parameter, &
+                                              var_info%is_result, var_info%count, var_info%max_vars)
+            
+            ! Scan subroutine body for variables
+            call scan_subroutine_body_for_variables(arena, sub_def, var_info%names, var_info%types, &
+                                                   var_info%explicitly_declared, var_info%is_parameter, &
+                                                   var_info%is_result, var_info%count, var_info%max_vars)
+        else
+            error stop "Invalid procedure type: " // procedure_type
+        end if
+        
+    end subroutine collect_procedure_variables
+    
+    ! Separate declarations from executables (unified for both procedure types)
+    subroutine separate_procedure_declarations(arena, body_indices, declaration_indices, &
+                                             executable_indices, n_declarations, n_executables)
+        type(ast_arena_t), intent(in) :: arena
+        integer, allocatable, intent(in) :: body_indices(:)
+        integer, allocatable, intent(out) :: declaration_indices(:)
+        integer, allocatable, intent(out) :: executable_indices(:)
+        integer, intent(out) :: n_declarations, n_executables
+        
+        integer :: i, total_statements
+        integer, allocatable :: temp_declarations(:), temp_executables(:)
+        
+        if (.not. allocated(body_indices)) then
+            n_declarations = 0
+            n_executables = 0
+            allocate(declaration_indices(0))
+            allocate(executable_indices(0))
+            return
+        end if
+        
+        total_statements = size(body_indices)
+        allocate(temp_declarations(total_statements))
+        allocate(temp_executables(total_statements))
+        
+        n_declarations = 0
+        n_executables = 0
+        
+        do i = 1, total_statements
+            if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(body_indices(i))%node)) then
+                    select type (stmt => arena%entries(body_indices(i))%node)
+                    type is (declaration_node)
+                        n_declarations = n_declarations + 1
+                        temp_declarations(n_declarations) = body_indices(i)
+                    class default
+                        ! Skip implicit none - we'll handle it separately
+                        select type (stmt)
+                        type is (literal_node)
+                            if (allocated(stmt%value)) then
+                                if (index(stmt%value, "implicit none") > 0) then
+                                    n_declarations = n_declarations + 1
+                                    temp_declarations(n_declarations) = body_indices(i)
+                                    cycle  ! Handle as declaration for now
+                                end if
+                            end if
+                        end select
+                        
+                        n_executables = n_executables + 1
+                        temp_executables(n_executables) = body_indices(i)
+                    end select
+                end if
+            end if
+        end do
+        
+        ! Copy to properly sized arrays
+        allocate(declaration_indices(n_declarations))
+        allocate(executable_indices(n_executables))
+        
+        if (n_declarations > 0) declaration_indices = temp_declarations(1:n_declarations)
+        if (n_executables > 0) executable_indices = temp_executables(1:n_executables)
+        
+    end subroutine separate_procedure_declarations
+    
+    ! Ensure exactly one implicit none statement
+    subroutine ensure_single_implicit_none(arena, procedure_index, declaration_indices, &
+                                          n_declarations, implicit_none_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: procedure_index
+        integer, allocatable, intent(inout) :: declaration_indices(:)
+        integer, intent(inout) :: n_declarations
+        integer, intent(out) :: implicit_none_index
+        
+        integer :: i, j
+        logical :: found_implicit_none
+        
+        implicit_none_index = 0
+        found_implicit_none = .false.
+        
+        ! Search for existing implicit none statements
+        i = 1
+        do while (i <= n_declarations)
+            if (is_implicit_none_statement(arena, declaration_indices(i))) then
+                if (.not. found_implicit_none) then
+                    ! Keep the first one
+                    implicit_none_index = declaration_indices(i)
+                    found_implicit_none = .true.
+                    ! Remove it from declarations list since we'll handle it separately
+                    do j = i, n_declarations - 1
+                        declaration_indices(j) = declaration_indices(j + 1)
+                    end do
+                    n_declarations = n_declarations - 1
+                    ! Don't increment i since we removed an element
+                else
+                    ! Remove duplicate implicit none statements
+                    do j = i, n_declarations - 1
+                        declaration_indices(j) = declaration_indices(j + 1)
+                    end do
+                    n_declarations = n_declarations - 1
+                    ! Don't increment i since we removed an element
+                end if
+            else
+                i = i + 1
+            end if
+        end do
+        
+        ! Create implicit none if not found
+        if (implicit_none_index == 0) then
+            implicit_none_index = push_implicit_statement(arena, .true., &
+                                                         line=1, column=1, parent_index=procedure_index)
+        end if
+        
+    end subroutine ensure_single_implicit_none
+    
+    ! Check if a statement is implicit none
+    function is_implicit_none_statement(arena, stmt_index) result(is_implicit_none)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: stmt_index
+        logical :: is_implicit_none
+        
+        is_implicit_none = .false.
+        
+        if (allocated(arena%entries(stmt_index)%node)) then
+            select type (stmt => arena%entries(stmt_index)%node)
+            type is (literal_node)
+                if (allocated(stmt%value)) then
+                    is_implicit_none = (index(stmt%value, "implicit none") > 0)
+                end if
+            end select
+        end if
+        
+    end function is_implicit_none_statement
+    
+    ! Generate missing variable declarations (unified)
+    subroutine generate_procedure_declarations(arena, procedure_index, var_info, &
+                                             declaration_indices, n_declarations, procedure_type)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: procedure_index
+        type(variable_info_t), intent(in) :: var_info
+        integer, allocatable, intent(inout) :: declaration_indices(:)
+        integer, intent(inout) :: n_declarations
+        character(len=*), intent(in) :: procedure_type
+        
+        if (procedure_type == 'function') then
+            call generate_missing_declarations(arena, procedure_index, var_info%names, var_info%types, &
+                                             var_info%explicitly_declared, var_info%is_parameter, &
+                                             var_info%is_result, var_info%count, declaration_indices, &
+                                             n_declarations)
+        else if (procedure_type == 'subroutine') then
+            call generate_missing_subroutine_declarations(arena, procedure_index, var_info%names, var_info%types, &
+                                                         var_info%explicitly_declared, var_info%is_parameter, &
+                                                         var_info%count, declaration_indices, n_declarations)
+        end if
+        
+    end subroutine generate_procedure_declarations
+    
+    ! Rebuild procedure body with proper ordering
+    subroutine rebuild_procedure_body(arena, body_indices, implicit_none_index, &
+                                     declaration_indices, executable_indices, &
+                                     n_declarations, n_executables, procedure_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(inout) :: body_indices(:)
+        integer, intent(in) :: implicit_none_index
+        integer, allocatable, intent(in) :: declaration_indices(:)
+        integer, allocatable, intent(in) :: executable_indices(:)
+        integer, intent(in) :: n_declarations, n_executables
+        integer, intent(in) :: procedure_index
+        
+        integer :: total_new_body_size, i, j
+        integer, allocatable :: new_body_indices(:)
         
         ! Calculate total new body size
-        total_new_body_size = 1 + n_declarations + n_executables  ! implicit none + declarations + executables
+        total_new_body_size = 1 + n_declarations + n_executables
         
         ! Build the new body with proper order
         allocate(new_body_indices(total_new_body_size))
@@ -1602,26 +1846,42 @@ contains
         new_body_indices(1) = implicit_none_index
         j = 2
         
-        ! 2. All variable declarations (existing + generated)
+        ! 2. All variable declarations
         do i = 1, n_declarations
             new_body_indices(j) = declaration_indices(i)
             j = j + 1
         end do
         
-        ! 3. All executable statements (comes after ALL declarations)
+        ! 3. All executable statements
         do i = 1, n_executables
             new_body_indices(j) = executable_indices(i)
             j = j + 1
         end do
         
-        ! Update function body
-        func_def%body_indices = new_body_indices
+        ! Update procedure body
+        body_indices = new_body_indices
         
         ! Update parent references
-        arena%entries(implicit_none_index)%parent_index = func_index
+        arena%entries(implicit_none_index)%parent_index = procedure_index
         
-    end subroutine reorganize_function_with_declarations
-
+    end subroutine rebuild_procedure_body
+    
+    ! Deallocate variable information storage
+    subroutine deallocate_variable_info(var_info)
+        type(variable_info_t), intent(inout) :: var_info
+        
+        if (allocated(var_info%names)) deallocate(var_info%names)
+        if (allocated(var_info%types)) deallocate(var_info%types)
+        if (allocated(var_info%explicitly_declared)) deallocate(var_info%explicitly_declared)
+        if (allocated(var_info%is_parameter)) deallocate(var_info%is_parameter)
+        if (allocated(var_info%is_result)) deallocate(var_info%is_result)
+        
+    end subroutine deallocate_variable_info
+    
+    ! ========================================
+    ! HELPER FUNCTIONS (REUSED)
+    ! ========================================
+    
     ! Collect function parameter information
     subroutine collect_function_parameters(arena, func_def, var_names, var_types, &
                                           var_explicitly_declared, var_is_parameter, &
@@ -1934,109 +2194,12 @@ contains
         type(subroutine_def_node), intent(inout) :: sub_def
         integer, intent(in) :: sub_index
         
-        ! Variable information storage
-        character(len=64), allocatable :: var_names(:)  
-        character(len=64), allocatable :: var_types(:)
-        logical, allocatable :: var_explicitly_declared(:)
-        logical, allocatable :: var_is_parameter(:)
-        logical, allocatable :: var_is_result(:)
-        integer :: var_count, max_vars
+        ! Use unified reorganization system
+        call reorganize_procedure_with_declarations(arena, sub_def%body_indices, sub_index, &
+                                                   procedure_type='subroutine', sub_def=sub_def)
         
-        ! Node indices
-        integer, allocatable :: new_body_indices(:)
-        integer, allocatable :: declaration_indices(:)
-        integer, allocatable :: executable_indices(:)
-        integer :: implicit_none_index
-        integer :: n_declarations, n_executables
-        integer :: i, j, total_new_body_size
-        
-        ! Initialize storage
-        max_vars = 50
-        allocate(var_names(max_vars))
-        allocate(var_types(max_vars))
-        allocate(var_explicitly_declared(max_vars))
-        allocate(var_is_parameter(max_vars))
-        allocate(var_is_result(max_vars))
-        var_count = 0
-        var_explicitly_declared = .false.
-        var_is_parameter = .false.
-        var_is_result = .false.
-        
-        ! Step 1: Collect parameter information
-        call collect_subroutine_parameters(arena, sub_def, var_names, var_types, &
-                                          var_explicitly_declared, var_is_parameter, &
-                                          var_is_result, var_count, max_vars)
-        
-        ! Step 2: Scan subroutine body to identify all variables and explicit declarations
-        call scan_subroutine_body_for_variables(arena, sub_def, var_names, var_types, &
-                                               var_explicitly_declared, var_is_parameter, &
-                                               var_is_result, var_count, max_vars)
-        
-        ! Step 3: Separate declarations from executable statements
-        call separate_subroutine_declarations_and_executables(arena, sub_def, declaration_indices, &
-                                                             executable_indices, n_declarations, n_executables)
-        
-        ! Step 4: Create new subroutine body with proper ordering
-        
-        ! Check if implicit none already exists, if not create one
-        implicit_none_index = 0
-        if (n_declarations > 0) then
-            ! Check if first declaration is already implicit none
-            if (allocated(arena%entries(declaration_indices(1))%node)) then
-                select type (first_decl => arena%entries(declaration_indices(1))%node)
-                type is (literal_node)
-                    if (allocated(first_decl%value)) then
-                        if (index(first_decl%value, "implicit none") > 0) then
-                            implicit_none_index = declaration_indices(1)
-                            ! Remove from declarations list since we'll add it separately
-                            if (n_declarations > 1) then
-                                declaration_indices(1:n_declarations-1) = declaration_indices(2:n_declarations)
-                            end if
-                            n_declarations = n_declarations - 1
-                        end if
-                    end if
-                end select
-            end if
-        end if
-        
-        ! Create implicit none if not found
-        if (implicit_none_index == 0) then
-            implicit_none_index = push_implicit_statement(arena, .true., &
-                                                         line=1, column=1, parent_index=sub_index)
-        end if
-        
-        ! Generate missing variable declarations - this modifies declaration_indices and n_declarations
-        call generate_missing_subroutine_declarations(arena, sub_index, var_names, var_types, &
-                                                     var_explicitly_declared, var_is_parameter, &
-                                                     var_count, declaration_indices, n_declarations)
-        
-        ! Calculate total new body size
-        total_new_body_size = 1 + n_declarations + n_executables  ! implicit none + declarations + executables
-        
-        ! Build the new body with proper order
-        allocate(new_body_indices(total_new_body_size))
-        
-        ! 1. Implicit none (always first)
-        new_body_indices(1) = implicit_none_index
-        j = 2
-        
-        ! 2. All variable declarations (existing + generated)
-        do i = 1, n_declarations
-            new_body_indices(j) = declaration_indices(i)
-            j = j + 1
-        end do
-        
-        ! 3. All executable statements (comes after ALL declarations)
-        do i = 1, n_executables
-            new_body_indices(j) = executable_indices(i)
-            j = j + 1
-        end do
-        
-        ! Update subroutine body
-        sub_def%body_indices = new_body_indices
-        
-        ! Update parent references
-        arena%entries(implicit_none_index)%parent_index = sub_index
+        ! Update arena with modified subroutine
+        arena%entries(sub_index)%node = sub_def
         
     end subroutine reorganize_subroutine_with_declarations
 
@@ -3088,14 +3251,14 @@ contains
         
         integer, allocatable :: new_declaration_indices(:)
         integer :: i, original_declarations, total_declarations
-        integer :: new_decl_index
+        type(declaration_node) :: new_decl
         
         original_declarations = n_declarations
         total_declarations = original_declarations
         
-        ! Count missing declarations
+        ! Count missing declarations (all undeclared variables - both parameters and locals)
         do i = 1, var_count
-            if (.not. var_explicitly_declared(i) .and. .not. var_is_parameter(i)) then
+            if (.not. var_explicitly_declared(i)) then
                 total_declarations = total_declarations + 1
             end if
         end do
@@ -3108,23 +3271,34 @@ contains
             new_declaration_indices(1:original_declarations) = declaration_indices(1:original_declarations)
         end if
         
-        ! Generate missing declarations and parameter declarations
+        ! Generate missing declarations for all undeclared variables (use same approach as functions)
         do i = 1, var_count
-            if (.not. var_explicitly_declared(i) .and. .not. var_is_parameter(i)) then
-                ! Create new declaration for undeclared local variables
-                new_decl_index = push_declaration(arena, trim(var_types(i)), trim(var_names(i)), &
-                                                 line=1, column=1, parent_index=sub_index)
+            if (.not. var_explicitly_declared(i)) then
+                ! Create declaration node (same approach as function version)
+                new_decl%var_name = var_names(i)
+                new_decl%type_name = trim(var_types(i))
+                new_decl%has_kind = .false.
+                new_decl%kind_value = 0
                 
-                original_declarations = original_declarations + 1
-                new_declaration_indices(original_declarations) = new_decl_index
-            else if (var_is_parameter(i)) then
-                ! Create parameter declaration with intent(in)
-                new_decl_index = push_declaration(arena, trim(var_types(i)), trim(var_names(i)), &
-                                                 intent_value="in", &
-                                                 line=1, column=1, parent_index=sub_index)
+                ! Set intent for parameters only
+                if (var_is_parameter(i)) then
+                    new_decl%has_intent = .true.
+                    new_decl%intent = "in"
+                else
+                    new_decl%has_intent = .false.
+                end if
                 
+                new_decl%line = 1
+                new_decl%column = 1
+                new_decl%is_allocatable = .false.
+                new_decl%is_pointer = .false.
+                new_decl%is_target = .false.
+                new_decl%is_optional = .false.
+                new_decl%is_parameter = .false.
+                
+                call arena%push(new_decl, "auto_decl", sub_index)
                 original_declarations = original_declarations + 1
-                new_declaration_indices(original_declarations) = new_decl_index
+                new_declaration_indices(original_declarations) = arena%size
             end if
         end do
         

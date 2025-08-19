@@ -2249,8 +2249,17 @@ contains
             allocate(param_names(0))
         end if
         
-        ! CRITICAL FIX: Process existing declarations FIRST before auto-generation
-        ! This ensures explicit declarations are respected and take precedence
+        ! CRITICAL ARCHITECTURAL FIX: Generate declarations FIRST in correct order
+        ! 0. Implicit none FIRST (required Fortran syntax)
+        code = code//indent//"implicit none"//new_line('a')
+        
+        ! 1. Parameter declarations SECOND
+        call generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
+        
+        ! 2. Result variable declaration THIRD (if present and not explicitly declared)
+        call generate_result_variable_declaration_from_semantics(arena, proc_node, indent, code)
+        
+        ! 3. Process remaining body statements (non-declarations) THIRD
         i = 1
 
         do while (i <= size(body_indices))
@@ -2258,16 +2267,9 @@ contains
                 if (allocated(arena%entries(body_indices(i))%node)) then
                     select type (node => arena%entries(body_indices(i))%node)
                     type is (declaration_node)
-                        ! Check if this is a parameter declaration that should be skipped
-                        ! Parameters are already handled at the top of the function
-                        ! Use intelligent parameter detection based on actual parameter list
-                        if (is_parameter_name(node%var_name, param_names)) then
-                            ! This declaration is for a function parameter - skip it  
-                            i = i + 1
-                            cycle
-                        end if
-                        
-                        ! Handle multi-variable declarations with parameters mixed with locals
+                        ! Skip all declarations - they are handled at the beginning in correct order
+                        i = i + 1
+                        cycle
                         if (node%is_multi_declaration .and. allocated(node%var_names)) then
                             block
                                 logical :: has_parameter, has_non_parameter
@@ -2433,8 +2435,6 @@ contains
                                                                  group_has_kind, group_intent, var_list, group_is_optional)
 
                         code = code//indent//stmt_code//new_line('a')
-                        i = j
-
                     class default
                         ! Generate other statements normally (but avoid recursive declaration generation)
                         if (allocated(arena%entries(body_indices(i))%node)) then
@@ -2447,7 +2447,8 @@ contains
                             class default
                                 ! Generate non-declaration statements normally
                                 stmt_code = generate_code_from_arena(arena, body_indices(i))
-                                if (len_trim(stmt_code) > 0) then
+                                ! Skip implicit none since we already added it at the beginning
+                                if (len_trim(stmt_code) > 0 .and. trim(stmt_code) /= "implicit none") then
                                     code = code//indent//stmt_code//new_line('a')
                                 end if
                             end select
@@ -2461,13 +2462,6 @@ contains
                 i = i + 1
             end if
         end do
-        
-        ! CRITICAL FIX: Generate parameter declarations AFTER processing existing declarations
-        ! This ensures explicit declarations are processed first and take precedence
-        call generate_parameter_declarations_from_semantics(arena, proc_node, indent, code)
-        
-        ! Generate result variable declaration if present and not explicitly declared
-        call generate_result_variable_declaration_from_semantics(arena, proc_node, indent, code)
         
     end function generate_grouped_body_with_params
     
@@ -3122,16 +3116,27 @@ contains
         character(len=*), intent(in) :: indent
         character(len=:), allocatable, intent(inout) :: code
         
-        integer :: i, param_index
+        ! Parameter grouping support
+        type :: parameter_info_t
+            character(len=:), allocatable :: name
+            character(len=:), allocatable :: type_str
+            character(len=:), allocatable :: intent_str
+        end type parameter_info_t
+        
+        integer :: i, param_index, group_start, group_end, j
         character(len=:), allocatable :: param_type_str, param_name, intent_str
+        type(parameter_info_t), allocatable :: param_info(:)
+        character(len=:), allocatable :: param_list, current_type_intent
+        integer :: param_count
         
-        ! Generate parameter declarations only for missing parameters
-        
-        
+        ! Generate parameter declarations with grouping by type and intent
         select type (proc_node)
         type is (function_def_node)
             if (allocated(proc_node%param_indices)) then
-                ! Process parameters for auto-declaration
+                ! First pass: collect parameter information
+                param_count = 0
+                allocate(param_info(size(proc_node%param_indices)))
+                
                 do i = 1, size(proc_node%param_indices)
                     param_index = proc_node%param_indices(i)
                     if (param_index > 0 .and. param_index <= arena%size) then
@@ -3171,8 +3176,11 @@ contains
                                     param_type_str = apply_implicit_typing_rules(param_name)
                                 end if
                                 
-                                ! Generate individual parameter declaration to match test expectations
-                                code = code//indent//param_type_str//", "//intent_str//" :: "//param_name//new_line('a')
+                                ! Store parameter information
+                                param_count = param_count + 1
+                                param_info(param_count)%name = param_name
+                                param_info(param_count)%type_str = param_type_str
+                                param_info(param_count)%intent_str = intent_str
                             type is (parameter_declaration_node)
                                 param_name = param_node%name
                                 
@@ -3195,12 +3203,44 @@ contains
                                     param_type_str = apply_implicit_typing_rules(param_name)
                                 end if
                                 
-                                ! Generate individual parameter declaration with proper intent
-                                code = code//indent//param_type_str//", "//intent_str//" :: "//param_name//new_line('a')
+                                ! Store parameter information
+                                param_count = param_count + 1
+                                param_info(param_count)%name = param_name
+                                param_info(param_count)%type_str = param_type_str
+                                param_info(param_count)%intent_str = intent_str
                             end select
                         end if
                     end if
                 end do
+                
+                ! Second pass: generate grouped declarations
+                if (param_count > 0) then
+                    i = 1
+                    do while (i <= param_count)
+                        ! Start a new group
+                        current_type_intent = param_info(i)%type_str // ", " // param_info(i)%intent_str
+                        param_list = param_info(i)%name
+                        
+                        ! Find all parameters with same type and intent
+                        j = i + 1
+                        do while (j <= param_count)
+                            if (param_info(j)%type_str // ", " // param_info(j)%intent_str == current_type_intent) then
+                                param_list = param_list // ", " // param_info(j)%name
+                                ! Remove this parameter from further consideration
+                                do group_end = j, param_count - 1
+                                    param_info(group_end) = param_info(group_end + 1)
+                                end do
+                                param_count = param_count - 1
+                            else
+                                j = j + 1
+                            end if
+                        end do
+                        
+                        ! Generate grouped declaration
+                        code = code//indent//current_type_intent//" :: "//param_list//new_line('a')
+                        i = i + 1
+                    end do
+                end if
             end if
         type is (subroutine_def_node)
             if (allocated(proc_node%param_indices)) then
@@ -3285,23 +3325,54 @@ contains
         logical :: result_declared_explicitly
         integer :: i, body_index
         
+        ! print *, "DEBUG: generate_result_variable_declaration_from_semantics called"
+        
         select type (proc_node)
         type is (function_def_node)
             if (allocated(proc_node%result_variable) .and. len_trim(proc_node%result_variable) > 0) then
                 result_name = proc_node%result_variable
-                result_declared_explicitly = .false.
                 
-                ! Check if result variable is already explicitly declared in function body
+                ! Always generate result variable declaration - we're putting declarations first
+                ! Try to infer type from assignments, or use default
+                result_type_str = "real(8)"  ! Default fallback
+                
+                ! Look for assignment nodes to infer the result type
                 if (allocated(proc_node%body_indices)) then
                     do i = 1, size(proc_node%body_indices)
                         body_index = proc_node%body_indices(i)
                         if (body_index > 0 .and. body_index <= arena%size) then
                             if (allocated(arena%entries(body_index)%node)) then
                                 select type (body_node => arena%entries(body_index)%node)
-                                type is (declaration_node)
-                                    if (body_node%var_name == result_name) then
-                                        result_declared_explicitly = .true.
-                                        exit
+                                type is (assignment_node)
+                                    ! Check if this is assignment to result variable
+                                    if (body_node%target_index > 0 .and. body_node%target_index <= arena%size) then
+                                        if (allocated(arena%entries(body_node%target_index)%node)) then
+                                            select type (target_node => arena%entries(body_node%target_index)%node)
+                                            type is (identifier_node)
+                                                if (target_node%name == result_name) then
+                                                    ! This assigns to result variable - use RHS type
+                                                    if (body_node%value_index > 0 .and. body_node%value_index <= arena%size) then
+                                                        if (allocated(arena%entries(body_node%value_index)%node)) then
+                                                            if (allocated(arena%entries(body_node%value_index)%node%inferred_type)) then
+                                                                result_type_str = arena%entries(body_node%value_index)%node%inferred_type%to_string()
+                                                                
+                                                                ! Convert semantic type to Fortran declaration format
+                                                                if (result_type_str == "real(8)") then
+                                                                    result_type_str = "real(8)"
+                                                                else if (result_type_str == "integer") then
+                                                                    result_type_str = "integer"
+                                                                else if (index(result_type_str, "character") > 0) then
+                                                                    result_type_str = result_type_str
+                                                                else
+                                                                    result_type_str = "real(8)"  ! Default fallback
+                                                                end if
+                                                                exit  ! Found type, no need to continue searching
+                                                            end if
+                                                        end if
+                                                    end if
+                                                end if
+                                            end select
+                                        end if
                                     end if
                                 end select
                             end if
@@ -3309,59 +3380,8 @@ contains
                     end do
                 end if
                 
-                ! If not explicitly declared, try to infer type and generate declaration
-                if (.not. result_declared_explicitly) then
-                    ! Look for assignment nodes to infer the result type
-                    if (allocated(proc_node%body_indices)) then
-                        do i = 1, size(proc_node%body_indices)
-                            body_index = proc_node%body_indices(i)
-                            if (body_index > 0 .and. body_index <= arena%size) then
-                                if (allocated(arena%entries(body_index)%node)) then
-                                    select type (body_node => arena%entries(body_index)%node)
-                                    type is (assignment_node)
-                                        ! Check if this is assignment to result variable
-                                        if (body_node%target_index > 0 .and. body_node%target_index <= arena%size) then
-                                            if (allocated(arena%entries(body_node%target_index)%node)) then
-                                                select type (target_node => arena%entries(body_node%target_index)%node)
-                                                type is (identifier_node)
-                                                    if (target_node%name == result_name) then
-                                                        ! This assigns to result variable - use RHS type
-                                                        if (body_node%value_index > 0 .and. body_node%value_index <= arena%size) then
-                                                            if (allocated(arena%entries(body_node%value_index)%node)) then
-                                                                if (allocated(arena%entries(body_node%value_index)%node%inferred_type)) then
-                                                                    result_type_str = arena%entries(body_node%value_index)%node%inferred_type%to_string()
-                                                                    
-                                                                    ! Convert semantic type to Fortran declaration format
-                                                                    if (result_type_str == "real(8)") then
-                                                                        result_type_str = "real(8)"
-                                                                    else if (result_type_str == "integer") then
-                                                                        result_type_str = "integer"
-                                                                    else if (index(result_type_str, "character") > 0) then
-                                                                        result_type_str = result_type_str
-                                                                    else
-                                                                        result_type_str = "real(8)"  ! Default fallback
-                                                                    end if
-                                                                    
-                                                                    ! Generate result variable declaration
-                                                                    code = code//indent//result_type_str//" :: "//result_name//new_line('a')
-                                                                    return
-                                                                end if
-                                                            end if
-                                                        end if
-                                                    end if
-                                                end select
-                                            end if
-                                        end if
-                                    end select
-                                end if
-                            end if
-                        end do
-                    end if
-                    
-                    ! If we couldn't infer the type, use default
-                    result_type_str = "real(8)"
-                    code = code//indent//result_type_str//" :: "//result_name//new_line('a')
-                end if
+                ! Generate result variable declaration
+                code = code//indent//result_type_str//" :: "//result_name//new_line('a')
             end if
         end select
     end subroutine generate_result_variable_declaration_from_semantics
