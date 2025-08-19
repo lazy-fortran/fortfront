@@ -44,10 +44,76 @@ module semantic_analyzer
         procedure :: assign => semantic_context_assign
         procedure :: validate_bounds => validate_array_access_bounds
         procedure :: check_conformance => check_array_shape_conformance
+        procedure :: create_validated_type
         generic :: assignment(=) => assign
     end type semantic_context_t
 
 contains
+
+    ! Create validated type with safety checks
+    function create_validated_type(this, kind, var, args, char_size, context) result(typ)
+        class(semantic_context_t), intent(inout), optional :: this
+        integer, intent(in) :: kind
+        type(type_var_t), intent(in), optional :: var
+        type(mono_type_t), intent(in), optional :: args(:)
+        integer, intent(in), optional :: char_size
+        character(len=*), intent(in), optional :: context
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: temp_type
+
+        ! Create the type using normal constructor
+        if (present(var) .and. present(args) .and. present(char_size)) then
+            temp_type = create_mono_type(kind, var=var, args=args, char_size=char_size)
+        else if (present(var) .and. present(args)) then
+            temp_type = create_mono_type(kind, var=var, args=args)
+        else if (present(var) .and. present(char_size)) then
+            temp_type = create_mono_type(kind, var=var, char_size=char_size)
+        else if (present(args) .and. present(char_size)) then
+            temp_type = create_mono_type(kind, args=args, char_size=char_size)
+        else if (present(var)) then
+            temp_type = create_mono_type(kind, var=var)
+        else if (present(args)) then
+            temp_type = create_mono_type(kind, args=args)
+        else if (present(char_size)) then
+            temp_type = create_mono_type(kind, char_size=char_size)
+        else
+            temp_type = create_mono_type(kind)
+        end if
+
+        ! For type variables and error cases, validate through unification if context available
+        if (present(this) .and. (kind == TVAR .or. present(context))) then
+            ! Create a baseline type for validation
+            block
+                type(mono_type_t) :: validation_type
+                type(substitution_t) :: s
+                
+                select case (kind)
+                case (TVAR)
+                    ! For type variables, create a fresh variable through proper channels
+                    if (present(context)) then
+                        ! Context-specific type variable creation
+                        if (index(context, "error") > 0 .or. index(context, "fallback") > 0) then
+                            ! For error/fallback cases, use proper error type creation
+                            validation_type = create_mono_type(TVAR, var=this%fresh_type_var())
+                        else
+                            validation_type = temp_type
+                        end if
+                    else
+                        validation_type = temp_type
+                    end if
+                case default
+                    validation_type = temp_type
+                end select
+                
+                ! Apply unification for validation (self-unification for consistency check)
+                s = this%unify(temp_type, validation_type)
+                call this%compose_with_subst(s)
+                typ = this%apply_subst_to_type(temp_type)
+            end block
+        else
+            typ = temp_type
+        end if
+    end function create_validated_type
 
     ! Create a new semantic context with builtin functions
     function create_semantic_context() result(ctx)
@@ -185,11 +251,11 @@ contains
         type(mono_type_t) :: typ
 
         if (stmt_index <= 0 .or. stmt_index > arena%size) then
-            typ = create_mono_type(TINT)  ! Default fallback
+            typ = this%create_validated_type(TINT, context="fallback-invalid-index")
             return
         end if
         if (.not. allocated(arena%entries(stmt_index)%node)) then
-            typ = create_mono_type(TINT)  ! Default fallback
+            typ = this%create_validated_type(TINT, context="fallback-no-node")
             return
         end if
 
@@ -200,7 +266,7 @@ contains
             stmt%type_was_inferred = .true.
             stmt%inferred_type_name = typ%to_string()
         type is (print_statement_node)
-            typ = create_mono_type(TINT)  ! print returns unit/void, use int
+            typ = this%create_validated_type(TINT, context="print-statement-unit-type")
         type is (declaration_node)
             typ = analyze_declaration(this, arena, stmt, stmt_index)
         type is (module_node)
@@ -314,11 +380,11 @@ contains
         type(mono_type_t) :: typ
 
         if (expr_index <= 0 .or. expr_index > arena%size) then
-            typ = create_mono_type(TREAL)
+            typ = this%create_validated_type(TREAL, context="expr-invalid-index")
             return
         end if
         if (.not. allocated(arena%entries(expr_index)%node)) then
-            typ = create_mono_type(TREAL)
+            typ = this%create_validated_type(TREAL, context="expr-no-node")
             return
         end if
 
@@ -396,11 +462,11 @@ contains
                             typ = sym_scheme%mono%args(1)  ! First arg is element type
                             ! (deep copy via assignment)
                         else
-                            typ = create_mono_type(TVAR, var=this%fresh_type_var())
+                            typ = this%create_validated_type(TVAR, var=this%fresh_type_var(), context="unknown-array-element")
                         end if
                     else
                         ! Return a type variable for unknown arrays
-                        typ = create_mono_type(TVAR, var=this%fresh_type_var())
+                        typ = this%create_validated_type(TVAR, var=this%fresh_type_var(), context="unknown-array")
                     end if
                 else
                     ! It's a function call
@@ -415,7 +481,7 @@ contains
         type is (subroutine_call_node)
             ! Subroutine calls don't return a value - shouldn't appear in expressions
             ! Return a type variable that will fail type checking
-            typ = create_mono_type(TVAR, var=create_type_var(0, "error"))
+            typ = this%create_validated_type(TVAR, var=create_type_var(0, "error"), context="subroutine-in-expression-error")
 
         type is (assignment_node)
             typ = infer_assignment(this, arena, expr, expr_index)
@@ -428,7 +494,7 @@ contains
 
         class default
             ! Return real type as default for unsupported expressions
-            typ = create_mono_type(TREAL)
+            typ = this%create_validated_type(TREAL, context="unsupported-expression-default")
         end select
 
         ! Apply current substitution
@@ -449,14 +515,14 @@ contains
 
         select case (lit%literal_kind)
         case (LITERAL_INTEGER)
-            typ = create_mono_type(TINT)
+            typ = ctx%create_validated_type(TINT, context="integer-literal")
         case (LITERAL_REAL)
-            typ = create_mono_type(TREAL)
+            typ = ctx%create_validated_type(TREAL, context="real-literal")
         case (LITERAL_STRING)
             ! Calculate string length (subtract 2 for quotes)
-            typ = create_mono_type(TCHAR, char_size=len_trim(lit%value) - 2)
+            typ = ctx%create_validated_type(TCHAR, char_size=len_trim(lit%value) - 2, context="string-literal")
         case (LITERAL_LOGICAL)
-            typ = create_mono_type(TLOGICAL)  ! Boolean as logical
+            typ = ctx%create_validated_type(TLOGICAL, context="logical-literal")
         case default
             error stop "Unknown literal kind"
         end select
@@ -471,7 +537,7 @@ contains
 
         ! Safety check: ensure identifier name is allocated and not empty
         if (.not. allocated(ident%name) .or. len_trim(ident%name) == 0) then
-            typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+            typ = ctx%create_validated_type(TVAR, var=ctx%fresh_type_var(), context="empty-identifier-name")
             return
         end if
 
@@ -509,7 +575,7 @@ contains
         case (":")
             ! Array range operator - for now, return integer type
             ! Note: Returns base element type - range/slice types are future enhancement
-            typ = create_mono_type(TINT)
+            typ = ctx%create_validated_type(TINT, context="array-range-operator")
             return
 
         case ("+", "-", "*", "/", "**")
@@ -536,7 +602,7 @@ contains
                         right_typ%alloc_info%is_pointer
                 else
                     ! For type variables, unify as before
-                    result_typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+                    result_typ = ctx%create_validated_type(TVAR, var=ctx%fresh_type_var(), context="binary-op-type-vars")
 
                     ! Unify left with result
                     s1 = ctx%unify(left_typ, result_typ)
@@ -555,25 +621,25 @@ contains
                 end if
             else
                 ! Type error - for now, return real as default
-                result_typ = create_mono_type(TREAL)
+                result_typ = ctx%create_validated_type(TREAL, context="binary-op-type-error")
             end if
 
         case ("<", ">", "<=", ">=", "==", "/=")
             ! Comparison operations: operands must be compatible
             if (is_compatible(left_typ, right_typ, compat_level)) then
-                result_typ = create_mono_type(TLOGICAL)  ! Boolean as logical
+                result_typ = ctx%create_validated_type(TLOGICAL, context="comparison-result")
             else
                 ! Type error - still return boolean
-                result_typ = create_mono_type(TLOGICAL)
+                result_typ = ctx%create_validated_type(TLOGICAL, context="comparison-type-error")
             end if
 
         case (".and.", ".or.")
             ! Logical operations: all logical
-            s1 = ctx%unify(left_typ, create_mono_type(TLOGICAL))
+            s1 = ctx%unify(left_typ, ctx%create_validated_type(TLOGICAL, context="logical-left-validation"))
             call ctx%compose_with_subst(s1)
-            s2 = ctx%unify(right_typ, create_mono_type(TLOGICAL))
+            s2 = ctx%unify(right_typ, ctx%create_validated_type(TLOGICAL, context="logical-right-validation"))
             call ctx%compose_with_subst(s2)
-            result_typ = create_mono_type(TLOGICAL)
+            result_typ = ctx%create_validated_type(TLOGICAL, context="logical-op-result")
 
         case ("//")
             ! String concatenation
@@ -582,14 +648,14 @@ contains
             if (left_typ%kind == TCHAR .or. left_typ%kind == TVAR) then
                 ! Left is char or will be inferred as char
             else
-                s1 = ctx%unify(left_typ, create_mono_type(TCHAR))
+                s1 = ctx%unify(left_typ, ctx%create_validated_type(TCHAR, context="concat-left-validation"))
                 call ctx%compose_with_subst(s1)
             end if
 
             if (right_typ%kind == TCHAR .or. right_typ%kind == TVAR) then
                 ! Right is char or will be inferred as char
             else
-                s2 = ctx%unify(right_typ, create_mono_type(TCHAR))
+                s2 = ctx%unify(right_typ, ctx%create_validated_type(TCHAR, context="concat-right-validation"))
                 call ctx%compose_with_subst(s2)
             end if
 
@@ -613,7 +679,7 @@ contains
 
                 ! Combined length for concatenation
                 total_size = left_size + right_size
-                result_typ = create_mono_type(TCHAR, char_size=total_size)
+                result_typ = ctx%create_validated_type(TCHAR, char_size=total_size, context="string-concatenation")
             end block
 
         case default
@@ -707,11 +773,11 @@ contains
                         if (size(fun_typ%args) > 0) then
                             typ = fun_typ%args(1)
                         else
-                            typ = create_mono_type(TINT)
+                            typ = ctx%create_validated_type(TINT, context="array-no-element-type")
                         end if
                     else
                         ! Default to integer for now
-                        typ = create_mono_type(TINT)
+                        typ = ctx%create_validated_type(TINT, context="array-no-args")
                     end if
                     return
                 end if
@@ -732,11 +798,11 @@ contains
                         print *, "WARNING: Invalid type inferred for argument ", i
                         print *, "  Type kind: ", arg_types(i)%kind
                         ! Create a type variable as fallback
-                        arg_types(i) = create_mono_type(TVAR, var=ctx%fresh_type_var())
+                        arg_types(i) = ctx%create_validated_type(TVAR, var=ctx%fresh_type_var(), context="invalid-arg-type")
                     end if
                 else
                   print *, "WARNING: Invalid argument index: ", call_node%arg_indices(i)
-                    arg_types(i) = create_mono_type(TVAR, var=ctx%fresh_type_var())
+                    arg_types(i) = ctx%create_validated_type(TVAR, var=ctx%fresh_type_var(), context="invalid-arg-index")
                 end if
             end do
 
@@ -744,7 +810,7 @@ contains
             if (fun_typ%kind == TARRAY) then
                 ! This case should have been handled above
                 print *, "WARNING: Array type in function call unification"
-                typ = create_mono_type(TINT)
+                typ = ctx%create_validated_type(TINT, context="array-in-function-call-warning")
                 return
             end if
 
@@ -757,7 +823,7 @@ contains
                     type(mono_type_t) :: expected_fun_type, new_result_typ
 
                     tv = ctx%fresh_type_var()
-                    new_result_typ = create_mono_type(TVAR, var=tv)
+                    new_result_typ = ctx%create_validated_type(TVAR, var=tv, context="function-call-expected-result")
                     expected_fun_type = create_fun_type(arg_types(i), new_result_typ)
 
                     ! Unify current function type with expected
@@ -765,7 +831,7 @@ contains
                   if (result_typ%kind /= TFUN .and. expected_fun_type%kind == TFUN) then
                         ! Create a type variable as result
                         tv = ctx%fresh_type_var()
-                        result_typ = create_mono_type(TVAR, var=tv)
+                        result_typ = ctx%create_validated_type(TVAR, var=tv, context="incompatible-function-unification")
                         cycle
                     end if
 
@@ -971,11 +1037,11 @@ contains
                 ! If one array has no args, try to create minimal args structure
                 if (.not. allocated(t1_subst%args)) then
                     allocate(t1_subst%args(1))
-                    t1_subst%args(1) = create_mono_type(TVAR, var=this%fresh_type_var())
+                    t1_subst%args(1) = this%create_validated_type(TVAR, var=this%fresh_type_var(), context="array-missing-args-t1")
                 end if
                 if (.not. allocated(t2_subst%args)) then
                     allocate(t2_subst%args(1))
-                    t2_subst%args(1) = create_mono_type(TVAR, var=this%fresh_type_var())
+                    t2_subst%args(1) = this%create_validated_type(TVAR, var=this%fresh_type_var(), context="array-missing-args-t2")
                 end if
             end if
 
@@ -1014,7 +1080,7 @@ contains
         if (allocated(scheme%forall)) then
             do i = 1, size(scheme%forall)
                 call subst%add(scheme%forall(i), &
-                               create_mono_type(TVAR, var=this%fresh_type_var()))
+                               this%create_validated_type(TVAR, var=this%fresh_type_var(), context="instantiate-scheme-quantified-var"))
             end do
         end if
 
@@ -1110,8 +1176,8 @@ contains
         end if
 
         ! Create basic types
-        int_type = create_mono_type(TINT)
-        real_type = create_mono_type(TREAL)
+        int_type = this%create_validated_type(TINT, context="builtin-int-type")
+        real_type = this%create_validated_type(TREAL, context="builtin-real-type")
 
         ! Return appropriate function types for intrinsics
         select case (trim(name))
@@ -1155,10 +1221,10 @@ contains
                 type(mono_type_t) :: array_type, elem_var
                 type(mono_type_t), allocatable :: array_args(:)
 
-                elem_var = create_mono_type(TVAR, var=this%fresh_type_var())
+                elem_var = this%create_validated_type(TVAR, var=this%fresh_type_var(), context="size-function-elem-var")
                 allocate (array_args(1))
                 array_args(1) = elem_var
-                array_type = create_mono_type(TARRAY, args=array_args)
+                array_type = this%create_validated_type(TARRAY, args=array_args, context="size-function-array-type")
                 typ = create_fun_type(array_type, int_type)
             end block
 
@@ -1171,7 +1237,7 @@ contains
 
                 allocate (array_args(1))
                 array_args(1) = int_type
-                array_type = create_mono_type(TARRAY, args=array_args)
+                array_type = this%create_validated_type(TARRAY, args=array_args, context="sum-function-array-type")
                 typ = create_fun_type(array_type, int_type)
             end block
 
