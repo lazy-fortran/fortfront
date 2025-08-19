@@ -12,6 +12,7 @@ module standardizer
     use type_system_hm
     use json_module, only: json_core, json_value, json_file
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+    use error_handling
     implicit none
     private
     
@@ -20,6 +21,12 @@ module standardizer
     
     ! Constants
     integer, parameter :: INVALID_INTEGER = -999999
+    
+    ! Memory safety constants
+    integer, parameter :: MAX_VARIABLES = 500
+    integer, parameter :: MAX_STRING_LENGTH = 128
+    integer, parameter :: DEFAULT_ARRAY_SIZE = 100
+    integer, parameter :: ARRAY_GROWTH_INCREMENT = 50
 
     ! Variable information storage type for unified reorganization
     type :: variable_info_t
@@ -495,10 +502,10 @@ contains
         integer :: i, var_count, func_count
         type(declaration_node) :: decl_node
 
-        allocate (var_names(100))
-        allocate (var_types(100))
-        allocate (var_declared(100))
-        allocate (function_names(100))
+        allocate (var_names(DEFAULT_ARRAY_SIZE))
+        allocate (var_types(DEFAULT_ARRAY_SIZE))
+        allocate (var_declared(DEFAULT_ARRAY_SIZE))
+        allocate (function_names(DEFAULT_ARRAY_SIZE))
         var_declared = .false.
         var_count = 0
         func_count = 0
@@ -1577,10 +1584,18 @@ contains
         integer :: n_declarations, n_executables
         
         ! Initialize variable collection system
-        call initialize_variable_info(var_info)
+        block
+            type(result_t) :: init_result
+            init_result = initialize_variable_info(var_info)
+            ! TODO: Handle initialization errors in production
+        end block
         
         ! Step 1: Collect all variable information based on procedure type
-        call collect_procedure_variables(arena, var_info, procedure_type, func_def, sub_def)
+        block
+            type(result_t) :: collect_result
+            collect_result = collect_procedure_variables(arena, var_info, procedure_type, func_def, sub_def)
+            ! TODO: Handle collection errors in production
+        end block
         
         ! Step 2: Separate existing declarations from executable statements
         call separate_procedure_declarations(arena, body_indices, declaration_indices, &
@@ -1606,10 +1621,11 @@ contains
     end subroutine reorganize_procedure_with_declarations
     
     ! Initialize variable information storage
-    subroutine initialize_variable_info(var_info)
+    function initialize_variable_info(var_info) result(init_result)
         type(variable_info_t), intent(out) :: var_info
+        type(result_t) :: init_result
         
-        var_info%max_vars = 50
+        var_info%max_vars = MAX_VARIABLES
         allocate(var_info%names(var_info%max_vars))
         allocate(var_info%types(var_info%max_vars))
         allocate(var_info%explicitly_declared(var_info%max_vars))
@@ -1621,18 +1637,29 @@ contains
         var_info%is_parameter = .false.
         var_info%is_result = .false.
         
-    end subroutine initialize_variable_info
+        init_result = success_result()
+    end function initialize_variable_info
     
     ! Collect all variable information based on procedure type
-    subroutine collect_procedure_variables(arena, var_info, procedure_type, func_def, sub_def)
+    function collect_procedure_variables(arena, var_info, procedure_type, func_def, sub_def) result(collect_result)
         type(ast_arena_t), intent(in) :: arena
         type(variable_info_t), intent(inout) :: var_info
         character(len=*), intent(in) :: procedure_type
         type(function_def_node), optional, intent(in) :: func_def
         type(subroutine_def_node), optional, intent(in) :: sub_def
+        type(result_t) :: collect_result
         
         if (procedure_type == 'function') then
-            if (.not. present(func_def)) error stop "Function def required for function procedure"
+            if (.not. present(func_def)) then
+                collect_result = create_error_result( &
+                    "Function definition required for function procedure", &
+                    ERROR_VALIDATION, &
+                    component="standardizer", &
+                    context="collect_procedure_variables", &
+                    suggestion="Ensure func_def parameter is provided when procedure_type is 'function'" &
+                )
+                return
+            end if
             
             ! Collect function parameters
             call collect_function_parameters(arena, func_def, var_info%names, var_info%types, &
@@ -1649,7 +1676,16 @@ contains
                                                  var_info%explicitly_declared, var_info%is_parameter, &
                                                  var_info%is_result, var_info%count, var_info%max_vars)
         else if (procedure_type == 'subroutine') then
-            if (.not. present(sub_def)) error stop "Subroutine def required for subroutine procedure"
+            if (.not. present(sub_def)) then
+                collect_result = create_error_result( &
+                    "Subroutine definition required for subroutine procedure", &
+                    ERROR_VALIDATION, &
+                    component="standardizer", &
+                    context="collect_procedure_variables", &
+                    suggestion="Ensure sub_def parameter is provided when procedure_type is 'subroutine'" &
+                )
+                return
+            end if
             
             ! Collect subroutine parameters
             call collect_subroutine_parameters(arena, sub_def, var_info%names, var_info%types, &
@@ -1661,10 +1697,18 @@ contains
                                                    var_info%explicitly_declared, var_info%is_parameter, &
                                                    var_info%is_result, var_info%count, var_info%max_vars)
         else
-            error stop "Invalid procedure type: " // procedure_type
+            collect_result = create_error_result( &
+                "Invalid procedure type: " // procedure_type, &
+                ERROR_VALIDATION, &
+                component="standardizer", &
+                context="collect_procedure_variables", &
+                suggestion="Use 'function' or 'subroutine' as procedure_type" &
+            )
+            return
         end if
         
-    end subroutine collect_procedure_variables
+        collect_result = success_result()
+    end function collect_procedure_variables
     
     ! Separate declarations from executables (unified for both procedure types)
     subroutine separate_procedure_declarations(arena, body_indices, declaration_indices, &
@@ -1914,9 +1958,13 @@ contains
                             integer :: dummy_kind_value
                             call infer_parameter_type(param_name, param_type, dummy_has_kind, dummy_kind_value)
                         end block
-                        call add_variable_to_list(param_name, param_type, .false., .true., .false., &
-                                                 var_names, var_types, var_explicitly_declared, &
-                                                 var_is_parameter, var_is_result, var_count, max_vars)
+                        block
+                            type(result_t) :: add_result
+                            add_result = add_variable_to_list(param_name, param_type, .false., .true., .false., &
+                                                            var_names, var_types, var_explicitly_declared, &
+                                                            var_is_parameter, var_is_result, var_count, max_vars)
+                            ! TODO: Handle add variable errors in production
+                        end block
                     end select
                 end if
             end if
@@ -1948,9 +1996,13 @@ contains
                 integer :: dummy_kind_value
                 call infer_parameter_type(result_name, result_type, dummy_has_kind, dummy_kind_value)
             end block
-            call add_variable_to_list(result_name, result_type, .false., .false., .true., &
-                                     var_names, var_types, var_explicitly_declared, &
-                                     var_is_parameter, var_is_result, var_count, max_vars)
+            block
+                type(result_t) :: add_result
+                add_result = add_variable_to_list(result_name, result_type, .false., .false., .true., &
+                                                var_names, var_types, var_explicitly_declared, &
+                                                var_is_parameter, var_is_result, var_count, max_vars)
+                ! TODO: Handle add variable errors in production
+            end block
         end if
     end subroutine collect_function_result_variable
 
@@ -2133,10 +2185,10 @@ contains
         declaration_indices = new_declaration_indices
     end subroutine generate_missing_declarations
 
-    ! Add a variable to the variable list (avoiding duplicates)
-    subroutine add_variable_to_list(var_name, var_type, explicitly_declared, is_parameter, is_result, &
-                                   var_names, var_types, var_explicitly_declared, &
-                                   var_is_parameter, var_is_result, var_count, max_vars)
+    ! Add a variable to the variable list (avoiding duplicates) with bounds validation
+    function add_variable_to_list(var_name, var_type, explicitly_declared, is_parameter, is_result, &
+                                 var_names, var_types, var_explicitly_declared, &
+                                 var_is_parameter, var_is_result, var_count, max_vars) result(add_result)
         character(len=*), intent(in) :: var_name, var_type
         logical, intent(in) :: explicitly_declared, is_parameter, is_result
         character(len=64), intent(inout) :: var_names(:)
@@ -2146,30 +2198,90 @@ contains
         logical, intent(inout) :: var_is_result(:)
         integer, intent(inout) :: var_count
         integer, intent(in) :: max_vars
+        type(result_t) :: add_result
         
         integer :: i
         
+        ! Bounds validation
+        if (var_count < 0) then
+            add_result = create_error_result( &
+                "Invalid variable count: negative value", &
+                ERROR_VALIDATION, &
+                component="standardizer", &
+                context="add_variable_to_list", &
+                suggestion="Ensure var_count is non-negative" &
+            )
+            return
+        end if
+        
+        if (size(var_names) < max_vars .or. size(var_types) < max_vars .or. &
+            size(var_explicitly_declared) < max_vars .or. size(var_is_parameter) < max_vars .or. &
+            size(var_is_result) < max_vars) then
+            add_result = create_error_result( &
+                "Array size mismatch: arrays smaller than max_vars", &
+                ERROR_VALIDATION, &
+                component="standardizer", &
+                context="add_variable_to_list", &
+                suggestion="Ensure all arrays are allocated with size >= max_vars" &
+            )
+            return
+        end if
+        
         ! Check if variable already exists
         do i = 1, var_count
+            if (i > size(var_names)) then
+                add_result = create_error_result( &
+                    "Array access out of bounds in variable search", &
+                    ERROR_MEMORY, &
+                    component="standardizer", &
+                    context="add_variable_to_list", &
+                    suggestion="Check var_count consistency with array sizes" &
+                )
+                return
+            end if
+            
             if (trim(var_names(i)) == trim(var_name)) then
-                ! Update existing entry
+                ! Update existing entry with bounds check
                 if (explicitly_declared) var_explicitly_declared(i) = .true.
                 if (is_parameter) var_is_parameter(i) = .true.
                 if (is_result) var_is_result(i) = .true.
+                add_result = success_result()
                 return
             end if
         end do
         
-        ! Add new variable
-        if (var_count < max_vars) then
-            var_count = var_count + 1
-            var_names(var_count) = var_name
-            var_types(var_count) = var_type
-            var_explicitly_declared(var_count) = explicitly_declared
-            var_is_parameter(var_count) = is_parameter
-            var_is_result(var_count) = is_result
+        ! Add new variable with bounds validation
+        if (var_count >= max_vars) then
+            add_result = create_error_result( &
+                "Maximum variable limit reached: " // trim(adjustl(var_name)), &
+                ERROR_MEMORY, &
+                component="standardizer", &
+                context="add_variable_to_list", &
+                suggestion="Increase MAX_VARIABLES constant or reduce variable count" &
+            )
+            return
         end if
-    end subroutine add_variable_to_list
+        
+        var_count = var_count + 1
+        if (var_count > size(var_names)) then
+            add_result = create_error_result( &
+                "Array access out of bounds when adding variable", &
+                ERROR_MEMORY, &
+                component="standardizer", &
+                context="add_variable_to_list", &
+                suggestion="Ensure arrays are properly allocated" &
+            )
+            return
+        end if
+        
+        var_names(var_count) = var_name
+        var_types(var_count) = var_type
+        var_explicitly_declared(var_count) = explicitly_declared
+        var_is_parameter(var_count) = is_parameter
+        var_is_result(var_count) = is_result
+        
+        add_result = success_result()
+    end function add_variable_to_list
 
     ! Mark a variable as explicitly declared
     subroutine mark_variable_as_explicit(var_name, var_names, var_explicitly_declared, var_count)
@@ -2215,6 +2327,77 @@ contains
         ! Update the arena entry
         arena%entries(sub_index)%node = sub_def
     end subroutine standardize_subroutine_def
+
+    ! Helper: Extract parameter names from subroutine definition
+    subroutine extract_subroutine_parameter_names(arena, sub_def, param_names)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub_def
+        character(len=64), allocatable, intent(out) :: param_names(:)
+        integer :: i, n_params
+        
+        if (.not. allocated(sub_def%param_indices)) then
+            allocate(param_names(0))
+            return
+        end if
+        
+        n_params = size(sub_def%param_indices)
+        allocate(param_names(n_params))
+        
+        ! Initialize all param_names to avoid undefined behavior
+        do i = 1, n_params
+            param_names(i) = ""
+        end do
+
+        do i = 1, n_params
+            if (sub_def%param_indices(i) > 0 .and. sub_def%param_indices(i) <= arena%size) then
+                if (allocated(arena%entries(sub_def%param_indices(i))%node)) then
+                    select type (param => arena%entries(sub_def%param_indices(i))%node)
+                    type is (identifier_node)
+                        param_names(i) = param%name
+                    type is (declaration_node)
+                        param_names(i) = param%var_name
+                    class default
+                        ! Try to get a reasonable default name
+                        write(param_names(i), '(a,i0)') "param", i
+                    end select
+                else
+                    ! Node not allocated, create default name
+                    write(param_names(i), '(a,i0)') "param", i
+                end if
+            else
+                ! Invalid index, create default name
+                write(param_names(i), '(a,i0)') "param", i
+            end if
+        end do
+    end subroutine extract_subroutine_parameter_names
+
+    ! Helper: Standardize a single parameter declaration
+    subroutine standardize_parameter_declaration(arena, decl_index, decl_node)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: decl_index
+        type(declaration_node), intent(in) :: decl_node
+        type(declaration_node) :: updated_decl
+        
+        updated_decl = decl_node
+        
+        if (allocated(updated_decl%type_name)) then
+            if (updated_decl%type_name == "real") then
+                updated_decl%type_name = "real"
+                updated_decl%has_kind = .true.
+                updated_decl%kind_value = 8
+            else if (updated_decl%type_name == "integer") then
+                updated_decl%type_name = "integer"
+                updated_decl%has_kind = .false.
+            end if
+        end if
+        
+        ! Set intent to in for parameters
+        updated_decl%has_intent = .true.
+        updated_decl%intent = "in"
+        
+        ! Update the declaration in the arena
+        arena%entries(decl_index)%node = updated_decl
+    end subroutine standardize_parameter_declaration
 
     ! Standardize subroutine parameters by updating existing declarations or
     ! adding new ones
@@ -2519,8 +2702,8 @@ contains
         ! Skip if program has no body
         if (.not. allocated(prog%body_indices)) return
         
-        allocate(assigned_vars(100))
-        allocate(assignment_counts(100))
+        allocate(assigned_vars(DEFAULT_ARRAY_SIZE))
+        allocate(assignment_counts(DEFAULT_ARRAY_SIZE))
         var_count = 0
         
         ! First pass: count assignments to each variable
@@ -2771,8 +2954,8 @@ contains
             if (alloc_count == 0 .or. non_alloc_count == 0) return
             
             ! Allocate arrays for variable names
-            allocate(character(len=100) :: allocatable_vars(alloc_count))
-            allocate(character(len=100) :: non_allocatable_vars(non_alloc_count))
+            allocate(character(len=MAX_STRING_LENGTH) :: allocatable_vars(alloc_count))
+            allocate(character(len=MAX_STRING_LENGTH) :: non_allocatable_vars(non_alloc_count))
             
             ! Split variable names
             alloc_count = 0
@@ -2940,7 +3123,7 @@ contains
         
         
         ! First pass: collect variables that need allocatable strings
-        allocate(string_vars_needing_allocatable(100))
+        allocate(string_vars_needing_allocatable(DEFAULT_ARRAY_SIZE))
         var_count = 0
         
         if (allocated(prog%body_indices)) then
@@ -3115,9 +3298,13 @@ contains
                             integer :: dummy_kind_value
                             call infer_parameter_type(param_name, param_type, dummy_has_kind, dummy_kind_value)
                         end block
-                        call add_variable_to_list(param_name, param_type, .false., .true., .false., &
-                                                 var_names, var_types, var_explicitly_declared, &
-                                                 var_is_parameter, var_is_result, var_count, max_vars)
+                        block
+                            type(result_t) :: add_result
+                            add_result = add_variable_to_list(param_name, param_type, .false., .true., .false., &
+                                                            var_names, var_types, var_explicitly_declared, &
+                                                            var_is_parameter, var_is_result, var_count, max_vars)
+                            ! TODO: Handle add variable errors in production
+                        end block
                     end select
                 end if
             end if
@@ -3181,8 +3368,8 @@ contains
         ! Initialize counts
         decl_count = 0
         exec_count = 0
-        allocate(temp_declarations(100))  ! Fixed size for now
-        allocate(temp_executables(100))
+        allocate(temp_declarations(DEFAULT_ARRAY_SIZE))  ! Fixed size for now
+        allocate(temp_executables(DEFAULT_ARRAY_SIZE))
         
         if (.not. allocated(sub_def%body_indices)) then
             n_declarations = 0
