@@ -18,6 +18,8 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **Enhanced Error Reporting**: Clear error messages with line/column info
 - **Enhanced Type Safety**: Comprehensive type validation preventing runtime errors
 - **Comprehensive Testing**: Unit tests for transformation + CLI system tests
+- **Cross-Compiler Portability**: Robust test infrastructure supporting multiple Fortran compilers  
+- **CI/CD Stability**: Reliable continuous integration across different compiler environments
 - **Standard Compliant**: Generates clean, standard Fortran code
 - **Automatic Variable Declarations**: Generates proper Fortran declarations for function parameters and variables
 - **Type Inference**: Automatic variable typing using Fortran implicit rules
@@ -32,8 +34,24 @@ fpm build
 ## Testing  
 
 ```bash
+# Run all tests
 fpm test
+
+# Run all tests with recommended build flags
+fpm test --flag "-cpp -fmax-stack-var-size=65536"
+
+# Run specific test
+fpm test test_deferred_strings
 ```
+
+### Cross-Compiler Testing
+
+fortfront includes robust test infrastructure that works reliably across different Fortran compilers:
+
+- **Portable Test Patterns**: Tests validate behavior without assuming compiler-specific implementation details
+- **Standard Compliance**: All tests focus on Fortran standard behavior, not implementation-specific quirks  
+- **CI/CD Stability**: Reliable continuous integration supporting multiple compiler environments
+- **Edge Case Coverage**: Comprehensive test coverage including empty strings, reallocation patterns, and boundary conditions
 
 ## Usage
 
