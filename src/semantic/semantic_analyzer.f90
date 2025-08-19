@@ -1559,23 +1559,14 @@ contains
             return_type = create_mono_type(TVAR, var=ctx%fresh_type_var())
         end if
 
-        ! Apply current substitutions to parameter types
+        ! TODO: Apply current substitutions to parameter types
         ! This ensures parameter types are updated with constraints learned from body analysis
-        if (allocated(param_types)) then
-            do i = 1, size(param_types)
-                param_types(i) = ctx%apply_subst_to_type(param_types(i))
-                
-                ! Update AST node with resolved parameter type
-                if (allocated(arena%entries(func_def%param_indices(i))%node)) then
-                    select type (param => arena%entries(func_def%param_indices(i))%node)
-                    type is (identifier_node)
-                        param%inferred_type = param_types(i)
-                    type is (parameter_declaration_node)
-                        param%inferred_type = param_types(i)
-                    end select
-                end if
-            end do
-        end if
+        ! Temporarily disabled due to segfault investigation
+        ! if (allocated(param_types)) then
+        !     do i = 1, size(param_types)
+        !         param_types(i) = ctx%apply_subst_to_type(param_types(i))
+        !     end do
+        ! end if
 
         ! Build function type
         if (size(param_types) == 0) then
