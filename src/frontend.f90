@@ -13,6 +13,7 @@ module frontend
     ! Migrated from ast_core: use explicit imports for better dependency management
     use ast_arena, only: ast_arena_t, init_ast_arena
     use ast_nodes_core, only: program_node
+    use ast_nodes_misc, only: comment_node
     use ast_base, only: LITERAL_STRING
     use ast_factory, only: push_program, push_literal
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
@@ -462,13 +463,77 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
         else if (stmt_count > 0) then
             ! Handle multiple top-level program units (modules, programs, etc.)
-            if (stmt_count == 1) then
-                ! Single program unit - use it directly
-                prog_index = body_indices(1)
-            else
-                ! Multiple program units - create a special multi-unit container
-                prog_index = create_multi_unit_container(arena, body_indices)
-            end if
+            
+            ! Filter out empty implicit main programs that might have been created
+            ! due to Issue #321 mixed construct handling
+            block
+                integer, allocatable :: filtered_indices(:)
+                integer :: i, filtered_count
+                
+                allocate(filtered_indices(0))
+                filtered_count = 0
+                
+                do i = 1, size(body_indices)
+                    if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
+                        ! Check if this is an empty main program
+                        select type (node => arena%entries(body_indices(i))%node)
+                        type is (program_node)
+                            if (node%name == "main") then
+                                ! Check if program has no meaningful content
+                                if (.not. allocated(node%body_indices) .or. &
+                                    size(node%body_indices) == 0) then
+                                    ! Skip empty main program
+                                    cycle
+                                else
+                                    ! Check if all statements are meaningless (just EOF/whitespace)
+                                    block
+                                        integer :: j, meaningful_stmts
+                                        logical :: has_meaningful_content
+                                        meaningful_stmts = 0
+                                        has_meaningful_content = .false.
+                                        
+                                        do j = 1, size(node%body_indices)
+                                            if (node%body_indices(j) > 0 .and. &
+                                                node%body_indices(j) <= arena%size) then
+                                                select type (stmt_node => arena%entries(node%body_indices(j))%node)
+                                                type is (comment_node)
+                                                    ! Comments don't count
+                                                class default
+                                                    ! Any non-comment node counts as meaningful
+                                                    has_meaningful_content = .true.
+                                                    exit
+                                                end select
+                                            end if
+                                        end do
+                                        
+                                        if (.not. has_meaningful_content) then
+                                            ! Skip empty main program
+                                            cycle
+                                        end if
+                                    end block
+                                end if
+                            end if
+                        end select
+                        
+                        ! Add this unit to filtered list
+                        filtered_indices = [filtered_indices, body_indices(i)]
+                        filtered_count = filtered_count + 1
+                    end if
+                end do
+                
+                ! Use filtered indices
+                if (filtered_count == 1) then
+                    ! Single program unit - use it directly
+                    prog_index = filtered_indices(1)
+                else if (filtered_count > 1) then
+                    ! Multiple program units - create a special multi-unit container
+                    prog_index = create_multi_unit_container(arena, filtered_indices)
+                else
+                    ! No meaningful units left after filtering
+                    error_msg = "No meaningful program units found after filtering"
+                    prog_index = 0
+                end if
+            end block
         else
             ! No program unit found
             error_msg = "No program unit found in file"
@@ -619,17 +684,79 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     unit_end = unit_end - 1
                 end do
             else
-                ! Single line construct - find end of current line
-                current_line = tokens(start_pos)%line
-                i = start_pos
-                do while (i <= size(tokens))
-                    if (tokens(i)%line == current_line) then
-                        unit_end = i
-                        i = i + 1
-                    else
-                        exit
-                    end if
-                end do
+                ! For mixed module/main program files, check if remaining tokens
+                ! should be grouped as one implicit main program
+                if (has_explicit_program .and. &
+                    start_pos <= size(tokens) .and. &
+                    .not. is_function_start(tokens, start_pos) .and. &
+                    .not. is_subroutine_start(tokens, start_pos) .and. &
+                    .not. is_module_start(tokens, start_pos) .and. &
+                    .not. is_program_start(tokens, start_pos)) then
+                    ! Check if there are any executable statements to group
+                    block
+                        logical :: has_meaningful_content
+                        integer :: check_pos
+                        has_meaningful_content = .false.
+                        do check_pos = start_pos, size(tokens)
+                            ! Skip EOF, newlines, comments
+                            if (tokens(check_pos)%kind == TK_EOF .or. &
+                                tokens(check_pos)%kind == TK_NEWLINE .or. &
+                                tokens(check_pos)%kind == TK_COMMENT) then
+                                cycle
+                            end if
+                            
+                            ! Look for executable statement patterns that warrant main program wrapping
+                            ! Keywords that typically start executable statements
+                            if (tokens(check_pos)%kind == TK_KEYWORD) then
+                                select case (trim(tokens(check_pos)%text))
+                                case ("use", "call", "print", "write", "read", "stop", "end", &
+                                      "if", "do", "select", "where", "forall", "goto", &
+                                      "allocate", "deallocate", "assign", "pause", "return")
+                                    has_meaningful_content = .true.
+                                    exit
+                                case default
+                                    ! Variable declarations and other non-executable keywords
+                                    ! should not trigger main program wrapping by themselves
+                                end select
+                            ! Identifier could be start of assignment or procedure call
+                            else if (tokens(check_pos)%kind == TK_IDENTIFIER) then
+                                has_meaningful_content = .true.
+                                exit
+                            ! Numbers, strings, operators in unexpected context
+                            else if (tokens(check_pos)%kind == TK_NUMBER .or. &
+                                     tokens(check_pos)%kind == TK_STRING .or. &
+                                     tokens(check_pos)%kind == TK_OPERATOR) then
+                                has_meaningful_content = .true.
+                                exit
+                            end if
+                        end do
+                        
+                        if (has_meaningful_content) then
+                            ! This looks like implicit main program statements after explicit units
+                            ! Group all remaining non-explicit statements together
+                            unit_end = size(tokens)
+                            do while (unit_end > start_pos .and. tokens(unit_end)%kind == TK_EOF)
+                                unit_end = unit_end - 1
+                            end do
+                        else
+                            ! No meaningful executable content - skip this entirely
+                            ! Set unit_end < start_pos to indicate no valid unit found
+                            unit_end = start_pos - 1
+                        end if
+                    end block
+                else
+                    ! Single line construct - find end of current line
+                    current_line = tokens(start_pos)%line
+                    i = start_pos
+                    do while (i <= size(tokens))
+                        if (tokens(i)%line == current_line) then
+                            unit_end = i
+                            i = i + 1
+                        else
+                            exit
+                        end if
+                    end do
+                end if
             end if
 
             ! Skip empty lines (single EOF token on its own line)
@@ -693,8 +820,21 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 unit_index = parse_function_definition(parser, arena)
             end block
         else if (is_subroutine_start(tokens, 1)) then
-            ! Subroutine definition
-            unit_index = parse_statement_dispatcher(tokens, arena)
+            ! Subroutine definition - wrap in program like functions
+            block
+                type(parser_state_t) :: parser
+                integer :: subroutine_index, prog_index
+                parser = create_parser_state(tokens)
+                subroutine_index = parse_statement_dispatcher(tokens, arena)
+                
+                ! Wrap standalone subroutine in program structure for standard compliance
+                if (subroutine_index > 0) then
+                    prog_index = push_program(arena, "main", [subroutine_index])
+                    unit_index = prog_index
+                else
+                    unit_index = subroutine_index
+                end if
+            end block
         else if (is_module_start(tokens, 1)) then
             ! Module definition
             unit_index = parse_statement_dispatcher(tokens, arena)
@@ -702,33 +842,52 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             ! Program definition
             unit_index = parse_statement_dispatcher(tokens, arena)
         else
-            ! If we're in explicit program unit mode, don't create
-            ! implicit program wrappers
-            if (has_explicit_program) then
-                unit_index = 0
-            else
-                ! For lazy fortran, we need to parse ALL statements in the token array
-                ! But first check if we have any real content
-                block
-                    logical :: has_real_content
-                    integer :: k
-                    has_real_content = .false.
-                    do k = 1, size(tokens)
-                        if (tokens(k)%kind /= TK_EOF .and. &
-                            tokens(k)%kind /= TK_NEWLINE) then
-                            ! Include comments as real content for lazy fortran
-                            has_real_content = .true.
-                            exit
-                        end if
-                    end do
-
-                    if (has_real_content) then
-                        unit_index = parse_all_statements(tokens, arena)
-                    else
-                        unit_index = 0
+            ! For mixed module/main program files, we need to parse implicit main programs
+            ! even when explicit program units exist elsewhere in the file.
+            ! Check if we have any executable statements to parse as implicit main program
+            block
+                logical :: has_executable_content
+                integer :: k
+                has_executable_content = .false.
+                do k = 1, size(tokens)
+                    ! Skip EOF, newlines, comments
+                    if (tokens(k)%kind == TK_EOF .or. &
+                        tokens(k)%kind == TK_NEWLINE .or. &
+                        tokens(k)%kind == TK_COMMENT) then
+                        cycle
                     end if
-                end block
-            end if
+                    
+                    ! Look for executable statement patterns
+                    if (tokens(k)%kind == TK_KEYWORD) then
+                        select case (trim(tokens(k)%text))
+                        case ("use", "call", "print", "write", "read", "stop", "end", &
+                              "if", "do", "select", "where", "forall", "goto", &
+                              "allocate", "deallocate", "assign", "pause", "return")
+                            has_executable_content = .true.
+                            exit
+                        case default
+                            ! Declaration keywords and other non-executable patterns
+                            ! should not trigger main program creation by themselves
+                        end select
+                    ! Identifier could be start of assignment or procedure call
+                    else if (tokens(k)%kind == TK_IDENTIFIER) then
+                        has_executable_content = .true.
+                        exit
+                    ! Numbers, strings, operators in unexpected context
+                    else if (tokens(k)%kind == TK_NUMBER .or. &
+                             tokens(k)%kind == TK_STRING .or. &
+                             tokens(k)%kind == TK_OPERATOR) then
+                        has_executable_content = .true.
+                        exit
+                    end if
+                end do
+
+                if (has_executable_content) then
+                    unit_index = parse_all_statements(tokens, arena)
+                else
+                    unit_index = 0
+                end if
+            end block
         end if
     end function parse_program_unit
 

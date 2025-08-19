@@ -18,7 +18,7 @@ module ast_factory
               push_write_statement, push_read_statement, push_read_statement_with_err, &
               push_read_statement_with_end, push_read_statement_with_all_specifiers, &
               push_write_statement_with_iostat, push_write_statement_with_format, &
-              push_write_statement_with_runtime_format
+              push_write_statement_with_runtime_format, push_end_statement
     public :: push_function_def, push_subroutine_def, push_interface_block, push_module
     public :: push_stop, push_return, push_goto, push_error_stop
     public :: push_cycle, push_exit
@@ -991,6 +991,19 @@ contains
         include_index = arena%size
 
     end function push_include_statement
+
+    ! Create end statement node and add to stack
+    function push_end_statement(arena, line, column, parent_index) result(end_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: end_index
+        type(end_statement_node) :: end_stmt
+
+        end_stmt = create_end_statement(line, column)
+        call arena%push(end_stmt, "end_statement", parent_index)
+        end_index = arena%size
+
+    end function push_end_statement
 
     ! Create print statement node and add to stack
     function push_print_statement(arena, format_spec, arg_indices, line, &

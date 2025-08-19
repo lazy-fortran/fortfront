@@ -7,6 +7,8 @@ Core analysis frontend for lazy fortran - transforms lazy Fortran to standard Fo
 - **Pure CLI Interface**: Transforms lazy Fortran to standard Fortran via stdin/stdout
 - **High Performance**: <0.05ms average transformation time  
 - **Type Inference**: Automatic variable declarations with type validation
+- **Enhanced Error Reporting**: Clear error messages with line/column info
+- **Mixed Construct Support**: Handles modules with implicit main programs
 - **Standard Compliant**: Clean, standard Fortran code generation
 - **Integration**: Designed for [fortrun](https://github.com/lazy-fortran/fortrun) build orchestrator
 
@@ -19,8 +21,11 @@ fpm build && fpm test
 ## Usage
 
 ```bash
-# Basic usage
+# Simple usage
 echo "x = 42" | fortfront
+
+# Character handling  
+echo 'name = "hello" // " world"' | fortfront
 
 # Function with automatic declarations
 echo "function twice(x) result(y)
@@ -28,7 +33,7 @@ y = 2*x
 end function" | fortfront
 ```
 
-**Output:**
+**Output for function example:**
 ```fortran
 program main
     implicit none
@@ -55,3 +60,4 @@ See `docs/` folder for detailed guides, API reference, and build instructions.
 ## License
 
 MIT License - see LICENSE file for details.
+

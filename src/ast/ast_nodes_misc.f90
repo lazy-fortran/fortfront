@@ -91,6 +91,15 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type contains_node
 
+    ! End statement node (for implicit program termination)
+    type, extends(ast_node), public :: end_statement_node
+    contains
+        procedure :: accept => end_statement_accept
+        procedure :: to_json => end_statement_to_json
+        procedure :: assign => end_statement_assign
+        generic :: assignment(=) => assign
+    end type end_statement_node
+
     ! Interface block node
     type, extends(ast_node), public :: interface_block_node
         character(len=:), allocatable :: name         ! Interface name (optional)
@@ -401,6 +410,40 @@ contains
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
     end subroutine contains_assign
+
+    ! End statement node implementations
+    subroutine end_statement_accept(this, visitor)
+        class(end_statement_node), intent(in) :: this
+        class(*), intent(inout) :: visitor
+    end subroutine end_statement_accept
+
+    subroutine end_statement_to_json(this, json, parent)
+        class(end_statement_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+        
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'end_statement')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(parent, obj)
+    end subroutine end_statement_to_json
+
+    subroutine end_statement_assign(lhs, rhs)
+        class(end_statement_node), intent(inout) :: lhs
+        class(end_statement_node), intent(in) :: rhs
+        ! Copy base class components
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        if (allocated(rhs%inferred_type)) then
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type
+        else
+            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
+        end if
+    end subroutine end_statement_assign
 
     ! Interface block implementations
     subroutine interface_block_accept(this, visitor)
