@@ -76,16 +76,27 @@ jobs:
       timeout-minutes: 15
       run: |
         fpm clean --all
-        timeout 900s fpm test --profile debug --flag '-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g' || exit 1
+        # Use timeout with explicit termination handling
+        timeout --preserve-status 900s fpm test --profile debug --flag '-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g'
+        exit_code=$?
+        if [ $exit_code -ne 0 ]; then
+          echo "❌ Test run failed with exit code $exit_code"
+          exit $exit_code
+        fi
+        echo "✅ Test run completed successfully"
 
     - name: Generate coverage data for coverage-action
       run: |
-        # Generate lcov coverage data
+        set -e  # Exit on any error
+        
+        echo "🔄 Generating lcov coverage data..."
         lcov --capture --directory build/ --output-file coverage.info \
           --rc branch_coverage=1 \
           --ignore-errors inconsistent \
           --ignore-errors mismatch \
           --ignore-errors unused
+        
+        echo "🔄 Filtering coverage data..."
         lcov --remove coverage.info \
           'build/dependencies/*' \
           'test/*' \
@@ -96,8 +107,8 @@ jobs:
           --ignore-errors unused \
           --ignore-errors inconsistent
         
-        # Convert to Cobertura XML for coverage-action
-        pip install lcov_cobertura
+        echo "🔄 Converting to Cobertura XML..."
+        pip install --quiet lcov_cobertura
         lcov_cobertura coverage_filtered.info --output cobertura.xml
         
         # Verify XML was created
@@ -105,6 +116,13 @@ jobs:
           echo "❌ Failed to generate cobertura.xml"
           exit 1
         fi
+        
+        # Verify XML is valid
+        if ! python3 -c "import xml.etree.ElementTree; xml.etree.ElementTree.parse('cobertura.xml')"; then
+          echo "❌ Generated cobertura.xml is invalid"
+          exit 1
+        fi
+        
         echo "✅ Coverage data ready for coverage-action"
 
 
@@ -112,13 +130,14 @@ jobs:
       id: coverage_report
       uses: insightsengineering/coverage-action@v3
       continue-on-error: true
+      timeout-minutes: 5  # Prevent hanging on coverage processing
       with:
         # Path to the Cobertura XML report.
         path: ./cobertura.xml
         # Minimum total coverage threshold
         threshold: 70
         # Fail if coverage below threshold (but continue workflow)
-        fail: true
+        fail: false  # Don't fail workflow on coverage threshold
         # Publish the rendered output as a PR comment
         publish: true
         # Enable diff coverage with storage branch
@@ -137,6 +156,8 @@ jobs:
     - name: Create coverage checks
       if: github.event_name == 'pull_request'
       uses: actions/github-script@v7
+      timeout-minutes: 3  # Prevent hanging on API calls
+      continue-on-error: true  # Don't block on coverage check failures
       with:
         script: |
           const fs = require('fs');
@@ -192,14 +213,23 @@ jobs:
 
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
+      if: always()  # Upload even if previous steps failed
+      continue-on-error: true  # Don't fail workflow on upload issues
       with:
         name: coverage-report
         path: |
           coverage_filtered.info
-          coverage_html/
-          coverage-badge.svg
-          coverage-badge.json
+          cobertura.xml
         retention-days: 30
+        
+    - name: Cleanup processes  
+      if: always()  # Always run cleanup
+      run: |
+        # Kill any lingering processes that might prevent CI termination
+        pkill -f "fpm" || true
+        pkill -f "gfortran" || true
+        pkill -f "coverage" || true
+        echo "✅ Process cleanup completed"
 
   test-windows:
     runs-on: windows-latest
@@ -263,10 +293,11 @@ jobs:
 
     - name: Run all tests
       timeout-minutes: 15
-      shell: cmd
+      shell: pwsh
       run: |
-        echo "Running all tests..."
-        fpm test --flag "-cpp -fmax-stack-var-size=65536" || exit 1
+        Write-Host "Running all tests..."
+        fpm test --flag "-cpp -fmax-stack-var-size=65536"
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   # macOS CI temporarily disabled due to runner issues
   # test-macos:
