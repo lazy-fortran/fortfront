@@ -2267,9 +2267,20 @@ contains
                 if (allocated(arena%entries(body_indices(i))%node)) then
                     select type (node => arena%entries(body_indices(i))%node)
                     type is (declaration_node)
-                        ! Skip all declarations - they are handled at the beginning in correct order
-                        i = i + 1
-                        cycle
+                        ! PRESERVE explicit declarations exactly as written
+                        ! This is critical for Issue #320 - explicit declarations must be preserved
+                        
+                        ! Skip result variables ONLY if they're NOT explicitly declared
+                        ! If they are explicitly declared, they should be processed here, not by semantic generation
+                        select type (proc_node_check => proc_node)
+                        type is (function_def_node)
+                            if (allocated(proc_node_check%result_variable) .and. &
+                                len_trim(proc_node_check%result_variable) > 0 .and. &
+                                node%var_name == proc_node_check%result_variable) then
+                                ! This is a result variable that's explicitly declared - process it here
+                                ! (Semantic generation will skip it because it's explicitly declared)
+                            end if
+                        end select
                         if (node%is_multi_declaration .and. allocated(node%var_names)) then
                             block
                                 logical :: has_parameter, has_non_parameter
@@ -3332,7 +3343,12 @@ contains
             if (allocated(proc_node%result_variable) .and. len_trim(proc_node%result_variable) > 0) then
                 result_name = proc_node%result_variable
                 
-                ! Always generate result variable declaration - we're putting declarations first
+                ! Check if result variable is already explicitly declared - if so, skip auto-generation
+                if (is_variable_explicitly_declared(arena, proc_node, result_name)) then
+                    return  ! Skip this result variable, it's already explicitly declared
+                end if
+                
+                ! Generate result variable declaration - only if not explicitly declared
                 ! Try to infer type from assignments, or use default
                 result_type_str = "real(8)"  ! Default fallback
                 
