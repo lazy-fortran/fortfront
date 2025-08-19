@@ -3370,7 +3370,8 @@ contains
                                                     ! This assigns to result variable - use RHS type
                                                     if (body_node%value_index > 0 .and. body_node%value_index <= arena%size) then
                                                         if (allocated(arena%entries(body_node%value_index)%node)) then
-                                                            if (allocated(arena%entries(body_node%value_index)%node%inferred_type)) then
+                                                            if (allocated(arena%entries(body_node%value_index)%node% &
+                                                                    inferred_type)) then
                                                                 result_type_str = arena%entries(body_node%value_index)%node%inferred_type%to_string()
                                                                 
                                                                 ! Convert semantic type to Fortran declaration format
