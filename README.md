@@ -18,52 +18,34 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **Enhanced Error Reporting**: Clear error messages with line/column info
 - **Mixed Construct Support**: Handles modules with implicit main programs
 - **Standard Compliant**: Generates clean, standard Fortran code
-- **Type Inference**: Automatic variable typing algorithm
+- **Type Inference**: Automatic variable typing algorithm with enhanced character type handling
 
 ## Building
 
 ```bash
-fpm build
-```
-
-## Testing  
-
-```bash
-fpm test
+fpm build && fpm test
 ```
 
 ## Usage
 
-### Command Line Interface
+Basic transformation pipeline:
 
 ```bash
-# Basic usage - simple statements
+# Simple usage
 echo "x = 42" | fortfront
 
-# Mixed constructs - module with main program
-echo -e "module math\ninteger :: pi = 3\nend module\n\ninteger :: x\nx = pi * 2\nprint *, x" | fortfront
+# Character handling  
+echo 'name = "hello" // " world"' | fortfront
 ```
 
-**Expected Output (simple):**
+**Output:**
 ```fortran
 program main
     implicit none
     integer :: x
+    character(len=11) :: name
     x = 42
-end program main
-```
-
-**Expected Output (mixed constructs):**
-```fortran
-module math
-    integer :: pi = 3
-end module math
-program main
-    implicit none
-    integer :: x
-
-    x = pi*2
-    print *, x
+    name = "hello" // " world"
 end program main
 ```
 
