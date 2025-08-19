@@ -579,18 +579,20 @@ contains
 
         case ("//")
             ! String concatenation
-            ! For now, just check both are character types
+            ! Both operands must be character types
             ! The result will have combined length
-            if (left_typ%kind == TCHAR .or. left_typ%kind == TVAR) then
-                ! Left is char or will be inferred as char
+            if (left_typ%kind == TCHAR) then
+                ! Left is already character type
             else
+                ! Unify with character type (including TVAR)
                 s1 = ctx%unify(left_typ, create_mono_type(TCHAR))
                 call ctx%compose_with_subst(s1)
             end if
 
-            if (right_typ%kind == TCHAR .or. right_typ%kind == TVAR) then
-                ! Right is char or will be inferred as char
+            if (right_typ%kind == TCHAR) then
+                ! Right is already character type
             else
+                ! Unify with character type (including TVAR)
                 s2 = ctx%unify(right_typ, create_mono_type(TCHAR))
                 call ctx%compose_with_subst(s2)
             end if
@@ -933,10 +935,18 @@ contains
             ! Base types unify if equal (already checked kind)
 
         case (TCHAR)
-            ! For string concatenation and other operations, we may need to
-            ! unify character types of different lengths
-            ! For now, just accept any character types
-            ! TODO: Properly handle character length in type system
+            ! Unify character types
+            ! Different character lengths can be unified but may require allocatable
+            if (t1_subst%size /= t2_subst%size) then
+                ! Character types with different lengths
+                ! Mark both as needing allocatable for dynamic length handling
+                t1_subst%alloc_info%needs_allocatable_string = .true.
+                t2_subst%alloc_info%needs_allocatable_string = .true.
+            end if
+            ! Character types with same or adjustable lengths can be unified
+            subst%count = 0
+            allocate(subst%vars(0))
+            allocate(subst%types(0))
 
         case (TFUN)
             ! Handle function types defensively due to incomplete inferred_type copying
@@ -1547,6 +1557,24 @@ contains
         else
             ! Infer return type (use a fresh type variable)
             return_type = create_mono_type(TVAR, var=ctx%fresh_type_var())
+        end if
+
+        ! Apply current substitutions to parameter types
+        ! This ensures parameter types are updated with constraints learned from body analysis
+        if (allocated(param_types)) then
+            do i = 1, size(param_types)
+                param_types(i) = ctx%apply_subst_to_type(param_types(i))
+                
+                ! Update AST node with resolved parameter type
+                if (allocated(arena%entries(func_def%param_indices(i))%node)) then
+                    select type (param => arena%entries(func_def%param_indices(i))%node)
+                    type is (identifier_node)
+                        param%inferred_type = param_types(i)
+                    type is (parameter_declaration_node)
+                        param%inferred_type = param_types(i)
+                    end select
+                end if
+            end do
         end if
 
         ! Build function type
