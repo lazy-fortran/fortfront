@@ -27,6 +27,10 @@ module standardizer
     integer, parameter :: MAX_STRING_LENGTH = 128
     integer, parameter :: DEFAULT_ARRAY_SIZE = 100
     integer, parameter :: ARRAY_GROWTH_INCREMENT = 50
+    
+    ! Performance safety limits
+    integer, parameter :: MAX_PROCEDURE_STATEMENTS = 1000
+    integer, parameter :: MAX_REORGANIZATION_LOOPS = 500
 
     ! Variable information storage type for unified reorganization
     type :: variable_info_t
@@ -534,7 +538,7 @@ contains
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         call collect_statement_vars(arena, prog%body_indices(i), &
                                         var_names, var_types, var_declared, var_count, &
-                                                    function_names, func_count)
+                                                    function_names, func_count, 0)
                     end if
                 end if
             end do
@@ -732,7 +736,7 @@ contains
     ! Collect variables from any statement type
     recursive subroutine collect_statement_vars(arena, stmt_index, var_names, &
                                                 var_types, var_declared, var_count, &
-                                                function_names, func_count)
+                                                function_names, func_count, depth)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(inout) :: var_names(:)
@@ -741,8 +745,14 @@ contains
         integer, intent(inout) :: var_count
         character(len=64), intent(in) :: function_names(:)
         integer, intent(in) :: func_count
-        integer :: i
+        integer, intent(in), optional :: depth
+        integer :: i, current_depth
 
+        ! Performance safety check - prevent infinite recursion
+        current_depth = 0
+        if (present(depth)) current_depth = depth
+        if (current_depth > 20) return  ! Limit recursion depth
+        
         if (stmt_index <= 0 .or. stmt_index > arena%size) return
         if (.not. allocated(arena%entries(stmt_index)%node)) return
 
@@ -775,7 +785,7 @@ contains
                 do i = 1, size(stmt%body_indices)
                     call collect_statement_vars(arena, stmt%body_indices(i), &
                                         var_names, var_types, var_declared, var_count, &
-                                                function_names, func_count)
+                                                function_names, func_count, current_depth + 1)
                 end do
             end if
         type is (do_while_node)
@@ -784,7 +794,7 @@ contains
                 do i = 1, size(stmt%body_indices)
                     call collect_statement_vars(arena, stmt%body_indices(i), &
                                         var_names, var_types, var_declared, var_count, &
-                                                function_names, func_count)
+                                                function_names, func_count, current_depth + 1)
                 end do
             end if
         type is (if_node)
@@ -1583,6 +1593,14 @@ contains
         integer :: implicit_none_index
         integer :: n_declarations, n_executables
         
+        ! Performance safety check
+        if (allocated(body_indices)) then
+            if (size(body_indices) > MAX_PROCEDURE_STATEMENTS) then
+                ! Skip reorganization for excessively large procedures to prevent hangs
+                return
+            end if
+        end if
+        
         ! Initialize variable collection system
         block
             type(result_t) :: init_result
@@ -2023,6 +2041,9 @@ contains
         integer :: i
         
         if (.not. allocated(func_def%body_indices)) return
+        
+        ! Performance safety check - skip scanning of excessively large functions
+        if (size(func_def%body_indices) > MAX_PROCEDURE_STATEMENTS) return
         
         do i = 1, size(func_def%body_indices)
             if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= arena%size) then
@@ -3328,6 +3349,9 @@ contains
         integer :: i
         
         if (.not. allocated(sub_def%body_indices)) return
+        
+        ! Performance safety check - skip scanning of excessively large subroutines
+        if (size(sub_def%body_indices) > MAX_PROCEDURE_STATEMENTS) return
         
         do i = 1, size(sub_def%body_indices)
             if (sub_def%body_indices(i) > 0 .and. sub_def%body_indices(i) <= arena%size) then
