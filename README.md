@@ -23,59 +23,29 @@ fortfront transforms lazy Fortran code to standard Fortran:
 ## Building
 
 ```bash
-fpm build
-```
-
-## Testing  
-
-```bash
-fpm test
+fpm build && fpm test
 ```
 
 ## Usage
 
-### Command Line Interface
+Basic transformation pipeline:
 
 ```bash
-# Basic usage - simple statements
+# Simple usage
 echo "x = 42" | fortfront
 
-# Character handling - string concatenation
+# Character handling  
 echo 'name = "hello" // " world"' | fortfront
-
-# Mixed constructs - module with main program
-echo -e "module math\ninteger :: pi = 3\nend module\n\ninteger :: x\nx = pi * 2\nprint *, x" | fortfront
 ```
 
-**Expected Output (simple):**
+**Output:**
 ```fortran
 program main
     implicit none
     integer :: x
-    x = 42
-end program main
-```
-
-**Expected Output (character handling):**
-```fortran
-program main
-    implicit none
     character(len=11) :: name
+    x = 42
     name = "hello" // " world"
-end program main
-```
-
-**Expected Output (mixed constructs):**
-```fortran
-module math
-    integer :: pi = 3
-end module math
-program main
-    implicit none
-    integer :: x
-
-    x = pi*2
-    print *, x
 end program main
 ```
 
