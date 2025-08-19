@@ -16,6 +16,7 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **Pure CLI Interface**: No API dependencies, works as standalone command
 - **High Performance**: <0.05ms average transformation time  
 - **Enhanced Error Reporting**: Clear error messages with line/column info
+- **Enhanced Type Safety**: Comprehensive type validation preventing runtime errors
 - **Comprehensive Testing**: Unit tests for transformation + CLI system tests
 - **Standard Compliant**: Generates clean, standard Fortran code
 - **Automatic Variable Declarations**: Generates proper Fortran declarations for function parameters and variables
@@ -62,17 +63,22 @@ contains
 end program main
 ```
 
-### Automatic Variable Declaration Examples
+### Type Safety and Variable Declaration Examples
 
 ```bash
+# Enhanced type inference with validation
+echo "function calculate(a, b) result(sum)
+sum = a + b  ! Types validated automatically
+end function" | fortfront
+
+# Mixed type operations handled safely
+echo "function mixed_calc(i, x) result(y)
+y = i + x  ! Integer + real -> real result
+end function" | fortfront
+
 # Integer variables (i,j,k,l,m,n) 
 echo "function count(i) result(n)
 n = i + 1
-end function" | fortfront
-
-# Real variables (all others default to real(8))
-echo "function calculate(a, b) result(sum)
-sum = a + b
 end function" | fortfront
 ```
 
@@ -87,9 +93,17 @@ fortfront < lazy_source.lf > standard_source.f90
 gfortran standard_source.f90 -o program
 ```
 
-## Error Reporting
+## Enhanced Type Safety and Error Reporting
 
-fortfront provides comprehensive error reporting:
+fortfront provides comprehensive type safety and error reporting:
+
+### Type Safety Features
+- **Comprehensive Validation**: All type assignments go through validation
+- **Safe Type Inference**: Prevents type mismatches in generated code
+- **Mixed Type Handling**: Safely handles integer/real combinations
+- **Error Prevention**: Catches type issues before code generation
+
+### Error Reporting Features  
 - **Precise Location**: Line and column numbers for each error
 - **Clear Descriptions**: Specific problem identification
 - **Fix Suggestions**: Actionable advice when possible
@@ -97,10 +111,10 @@ fortfront provides comprehensive error reporting:
 
 ## Documentation
 
+- **Type Safety**: `docs/TYPE_SAFETY_GUIDE.md` for enhanced type validation features
 - **Variable Declarations**: `docs/VARIABLE_DECLARATIONS.md` for automatic declaration generation
-- **Detailed Guides**: See `docs/` folder for comprehensive documentation
-- **API Reference**: `docs/SEMANTIC_EXTENSIBILITY_GUIDE.md` for plugin development
 - **Error Handling**: `docs/ERROR_HANDLING_GUIDE.md` for library integration
+- **API Reference**: `docs/SEMANTIC_EXTENSIBILITY_GUIDE.md` for plugin development
 - **Build System**: `CLAUDE.md` for development setup and build instructions
 
 ## License
