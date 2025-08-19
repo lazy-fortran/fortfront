@@ -18,7 +18,7 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **Enhanced Error Reporting**: Clear error messages with line/column info
 - **Mixed Construct Support**: Handles modules with implicit main programs
 - **Standard Compliant**: Generates clean, standard Fortran code
-- **Type Inference**: Automatic variable typing algorithm
+- **Type Inference**: Automatic variable typing algorithm with enhanced character type handling
 
 ## Building
 
@@ -40,6 +40,9 @@ fpm test
 # Basic usage - simple statements
 echo "x = 42" | fortfront
 
+# Character handling - string concatenation
+echo 'name = "hello" // " world"' | fortfront
+
 # Mixed constructs - module with main program
 echo -e "module math\ninteger :: pi = 3\nend module\n\ninteger :: x\nx = pi * 2\nprint *, x" | fortfront
 ```
@@ -50,6 +53,15 @@ program main
     implicit none
     integer :: x
     x = 42
+end program main
+```
+
+**Expected Output (character handling):**
+```fortran
+program main
+    implicit none
+    character(len=11) :: name
+    name = "hello" // " world"
 end program main
 ```
 
