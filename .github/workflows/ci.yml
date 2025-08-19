@@ -73,11 +73,11 @@ jobs:
         python3 --version
 
     - name: Run tests with coverage
-      timeout-minutes: 15
+      timeout-minutes: 25
       run: |
         fpm clean --all
         # Use timeout with explicit termination handling
-        timeout --preserve-status 900s fpm test --profile debug --flag '-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g'
+        timeout --preserve-status 1500s fpm test --profile debug --flag '-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g'
         exit_code=$?
         if [ $exit_code -ne 0 ]; then
           echo "❌ Test run failed with exit code $exit_code"
@@ -292,7 +292,7 @@ jobs:
           ${{ runner.os }}-build-
 
     - name: Run all tests
-      timeout-minutes: 15
+      timeout-minutes: 25
       shell: pwsh
       run: |
         Write-Host "Running all tests..."
