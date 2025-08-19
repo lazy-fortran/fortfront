@@ -1080,7 +1080,8 @@ contains
         if (allocated(scheme%forall)) then
             do i = 1, size(scheme%forall)
                 call subst%add(scheme%forall(i), &
-                               this%create_validated_type(TVAR, var=this%fresh_type_var(), context="instantiate-scheme-quantified-var"))
+                               this%create_validated_type(TVAR, var=this%fresh_type_var(), &
+                               context="instantiate-scheme-quantified-var"))
             end do
         end if
 

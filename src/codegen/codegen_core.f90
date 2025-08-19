@@ -3316,7 +3316,8 @@ contains
                                     param_type_str = apply_implicit_typing_rules(param_name)
                                 end if
                                 
-                                ! Generate parameter declaration with proper intent (subroutines can have intent(in), intent(out), intent(inout))
+                                ! Generate parameter declaration with proper intent
+                                ! (subroutines can have intent(in), intent(out), intent(inout))
                                 code = code//indent//param_type_str//", "//intent_str//" :: "//param_name//new_line('a')
                             end select
                         end if
