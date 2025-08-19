@@ -16,10 +16,9 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **Pure CLI Interface**: No API dependencies, works as standalone command
 - **High Performance**: <0.05ms average transformation time  
 - **Enhanced Error Reporting**: Clear error messages with line/column info
-- **Comprehensive Testing**: Unit tests for transformation + CLI system tests
+- **Mixed Construct Support**: Handles modules with implicit main programs
 - **Standard Compliant**: Generates clean, standard Fortran code
 - **Type Inference**: Automatic variable typing algorithm
-- **Extensible Architecture**: Plugin-based analysis pipeline
 
 ## Building
 
@@ -38,14 +37,14 @@ fpm test
 ### Command Line Interface
 
 ```bash
-# Basic usage
+# Basic usage - simple statements
 echo "x = 42" | fortfront
 
-# With file input/output  
-fortfront < input.lf > output.f90
+# Mixed constructs - module with main program
+echo -e "module math\ninteger :: pi = 3\nend module\n\ninteger :: x\nx = pi * 2\nprint *, x" | fortfront
 ```
 
-**Expected Output:**
+**Expected Output (simple):**
 ```fortran
 program main
     implicit none
@@ -54,32 +53,29 @@ program main
 end program main
 ```
 
-### Integration with fortrun
+**Expected Output (mixed constructs):**
+```fortran
+module math
+    integer :: pi = 3
+end module math
+program main
+    implicit none
+    integer :: x
 
-```bash
-# fortrun automatically uses fortfront for .lf files
-fortrun hello.lf
-
-# Explicit usage in build scripts  
-fortfront < lazy_source.lf > standard_source.f90
-gfortran standard_source.f90 -o program
+    x = pi*2
+    print *, x
+end program main
 ```
 
-## Error Reporting
+### Integration with fortrun
 
-fortfront provides comprehensive error reporting:
-- **Precise Location**: Line and column numbers for each error
-- **Clear Descriptions**: Specific problem identification
-- **Fix Suggestions**: Actionable advice when possible
-- **Source Context**: Shows problematic source lines
+fortrun automatically uses fortfront for .lf files: `fortrun hello.lf`
 
 ## Documentation
 
-- **Detailed Guides**: See `docs/` folder for comprehensive documentation
-- **API Reference**: `docs/SEMANTIC_EXTENSIBILITY_GUIDE.md` for plugin development
-- **Error Handling**: `docs/ERROR_HANDLING_GUIDE.md` for library integration
-- **Build System**: `CLAUDE.md` for development setup and build instructions
+See `docs/` folder for detailed guides, API reference, and build instructions.
 
 ## License
 
 MIT License - see LICENSE file for details.
+
