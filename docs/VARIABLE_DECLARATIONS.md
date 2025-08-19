@@ -124,7 +124,7 @@ Automatic declaration does NOT handle local variables inside functions or subrou
 ```fortran
 ! This will NOT work - temp must be declared explicitly
 function test_func(x) result(y)
-temp = 5  ! ERROR: temp not declared
+temp = 5  ! ERROR: temp not declared (compilation will fail)
 y = x + temp
 end function
 
