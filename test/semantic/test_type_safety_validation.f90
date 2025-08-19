@@ -1,7 +1,8 @@
 program test_type_safety_validation
     ! Test that all type assignments go through proper validation and unification
     ! Issue #311: Manual type assignment bypasses validation in semantic analyzer
-    use frontend, only: compile_source
+    use frontend, only: lex_source
+    use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     use type_system_hm, only: mono_type_t, create_mono_type, TINT, TREAL, TCHAR, TLOGICAL
     use ast_core, only: ast_arena_t
@@ -50,7 +51,8 @@ contains
     function test_direct_type_assignment_validation() result(passed)
         ! Test that direct type assignments trigger validation
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -61,7 +63,7 @@ contains
                  "  i = r" // new_line('a') // &  ! Should trigger type validation
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         ! Should compile successfully with appropriate type handling
         if (error_msg /= "") then
@@ -74,7 +76,8 @@ contains
     function test_fallback_type_validation() result(passed)
         ! Test that fallback type assignments are validated
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -83,7 +86,7 @@ contains
                  "  print *, 'hello'" // new_line('a') // &  ! print statement fallback
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         ! Should handle fallback types properly  
         if (error_msg /= "") then
@@ -98,7 +101,8 @@ contains
     function test_error_type_validation() result(passed)
         ! Test that error types are handled safely
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -107,7 +111,7 @@ contains
                  "  invalid_syntax_here" // new_line('a') // &
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         ! Should produce meaningful error, not crash
         if (error_msg == "") then
@@ -122,7 +126,8 @@ contains
     function test_unification_bypassed() result(passed)
         ! Test detection of cases where unification is bypassed
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -133,7 +138,7 @@ contains
                  "  b = a" // new_line('a') // &  ! Should unify types
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         if (error_msg /= "") then
             print *, '  INFO: Type unification validation triggered:', trim(error_msg)
@@ -145,7 +150,8 @@ contains
     function test_assignment_type_safety() result(passed)
         ! Test type safety in assignment operations
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -157,7 +163,7 @@ contains
                  "  str = 'hello'" // new_line('a') // &
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         if (error_msg /= "") then
             print *, '  INFO: Assignment type safety check triggered:', trim(error_msg)
@@ -169,7 +175,8 @@ contains
     function test_type_propagation_validation() result(passed)
         ! Test type propagation through semantic pipeline
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -181,7 +188,7 @@ contains
                  "  z = x + y" // new_line('a') // &  ! Type propagation needed
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         if (error_msg /= "") then
             print *, '  INFO: Type propagation validation triggered:', trim(error_msg)
@@ -193,7 +200,8 @@ contains
     function test_inconsistent_type_detection() result(passed)
         ! Test detection of inconsistent type usage
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -206,7 +214,7 @@ contains
                  "  end if" // new_line('a') // &
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         if (error_msg /= "") then
             print *, '  INFO: Inconsistent type detection triggered:', trim(error_msg)

@@ -1,7 +1,7 @@
 program test_unification_enforcement
     ! Test that all type operations go through proper unification
     ! Issue #311: Manual type assignment bypasses validation in semantic analyzer
-    use frontend, only: compile_source, lex_source
+    use frontend, only: lex_source
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     use type_system_hm, only: mono_type_t, substitution_t, &
@@ -46,7 +46,8 @@ contains
     function test_assignment_unification() result(passed)
         ! Test that assignments go through unification
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -56,7 +57,7 @@ contains
                  "  j = i" // new_line('a') // &
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         ! Should complete successfully with proper type unification
         if (error_msg /= "") then
@@ -69,7 +70,8 @@ contains
     function test_expression_type_unification() result(passed)
         ! Test expression type unification
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -80,7 +82,7 @@ contains
                  "  c = a + b" // new_line('a') // &
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         if (error_msg /= "") then
             print *, '  INFO: Expression unification feedback:', trim(error_msg)
@@ -92,7 +94,8 @@ contains
     function test_function_argument_unification() result(passed)
         ! Test function argument type unification
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -102,7 +105,7 @@ contains
                  "  y = sin(x)" // new_line('a') // &
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         if (error_msg /= "") then
             print *, '  INFO: Function argument unification feedback:', trim(error_msg)
@@ -114,7 +117,8 @@ contains
     function test_nested_expression_types() result(passed)
         ! Test nested expressions requiring type unification
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -126,7 +130,7 @@ contains
                  "  result = real(i * j) + 0.5" // new_line('a') // &
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         if (error_msg /= "") then
             print *, '  INFO: Nested expression unification feedback:', trim(error_msg)
@@ -138,7 +142,8 @@ contains
     function test_control_flow_type_consistency() result(passed)
         ! Test type consistency in control flow
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -152,7 +157,7 @@ contains
                  "  end if" // new_line('a') // &
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         if (error_msg /= "") then
             print *, '  INFO: Control flow type consistency feedback:', trim(error_msg)
@@ -164,7 +169,8 @@ contains
     function test_invalid_type_assignments() result(passed)
         ! Test detection of invalid type assignments
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -175,7 +181,7 @@ contains
                  "  str = 'hello'" // new_line('a') // &
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         ! This should work fine, but let's test the type system
         if (error_msg /= "") then
@@ -188,7 +194,8 @@ contains
     function test_type_mismatch_detection() result(passed)
         ! Test detection of type mismatches
         logical :: passed
-        character(len=:), allocatable :: source, error_msg, result_code
+        character(len=:), allocatable :: source, error_msg
+        type(token_t), allocatable :: tokens(:)
         
         passed = .true.
         
@@ -200,7 +207,7 @@ contains
                  "  flag = .true." // new_line('a') // &
                  "end program"
         
-        call compile_source(source, result_code, error_msg)
+        call lex_source(source, tokens, error_msg)
         
         if (error_msg /= "") then
             print *, '  INFO: Type mismatch detection feedback:', trim(error_msg)

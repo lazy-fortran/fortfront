@@ -4,7 +4,8 @@ program test_manual_type_assignment_bypasses
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     use type_system_hm, only: mono_type_t, create_mono_type, &
                               TINT, TREAL, TCHAR, TLOGICAL, TVAR, TFUN
-    use ast_core, only: ast_arena_t, create_arena
+    use ast_core, only: ast_arena_t
+    use ast_arena, only: init_ast_arena
     implicit none
 
     logical :: all_passed
@@ -18,7 +19,7 @@ program test_manual_type_assignment_bypasses
 
     ! Initialize test environment
     context = create_semantic_context()
-    call create_arena(arena)
+    call init_ast_arena(arena, 100)
 
     ! Test fallback type assignments without validation
     print *, 'Testing fallback type assignments...'
