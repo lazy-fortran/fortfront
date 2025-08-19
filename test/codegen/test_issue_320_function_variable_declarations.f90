@@ -1,5 +1,5 @@
 program test_issue_320_function_variable_declarations
-    !! RED Phase tests for Issue #320 - Variables not declared in function
+    !! GREEN Phase tests for Issue #320 - Variables properly declared in function
     !! These tests ensure that code generation properly emits variable declarations
     !! for function parameters and result variables when they are inferred by semantic analysis
     use frontend, only: transform_lazy_fortran_string
@@ -9,7 +9,7 @@ program test_issue_320_function_variable_declarations
     
     all_passed = .true.
 
-    ! Run RED phase tests - these should FAIL until Issue #320 is fixed
+    ! Run GREEN phase tests - these should PASS since Issue #320 is fixed
     if (.not. test_simple_function_missing_declarations()) all_passed = .false.
     if (.not. test_multiple_parameters_missing_declarations()) all_passed = .false.
     if (.not. test_mixed_explicit_implicit_declarations()) all_passed = .false.
@@ -17,9 +17,9 @@ program test_issue_320_function_variable_declarations
 
     ! Report results
     if (all_passed) then
-        print '(a)', "All Issue #320 RED phase tests passed"
+        print '(a)', "All Issue #320 GREEN phase tests passed"
     else
-        print '(a)', "Some Issue #320 RED phase tests failed (EXPECTED in RED phase)"
+        print '(a)', "Some Issue #320 GREEN phase tests failed"
         error stop 1
     end if
 
@@ -50,13 +50,13 @@ contains
         end if
         
         ! Then: Output should contain proper variable declarations
-        ! NOTE: This test will FAIL in RED phase - that's expected
+        ! NOTE: This test should PASS in GREEN phase since Issue #320 is fixed
         if (index(output, "intent(in) :: x") > 0 .and. &
             index(output, ":: y") > 0 .and. &
             index(output, "y = 2*x") > 0) then
             print '(a)', "PASS: Function contains proper variable declarations"
         else
-            print '(a)', "FAIL: Function missing variable declarations (RED phase - expected)"
+            print '(a)', "FAIL: Function missing variable declarations"
             print '(a)', "Generated output:"
             print '(a)', output
             print '(a)', "Expected to contain: intent(in) :: x and :: y declarations"
@@ -89,14 +89,12 @@ contains
         end if
         
         ! Then: Output should contain declarations for all parameters
-        ! NOTE: This test will FAIL in RED phase - that's expected
-        if (index(output, "intent(in) :: a") > 0 .and. &
-            index(output, "intent(in) :: b") > 0 .and. &
-            index(output, "intent(in) :: c") > 0 .and. &
+        ! NOTE: This test should PASS in GREEN phase since Issue #320 is fixed
+        if (index(output, "intent(in) :: a, b, c") > 0 .and. &
             index(output, ":: value") > 0) then
             print '(a)', "PASS: Function contains all parameter declarations"
         else
-            print '(a)', "FAIL: Function missing parameter declarations (RED phase - expected)"
+            print '(a)', "FAIL: Function missing parameter declarations"
             print '(a)', "Generated output:"
             print '(a)', output
             print '(a)', "Expected to contain: intent(in) :: a, b, c and :: value declarations"
@@ -169,14 +167,13 @@ contains
         end if
         
         ! Then: Output should contain proper type declarations based on inference
-        ! NOTE: This test will FAIL in RED phase - that's expected
-        if (index(output, "intent(in) :: x") > 0 .and. &
-            index(output, "intent(in) :: y") > 0 .and. &
+        ! NOTE: This test should PASS in GREEN phase since Issue #320 is fixed
+        if (index(output, "intent(in) :: x, y") > 0 .and. &
             index(output, ":: total") > 0 .and. &
             index(output, "total = x*x + y*y") > 0) then
             print '(a)', "PASS: Function contains proper type declarations for complex expression"
         else
-            print '(a)', "FAIL: Function missing declarations for complex expression (RED phase - expected)"
+            print '(a)', "FAIL: Function missing declarations for complex expression"
             print '(a)', "Generated output:"
             print '(a)', output
             print '(a)', "Expected: proper declarations for x, y, total with inferred types"
