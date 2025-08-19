@@ -266,7 +266,7 @@ jobs:
       shell: cmd
       run: |
         echo "Running all tests..."
-        timeout 900 fpm test --flag "-cpp -fmax-stack-var-size=65536" || exit 1
+        fpm test --flag "-cpp -fmax-stack-var-size=65536" || exit 1
 
   # macOS CI temporarily disabled due to runner issues
   # test-macos:
