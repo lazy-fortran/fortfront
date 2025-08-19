@@ -28,9 +28,9 @@ module standardizer
     integer, parameter :: DEFAULT_ARRAY_SIZE = 100
     integer, parameter :: ARRAY_GROWTH_INCREMENT = 50
     
-    ! Performance safety limits
-    integer, parameter :: MAX_PROCEDURE_STATEMENTS = 1000
-    integer, parameter :: MAX_REORGANIZATION_LOOPS = 500
+    ! Performance safety limits (reduced for CI stability)
+    integer, parameter :: MAX_PROCEDURE_STATEMENTS = 100  ! Reduced from 1000
+    integer, parameter :: MAX_REORGANIZATION_LOOPS = 50   ! Reduced from 500
 
     ! Variable information storage type for unified reorganization
     type :: variable_info_t
