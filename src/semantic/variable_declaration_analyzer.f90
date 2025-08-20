@@ -1,7 +1,7 @@
 module variable_declaration_analyzer
     use semantic_analyzer_base, only: semantic_analyzer_t
     use ast_core, only: ast_arena_t, identifier_node, assignment_node, function_def_node, &
-                        declaration_node, program_node
+                        declaration_node, program_node, implicit_statement_node, literal_node
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program
     use ast_factory, only: push_declaration
@@ -96,7 +96,11 @@ contains
         type is (program_node)
             call process_program_node(this, arena, context, node, success)
         type is (function_def_node)
-            call process_function_node(this, arena, context, node, success)
+            ! Need mutable access to function node for AST modification
+            select type (mutable_node => arena%entries(node_index)%node)
+            type is (function_def_node)
+                call process_function_node(this, arena, context, mutable_node, success)
+            end select
         class default
             ! For other node types, just continue recursively
             continue
@@ -129,7 +133,7 @@ contains
         class(variable_declaration_analyzer_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         type(semantic_context_t), intent(in) :: context
-        type(function_def_node), intent(in) :: func_node
+        type(function_def_node), intent(inout) :: func_node
         logical, intent(out) :: success
 
         character(len=:), allocatable :: var_names(:)
@@ -394,7 +398,7 @@ contains
                                           can_infer, count, success)
         class(variable_declaration_analyzer_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
-        type(function_def_node), intent(in) :: func_node
+        type(function_def_node), intent(inout) :: func_node
         character(len=:), allocatable, intent(in) :: var_names(:)
         character(len=32), intent(in) :: var_types(:)
         logical, intent(in) :: can_infer(:)
@@ -435,16 +439,45 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_node
         integer, intent(out) :: position
-
+        
+        integer :: i
+        logical :: found_implicit_none
+        
         ! Default to beginning of function body
         position = 1
-
-        ! TODO: Implement logic to find position after implicit none
-        ! This should scan the function body for implicit none statement
-        ! and set position to the index after it
+        found_implicit_none = .false.
         
-        associate(dummy_arena => arena, dummy_func => func_node)
-        end associate
+        ! Search through function body for implicit none statement
+        if (allocated(func_node%body_indices)) then
+            do i = 1, size(func_node%body_indices)
+                if (func_node%body_indices(i) > 0 .and. &
+                    func_node%body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(func_node%body_indices(i))%node)) then
+                        select type (node => arena%entries(func_node%body_indices(i))%node)
+                        type is (implicit_statement_node)
+                            if (node%is_none) then
+                                ! Found implicit none - position after it
+                                position = i + 1
+                                found_implicit_none = .true.
+                                exit
+                            end if
+                        type is (literal_node)
+                            ! Check for literal "implicit none" as fallback
+                            if (node%value == "implicit none") then
+                                position = i + 1
+                                found_implicit_none = .true.
+                                exit
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        end if
+        
+        ! If no implicit none found, insert at beginning
+        if (.not. found_implicit_none) then
+            position = 1
+        end if
     end subroutine
 
     subroutine create_variable_declaration_node(arena, var_name, var_type, node_index, success)
@@ -462,18 +495,66 @@ contains
 
     subroutine insert_declaration_at_position(arena, func_node, position, decl_index, success)
         type(ast_arena_t), intent(inout) :: arena
-        type(function_def_node), intent(in) :: func_node
+        type(function_def_node), intent(inout) :: func_node
         integer, intent(in) :: position
         integer, intent(in) :: decl_index
         logical, intent(out) :: success
+        
+        integer, allocatable :: new_body_indices(:)
+        integer :: orig_size, i, insert_pos
+        
+        success = .false.
+        
+        ! Validate inputs
+        if (decl_index <= 0 .or. decl_index > arena%size) return
+        if (.not. allocated(arena%entries(decl_index)%node)) return
+        
 
-        ! TODO: Implement AST modification to insert declaration
-        ! This requires careful manipulation of the function body indices
+        ! Verify that the node is actually a declaration node
+        select type (decl_node => arena%entries(decl_index)%node)
+        type is (declaration_node)
+            ! Valid declaration node - continue
+        class default
+            ! Not a declaration node - error
+            return
+        end select
+        ! Handle case where function has no body yet
+        if (.not. allocated(func_node%body_indices)) then
+            allocate(func_node%body_indices(1))
+            func_node%body_indices(1) = decl_index
+            success = .true.
+            return
+        end if
         
-        success = .true.  ! Placeholder
+        orig_size = size(func_node%body_indices)
         
-        associate(dummy1 => arena, dummy2 => func_node, dummy3 => position, dummy4 => decl_index)
-        end associate
+        ! Validate position (1-based indexing, can insert at end+1)
+        if (position < 1 .or. position > orig_size + 1) return
+        
+        ! Create new array with space for one more element
+        allocate(new_body_indices(orig_size + 1))
+        
+        ! Determine actual insertion position
+        insert_pos = min(position, orig_size + 1)
+        
+        ! Copy elements before insertion point
+        if (insert_pos > 1) then
+            new_body_indices(1:insert_pos-1) = func_node%body_indices(1:insert_pos-1)
+        end if
+        
+        ! Insert the new declaration
+        new_body_indices(insert_pos) = decl_index
+        
+        ! Copy elements after insertion point
+        if (insert_pos <= orig_size) then
+            new_body_indices(insert_pos+1:orig_size+1) = func_node%body_indices(insert_pos:orig_size)
+        end if
+        
+        ! Replace the old array with the new one
+        deallocate(func_node%body_indices)
+        func_node%body_indices = new_body_indices
+        
+        success = .true.
     end subroutine
 
     subroutine set_type_inference_error(this, var_name)
