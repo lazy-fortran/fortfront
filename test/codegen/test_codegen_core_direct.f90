@@ -79,6 +79,10 @@ program test_codegen_core_direct
     call test_start("Generate empty program code")
     arena = create_ast_arena()
     call arena%push(create_program("test_prog", [integer::]), "program")
+    if (arena%current_index <= 0) then
+        print *, "ERROR: Failed to push program to arena"
+        stop 1
+    end if
     node_index = arena%current_index
     code = generate_code_from_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "program") > 0) then

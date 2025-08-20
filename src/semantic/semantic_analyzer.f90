@@ -802,10 +802,13 @@ contains
         end do
 
         ! Apply Fortran type promotion rules:
-        ! - All integers → integer result
+        ! - All integers → integer result  
         ! - Any real → real result (promotes integers to real)
         if (has_real) then
             typ = create_mono_type(TREAL)
+            
+            ! Mark this call as needing type promotion for code generation
+            call_node%intrinsic_signature = "real(...)"
         else if (has_integer) then
             typ = create_mono_type(TINT)
         else

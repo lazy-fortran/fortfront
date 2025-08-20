@@ -51,6 +51,10 @@ contains
         ! Push to arena
         call arena%push(decl, "declaration")
         decl_index = arena%current_index
+        if (decl_index <= 0) then
+            write (*, '(A)') "FAIL: Integer declaration - Failed to push declaration to arena"
+            return
+        end if
 
         ! Generate code
         code = generate_code_from_arena(arena, decl_index)
@@ -92,6 +96,10 @@ contains
         ! Push to arena
         call arena%push(decl, "declaration")
         decl_index = arena%current_index
+        if (decl_index <= 0) then
+            write (*, '(A)') "FAIL: Real declaration - Failed to push declaration to arena"
+            return
+        end if
 
         ! Generate code
         code = generate_code_from_arena(arena, decl_index)
@@ -133,6 +141,10 @@ contains
         ! Push to arena
         call arena%push(decl, "declaration")
         decl_index = arena%current_index
+        if (decl_index <= 0) then
+            write (*, '(A)') "FAIL: Character declaration - Failed to push declaration to arena"
+            return
+        end if
 
         ! Generate code
         code = generate_code_from_arena(arena, decl_index)
@@ -164,6 +176,10 @@ contains
         dim%literal_kind = LITERAL_INTEGER
         call arena%push(dim, "literal")
         dim_index = arena%current_index
+        if (dim_index <= 0) then
+            write (*, '(A)') "FAIL: Array declaration - Failed to push dimension literal to arena"
+            return
+        end if
 
         ! Create array declaration
         decl%var_name = "data"
@@ -185,6 +201,10 @@ contains
         ! Push declaration to arena
         call arena%push(decl, "declaration")
         decl_index = arena%current_index
+        if (decl_index <= 0) then
+            write (*, '(A)') "FAIL: Array declaration - Failed to push declaration to arena"
+            return
+        end if
 
         ! Generate code
         code = generate_code_from_arena(arena, decl_index)
@@ -217,6 +237,10 @@ contains
         init_val%literal_kind = LITERAL_REAL
         call arena%push(init_val, "literal")
         init_index = arena%current_index
+        if (init_index <= 0) then
+            write (*, '(A)') "FAIL: Declaration with inference - Failed to push initializer literal to arena"
+            return
+        end if
 
         ! Create declaration without explicit type (will be inferred)
         decl%var_name = "pi"
@@ -235,6 +259,10 @@ contains
         ! Push declaration to arena
         call arena%push(decl, "declaration")
         decl_index = arena%current_index
+        if (decl_index <= 0) then
+            write (*, '(A)') "FAIL: Declaration with inference - Failed to push declaration to arena"
+            return
+        end if
 
         ! Generate code - should generate declaration from inferred type
         code = generate_code_from_arena(arena, decl_index)

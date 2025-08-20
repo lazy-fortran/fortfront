@@ -42,6 +42,10 @@ contains
         real_literal = create_literal("1.5", LITERAL_REAL, 1, 1)
         call arena%push(real_literal, "literal", 0)
         node_index = arena%size
+        if (node_index <= 0) then
+            print *, "ERROR: Failed to push literal to arena"
+            stop 1
+        end if
         
         ! Test with standardization enabled
         call set_type_standardization(.true.)

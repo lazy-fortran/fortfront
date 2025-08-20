@@ -40,6 +40,9 @@ contains
         
         call arena%push(where_stmt, "where")
         where_idx = arena%size
+        if (where_idx <= 0) then
+            error stop "Failed to push WHERE statement to arena"
+        end if
         
         ! Generate code
         code = generate_code_from_arena(arena, where_idx)
@@ -79,6 +82,9 @@ contains
         
         call arena%push(where_stmt, "where")
         where_idx = arena%size
+        if (where_idx <= 0) then
+            error stop "Failed to push single-line WHERE statement to arena"
+        end if
         
         ! Generate code
         code = generate_code_from_arena(arena, where_idx)
@@ -129,6 +135,9 @@ contains
         
         call arena%push(where_stmt, "where")
         where_idx = arena%size
+        if (where_idx <= 0) then
+            error stop "Failed to push WHERE with multiple ELSEWHERE to arena"
+        end if
         
         ! Generate code
         code = generate_code_from_arena(arena, where_idx)
@@ -245,6 +254,9 @@ contains
         
         call arena%push(f_node, "forall")
         forall_idx = arena%size
+        if (forall_idx <= 0) then
+            error stop "Failed to push FORALL with multiple indices to arena"
+        end if
         
         ! Generate code
         code = generate_code_from_arena(arena, forall_idx)
@@ -291,6 +303,9 @@ contains
         
         call arena%push(f_node, "forall")
         forall_idx = arena%size
+        if (forall_idx <= 0) then
+            error stop "Failed to push FORALL with mask to arena"
+        end if
         
         ! Generate code
         code = generate_code_from_arena(arena, forall_idx)

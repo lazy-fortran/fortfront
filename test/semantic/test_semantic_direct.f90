@@ -71,6 +71,11 @@ program test_semantic_direct
     prog = create_program("test_program", [integer::], line=1, column=1)  ! Empty body_indices
     call arena%push(prog, "program")
     prog_index = arena%current_index
+    if (prog_index <= 0) then
+        call test_fail()
+        print *, "  ERROR: Failed to push program to arena"
+        stop 1
+    end if
     
     ! Should not crash on empty program
     call analyze_program(ctx, arena, prog_index)

@@ -703,7 +703,7 @@ contains
         logical :: is_array_slice
         type(binary_op_node), pointer :: bin_op
 
-        ! Generate arguments
+        ! Generate arguments with type promotion for min/max calls
         args_code = ""
         if (allocated(node%arg_indices)) then
             ! Check if this might be array slicing
@@ -724,6 +724,17 @@ contains
                 end if
                 if (node%arg_indices(i) > 0) then
                     arg_code = generate_code_from_arena(arena, node%arg_indices(i))
+                    
+                    ! Apply type promotion for polymorphic min/max functions
+                    if ((trim(node%name) == "min" .or. trim(node%name) == "max") .and. &
+                        allocated(node%intrinsic_signature) .and. &
+                        index(node%intrinsic_signature, "real(...)") > 0) then
+                        ! Check if this argument needs real() conversion
+                        if (needs_real_conversion(arena, node%arg_indices(i))) then
+                            arg_code = "real("//arg_code//")"
+                        end if
+                    end if
+                    
                     args_code = args_code//arg_code
                 end if
             end do
@@ -3059,5 +3070,39 @@ contains
         end block
         
     end subroutine safe_generate_code_from_arena
+
+    ! Helper function to determine if an argument needs real() conversion
+    function needs_real_conversion(arena, arg_index) result(needs_conversion)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arg_index
+        logical :: needs_conversion
+        
+        needs_conversion = .false.
+        
+        if (arg_index <= 0 .or. arg_index > arena%size) return
+        
+        ! Check the argument type
+        select type (arg_node => arena%entries(arg_index)%node)
+        type is (literal_node)
+            ! Integer literal needs conversion
+            if (arg_node%literal_kind == LITERAL_INTEGER) then
+                needs_conversion = .true.
+            end if
+        type is (identifier_node)
+            ! For identifiers, we need better type information.
+            ! For now, be conservative only with common integer variable names
+            if (len(arg_node%name) == 1 .and. &
+                (arg_node%name(1:1) >= 'i' .and. arg_node%name(1:1) <= 'n')) then
+                ! Traditional Fortran integer variable naming convention
+                needs_conversion = .true.
+            end if
+        type is (call_or_subscript_node)
+            ! Function call - check if it's an integer function
+            if (trim(arg_node%name) == "int" .or. trim(arg_node%name) == "nint" .or. &
+                trim(arg_node%name) == "floor" .or. trim(arg_node%name) == "ceiling") then
+                needs_conversion = .true.
+            end if
+        end select
+    end function needs_real_conversion
 
 end module codegen_core

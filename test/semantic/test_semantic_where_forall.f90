@@ -42,6 +42,10 @@ contains
         param1%is_array = .true.
         call arena%push(param1, "parameter_declaration")
         param1_idx = arena%size
+        if (param1_idx <= 0) then
+            print *, "ERROR: Failed to push param1 to arena"
+            stop 1
+        end if
         
         param2%name = "output_array"
         param2%type_name = "real"
@@ -49,6 +53,10 @@ contains
         param2%is_array = .true.
         call arena%push(param2, "parameter_declaration")
         param2_idx = arena%size
+        if (param2_idx <= 0) then
+            print *, "ERROR: Failed to push param2 to arena"
+            stop 1
+        end if
         
         ! Create assignments inside WHERE
         assign1%target_index = push_identifier(arena, "output_array")
@@ -56,12 +64,20 @@ contains
         assign1%operator = "="
         call arena%push(assign1, "assignment")
         assign1_idx = arena%size
+        if (assign1_idx <= 0) then
+            print *, "ERROR: Failed to push assign1 to arena"
+            stop 1
+        end if
         
         assign2%target_index = push_identifier(arena, "output_array")
         assign2%value_index = push_identifier(arena, "0.0")
         assign2%operator = "="
         call arena%push(assign2, "assignment")
         assign2_idx = arena%size
+        if (assign2_idx <= 0) then
+            print *, "ERROR: Failed to push assign2 to arena"
+            stop 1
+        end if
         
         ! Create WHERE construct
         where_stmt%mask_expr_index = push_identifier(arena, "input_array > 0")
@@ -76,6 +92,10 @@ contains
         
         call arena%push(where_stmt, "where")
         where_idx = arena%size
+        if (where_idx <= 0) then
+            print *, "ERROR: Failed to push where_stmt to arena"
+            stop 1
+        end if
         
         ! Create subroutine
         sub_node%name = "process_arrays"
@@ -86,6 +106,10 @@ contains
         
         call arena%push(sub_node, "subroutine_def")
         sub_idx = arena%size
+        if (sub_idx <= 0) then
+            print *, "ERROR: Failed to push sub_node to arena"
+            stop 1
+        end if
         
         ! Create program
         allocate(prog%body_indices(1))
@@ -93,6 +117,10 @@ contains
         
         call arena%push(prog, "program")
         prog_idx = arena%size
+        if (prog_idx <= 0) then
+            print *, "ERROR: Failed to push prog to arena"
+            stop 1
+        end if
         
         ! Analyze - should pass without errors
         call analyze_program_with_checks(arena, prog_idx)
@@ -121,6 +149,10 @@ contains
         param%is_array = .true.
         call arena%push(param, "parameter_declaration")
         param_idx = arena%size
+        if (param_idx <= 0) then
+            print *, "ERROR: Failed to push param to arena"
+            stop 1
+        end if
         
         ! Create assignment inside FORALL
         assign%target_index = push_identifier(arena, "matrix(i,j)")
@@ -128,6 +160,10 @@ contains
         assign%operator = "="
         call arena%push(assign, "assignment")
         assign_idx = arena%size
+        if (assign_idx <= 0) then
+            print *, "ERROR: Failed to push assign to arena"
+            stop 1
+        end if
         
         ! Create FORALL construct
         forall_stmt%num_indices = 2
@@ -152,6 +188,10 @@ contains
         
         call arena%push(forall_stmt, "forall")
         forall_idx = arena%size
+        if (forall_idx <= 0) then
+            print *, "ERROR: Failed to push forall_stmt to arena"
+            stop 1
+        end if
         
         ! Create subroutine
         sub_node%name = "transpose_upper"
@@ -162,6 +202,10 @@ contains
         
         call arena%push(sub_node, "subroutine_def")
         sub_idx = arena%size
+        if (sub_idx <= 0) then
+            print *, "ERROR: Failed to push sub_node to arena"
+            stop 1
+        end if
         
         ! Create program
         allocate(prog%body_indices(1))
@@ -169,6 +213,10 @@ contains
         
         call arena%push(prog, "program")
         prog_idx = arena%size
+        if (prog_idx <= 0) then
+            print *, "ERROR: Failed to push prog to arena"
+            stop 1
+        end if
         
         ! Analyze
         call analyze_program_with_checks(arena, prog_idx)
@@ -207,6 +255,10 @@ contains
             assign%operator = "="
             call arena%push(assign, "assignment")
             assign_indices(i) = arena%size
+            if (assign_indices(i) <= 0) then
+                print *, "ERROR: Failed to push assign to arena in loop"
+                stop 1
+            end if
         end do
         
         ! Create complex WHERE
@@ -239,6 +291,10 @@ contains
         
         call arena%push(where_stmt, "where")
         where_idx = arena%size
+        if (where_idx <= 0) then
+            print *, "ERROR: Failed to push where_stmt to arena"
+            stop 1
+        end if
         
         ! Create program
         allocate(prog%body_indices(1))
@@ -246,6 +302,10 @@ contains
         
         call arena%push(prog, "program")
         prog_idx = arena%size
+        if (prog_idx <= 0) then
+            print *, "ERROR: Failed to push prog to arena"
+            stop 1
+        end if
         
         ! Analyze
         call analyze_program_with_checks(arena, prog_idx)
@@ -270,6 +330,10 @@ contains
         assign%operator = "="
         call arena%push(assign, "assignment")
         assign_idx = arena%size
+        if (assign_idx <= 0) then
+            print *, "ERROR: Failed to push assign to arena"
+            stop 1
+        end if
         
         ! Create inner FORALL
         inner_forall%num_indices = 1
@@ -289,6 +353,10 @@ contains
         
         call arena%push(inner_forall, "forall")
         inner_idx = arena%size
+        if (inner_idx <= 0) then
+            print *, "ERROR: Failed to push inner_forall to arena"
+            stop 1
+        end if
         
         ! Create outer FORALL
         outer_forall%num_indices = 2
@@ -310,6 +378,10 @@ contains
         
         call arena%push(outer_forall, "forall")
         outer_idx = arena%size
+        if (outer_idx <= 0) then
+            print *, "ERROR: Failed to push outer_forall to arena"
+            stop 1
+        end if
         
         ! Create program
         allocate(prog%body_indices(1))
@@ -317,6 +389,10 @@ contains
         
         call arena%push(prog, "program")
         prog_idx = arena%size
+        if (prog_idx <= 0) then
+            print *, "ERROR: Failed to push prog to arena"
+            stop 1
+        end if
         
         ! Analyze
         call analyze_program_with_checks(arena, prog_idx)

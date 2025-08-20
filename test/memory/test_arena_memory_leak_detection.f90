@@ -77,9 +77,17 @@ contains
             if (mod(i, 2) == 0) then
                 id_node = create_identifier("var_" // char(48 + mod(i, 10)))
                 call arena%push(id_node, "identifier")
+                if (arena%current_index <= 0) then
+                    print *, "ERROR: Failed to push identifier to arena"
+                    stop 1
+                end if
             else
                 lit_node = create_literal(char(48 + mod(i, 10)), LITERAL_INTEGER)
                 call arena%push(lit_node, "literal")
+                if (arena%current_index <= 0) then
+                    print *, "ERROR: Failed to push literal to arena"
+                    stop 1
+                end if
             end if
         end do
         
@@ -121,6 +129,10 @@ contains
         
         id_node = create_identifier("test_double_free")
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         
         ! First cleanup - normal case
         call arena%clear()
@@ -161,6 +173,10 @@ contains
             do i = 1, 300
                 id_node = create_identifier("cycle_" // char(48 + cycle) // "_node_" // char(48 + mod(i, 10)))
                 call arena%push(id_node, "identifier")
+                if (arena%current_index <= 0) then
+                    print *, "ERROR: Failed to push identifier to arena in cycle"
+                    stop 1
+                end if
             end do
             
             ! Verify growth occurred
@@ -206,9 +222,17 @@ contains
         ! Push nodes and create parent-child relationship
         call arena%push(parent_node, "identifier")
         parent_idx = arena%size
+        if (parent_idx <= 0) then
+            print *, "ERROR: Failed to push parent identifier to arena"
+            stop 1
+        end if
         
         call arena%push(child_node, "identifier", parent_idx)  ! child has parent
         child_idx = arena%size
+        if (child_idx <= 0) then
+            print *, "ERROR: Failed to push child identifier to arena"
+            stop 1
+        end if
         
         ! Test cleanup with relationships
         call arena%clear()
@@ -245,9 +269,17 @@ contains
                 if (mod(i, 3) == 0) then
                     id_node = create_identifier("stress_id_" // char(48 + mod(i, 10)))
                     call arena%push(id_node, "identifier")
+                    if (arena%current_index <= 0) then
+                        print *, "ERROR: Failed to push identifier to arena in stress test"
+                        stop 1
+                    end if
                 else
                     lit_node = create_literal(char(48 + mod(i, 10)), LITERAL_STRING)
                     call arena%push(lit_node, "literal")
+                    if (arena%current_index <= 0) then
+                        print *, "ERROR: Failed to push literal to arena in stress test"
+                        stop 1
+                    end if
                 end if
             end do
             

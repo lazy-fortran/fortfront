@@ -76,7 +76,15 @@ contains
         lit_node = create_literal("42", LITERAL_INTEGER)
         
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         call arena%push(lit_node, "literal")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push literal to arena"
+            stop 1
+        end if
         
         stats_before = arena%get_stats()
         if (stats_before%total_nodes /= 2) then
@@ -122,6 +130,10 @@ contains
         
         ! Add some content
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         
         ! Test multiple cleanup calls
         do i = 1, 3
@@ -161,6 +173,10 @@ contains
         do i = 1, 257
             id_node = create_identifier("var_" // char(48 + mod(i, 10)))
             call arena%push(id_node, "identifier")
+            if (arena%current_index <= 0) then
+                print *, "ERROR: Failed to push identifier to arena in loop"
+                stop 1
+            end if
         end do
         
         grown_capacity = arena%capacity
@@ -207,6 +223,10 @@ contains
         arena2 = create_ast_arena()
         id_node = create_identifier("partial")
         call arena2%push(id_node, "identifier")
+        if (arena2%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena2"
+            stop 1
+        end if
         call arena2%clear()
         if (arena2%size /= 0) all_states_clean = .false.
         
@@ -215,6 +235,10 @@ contains
         do i = 1, 5
             id_node = create_identifier("node_" // char(48 + i))
             call arena3%push(id_node, "identifier")
+            if (arena3%current_index <= 0) then
+                print *, "ERROR: Failed to push identifier to arena3 in loop"
+                stop 1
+            end if
         end do
         call arena3%clear()
         if (arena3%size /= 0) all_states_clean = .false.
@@ -224,6 +248,10 @@ contains
         do i = 1, 3
             id_node = create_identifier("temp_" // char(48 + i))
             call arena4%push(id_node, "identifier")
+            if (arena4%current_index <= 0) then
+                print *, "ERROR: Failed to push identifier to arena4 in loop"
+                stop 1
+            end if
         end do
         call arena4%pop()  ! Remove one node
         call arena4%clear()
@@ -252,6 +280,10 @@ contains
         ! Simulate error condition by attempting invalid operations
         id_node = create_identifier("test")
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         
         ! Simulate error recovery scenario
         ! In real usage, this would be after parsing errors, validation failures, etc.

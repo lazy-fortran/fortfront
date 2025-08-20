@@ -51,6 +51,11 @@ contains
         
         call arena%push(decl, "declaration", 0)
         decl_index = arena%size
+        if (decl_index <= 0) then
+            print *, '  FAIL: Failed to push allocatable scalar declaration to arena'
+            test_allocatable_scalar = .false.
+            return
+        end if
         
         ! Generate code
         code = generate_code_from_arena(arena, decl_index)
@@ -95,6 +100,11 @@ contains
         
         call arena%push(decl, "declaration", 0)
         decl_index = arena%size
+        if (decl_index <= 0) then
+            print *, '  FAIL: Failed to push allocatable array declaration to arena'
+            test_allocatable_array = .false.
+            return
+        end if
         
         ! Generate code
         code = generate_code_from_arena(arena, decl_index)
@@ -135,6 +145,11 @@ contains
         
         call arena%push(decl, "declaration", 0)
         decl_index = arena%size
+        if (decl_index <= 0) then
+            print *, '  FAIL: Failed to push allocatable custom type declaration to arena'
+            test_allocatable_with_type = .false.
+            return
+        end if
         
         ! Generate code
         code = generate_code_from_arena(arena, decl_index)
@@ -178,6 +193,11 @@ contains
         
         call arena%push(decl, "declaration", 0)
         decl_index = arena%size
+        if (decl_index <= 0) then
+            print *, '  FAIL: Failed to push allocatable character declaration to arena'
+            test_allocatable_character = .false.
+            return
+        end if
         
         ! Generate code
         code = generate_code_from_arena(arena, decl_index)
@@ -218,6 +238,11 @@ contains
         
         call arena%push(decl, "declaration", 0)
         decl_index = arena%size
+        if (decl_index <= 0) then
+            print *, '  FAIL: Failed to push non-allocatable declaration to arena'
+            test_non_allocatable = .false.
+            return
+        end if
         
         ! Generate code
         code = generate_code_from_arena(arena, decl_index)
