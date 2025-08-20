@@ -47,6 +47,10 @@ contains
         
         ! Push to arena
         call arena%push(node, "array_slice", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push array_slice to arena"
+            stop 1
+        end if
         node_idx = arena%size
         
         ! Verify flag is preserved

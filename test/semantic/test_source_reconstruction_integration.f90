@@ -29,6 +29,10 @@ program test_source_reconstruction_integration
         ! Add identifier node at line 1
         id_node = create_identifier("my_var", line=1, column=1)
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         
         ! Add literal node at line 2
         lit_node = create_literal("42", LITERAL_INTEGER, line=2, column=1)
@@ -62,6 +66,10 @@ program test_source_reconstruction_integration
         arena = create_ast_arena()
         id_node = create_identifier("test_var", line=2, column=5)
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         
         ! Analyze with the arena
         call analyzer%analyze(arena, arena, 1)
@@ -90,6 +98,10 @@ program test_source_reconstruction_integration
         arena = create_ast_arena()
         id_node = create_identifier("var", line=5, column=10)
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         
         ! Analyze with the arena
         call analyzer%analyze(arena, arena, 1)

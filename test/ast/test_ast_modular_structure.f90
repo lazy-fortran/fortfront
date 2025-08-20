@@ -151,6 +151,10 @@ contains
         
         ! This should work - pushing a node from ast_nodes_core into arena from ast_arena
         call arena%push(prog, "program")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push program to arena"
+            stop 1
+        end if
         
         if (arena%size /= 1) then
             print *, "  FAIL: Expected arena size 1 after push, got", arena%size

@@ -100,11 +100,19 @@ contains
         lit%value = "42"
         lit%literal_type = "integer"
         call arena%push(lit, "literal")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push literal node to arena"
+            stop 1
+        end if
         lit_idx = arena%size
         
         ! Create identifier node: x
         id%name = "x"
         call arena%push(id, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier node to arena"
+            stop 1
+        end if
         id_idx = arena%size
         
         ! Create assignment node: x = 42
@@ -112,6 +120,10 @@ contains
         assign%value_index = lit_idx
         assign%operator = "="
         call arena%push(assign, "assignment")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push assignment node to arena"
+            stop 1
+        end if
         assign_idx = arena%size
         
         ! Create program node
@@ -119,6 +131,10 @@ contains
         allocate(prog%body_indices(1))
         prog%body_indices(1) = assign_idx
         call arena%push(prog, "program")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push program node to arena"
+            stop 1
+        end if
         prog_idx = arena%size
     end subroutine create_test_ast
     
@@ -141,17 +157,29 @@ contains
         lit1%value = "1"
         lit1%literal_type = "integer"
         call arena%push(lit1, "literal")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push lit1 node to arena"
+            stop 1
+        end if
         left_idx = arena%size
         
         lit2%value = "2" 
         lit2%literal_type = "integer"
         call arena%push(lit2, "literal")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push lit2 node to arena"
+            stop 1
+        end if
         right_idx = arena%size
         
         binop%left_index = left_idx
         binop%right_index = right_idx
         binop%operator = "+"
         call arena%push(binop, "binary_op")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push binary_op node to arena"
+            stop 1
+        end if
         binop_idx = arena%size
         
         ! Test binary operation accessor
@@ -169,6 +197,10 @@ contains
         allocate(call_node%arg_indices(1))
         call_node%arg_indices(1) = left_idx  ! Reuse lit1 as argument
         call arena%push(call_node, "call_or_subscript")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push call_or_subscript node to arena"
+            stop 1
+        end if
         call_idx = arena%size
         
         ! Test call accessor
@@ -189,6 +221,10 @@ contains
         array_node%element_indices(1) = left_idx   ! lit1
         array_node%element_indices(2) = right_idx  ! lit2
         call arena%push(array_node, "array_literal")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push array_literal node to arena"
+            stop 1
+        end if
         array_idx = arena%size
         
         ! Test array literal accessor
@@ -225,6 +261,10 @@ contains
         decl_node%has_intent = .true.
         decl_node%intent = "in"
         call arena%push(decl_node, "declaration")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push declaration node to arena"
+            stop 1
+        end if
         decl_idx = arena%size
         
         ! Test declaration accessor
@@ -248,6 +288,10 @@ contains
         param_node%type_name = "real"
         param_node%name = "pi"
         call arena%push(param_node, "parameter_declaration")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push parameter_declaration node to arena"
+            stop 1
+        end if
         param_idx = arena%size
         
         ! Test parameter declaration accessor

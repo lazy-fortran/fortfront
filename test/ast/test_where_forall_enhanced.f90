@@ -69,6 +69,10 @@ contains
         
         ! Add to arena
         call arena%push(where_stmt, "where")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push where statement to arena"
+            stop 1
+        end if
         where_idx = arena%size
         
         ! Verify structure
@@ -165,6 +169,10 @@ contains
         
         ! Add to arena
         call arena%push(f_stmt, "forall")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push forall statement to arena"
+            stop 1
+        end if
         forall_idx = arena%size
         
         ! Verify structure
@@ -222,6 +230,10 @@ contains
         
         ! Add to arena
         call arena%push(where_stmt, "where")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push where statement to arena"
+            stop 1
+        end if
         where_idx = arena%size
         
         ! Verify fields are preserved
@@ -275,6 +287,10 @@ contains
         
         ! Add to arena
         call arena%push(f_stmt, "forall")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push forall statement to arena"
+            stop 1
+        end if
         forall_idx = arena%size
         
         ! Verify optimization hints are preserved

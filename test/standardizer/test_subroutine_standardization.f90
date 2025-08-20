@@ -48,21 +48,41 @@ contains
         ! Create parameters
         param1 = create_identifier("x", 1, 1)
         call arena%push(param1, "param", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push param1 to arena"
+            stop 1
+        end if
         param1_index = arena%size
         
         param2 = create_identifier("y", 1, 1)
         call arena%push(param2, "param", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push param2 to arena"
+            stop 1
+        end if
         param2_index = arena%size
         
         ! Create assignment statement: y = x
         var_ref = create_identifier("x", 2, 1)
         call arena%push(var_ref, "var_ref", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push var_ref to arena"
+            stop 1
+        end if
         
         result_var = create_identifier("y", 2, 1)
         call arena%push(result_var, "result_var", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push result_var to arena"
+            stop 1
+        end if
         
         assign_stmt = create_assignment(arena%size - 1, arena%size, 2, 1)
         call arena%push(assign_stmt, "assignment", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push assignment to arena"
+            stop 1
+        end if
         assign_index = arena%size
         
         ! Create subroutine
@@ -80,6 +100,10 @@ contains
         sub_def%column = 1
         
         call arena%push(sub_def, "subroutine", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push subroutine to arena"
+            stop 1
+        end if
         sub_index = arena%size
         
         ! Standardize the AST
@@ -130,12 +154,24 @@ contains
         ! Create a simple assignment for the body
         var_ref = create_identifier("result", 2, 1)
         call arena%push(var_ref, "var_ref", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push var_ref to arena"
+            stop 1
+        end if
         
         value = create_literal("0", LITERAL_INTEGER, 2, 10)
         call arena%push(value, "value", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push value to arena"
+            stop 1
+        end if
         
         assign_stmt = create_assignment(arena%size - 1, arena%size, 2, 1)
         call arena%push(assign_stmt, "assignment", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push assignment to arena"
+            stop 1
+        end if
         assign_index = arena%size
         
         ! Create subroutine without parameters
@@ -148,6 +184,10 @@ contains
         sub_def%column = 1
         
         call arena%push(sub_def, "subroutine", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push subroutine to arena"
+            stop 1
+        end if
         sub_index = arena%size
         
         ! Standardize the AST
@@ -191,10 +231,18 @@ contains
         ! Create parameters - i should be integer, x should be real
         param_i = create_identifier("i", 1, 1)
         call arena%push(param_i, "param", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push param_i to arena"
+            stop 1
+        end if
         param_i_index = arena%size
         
         param_x = create_identifier("x", 1, 1)
         call arena%push(param_x, "param", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push param_x to arena"
+            stop 1
+        end if
         param_x_index = arena%size
         
         ! Create a declaration for x with type "real" (should be standardized to real(8))
@@ -203,6 +251,10 @@ contains
         decl_real%line = 2
         decl_real%column = 1
         call arena%push(decl_real, "declaration", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push declaration to arena"
+            stop 1
+        end if
         decl_index = arena%size
         
         ! Create subroutine
@@ -220,6 +272,10 @@ contains
         sub_def%column = 1
         
         call arena%push(sub_def, "subroutine", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push subroutine to arena"
+            stop 1
+        end if
         sub_index = arena%size
         
         ! Standardize the AST
@@ -275,6 +331,10 @@ contains
         sub_def%column = 1
         
         call arena%push(sub_def, "subroutine", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push subroutine to arena"
+            stop 1
+        end if
         sub_index = arena%size
         
         ! Standardize the AST
@@ -319,6 +379,10 @@ contains
         implicit_none_node%line = 2
         implicit_none_node%column = 1
         call arena%push(implicit_none_node, "implicit_none", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push implicit_none to arena"
+            stop 1
+        end if
         implicit_none_index = arena%size
         
         ! Create subroutine with existing implicit none
@@ -331,6 +395,10 @@ contains
         sub_def%column = 1
         
         call arena%push(sub_def, "subroutine", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push subroutine to arena"
+            stop 1
+        end if
         sub_index = arena%size
         
         ! Standardize the AST

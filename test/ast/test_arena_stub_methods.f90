@@ -27,11 +27,19 @@ program test_arena_stub_methods
     lit%value = "42"
     lit%literal_type = "integer"
     call arena%push(lit, "literal")
+    if (arena%current_index <= 0) then
+        print *, "ERROR: Failed to push literal to arena"
+        stop 1
+    end if
     lit_idx = arena%size
     
     ! Create identifier node: x
     id%name = "x"
     call arena%push(id, "identifier")
+    if (arena%current_index <= 0) then
+        print *, "ERROR: Failed to push identifier to arena"
+        stop 1
+    end if
     id_idx = arena%size
     
     ! Create assignment node: x = 42 (with parent relationship)
@@ -39,6 +47,10 @@ program test_arena_stub_methods
     assign%value_index = lit_idx
     assign%operator = "="
     call arena%push(assign, "assignment", lit_idx)  ! Set literal as parent for testing
+    if (arena%current_index <= 0) then
+        print *, "ERROR: Failed to push assignment to arena"
+        stop 1
+    end if
     assign_idx = arena%size
     
     ! Create program node (root)
@@ -46,6 +58,10 @@ program test_arena_stub_methods
     allocate(prog%body_indices(1))
     prog%body_indices(1) = assign_idx
     call arena%push(prog, "program")
+    if (arena%current_index <= 0) then
+        print *, "ERROR: Failed to push program to arena"
+        stop 1
+    end if
     prog_idx = arena%size
     
     ! Test get_depth

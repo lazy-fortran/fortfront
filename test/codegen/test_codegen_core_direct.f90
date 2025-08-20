@@ -23,6 +23,10 @@ program test_codegen_core_direct
     arena = create_ast_arena()
     id_node = create_identifier("test_var", 1, 1)
     call arena%push(id_node, "identifier")
+    if (arena%current_index <= 0) then
+        print *, "ERROR: Failed to push identifier to arena"
+        stop 1
+    end if
     node_index = arena%current_index
     code = generate_code_from_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "test_var") > 0) then
@@ -38,6 +42,10 @@ program test_codegen_core_direct
     arena = create_ast_arena()
     lit_node = create_literal("42", LITERAL_INTEGER, 1, 1)
     call arena%push(lit_node, "literal")
+    if (arena%current_index <= 0) then
+        print *, "ERROR: Failed to push literal to arena"
+        stop 1
+    end if
     node_index = arena%current_index
     code = generate_code_from_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "42") > 0) then
@@ -53,6 +61,10 @@ program test_codegen_core_direct
     arena = create_ast_arena()
     lit_node = create_literal("'hello'", LITERAL_STRING, 1, 1)
     call arena%push(lit_node, "literal")
+    if (arena%current_index <= 0) then
+        print *, "ERROR: Failed to push literal to arena"
+        stop 1
+    end if
     node_index = arena%current_index
     code = generate_code_from_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "hello") > 0) then

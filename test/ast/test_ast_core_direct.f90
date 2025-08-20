@@ -96,6 +96,11 @@ program test_ast_core_direct
     call test_start("Push node to arena")
     arena = create_ast_arena()
     call arena%push(id_node, "identifier")
+    if (arena%current_index <= 0) then
+        call test_fail()
+        print *, "  ERROR: Failed to push identifier node to arena"
+        stop 1
+    end if
     if (arena%size == 1 .and. arena%current_index == 1) then
         call test_pass()
     else
@@ -108,6 +113,11 @@ program test_ast_core_direct
     ! Test 8: Push multiple nodes
     call test_start("Push multiple nodes")
     call arena%push(lit_node, "literal")
+    if (arena%current_index <= 0) then
+        call test_fail()
+        print *, "  ERROR: Failed to push literal node to arena"
+        stop 1
+    end if
     if (arena%size == 2 .and. arena%current_index == 2) then
         call test_pass()
     else
@@ -159,8 +169,23 @@ program test_ast_core_direct
     arena = create_ast_arena(2)  ! Small initial capacity
     ! Push more nodes than initial capacity
     call arena%push(create_identifier("a"), "identifier")
+    if (arena%current_index <= 0) then
+        call test_fail()
+        print *, "  ERROR: Failed to push identifier 'a' to arena"
+        stop 1
+    end if
     call arena%push(create_identifier("b"), "identifier")
+    if (arena%current_index <= 0) then
+        call test_fail()
+        print *, "  ERROR: Failed to push identifier 'b' to arena"
+        stop 1
+    end if
     call arena%push(create_identifier("c"), "identifier")
+    if (arena%current_index <= 0) then
+        call test_fail()
+        print *, "  ERROR: Failed to push identifier 'c' to arena"
+        stop 1
+    end if
     if (arena%size == 3 .and. arena%capacity >= 3) then
         call test_pass()
     else
@@ -173,7 +198,17 @@ program test_ast_core_direct
     call test_start("Parent-child relationship")
     call arena%clear()
     call arena%push(create_identifier("parent"), "identifier")  ! Index 1
+    if (arena%current_index <= 0) then
+        call test_fail()
+        print *, "  ERROR: Failed to push parent identifier to arena"
+        stop 1
+    end if
     call arena%push(create_identifier("child"), "identifier", 1)  ! Index 2, parent=1
+    if (arena%current_index <= 0) then
+        call test_fail()
+        print *, "  ERROR: Failed to push child identifier to arena"
+        stop 1
+    end if
     if (arena%size == 2 .and. arena%max_depth == 1) then  ! Depth should be 1 now
         call test_pass()
     else

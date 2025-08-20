@@ -77,6 +77,10 @@ contains
         ! Add some valid content first
         id_node = create_identifier("valid_before_error")
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         
         ! Simulate parsing error with invalid syntax
         invalid_source = "if x > 0 /* missing then, invalid comment style */"
@@ -125,6 +129,14 @@ contains
         do i = 1, allocation_attempts
             id_node = create_identifier("stress_node_" // char(48 + mod(i, 10)))
             call arena%push(id_node, "identifier")
+            if (arena%current_index <= 0) then
+                print *, "ERROR: Failed to push identifier to arena in loop"
+                stop 1
+            end if
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
             
             ! Test intermediate cleanup during stress
             if (mod(i, 10) == 0) then
@@ -164,6 +176,10 @@ contains
         ! Create normal content
         id_node = create_identifier("normal_node")
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         
         ! Simulate potential corruption scenarios
         ! Note: We can't actually corrupt the arena safely in a test,
@@ -200,6 +216,10 @@ contains
         ! Add valid content
         id_node = create_identifier("before_invalid")
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         
         ! Attempt invalid operations (these should be handled gracefully)
         ! Pop from empty arena after clearing
@@ -241,22 +261,58 @@ contains
                 ! Scenario: Rapid operations with immediate cleanup
                 id_node = create_identifier("rapid_test")
                 call arena%push(id_node, "identifier")
+            if (arena%current_index <= 0) then
+                print *, "ERROR: Failed to push identifier to arena in loop"
+                stop 1
+            end if
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
                 call arena%clear()  ! Immediate cleanup
                 
             case (2)
                 ! Scenario: Complex nested operations with cleanup
                 id_node = create_identifier("parent")
                 call arena%push(id_node, "identifier")
+            if (arena%current_index <= 0) then
+                print *, "ERROR: Failed to push identifier to arena in loop"
+                stop 1
+            end if
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
                 id_node = create_identifier("child")
                 call arena%push(id_node, "identifier", 1)  ! Child of index 1
+                if (arena%current_index <= 0) then
+                    print *, "ERROR: Failed to push child identifier to arena"
+                    stop 1
+                end if
                 call arena%clear()  ! Cleanup with relationships
                 
             case (3)
                 ! Scenario: Multiple push/pop cycles with cleanup
                 id_node = create_identifier("cycle_test")
                 call arena%push(id_node, "identifier")
+            if (arena%current_index <= 0) then
+                print *, "ERROR: Failed to push identifier to arena in loop"
+                stop 1
+            end if
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
                 call arena%pop()
                 call arena%push(id_node, "identifier")
+            if (arena%current_index <= 0) then
+                print *, "ERROR: Failed to push identifier to arena in loop"
+                stop 1
+            end if
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
                 call arena%clear()
             end select
             
@@ -293,6 +349,10 @@ contains
         ! Error Type 1: Invalid content + valid content mix
         id_node = create_identifier("valid_node")
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         
         ! Error Type 2: Parsing error with invalid syntax
         error_source = "invalid syntax here &"
@@ -306,6 +366,14 @@ contains
         do i = 1, 5
             id_node = create_identifier("rapid_" // char(48 + i))
             call arena%push(id_node, "identifier")
+            if (arena%current_index <= 0) then
+                print *, "ERROR: Failed to push identifier to arena in loop"
+                stop 1
+            end if
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         end do
         
         ! Test cleanup after multiple error types

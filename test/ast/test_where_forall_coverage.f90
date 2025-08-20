@@ -223,6 +223,10 @@ contains
         
         ! Push to arena
         call arena%push(where_stmt, "where")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push where statement to arena"
+            stop 1
+        end if
         where_idx = arena%size
         
         ! Verify preservation
@@ -271,6 +275,10 @@ contains
         
         ! Push to arena
         call arena%push(forall_stmt, "forall")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push forall statement to arena"
+            stop 1
+        end if
         forall_idx = arena%size
         
         ! Verify preservation

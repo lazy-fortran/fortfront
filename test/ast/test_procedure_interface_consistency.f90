@@ -38,11 +38,19 @@ contains
         ! Create function node
         func_node = create_function_def("test_func", [1,2], "real", [3,4])
         call arena%push(func_node, "function_def", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push function def to arena"
+            stop 1
+        end if
         func_index = arena%size
         
         ! Create subroutine node  
         sub_node = create_subroutine_def("test_sub", [5,6], [7,8])
         call arena%push(sub_node, "subroutine_def", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push subroutine def to arena"
+            stop 1
+        end if
         sub_index = arena%size
         
         ! Test unified interface with function
@@ -150,6 +158,10 @@ contains
         iface_node%procedure_indices = [100, 200]  ! Mock indices
         
         call arena%push(iface_node, "interface_block", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push interface block to arena"
+            stop 1
+        end if
         iface_index = arena%size
         
         ! Test interface block structure
@@ -197,6 +209,10 @@ contains
         ! Create identifier node (not a procedure)
         id_node%name = "not_a_procedure"
         call arena%push(id_node, "identifier", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         id_index = arena%size
         
         ! Test that non-procedures are handled correctly
@@ -243,12 +259,20 @@ contains
         empty_func_node%return_type = "integer"
         ! Intentionally leave param_indices and body_indices unallocated
         call arena%push(empty_func_node, "function_def", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push empty function def to arena"
+            stop 1
+        end if
         empty_func_index = arena%size
 
         ! Create subroutine node with no parameters and no body (edge case)
         empty_sub_node%name = "empty_sub"
         ! Intentionally leave param_indices and body_indices unallocated
         call arena%push(empty_sub_node, "subroutine_def", 0)
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push empty subroutine def to arena"
+            stop 1
+        end if
         empty_sub_index = arena%size
 
         ! Test empty function

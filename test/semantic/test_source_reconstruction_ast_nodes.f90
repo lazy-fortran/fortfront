@@ -36,6 +36,10 @@ program test_source_reconstruction_ast_nodes
         
         id_node = create_identifier("my_variable", line=1, column=1)
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)
@@ -64,6 +68,10 @@ program test_source_reconstruction_ast_nodes
         
         lit_node = create_literal("42", LITERAL_INTEGER, line=1, column=1)
         call arena%push(lit_node, "literal")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push literal to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)
@@ -92,6 +100,10 @@ program test_source_reconstruction_ast_nodes
         
         lit_node = create_literal("3.14159", LITERAL_REAL, line=1, column=1)
         call arena%push(lit_node, "literal")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push literal to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)
@@ -120,6 +132,10 @@ program test_source_reconstruction_ast_nodes
         
         prog_node = create_program("test_program", [integer::], line=1, column=1)
         call arena%push(prog_node, "program")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push program to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)
@@ -149,6 +165,10 @@ program test_source_reconstruction_ast_nodes
         
         assign_node = create_assignment(1, 2, line=1, column=1)  ! lhs=1, rhs=2
         call arena%push(assign_node, "assignment")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push assignment to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)
@@ -178,6 +198,10 @@ program test_source_reconstruction_ast_nodes
         
         if_construct = create_if(1, line=1, column=1)
         call arena%push(if_construct, "if")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push if construct to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)
@@ -207,6 +231,10 @@ program test_source_reconstruction_ast_nodes
         
         do_construct = create_do_loop("i", 1, 2, line=1, column=1)
         call arena%push(do_construct, "do_loop")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push do loop to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)
@@ -237,6 +265,10 @@ program test_source_reconstruction_ast_nodes
         func_node = create_function_def("my_function", return_type="integer", &
                                        line=1, column=1)
         call arena%push(func_node, "function_def")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push function def to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)
@@ -266,6 +298,10 @@ program test_source_reconstruction_ast_nodes
         
         decl_node = create_declaration("integer", "x", line=1, column=1)
         call arena%push(decl_node, "declaration")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push declaration to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)
@@ -296,6 +332,10 @@ program test_source_reconstruction_ast_nodes
         ! Create node with unknown type
         id_node = create_identifier("test", line=1, column=1)
         call arena%push(id_node, "unknown_type")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push unknown type to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)

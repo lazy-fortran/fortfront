@@ -112,6 +112,10 @@ program test_source_reconstruction_strategies
         arena = create_ast_arena()
         id_node = create_identifier("variable_name", line=1, column=1)
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         location = source_location_t(line=1, column=1, start_char=0, end_char=0)
@@ -169,6 +173,10 @@ program test_source_reconstruction_strategies
         arena = create_ast_arena()
         id_node = create_identifier("test_var", line=1, column=1)
         call arena%push(id_node, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier to arena"
+            stop 1
+        end if
         node_index = arena%current_index
         
         result = dispatcher%reconstruct_node(context, arena, node_index)

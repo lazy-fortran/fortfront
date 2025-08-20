@@ -90,9 +90,17 @@ contains
         ! Create variable declarations: integer :: x, y
         id1%name = "x"
         call arena%push(id1, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier 'x' to arena"
+            stop 1
+        end if
         
         id2%name = "y" 
         call arena%push(id2, "identifier")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push identifier 'y' to arena"
+            stop 1
+        end if
         
         ! Add symbols to scope
         call add_test_symbols(ctx)
@@ -101,17 +109,29 @@ contains
         lit%value = "42"
         lit%literal_type = "integer"
         call arena%push(lit, "literal")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push literal node to arena"
+            stop 1
+        end if
         
         assign%target_index = 1  ! x
         assign%value_index = 3   ! 42
         assign%operator = "="
         call arena%push(assign, "assignment")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push assignment node to arena"
+            stop 1
+        end if
         
         ! Create program node
         prog%name = "test_program"
         allocate(prog%body_indices(1))
         prog%body_indices(1) = 4  ! assignment
         call arena%push(prog, "program")
+        if (arena%current_index <= 0) then
+            print *, "ERROR: Failed to push program node to arena"
+            stop 1
+        end if
     end subroutine create_test_program
     
     subroutine add_test_symbols(ctx)
