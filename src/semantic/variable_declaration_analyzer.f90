@@ -866,10 +866,9 @@ contains
             end if
         end do
         
-        if (is_function_result) then
-            ! For function result variables, try to infer from assignments
-            call infer_from_assignment_patterns(arena, var_name, var_type, found)
-        end if
+        ! Always try to infer from assignment patterns, not just for function results
+        ! This allows us to infer types for all variables based on their usage
+        call infer_from_assignment_patterns(arena, var_name, var_type, found)
     end subroutine
     
     subroutine infer_from_assignment_patterns(arena, var_name, var_type, found)
