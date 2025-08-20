@@ -25,6 +25,7 @@ module standardizer
     public :: standardize_ast_json
     public :: set_standardizer_type_standardization, &
               get_standardizer_type_standardization
+    public :: get_fortran_type_string
 
 contains
 
@@ -816,7 +817,7 @@ contains
                     select type (target => arena%entries(assign%target_index)%node)
                     type is (identifier_node)
                         ! Check if the value is an array expression
-                        var_type = "real(8)"  ! Default type
+                        var_type = ""  ! No default - rely on type inference
                         
                         ! Try to get type from the value expression
                         if (assign%value_index > 0 .and. &
@@ -892,7 +893,9 @@ contains
                     var_types(var_count) = &
                         get_fortran_type_string(identifier%inferred_type)
                 else
-                    var_types(var_count) = "real(8)"  ! Default type
+                    ! Skip variables without inferred types - handled by analyzer
+                    var_count = var_count - 1  ! Decrement counter since we're not adding
+                    return
                 end if
 
                 var_declared(var_count) = .true.
@@ -1087,10 +1090,10 @@ contains
             if (allocated(mono_type%args) .and. size(mono_type%args) > 0) then
                 type_str = get_fortran_type_string(mono_type%args(1))
             else
-                type_str = "real(8)"  ! Default array element type
+                type_str = ""  ! No default - require explicit type
             end if
         case default
-            type_str = "real(8)"  ! Default fallback
+            type_str = ""  ! No default fallback - require explicit type
         end select
     end function get_fortran_type_string
 
@@ -1356,7 +1359,7 @@ contains
         type(mono_type_t), pointer :: expr_type
         character(len=:), allocatable :: elem_type_str
         
-        var_type = "real(8), dimension(:), allocatable"  ! Default
+        var_type = ""  ! No default - require explicit type information
         
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
@@ -1384,7 +1387,7 @@ contains
                                 node%element_indices(1))
                         end if
                     else
-                        elem_type_str = "real(8)"  ! Default for empty arrays
+                        elem_type_str = ""  ! No default for empty arrays
                     end if
                 end if
                 
@@ -1412,7 +1415,7 @@ contains
             ! For array slices, try to calculate the size
             if (has_array_slice_args(arena, node)) then
                 ! For now, use allocatable. TODO: Calculate slice size
-                var_type = "real(8), dimension(:), allocatable"
+                var_type = ""  ! No default - require explicit type
             end if
         end select
     end function get_array_var_type
@@ -1423,7 +1426,7 @@ contains
         integer, intent(in) :: elem_index
         character(len=:), allocatable :: type_str
         
-        type_str = "real(8)"  ! Default
+        type_str = ""  ! No default - require explicit type
         
         if (elem_index <= 0 .or. elem_index > arena%size) return
         if (.not. allocated(arena%entries(elem_index)%node)) return
@@ -1434,13 +1437,13 @@ contains
             case (LITERAL_INTEGER)
                 type_str = "integer"
             case (LITERAL_REAL)
-                type_str = "real(8)"
+                type_str = "real"
             case (LITERAL_STRING)
                 type_str = "character"
             case (LITERAL_LOGICAL)
                 type_str = "logical"
             case default
-                type_str = "real(8)"
+                type_str = ""  ! No default
             end select
         end select
     end function infer_element_type_from_literal
@@ -1510,8 +1513,8 @@ contains
                 func_def%return_type = "real(8)"
             end if
         else
-            ! Default to real(8) if no return type specified
-            func_def%return_type = "real(8)"
+            ! No default return type - will be handled by variable declaration analyzer
+            func_def%return_type = ""
         end if
 
         ! Add implicit none at the beginning of function body

@@ -4,7 +4,8 @@ module semantic_pipeline_integration
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                 analyze_program
     use semantic_pipeline, only: semantic_pipeline_t, create_pipeline
-    use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t
+    use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t, &
+                                   variable_declaration_analyzer_t
     implicit none
     private
 
@@ -53,6 +54,7 @@ contains
         call pipeline%register_analyzer(symbol_analyzer_t())
         call pipeline%register_analyzer(scope_analyzer_t())
         call pipeline%register_analyzer(type_analyzer_t())
+        call pipeline%register_analyzer(variable_declaration_analyzer_t())
     end function
 
     ! Backward-compatible wrapper for existing analyze_semantics
