@@ -1632,6 +1632,9 @@ contains
         ! Standardize parameter declarations
         call standardize_function_parameters(arena, func_def, func_index)
 
+        ! Collect and insert local variable declarations
+        call insert_function_variable_declarations(arena, func_def, func_index)
+
         ! Update the arena entry
         arena%entries(func_index)%node = func_def
     end subroutine standardize_function_def
@@ -1901,6 +1904,9 @@ contains
             call standardize_subroutine_parameters(arena, sub_def, sub_index)
         end if
 
+        ! Collect and insert local variable declarations
+        call insert_subroutine_variable_declarations(arena, sub_def, sub_index)
+
         ! Update the arena entry
         arena%entries(sub_index)%node = sub_def
     end subroutine standardize_subroutine_def
@@ -2053,6 +2059,182 @@ contains
         end if
     end subroutine standardize_subroutine_parameters
 
+    ! Insert function variable declarations for local variables and result variable
+    subroutine insert_function_variable_declarations(arena, func_def, func_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(inout) :: func_def
+        integer, intent(in) :: func_index
+        character(len=64), allocatable :: var_names(:)
+        character(len=64), allocatable :: var_types(:)
+        logical, allocatable :: var_declared(:)
+        character(len=64), allocatable :: function_names(:)
+        integer :: var_count, func_count, i, j, decl_count
+        integer, allocatable :: new_body_indices(:)
+        type(declaration_node) :: new_decl
+        integer :: param_decl_end, insert_pos
+        character(len=64) :: result_var_name
+        logical :: result_var_needs_declaration
+
+        ! Initialize variables
+        var_count = 0
+        func_count = 0  ! No nested functions in function scope
+        allocate(var_names(100))
+        allocate(var_types(100))
+        allocate(var_declared(100))
+        allocate(function_names(100))
+        function_names = ""  ! Empty - no function names to exclude
+        var_names = ""
+        var_types = ""
+        var_declared = .false.
+
+        ! Collect function result variable name  
+        if (allocated(func_def%result_variable)) then
+            result_var_name = func_def%result_variable
+        else
+            result_var_name = func_def%name
+        end if
+        result_var_needs_declaration = .true.
+
+        ! Collect variables from function body
+        if (allocated(func_def%body_indices)) then
+            do i = 1, size(func_def%body_indices)
+                call collect_statement_vars(arena, func_def%body_indices(i), &
+                                          var_names, var_types, var_declared, var_count, &
+                                          function_names, func_count)
+            end do
+        end if
+
+        ! Add result variable to collection if not already present
+        call add_result_variable(result_var_name, var_names, var_types, &
+                               var_declared, var_count, function_names, func_count)
+
+        ! Count variables needing declarations
+        decl_count = 0
+        do i = 1, var_count
+            if (var_declared(i)) then
+                decl_count = decl_count + 1
+            end if
+        end do
+
+        ! If no variables need declarations, return
+        if (decl_count == 0) return
+
+        ! Find position to insert declarations (after implicit none and parameter decls)
+        call find_declaration_insert_position(arena, func_def, param_decl_end)
+        insert_pos = param_decl_end + 1
+
+        ! Create new body array with space for variable declarations
+        if (allocated(func_def%body_indices)) then
+            allocate(new_body_indices(size(func_def%body_indices) + decl_count))
+            
+            ! Copy elements before insertion point
+            do i = 1, param_decl_end
+                new_body_indices(i) = func_def%body_indices(i)
+            end do
+
+            ! Insert variable declarations
+            j = param_decl_end + 1
+            do i = 1, var_count
+                if (var_declared(i)) then
+                    call create_variable_declaration_from_inference(arena, var_names(i), &
+                                                                   var_types(i), func_index, new_decl)
+                    call arena%push(new_decl, "var_decl", func_index)
+                    new_body_indices(j) = arena%size
+                    j = j + 1
+                end if
+            end do
+
+            ! Copy remaining elements after insertion point
+            do i = param_decl_end + 1, size(func_def%body_indices)
+                new_body_indices(j) = func_def%body_indices(i)
+                j = j + 1
+            end do
+
+            func_def%body_indices = new_body_indices
+        end if
+    end subroutine insert_function_variable_declarations
+
+    ! Insert subroutine variable declarations for local variables
+    subroutine insert_subroutine_variable_declarations(arena, sub_def, sub_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(subroutine_def_node), intent(inout) :: sub_def
+        integer, intent(in) :: sub_index
+        character(len=64), allocatable :: var_names(:)
+        character(len=64), allocatable :: var_types(:)
+        logical, allocatable :: var_declared(:)
+        character(len=64), allocatable :: function_names(:)
+        integer :: var_count, func_count, i, j, decl_count
+        integer, allocatable :: new_body_indices(:)
+        type(declaration_node) :: new_decl
+        integer :: param_decl_end, insert_pos
+
+        ! Initialize variables
+        var_count = 0
+        func_count = 0  ! No nested functions in function scope
+        allocate(var_names(100))
+        allocate(var_types(100))
+        allocate(var_declared(100))
+        allocate(function_names(100))
+        function_names = ""  ! Empty - no function names to exclude
+        var_names = ""
+        var_types = ""
+        var_declared = .false.
+
+        ! Collect variables from subroutine body
+        if (allocated(sub_def%body_indices)) then
+            do i = 1, size(sub_def%body_indices)
+                call collect_statement_vars(arena, sub_def%body_indices(i), &
+                                          var_names, var_types, var_declared, var_count, &
+                                          function_names, func_count)
+            end do
+        end if
+
+        ! Count variables needing declarations
+        decl_count = 0
+        do i = 1, var_count
+            if (var_declared(i)) then
+                decl_count = decl_count + 1
+            end if
+        end do
+
+        ! If no variables need declarations, return
+        if (decl_count == 0) return
+
+        ! Find position to insert declarations (after implicit none and parameter decls)
+        call find_subroutine_declaration_insert_position(arena, sub_def, param_decl_end)
+        insert_pos = param_decl_end + 1
+
+        ! Create new body array with space for variable declarations
+        if (allocated(sub_def%body_indices)) then
+            allocate(new_body_indices(size(sub_def%body_indices) + decl_count))
+            
+            ! Copy elements before insertion point
+            do i = 1, param_decl_end
+                new_body_indices(i) = sub_def%body_indices(i)
+            end do
+
+            ! Insert variable declarations
+            j = param_decl_end + 1
+            do i = 1, var_count
+                if (var_declared(i)) then
+                    call create_variable_declaration_from_inference(arena, var_names(i), &
+                                                                   var_types(i), sub_index, new_decl)
+                    call arena%push(new_decl, "var_decl", sub_index)
+                    new_body_indices(j) = arena%size
+                    j = j + 1
+                end if
+            end do
+
+            ! Copy remaining elements after insertion point
+            do i = param_decl_end + 1, size(sub_def%body_indices)
+                new_body_indices(j) = sub_def%body_indices(i)
+                j = j + 1
+            end do
+
+            sub_def%body_indices = new_body_indices
+        end if
+    end subroutine insert_subroutine_variable_declarations
+
     ! Infer parameter type from naming convention
     subroutine infer_parameter_type(param_name, type_name, has_kind, kind_value)
         character(len=*), intent(in) :: param_name
@@ -2079,6 +2261,223 @@ contains
             kind_value = 8
         end if
     end subroutine infer_parameter_type
+
+    ! Add result variable to variable collection if not already present
+    subroutine add_result_variable(result_var_name, var_names, var_types, &
+                                 var_declared, var_count, function_names, func_count)
+        character(len=*), intent(in) :: result_var_name
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_declared(:)
+        integer, intent(inout) :: var_count
+        character(len=64), intent(in) :: function_names(:)
+        integer, intent(in) :: func_count
+        integer :: i
+        logical :: found
+
+        ! Check if result variable already exists in collection
+        found = .false.
+        do i = 1, var_count
+            if (trim(var_names(i)) == trim(result_var_name)) then
+                found = .true.
+                exit
+            end if
+        end do
+
+        ! Add result variable if not found
+        if (.not. found .and. var_count < size(var_names)) then
+            call add_variable(result_var_name, "real(8)", var_names, var_types, &
+                            var_declared, var_count, function_names, func_count)
+        end if
+    end subroutine add_result_variable
+
+    ! Find position to insert declarations in function (after implicit none and params)
+    subroutine find_declaration_insert_position(arena, func_def, insert_pos)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_def
+        integer, intent(out) :: insert_pos
+        integer :: i
+        integer :: last_param_pos
+
+        insert_pos = 1  ! Default: after implicit none
+        last_param_pos = 0  ! Track last parameter declaration position
+        
+        if (.not. allocated(func_def%body_indices)) return
+
+        ! Find position after parameter declarations
+        do i = 1, size(func_def%body_indices)
+            if (func_def%body_indices(i) > 0 .and. &
+                func_def%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(func_def%body_indices(i))%node)) then
+                    select type (node => arena%entries(func_def%body_indices(i))%node)
+                    type is (declaration_node)
+                        if (node%has_intent) then
+                            last_param_pos = i  ! Remember the last parameter declaration
+                        else
+                            exit  ! Found non-parameter declaration, stop here
+                        end if
+                    class default
+                        if (i > 1) exit  ! Stop at first non-declaration after implicit none
+                    end select
+                end if
+            end if
+        end do
+        
+        ! Set insert position: after last parameter declaration, or after implicit none
+        if (last_param_pos > 0) then
+            insert_pos = last_param_pos  ! Will insert after this position
+        else
+            insert_pos = 1  ! Insert after implicit none
+        end if
+    end subroutine find_declaration_insert_position
+
+    ! Find position to insert declarations in subroutine (after implicit none and params)
+    subroutine find_subroutine_declaration_insert_position(arena, sub_def, insert_pos)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub_def
+        integer, intent(out) :: insert_pos
+        integer :: i
+        integer :: last_param_pos
+
+        insert_pos = 1  ! Default: after implicit none
+        last_param_pos = 0  ! Track last parameter declaration position
+        
+        if (.not. allocated(sub_def%body_indices)) return
+
+        ! Find position after parameter declarations
+        do i = 1, size(sub_def%body_indices)
+            if (sub_def%body_indices(i) > 0 .and. &
+                sub_def%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(sub_def%body_indices(i))%node)) then
+                    select type (node => arena%entries(sub_def%body_indices(i))%node)
+                    type is (declaration_node)
+                        if (node%has_intent) then
+                            last_param_pos = i  ! Remember the last parameter declaration
+                        else
+                            exit  ! Found non-parameter declaration, stop here
+                        end if
+                    class default
+                        if (i > 1) exit  ! Stop at first non-declaration after implicit none
+                    end select
+                end if
+            end if
+        end do
+        
+        ! Set insert position: after last parameter declaration, or after implicit none
+        if (last_param_pos > 0) then
+            insert_pos = last_param_pos  ! Will insert after this position
+        else
+            insert_pos = 1  ! Insert after implicit none
+        end if
+    end subroutine find_subroutine_declaration_insert_position
+
+    ! Create variable declaration from collected type information
+    subroutine create_variable_declaration_from_inference(arena, var_name, var_type, parent_index, decl)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: var_name
+        character(len=*), intent(in) :: var_type
+        integer, intent(in) :: parent_index
+        type(declaration_node), intent(out) :: decl
+
+        ! Initialize declaration node
+        decl%var_name = var_name
+        decl%intent = ""
+        decl%has_intent = .false.
+        decl%line = 1
+        decl%column = 1
+        decl%is_multi_declaration = .false.
+        decl%has_kind = .false.
+        decl%kind_value = 0
+        decl%is_optional = .false.
+        decl%has_initializer = .false.
+        decl%initializer_index = 0
+        decl%is_array = .false.
+        decl%is_allocatable = .false.
+        decl%is_parameter = .false.
+        if (allocated(decl%var_names)) deallocate(decl%var_names)
+        if (allocated(decl%dimension_indices)) deallocate(decl%dimension_indices)
+
+        ! Set type from collected type information
+        if (len_trim(var_type) > 0) then
+            call parse_and_set_declaration_type(var_type, decl)
+        else
+            ! Default to real(8) if type not found
+            decl%type_name = "real"
+            decl%has_kind = .true.
+            decl%kind_value = 8
+        end if
+    end subroutine create_variable_declaration_from_inference
+
+    ! Set declaration type from mono_type_t
+    subroutine set_declaration_type_from_mono_type(mono_type, decl)
+        type(mono_type_t), intent(in) :: mono_type
+        type(declaration_node), intent(inout) :: decl
+
+        select case (mono_type%kind)
+        case (TINT)
+            decl%type_name = "integer"
+            decl%has_kind = .false.
+        case (TREAL)
+            decl%type_name = "real"
+            decl%has_kind = .true.
+            decl%kind_value = 8
+        case (TCHAR)
+            decl%type_name = "character"
+            decl%has_kind = .false.
+        case (TLOGICAL)
+            decl%type_name = "logical"
+            decl%has_kind = .false.
+        case default
+            ! Default to real(8) for unknown types
+            decl%type_name = "real"
+            decl%has_kind = .true.
+            decl%kind_value = 8
+        end select
+    end subroutine set_declaration_type_from_mono_type
+
+    ! Parse type string and set declaration type
+    subroutine parse_and_set_declaration_type(type_string, decl)
+        character(len=*), intent(in) :: type_string
+        type(declaration_node), intent(inout) :: decl
+        
+        ! Parse common type patterns
+        select case (trim(type_string))
+        case ("integer")
+            decl%type_name = "integer"
+            decl%has_kind = .false.
+        case ("real", "real(8)")
+            decl%type_name = "real"
+            decl%has_kind = .true.
+            decl%kind_value = 8
+        case ("logical")
+            decl%type_name = "logical"
+            decl%has_kind = .false.
+        case ("character")
+            decl%type_name = "character"
+            decl%has_kind = .false.
+        case default
+            ! Handle more complex types or default to real(8)
+            if (index(type_string, "real") > 0) then
+                decl%type_name = "real"
+                decl%has_kind = .true.
+                decl%kind_value = 8
+            else if (index(type_string, "integer") > 0) then
+                decl%type_name = "integer"
+                decl%has_kind = .false.
+            else if (index(type_string, "logical") > 0) then
+                decl%type_name = "logical"
+                decl%has_kind = .false.
+            else if (index(type_string, "character") > 0) then
+                decl%type_name = "character"
+                decl%has_kind = .false.
+            else
+                ! Default to real(8)
+                decl%type_name = "real"
+                decl%has_kind = .true.
+                decl%kind_value = 8
+            end if
+        end select
+    end subroutine parse_and_set_declaration_type
 
     ! Wrap a standalone function in a program
     subroutine wrap_function_in_program(arena, func_index)
