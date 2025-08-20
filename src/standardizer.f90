@@ -48,6 +48,7 @@ contains
         logical, intent(in), optional :: in_module
         integer :: i
         logical :: is_in_module
+        
 
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
@@ -79,11 +80,29 @@ contains
             ! Only wrap standalone functions in a program, skip if inside module
             if (.not. is_in_module) then
                 call wrap_function_in_program(arena, root_index)
+                ! Now standardize the wrapped program
+                if (root_index > 0 .and. root_index <= arena%size) then
+                    if (allocated(arena%entries(root_index)%node)) then
+                        select type (prog_node => arena%entries(root_index)%node)
+                        type is (program_node)
+                            call standardize_program(arena, prog_node, root_index)
+                        end select
+                    end if
+                end if
             end if
         type is (subroutine_def_node)
             ! Only wrap standalone subroutines in a program, skip if inside module
             if (.not. is_in_module) then
                 call wrap_subroutine_in_program(arena, root_index)
+                ! Now standardize the wrapped program
+                if (root_index > 0 .and. root_index <= arena%size) then
+                    if (allocated(arena%entries(root_index)%node)) then
+                        select type (prog_node => arena%entries(root_index)%node)
+                        type is (program_node)
+                            call standardize_program(arena, prog_node, root_index)
+                        end select
+                    end if
+                end if
             end if
         type is (module_node)
             ! Modules don't need wrapping - standardize their contents
@@ -1553,6 +1572,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(in) :: prog
         integer :: i
+        
 
         if (.not. allocated(prog%body_indices)) return
 
@@ -1578,6 +1598,7 @@ contains
         integer, allocatable :: new_body_indices(:)
         integer :: implicit_none_index, i, j
         character(len=:), allocatable :: return_type_str
+        
 
         ! Standardize return type
         if (allocated(func_def%return_type)) then
@@ -1632,6 +1653,7 @@ contains
         if (.not. allocated(func_def%param_indices)) return
         n_params = size(func_def%param_indices)
         if (n_params == 0) return
+        
 
         ! Get parameter names
         allocate (param_names(n_params))
@@ -1766,6 +1788,7 @@ contains
                                         inf_type = arena%entries(func_def%param_indices(i))% &
                                                   node%inferred_type
                                         
+                                        
                                         select case (inf_type%kind)
                                         case (TCHAR)
                                             param_decl%type_name = "character"
@@ -1785,6 +1808,7 @@ contains
                                             type_set = .true.
                                         end select
                                     end block
+                                else
                                 end if
                             end if
                         end if
@@ -2080,11 +2104,8 @@ contains
         call arena%push(contains_stmt, "contains", 0)
         contains_index = arena%size
 
-        ! Standardize the function first
-        select type (func => arena%entries(func_index)%node)
-        type is (function_def_node)
-            call standardize_function_def(arena, func, func_index)
-        end select
+        ! Note: Don't standardize the function here - it will be done later
+        ! in the main standardization phase after semantic analysis
 
         ! Build program body: implicit none, contains, function
         allocate (body_indices(3))
@@ -2130,15 +2151,8 @@ contains
         call arena%push(contains_stmt, "contains", 0)
         contains_index = arena%size
 
-        ! Standardize the subroutine
-        if (sub_index > 0 .and. sub_index <= arena%size) then
-            if (allocated(arena%entries(sub_index)%node)) then
-                select type (sub_node => arena%entries(sub_index)%node)
-                type is (subroutine_def_node)
-                    call standardize_subroutine_def(arena, sub_node, sub_index)
-                end select
-            end if
-        end if
+        ! Note: Don't standardize the subroutine here - it will be done later
+        ! in the main standardization phase after semantic analysis
 
         ! Build program body: implicit none, contains, subroutine
         allocate (body_indices(3))
