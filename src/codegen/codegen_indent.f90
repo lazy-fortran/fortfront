@@ -19,6 +19,7 @@ module codegen_indent
     public :: with_indent, indent_lines
     public :: set_indent_config, get_indent_config
     public :: set_line_length_config, get_line_length_config
+    public :: reset_all_state
 
 contains
 
@@ -121,5 +122,13 @@ contains
         integer, intent(out) :: length
         length = active_line_length
     end subroutine get_line_length_config
+
+    ! Reset all global state to defaults (critical for test isolation)
+    subroutine reset_all_state()
+        current_indent_level = 0
+        active_indent_size = DEFAULT_INDENT_SIZE
+        active_indent_char = DEFAULT_INDENT_CHAR
+        active_line_length = DEFAULT_LINE_LENGTH
+    end subroutine reset_all_state
 
 end module codegen_indent
