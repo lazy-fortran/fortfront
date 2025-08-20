@@ -726,9 +726,9 @@ contains
                     arg_code = generate_code_from_arena(arena, node%arg_indices(i))
                     
                     ! Apply type promotion for polymorphic min/max functions
+                    ! Check if this is a min/max call with mixed types that needs promotion
                     if ((trim(node%name) == "min" .or. trim(node%name) == "max") .and. &
-                        allocated(node%intrinsic_signature) .and. &
-                        index(node%intrinsic_signature, "real(...)") > 0) then
+                        has_mixed_numeric_types(arena, node%arg_indices)) then
                         ! Check if this argument needs real() conversion
                         if (needs_real_conversion(arena, node%arg_indices(i))) then
                             arg_code = "real("//arg_code//")"
@@ -3072,6 +3072,49 @@ contains
     end subroutine safe_generate_code_from_arena
 
     ! Helper function to determine if an argument needs real() conversion
+    ! Check if function arguments have mixed numeric types (integer and real)
+    function has_mixed_numeric_types(arena, arg_indices) result(has_mixed)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arg_indices(:)
+        logical :: has_mixed
+        logical :: has_integer, has_real
+        integer :: i
+        
+        has_mixed = .false.
+        has_integer = .false.
+        has_real = .false.
+        
+        do i = 1, size(arg_indices)
+            if (arg_indices(i) <= 0 .or. arg_indices(i) > arena%size) cycle
+            
+            select type (arg_node => arena%entries(arg_indices(i))%node)
+            type is (literal_node)
+                if (arg_node%literal_kind == LITERAL_INTEGER) then
+                    has_integer = .true.
+                else if (arg_node%literal_kind == LITERAL_REAL) then
+                    has_real = .true.
+                end if
+            type is (identifier_node)
+                ! Use same heuristic as needs_real_conversion
+                if (len(arg_node%name) == 1 .and. &
+                    (arg_node%name(1:1) >= 'i' .and. arg_node%name(1:1) <= 'n')) then
+                    has_integer = .true.
+                else
+                    has_real = .true.  ! Assume real for other variables
+                end if
+            type is (call_or_subscript_node)
+                if (trim(arg_node%name) == "int" .or. trim(arg_node%name) == "nint" .or. &
+                    trim(arg_node%name) == "floor" .or. trim(arg_node%name) == "ceiling") then
+                    has_integer = .true.
+                else
+                    has_real = .true.  ! Assume real for other functions
+                end if
+            end select
+        end do
+        
+        has_mixed = has_integer .and. has_real
+    end function has_mixed_numeric_types
+    
     function needs_real_conversion(arena, arg_index) result(needs_conversion)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: arg_index

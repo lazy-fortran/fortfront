@@ -807,8 +807,8 @@ contains
         if (has_real) then
             typ = create_mono_type(TREAL)
             
-            ! Mark this call as needing type promotion for code generation
-            call_node%intrinsic_signature = "real(...)"
+            ! NOTE: Type promotion logic handled in codegen_core.f90
+            ! based on inferred types, not requiring intrinsic_signature modification
         else if (has_integer) then
             typ = create_mono_type(TINT)
         else
