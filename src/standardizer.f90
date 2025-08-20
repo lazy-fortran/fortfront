@@ -1632,6 +1632,9 @@ contains
         ! Standardize parameter declarations
         call standardize_function_parameters(arena, func_def, func_index)
 
+        ! Generate variable declarations for function result and local variables
+        call generate_function_variable_declarations(arena, func_def, func_index)
+
         ! Update the arena entry
         arena%entries(func_index)%node = func_def
     end subroutine standardize_function_def
@@ -1839,6 +1842,400 @@ contains
         end if
     end subroutine standardize_function_parameters
 
+    ! Generate variable declarations for function result and local variables
+    subroutine generate_function_variable_declarations(arena, func_def, func_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(inout) :: func_def
+        integer, intent(in) :: func_index
+        integer, allocatable :: declaration_indices(:), new_body_indices(:)
+        character(len=64), allocatable :: var_names(:), var_types(:)
+        character(len=64), allocatable :: param_names(:)
+        logical, allocatable :: var_declared(:)
+        integer :: i, j, var_count, param_count, n_declarations, insert_pos
+        character(len=64) :: result_var_name
+
+        ! print *, "DEBUG: generate_function_variable_declarations called for", trim(func_def%name)
+
+        ! Early exit if function already has variable declarations
+        ! DEBUG: Commenting out for now to ensure we always try to add declarations
+        ! if (function_has_variable_declarations(arena, func_def)) return
+
+        allocate(var_names(100), var_types(100), var_declared(100))
+        allocate(param_names(50))
+        var_declared = .false.
+        var_count = 0
+        param_count = 0
+        
+        ! Initialize arrays to avoid garbage
+        do i = 1, 100
+            var_names(i) = ""
+            var_types(i) = ""
+        end do
+        do i = 1, 50
+            param_names(i) = ""
+        end do
+
+        ! Collect parameter names to avoid declaring them as variables
+        if (allocated(func_def%param_indices)) then
+            do i = 1, size(func_def%param_indices)
+                if (func_def%param_indices(i) > 0 .and. &
+                    func_def%param_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(func_def%param_indices(i))%node)) then
+                        select type (param => arena%entries(func_def%param_indices(i))%node)
+                        type is (identifier_node)
+                            param_count = param_count + 1
+                            param_names(param_count) = param%name
+                        type is (parameter_declaration_node)
+                            param_count = param_count + 1
+                            param_names(param_count) = param%name
+                        type is (declaration_node)
+                            param_count = param_count + 1
+                            param_names(param_count) = param%var_name
+                        end select
+                    end if
+                end if
+            end do
+        end if
+
+        ! Add function result variable to declarations
+        if (allocated(func_def%result_variable)) then
+            ! Function has explicit result(var) clause
+            result_var_name = func_def%result_variable
+        else
+            ! Function result is the function name
+            result_var_name = func_def%name
+        end if
+
+        ! Add result variable if it's not already a parameter
+        if (.not. is_parameter_name(result_var_name, param_names, param_count)) then
+            var_count = var_count + 1
+            var_names(var_count) = result_var_name
+            var_types(var_count) = "real(8)"  ! Default to real(8)
+            ! print *, "DEBUG: Added result variable:", trim(result_var_name), "type:", trim(var_types(var_count))
+        end if
+
+        ! Collect variables from function body
+        if (allocated(func_def%body_indices)) then
+            do i = 1, size(func_def%body_indices)
+                if (func_def%body_indices(i) > 0 .and. &
+                    func_def%body_indices(i) <= arena%size) then
+                    call collect_function_statement_vars(arena, func_def%body_indices(i), &
+                        var_names, var_types, var_declared, var_count, &
+                        param_names, param_count, result_var_name)
+                end if
+            end do
+        end if
+
+        ! DEBUG: Print how many variables were collected
+        ! print *, "DEBUG: Found", var_count, "variables to declare"
+        ! do i = 1, var_count
+        !     print *, "DEBUG: Variable", i, ":", trim(var_names(i)), "type:", trim(var_types(i))
+        ! end do
+        
+        ! Generate declaration nodes
+        if (var_count > 0) then
+            allocate(declaration_indices(var_count))
+            call create_variable_declarations(arena, var_names, var_types, &
+                var_count, func_index, declaration_indices)
+        else
+            allocate(declaration_indices(0))
+        end if
+
+        ! Find insertion point (after implicit none)
+        insert_pos = 1  ! After implicit none
+        if (allocated(func_def%body_indices) .and. size(func_def%body_indices) > 0) then
+            insert_pos = 2  ! After implicit none
+        end if
+
+        ! Insert declarations into function body
+        n_declarations = var_count
+        if (n_declarations > 0) then
+            allocate(new_body_indices(size(func_def%body_indices) + n_declarations))
+            
+            ! Copy implicit none
+            new_body_indices(1) = func_def%body_indices(1)
+            
+            ! Insert declarations
+            do i = 1, n_declarations
+                new_body_indices(i + 1) = declaration_indices(i)
+            end do
+            
+            ! Copy rest of body
+            do i = 2, size(func_def%body_indices)
+                new_body_indices(i + n_declarations) = func_def%body_indices(i)
+            end do
+            
+            func_def%body_indices = new_body_indices
+        end if
+    end subroutine generate_function_variable_declarations
+
+    ! Check if a function already has variable declarations
+    function function_has_variable_declarations(arena, func_def) result(has_decls)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_def
+        logical :: has_decls
+        integer :: i
+
+        has_decls = .false.
+        if (.not. allocated(func_def%body_indices)) return
+        
+        do i = 1, size(func_def%body_indices)
+            if (func_def%body_indices(i) > 0 .and. &
+                func_def%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(func_def%body_indices(i))%node)) then
+                    select type (stmt => arena%entries(func_def%body_indices(i))%node)
+                    type is (declaration_node)
+                        has_decls = .true.
+                        return
+                    end select
+                end if
+            end if
+        end do
+    end function function_has_variable_declarations
+
+    ! Check if a name is in the parameter list
+    function is_parameter_name(name, param_names, param_count) result(is_param)
+        character(len=*), intent(in) :: name
+        character(len=64), intent(in) :: param_names(:)
+        integer, intent(in) :: param_count
+        logical :: is_param
+        integer :: i
+
+        is_param = .false.
+        do i = 1, param_count
+            if (trim(name) == trim(param_names(i))) then
+                is_param = .true.
+                return
+            end if
+        end do
+    end function is_parameter_name
+
+    ! Collect variables from function statements
+    recursive subroutine collect_function_statement_vars(arena, stmt_index, &
+                                var_names, var_types, var_declared, var_count, &
+                                param_names, param_count, result_var_name)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: stmt_index
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_declared(:)
+        integer, intent(inout) :: var_count
+        character(len=64), intent(in) :: param_names(:)
+        integer, intent(in) :: param_count
+        character(len=64), intent(in) :: result_var_name
+        integer :: i
+
+        if (stmt_index <= 0 .or. stmt_index > arena%size) return
+        if (.not. allocated(arena%entries(stmt_index)%node)) return
+
+        select type (stmt => arena%entries(stmt_index)%node)
+        type is (declaration_node)
+            ! Mark variables as already declared
+            call mark_variable_declared(stmt%var_name, var_names, var_declared, var_count)
+        type is (assignment_node)
+            ! Collect variables from assignment using existing function
+            ! Use empty function_names array since we're in function context
+            call collect_assignment_vars(arena, stmt_index, var_names, &
+                var_types, var_declared, var_count, param_names(1:0), 0)
+        type is (implicit_statement_node)
+            ! Skip implicit statements
+        type is (literal_node)
+            ! Skip literal nodes
+        class default
+            ! For other node types, recursively process if they have body/children
+        end select
+    end subroutine collect_function_statement_vars
+
+
+    ! Create variable declaration nodes using ast_factory
+    subroutine create_variable_declarations(arena, var_names, var_types, var_count, &
+                                           parent_index, declaration_indices)
+        use ast_factory, only: push_declaration
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=64), intent(in) :: var_names(:)
+        character(len=64), intent(in) :: var_types(:)
+        integer, intent(in) :: var_count
+        integer, intent(in) :: parent_index
+        integer, intent(out) :: declaration_indices(:)
+        integer :: i
+
+        do i = 1, var_count
+            ! Use ast_factory to create proper declaration
+            declaration_indices(i) = push_declaration(arena, &
+                trim(var_types(i)), trim(var_names(i)), &
+                line=1, column=1, parent_index=parent_index)
+        end do
+    end subroutine create_variable_declarations
+
+    ! Check if variable is already declared
+    function is_variable_declared(var_name, var_names, var_count) result(is_declared)
+        character(len=*), intent(in) :: var_name
+        character(len=64), intent(in) :: var_names(:)
+        integer, intent(in) :: var_count
+        logical :: is_declared
+        integer :: i
+
+        is_declared = .false.
+        do i = 1, var_count
+            if (trim(var_name) == trim(var_names(i))) then
+                is_declared = .true.
+                return
+            end if
+        end do
+    end function is_variable_declared
+
+    ! Generate variable declarations for subroutine local variables  
+    subroutine generate_subroutine_variable_declarations(arena, sub_def, sub_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(subroutine_def_node), intent(inout) :: sub_def
+        integer, intent(in) :: sub_index
+        integer, allocatable :: declaration_indices(:), new_body_indices(:)
+        character(len=64), allocatable :: var_names(:), var_types(:)
+        character(len=64), allocatable :: param_names(:)
+        logical, allocatable :: var_declared(:)
+        integer :: i, j, var_count, param_count, n_declarations, insert_pos
+
+        ! Early exit if subroutine already has variable declarations
+        if (subroutine_has_variable_declarations(arena, sub_def)) return
+
+        allocate(var_names(100), var_types(100), var_declared(100))
+        allocate(param_names(50))
+        var_declared = .false.
+        var_count = 0
+        param_count = 0
+        
+        ! Initialize arrays to avoid garbage
+        do i = 1, 100
+            var_names(i) = ""
+            var_types(i) = ""
+        end do
+        do i = 1, 50
+            param_names(i) = ""
+        end do
+
+        ! Collect parameter names to avoid declaring them as variables
+        if (allocated(sub_def%param_indices)) then
+            do i = 1, size(sub_def%param_indices)
+                if (sub_def%param_indices(i) > 0 .and. &
+                    sub_def%param_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(sub_def%param_indices(i))%node)) then
+                        select type (param => arena%entries(sub_def%param_indices(i))%node)
+                        type is (identifier_node)
+                            param_count = param_count + 1
+                            param_names(param_count) = param%name
+                        type is (parameter_declaration_node)
+                            param_count = param_count + 1
+                            param_names(param_count) = param%name
+                        type is (declaration_node)
+                            param_count = param_count + 1
+                            param_names(param_count) = param%var_name
+                        end select
+                    end if
+                end if
+            end do
+        end if
+
+        ! Collect variables from subroutine body
+        if (allocated(sub_def%body_indices)) then
+            do i = 1, size(sub_def%body_indices)
+                if (sub_def%body_indices(i) > 0 .and. &
+                    sub_def%body_indices(i) <= arena%size) then
+                    call collect_subroutine_statement_vars(arena, sub_def%body_indices(i), &
+                        var_names, var_types, var_declared, var_count, &
+                        param_names, param_count)
+                end if
+            end do
+        end if
+
+        ! Generate declaration nodes
+        if (var_count > 0) then
+            allocate(declaration_indices(var_count))
+            call create_variable_declarations(arena, var_names, var_types, &
+                var_count, sub_index, declaration_indices)
+        else
+            allocate(declaration_indices(0))
+        end if
+
+        ! Insert declarations into subroutine body
+        n_declarations = var_count
+        if (n_declarations > 0) then
+            allocate(new_body_indices(size(sub_def%body_indices) + n_declarations))
+            
+            ! Copy implicit none
+            new_body_indices(1) = sub_def%body_indices(1)
+            
+            ! Insert declarations
+            do i = 1, n_declarations
+                new_body_indices(i + 1) = declaration_indices(i)
+            end do
+            
+            ! Copy rest of body
+            do i = 2, size(sub_def%body_indices)
+                new_body_indices(i + n_declarations) = sub_def%body_indices(i)
+            end do
+            
+            sub_def%body_indices = new_body_indices
+        end if
+    end subroutine generate_subroutine_variable_declarations
+
+    ! Check if a subroutine already has variable declarations
+    function subroutine_has_variable_declarations(arena, sub_def) result(has_decls)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub_def
+        logical :: has_decls
+        integer :: i
+
+        has_decls = .false.
+        if (.not. allocated(sub_def%body_indices)) return
+        
+        do i = 1, size(sub_def%body_indices)
+            if (sub_def%body_indices(i) > 0 .and. &
+                sub_def%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(sub_def%body_indices(i))%node)) then
+                    select type (stmt => arena%entries(sub_def%body_indices(i))%node)
+                    type is (declaration_node)
+                        has_decls = .true.
+                        return
+                    end select
+                end if
+            end if
+        end do
+    end function subroutine_has_variable_declarations
+
+    ! Collect variables from subroutine statements
+    recursive subroutine collect_subroutine_statement_vars(arena, stmt_index, &
+                                var_names, var_types, var_declared, var_count, &
+                                param_names, param_count)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: stmt_index
+        character(len=64), intent(inout) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_declared(:)
+        integer, intent(inout) :: var_count
+        character(len=64), intent(in) :: param_names(:)
+        integer, intent(in) :: param_count
+        integer :: i
+
+        if (stmt_index <= 0 .or. stmt_index > arena%size) return
+        if (.not. allocated(arena%entries(stmt_index)%node)) return
+
+        select type (stmt => arena%entries(stmt_index)%node)
+        type is (declaration_node)
+            ! Mark variables as already declared
+            call mark_variable_declared(stmt%var_name, var_names, var_declared, var_count)
+        type is (assignment_node)
+            ! Collect variables from assignment using existing function
+            call collect_assignment_vars(arena, stmt_index, var_names, &
+                var_types, var_declared, var_count, param_names(1:0), 0)
+        type is (implicit_statement_node)
+            ! Skip implicit statements
+        type is (literal_node)
+            ! Skip literal nodes
+        class default
+            ! For other node types, recursively process if they have body/children
+        end select
+    end subroutine collect_subroutine_statement_vars
+
     ! Standardize subroutine definitions similar to function definitions
     subroutine standardize_subroutine_def(arena, sub_def, sub_index)
         type(ast_arena_t), intent(inout) :: arena
@@ -1900,6 +2297,9 @@ contains
         if (allocated(sub_def%param_indices)) then
             call standardize_subroutine_parameters(arena, sub_def, sub_index)
         end if
+
+        ! Generate variable declarations for local variables
+        call generate_subroutine_variable_declarations(arena, sub_def, sub_index)
 
         ! Update the arena entry
         arena%entries(sub_index)%node = sub_def
