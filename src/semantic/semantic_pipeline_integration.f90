@@ -6,7 +6,6 @@ module semantic_pipeline_integration
     use semantic_pipeline, only: semantic_pipeline_t, create_pipeline
     use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t
     use variable_declaration_analyzer, only: variable_declaration_analyzer_t
-    use ast_post_processor, only: post_process_ast
     implicit none
     private
 
@@ -15,7 +14,7 @@ module semantic_pipeline_integration
 
 contains
 
-    ! Enhanced semantic analysis using plugin pipeline with post-processing
+    ! Enhanced semantic analysis using plugin pipeline
     subroutine analyze_semantics_with_pipeline(arena, root_index, context)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
@@ -30,9 +29,6 @@ contains
         ! Run analysis
         call pipeline%run_analysis(arena, root_index)
         
-        ! CRITICAL: Apply AST modifications using post-processing
-        ! This solves the architectural constraint where analyzers have intent(in) arena
-        call post_process_ast(arena, root_index, pipeline%context)
         
         ! Return context if requested
         if (present(context)) then

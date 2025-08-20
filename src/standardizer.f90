@@ -10,6 +10,7 @@ module standardizer
     use ast_core
     use ast_factory
     use type_system_hm
+    use semantic_analyzer, only: semantic_context_t
     use json_module, only: json_core, json_value, json_file
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     implicit none
@@ -22,6 +23,7 @@ module standardizer
     integer, parameter :: INVALID_INTEGER = -999999
 
     public :: standardize_ast
+    public :: standardize_ast_with_semantics
     public :: standardize_ast_json
     public :: set_standardizer_type_standardization, &
               get_standardizer_type_standardization
@@ -82,6 +84,60 @@ contains
 
     end subroutine standardize_ast
 
+    ! Enhanced standardization with semantic context for better type inference
+    recursive subroutine standardize_ast_with_semantics(arena, root_index, semantic_ctx, in_module)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(inout) :: root_index
+        type(semantic_context_t), intent(in), optional :: semantic_ctx
+        logical, intent(in), optional :: in_module
+        integer :: i
+        logical :: is_in_module
+        
+        if (root_index <= 0 .or. root_index > arena%size) return
+        if (.not. allocated(arena%entries(root_index)%node)) return
+
+        ! Determine if we're inside a module context
+        is_in_module = .false.
+        if (present(in_module)) is_in_module = in_module
+
+        select type (node => arena%entries(root_index)%node)
+        type is (program_node)
+            ! Skip standardization for multi-unit containers
+            if (node%name == "__MULTI_UNIT__") then
+                ! Standardize each unit individually
+                if (allocated(node%body_indices)) then
+                    block
+                        integer :: j
+                        do j = 1, size(node%body_indices)
+                        if (node%body_indices(j) > 0 .and. &
+                            node%body_indices(j) <= arena%size) then
+                            call standardize_ast_with_semantics(arena, node%body_indices(j), semantic_ctx)
+                        end if
+                    end do
+                    end block
+                end if
+            else
+                call standardize_program_with_semantics(arena, node, root_index, semantic_ctx)
+            end if
+        type is (function_def_node)
+            ! Only wrap standalone functions in a program, skip if inside module
+            if (.not. is_in_module) then
+                call wrap_function_in_program(arena, root_index)
+            end if
+        type is (subroutine_def_node)
+            ! Only wrap standalone subroutines in a program, skip if inside module
+            if (.not. is_in_module) then
+                call wrap_subroutine_in_program(arena, root_index)
+            end if
+        type is (module_node)
+            ! Modules don't need wrapping - standardize their contents
+            call standardize_module(arena, node, root_index)
+        class default
+            ! For other node types, no standardization needed yet
+        end select
+
+    end subroutine standardize_ast_with_semantics
+
     ! Standardize a program node
     subroutine standardize_program(arena, prog, prog_index)
         type(ast_arena_t), intent(inout) :: arena
@@ -130,6 +186,48 @@ contains
         call standardize_subprograms(arena, prog)
 
     end subroutine standardize_program
+
+    ! Enhanced program standardization with semantic context
+    subroutine standardize_program_with_semantics(arena, prog, prog_index, semantic_ctx)
+        type(ast_arena_t), intent(inout) :: arena
+        type(program_node), intent(inout) :: prog
+        integer, intent(in) :: prog_index
+        type(semantic_context_t), intent(in), optional :: semantic_ctx
+        logical :: has_functions, has_subroutines, has_use_statements
+        logical :: has_executable_statements
+        logical :: should_be_module
+        integer :: contains_index
+        integer, allocatable :: new_body_indices(:)
+        integer :: i, n_statements, insert_pos
+
+        ! Analyze the program to determine if it should be a module
+        call analyze_program_content(arena, prog, has_functions, has_subroutines, &
+                        has_use_statements, has_executable_statements, should_be_module)
+
+        ! Standardize existing declarations (e.g., real -> real(8))
+        call standardize_declarations(arena, prog)
+
+        ! Always insert implicit none and variable declarations for programs
+        call insert_variable_declarations_with_semantics(arena, prog, prog_index, semantic_ctx)
+        
+        ! Mark variables that need allocatable due to array reassignment (Issue 188)
+        call mark_allocatable_for_array_reassignments(arena, prog, prog_index)
+        
+        ! Mark variables that need allocatable due to string length changes (Issue 218)
+        call mark_allocatable_for_string_length_changes(arena, prog)
+
+        ! Add 'contains' statement if needed
+        if (has_functions .or. has_subroutines) then
+            insert_pos = find_contains_insertion_point(arena, prog)
+            if (insert_pos > 0) then
+                call insert_contains_statement(arena, prog, prog_index, insert_pos)
+            end if
+        end if
+
+        ! Standardize function and subroutine definitions
+        call standardize_subprograms(arena, prog)
+
+    end subroutine standardize_program_with_semantics
 
     ! Standardize a module node
     subroutine standardize_module(arena, mod, mod_index)
@@ -385,6 +483,53 @@ contains
         arena%entries(prog_index)%node = prog
 
     end subroutine insert_variable_declarations
+
+    ! Enhanced variable declaration insertion with semantic context
+    subroutine insert_variable_declarations_with_semantics(arena, prog, prog_index, semantic_ctx)
+        type(ast_arena_t), intent(inout) :: arena
+        type(program_node), intent(inout) :: prog
+        integer, intent(in) :: prog_index
+        type(semantic_context_t), intent(in), optional :: semantic_ctx
+        integer, allocatable :: new_body_indices(:)
+        integer :: implicit_none_index
+        integer, allocatable :: declaration_indices(:)
+        integer :: i, j, insert_pos, n_declarations
+
+        if (.not. allocated(prog%body_indices)) return
+
+        ! Find insertion point (after use statements, before executable statements)
+        insert_pos = find_declaration_insertion_point(arena, prog)
+        if (insert_pos == 0) insert_pos = 1  ! Default to beginning if no use statements
+
+        ! Check if implicit none already exists
+        if (.not. has_implicit_none(arena, prog)) then
+            ! Create implicit none statement node
+            implicit_none_index = push_implicit_statement(arena, .true., &
+                                                         line=1, column=1, parent_index=prog_index)
+        else
+            implicit_none_index = 0  ! Don't add duplicate
+        end if
+
+        ! Check if program already has variable declarations (is already standardized)
+        if (program_has_variable_declarations(arena, prog)) then
+            ! Program already standardized, don't add more declarations
+            allocate(declaration_indices(0))
+        else
+            ! Generate variable declarations using semantic context if available
+            call generate_declarations_from_semantics(arena, prog, prog_index, &
+                                                    semantic_ctx, declaration_indices)
+        end if
+        n_declarations = 0
+        if (allocated(declaration_indices)) n_declarations = size(declaration_indices)
+
+        ! Create new body indices with optional implicit none and declarations
+        call insert_statements_at_position_impl(arena, prog, prog_index, insert_pos, &
+                                         implicit_none_index, declaration_indices)
+
+        ! Update the arena entry
+        arena%entries(prog_index)%node = prog
+
+    end subroutine insert_variable_declarations_with_semantics
 
     ! Check if a program already has implicit none
     function has_implicit_none(arena, prog) result(found)
@@ -711,6 +856,80 @@ contains
         end if
 
     end subroutine generate_and_insert_declarations
+
+    ! Generate variable declarations using semantic context for precise type inference
+    subroutine generate_declarations_from_semantics(arena, prog, prog_index, semantic_ctx, declaration_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        type(program_node), intent(in) :: prog
+        integer, intent(in) :: prog_index
+        type(semantic_context_t), intent(in), optional :: semantic_ctx
+        integer, allocatable, intent(out) :: declaration_indices(:)
+        character(len=64), allocatable :: var_names(:)
+        character(len=64), allocatable :: var_types(:)
+        logical, allocatable :: var_declared(:)
+        character(len=64), allocatable :: function_names(:)
+        integer :: i, var_count, func_count, decl_count
+        type(declaration_node) :: decl_node
+
+        ! If no semantic context or empty context, fall back to pattern-based inference
+        if (.not. present(semantic_ctx)) then
+            call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
+            return
+        end if
+        
+        ! Check if semantic context has useful type information
+        if (.not. allocated(semantic_ctx%env%names) .or. semantic_ctx%env%count == 0) then
+            call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
+            return
+        end if
+
+        allocate (var_names(100))
+        allocate (var_types(100))
+        allocate (var_declared(100))
+        allocate (function_names(100))
+        var_declared = .false.
+        var_count = 0
+        func_count = 0
+
+        ! First pass: collect function names  
+        if (allocated(prog%body_indices)) then
+            do i = 1, size(prog%body_indices)
+             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                        select type (stmt => arena%entries(prog%body_indices(i))%node)
+                        type is (function_def_node)
+                            if (func_count < size(function_names)) then
+                                func_count = func_count + 1
+                                function_names(func_count) = stmt%name
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        end if
+
+        ! Collect all variables that need declarations
+        if (allocated(prog%body_indices)) then
+            do i = 1, size(prog%body_indices)
+             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                        call collect_statement_vars(arena, prog%body_indices(i), &
+                                        var_names, var_types, var_declared, var_count, &
+                                        function_names, func_count)
+                    end if
+                end if
+            end do
+        end if
+
+        ! Use semantic context to infer precise types for undeclared variables
+        call infer_types_from_semantic_context(semantic_ctx, var_names, var_types, &
+                                             var_declared, var_count)
+
+        ! Create declaration nodes for undeclared variables
+        call create_declaration_nodes_for_variables(arena, var_names, var_types, &
+                                                  var_declared, var_count, declaration_indices)
+
+    end subroutine generate_declarations_from_semantics
 
     ! Collect variables from any statement type
     recursive subroutine collect_statement_vars(arena, stmt_index, var_names, &
@@ -2622,5 +2841,185 @@ contains
             end if
         end select
     end subroutine collect_string_vars_needing_allocatable
+
+    ! Infer variable types from semantic context using proper type environment lookup
+    subroutine infer_types_from_semantic_context(semantic_ctx, var_names, var_types, var_declared, var_count)
+        type(semantic_context_t), intent(in) :: semantic_ctx
+        character(len=64), intent(in) :: var_names(:)
+        character(len=64), intent(inout) :: var_types(:)
+        logical, intent(inout) :: var_declared(:)
+        integer, intent(in) :: var_count
+        
+        integer :: i
+        type(mono_type_t) :: inferred_type
+        logical :: found_in_env
+        
+        do i = 1, var_count
+            if (.not. var_declared(i)) then
+                ! Look up variable type in semantic environment
+                call lookup_variable_type_in_env(semantic_ctx%env, trim(var_names(i)), &
+                                               inferred_type, found_in_env)
+                
+                if (found_in_env) then
+                    ! Convert mono_type_t to Fortran type string
+                    var_types(i) = get_fortran_type_string(inferred_type)
+                else
+                    ! Fallback to simple heuristics for unknown variables
+                    call infer_type_from_name_pattern(trim(var_names(i)), var_types(i))
+                end if
+            end if
+        end do
+    end subroutine infer_types_from_semantic_context
+
+    ! Look up variable type in type environment
+    subroutine lookup_variable_type_in_env(env, var_name, var_type, found)
+        use type_system_hm, only: type_env_t, mono_type_t, poly_type_t, TVAR
+        type(type_env_t), intent(in) :: env
+        character(*), intent(in) :: var_name
+        type(mono_type_t), intent(out) :: var_type
+        logical, intent(out) :: found
+        
+        integer :: i
+        type(poly_type_t) :: scheme
+        
+        found = .false.
+        
+        ! Search through names and schemes in the environment
+        if (allocated(env%names) .and. allocated(env%schemes)) then
+            do i = 1, env%count
+                if (trim(env%names(i)) == trim(var_name)) then
+                    scheme = env%schemes(i)
+                    ! If the scheme has no quantified variables, get the mono type
+                    if (.not. allocated(scheme%forall) .or. size(scheme%forall) == 0) then
+                        var_type = scheme%mono
+                        ! Only accept concrete types, not type variables
+                        if (var_type%kind /= TVAR) then
+                            found = .true.
+                        end if
+                        return
+                    end if
+                end if
+            end do
+        end if
+    end subroutine lookup_variable_type_in_env
+
+    ! Simple name-based type inference as fallback
+    subroutine infer_type_from_name_pattern(var_name, var_type)
+        character(*), intent(in) :: var_name
+        character(len=64), intent(out) :: var_type
+        
+        character(len=1) :: first_char
+        
+        if (len_trim(var_name) == 0) then
+            var_type = "real"
+            return
+        end if
+        
+        first_char = var_name(1:1)
+        
+        ! Fortran implicit typing rules: i-n are integer, others are real
+        if (first_char >= 'i' .and. first_char <= 'n') then
+            var_type = "integer"
+        else if (first_char >= 'I' .and. first_char <= 'N') then
+            var_type = "integer" 
+        else
+            var_type = "real"
+        end if
+    end subroutine infer_type_from_name_pattern
+
+    ! Create declaration nodes for variables that need them
+    subroutine create_declaration_nodes_for_variables(arena, var_names, var_types, var_declared, &
+                                                     var_count, declaration_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=64), intent(in) :: var_names(:)
+        character(len=64), intent(in) :: var_types(:)
+        logical, intent(in) :: var_declared(:)
+        integer, intent(in) :: var_count
+        integer, allocatable, intent(out) :: declaration_indices(:)
+        
+        integer :: i, decl_count, decl_index
+        integer, allocatable :: temp_indices(:)
+        
+        ! Count undeclared variables
+        decl_count = 0
+        do i = 1, var_count
+            if (.not. var_declared(i)) then
+                decl_count = decl_count + 1
+            end if
+        end do
+        
+        if (decl_count > 0) then
+            allocate(temp_indices(decl_count))
+            decl_count = 0
+            
+            ! Create declaration nodes for each undeclared variable
+            do i = 1, var_count
+                if (.not. var_declared(i)) then
+                    decl_index = push_declaration(arena, trim(var_types(i)), trim(var_names(i)))
+                    if (decl_index > 0) then
+                        decl_count = decl_count + 1
+                        temp_indices(decl_count) = decl_index
+                    end if
+                end if
+            end do
+            
+            ! Copy to output array with actual count
+            allocate(declaration_indices(decl_count))
+            declaration_indices(1:decl_count) = temp_indices(1:decl_count)
+        else
+            allocate(declaration_indices(0))
+        end if
+    end subroutine create_declaration_nodes_for_variables
+
+    ! Insert statements at specific position in program body
+    subroutine insert_statements_at_position_impl(arena, prog, prog_index, insert_pos, &
+                                                  implicit_none_index, declaration_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        type(program_node), intent(inout) :: prog
+        integer, intent(in) :: prog_index, insert_pos, implicit_none_index
+        integer, intent(in) :: declaration_indices(:)
+        
+        integer, allocatable :: new_body_indices(:)
+        integer :: i, j, n_declarations, new_size
+        
+        n_declarations = size(declaration_indices)
+        
+        ! Calculate new array size
+        new_size = size(prog%body_indices)
+        if (implicit_none_index > 0) new_size = new_size + 1
+        new_size = new_size + n_declarations
+        
+        ! Allocate new array
+        allocate(new_body_indices(new_size))
+        
+        ! Copy statements before insertion point
+        j = 1
+        do i = 1, insert_pos - 1
+            new_body_indices(j) = prog%body_indices(i)
+            j = j + 1
+        end do
+
+        ! Insert implicit none if we created one
+        if (implicit_none_index > 0) then
+            new_body_indices(j) = implicit_none_index
+            j = j + 1
+        end if
+
+        ! Insert declarations
+        do i = 1, n_declarations
+            new_body_indices(j) = declaration_indices(i)
+            j = j + 1
+        end do
+
+        ! Copy remaining statements
+        do i = insert_pos, size(prog%body_indices)
+            new_body_indices(j) = prog%body_indices(i)
+            j = j + 1
+        end do
+
+        ! Update program body
+        prog%body_indices = new_body_indices
+        
+    end subroutine insert_statements_at_position_impl
 
 end module standardizer

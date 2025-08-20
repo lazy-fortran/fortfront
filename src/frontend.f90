@@ -20,7 +20,8 @@ module frontend
                                    analyze_program
     use semantic_analyzer_with_checks, only: analyze_program_with_checks
     use semantic_pipeline_integration, only: analyze_semantics_with_pipeline
-    use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
+    use standardizer, only: standardize_ast, standardize_ast_with_semantics, &
+                           set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
     use codegen_core, only: generate_code_from_arena, generate_code_polymorphic, &
                            set_type_standardization, get_type_standardization
@@ -147,12 +148,16 @@ contains
         ! Debug AST output disabled - implement later if needed
 
         ! Phase 3: Semantic Analysis with Variable Declaration Generation
-        ! Use the new semantic pipeline with variable declaration analyzer
-        call analyze_semantics_with_pipeline(arena, prog_index)
-        ! Debug semantic output disabled - implement later if needed
+        ! Use the new semantic pipeline with variable declaration analyzer  
+        block
+            type(semantic_context_t) :: semantic_ctx
+            call analyze_semantics_with_pipeline(arena, prog_index, semantic_ctx)
+            ! Debug semantic output disabled - implement later if needed
 
-        ! Phase 4: Standardization (transform dialect to standard Fortran)
-        call standardize_ast(arena, prog_index)
+            ! Phase 4: Standardization (transform dialect to standard Fortran)
+            ! Use enhanced standardizer with semantic context for precise type inference
+            call standardize_ast_with_semantics(arena, prog_index, semantic_ctx)
+        end block
         ! Debug standardize output disabled - implement later if needed
 
         ! Phase 5: Standard Fortran Code Generation
@@ -201,10 +206,13 @@ contains
 
         ! Phase 3: Semantic Analysis with Variable Declaration Generation
         ! Use the new semantic pipeline with variable declaration analyzer
-        call analyze_semantics_with_pipeline(arena, prog_index)
+        block
+            type(semantic_context_t) :: semantic_ctx
+            call analyze_semantics_with_pipeline(arena, prog_index, semantic_ctx)
 
-        ! Phase 4: Standardization (transform dialect to standard Fortran)
-        call standardize_ast(arena, prog_index)
+            ! Phase 4: Standardization (transform dialect to standard Fortran)
+            call standardize_ast_with_semantics(arena, prog_index, semantic_ctx)
+        end block
 
         ! Phase 5: Code Generation
         call generate_fortran_code(arena, prog_index, code)
@@ -246,10 +254,10 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             type(semantic_context_t) :: sem_ctx
             sem_ctx = create_semantic_context()
             call analyze_program(sem_ctx, arena, prog_index)
-        end block
 
-        ! Phase 4: Standardization
-        call standardize_ast(arena, prog_index)
+            ! Phase 4: Standardization
+            call standardize_ast_with_semantics(arena, prog_index, sem_ctx)
+        end block
 
         ! Phase 5: Code Generation
         call generate_fortran_code(arena, prog_index, code)
@@ -1572,27 +1580,30 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end if
 
         ! Phase 3: Semantic Analysis with Variable Declaration Generation
-        call analyze_semantics_with_pipeline(arena, prog_index)
-
-        ! Phase 4: Standardization
-        ! Skip standardization for multi-unit containers
         block
-            logical :: skip_standardization
-            skip_standardization = .false.
-            if (prog_index > 0 .and. prog_index <= arena%size) then
-                if (allocated(arena%entries(prog_index)%node)) then
-                    select type (node => arena%entries(prog_index)%node)
-                    type is (program_node)
-                        if (node%name == "__MULTI_UNIT__") then
-                            skip_standardization = .true.
-                        end if
-                    end select
-                end if
-            end if
+            type(semantic_context_t) :: semantic_ctx
+            call analyze_semantics_with_pipeline(arena, prog_index, semantic_ctx)
 
-            if (.not. skip_standardization) then
-                call standardize_ast(arena, prog_index)
-            end if
+            ! Phase 4: Standardization
+            ! Skip standardization for multi-unit containers
+            block
+                logical :: skip_standardization
+                skip_standardization = .false.
+                if (prog_index > 0 .and. prog_index <= arena%size) then
+                    if (allocated(arena%entries(prog_index)%node)) then
+                        select type (node => arena%entries(prog_index)%node)
+                        type is (program_node)
+                            if (node%name == "__MULTI_UNIT__") then
+                                skip_standardization = .true.
+                            end if
+                        end select
+                    end if
+                end if
+
+                if (.not. skip_standardization) then
+                    call standardize_ast_with_semantics(arena, prog_index, semantic_ctx)
+                end if
+            end block
         end block
 
         ! Phase 5: Code Generation
