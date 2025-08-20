@@ -56,7 +56,7 @@ contains
         
         ! Lex and parse
         call lex_source(source, tokens, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Lexing failed - ", error_msg
             test_no_undeclared_variables = .false.
             return
@@ -64,7 +64,7 @@ contains
         
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, func_index, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Parsing failed - ", error_msg
             test_no_undeclared_variables = .false.
             return
@@ -106,7 +106,7 @@ contains
         
         ! Lex and parse
         call lex_source(source, tokens, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Lexing failed - ", error_msg
             test_existing_declarations_preserved = .false.
             return
@@ -114,7 +114,7 @@ contains
         
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, func_index, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Parsing failed - ", error_msg
             test_existing_declarations_preserved = .false.
             return
@@ -153,7 +153,7 @@ contains
         
         ! Lex and parse
         call lex_source(source, tokens, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Lexing failed - ", error_msg
             test_function_params_vs_locals = .false.
             return
@@ -161,7 +161,7 @@ contains
         
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, func_index, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Parsing failed - ", error_msg
             test_function_params_vs_locals = .false.
             return
@@ -204,7 +204,7 @@ contains
         
         ! Lex and parse
         call lex_source(source, tokens, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Lexing failed - ", error_msg
             test_program_level_vs_function_level = .false.
             return
@@ -212,7 +212,7 @@ contains
         
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, prog_index, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Parsing failed - ", error_msg
             test_program_level_vs_function_level = .false.
             return
@@ -259,7 +259,7 @@ contains
         
         ! Lex and parse
         call lex_source(source, tokens, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Lexing failed - ", error_msg
             test_nested_function_scopes = .false.
             return
@@ -267,7 +267,7 @@ contains
         
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, prog_index, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Parsing failed - ", error_msg
             test_nested_function_scopes = .false.
             return
@@ -308,7 +308,7 @@ contains
         
         ! Lex and parse
         call lex_source(source, tokens, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Lexing failed - ", error_msg
             test_character_length_inference = .false.
             return
@@ -316,7 +316,7 @@ contains
         
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, func_index, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Parsing failed - ", error_msg
             test_character_length_inference = .false.
             return

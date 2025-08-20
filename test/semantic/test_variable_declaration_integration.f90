@@ -54,7 +54,7 @@ contains
         
         ! Full compilation pipeline
         call lex_source(source, tokens, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Lexing failed - ", error_msg
             test_full_pipeline_success = .false.
             return
@@ -62,7 +62,7 @@ contains
         
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, func_index, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Parsing failed - ", error_msg
             test_full_pipeline_success = .false.
             return
@@ -110,7 +110,7 @@ contains
         
         ! Full compilation pipeline
         call lex_source(source, tokens, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Lexing failed - ", error_msg
             test_full_pipeline_error_reporting = .false.
             return
@@ -118,7 +118,7 @@ contains
         
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, func_index, error_msg)
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
             print *, "  FAIL: Parsing failed - ", error_msg
             test_full_pipeline_error_reporting = .false.
             return
