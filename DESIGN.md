@@ -1,3 +1,200 @@
+# Character Type Inference Architecture (Issue #329)
+
+## Problem Analysis
+
+**Current Issue**: Character type inference has multiple limitations causing test failures and incorrect type defaults in the semantic analysis pipeline:
+
+### Core Problems Identified
+
+1. **Function Parameter Inference Failure** (test_issue_312)
+   - Character parameters in functions default to `real(8)` instead of character
+   - String concatenation operations (`//`) on parameters don't trigger character inference
+   - Example: `function concat_hello(x); concat_hello = x // "!"` - parameter `x` should be character
+
+2. **Semantic Preservation Issues** (test_semantic_preservation)
+   - Scope preservation failing for character variables
+   - Expression order not maintained in character operations
+   - Declaration consolidation breaks with character types
+
+3. **Type System Limitations**
+   - Character literal inference works but doesn't propagate through expressions
+   - Binary operator `//' only handles already-typed character operands
+   - No backward propagation from character operations to untyped variables
+
+## Root Cause Analysis
+
+### Type Inference Flow Issues
+
+1. **Unidirectional Inference**: Current system infers types forward (literals → expressions) but lacks backward propagation (operations → parameters)
+
+2. **Default Type Assignment**: Untyped variables default to `real(8)` before context analysis
+
+3. **Operation Context Loss**: String concatenation operator doesn't provide type hints to untyped operands
+
+4. **Scope Chain Breaks**: Character type information lost when crossing scope boundaries
+
+## Solution Architecture
+
+### Phase 1: Enhanced Character Type Propagation
+
+**Objective**: Implement backward type propagation from operations to parameters
+
+**Key Changes**:
+1. **Pre-Analysis Pass**: Scan for character operations before type defaulting
+2. **Context-Aware Inference**: Use operation context to infer parameter types
+3. **Deferred Defaulting**: Only apply `real(8)` default after exhausting inference
+
+**Implementation Points**:
+- Modify `infer_function` in `semantic_analyzer.f90`
+- Add character operation detection before parameter type assignment
+- Track character operations in function bodies during first pass
+
+### Phase 2: Binary Operation Type Hints
+
+**Objective**: Make `//' operator provide strong type hints to operands
+
+**Key Changes**:
+1. **Type Constraint Collection**: Gather constraints from operations before unification
+2. **Bidirectional Unification**: Allow operations to constrain operand types
+3. **Character Operation Registry**: Track all character operations for constraint solving
+
+**Implementation Points**:
+- Enhance `infer_binary_op` to collect type constraints
+- Add constraint solver phase before type defaulting
+- Implement character type propagation through expression trees
+
+### Phase 3: Scope Preservation for Character Types
+
+**Objective**: Maintain character type information across scopes
+
+**Key Changes**:
+1. **Scope Type Cache**: Preserve inferred types when entering/exiting scopes
+2. **Character Type Persistence**: Ensure character types survive scope transitions
+3. **Declaration Consolidation**: Special handling for character declarations
+
+**Implementation Points**:
+- Fix scope manager to preserve character type attributes
+- Enhance declaration processing for character variables
+- Maintain type consistency across scope boundaries
+
+## Detailed Technical Specifications
+
+### 1. Function Parameter Character Inference
+
+```fortran
+! Current behavior (WRONG):
+function concat_hello(x)  ! x defaults to real(8)
+    concat_hello = x // "!"  ! Type error or incorrect handling
+end function
+
+! Target behavior (CORRECT):
+function concat_hello(x)  ! x inferred as character from usage
+    character(len=:), allocatable :: x  ! or character(*)
+    concat_hello = x // "!"
+end function
+```
+
+**Algorithm**:
+1. First pass: Collect all operations involving parameters
+2. Identify character operations (`//`, character function calls)
+3. Mark parameters used in character contexts
+4. Apply character type before defaulting to real(8)
+
+### 2. Character Operation Constraint Collection
+
+**Data Structure**:
+```fortran
+type :: type_constraint_t
+    integer :: var_index
+    integer :: constraint_kind  ! MUST_BE_CHARACTER, etc.
+    integer :: source_location  ! Where constraint originated
+end type
+```
+
+**Process**:
+1. During AST traversal, collect constraints
+2. Solve constraints before type defaulting
+3. Apply solved types to variables
+
+### 3. Scope Preservation Enhancement
+
+**Issue**: Character types lost during scope transitions
+
+**Solution**:
+- Add character type preservation to scope manager
+- Implement proper type copying for character attributes
+- Ensure allocatable info preserved across scopes
+
+## Implementation Plan
+
+### Step 1: Test Infrastructure (30 min)
+- Create focused test cases for each failure mode
+- Add regression tests for character inference
+- Implement test helpers for type checking
+
+### Step 2: Constraint Collection (1 hour)
+- Add constraint data structures
+- Implement constraint collection in semantic analyzer
+- Create constraint solver for character types
+
+### Step 3: Parameter Inference (1 hour)
+- Modify function analysis to use constraints
+- Implement backward propagation from operations
+- Update parameter type assignment logic
+
+### Step 4: Scope Preservation (45 min)
+- Fix scope manager character handling
+- Ensure type attributes preserved
+- Update declaration consolidation
+
+### Step 5: Integration Testing (45 min)
+- Run full test suite
+- Verify all 6 character tests pass
+- Check for regressions
+
+## Risk Assessment
+
+### High Risk
+- **Type System Regression**: Changes might affect non-character types
+- **Mitigation**: Comprehensive regression testing, isolated changes
+
+### Medium Risk
+- **Performance Impact**: Additional analysis passes
+- **Mitigation**: Optimize constraint collection, cache results
+
+### Low Risk
+- **Backward Compatibility**: Should be transparent to users
+- **Mitigation**: Preserve existing API, internal changes only
+
+## Success Criteria
+
+1. **All 6 character-related semantic tests pass**
+2. **No regression in existing tests**
+3. **Function parameters correctly inferred as character**
+4. **Scope preservation maintains character types**
+5. **Expression order preserved for character operations**
+6. **Declaration consolidation works with character types**
+
+## Testing Strategy
+
+### Unit Tests
+- Character literal inference
+- Character concatenation operations
+- Function parameter inference
+- Scope preservation
+
+### Integration Tests
+- Full program character handling
+- Mixed type programs
+- Complex character expressions
+
+### Regression Tests
+- All existing semantic tests
+- Frontend integration tests
+- Code generation verification
+
+---
+
 # Input Validation Module Architecture (Issue #262)
 
 ## Problem Analysis
