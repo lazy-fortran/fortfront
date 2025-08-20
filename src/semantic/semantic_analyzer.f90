@@ -9,9 +9,14 @@ module semantic_analyzer
     use scope_manager
     use type_checker
     use ast_core  ! TODO: Migrate to explicit imports (complex due to extensive usage)
-    use ast_nodes_data, only: intent_type_to_string
+    use ast_nodes_data, only: intent_type_to_string, declaration_node, &
+                              parameter_declaration_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 range_expression_node, get_array_slice_node
+    use ast_nodes_core, only: identifier_node, assignment_node, binary_op_node, &
+                              call_or_subscript_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_control, only: if_node, do_loop_node
     use parameter_tracker
     use expression_temporary_tracker_module
     use constant_folding, only: fold_constants_in_arena
@@ -21,6 +26,25 @@ module semantic_analyzer
     public :: semantic_context_t, create_semantic_context
     public :: analyze_program
     public :: validate_array_bounds, check_shape_conformance
+    public :: undeclared_variable_t, collect_undeclared_variables
+
+    ! Constants for variable usage types
+    integer, parameter, public :: USAGE_PARAMETER = 1
+    integer, parameter, public :: USAGE_RESULT_VAR = 2
+    integer, parameter, public :: USAGE_LOCAL_VAR = 3
+
+    ! Data structure for undeclared variable information
+    type :: undeclared_variable_t
+        character(len=:), allocatable :: name
+        integer :: usage_type  ! USAGE_PARAMETER, USAGE_RESULT_VAR, USAGE_LOCAL_VAR
+        integer :: first_usage_node  ! AST node index
+        logical :: is_read
+        logical :: is_written
+        logical :: is_array_access
+    contains
+        procedure :: assign => undeclared_variable_assign
+        generic :: assignment(=) => assign
+    end type undeclared_variable_t
 
     ! Semantic analysis context
     type :: semantic_context_t
@@ -44,6 +68,7 @@ module semantic_analyzer
         procedure :: assign => semantic_context_assign
         procedure :: validate_bounds => validate_array_access_bounds
         procedure :: check_conformance => check_array_shape_conformance
+        procedure :: collect_undeclared_variables
         generic :: assignment(=) => assign
     end type semantic_context_t
 
@@ -2551,5 +2576,624 @@ contains
             end select
         end if
     end subroutine set_character_substring_flag
+
+    ! Assignment operator for undeclared_variable_t
+    subroutine undeclared_variable_assign(lhs, rhs)
+        class(undeclared_variable_t), intent(inout) :: lhs
+        class(undeclared_variable_t), intent(in) :: rhs
+        
+        if (allocated(rhs%name)) lhs%name = rhs%name
+        lhs%usage_type = rhs%usage_type
+        lhs%first_usage_node = rhs%first_usage_node
+        lhs%is_read = rhs%is_read
+        lhs%is_written = rhs%is_written
+        lhs%is_array_access = rhs%is_array_access
+    end subroutine undeclared_variable_assign
+
+    ! Collect undeclared variables in a function or subroutine scope
+    subroutine collect_undeclared_variables(this, arena, scope_index, &
+                                           undeclared_vars)
+        class(semantic_context_t), intent(inout) :: this
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        type(undeclared_variable_t), allocatable, intent(out) :: &
+            undeclared_vars(:)
+        
+        type(undeclared_variable_t), allocatable :: temp_vars(:)
+        integer :: temp_count
+        integer :: i
+        
+        ! Initialize temporary array for collecting variables
+        allocate(temp_vars(100))  ! Start with reasonable capacity
+        temp_count = 0
+        
+        if (scope_index <= 0 .or. scope_index > arena%size) then
+            allocate(undeclared_vars(0))
+            return
+        end if
+        
+        if (.not. allocated(arena%entries(scope_index)%node)) then
+            allocate(undeclared_vars(0))
+            return
+        end if
+        
+        ! Process function or subroutine node
+        select type (node => arena%entries(scope_index)%node)
+        type is (function_def_node)
+            call process_function_scope(this, arena, node, temp_vars, temp_count)
+        type is (subroutine_def_node)
+            call process_subroutine_scope(this, arena, node, temp_vars, &
+                                        temp_count)
+        class default
+            allocate(undeclared_vars(0))
+            return
+        end select
+        
+        ! Copy results to output array
+        allocate(undeclared_vars(temp_count))
+        do i = 1, temp_count
+            undeclared_vars(i) = temp_vars(i)
+        end do
+    end subroutine collect_undeclared_variables
+
+    ! Process function scope for undeclared variables
+    subroutine process_function_scope(ctx, arena, func_node, vars, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_node
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        integer :: i
+        
+        ! Enter function scope
+        call ctx%scopes%enter_function(func_node%name)
+        
+        ! Add function parameters to scope
+        if (allocated(func_node%param_indices)) then
+            do i = 1, size(func_node%param_indices)
+                call add_parameter_to_scope(ctx, arena, &
+                                          func_node%param_indices(i))
+            end do
+        end if
+        
+        ! Add result variable if specified
+        if (allocated(func_node%result_variable)) then
+            ! Result variable is implicitly declared
+            call add_implicit_variable_to_scope(ctx, func_node%result_variable, &
+                                              func_node%return_type)
+        else
+            ! Function name is the result variable
+            call add_implicit_variable_to_scope(ctx, func_node%name, &
+                                              func_node%return_type)
+        end if
+        
+        ! Process function body to find all variable references
+        if (allocated(func_node%body_indices)) then
+            do i = 1, size(func_node%body_indices)
+                call collect_variables_from_node(ctx, arena, &
+                                                func_node%body_indices(i), &
+                                                vars, count)
+            end do
+        end if
+        
+        ! Leave function scope
+        call ctx%scopes%leave_scope()
+    end subroutine process_function_scope
+
+    ! Process subroutine scope for undeclared variables
+    subroutine process_subroutine_scope(ctx, arena, sub_node, vars, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub_node
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        integer :: i
+        
+        ! Enter subroutine scope
+        call ctx%scopes%enter_subroutine(sub_node%name)
+        
+        ! Add subroutine parameters to scope
+        if (allocated(sub_node%param_indices)) then
+            do i = 1, size(sub_node%param_indices)
+                call add_parameter_to_scope(ctx, arena, &
+                                          sub_node%param_indices(i))
+            end do
+        end if
+        
+        ! Process subroutine body to find all variable references
+        if (allocated(sub_node%body_indices)) then
+            do i = 1, size(sub_node%body_indices)
+                call collect_variables_from_node(ctx, arena, &
+                                                sub_node%body_indices(i), &
+                                                vars, count)
+            end do
+        end if
+        
+        ! Leave subroutine scope
+        call ctx%scopes%leave_scope()
+    end subroutine process_subroutine_scope
+
+    ! Add parameter declaration to current scope
+    subroutine add_parameter_to_scope(ctx, arena, param_index)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_index
+        
+        type(poly_type_t) :: param_scheme
+        type(mono_type_t) :: param_type
+        
+        if (param_index <= 0 .or. param_index > arena%size) return
+        if (.not. allocated(arena%entries(param_index)%node)) return
+        
+        select type (node => arena%entries(param_index)%node)
+        type is (parameter_declaration_node)
+            ! Create type for parameter based on declaration
+            param_type = create_parameter_type(node)
+            param_scheme = create_poly_type(forall_vars=[type_var_t::], &
+                                          mono=param_type)
+            call ctx%scopes%define(node%name, param_scheme)
+        type is (declaration_node)
+            ! Handle regular declaration as parameter
+            if (allocated(node%var_name)) then
+                param_type = create_declaration_type(node)
+                param_scheme = create_poly_type(forall_vars=[type_var_t::], &
+                                              mono=param_type)
+                call ctx%scopes%define(node%var_name, param_scheme)
+            end if
+        end select
+    end subroutine add_parameter_to_scope
+
+    ! Add implicit variable (like result variable) to scope
+    subroutine add_implicit_variable_to_scope(ctx, var_name, type_name)
+        type(semantic_context_t), intent(inout) :: ctx
+        character(len=*), intent(in) :: var_name
+        character(len=*), intent(in), optional :: type_name
+        
+        type(poly_type_t) :: var_scheme
+        type(mono_type_t) :: var_type
+        
+        if (present(type_name)) then
+            var_type = create_type_from_name(type_name)
+        else
+            var_type = create_mono_type(TREAL)  ! Default type
+        end if
+        
+        var_scheme = create_poly_type(forall_vars=[type_var_t::], mono=var_type)
+        call ctx%scopes%define(var_name, var_scheme)
+    end subroutine add_implicit_variable_to_scope
+
+    ! Recursively collect variables from AST node
+    recursive subroutine collect_variables_from_node(ctx, arena, node_index, &
+                                                    vars, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (declaration_node)
+            ! Add declared variables to scope
+            call add_declaration_to_scope(ctx, node)
+        type is (assignment_node)
+            call process_assignment_node(ctx, arena, node, vars, count)
+        type is (identifier_node)
+            call process_identifier_node(ctx, arena, node, node_index, vars, &
+                                        count, .true., .false.)
+        type is (binary_op_node)
+            call collect_variables_from_node(ctx, arena, node%left_index, &
+                                            vars, count)
+            call collect_variables_from_node(ctx, arena, node%right_index, &
+                                            vars, count)
+        type is (call_or_subscript_node)
+            call process_call_or_subscript_node(ctx, arena, node, node_index, &
+                                               vars, count)
+        type is (array_slice_node)
+            call process_array_slice_node(ctx, arena, node, vars, count)
+        type is (if_node)
+            call process_if_node(ctx, arena, node, vars, count)
+        type is (do_loop_node)
+            call process_do_loop_node(ctx, arena, node, vars, count)
+        class default
+            ! For other node types, try to traverse children if they exist
+            call traverse_generic_node_children(ctx, arena, node_index, vars, &
+                                               count)
+        end select
+    end subroutine collect_variables_from_node
+
+    ! Process assignment node to track variable usage
+    subroutine process_assignment_node(ctx, arena, node, vars, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: node
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        ! Target is being written to
+        call mark_node_as_written(ctx, arena, node%target_index, vars, count)
+        
+        ! Value expression is being read from
+        call collect_variables_from_node(ctx, arena, node%value_index, vars, &
+                                        count)
+    end subroutine process_assignment_node
+
+    ! Process identifier node to check if it's undeclared
+    subroutine process_identifier_node(ctx, arena, node, node_index, vars, &
+                                     count, is_read, is_written)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(identifier_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        logical, intent(in) :: is_read, is_written
+        
+        type(poly_type_t), allocatable :: scheme
+        integer :: var_index
+        
+        if (.not. allocated(node%name)) return
+        
+        ! Check if variable is already declared in current scope
+        call ctx%scopes%lookup(node%name, scheme)
+        
+        if (.not. allocated(scheme)) then
+            ! Variable is undeclared - add it to the list
+            var_index = find_or_add_undeclared_variable(vars, count, node%name, &
+                                                       node_index)
+            
+            ! Update usage flags
+            if (is_read) vars(var_index)%is_read = .true.
+            if (is_written) vars(var_index)%is_written = .true.
+            
+            ! Set usage type based on context
+            if (vars(var_index)%usage_type == 0) then
+                vars(var_index)%usage_type = USAGE_LOCAL_VAR  ! Default
+            end if
+        end if
+    end subroutine process_identifier_node
+
+    ! Process call or subscript node
+    subroutine process_call_or_subscript_node(ctx, arena, node, node_index, &
+                                             vars, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        integer :: i, var_index
+        type(poly_type_t), allocatable :: scheme
+        
+        ! Check if the function/array name is undeclared
+        if (allocated(node%name)) then
+            call ctx%scopes%lookup(node%name, scheme)
+            
+            if (.not. allocated(scheme)) then
+                var_index = find_or_add_undeclared_variable(vars, count, &
+                                                           node%name, &
+                                                           node_index)
+                vars(var_index)%is_read = .true.
+                vars(var_index)%is_array_access = .true.
+                
+                if (vars(var_index)%usage_type == 0) then
+                    vars(var_index)%usage_type = USAGE_LOCAL_VAR
+                end if
+            end if
+        end if
+        
+        ! Process arguments/subscripts
+        if (allocated(node%arg_indices)) then
+            do i = 1, size(node%arg_indices)
+                if (node%arg_indices(i) > 0) then
+                    call collect_variables_from_node(ctx, arena, &
+                                                    node%arg_indices(i), &
+                                                    vars, count)
+                end if
+            end do
+        end if
+    end subroutine process_call_or_subscript_node
+
+    ! Process array slice node
+    subroutine process_array_slice_node(ctx, arena, node, vars, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(array_slice_node), intent(in) :: node
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        integer :: i
+        
+        ! Process array name
+        if (node%array_index > 0) then
+            call mark_node_as_array_access(ctx, arena, node%array_index, vars, &
+                                          count)
+        end if
+        
+        ! Process slice bounds
+        do i = 1, node%num_dimensions
+            if (node%bounds_indices(i) > 0) then
+                call collect_variables_from_node(ctx, arena, &
+                                                node%bounds_indices(i), &
+                                                vars, count)
+            end if
+        end do
+    end subroutine process_array_slice_node
+
+    ! Process if node
+    subroutine process_if_node(ctx, arena, node, vars, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(if_node), intent(in) :: node
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        integer :: i, j
+        
+        ! Process condition
+        if (node%condition_index > 0) then
+            call collect_variables_from_node(ctx, arena, node%condition_index, &
+                                            vars, count)
+        end if
+        
+        ! Process then body
+        if (allocated(node%then_body_indices)) then
+            do i = 1, size(node%then_body_indices)
+                if (node%then_body_indices(i) > 0) then
+                    call collect_variables_from_node(ctx, arena, &
+                                                    node%then_body_indices(i), &
+                                                    vars, count)
+                end if
+            end do
+        end if
+        
+        ! Process elseif blocks
+        if (allocated(node%elseif_blocks)) then
+            do i = 1, size(node%elseif_blocks)
+                if (node%elseif_blocks(i)%condition_index > 0) then
+                    call collect_variables_from_node(ctx, arena, &
+                                          node%elseif_blocks(i)%condition_index, &
+                                                    vars, count)
+                end if
+                
+                if (allocated(node%elseif_blocks(i)%body_indices)) then
+                    do j = 1, size(node%elseif_blocks(i)%body_indices)
+                        if (node%elseif_blocks(i)%body_indices(j) > 0) then
+                            call collect_variables_from_node(ctx, arena, &
+                                      node%elseif_blocks(i)%body_indices(j), &
+                                                            vars, count)
+                        end if
+                    end do
+                end if
+            end do
+        end if
+        
+        ! Process else body
+        if (allocated(node%else_body_indices)) then
+            do i = 1, size(node%else_body_indices)
+                if (node%else_body_indices(i) > 0) then
+                    call collect_variables_from_node(ctx, arena, &
+                                                    node%else_body_indices(i), &
+                                                    vars, count)
+                end if
+            end do
+        end if
+    end subroutine process_if_node
+
+    ! Process do loop node
+    subroutine process_do_loop_node(ctx, arena, node, vars, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(do_loop_node), intent(in) :: node
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        integer :: i, var_index
+        type(poly_type_t), allocatable :: scheme
+        
+        ! Process loop variable (if present)
+        if (allocated(node%var_name)) then
+            call ctx%scopes%lookup(node%var_name, scheme)
+            
+            if (.not. allocated(scheme)) then
+                ! Loop variable is undeclared - add it as local variable
+                var_index = find_or_add_undeclared_variable(vars, count, &
+                                                           node%var_name, 0)
+                vars(var_index)%is_written = .true.
+                vars(var_index)%usage_type = USAGE_LOCAL_VAR
+            end if
+        end if
+        
+        ! Process loop bounds
+        if (node%start_expr_index > 0) then
+            call collect_variables_from_node(ctx, arena, node%start_expr_index, &
+                                            vars, count)
+        end if
+        
+        if (node%end_expr_index > 0) then
+            call collect_variables_from_node(ctx, arena, node%end_expr_index, &
+                                            vars, count)
+        end if
+        
+        if (node%step_expr_index > 0) then
+            call collect_variables_from_node(ctx, arena, node%step_expr_index, &
+                                            vars, count)
+        end if
+        
+        ! Process loop body
+        if (allocated(node%body_indices)) then
+            do i = 1, size(node%body_indices)
+                if (node%body_indices(i) > 0) then
+                    call collect_variables_from_node(ctx, arena, &
+                                                    node%body_indices(i), &
+                                                    vars, count)
+                end if
+            end do
+        end if
+    end subroutine process_do_loop_node
+
+    ! Helper subroutines for variable processing
+
+    ! Mark a node as being written to
+    subroutine mark_node_as_written(ctx, arena, node_index, vars, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (identifier_node)
+            call process_identifier_node(ctx, arena, node, node_index, vars, &
+                                        count, .false., .true.)
+        class default
+            ! For other node types, recurse into children
+            call collect_variables_from_node(ctx, arena, node_index, vars, &
+                                            count)
+        end select
+    end subroutine mark_node_as_written
+
+    ! Mark a node as being accessed as an array
+    subroutine mark_node_as_array_access(ctx, arena, node_index, vars, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (identifier_node)
+            call process_identifier_node(ctx, arena, node, node_index, vars, &
+                                        count, .true., .false.)
+            ! Mark last added variable as array access
+            if (count > 0) then
+                vars(count)%is_array_access = .true.
+            end if
+        end select
+    end subroutine mark_node_as_array_access
+
+    ! Find existing undeclared variable or add new one
+    function find_or_add_undeclared_variable(vars, count, var_name, &
+                                           node_index) result(var_index)
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        character(len=*), intent(in) :: var_name
+        integer, intent(in) :: node_index
+        integer :: var_index
+        
+        integer :: i
+        
+        ! Search for existing variable
+        do i = 1, count
+            if (allocated(vars(i)%name) .and. vars(i)%name == var_name) then
+                var_index = i
+                return
+            end if
+        end do
+        
+        ! Add new variable
+        count = count + 1
+        var_index = count
+        
+        if (count <= size(vars)) then
+            vars(count)%name = var_name
+            vars(count)%first_usage_node = node_index
+            vars(count)%usage_type = 0  ! Will be set by caller
+            vars(count)%is_read = .false.
+            vars(count)%is_written = .false.
+            vars(count)%is_array_access = .false.
+        end if
+    end function find_or_add_undeclared_variable
+
+    ! Add declaration to current scope
+    subroutine add_declaration_to_scope(ctx, decl_node)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(declaration_node), intent(in) :: decl_node
+        
+        type(poly_type_t) :: var_scheme
+        type(mono_type_t) :: var_type
+        integer :: i
+        
+        var_type = create_declaration_type(decl_node)
+        var_scheme = create_poly_type(forall_vars=[type_var_t::], mono=var_type)
+        
+        if (decl_node%is_multi_declaration .and. &
+            allocated(decl_node%var_names)) then
+            do i = 1, size(decl_node%var_names)
+                call ctx%scopes%define(decl_node%var_names(i), var_scheme)
+            end do
+        else if (allocated(decl_node%var_name)) then
+            call ctx%scopes%define(decl_node%var_name, var_scheme)
+        end if
+    end subroutine add_declaration_to_scope
+
+    ! Create type from parameter declaration
+    function create_parameter_type(param_node) result(param_type)
+        type(parameter_declaration_node), intent(in) :: param_node
+        type(mono_type_t) :: param_type
+        
+        if (allocated(param_node%type_name)) then
+            param_type = create_type_from_name(param_node%type_name)
+        else
+            param_type = create_mono_type(TREAL)  ! Default type
+        end if
+    end function create_parameter_type
+
+    ! Create type from declaration node
+    function create_declaration_type(decl_node) result(decl_type)
+        type(declaration_node), intent(in) :: decl_node
+        type(mono_type_t) :: decl_type
+        
+        if (allocated(decl_node%type_name)) then
+            decl_type = create_type_from_name(decl_node%type_name)
+        else
+            decl_type = create_mono_type(TREAL)  ! Default type
+        end if
+    end function create_declaration_type
+
+    ! Create type from string name
+    function create_type_from_name(type_name) result(mono_type)
+        character(len=*), intent(in) :: type_name
+        type(mono_type_t) :: mono_type
+        
+        select case (trim(adjustl(type_name)))
+        case ("integer")
+            mono_type = create_mono_type(TINT)
+        case ("real")
+            mono_type = create_mono_type(TREAL)
+        case ("character")
+            mono_type = create_mono_type(TCHAR)
+        case ("logical")
+            mono_type = create_mono_type(TLOGICAL)
+        case default
+            mono_type = create_mono_type(TREAL)  ! Default
+        end select
+    end function create_type_from_name
+
+    ! Traverse generic node children for unknown node types
+    subroutine traverse_generic_node_children(ctx, arena, node_index, vars, &
+                                             count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(undeclared_variable_t), intent(inout) :: vars(:)
+        integer, intent(inout) :: count
+        
+        ! Placeholder for generic node traversal
+        ! This would need specific implementation based on node structure
+        ! For now, we'll skip unknown node types
+        continue
+    end subroutine traverse_generic_node_children
 
 end module semantic_analyzer
