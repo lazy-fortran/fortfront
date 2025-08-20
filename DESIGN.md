@@ -381,3 +381,411 @@ logical function has_only_meaningless_tokens(tokens)
    - Clear API documentation with examples
    - Integration guide for external usage
    - Architectural documentation updated
+
+---
+
+# Automatic Function Variable Declarations (Issue #320)
+
+## Problem Analysis
+
+**Current Issue**: Functions with undeclared variables generate incomplete standard Fortran code missing proper type declarations:
+
+```fortran
+! Input (lazy Fortran)
+function twice(x) result(y)
+    y = 2*x
+end function
+
+! Current Output (INCOMPLETE)
+function twice(x) result(y)
+    implicit none
+    y = 2*x
+end function twice
+
+! Required Output (COMPLETE)
+function twice(x) result(y)
+    implicit none
+    real(8), intent(in) :: x
+    real(8) :: y
+    y = 2*x
+end function twice
+```
+
+**Root Challenge**: Type inference from function context alone is insufficient - requires complete program analysis or sophisticated type inference system.
+
+**Design Philosophy**: Implement robust type inference leveraging Hindley-Milner type system and usage pattern analysis to automatically generate proper variable declarations.
+
+## Solution Architecture
+
+### Phase 1: Type Inference Engine Enhancement
+
+**Objective**: Extend semantic analyzer to reliably infer types for undeclared function parameters and result variables
+
+**Core Components**:
+
+1. **Variable Discovery System**
+   - Scan function scope for all undeclared variables
+   - Distinguish between parameters, result variables, and local variables
+   - Track variable usage patterns for type inference
+
+2. **Context-Aware Type Inference**
+   - Leverage existing Hindley-Milner type system
+   - Analyze variable usage in expressions, assignments, and operations
+   - Propagate type constraints bidirectionally through function body
+
+3. **Intent Analysis Engine**
+   - Determine appropriate intent attributes (in/out/inout) from usage patterns
+   - Track read vs write operations for each parameter
+   - Handle result variables separately (no intent required)
+
+### Phase 2: Declaration Generation System
+
+**Objective**: Generate proper type declarations for all inferred variables
+
+**Core Components**:
+
+1. **Declaration Formatter**
+   - Generate standard Fortran declaration syntax
+   - Handle different type categories (real, integer, character, logical)
+   - Apply appropriate precision specifiers (real(8), etc.)
+
+2. **Code Insertion Engine**
+   - Insert declarations immediately after `implicit none`
+   - Maintain proper formatting and indentation
+   - Preserve existing explicit declarations (no duplication)
+
+3. **Deduplication System**
+   - Prevent duplicate declarations for already-declared variables
+   - Handle mixed explicit/implicit declaration scenarios
+   - Ensure declaration order consistency
+
+### Phase 3: Integration with Code Generation
+
+**Objective**: Seamlessly integrate automatic declarations with existing code generation pipeline
+
+**Key Integration Points**:
+
+1. **Semantic Analysis Pipeline**
+   - Extend `semantic_analyzer_t` with declaration generation capabilities
+   - Add new analysis phase between type inference and code generation
+   - Maintain compatibility with existing semantic passes
+
+2. **Code Generation Enhancement**
+   - Modify `codegen_core.f90` to emit generated declarations
+   - Ensure proper placement relative to `implicit none`
+   - Handle function vs subroutine differences appropriately
+
+3. **AST Enhancement**
+   - Extend AST nodes to track generated declarations
+   - Add metadata for distinguishing explicit vs generated declarations
+   - Preserve semantic information through compilation pipeline
+
+## Detailed Technical Specifications
+
+### 1. Variable Discovery Algorithm
+
+```fortran
+! Enhanced semantic analyzer method
+subroutine collect_undeclared_variables(this, scope_index, undeclared_vars)
+    class(semantic_analyzer_t), intent(inout) :: this
+    integer, intent(in) :: scope_index
+    type(undeclared_variable_t), allocatable, intent(out) :: undeclared_vars(:)
+```
+
+**Process**:
+1. Traverse function scope AST nodes
+2. Identify all variable references (identifiers)
+3. Cross-reference with explicit declarations
+4. Collect undeclared variables with usage context
+5. Categorize as parameters, result variables, or locals
+
+### 2. Enhanced Type Inference
+
+**Multi-Pass Analysis**:
+
+1. **First Pass**: Collect all variable usages and operations
+2. **Second Pass**: Apply type constraints from expressions
+3. **Third Pass**: Resolve remaining ambiguities with defaults
+4. **Fourth Pass**: Validate type consistency
+
+**Type Constraint Sources**:
+- Literal assignments: `x = 5.0` → `x` is real
+- Operation contexts: `x + y` → both numeric
+- Function calls: `sin(x)` → `x` is real
+- Array operations: `x(i)` → `x` is array
+- Character operations: `x // "text"` → `x` is character
+
+### 3. Intent Inference System
+
+**Intent Determination Logic**:
+
+```fortran
+type :: usage_pattern_t
+    logical :: is_read    ! Variable read in expressions
+    logical :: is_written ! Variable assigned values
+    logical :: is_array   ! Used with array subscripts
+    logical :: is_passed  ! Passed to other functions
+end type
+```
+
+**Intent Assignment Rules**:
+- `intent(in)`: Only read, never written
+- `intent(out)`: Only written, never read before assignment
+- `intent(inout)`: Both read and written
+- No intent: Local variables and result variables
+
+### 4. Declaration Generation Format
+
+**Output Format Standards**:
+
+```fortran
+! Integer variables
+integer :: count, index, total
+
+! Real variables with precision
+real(8) :: x, y, result_value
+
+! Character variables
+character(len=*) :: input_string
+character(len=:), allocatable :: dynamic_string
+
+! Logical variables
+logical :: is_valid, found
+
+! Arrays (when detectable)
+real(8) :: matrix(:,:)
+integer :: indices(:)
+```
+
+**Special Cases**:
+- **Function result**: No intent, may need specific type
+- **Character parameters**: Use `character(len=*)` for assumed length
+- **Array parameters**: Use assumed-shape `(:)` when possible
+- **Optional parameters**: Preserve optional attribute if detectable
+
+## Implementation Plan
+
+### Step 1: Semantic Analyzer Extension (2 hours)
+
+**Core Infrastructure**:
+1. Add `collect_undeclared_variables()` method to `semantic_analyzer_t`
+2. Implement `undeclared_variable_t` data structure
+3. Create variable usage tracking system
+4. Integrate with existing scope management
+
+**Key Files**:
+- `src/semantic/semantic_analyzer.f90` - Main implementation
+- `src/semantic/scope_manager.f90` - Variable tracking support
+
+### Step 2: Type Inference Enhancement (2.5 hours)
+
+**Enhanced Analysis**:
+1. Extend `infer_function()` with variable collection
+2. Implement constraint-based type inference
+3. Add intent analysis based on usage patterns
+4. Create type defaulting system for unresolved variables
+
+**Key Features**:
+- Bidirectional type propagation
+- Context-aware inference from operations
+- Robust handling of ambiguous cases
+- Integration with Hindley-Milner system
+
+### Step 3: Declaration Generation (1.5 hours)
+
+**Code Generation**:
+1. Implement `generate_variable_declarations()` method
+2. Create declaration formatting utilities
+3. Add insertion logic for placing declarations
+4. Implement deduplication system
+
+**Output Quality**:
+- Consistent formatting and style
+- Proper type precision specifications
+- Correct intent attribute assignment
+- Clean integration with existing code
+
+### Step 4: Code Generation Integration (1 hour)
+
+**Pipeline Integration**:
+1. Modify `codegen_core.f90` for declaration emission
+2. Update function generation to include declarations
+3. Ensure proper placement after `implicit none`
+4. Handle mixed explicit/generated declarations
+
+**Compatibility**:
+- Zero breaking changes to existing functionality
+- Backward compatibility with explicit declarations
+- Proper error handling for edge cases
+
+### Step 5: Comprehensive Testing (1 hour)
+
+**Test Coverage**:
+1. Simple variable declarations
+2. Multiple variable types
+3. Intent inference validation
+4. Complex expression analysis
+5. Edge cases and error conditions
+6. Integration with existing test suite
+
+**Test Categories**:
+- Unit tests for each component
+- Integration tests for full pipeline
+- Regression tests for existing functionality
+- Performance tests for large functions
+
+## Risk Assessment and Mitigation
+
+### High Risk: Type Inference Accuracy
+
+**Risk**: Incorrect type inference leading to compilation errors
+**Mitigation**:
+- Conservative defaults when ambiguous
+- Comprehensive test coverage for common patterns
+- Fallback to explicit error messages for unresolvable cases
+- Integration with existing type system validation
+
+### Medium Risk: Performance Impact
+
+**Risk**: Additional analysis passes affecting compilation speed
+**Mitigation**:
+- Optimize variable collection algorithms
+- Cache inference results
+- Only analyze functions with undeclared variables
+- Profile and benchmark against existing performance
+
+### Low Risk: Code Generation Quality
+
+**Risk**: Generated declarations don't match user expectations
+**Mitigation**:
+- Follow established Fortran style conventions
+- Consistent formatting with existing code
+- User documentation explaining generation rules
+- Option to view generated declarations in debug mode
+
+## Success Criteria
+
+### Functional Requirements
+
+1. **✅ Automatic Variable Detection**: Successfully identify all undeclared variables in functions
+2. **✅ Accurate Type Inference**: Infer correct types based on usage patterns and context
+3. **✅ Proper Intent Assignment**: Generate appropriate intent attributes for parameters
+4. **✅ Clean Declaration Generation**: Produce well-formatted, standard-compliant declarations
+5. **✅ Pipeline Integration**: Seamless integration with existing compilation pipeline
+
+### Quality Requirements
+
+1. **✅ Zero Regressions**: All existing tests continue to pass
+2. **✅ Performance Maintained**: No significant impact on compilation speed
+3. **✅ Code Quality**: Generated code follows project style standards
+4. **✅ Error Handling**: Graceful handling of edge cases and ambiguous scenarios
+5. **✅ Documentation**: Clear documentation of behavior and limitations
+
+### Validation Requirements
+
+1. **✅ Comprehensive Testing**: Full test coverage for all scenarios
+2. **✅ Integration Testing**: Validated with real-world Fortran code patterns
+3. **✅ Backward Compatibility**: Existing explicit declarations preserved
+4. **✅ Standard Compliance**: Generated code compiles with standard Fortran compilers
+5. **✅ User Acceptance**: Meets expectations from Issue #320 requirements
+
+## Usage Examples
+
+### Simple Function
+
+```fortran
+! Input
+function twice(x) result(y)
+    y = 2*x
+end function
+
+! Generated Output
+function twice(x) result(y)
+    implicit none
+    real(8), intent(in) :: x
+    real(8) :: y
+    y = 2*x
+end function twice
+```
+
+### Complex Function with Multiple Variables
+
+```fortran
+! Input
+function calculate(a, b) result(result_val)
+    temp = a + b
+    result_val = temp * 2.0
+    count = 1
+end function
+
+! Generated Output
+function calculate(a, b) result(result_val)
+    implicit none
+    real(8), intent(in) :: a
+    real(8), intent(in) :: b
+    real(8) :: result_val
+    real(8) :: temp
+    integer :: count
+    
+    temp = a + b
+    result_val = temp * 2.0
+    count = 1
+end function calculate
+```
+
+### Mixed Explicit/Implicit Declarations
+
+```fortran
+! Input (partial explicit declarations)
+function process(input) result(output)
+    integer :: counter
+    output = input + counter + temp
+    temp = 5.0
+end function
+
+! Generated Output (respects explicit declarations)
+function process(input) result(output)
+    implicit none
+    real(8), intent(in) :: input
+    real(8) :: output
+    integer :: counter
+    real(8) :: temp
+    
+    output = input + counter + temp
+    temp = 5.0
+end function process
+```
+
+## Integration with fortfront Ecosystem
+
+### Lazy Fortran Support
+- **Primary Goal**: Enable lazy Fortran syntax by automatically generating missing declarations
+- **User Benefit**: Write concise functions without explicit type declarations
+- **Standard Compliance**: Output always generates valid, standard Fortran
+
+### Standardizer Integration
+- **Seamless Integration**: Works within existing standardization pipeline
+- **Quality Preservation**: Maintains fortfront's high code quality standards
+- **Performance**: Optimized for standardizer's batch processing requirements
+
+### Tool Ecosystem Support
+- **fortrun Integration**: Support for module discovery and dependency analysis
+- **fluff Integration**: Enhanced static analysis with complete type information
+- **ffc Integration**: Proper type information for LLVM backend compilation
+
+## Future Enhancements
+
+### Advanced Type Inference
+- **Polymorphic Types**: Support for parameterized derived types
+- **Generic Interfaces**: Enhanced inference for overloaded procedures
+- **Module Integration**: Cross-module type inference capabilities
+
+### User Customization
+- **Type Preferences**: User-configurable default types (real vs real(8))
+- **Style Options**: Customizable declaration formatting preferences
+- **Intent Policies**: Configurable intent inference strategies
+
+### Performance Optimization
+- **Incremental Analysis**: Only re-analyze changed functions
+- **Parallel Processing**: Multi-threaded type inference for large codebases
+- **Caching System**: Persistent type inference results
