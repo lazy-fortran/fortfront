@@ -27,11 +27,32 @@ module semantic_analyzer
     public :: analyze_program
     public :: validate_array_bounds, check_shape_conformance
     public :: undeclared_variable_t, collect_undeclared_variables
+    public :: type_constraint_t, infer_types_for_undeclared_variables
 
     ! Constants for variable usage types
     integer, parameter, public :: USAGE_PARAMETER = 1
     integer, parameter, public :: USAGE_RESULT_VAR = 2
     integer, parameter, public :: USAGE_LOCAL_VAR = 3
+
+    ! Constants for type constraint sources
+    integer, parameter, public :: CONSTRAINT_LITERAL = 1      ! x = 5.0
+    integer, parameter, public :: CONSTRAINT_BINARY_OP = 2    ! x + y
+    integer, parameter, public :: CONSTRAINT_FUNCTION = 3     ! sin(x)
+    integer, parameter, public :: CONSTRAINT_ASSIGNMENT = 4   ! x = expression
+    integer, parameter, public :: CONSTRAINT_ARRAY_INDEX = 5  ! arr(i)
+    integer, parameter, public :: CONSTRAINT_STRING_OP = 6    ! x // "text"
+
+    ! Type constraint for variable type inference
+    type :: type_constraint_t
+        character(len=:), allocatable :: variable_name
+        type(mono_type_t) :: required_type
+        integer :: source_type  ! CONSTRAINT_*
+        integer :: source_node  ! AST node that created this constraint
+        real :: confidence      ! 0.0 to 1.0 confidence in this constraint
+    contains
+        procedure :: assign => type_constraint_assign
+        generic :: assignment(=) => assign
+    end type type_constraint_t
 
     ! Data structure for undeclared variable information
     type :: undeclared_variable_t
@@ -41,6 +62,7 @@ module semantic_analyzer
         logical :: is_read
         logical :: is_written
         logical :: is_array_access
+        type(mono_type_t) :: inferred_type  ! Result of type inference
     contains
         procedure :: assign => undeclared_variable_assign
         generic :: assignment(=) => assign
@@ -69,6 +91,7 @@ module semantic_analyzer
         procedure :: validate_bounds => validate_array_access_bounds
         procedure :: check_conformance => check_array_shape_conformance
         procedure :: collect_undeclared_variables
+        procedure :: infer_types_for_undeclared_variables
         generic :: assignment(=) => assign
     end type semantic_context_t
 
@@ -2588,6 +2611,7 @@ contains
         lhs%is_read = rhs%is_read
         lhs%is_written = rhs%is_written
         lhs%is_array_access = rhs%is_array_access
+        lhs%inferred_type = rhs%inferred_type
     end subroutine undeclared_variable_assign
 
     ! Collect undeclared variables in a function or subroutine scope
@@ -3195,5 +3219,454 @@ contains
         ! For now, we'll skip unknown node types
         continue
     end subroutine traverse_generic_node_children
+
+    ! Assignment operator for type_constraint_t (deep copy)
+    subroutine type_constraint_assign(lhs, rhs)
+        class(type_constraint_t), intent(inout) :: lhs
+        type(type_constraint_t), intent(in) :: rhs
+        
+        if (allocated(lhs%variable_name)) deallocate(lhs%variable_name)
+        
+        if (allocated(rhs%variable_name)) then
+            lhs%variable_name = rhs%variable_name
+        end if
+        lhs%required_type = rhs%required_type
+        lhs%source_type = rhs%source_type
+        lhs%source_node = rhs%source_node
+        lhs%confidence = rhs%confidence
+    end subroutine type_constraint_assign
+
+    ! Multi-pass constraint-based type inference for undeclared variables
+    subroutine infer_types_for_undeclared_variables(this, arena, &
+                                                   undeclared_vars)
+        class(semantic_context_t), intent(inout) :: this
+        type(ast_arena_t), intent(inout) :: arena
+        type(undeclared_variable_t), intent(inout) :: undeclared_vars(:)
+        
+        type(type_constraint_t), allocatable :: constraints(:)
+        integer :: i
+        
+        if (size(undeclared_vars) == 0) return
+        
+        ! Pass 1: Collect variable usages and operations
+        call collect_type_constraints(this, arena, undeclared_vars, constraints)
+        
+        ! Pass 2: Apply type constraints from expressions
+        call apply_expression_constraints(this, constraints, undeclared_vars)
+        
+        ! Pass 3: Resolve ambiguities with intelligent defaults
+        call resolve_ambiguous_types(this, undeclared_vars)
+        
+        ! Pass 4: Validate type consistency
+        call validate_type_consistency(this, arena, undeclared_vars)
+    end subroutine infer_types_for_undeclared_variables
+
+    ! Pass 1: Collect type constraints from AST analysis
+    subroutine collect_type_constraints(ctx, arena, undeclared_vars, &
+                                       constraints)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(undeclared_variable_t), intent(in) :: undeclared_vars(:)
+        type(type_constraint_t), allocatable, intent(out) :: constraints(:)
+        
+        type(type_constraint_t), allocatable :: temp_constraints(:)
+        integer :: constraint_count, i, j
+        
+        ! Initialize constraint collection
+        allocate(temp_constraints(1000))  ! Start with large capacity
+        constraint_count = 0
+        
+        ! Analyze each undeclared variable's usage context
+        do i = 1, size(undeclared_vars)
+            call analyze_variable_usage_context(ctx, arena, &
+                undeclared_vars(i), temp_constraints, constraint_count)
+        end do
+        
+        ! Copy to output array
+        allocate(constraints(constraint_count))
+        do j = 1, constraint_count
+            constraints(j) = temp_constraints(j)
+        end do
+    end subroutine collect_type_constraints
+
+    ! Analyze usage context for a single variable to extract constraints
+    subroutine analyze_variable_usage_context(ctx, arena, var, constraints, &
+                                             count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(undeclared_variable_t), intent(in) :: var
+        type(type_constraint_t), intent(inout) :: constraints(:)
+        integer, intent(inout) :: count
+        
+        ! Traverse AST starting from variable's first usage node
+        if (var%first_usage_node > 0 .and. &
+            var%first_usage_node <= arena%size) then
+            call traverse_for_constraints(ctx, arena, var%first_usage_node, &
+                var%name, constraints, count)
+        end if
+    end subroutine analyze_variable_usage_context
+
+    ! Traverse AST nodes to find type constraints for a variable
+    subroutine traverse_for_constraints(ctx, arena, node_index, var_name, &
+                                       constraints, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: var_name
+        type(type_constraint_t), intent(inout) :: constraints(:)
+        integer, intent(inout) :: count
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        ! Analyze different node types for type constraints
+        select type (node => arena%entries(node_index)%node)
+        type is (assignment_node)
+            call analyze_assignment_constraints(ctx, arena, node, var_name, &
+                constraints, count)
+        type is (binary_op_node)
+            call analyze_binary_op_constraints(ctx, arena, node, var_name, &
+                constraints, count)
+        type is (call_or_subscript_node)
+            call analyze_call_constraints(ctx, arena, node, var_name, &
+                constraints, count)
+        end select
+    end subroutine traverse_for_constraints
+
+    ! Analyze assignment nodes for type constraints
+    subroutine analyze_assignment_constraints(ctx, arena, assign_node, var_name, &
+                                             constraints, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: assign_node
+        character(len=*), intent(in) :: var_name
+        type(type_constraint_t), intent(inout) :: constraints(:)
+        integer, intent(inout) :: count
+        
+        type(mono_type_t) :: constraint_type
+        
+        ! Check if this assignment involves our variable
+        if (assign_node%target_index > 0 .and. &
+            assign_node%target_index <= arena%size) then
+            select type (target_node => &
+                arena%entries(assign_node%target_index)%node)
+            type is (identifier_node)
+                if (allocated(target_node%name) .and. &
+                    target_node%name == var_name) then
+                    ! Variable is being assigned to - infer from RHS
+                    constraint_type = infer_type_from_expression(ctx, arena, &
+                        assign_node%value_index)
+                    call add_constraint(constraints, count, var_name, &
+                        constraint_type, CONSTRAINT_ASSIGNMENT, &
+                        assign_node%target_index, 0.9)
+                end if
+            end select
+        end if
+    end subroutine analyze_assignment_constraints
+
+    ! Analyze binary operations for type constraints
+    subroutine analyze_binary_op_constraints(ctx, arena, binop_node, var_name, &
+                                            constraints, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(binary_op_node), intent(in) :: binop_node
+        character(len=*), intent(in) :: var_name
+        type(type_constraint_t), intent(inout) :: constraints(:)
+        integer, intent(inout) :: count
+        
+        type(mono_type_t) :: constraint_type
+        logical :: var_in_left, var_in_right
+        
+        ! Check if variable appears in this binary operation
+        var_in_left = variable_appears_in_expression(arena, &
+            binop_node%left_index, var_name)
+        var_in_right = variable_appears_in_expression(arena, &
+            binop_node%right_index, var_name)
+        
+        if (.not. (var_in_left .or. var_in_right)) return
+        
+        ! Determine type constraint based on operator
+        if (allocated(binop_node%operator)) then
+            select case (binop_node%operator)
+            case ("+", "-", "*", "/", "**")
+                ! Arithmetic operations require numeric types
+                if (has_real_literal(arena, binop_node%left_index) .or. &
+                    has_real_literal(arena, binop_node%right_index)) then
+                    constraint_type = create_mono_type(TREAL)
+                else
+                    constraint_type = create_mono_type(TINT)
+                end if
+                call add_constraint(constraints, count, var_name, &
+                    constraint_type, CONSTRAINT_BINARY_OP, &
+                    binop_node%left_index, 0.8)
+            case ("//")
+                ! String concatenation requires character type
+                constraint_type = create_mono_type(TCHAR)
+                call add_constraint(constraints, count, var_name, &
+                    constraint_type, CONSTRAINT_STRING_OP, &
+                    binop_node%left_index, 0.9)
+            case (".eq.", ".ne.", ".lt.", ".le.", ".gt.", ".ge.")
+                ! Comparison operators - operands can be numeric
+                constraint_type = create_mono_type(TREAL)
+                call add_constraint(constraints, count, var_name, &
+                    constraint_type, CONSTRAINT_BINARY_OP, &
+                    binop_node%left_index, 0.7)
+            end select
+        end if
+    end subroutine analyze_binary_op_constraints
+
+    ! Analyze function calls for type constraints
+    subroutine analyze_call_constraints(ctx, arena, call_node, var_name, &
+                                       constraints, count)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        character(len=*), intent(in) :: var_name
+        type(type_constraint_t), intent(inout) :: constraints(:)
+        integer, intent(inout) :: count
+        
+        type(mono_type_t) :: constraint_type
+        
+        ! Get function name from node
+        if (.not. allocated(call_node%name)) return
+        
+        ! Check if variable appears in function arguments
+        if (.not. variable_in_call_args(arena, call_node, var_name)) return
+        
+        ! Apply function-specific type constraints
+        select case (call_node%name)
+        case ("sin", "cos", "tan", "exp", "log", "sqrt")
+            ! Math functions require real arguments
+            constraint_type = create_mono_type(TREAL)
+            call add_constraint(constraints, count, var_name, constraint_type, &
+                CONSTRAINT_FUNCTION, 0, 0.9)
+        case ("len", "trim", "adjustl", "adjustr")
+            ! String functions require character arguments
+            constraint_type = create_mono_type(TCHAR)
+            call add_constraint(constraints, count, var_name, constraint_type, &
+                CONSTRAINT_FUNCTION, 0, 0.9)
+        case ("size", "lbound", "ubound")
+            ! Array inquiry functions - variable could be array or integer
+            if (call_node%is_array_access) then
+                constraint_type = create_mono_type(TINT)
+                call add_constraint(constraints, count, var_name, &
+                    constraint_type, CONSTRAINT_ARRAY_INDEX, 0, 0.8)
+            end if
+        end select
+    end subroutine analyze_call_constraints
+
+    ! Pass 2: Apply expression constraints to variables
+    subroutine apply_expression_constraints(ctx, constraints, undeclared_vars)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(type_constraint_t), intent(in) :: constraints(:)
+        type(undeclared_variable_t), intent(inout) :: undeclared_vars(:)
+        
+        integer :: i, j
+        type(mono_type_t) :: unified_type
+        
+        ! Apply constraints to each variable
+        do i = 1, size(undeclared_vars)
+            call apply_constraints_to_variable(ctx, constraints, &
+                undeclared_vars(i))
+        end do
+    end subroutine apply_expression_constraints
+
+    ! Apply all relevant constraints to a single variable
+    subroutine apply_constraints_to_variable(ctx, constraints, var)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(type_constraint_t), intent(in) :: constraints(:)
+        type(undeclared_variable_t), intent(inout) :: var
+        
+        type(mono_type_t), allocatable :: candidate_types(:)
+        real, allocatable :: confidences(:)
+        integer :: type_count, i, best_index
+        real :: max_confidence
+        
+        ! Collect all constraints for this variable
+        call collect_variable_constraints(constraints, var%name, &
+            candidate_types, confidences, type_count)
+        
+        if (type_count == 0) then
+            ! No constraints found - will be handled in Pass 3
+            return
+        end if
+        
+        ! Find highest confidence constraint
+        max_confidence = 0.0
+        best_index = 1
+        do i = 1, type_count
+            if (confidences(i) > max_confidence) then
+                max_confidence = confidences(i)
+                best_index = i
+            end if
+        end do
+        
+        ! Apply the best constraint
+        var%inferred_type = candidate_types(best_index)
+    end subroutine apply_constraints_to_variable
+
+    ! Pass 3: Resolve ambiguous types with intelligent defaults
+    subroutine resolve_ambiguous_types(ctx, undeclared_vars)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(undeclared_variable_t), intent(inout) :: undeclared_vars(:)
+        
+        integer :: i
+        
+        do i = 1, size(undeclared_vars)
+            ! If no type was inferred, apply intelligent defaults
+            if (undeclared_vars(i)%inferred_type%kind == 0) then
+                call apply_intelligent_default(undeclared_vars(i))
+            end if
+        end do
+    end subroutine resolve_ambiguous_types
+
+    ! Apply intelligent default types based on usage patterns
+    subroutine apply_intelligent_default(var)
+        type(undeclared_variable_t), intent(inout) :: var
+        
+        ! Default assignment strategy
+        if (var%is_array_access) then
+            ! Array indices are typically integers
+            var%inferred_type = create_mono_type(TINT)
+        else if (var%usage_type == USAGE_PARAMETER) then
+            ! Parameters default to real for numeric contexts
+            var%inferred_type = create_mono_type(TREAL)
+        else
+            ! Local variables default to real for flexibility
+            var%inferred_type = create_mono_type(TREAL)
+        end if
+    end subroutine apply_intelligent_default
+
+    ! Pass 4: Validate type consistency across all usages
+    subroutine validate_type_consistency(ctx, arena, undeclared_vars)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(undeclared_variable_t), intent(in) :: undeclared_vars(:)
+        
+        integer :: i
+        
+        ! Validate each variable's inferred type against its usage
+        do i = 1, size(undeclared_vars)
+            call validate_variable_type_usage(ctx, arena, undeclared_vars(i))
+        end do
+    end subroutine validate_type_consistency
+
+    ! Helper functions for constraint analysis
+
+    ! Add a type constraint to the constraints array
+    subroutine add_constraint(constraints, count, var_name, constraint_type, &
+                             source_type, source_node, confidence)
+        type(type_constraint_t), intent(inout) :: constraints(:)
+        integer, intent(inout) :: count
+        character(len=*), intent(in) :: var_name
+        type(mono_type_t), intent(in) :: constraint_type
+        integer, intent(in) :: source_type, source_node
+        real, intent(in) :: confidence
+        
+        if (count >= size(constraints)) return
+        
+        count = count + 1
+        constraints(count)%variable_name = var_name
+        constraints(count)%required_type = constraint_type
+        constraints(count)%source_type = source_type
+        constraints(count)%source_node = source_node
+        constraints(count)%confidence = confidence
+    end subroutine add_constraint
+
+    ! Infer type from expression node
+    function infer_type_from_expression(ctx, arena, expr_index) result(mono_type)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        type(mono_type_t) :: mono_type
+        
+        ! Default to real type for safety
+        mono_type = create_mono_type(TREAL)
+        
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+        
+        ! Analyze expression type based on node type
+        ! This would be expanded with more sophisticated analysis
+        mono_type = create_mono_type(TREAL)
+    end function infer_type_from_expression
+
+    ! Check if variable appears in expression
+    function variable_appears_in_expression(arena, expr_index, var_name) &
+        result(appears)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        character(len=*), intent(in) :: var_name
+        logical :: appears
+        
+        appears = .false.
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+        
+        select type (node => arena%entries(expr_index)%node)
+        type is (identifier_node)
+            if (allocated(node%name) .and. node%name == var_name) then
+                appears = .true.
+            end if
+        end select
+    end function variable_appears_in_expression
+
+    ! Check if expression contains real literals
+    function has_real_literal(arena, expr_index) result(has_real)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        logical :: has_real
+        
+        has_real = .false.
+        ! Simplified implementation - would need full expression analysis
+    end function has_real_literal
+
+    ! Check if variable appears in function call arguments
+    function variable_in_call_args(arena, call_node, var_name) result(in_args)
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: call_node
+        character(len=*), intent(in) :: var_name
+        logical :: in_args
+        
+        in_args = .false.
+        ! Simplified implementation - would need argument list traversal
+    end function variable_in_call_args
+
+    ! Collect all constraints for a specific variable
+    subroutine collect_variable_constraints(constraints, var_name, &
+                                           candidate_types, confidences, count)
+        type(type_constraint_t), intent(in) :: constraints(:)
+        character(len=*), intent(in) :: var_name
+        type(mono_type_t), allocatable, intent(out) :: candidate_types(:)
+        real, allocatable, intent(out) :: confidences(:)
+        integer, intent(out) :: count
+        
+        integer :: i, max_count
+        
+        max_count = size(constraints)
+        allocate(candidate_types(max_count))
+        allocate(confidences(max_count))
+        count = 0
+        
+        do i = 1, size(constraints)
+            if (allocated(constraints(i)%variable_name) .and. &
+                constraints(i)%variable_name == var_name) then
+                count = count + 1
+                candidate_types(count) = constraints(i)%required_type
+                confidences(count) = constraints(i)%confidence
+            end if
+        end do
+    end subroutine collect_variable_constraints
+
+    ! Validate variable type against its usage context
+    subroutine validate_variable_type_usage(ctx, arena, var)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(undeclared_variable_t), intent(in) :: var
+        
+        ! Validation logic would check if inferred type is consistent
+        ! with all usages of the variable in the AST
+        continue
+    end subroutine validate_variable_type_usage
 
 end module semantic_analyzer
