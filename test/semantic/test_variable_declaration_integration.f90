@@ -3,6 +3,7 @@ program test_variable_declaration_integration
     use ast_core
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program
+    use codegen_core, only: generate_code_from_arena
     use error_handling, only: result_t
     implicit none
 
@@ -72,7 +73,7 @@ contains
         call analyze_program(sem_ctx, arena, func_index)
         
         ! Code generation should include auto-generated declarations
-        call generate_code_from_ast(arena, func_index, generated_code, error_msg)
+        generated_code = generate_code_from_arena(arena, func_index)
         
         print *, "  EXPECTED BEHAVIOR: Should generate valid Fortran code like:"
         print *, "    function calculate_area(radius) result(area)"
@@ -165,7 +166,7 @@ contains
         call analyze_program(sem_ctx, arena, func_index)
         
         ! Generate code from modified AST
-        call generate_code_from_ast(arena, func_index, generated_code, error_msg)
+        generated_code = generate_code_from_arena(arena, func_index)
         
         print *, "  EXPECTED BEHAVIOR: Generated code should have:"
         print *, "    - Proper declaration placement after 'implicit none'"
@@ -203,7 +204,7 @@ contains
         call analyze_program(sem_ctx, arena, func_index)
         
         ! Generate final code
-        call generate_code_from_ast(arena, func_index, generated_code, error_msg)
+        generated_code = generate_code_from_arena(arena, func_index)
         
         print *, "  CRITICAL: Current behavior defaults to real(8) without type evidence"
         print *, "  REQUIRED BEHAVIOR: Should emit ERROR because x type cannot be inferred"
