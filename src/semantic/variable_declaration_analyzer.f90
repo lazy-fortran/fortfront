@@ -132,12 +132,26 @@ contains
         type(program_node), intent(in) :: prog_node
         logical, intent(out) :: success
 
+        character(len=:), allocatable :: var_names(:)
+        character(len=:), allocatable :: var_types(:)
+        logical, allocatable :: can_infer(:)
+        integer :: undeclared_count
         integer :: i
         logical :: child_success
 
         success = .true.
 
-        ! Process all body statements
+        ! For programs, collect undeclared variables like we do for functions
+        call collect_undeclared_variables_in_program(arena, prog_node, var_names, undeclared_count)
+        
+        if (undeclared_count > 0) then
+            ! TODO: Implement type inference for undeclared variables in program
+            ! For now, just mark analysis as complete without generating declarations
+            ! This preserves the current behavior while allowing the function code to work
+            this%result%has_declarations_added = .false.
+        end if
+
+        ! Process all body statements recursively
         if (allocated(prog_node%body_indices)) then
             do i = 1, size(prog_node%body_indices)
                 call process_node_for_declarations(this, arena, context, &
@@ -263,6 +277,50 @@ contains
         if (j > 0) then
             allocate(character(len=32) :: var_names(j))
             j = 0
+            do i = 1, count
+                if (.not. declared(i)) then
+                    j = j + 1
+                    var_names(j) = trim(temp_names(i))
+                end if
+            end do
+            count = j  ! Update count to reflect only undeclared variables
+        else
+            allocate(character(len=32) :: var_names(0))
+            count = 0
+        end if
+    end subroutine
+
+    ! Similar to collect_undeclared_variables but for program nodes
+    subroutine collect_undeclared_variables_in_program(arena, prog_node, var_names, count)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog_node
+        character(len=:), allocatable, intent(out) :: var_names(:)
+        integer, intent(out) :: count
+
+        character(len=32), allocatable :: temp_names(:)
+        logical, allocatable :: declared(:)
+        integer :: max_vars = 100  ! Initial capacity
+        integer :: i, j
+
+        ! Allocate temporary storage
+        allocate(character(len=32) :: temp_names(max_vars))
+        allocate(declared(max_vars))
+        count = 0
+
+        ! Traverse program body to find variable usage
+        if (allocated(prog_node%body_indices)) then
+            do i = 1, size(prog_node%body_indices)
+                call scan_node_for_variables(arena, prog_node%body_indices(i), &
+                                           temp_names, declared, count, max_vars)
+            end do
+        end if
+        
+        ! No parameters to mark as declared for programs
+        
+        ! Copy undeclared variables to output
+        if (count > 0) then
+            j = 0
+            allocate(character(len=32) :: var_names(count))
             do i = 1, count
                 if (.not. declared(i)) then
                     j = j + 1
