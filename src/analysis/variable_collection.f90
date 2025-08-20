@@ -26,6 +26,9 @@ module variable_collection
         integer :: usage_count = 0
         integer :: node_index = 0
         type(mono_type_t), allocatable :: inferred_type
+    contains
+        procedure :: assign => variable_info_assign
+        generic :: assignment(=) => assign
     end type variable_info_t
 
     ! Collection container
@@ -39,6 +42,8 @@ module variable_collection
         procedure :: has_variable => collection_has_variable
         procedure :: resize => collection_resize
         procedure :: clear => collection_clear
+        procedure :: assign => variable_collection_assign
+        generic :: assignment(=) => assign
         final :: collection_finalize
     end type variable_collection_t
 
@@ -412,5 +417,52 @@ contains
         this%count = 0
         this%capacity = 0
     end subroutine collection_finalize
+
+    ! Deep copy assignment operator for variable_info_t
+    subroutine variable_info_assign(lhs, rhs)
+        class(variable_info_t), intent(out) :: lhs
+        type(variable_info_t), intent(in) :: rhs
+        
+        ! Copy scalar fields
+        lhs%is_declared = rhs%is_declared
+        lhs%needs_allocatable = rhs%needs_allocatable
+        lhs%usage_count = rhs%usage_count
+        lhs%node_index = rhs%node_index
+        
+        ! Deep copy allocatable character strings
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        end if
+        
+        if (allocated(rhs%type_name)) then
+            lhs%type_name = rhs%type_name
+        end if
+        
+        ! Deep copy allocatable inferred_type using mono_type assignment
+        if (allocated(rhs%inferred_type)) then
+            allocate(lhs%inferred_type)
+            lhs%inferred_type = rhs%inferred_type  ! Uses mono_type assignment (deep copy)
+        end if
+    end subroutine variable_info_assign
+
+    ! Deep copy assignment operator for variable_collection_t
+    subroutine variable_collection_assign(lhs, rhs)
+        class(variable_collection_t), intent(out) :: lhs
+        type(variable_collection_t), intent(in) :: rhs
+        integer :: i
+        
+        ! Copy scalar fields
+        lhs%count = rhs%count
+        lhs%capacity = rhs%capacity
+        
+        ! Deep copy allocatable array of variables
+        if (allocated(rhs%variables)) then
+            allocate(lhs%variables(size(rhs%variables)))
+            do i = 1, size(rhs%variables)
+                ! This uses variable_info_t assignment operator (deep copy)
+                lhs%variables(i) = rhs%variables(i)
+            end do
+        end if
+    end subroutine variable_collection_assign
 
 end module variable_collection

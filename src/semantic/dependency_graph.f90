@@ -11,6 +11,9 @@ module dependency_graph
         character(len=32), allocatable :: dependencies(:)
         logical :: visited = .false.
         logical :: in_progress = .false.
+    contains
+        procedure :: assign => dependency_node_assign
+        generic :: assignment(=) => assign
     end type
     
     ! Dependency graph for topological sorting
@@ -23,6 +26,8 @@ module dependency_graph
         procedure :: validate_no_cycles
         procedure :: get_execution_order
         procedure :: find_node_index
+        procedure :: assign => dependency_graph_assign
+        generic :: assignment(=) => assign
     end type
 
 contains
@@ -234,5 +239,44 @@ contains
         ! Return topological sort order
         order = this%topological_sort()
     end function
+
+    ! Deep copy assignment operator for dependency_node_t
+    subroutine dependency_node_assign(lhs, rhs)
+        class(dependency_node_t), intent(out) :: lhs
+        type(dependency_node_t), intent(in) :: rhs
+        integer :: i
+        
+        ! Copy scalar fields
+        lhs%name = rhs%name
+        lhs%visited = rhs%visited
+        lhs%in_progress = rhs%in_progress
+        
+        ! Deep copy allocatable array
+        if (allocated(rhs%dependencies)) then
+            allocate(lhs%dependencies(size(rhs%dependencies)))
+            do i = 1, size(rhs%dependencies)
+                lhs%dependencies(i) = rhs%dependencies(i)
+            end do
+        end if
+    end subroutine dependency_node_assign
+
+    ! Deep copy assignment operator for dependency_graph_t
+    subroutine dependency_graph_assign(lhs, rhs)
+        class(dependency_graph_t), intent(out) :: lhs
+        type(dependency_graph_t), intent(in) :: rhs
+        integer :: i
+        
+        ! Copy scalar fields
+        lhs%node_count = rhs%node_count
+        
+        ! Deep copy allocatable array of nodes
+        if (allocated(rhs%nodes)) then
+            allocate(lhs%nodes(size(rhs%nodes)))
+            do i = 1, size(rhs%nodes)
+                ! This uses dependency_node_t assignment operator (deep copy)
+                lhs%nodes(i) = rhs%nodes(i)
+            end do
+        end if
+    end subroutine dependency_graph_assign
 
 end module dependency_graph
