@@ -1,5 +1,6 @@
 program test_issue_209_multi_var_allocatable
     use frontend, only: compile_source, compilation_options_t
+    use codegen_indent, only: reset_all_state
     implicit none
 
     logical :: all_passed
@@ -9,6 +10,9 @@ program test_issue_209_multi_var_allocatable
     print *, '=== Issue #209: Multi-variable declarations with different ' // &
              'allocatable status need splitting ==='
     print *
+    
+    ! CRITICAL: Setup clean test environment to prevent hangs (Issue #333)
+    call setup_test_environment()
 
     if (.not. test_mixed_allocatable_needs_splits_declaration()) &
         all_passed = .false.
@@ -18,6 +22,10 @@ program test_issue_209_multi_var_allocatable
     if (.not. test_multiple_mixed_declarations()) all_passed = .false.
 
     print *
+    
+    ! CRITICAL: Cleanup test environment to prevent contamination (Issue #333)
+    call cleanup_test_environment()
+    
     if (all_passed) then
         print *, 'All tests PASSED'
     else
@@ -26,6 +34,80 @@ program test_issue_209_multi_var_allocatable
     end if
 
 contains
+
+    ! CRITICAL: Helper functions for test isolation (Issue #333)
+    
+    ! Setup clean test environment before each test
+    subroutine setup_test_environment()
+        ! Reset all global state variables to prevent cross-test contamination
+        call reset_all_state()
+        
+        ! Additional state resets can be added here as needed
+        ! For example: call reset_ast_arena(), call reset_type_system(), etc.
+    end subroutine setup_test_environment
+
+    ! Cleanup test environment after each test  
+    subroutine cleanup_test_environment()
+        ! Reset global state again to ensure clean slate
+        call reset_all_state()
+        
+        ! Additional cleanup operations can be added here
+    end subroutine cleanup_test_environment
+
+    ! Generate unique filename with process ID and timestamp to prevent conflicts
+    function get_unique_filename(base_name, extension) result(unique_name)
+        character(len=*), intent(in) :: base_name
+        character(len=*), intent(in) :: extension
+        character(len=:), allocatable :: unique_name
+        character(len=20) :: timestamp_str, pid_str
+        integer :: pid
+        integer(8) :: timestamp
+        
+        ! Get process ID (implementation-specific)
+        call get_process_id(pid)
+        write(pid_str, '(I0)') pid
+        
+        ! Get timestamp (milliseconds since epoch-like value)
+        call system_clock(timestamp)
+        write(timestamp_str, '(I0)') timestamp
+        
+        ! Combine to create unique filename
+        unique_name = trim(base_name) // '_' // trim(pid_str) // '_' // &
+                     trim(timestamp_str) // '.' // trim(extension)
+    end function get_unique_filename
+
+    ! Cleanup temporary file safely
+    subroutine cleanup_temp_file(filename)
+        character(len=*), intent(in) :: filename
+        integer :: unit, iostat
+        logical :: exists
+        
+        ! Check if file exists before attempting cleanup
+        inquire(file=filename, exist=exists)
+        if (exists) then
+            ! Try to delete the file
+            open(newunit=unit, file=filename, iostat=iostat)
+            if (iostat == 0) then
+                close(unit, status='delete', iostat=iostat)
+                ! If deletion fails, it's not critical - just continue
+            end if
+        end if
+    end subroutine cleanup_temp_file
+
+    ! Get process ID in a portable way
+    subroutine get_process_id(pid)
+        integer, intent(out) :: pid
+        
+        ! Fallback: use system clock value as pseudo-PID
+        ! This ensures uniqueness across concurrent runs
+        integer(8) :: clock_value
+        call system_clock(clock_value)
+        pid = int(mod(clock_value, 99999))
+        
+        ! Ensure PID is always positive
+        if (pid < 0) pid = -pid
+        if (pid == 0) pid = 1
+    end subroutine get_process_id
 
     ! Given: A multi-variable declaration where only some variables need allocatable
     ! When: The standardizer processes the code
@@ -42,8 +124,9 @@ contains
         test_mixed_allocatable_needs_splits_declaration = .true.
         print *, 'Testing mixed allocatable needs splits declaration...'
 
-        ! Given: Source with multi-var declaration where only 'a' needs allocatable
-        input_file = 'test_209_mixed.lf'
+        ! Given: Source with multi-var declaration where only 'a' needs allocatable  
+        ! CRITICAL: Use unique filename to prevent file conflicts (Issue #333)
+        input_file = get_unique_filename('test_209_mixed', 'lf')
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer, dimension(5) :: a, b, c'
@@ -54,7 +137,8 @@ contains
         write (unit, '(a)') 'end program'
         close (unit)
 
-        output_file = 'test_209_mixed_out.f90'
+        ! CRITICAL: Use unique output filename to prevent conflicts (Issue #333)
+        output_file = get_unique_filename('test_209_mixed_out', 'f90')
         options%output_file = output_file
 
         ! When: We compile and standardize
@@ -94,6 +178,10 @@ contains
             print *, '  SUCCESS: Declaration splitting and allocatable assignment correct'
         end if
 
+        ! CRITICAL: Cleanup temporary files to prevent conflicts (Issue #333)
+        call cleanup_temp_file(input_file)
+        call cleanup_temp_file(output_file)
+
     end function test_mixed_allocatable_needs_splits_declaration
 
     ! Given: A multi-variable declaration where all variables need allocatable
@@ -110,7 +198,8 @@ contains
         print *, 'Testing all variables need allocatable...'
 
         ! Given: Source where all variables get array reassignments
-        input_file = 'test_209_all.lf'
+        ! CRITICAL: Use unique filename to prevent file conflicts (Issue #333)
+        input_file = get_unique_filename('test_209_all', 'lf')
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer, dimension(3) :: x, y, z'
@@ -123,7 +212,8 @@ contains
         write (unit, '(a)') 'end program'
         close (unit)
 
-        output_file = 'test_209_all_out.f90'
+        ! CRITICAL: Use unique output filename to prevent conflicts (Issue #333)
+        output_file = get_unique_filename('test_209_all_out', 'f90')
         options%output_file = output_file
 
         ! When: We compile and standardize  
@@ -145,6 +235,10 @@ contains
             print *, '  SUCCESS: All variables correctly marked as allocatable'
         end if
 
+        ! CRITICAL: Cleanup temporary files to prevent conflicts (Issue #333)
+        call cleanup_temp_file(input_file)
+        call cleanup_temp_file(output_file)
+
     end function test_all_allocatable_needs_single_declaration
 
     ! Given: A multi-variable declaration where no variables need allocatable
@@ -161,7 +255,8 @@ contains
         print *, 'Testing no allocatable needs unchanged...'
 
         ! Given: Source with only array indexing (no reassignments)
-        input_file = 'test_209_none.lf'
+        ! CRITICAL: Use unique filename to prevent file conflicts (Issue #333)
+        input_file = get_unique_filename('test_209_none', 'lf')
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    integer, dimension(5) :: p, q, r'
@@ -171,7 +266,8 @@ contains
         write (unit, '(a)') 'end program'
         close (unit)
 
-        output_file = 'test_209_none_out.f90'
+        ! CRITICAL: Use unique output filename to prevent conflicts (Issue #333)
+        output_file = get_unique_filename('test_209_none_out', 'f90')
         options%output_file = output_file
 
         ! When: We compile and standardize
@@ -193,6 +289,10 @@ contains
             print *, '  SUCCESS: No variables incorrectly marked as allocatable'
         end if
 
+        ! CRITICAL: Cleanup temporary files to prevent conflicts (Issue #333)
+        call cleanup_temp_file(input_file)
+        call cleanup_temp_file(output_file)
+
     end function test_no_allocatable_needs_unchanged
 
     ! Given: Multiple multi-variable declarations with different mixed needs
@@ -209,7 +309,8 @@ contains
         print *, 'Testing multiple mixed declarations...'
 
         ! Given: Source with multiple complex multi-variable declarations
-        input_file = 'test_209_complex.lf'
+        ! CRITICAL: Use unique filename to prevent file conflicts (Issue #333)
+        input_file = get_unique_filename('test_209_complex', 'lf')
         open (newunit=unit, file=input_file, status='replace')
         write (unit, '(a)') 'program test'
         write (unit, '(a)') '    ! First declaration: mixed needs'
@@ -232,7 +333,8 @@ contains
         write (unit, '(a)') 'end program'
         close (unit)
 
-        output_file = 'test_209_complex_out.f90'
+        ! CRITICAL: Use unique output filename to prevent conflicts (Issue #333)
+        output_file = get_unique_filename('test_209_complex_out', 'f90')
         options%output_file = output_file
 
         ! When: We compile and standardize
@@ -253,6 +355,10 @@ contains
         else
             print *, '  SUCCESS: All complex multi-declarations handled correctly'
         end if
+
+        ! CRITICAL: Cleanup temporary files to prevent conflicts (Issue #333)
+        call cleanup_temp_file(input_file)
+        call cleanup_temp_file(output_file)
 
     end function test_multiple_mixed_declarations
 
