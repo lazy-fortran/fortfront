@@ -234,7 +234,7 @@ contains
         character(len=:), allocatable :: var_name
 
         ! Pre-constrain target if RHS has character operations
-        ! TODO: Fix segfault issue with recursive constraining
+        ! Temporarily disabled to isolate segfault source
         ! if (assign%value_index > 0 .and. assign%value_index <= arena%size) then
         !     if (node_has_character_op(arena, assign%value_index)) then
         !         call constrain_for_character_operation(ctx, arena, &
@@ -515,7 +515,7 @@ contains
         integer :: compat_level
 
         ! For character concatenation, pre-constrain operands
-        ! TODO: Fix segfault issue with recursive constraining
+        ! Temporarily disabled to isolate segfault source
         ! if (trim(binop%operator) == "//") then
         !     ! Pre-constrain operands for character concatenation
         !     call constrain_for_character_operation(ctx, arena, binop%left_index)
@@ -702,21 +702,39 @@ contains
         end select
     end function needs_temporary
 
-    ! Constrain identifiers for character operations
-    recursive subroutine constrain_for_character_operation(ctx, arena, node_index)
+    ! Constrain identifiers for character operations with depth limiting
+    subroutine constrain_for_character_operation(ctx, arena, node_index)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
+        integer, parameter :: MAX_DEPTH = 50
+        
+        call constrain_char_op_limited(ctx, arena, node_index, 0, MAX_DEPTH)
+    end subroutine constrain_for_character_operation
+
+    ! Implementation with depth limiting to prevent infinite recursion
+    recursive subroutine constrain_char_op_limited(ctx, arena, node_index, &
+                                                  current_depth, max_depth)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: node_index, current_depth, max_depth
         type(poly_type_t), allocatable :: scheme
         type(mono_type_t) :: char_type
-        type(substitution_t) :: s1
         
+        ! Depth limit to prevent stack overflow
+        if (current_depth >= max_depth) return
+        
+        ! Enhanced bounds checking
         if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries)) return
         if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        ! Additional safety check for context
+        if (ctx%scopes%depth <= 0 .or. .not. allocated(ctx%scopes%scopes)) return
         
         select type (node => arena%entries(node_index)%node)
         type is (identifier_node)
-            ! Check if identifier exists in scope
+            ! Enhanced identifier validation and constraint
             if (allocated(node%name) .and. len_trim(node%name) > 0) then
                 call ctx%scopes%lookup(node%name, scheme)
                 
@@ -729,15 +747,20 @@ contains
                 end if
             end if
         type is (binary_op_node)
-            ! Recursively constrain nested operations
-            if (trim(node%operator) == "//") then
-                call constrain_for_character_operation(ctx, arena, &
-                                                      node%left_index)
-                call constrain_for_character_operation(ctx, arena, &
-                                                      node%right_index)
+            ! Safe recursive constraining with depth tracking
+            if (allocated(node%operator) .and. trim(node%operator) == "//") then
+                ! Validate child indices before recursion
+                if (node%left_index > 0 .and. node%left_index <= arena%size) then
+                    call constrain_char_op_limited(ctx, arena, node%left_index, &
+                                                  current_depth + 1, max_depth)
+                end if
+                if (node%right_index > 0 .and. node%right_index <= arena%size) then
+                    call constrain_char_op_limited(ctx, arena, node%right_index, &
+                                                  current_depth + 1, max_depth)
+                end if
             end if
         end select
-    end subroutine constrain_for_character_operation
+    end subroutine constrain_char_op_limited
 
     ! Infer type of function call
     function infer_function_call(ctx, arena, call_node) result(typ)
@@ -1773,13 +1796,26 @@ contains
         end if
     end function check_for_character_operations
     
-    ! Check if a node contains character operations
-    recursive function node_has_character_op(arena, node_index) result(has_char)
+    ! Check if a node contains character operations with depth limiting
+    function node_has_character_op(arena, node_index) result(has_char)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         logical :: has_char
+        integer, parameter :: MAX_DEPTH = 50
+        
+        has_char = node_has_char_op_limited(arena, node_index, 0, MAX_DEPTH)
+    end function node_has_character_op
+    
+    ! Implementation with depth limiting to prevent infinite recursion
+    recursive function node_has_char_op_limited(arena, node_index, current_depth, max_depth) result(has_char)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, current_depth, max_depth
+        logical :: has_char
         
         has_char = .false.
+        
+        ! Depth limit to prevent stack overflow
+        if (current_depth >= max_depth) return
         
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
@@ -1790,15 +1826,15 @@ contains
                 has_char = .true.
                 return
             end if
-            ! Check operands
-            has_char = node_has_character_op(arena, node%left_index) .or. &
-                      node_has_character_op(arena, node%right_index)
+            ! Check operands with depth tracking
+            has_char = node_has_char_op_limited(arena, node%left_index, current_depth + 1, max_depth) .or. &
+                      node_has_char_op_limited(arena, node%right_index, current_depth + 1, max_depth)
         type is (assignment_node)
-            has_char = node_has_character_op(arena, node%value_index)
+            has_char = node_has_char_op_limited(arena, node%value_index, current_depth + 1, max_depth)
         type is (literal_node)
             has_char = (node%literal_kind == LITERAL_STRING)
         end select
-    end function node_has_character_op
+    end function node_has_char_op_limited
     
     ! Check if a parameter is used in character operations
     function param_used_in_character_op(arena, func_def, param_idx) result(used)
@@ -1867,7 +1903,13 @@ contains
             found = identifier_in_char_op(arena, node%left_index, name) .or. &
                    identifier_in_char_op(arena, node%right_index, name)
         type is (assignment_node)
-            found = identifier_in_char_op(arena, node%value_index, name)
+            ! Check if identifier is the assignment target of a character expression
+            if (is_identifier_named(arena, node%target_index, name)) then
+                found = node_has_character_op(arena, node%value_index)
+            else
+                ! Check if identifier is used in the assignment value
+                found = identifier_in_char_op(arena, node%value_index, name)
+            end if
         end select
     end function identifier_in_char_op
     
