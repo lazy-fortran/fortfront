@@ -9,7 +9,8 @@ module standardizer
 
     use ast_core
     use ast_factory
-    use type_system_hm
+    use type_system_hm, only: mono_type_t, TVAR, TINT, TREAL, TCHAR, TLOGICAL, &
+                              TFUN, TARRAY
     use json_module, only: json_core, json_value, json_file
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use error_handling, only: result_t, success_result, create_error_result, &
@@ -1731,14 +1732,59 @@ contains
             do i = 1, n_params
                 if (param_names_found(i) == 0) then
                     ! Create declaration node with intent(in)
-                    param_decl%type_name = "real"
                     param_decl%var_name = param_names(i)
-                    param_decl%has_kind = .true.
-                    param_decl%kind_value = 8
                     param_decl%intent = "in"
                     param_decl%has_intent = .true.
                     param_decl%line = 1
                     param_decl%column = 1
+                    
+                    ! Check if parameter has inferred type from semantic analysis
+                    block
+                        logical :: type_set
+                        type_set = .false.
+                        
+                        if (func_def%param_indices(i) > 0 .and. &
+                            func_def%param_indices(i) <= arena%size) then
+                            if (allocated(arena%entries(func_def%param_indices(i))%node)) then
+                                if (allocated(arena%entries(func_def%param_indices(i))% &
+                                             node%inferred_type)) then
+                                    ! Get the inferred type
+                                    block
+                                        type(mono_type_t) :: inf_type
+                                        inf_type = arena%entries(func_def%param_indices(i))% &
+                                                  node%inferred_type
+                                        
+                                        select case (inf_type%kind)
+                                        case (TCHAR)
+                                            param_decl%type_name = "character"
+                                            param_decl%has_kind = .false.
+                                            type_set = .true.
+                                        case (TINT)
+                                            param_decl%type_name = "integer"
+                                            param_decl%has_kind = .false.
+                                            type_set = .true.
+                                        case (TREAL)
+                                            param_decl%type_name = "real"
+                                            param_decl%has_kind = .false.
+                                            type_set = .true.
+                                        case (TLOGICAL)
+                                            param_decl%type_name = "logical"
+                                            param_decl%has_kind = .false.
+                                            type_set = .true.
+                                        end select
+                                    end block
+                                end if
+                            end if
+                        end if
+                        
+                        ! Default to real(8) if type not determined
+                        if (.not. type_set) then
+                            param_decl%type_name = "real"
+                            param_decl%has_kind = .true.
+                            param_decl%kind_value = 8
+                        end if
+                    end block
+                    
                     call arena%push(param_decl, "param_decl", func_index)
                     new_body_indices(j) = arena%size
                     j = j + 1
