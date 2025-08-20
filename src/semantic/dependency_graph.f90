@@ -242,9 +242,24 @@ contains
 
     ! Deep copy assignment operator for dependency_node_t
     subroutine dependency_node_assign(lhs, rhs)
-        class(dependency_node_t), intent(out) :: lhs
+        class(dependency_node_t), intent(inout) :: lhs
         type(dependency_node_t), intent(in) :: rhs
         integer :: i
+        logical :: is_same
+        
+        ! Check for self-assignment using field comparison
+        is_same = .false.
+        if (allocated(lhs%dependencies) .and. allocated(rhs%dependencies)) then
+            if (size(lhs%dependencies) == size(rhs%dependencies)) then
+                is_same = (lhs%name == rhs%name) .and. &
+                          (lhs%visited .eqv. rhs%visited) .and. &
+                          (lhs%in_progress .eqv. rhs%in_progress)
+            end if
+        end if
+        if (is_same) return
+        
+        ! Clear existing allocatable components
+        if (allocated(lhs%dependencies)) deallocate(lhs%dependencies)
         
         ! Copy scalar fields
         lhs%name = rhs%name
@@ -262,9 +277,27 @@ contains
 
     ! Deep copy assignment operator for dependency_graph_t
     subroutine dependency_graph_assign(lhs, rhs)
-        class(dependency_graph_t), intent(out) :: lhs
+        class(dependency_graph_t), intent(inout) :: lhs
         type(dependency_graph_t), intent(in) :: rhs
         integer :: i
+        logical :: is_same
+        
+        ! Check for self-assignment
+        is_same = .false.
+        if (allocated(lhs%nodes) .and. allocated(rhs%nodes)) then
+            if (size(lhs%nodes) == size(rhs%nodes) .and. &
+                lhs%node_count == rhs%node_count) then
+                is_same = .true.
+                ! Additional check: compare first node if exists
+                if (lhs%node_count > 0) then
+                    is_same = (lhs%nodes(1)%name == rhs%nodes(1)%name)
+                end if
+            end if
+        end if
+        if (is_same) return
+        
+        ! Clear existing allocatable components
+        if (allocated(lhs%nodes)) deallocate(lhs%nodes)
         
         ! Copy scalar fields
         lhs%node_count = rhs%node_count

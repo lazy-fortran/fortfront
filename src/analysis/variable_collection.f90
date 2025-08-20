@@ -420,8 +420,26 @@ contains
 
     ! Deep copy assignment operator for variable_info_t
     subroutine variable_info_assign(lhs, rhs)
-        class(variable_info_t), intent(out) :: lhs
+        class(variable_info_t), intent(inout) :: lhs
         type(variable_info_t), intent(in) :: rhs
+        logical :: is_same
+        
+        ! Check for self-assignment
+        is_same = .false.
+        if (allocated(lhs%name) .and. allocated(rhs%name)) then
+            if (lhs%name == rhs%name .and. &
+                lhs%is_declared .eqv. rhs%is_declared .and. &
+                lhs%usage_count == rhs%usage_count .and. &
+                lhs%node_index == rhs%node_index) then
+                is_same = .true.
+            end if
+        end if
+        if (is_same) return
+        
+        ! Clear existing allocatable components
+        if (allocated(lhs%name)) deallocate(lhs%name)
+        if (allocated(lhs%type_name)) deallocate(lhs%type_name)
+        if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         
         ! Copy scalar fields
         lhs%is_declared = rhs%is_declared
@@ -447,9 +465,24 @@ contains
 
     ! Deep copy assignment operator for variable_collection_t
     subroutine variable_collection_assign(lhs, rhs)
-        class(variable_collection_t), intent(out) :: lhs
+        class(variable_collection_t), intent(inout) :: lhs
         type(variable_collection_t), intent(in) :: rhs
         integer :: i
+        logical :: is_same
+        
+        ! Check for self-assignment
+        is_same = .false.
+        if (allocated(lhs%variables) .and. allocated(rhs%variables)) then
+            if (size(lhs%variables) == size(rhs%variables) .and. &
+                lhs%count == rhs%count .and. &
+                lhs%capacity == rhs%capacity) then
+                is_same = .true.
+            end if
+        end if
+        if (is_same) return
+        
+        ! Clear existing allocatable components
+        if (allocated(lhs%variables)) deallocate(lhs%variables)
         
         ! Copy scalar fields
         lhs%count = rhs%count
