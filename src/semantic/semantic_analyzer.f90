@@ -5,6 +5,7 @@ module semantic_analyzer
                               create_mono_type, create_type_var, &
                               create_poly_type, create_fun_type, free_type_vars, &
                               compose_substitutions, occurs_check, &
+                              mono_type_cycle_safe_copy, &
                               TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
     use scope_manager
     use type_checker
@@ -435,11 +436,12 @@ contains
         ! Apply current substitution
         typ = this%apply_subst_to_type(typ)
 
-        ! Store the inferred type in the AST node
+        ! Store the inferred type in the AST node using cycle-safe copy to preserve args
         if (.not. allocated(arena%entries(expr_index)%node%inferred_type)) then
             allocate (arena%entries(expr_index)%node%inferred_type)
         end if
-        arena%entries(expr_index)%node%inferred_type = typ
+        ! Use cycle-safe copy instead of assignment to preserve TARRAY args
+        call mono_type_cycle_safe_copy(arena%entries(expr_index)%node%inferred_type, typ)
     end function infer_type
 
     ! Infer type of literal
@@ -1907,7 +1909,11 @@ contains
         allocate (array_args(1))
         array_args(1) = elem_type
         typ = create_mono_type(TARRAY, args=array_args)
-        typ%size = size(arr_node%element_indices)
+        
+        ! WORKAROUND: Encode element type in size field to survive assignment operator
+        ! Lower 16 bits: array length, Upper 16 bits: element type kind
+        ! This is a temporary fix until assignment operator is fixed
+        typ%size = size(arr_node%element_indices) + (elem_type%kind * 65536)
 
     end function infer_array_literal
 

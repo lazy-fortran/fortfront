@@ -10,6 +10,7 @@ module type_system_hm
     public :: create_type_var, create_mono_type, create_poly_type, create_fun_type
     public :: apply_substitution, compose_substitutions
     public :: occurs_check, free_type_vars
+    public :: mono_type_cycle_safe_copy
 
     ! Type kinds for Hindley-Milner system
     integer, parameter, public :: TVAR = 1      ! Type variable
@@ -360,7 +361,38 @@ contains
                     end if
                 end block
             else
-                str = "array"
+                ! FALLBACK: When args are lost, decode type info from size field
+                ! This is a workaround for assignment operator issue where args get lost
+                if (this%size > 0) then
+                    block
+                        integer :: array_length, elem_type_kind
+                        character(len=20) :: size_str
+                        character(len=:), allocatable :: elem_str
+                        
+                        ! Decode: Lower 16 bits = length, Upper 16 bits = element type
+                        array_length = mod(this%size, 65536)  ! Lower 16 bits
+                        elem_type_kind = this%size / 65536    ! Upper 16 bits
+                        
+                        ! Determine element type string
+                        select case (elem_type_kind)
+                        case (TINT)
+                            elem_str = "integer"
+                        case (TREAL)
+                            elem_str = "real"
+                        case (TCHAR)
+                            elem_str = "character"
+                        case (TLOGICAL)
+                            elem_str = "logical"
+                        case default
+                            elem_str = "integer"  ! fallback
+                        end select
+                        
+                        write (size_str, '(i0)') array_length
+                        str = elem_str//"("//trim(size_str)//")"
+                    end block
+                else
+                    str = "array"
+                end if
             end if
         case default
             str = "<unknown type>"
