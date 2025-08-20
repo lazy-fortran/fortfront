@@ -10,7 +10,8 @@ module semantic_analyzer
     use type_checker
     use ast_core  ! TODO: Migrate to explicit imports (complex due to extensive usage)
     use ast_nodes_data, only: intent_type_to_string, declaration_node, &
-                              parameter_declaration_node
+                              parameter_declaration_node, INTENT_NONE, &
+                              INTENT_IN, INTENT_OUT, INTENT_INOUT
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 range_expression_node, get_array_slice_node
     use ast_nodes_core, only: identifier_node, assignment_node, binary_op_node, &
@@ -28,6 +29,7 @@ module semantic_analyzer
     public :: validate_array_bounds, check_shape_conformance
     public :: undeclared_variable_t, collect_undeclared_variables
     public :: type_constraint_t, infer_types_for_undeclared_variables
+    public :: usage_pattern_t
 
     ! Constants for variable usage types
     integer, parameter, public :: USAGE_PARAMETER = 1
@@ -41,6 +43,20 @@ module semantic_analyzer
     integer, parameter, public :: CONSTRAINT_ASSIGNMENT = 4   ! x = expression
     integer, parameter, public :: CONSTRAINT_ARRAY_INDEX = 5  ! arr(i)
     integer, parameter, public :: CONSTRAINT_STRING_OP = 6    ! x // "text"
+
+    ! Usage pattern data structure for intent inference
+    type :: usage_pattern_t
+        logical :: is_read = .false.
+        logical :: is_written = .false.
+        logical :: is_array_access = .false.
+        logical :: is_passed_to_func = .false.
+        logical :: is_modified_element = .false.
+        integer :: first_read_location = 0
+        integer :: first_write_location = 0
+    contains
+        procedure :: assign => usage_pattern_assign
+        generic :: assignment(=) => assign
+    end type usage_pattern_t
 
     ! Type constraint for variable type inference
     type :: type_constraint_t
@@ -63,6 +79,8 @@ module semantic_analyzer
         logical :: is_written
         logical :: is_array_access
         type(mono_type_t) :: inferred_type  ! Result of type inference
+        integer :: inferred_intent = INTENT_NONE  ! Inferred intent attribute
+        type(usage_pattern_t) :: usage_pattern  ! Detailed usage pattern
     contains
         procedure :: assign => undeclared_variable_assign
         generic :: assignment(=) => assign
@@ -92,6 +110,7 @@ module semantic_analyzer
         procedure :: check_conformance => check_array_shape_conformance
         procedure :: collect_undeclared_variables
         procedure :: infer_types_for_undeclared_variables
+        procedure :: analyze_parameter_intent
         generic :: assignment(=) => assign
     end type semantic_context_t
 
@@ -2612,6 +2631,8 @@ contains
         lhs%is_written = rhs%is_written
         lhs%is_array_access = rhs%is_array_access
         lhs%inferred_type = rhs%inferred_type
+        lhs%inferred_intent = rhs%inferred_intent
+        lhs%usage_pattern = rhs%usage_pattern
     end subroutine undeclared_variable_assign
 
     ! Collect undeclared variables in a function or subroutine scope
@@ -2657,6 +2678,20 @@ contains
         allocate(undeclared_vars(temp_count))
         do i = 1, temp_count
             undeclared_vars(i) = temp_vars(i)
+        end do
+        
+        ! Perform intent inference for parameter variables
+        do i = 1, temp_count
+            if (undeclared_vars(i)%usage_type == USAGE_PARAMETER) then
+                ! Collect detailed usage pattern for this variable
+                call collect_variable_usage_pattern(this, arena, scope_index, &
+                                                   undeclared_vars(i)%name, &
+                                                   undeclared_vars(i)%usage_pattern)
+                
+                ! Determine intent from the collected pattern
+                call determine_intent_from_pattern(undeclared_vars(i)%usage_pattern, &
+                                                  undeclared_vars(i)%inferred_intent)
+            end if
         end do
     end subroutine collect_undeclared_variables
 
@@ -3668,5 +3703,464 @@ contains
         ! with all usages of the variable in the AST
         continue
     end subroutine validate_variable_type_usage
+
+    ! Assignment operator for usage_pattern_t
+    subroutine usage_pattern_assign(lhs, rhs)
+        class(usage_pattern_t), intent(inout) :: lhs
+        type(usage_pattern_t), intent(in) :: rhs
+        
+        lhs%is_read = rhs%is_read
+        lhs%is_written = rhs%is_written
+        lhs%is_array_access = rhs%is_array_access
+        lhs%is_passed_to_func = rhs%is_passed_to_func
+        lhs%is_modified_element = rhs%is_modified_element
+        lhs%first_read_location = rhs%first_read_location
+        lhs%first_write_location = rhs%first_write_location
+    end subroutine usage_pattern_assign
+
+    ! Analyze parameter intent based on usage patterns
+    subroutine analyze_parameter_intent(this, arena, variable_name, &
+                                       scope_index, intent_result)
+        class(semantic_context_t), intent(inout) :: this
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: variable_name
+        integer, intent(in) :: scope_index
+        integer, intent(out) :: intent_result
+        
+        type(usage_pattern_t) :: pattern
+        
+        ! Initialize intent result
+        intent_result = INTENT_NONE
+        
+        ! Collect usage pattern for this variable
+        call collect_variable_usage_pattern(this, arena, scope_index, &
+                                           variable_name, pattern)
+        
+        ! Determine intent based on usage pattern
+        call determine_intent_from_pattern(pattern, intent_result)
+    end subroutine analyze_parameter_intent
+
+    ! Collect detailed usage pattern for a specific variable
+    subroutine collect_variable_usage_pattern(ctx, arena, scope_index, &
+                                             variable_name, pattern)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        character(len=*), intent(in) :: variable_name
+        type(usage_pattern_t), intent(out) :: pattern
+        
+        ! Initialize pattern
+        pattern = usage_pattern_t()
+        
+        ! Validate inputs
+        if (scope_index <= 0 .or. scope_index > arena%size) return
+        if (.not. allocated(arena%entries(scope_index)%node)) return
+        if (len_trim(variable_name) == 0) return
+        
+        ! Process the scope node to collect usage patterns
+        select type (node => arena%entries(scope_index)%node)
+        type is (function_def_node)
+            call analyze_function_variable_usage(ctx, arena, node, &
+                                                variable_name, pattern)
+        type is (subroutine_def_node)
+            call analyze_subroutine_variable_usage(ctx, arena, node, &
+                                                  variable_name, pattern)
+        end select
+    end subroutine collect_variable_usage_pattern
+
+    ! Analyze variable usage within a function
+    subroutine analyze_function_variable_usage(ctx, arena, func_node, &
+                                              variable_name, pattern)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_node
+        character(len=*), intent(in) :: variable_name
+        type(usage_pattern_t), intent(inout) :: pattern
+        
+        integer :: i
+        
+        ! Check if variable is the result variable
+        if (allocated(func_node%result_variable) .and. &
+            trim(func_node%result_variable) == trim(variable_name)) then
+            ! Result variables are always written-only
+            pattern%is_written = .true.
+            if (allocated(func_node%body_indices) .and. &
+                size(func_node%body_indices) > 0) then
+                pattern%first_write_location = func_node%body_indices(1)
+            end if
+            return
+        end if
+        
+        ! Process function body for variable usage
+        if (allocated(func_node%body_indices)) then
+            do i = 1, size(func_node%body_indices)
+                if (func_node%body_indices(i) > 0) then
+                    call traverse_node_for_variable_usage(ctx, arena, &
+                                                         func_node%body_indices(i), &
+                                                         variable_name, pattern)
+                end if
+            end do
+        end if
+        
+        ! Process parameters to check if this variable is a parameter
+        if (allocated(func_node%param_indices)) then
+            do i = 1, size(func_node%param_indices)
+                if (func_node%param_indices(i) > 0) then
+                    call check_parameter_usage(ctx, arena, &
+                                              func_node%param_indices(i), &
+                                              variable_name, pattern)
+                end if
+            end do
+        end if
+    end subroutine analyze_function_variable_usage
+
+    ! Analyze variable usage within a subroutine
+    subroutine analyze_subroutine_variable_usage(ctx, arena, sub_node, &
+                                                variable_name, pattern)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: sub_node
+        character(len=*), intent(in) :: variable_name
+        type(usage_pattern_t), intent(inout) :: pattern
+        
+        integer :: i
+        
+        ! Process subroutine body for variable usage
+        if (allocated(sub_node%body_indices)) then
+            do i = 1, size(sub_node%body_indices)
+                if (sub_node%body_indices(i) > 0) then
+                    call traverse_node_for_variable_usage(ctx, arena, &
+                                                         sub_node%body_indices(i), &
+                                                         variable_name, pattern)
+                end if
+            end do
+        end if
+        
+        ! Process parameters to check if this variable is a parameter
+        if (allocated(sub_node%param_indices)) then
+            do i = 1, size(sub_node%param_indices)
+                if (sub_node%param_indices(i) > 0) then
+                    call check_parameter_usage(ctx, arena, &
+                                              sub_node%param_indices(i), &
+                                              variable_name, pattern)
+                end if
+            end do
+        end if
+    end subroutine analyze_subroutine_variable_usage
+
+    ! Traverse AST node recursively to find variable usage patterns
+    recursive subroutine traverse_node_for_variable_usage(ctx, arena, &
+                                                         node_index, &
+                                                         variable_name, &
+                                                         pattern)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: variable_name
+        type(usage_pattern_t), intent(inout) :: pattern
+        
+        integer :: i
+        integer, parameter :: MAX_DEPTH = 100
+        integer, save :: current_depth = 0
+        
+        ! Depth protection against infinite recursion
+        current_depth = current_depth + 1
+        if (current_depth > MAX_DEPTH) then
+            current_depth = current_depth - 1
+            return
+        end if
+        
+        ! Bounds checking
+        if (node_index <= 0 .or. node_index > arena%size) then
+            current_depth = current_depth - 1
+            return
+        end if
+        if (.not. allocated(arena%entries(node_index)%node)) then
+            current_depth = current_depth - 1
+            return
+        end if
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (identifier_node)
+            if (allocated(node%name) .and. &
+                trim(node%name) == trim(variable_name)) then
+                ! Found variable usage - determine read/write context
+                call determine_variable_usage_context(ctx, arena, node_index, &
+                                                     pattern)
+            end if
+            
+        type is (assignment_node)
+            ! Check LHS for write access
+            if (node%target_index > 0) then
+                call check_assignment_target(ctx, arena, node%target_index, &
+                                            variable_name, pattern)
+            end if
+            
+            ! Check RHS for read access
+            if (node%value_index > 0) then
+                call traverse_node_for_variable_usage(ctx, arena, &
+                                                     node%value_index, &
+                                                     variable_name, pattern)
+            end if
+            
+        type is (call_or_subscript_node)
+            ! Check function name
+            if (allocated(node%name) .and. &
+                trim(node%name) == trim(variable_name)) then
+                ! Variable used as function name
+                if (.not. pattern%is_read) then
+                    pattern%is_read = .true.
+                    pattern%first_read_location = node_index
+                end if
+            end if
+            
+            ! Check arguments
+            if (allocated(node%arg_indices)) then
+                do i = 1, size(node%arg_indices)
+                    if (node%arg_indices(i) > 0) then
+                        call check_function_argument_usage(ctx, arena, &
+                                                          node%arg_indices(i), &
+                                                          variable_name, &
+                                                          pattern)
+                        call traverse_node_for_variable_usage(ctx, arena, &
+                                                             node%arg_indices(i), &
+                                                             variable_name, &
+                                                             pattern)
+                    end if
+                end do
+            end if
+            
+        type is (binary_op_node)
+            ! Check both operands for read access
+            if (node%left_index > 0) then
+                call traverse_node_for_variable_usage(ctx, arena, &
+                                                     node%left_index, &
+                                                     variable_name, pattern)
+            end if
+            if (node%right_index > 0) then
+                call traverse_node_for_variable_usage(ctx, arena, &
+                                                     node%right_index, &
+                                                     variable_name, pattern)
+            end if
+            
+        type is (if_node)
+            ! Check condition
+            if (node%condition_index > 0) then
+                call traverse_node_for_variable_usage(ctx, arena, &
+                                                     node%condition_index, &
+                                                     variable_name, pattern)
+            end if
+            
+            ! Check then block
+            if (allocated(node%then_body_indices)) then
+                do i = 1, size(node%then_body_indices)
+                    if (node%then_body_indices(i) > 0) then
+                        call traverse_node_for_variable_usage(ctx, arena, &
+                                                             node%then_body_indices(i), &
+                                                             variable_name, &
+                                                             pattern)
+                    end if
+                end do
+            end if
+            
+            ! Check else block
+            if (allocated(node%else_body_indices)) then
+                do i = 1, size(node%else_body_indices)
+                    if (node%else_body_indices(i) > 0) then
+                        call traverse_node_for_variable_usage(ctx, arena, &
+                                                             node%else_body_indices(i), &
+                                                             variable_name, &
+                                                             pattern)
+                    end if
+                end do
+            end if
+            
+        type is (do_loop_node)
+            ! Check loop variable - it's stored as var_name (string)
+            ! For loop variable, we handle it specially in assignment detection
+            
+            ! Check start, end, step expressions
+            if (node%start_expr_index > 0) then
+                call traverse_node_for_variable_usage(ctx, arena, &
+                                                     node%start_expr_index, &
+                                                     variable_name, pattern)
+            end if
+            if (node%end_expr_index > 0) then
+                call traverse_node_for_variable_usage(ctx, arena, &
+                                                     node%end_expr_index, &
+                                                     variable_name, pattern)
+            end if
+            if (node%step_expr_index > 0) then
+                call traverse_node_for_variable_usage(ctx, arena, &
+                                                     node%step_expr_index, &
+                                                     variable_name, pattern)
+            end if
+            
+            ! Check if this variable is the loop variable
+            if (allocated(node%var_name) .and. &
+                trim(node%var_name) == trim(variable_name)) then
+                ! Loop variable is written (loop counter assignment)
+                if (.not. pattern%is_written) then
+                    pattern%is_written = .true.
+                    pattern%first_write_location = node_index
+                end if
+            end if
+            
+            ! Check loop body
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    if (node%body_indices(i) > 0) then
+                        call traverse_node_for_variable_usage(ctx, arena, &
+                                                             node%body_indices(i), &
+                                                             variable_name, &
+                                                             pattern)
+                    end if
+                end do
+            end if
+        end select
+        
+        ! Decrement depth on exit
+        current_depth = current_depth - 1
+    end subroutine traverse_node_for_variable_usage
+
+    ! Determine context of variable usage (read vs write)
+    subroutine determine_variable_usage_context(ctx, arena, node_index, pattern)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(usage_pattern_t), intent(inout) :: pattern
+        
+        ! For now, assume read access unless proven otherwise
+        ! This will be refined by assignment target analysis
+        if (.not. pattern%is_read) then
+            pattern%is_read = .true.
+            pattern%first_read_location = node_index
+        end if
+    end subroutine determine_variable_usage_context
+
+    ! Check if variable is assignment target (write access)
+    subroutine check_assignment_target(ctx, arena, target_index, &
+                                      variable_name, pattern)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: target_index
+        character(len=*), intent(in) :: variable_name
+        type(usage_pattern_t), intent(inout) :: pattern
+        
+        ! Bounds checking
+        if (target_index <= 0 .or. target_index > arena%size) return
+        if (.not. allocated(arena%entries(target_index)%node)) return
+        
+        select type (node => arena%entries(target_index)%node)
+        type is (identifier_node)
+            if (allocated(node%name) .and. &
+                trim(node%name) == trim(variable_name)) then
+                ! Variable is assignment target - mark as written
+                if (.not. pattern%is_written) then
+                    pattern%is_written = .true.
+                    pattern%first_write_location = target_index
+                end if
+            end if
+            
+        type is (call_or_subscript_node)
+            ! Check if this is array element assignment
+            if (allocated(node%name) .and. &
+                trim(node%name) == trim(variable_name)) then
+                ! Array element assignment
+                pattern%is_array_access = .true.
+                pattern%is_modified_element = .true.
+                if (.not. pattern%is_written) then
+                    pattern%is_written = .true.
+                    pattern%first_write_location = target_index
+                end if
+            end if
+        end select
+    end subroutine check_assignment_target
+
+    ! Check function argument usage patterns
+    subroutine check_function_argument_usage(ctx, arena, arg_index, &
+                                            variable_name, pattern)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: arg_index
+        character(len=*), intent(in) :: variable_name
+        type(usage_pattern_t), intent(inout) :: pattern
+        
+        ! Bounds checking
+        if (arg_index <= 0 .or. arg_index > arena%size) return
+        if (.not. allocated(arena%entries(arg_index)%node)) return
+        
+        select type (node => arena%entries(arg_index)%node)
+        type is (identifier_node)
+            if (allocated(node%name) .and. &
+                trim(node%name) == trim(variable_name)) then
+                ! Variable passed as function argument
+                pattern%is_passed_to_func = .true.
+            end if
+        end select
+    end subroutine check_function_argument_usage
+
+    ! Check parameter usage patterns
+    subroutine check_parameter_usage(ctx, arena, param_index, &
+                                    variable_name, pattern)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: param_index
+        character(len=*), intent(in) :: variable_name
+        type(usage_pattern_t), intent(inout) :: pattern
+        
+        ! This procedure checks if a variable is a parameter declaration
+        ! The actual usage analysis is done in the traversal functions
+        
+        ! Bounds checking
+        if (param_index <= 0 .or. param_index > arena%size) return
+        if (.not. allocated(arena%entries(param_index)%node)) return
+        
+        ! For parameter declarations, we don't need to do anything special here
+        ! The usage patterns are collected during body traversal
+    end subroutine check_parameter_usage
+
+    ! Determine intent from usage pattern
+    subroutine determine_intent_from_pattern(pattern, intent_result)
+        type(usage_pattern_t), intent(in) :: pattern
+        integer, intent(out) :: intent_result
+        
+        ! Apply intent inference rules
+        if (.not. pattern%is_read .and. .not. pattern%is_written) then
+            ! Unused parameter
+            intent_result = INTENT_NONE
+        else if (.not. pattern%is_read .and. pattern%is_written) then
+            ! Only written, never read
+            intent_result = INTENT_OUT
+        else if (pattern%is_read .and. .not. pattern%is_written) then
+            ! Only read, never written
+            intent_result = INTENT_IN
+        else if (pattern%is_read .and. pattern%is_written) then
+            ! Both read and written - check temporal order
+            if (pattern%first_read_location > 0 .and. &
+                pattern%first_write_location > 0) then
+                if (pattern%first_read_location < pattern%first_write_location) then
+                    ! Read before write
+                    intent_result = INTENT_INOUT
+                else
+                    ! Write before read - could be OUT or INOUT
+                    ! Default to INOUT for safety
+                    intent_result = INTENT_INOUT
+                end if
+            else
+                ! Both read and written but temporal order unclear
+                intent_result = INTENT_INOUT
+            end if
+        else
+            ! Default case
+            intent_result = INTENT_NONE
+        end if
+        
+        ! Special handling for array modifications
+        if (pattern%is_modified_element) then
+            ! Array element modification implies INOUT
+            intent_result = INTENT_INOUT
+        end if
+    end subroutine determine_intent_from_pattern
 
 end module semantic_analyzer
