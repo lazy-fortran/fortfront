@@ -234,12 +234,13 @@ contains
         character(len=:), allocatable :: var_name
 
         ! Pre-constrain target if RHS has character operations
-        if (assign%value_index > 0 .and. assign%value_index <= arena%size) then
-            if (node_has_character_op(arena, assign%value_index)) then
-                call constrain_for_character_operation(ctx, arena, &
-                                                      assign%target_index)
-            end if
-        end if
+        ! TODO: Fix segfault issue with recursive constraining
+        ! if (assign%value_index > 0 .and. assign%value_index <= arena%size) then
+        !     if (node_has_character_op(arena, assign%value_index)) then
+        !         call constrain_for_character_operation(ctx, arena, &
+        !                                               assign%target_index)
+        !     end if
+        ! end if
 
         ! Infer type of RHS
         typ = ctx%infer(arena, assign%value_index)
@@ -514,11 +515,12 @@ contains
         integer :: compat_level
 
         ! For character concatenation, pre-constrain operands
-        if (trim(binop%operator) == "//") then
-            ! Pre-constrain operands for character concatenation
-            call constrain_for_character_operation(ctx, arena, binop%left_index)
-            call constrain_for_character_operation(ctx, arena, binop%right_index)
-        end if
+        ! TODO: Fix segfault issue with recursive constraining
+        ! if (trim(binop%operator) == "//") then
+        !     ! Pre-constrain operands for character concatenation
+        !     call constrain_for_character_operation(ctx, arena, binop%left_index)
+        !     call constrain_for_character_operation(ctx, arena, binop%right_index)
+        ! end if
 
         ! Infer left operand type
         left_typ = ctx%infer(arena, binop%left_index)

@@ -1731,12 +1731,24 @@ contains
             ! Add missing parameter declarations
             do i = 1, n_params
                 if (param_names_found(i) == 0) then
-                    ! Create declaration node with intent(in)
+                    ! Initialize all fields of declaration node
                     param_decl%var_name = param_names(i)
                     param_decl%intent = "in"
                     param_decl%has_intent = .true.
                     param_decl%line = 1
                     param_decl%column = 1
+                    param_decl%is_multi_declaration = .false.
+                    param_decl%has_kind = .false.
+                    param_decl%kind_value = 0
+                    param_decl%is_optional = .false.
+                    param_decl%has_initializer = .false.
+                    param_decl%initializer_index = 0
+                    param_decl%is_array = .false.
+                    param_decl%is_allocatable = .false.
+                    param_decl%is_parameter = .false.
+                    if (allocated(param_decl%var_names)) deallocate(param_decl%var_names)
+                    if (allocated(param_decl%dimension_indices)) &
+                        deallocate(param_decl%dimension_indices)
                     
                     ! Check if parameter has inferred type from semantic analysis
                     block
