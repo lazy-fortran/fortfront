@@ -57,7 +57,7 @@ contains
         ! Initialize semantic context for type inference
         local_context = create_semantic_context()
 
-        ! Create a mutable copy of arena for analysis and modification
+        ! Create mutable copy for semantic analysis and AST modification
         block
             type(ast_arena_t) :: mutable_arena
             mutable_arena = arena
@@ -569,8 +569,8 @@ contains
 
         name = "variable_declaration_analyzer"
         
-        associate(dummy => this)
-        end associate
+        ! Parameter suppressed for interface compliance
+        continue
     end function
 
     subroutine assign_declaration_analyzer(lhs, rhs)
@@ -595,8 +595,8 @@ contains
         allocate(deps(1))
         deps(1) = "type_analyzer"
         
-        associate(dummy => this)
-        end associate
+        ! Parameter suppressed for interface compliance
+        continue
     end function
 
     subroutine reset_declaration_state(this)
