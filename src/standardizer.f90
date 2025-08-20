@@ -36,7 +36,7 @@ contains
         logical, intent(in), optional :: in_module
         integer :: i
         logical :: is_in_module
-
+        
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
 
@@ -816,10 +816,16 @@ contains
                 if (allocated(arena%entries(assign%target_index)%node)) then
                     select type (target => arena%entries(assign%target_index)%node)
                     type is (identifier_node)
-                        ! Check if the value is an array expression
-                        var_type = ""  ! No default - rely on type inference
+                        ! First check if the identifier already has an inferred type
+                        if (allocated(target%inferred_type)) then
+                            var_type = get_fortran_type_string(target%inferred_type)
+                        else
+                            ! Check if the value is an array expression
+                            var_type = ""  ! No default - rely on type inference
+                        end if
                         
-                        ! Try to get type from the value expression
+                        ! If no type yet, try to get type from the value expression
+                        if (len_trim(var_type) == 0) then
                         if (assign%value_index > 0 .and. &
                             assign%value_index <= arena%size) then
                             if (allocated(arena%entries(assign%value_index)%node)) then
@@ -833,15 +839,21 @@ contains
                                         get_expression_type(arena, assign%value_index)
                                     if (associated(value_type)) then
                                         var_type = get_fortran_type_string(value_type)
+                                        ! Debug output
+                                    else
                                     end if
                                 end if
                             end if
                         end if
+                        end if  ! For len_trim(var_type) == 0 check
                         
                         ! Now collect the variable with the determined type
-                        call collect_identifier_var_with_type(target, var_type, &
-                            var_names, var_types, var_declared, var_count, &
-                            function_names, func_count)
+                        ! Skip if no type was determined - let semantic analyzer handle it
+                        if (len_trim(var_type) > 0) then
+                            call collect_identifier_var_with_type(target, var_type, &
+                                var_names, var_types, var_declared, var_count, &
+                                function_names, func_count)
+                        end if
                     end select
                 end if
             end if
@@ -1073,6 +1085,9 @@ contains
             else
                 type_str = "real"
             end if
+        case (TVAR)
+            ! Type variable - cannot determine concrete type
+            type_str = ""  ! No default for type variables
         case (TLOGICAL)
             type_str = "logical"
         case (TCHAR)
@@ -1148,6 +1163,33 @@ contains
         type is (literal_node)
             if (allocated(node%inferred_type)) then
                 expr_type => node%inferred_type
+            else
+                ! Infer type directly from literal kind if inferred_type not set
+                ! Create a static type that will persist (memory leak but acceptable for now)
+                allocate(expr_type)
+                select case (node%literal_kind)
+                case (LITERAL_INTEGER)
+                    expr_type%kind = TINT
+                    expr_type%size = 0
+                    allocate(expr_type%var%name, source="")
+                case (LITERAL_REAL)
+                    expr_type%kind = TREAL
+                    expr_type%size = 0
+                    allocate(expr_type%var%name, source="")
+                case (LITERAL_STRING)
+                    ! Calculate string length (subtract 2 for quotes)
+                    expr_type%kind = TCHAR
+                    expr_type%size = len_trim(node%value) - 2
+                    allocate(expr_type%var%name, source="")
+                case (LITERAL_LOGICAL)
+                    expr_type%kind = TLOGICAL
+                    expr_type%size = 0
+                    allocate(expr_type%var%name, source="")
+                case default
+                    ! Unknown literal kind - return null
+                    deallocate(expr_type)
+                    expr_type => null()
+                end select
             end if
         end select
     end function get_expression_type

@@ -1393,7 +1393,7 @@ contains
         else
             type_str = "real"  ! Default fallback
         end if
-
+        
         ! Generate basic declaration
         code = type_str
 
