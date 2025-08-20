@@ -1,9 +1,10 @@
 module variable_declaration_analyzer
     use semantic_analyzer_base, only: semantic_analyzer_t
     use ast_core, only: ast_arena_t, identifier_node, assignment_node, function_def_node, &
-                        declaration_node, program_node, implicit_statement_node, literal_node
-    use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                 analyze_program
+                        declaration_node, program_node, implicit_statement_node, literal_node, &
+                        binary_op_node
+    use semantic_analyzer, only: semantic_context_t
+    use semantic_pipeline, only: shared_context_t
     use ast_factory, only: push_declaration
     use error_handling, only: result_t, ERROR_ERROR, ERROR_SEMANTIC
     use type_system_hm, only: mono_type_t, TVAR, TINT, TREAL, TCHAR, TLOGICAL, &
@@ -48,26 +49,50 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
 
-        type(semantic_context_t) :: local_context
         logical :: success
 
         ! Reset state for new analysis
         call this%reset_state()
 
-        ! Initialize semantic context for type inference
-        local_context = create_semantic_context()
-
-        ! Create mutable copy for semantic analysis and AST modification
-        block
-            type(ast_arena_t) :: mutable_arena
-            mutable_arena = arena
-            
-            ! Perform semantic analysis to get type information
-            call analyze_program(local_context, mutable_arena, node_index)
-
-            ! Process the AST to generate missing variable declarations
-            call process_node_for_declarations(this, mutable_arena, local_context, node_index, success)
-        end block
+        ! Use the shared context passed from the pipeline
+        select type (shared_context)
+        type is (shared_context_t)
+            ! Need to extract semantic context from shared context
+            block
+                class(*), allocatable :: sem_ctx
+                sem_ctx = shared_context%get_result("type_analyzer")
+                if (allocated(sem_ctx)) then
+                    select type(sem_ctx)
+                    type is (semantic_context_t)
+                        ! Now we have the semantic context
+                        ! IMPORTANT: Work directly on the passed arena, not a copy
+                        ! This ensures changes persist through the pipeline
+                        call process_node_for_declarations(this, arena, sem_ctx, node_index, success)
+                    class default
+                        success = .false.
+                    end select
+                else
+                    success = .false.
+                end if
+            end block
+        type is (semantic_context_t)
+            ! Create mutable copy for AST modification
+            block
+                type(ast_arena_t) :: mutable_arena
+                mutable_arena = arena
+                
+                ! Process the AST to generate missing variable declarations
+                ! using the shared context that already has type information
+                call process_node_for_declarations(this, mutable_arena, shared_context, node_index, success)
+            end block
+        class default
+            ! Wrong context type - fail gracefully
+            this%result%analysis_result%success = .false.
+            this%result%analysis_result%error_code = ERROR_SEMANTIC
+            this%result%analysis_result%error_message = "Invalid context type for variable_declaration_analyzer"
+            this%analysis_complete = .true.
+            return
+        end select
 
         if (success) then
             this%result%analysis_result%success = .true.
@@ -89,13 +114,23 @@ contains
 
         success = .true.
 
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        if (node_index <= 0 .or. node_index > arena%size) then
+            print *, "[DEBUG] Invalid node_index: ", node_index
+            return
+        end if
+        if (.not. allocated(arena%entries(node_index)%node)) then
+            print *, "[DEBUG] Node not allocated at index: ", node_index
+            return
+        end if
+        
+        print *, "[DEBUG] Processing node at index: ", node_index
 
         select type (node => arena%entries(node_index)%node)
         type is (program_node)
+            print *, "[DEBUG] Found program_node"
             call process_program_node(this, arena, context, node, success)
         type is (function_def_node)
+            print *, "[DEBUG] Found function_def_node"
             ! Need mutable access to function node for AST modification
             select type (mutable_node => arena%entries(node_index)%node)
             type is (function_def_node)
@@ -143,11 +178,20 @@ contains
         integer :: i
 
         success = .true.
+        
+        print *, "[DEBUG] process_function_node called"
 
         ! Function scope only - preserve program-level implicit behavior
         call collect_undeclared_variables(arena, func_node, var_names, undeclared_count)
+        
+        print *, "[DEBUG] Found undeclared_count = ", undeclared_count
 
         if (undeclared_count == 0) return
+        
+        ! Debug: print variable names
+        do i = 1, undeclared_count
+            print *, "[DEBUG] Undeclared variable: ", trim(var_names(i))
+        end do
 
         ! Allocate arrays for type information
         allocate(character(len=32) :: var_types(undeclared_count))
@@ -156,6 +200,15 @@ contains
         ! Try to infer types for each undeclared variable
         call infer_variable_types(arena, context, var_names, var_types, can_infer, &
                                 undeclared_count)
+        
+        ! Debug: print inferred types
+        do i = 1, undeclared_count
+            if (can_infer(i)) then
+                print *, "[DEBUG] Variable ", trim(var_names(i)), " type: ", trim(var_types(i))
+            else
+                print *, "[DEBUG] Variable ", trim(var_names(i)), " type cannot be inferred"
+            end if
+        end do
 
         ! CRITICAL: Error handling for uninferable types (Issue #327)
         do i = 1, undeclared_count
@@ -185,12 +238,14 @@ contains
 
         character(len=32), allocatable :: temp_names(:)
         logical, allocatable :: declared(:)
+        logical, allocatable :: is_argument(:)
         integer :: max_vars = 100  ! Initial capacity
-        integer :: i
+        integer :: i, j
 
         ! Allocate temporary storage
         allocate(character(len=32) :: temp_names(max_vars))
         allocate(declared(max_vars))
+        allocate(is_argument(max_vars))
         count = 0
 
         ! Traverse function body to find variable usage
@@ -200,15 +255,52 @@ contains
                                            temp_names, declared, count, max_vars)
             end do
         end if
-
-        ! Copy results to output
-        if (count > 0) then
-            allocate(character(len=32) :: var_names(count))
-            do i = 1, count
-                var_names(i) = trim(temp_names(i))
+        
+        ! Mark function arguments as declared
+        ! Function arguments are stored as param_indices pointing to identifier nodes
+        if (allocated(func_node%param_indices)) then
+            do i = 1, size(func_node%param_indices)
+                if (func_node%param_indices(i) > 0 .and. &
+                    func_node%param_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(func_node%param_indices(i))%node)) then
+                        select type (param_node => arena%entries(func_node%param_indices(i))%node)
+                        type is (identifier_node)
+                            ! Mark this parameter as declared
+                            do j = 1, count
+                                if (trim(temp_names(j)) == trim(param_node%name)) then
+                                    declared(j) = .true.
+                                    is_argument(j) = .true.
+                                end if
+                            end do
+                        end select
+                    end if
+                end if
             end do
+        end if
+
+        ! Copy only undeclared variables to output
+        ! First, count actual undeclared variables
+        j = 0
+        do i = 1, count
+            if (.not. declared(i)) then
+                j = j + 1
+            end if
+        end do
+        
+        ! Now copy only undeclared variables to output
+        if (j > 0) then
+            allocate(character(len=32) :: var_names(j))
+            j = 0
+            do i = 1, count
+                if (.not. declared(i)) then
+                    j = j + 1
+                    var_names(j) = trim(temp_names(i))
+                end if
+            end do
+            count = j  ! Update count to reflect only undeclared variables
         else
             allocate(character(len=32) :: var_names(0))
+            count = 0
         end if
     end subroutine
 
@@ -358,19 +450,49 @@ contains
 
         type(mono_type_t) :: inferred_type
         logical :: found_type
+        integer :: i
         
         can_infer = .false.
         var_type = ""
+        
+        print *, "[DEBUG] Looking for type of variable: ", trim(var_name)
 
-        ! Try to find the inferred type in the semantic context
+        ! First, try to find the inferred type in the semantic context
         ! This integrates with the existing Hindley-Milner type system
         call find_variable_type_in_context(context, var_name, inferred_type, found_type)
+        
+        print *, "[DEBUG] Type found in context: ", found_type
 
         if (found_type) then
+            print *, "[DEBUG] Type kind: ", inferred_type%kind
             ! Check if the type is concrete (not a type variable)
             if (inferred_type%kind /= TVAR) then
                 var_type = get_fortran_type_string(inferred_type)
                 can_infer = .true.
+                print *, "[DEBUG] Inferred type from context: ", trim(var_type)
+            else
+                print *, "[DEBUG] Type is still a type variable"
+            end if
+        else
+            ! If not found in context, search for the variable in the AST
+            ! and check if it has an inferred_type attached
+            print *, "[DEBUG] Searching AST for variable type"
+            call find_variable_type_in_ast(arena, var_name, inferred_type, found_type)
+            if (found_type) then
+                print *, "[DEBUG] Found type in AST, kind: ", inferred_type%kind
+                if (inferred_type%kind /= TVAR) then
+                    var_type = get_fortran_type_string(inferred_type)
+                    can_infer = .true.
+                    print *, "[DEBUG] Inferred type from AST: ", trim(var_type)
+                end if
+            else
+                ! Fallback: try to infer from usage patterns
+                print *, "[DEBUG] Trying pattern-based inference"
+                call infer_type_from_usage_patterns(arena, var_name, var_type, found_type)
+                if (found_type) then
+                    can_infer = .true.
+                    print *, "[DEBUG] Inferred type from usage: ", trim(var_type)
+                end if
             end if
         end if
     end subroutine
@@ -417,18 +539,24 @@ contains
         ! Generate declarations for variables with inferred types
         do i = 1, count
             if (can_infer(i)) then
+                print *, "[DEBUG] Creating declaration for ", trim(var_names(i)), " type ", trim(var_types(i))
                 ! Create declaration node using AST factory
                 call create_variable_declaration_node(arena, var_names(i), var_types(i), &
                                                     decl_index, declaration_created)
                 
                 if (declaration_created) then
+                    print *, "[DEBUG] Declaration node created, inserting at position ", insert_position
                     ! Insert into function body at appropriate position
                     call insert_declaration_at_position(arena, func_node, insert_position, &
                                                        decl_index, success)
                     if (success) then
                         this%result%declarations_count = this%result%declarations_count + 1
+                        print *, "[DEBUG] Declaration inserted successfully"
+                    else
+                        print *, "[DEBUG] Declaration insertion failed"
                     end if
                 else
+                    print *, "[DEBUG] Declaration node creation failed"
                     success = .false.
                 end if
             end if
@@ -631,6 +759,234 @@ contains
                 found = .true.
             end if
         end if
+    end subroutine
+    
+    ! Helper function to search AST for variable type information
+    recursive subroutine find_variable_type_in_ast(arena, var_name, var_type, found)
+        type(ast_arena_t), intent(in) :: arena
+        character(*), intent(in) :: var_name
+        type(mono_type_t), intent(out) :: var_type
+        logical, intent(out) :: found
+        
+        integer :: i
+        
+        found = .false.
+        
+        ! Search through all nodes in the arena
+        do i = 1, arena%size
+            if (allocated(arena%entries(i)%node)) then
+                call check_node_for_variable_type(arena, i, var_name, var_type, found)
+                if (found) return
+            end if
+        end do
+    end subroutine
+    
+    subroutine check_node_for_variable_type(arena, node_index, var_name, var_type, found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(*), intent(in) :: var_name
+        type(mono_type_t), intent(out) :: var_type
+        logical, intent(out) :: found
+        
+        found = .false.
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (identifier_node)
+            if (trim(node%name) == trim(var_name)) then
+                if (allocated(node%inferred_type)) then
+                    var_type = node%inferred_type
+                    found = .true.
+                end if
+            end if
+        type is (assignment_node)
+            ! Check if the target of assignment matches
+            if (node%target_index > 0 .and. node%target_index <= arena%size) then
+                if (allocated(arena%entries(node%target_index)%node)) then
+                    select type (target => arena%entries(node%target_index)%node)
+                    type is (identifier_node)
+                        if (trim(target%name) == trim(var_name)) then
+                            ! Get type from assignment node or value
+                            if (allocated(node%inferred_type)) then
+                                var_type = node%inferred_type
+                                found = .true.
+                            end if
+                        end if
+                    end select
+                end if
+            end if
+        end select
+    end subroutine
+    
+    ! Simple pattern-based type inference for demonstration
+    subroutine infer_type_from_usage_patterns(arena, var_name, var_type, found)
+        type(ast_arena_t), intent(in) :: arena
+        character(*), intent(in) :: var_name
+        character(len=32), intent(out) :: var_type
+        logical, intent(out) :: found
+        
+        integer :: i
+        logical :: is_function_result
+        
+        found = .false.
+        var_type = ""
+        is_function_result = .false.
+        
+        ! Check if this is a function result variable
+        ! In "y = 2.0 * x", if y is the function result and assigned a real expression,
+        ! we can infer it should be real
+        do i = 1, arena%size
+            if (allocated(arena%entries(i)%node)) then
+                select type (node => arena%entries(i)%node)
+                type is (function_def_node)
+                    if (allocated(node%result_variable)) then
+                        if (trim(node%result_variable) == trim(var_name)) then
+                            is_function_result = .true.
+                            exit
+                        end if
+                    end if
+                end select
+            end if
+        end do
+        
+        if (is_function_result) then
+            ! For function result variables, try to infer from assignments
+            call infer_from_assignment_patterns(arena, var_name, var_type, found)
+        end if
+    end subroutine
+    
+    subroutine infer_from_assignment_patterns(arena, var_name, var_type, found)
+        type(ast_arena_t), intent(in) :: arena
+        character(*), intent(in) :: var_name
+        character(len=32), intent(out) :: var_type
+        logical, intent(out) :: found
+        
+        integer :: i
+        
+        found = .false.
+        var_type = ""
+        
+        ! Look for assignment patterns
+        do i = 1, arena%size
+            if (allocated(arena%entries(i)%node)) then
+                select type (node => arena%entries(i)%node)
+                type is (assignment_node)
+                    ! Check if target is our variable
+                    if (node%target_index > 0 .and. node%target_index <= arena%size) then
+                        if (allocated(arena%entries(node%target_index)%node)) then
+                            select type (target => arena%entries(node%target_index)%node)
+                            type is (identifier_node)
+                                if (trim(target%name) == trim(var_name)) then
+                                    ! Found assignment to our variable
+                                    call infer_type_from_expression(arena, node%value_index, var_type, found)
+                                    if (found) return
+                                end if
+                            end select
+                        end if
+                    end if
+                end select
+            end if
+        end do
+    end subroutine
+    
+    recursive subroutine infer_type_from_expression(arena, expr_index, var_type, found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        character(len=32), intent(out) :: var_type
+        logical, intent(out) :: found
+        
+        found = .false.
+        var_type = ""
+        
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+        
+        select type (node => arena%entries(expr_index)%node)
+        type is (literal_node)
+            ! Direct literal assignment
+            call infer_type_from_literal(node%value, var_type, found)
+        type is (binary_op_node)
+            ! Binary operation - use left operand type
+            if (node%left_index > 0) then
+                call infer_type_from_expression(arena, node%left_index, var_type, found)
+            end if
+        end select
+    end subroutine
+    
+    subroutine infer_type_from_literal(literal_value, var_type, found)
+        character(*), intent(in) :: literal_value
+        character(len=32), intent(out) :: var_type
+        logical, intent(out) :: found
+        
+        character(len=:), allocatable :: trimmed
+        integer :: dot_pos
+        
+        found = .false.
+        var_type = ""
+        trimmed = trim(literal_value)
+        
+        ! Check for real literals (contains decimal point)
+        dot_pos = index(trimmed, '.')
+        if (dot_pos > 0) then
+            ! It's a real literal
+            var_type = "real"
+            found = .true.
+        else if (is_integer_literal(trimmed)) then
+            var_type = "integer"
+            found = .true.
+        else if (is_logical_literal(trimmed)) then
+            var_type = "logical"
+            found = .true.
+        else if (is_character_literal(trimmed)) then
+            var_type = "character(len=*)"
+            found = .true.
+        end if
+    end subroutine
+    
+    logical function is_integer_literal(str)
+        character(*), intent(in) :: str
+        integer :: i, stat
+        integer :: dummy
+        
+        is_integer_literal = .false.
+        if (len_trim(str) == 0) return
+        
+        ! Try to read as integer
+        read(str, *, iostat=stat) dummy
+        is_integer_literal = (stat == 0)
+    end function
+    
+    logical function is_logical_literal(str)
+        character(*), intent(in) :: str
+        character(len=:), allocatable :: lower_str
+        
+        lower_str = trim(str)
+        call to_lower(lower_str)
+        is_logical_literal = (lower_str == ".true." .or. lower_str == ".false.")
+    end function
+    
+    logical function is_character_literal(str)
+        character(*), intent(in) :: str
+        
+        is_character_literal = .false.
+        if (len_trim(str) >= 2) then
+            is_character_literal = (str(1:1) == "'" .and. str(len_trim(str):len_trim(str)) == "'") .or. &
+                                  (str(1:1) == '"' .and. str(len_trim(str):len_trim(str)) == '"')
+        end if
+    end function
+    
+    subroutine to_lower(str)
+        character(len=:), allocatable, intent(inout) :: str
+        integer :: i, char_code
+        
+        do i = 1, len(str)
+            char_code = iachar(str(i:i))
+            if (char_code >= 65 .and. char_code <= 90) then
+                str(i:i) = achar(char_code + 32)
+            end if
+        end do
     end subroutine
 
     function get_declaration_results(this) result(results)

@@ -54,9 +54,8 @@ contains
         call pipeline%register_analyzer(symbol_analyzer_t())
         call pipeline%register_analyzer(scope_analyzer_t())
         call pipeline%register_analyzer(type_analyzer_t())
-        ! DISABLED: variable_declaration_analyzer creates its own context and loses types
-        ! The standardizer already handles variable declarations properly
-        ! call pipeline%register_analyzer(variable_declaration_analyzer_t())
+        ! Re-enabled after fixing context management (Issue #320)
+        call pipeline%register_analyzer(variable_declaration_analyzer_t())
     end function
 
     ! Backward-compatible wrapper for existing analyze_semantics
