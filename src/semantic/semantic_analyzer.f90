@@ -30,6 +30,7 @@ module semantic_analyzer
     public :: undeclared_variable_t, collect_undeclared_variables
     public :: type_constraint_t, infer_types_for_undeclared_variables
     public :: usage_pattern_t
+    public :: declaration_t
 
     ! Constants for variable usage types
     integer, parameter, public :: USAGE_PARAMETER = 1
@@ -86,6 +87,18 @@ module semantic_analyzer
         generic :: assignment(=) => assign
     end type undeclared_variable_t
 
+    ! Data structure for variable declaration generation
+    type :: declaration_t
+        character(len=:), allocatable :: type_spec     ! "real(8)", "integer", "character(len=*)"
+        character(len=:), allocatable :: intent_attr   ! "intent(in)", "intent(out)", etc.
+        character(len=:), allocatable :: variable_name
+        logical :: is_array
+        character(len=:), allocatable :: array_spec    ! "(:)", "(:,:)", etc.
+    contains
+        procedure :: assign => declaration_assign
+        generic :: assignment(=) => assign
+    end type declaration_t
+
     ! Semantic analysis context
     type :: semantic_context_t
         type(type_env_t) :: env  ! Legacy flat environment (to be removed)
@@ -111,6 +124,7 @@ module semantic_analyzer
         procedure :: collect_undeclared_variables
         procedure :: infer_types_for_undeclared_variables
         procedure :: analyze_parameter_intent
+        procedure :: generate_variable_declarations
         generic :: assignment(=) => assign
     end type semantic_context_t
 
@@ -4162,5 +4176,211 @@ contains
             intent_result = INTENT_INOUT
         end if
     end subroutine determine_intent_from_pattern
+
+    ! Assignment operator for declaration_t
+    subroutine declaration_assign(this, other)
+        class(declaration_t), intent(out) :: this
+        type(declaration_t), intent(in) :: other
+
+        if (allocated(other%type_spec)) this%type_spec = other%type_spec
+        if (allocated(other%intent_attr)) this%intent_attr = other%intent_attr
+        if (allocated(other%variable_name)) this%variable_name = other%variable_name
+        this%is_array = other%is_array
+        if (allocated(other%array_spec)) this%array_spec = other%array_spec
+    end subroutine declaration_assign
+
+    ! Generate variable declarations from undeclared variables with inferred types
+    subroutine generate_variable_declarations(this, arena, scope_index, &
+                                            undeclared_vars, declarations)
+        class(semantic_context_t), intent(inout) :: this
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        type(undeclared_variable_t), intent(in) :: undeclared_vars(:)
+        type(declaration_t), allocatable, intent(out) :: declarations(:)
+        
+        integer :: i, decl_count, existing_count
+        type(declaration_t) :: temp_decl
+        character(len=:), allocatable :: existing_names(:)
+        logical :: already_declared
+        
+        ! First pass: count variables that need declarations
+        decl_count = 0
+        
+        ! Get already declared variables in this scope
+        call get_existing_declarations(this, arena, scope_index, existing_names)
+        existing_count = 0
+        if (allocated(existing_names)) existing_count = size(existing_names)
+        
+        do i = 1, size(undeclared_vars)
+            ! Skip if already declared
+            already_declared = .false.
+            if (existing_count > 0) then
+                already_declared = any(existing_names == undeclared_vars(i)%name)
+            end if
+            
+            if (.not. already_declared) then
+                decl_count = decl_count + 1
+            end if
+        end do
+        
+        ! Allocate declarations array
+        allocate(declarations(decl_count))
+        
+        ! Second pass: generate declarations
+        decl_count = 0
+        do i = 1, size(undeclared_vars)
+            ! Skip if already declared
+            already_declared = .false.
+            if (existing_count > 0) then
+                already_declared = any(existing_names == undeclared_vars(i)%name)
+            end if
+            
+            if (.not. already_declared) then
+                decl_count = decl_count + 1
+                call create_declaration_from_variable(undeclared_vars(i), temp_decl)
+                declarations(decl_count) = temp_decl
+            end if
+        end do
+    end subroutine generate_variable_declarations
+
+    ! Helper: Get existing declaration names in scope
+    subroutine get_existing_declarations(ctx, arena, scope_index, existing_names)
+        type(semantic_context_t), intent(in) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: scope_index
+        character(len=:), allocatable, intent(out) :: existing_names(:)
+        
+        type(scope_t) :: scope
+        integer :: i, name_count
+        character(len=256), allocatable :: temp_names(:)
+        
+        ! Get the scope
+        if (scope_index > 0 .and. scope_index <= ctx%scopes%depth) then
+            scope = ctx%scopes%scopes(scope_index)
+            
+            ! Count declared variables from type environment
+            name_count = 0
+            do i = 1, scope%env%count
+                if (allocated(scope%env%names) .and. i <= size(scope%env%names)) then
+                    if (len_trim(scope%env%names(i)) > 0) then
+                        name_count = name_count + 1
+                    end if
+                end if
+            end do
+            
+            ! Collect names
+            if (name_count > 0) then
+                allocate(character(len=256) :: temp_names(name_count))
+                name_count = 0
+                do i = 1, scope%env%count
+                    if (allocated(scope%env%names) .and. i <= size(scope%env%names)) then
+                        if (len_trim(scope%env%names(i)) > 0) then
+                            name_count = name_count + 1
+                            temp_names(name_count) = trim(scope%env%names(i))
+                        end if
+                    end if
+                end do
+                
+                ! Convert to allocatable string array
+                allocate(character(len=256) :: existing_names(name_count))
+                do i = 1, name_count
+                    existing_names(i) = temp_names(i)
+                end do
+            end if
+        end if
+    end subroutine get_existing_declarations
+
+    ! Helper: Create declaration from undeclared variable
+    subroutine create_declaration_from_variable(var, declaration)
+        type(undeclared_variable_t), intent(in) :: var
+        type(declaration_t), intent(out) :: declaration
+        
+        ! Set variable name
+        declaration%variable_name = var%name
+        
+        ! Generate type specification from inferred type
+        call mono_type_to_fortran_spec(var%inferred_type, declaration%type_spec, &
+                                      declaration%is_array, declaration%array_spec)
+        
+        ! Set intent attribute
+        call intent_to_fortran_attr(var%inferred_intent, var%usage_type, &
+                                   declaration%intent_attr)
+    end subroutine create_declaration_from_variable
+
+    ! Helper: Convert mono_type_t to Fortran type specification
+    recursive subroutine mono_type_to_fortran_spec(mono_type, type_spec, is_array, array_spec)
+        type(mono_type_t), intent(in) :: mono_type
+        character(len=:), allocatable, intent(out) :: type_spec
+        logical, intent(out) :: is_array
+        character(len=:), allocatable, intent(out) :: array_spec
+        
+        is_array = .false.
+        
+        select case (mono_type%kind)
+        case (TINT)
+            type_spec = "integer"
+        case (TREAL)
+            type_spec = "real(dp)"  ! Use double precision by default
+        case (TCHAR)
+            type_spec = "character(len=*)"
+        case (TLOGICAL)
+            type_spec = "logical"
+        case (TARRAY)
+            is_array = .true.
+            if (allocated(mono_type%args) .and. size(mono_type%args) > 0) then
+                call mono_type_to_fortran_spec(mono_type%args(1), type_spec, &
+                                              is_array, array_spec)
+                is_array = .true.  ! Override for array
+                ! Use size field for array dimensionality
+                if (mono_type%size > 0) then
+                    call generate_array_spec(mono_type%size, array_spec)
+                else
+                    array_spec = "(:)"  ! Default assumed-shape
+                end if
+            else
+                type_spec = "real(dp)"  ! Default element type
+                array_spec = "(:)"
+            end if
+        case default
+            type_spec = "real(dp)"  ! Default fallback
+        end select
+    end subroutine mono_type_to_fortran_spec
+
+    ! Helper: Generate array specification from dimensions
+    subroutine generate_array_spec(ndims, array_spec)
+        integer, intent(in) :: ndims
+        character(len=:), allocatable, intent(out) :: array_spec
+        integer :: i
+        
+        array_spec = "("
+        do i = 1, ndims
+            if (i > 1) array_spec = array_spec // ","
+            array_spec = array_spec // ":"
+        end do
+        array_spec = array_spec // ")"
+    end subroutine generate_array_spec
+
+    ! Helper: Convert intent to Fortran attribute
+    subroutine intent_to_fortran_attr(intent_type, usage_type, intent_attr)
+        integer, intent(in) :: intent_type, usage_type
+        character(len=:), allocatable, intent(out) :: intent_attr
+        
+        ! Function result variables have no intent
+        if (usage_type == USAGE_RESULT_VAR) then
+            intent_attr = ""
+            return
+        end if
+        
+        select case (intent_type)
+        case (INTENT_IN)
+            intent_attr = "intent(in)"
+        case (INTENT_OUT)
+            intent_attr = "intent(out)"
+        case (INTENT_INOUT)
+            intent_attr = "intent(inout)"
+        case default
+            intent_attr = ""  ! No intent for local variables
+        end select
+    end subroutine intent_to_fortran_attr
 
 end module semantic_analyzer

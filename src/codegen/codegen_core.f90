@@ -7,6 +7,7 @@ module codegen_core
     use type_system_hm
     use string_types, only: string_t
     use codegen_indent
+    use semantic_analyzer, only: declaration_t
     implicit none
     private
 
@@ -27,6 +28,7 @@ module codegen_core
     ! Public interface for code generation
     public :: generate_code_from_arena, generate_code_polymorphic, safe_generate_code_from_arena
     public :: set_type_standardization, get_type_standardization
+    public :: generate_declaration_code, insert_generated_declarations
 
 contains
 
@@ -3096,5 +3098,91 @@ contains
             end if
         end select
     end function needs_real_conversion
+
+    ! Generate Fortran declaration code from declaration_t
+    function generate_declaration_code(declaration) result(code)
+        type(declaration_t), intent(in) :: declaration
+        character(len=:), allocatable :: code
+        
+        ! Start with type specification
+        code = declaration%type_spec
+        
+        ! Add array specification if needed
+        if (declaration%is_array .and. allocated(declaration%array_spec)) then
+            code = code // declaration%array_spec
+        end if
+        
+        ! Add intent attribute if present
+        if (allocated(declaration%intent_attr) .and. &
+            len_trim(declaration%intent_attr) > 0) then
+            code = code // ", " // declaration%intent_attr
+        end if
+        
+        ! Add variable name
+        code = code // " :: " // declaration%variable_name
+    end function generate_declaration_code
+
+    ! Insert generated declarations into code after implicit none
+    function insert_generated_declarations(body_code, declarations, indent) result(modified_code)
+        character(len=*), intent(in) :: body_code, indent
+        type(declaration_t), intent(in) :: declarations(:)
+        character(len=:), allocatable :: modified_code
+        character(len=:), allocatable :: declaration_block, line
+        integer :: i, implicit_pos, newline_pos
+        logical :: found_implicit_none
+        
+        modified_code = body_code
+        
+        ! Check if we have any declarations to insert
+        if (size(declarations) == 0) return
+        
+        ! Generate declaration block
+        declaration_block = ""
+        do i = 1, size(declarations)
+            if (i > 1) declaration_block = declaration_block // new_line('a')
+            line = indent // generate_declaration_code(declarations(i))
+            declaration_block = declaration_block // line
+        end do
+        
+        ! Find implicit none position
+        implicit_pos = index(body_code, "implicit none")
+        found_implicit_none = implicit_pos > 0
+        
+        if (found_implicit_none) then
+            ! Find end of implicit none line
+            newline_pos = index(body_code(implicit_pos:), new_line('a'))
+            if (newline_pos > 0) then
+                newline_pos = implicit_pos + newline_pos - 1
+                ! Insert declarations after implicit none
+                modified_code = body_code(1:newline_pos) // &
+                              declaration_block // new_line('a') // &
+                              body_code(newline_pos+1:)
+            else
+                ! implicit none is at end of code
+                modified_code = body_code // new_line('a') // declaration_block
+            end if
+        else
+            ! No implicit none found, insert at beginning of body
+            modified_code = declaration_block // new_line('a') // body_code
+        end if
+    end function insert_generated_declarations
+
+    ! Group similar declarations for cleaner output
+    subroutine group_declarations(declarations, grouped)
+        type(declaration_t), intent(in) :: declarations(:)
+        type(declaration_t), allocatable, intent(out) :: grouped(:)
+        integer :: i, j, group_count
+        character(len=:), allocatable :: group_signature
+        logical :: found_group
+        type(declaration_t) :: temp_decl
+        character(len=:), allocatable :: var_list
+        
+        ! Simple implementation: no grouping for now, just copy
+        ! TODO: Implement declaration grouping by type and intent
+        allocate(grouped(size(declarations)))
+        do i = 1, size(declarations)
+            grouped(i) = declarations(i)
+        end do
+    end subroutine group_declarations
 
 end module codegen_core
