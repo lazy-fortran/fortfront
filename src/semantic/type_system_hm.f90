@@ -198,8 +198,10 @@ contains
         fun_type%var%id = -1
         allocate (character(len=0) :: fun_type%var%name)
         allocate (fun_type%args(2))
-        fun_type%args(1) = arg_type  ! Assignment now does deep copy
-        fun_type%args(2) = result_type  ! Assignment now does deep copy
+        
+        ! Use cycle-safe deep copy instead of broken assignment operator
+        call mono_type_cycle_safe_copy(fun_type%args(1), arg_type)
+        call mono_type_cycle_safe_copy(fun_type%args(2), result_type)
     end function create_fun_type
 
     ! Check if two monomorphic types are equal
@@ -386,7 +388,13 @@ contains
         class(mono_type_t), intent(inout) :: lhs
         type(mono_type_t), intent(in) :: rhs
         
-        ! Use simple depth-limited copy to prevent infinite recursion
+        ! Copy scalar fields manually to avoid recursive assignment call
+        lhs%kind = rhs%kind
+        lhs%size = rhs%size
+        lhs%alloc_info = rhs%alloc_info
+        lhs%var = rhs%var
+        
+        ! Then copy args using depth-limited recursion
         call mono_type_depth_limited_copy(lhs, rhs, 0)
     end subroutine mono_type_cycle_safe_copy
     
