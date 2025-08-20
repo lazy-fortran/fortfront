@@ -65,9 +65,14 @@ contains
                     select type(sem_ctx)
                     type is (semantic_context_t)
                         ! Now we have the semantic context
-                        ! IMPORTANT: Work directly on the passed arena, not a copy
-                        ! This ensures changes persist through the pipeline
-                        call process_node_for_declarations(this, arena, sem_ctx, node_index, success)
+                        ! Create mutable copy for AST modification
+                        block
+                            type(ast_arena_t) :: mutable_arena
+                            mutable_arena = arena
+                            
+                            ! Process the AST to generate missing variable declarations
+                            call process_node_for_declarations(this, mutable_arena, sem_ctx, node_index, success)
+                        end block
                     class default
                         success = .false.
                     end select
@@ -114,23 +119,13 @@ contains
 
         success = .true.
 
-        if (node_index <= 0 .or. node_index > arena%size) then
-            print *, "[DEBUG] Invalid node_index: ", node_index
-            return
-        end if
-        if (.not. allocated(arena%entries(node_index)%node)) then
-            print *, "[DEBUG] Node not allocated at index: ", node_index
-            return
-        end if
-        
-        print *, "[DEBUG] Processing node at index: ", node_index
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
 
         select type (node => arena%entries(node_index)%node)
         type is (program_node)
-            print *, "[DEBUG] Found program_node"
             call process_program_node(this, arena, context, node, success)
         type is (function_def_node)
-            print *, "[DEBUG] Found function_def_node"
             ! Need mutable access to function node for AST modification
             select type (mutable_node => arena%entries(node_index)%node)
             type is (function_def_node)
@@ -178,20 +173,11 @@ contains
         integer :: i
 
         success = .true.
-        
-        print *, "[DEBUG] process_function_node called"
 
         ! Function scope only - preserve program-level implicit behavior
         call collect_undeclared_variables(arena, func_node, var_names, undeclared_count)
         
-        print *, "[DEBUG] Found undeclared_count = ", undeclared_count
-
         if (undeclared_count == 0) return
-        
-        ! Debug: print variable names
-        do i = 1, undeclared_count
-            print *, "[DEBUG] Undeclared variable: ", trim(var_names(i))
-        end do
 
         ! Allocate arrays for type information
         allocate(character(len=32) :: var_types(undeclared_count))
@@ -200,15 +186,6 @@ contains
         ! Try to infer types for each undeclared variable
         call infer_variable_types(arena, context, var_names, var_types, can_infer, &
                                 undeclared_count)
-        
-        ! Debug: print inferred types
-        do i = 1, undeclared_count
-            if (can_infer(i)) then
-                print *, "[DEBUG] Variable ", trim(var_names(i)), " type: ", trim(var_types(i))
-            else
-                print *, "[DEBUG] Variable ", trim(var_names(i)), " type cannot be inferred"
-            end if
-        end do
 
         ! CRITICAL: Error handling for uninferable types (Issue #327)
         do i = 1, undeclared_count
@@ -454,44 +431,31 @@ contains
         
         can_infer = .false.
         var_type = ""
-        
-        print *, "[DEBUG] Looking for type of variable: ", trim(var_name)
 
         ! First, try to find the inferred type in the semantic context
         ! This integrates with the existing Hindley-Milner type system
         call find_variable_type_in_context(context, var_name, inferred_type, found_type)
-        
-        print *, "[DEBUG] Type found in context: ", found_type
 
         if (found_type) then
-            print *, "[DEBUG] Type kind: ", inferred_type%kind
             ! Check if the type is concrete (not a type variable)
             if (inferred_type%kind /= TVAR) then
                 var_type = get_fortran_type_string(inferred_type)
                 can_infer = .true.
-                print *, "[DEBUG] Inferred type from context: ", trim(var_type)
-            else
-                print *, "[DEBUG] Type is still a type variable"
             end if
         else
             ! If not found in context, search for the variable in the AST
             ! and check if it has an inferred_type attached
-            print *, "[DEBUG] Searching AST for variable type"
             call find_variable_type_in_ast(arena, var_name, inferred_type, found_type)
             if (found_type) then
-                print *, "[DEBUG] Found type in AST, kind: ", inferred_type%kind
                 if (inferred_type%kind /= TVAR) then
                     var_type = get_fortran_type_string(inferred_type)
                     can_infer = .true.
-                    print *, "[DEBUG] Inferred type from AST: ", trim(var_type)
                 end if
             else
                 ! Fallback: try to infer from usage patterns
-                print *, "[DEBUG] Trying pattern-based inference"
                 call infer_type_from_usage_patterns(arena, var_name, var_type, found_type)
                 if (found_type) then
                     can_infer = .true.
-                    print *, "[DEBUG] Inferred type from usage: ", trim(var_type)
                 end if
             end if
         end if
@@ -539,24 +503,20 @@ contains
         ! Generate declarations for variables with inferred types
         do i = 1, count
             if (can_infer(i)) then
-                print *, "[DEBUG] Creating declaration for ", trim(var_names(i)), " type ", trim(var_types(i))
                 ! Create declaration node using AST factory
                 call create_variable_declaration_node(arena, var_names(i), var_types(i), &
                                                     decl_index, declaration_created)
                 
                 if (declaration_created) then
-                    print *, "[DEBUG] Declaration node created, inserting at position ", insert_position
                     ! Insert into function body at appropriate position
                     call insert_declaration_at_position(arena, func_node, insert_position, &
                                                        decl_index, success)
                     if (success) then
                         this%result%declarations_count = this%result%declarations_count + 1
-                        print *, "[DEBUG] Declaration inserted successfully"
                     else
-                        print *, "[DEBUG] Declaration insertion failed"
+                        success = .false.
                     end if
                 else
-                    print *, "[DEBUG] Declaration node creation failed"
                     success = .false.
                 end if
             end if
