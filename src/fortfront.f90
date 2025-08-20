@@ -161,6 +161,7 @@ module fortfront
                                  call_graph_analyzer_t, control_flow_analyzer_t, &
                                  usage_tracker_analyzer_t, source_reconstruction_analyzer_t, &
                                  interface_analyzer_t
+    use variable_declaration_analyzer, only: variable_declaration_analyzer_t
     use semantic_pipeline_integration, only: analyze_semantics_with_pipeline, &
                                              create_default_semantic_pipeline
     
@@ -280,6 +281,7 @@ module fortfront
 
     ! Public analysis plugin APIs for fluff integration
     public :: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t, &
+              variable_declaration_analyzer_t, &
               call_graph_analyzer_t, control_flow_analyzer_t, &
               usage_tracker_analyzer_t, source_reconstruction_analyzer_t, &
               interface_analyzer_t

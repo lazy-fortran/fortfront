@@ -19,6 +19,7 @@ module frontend
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                    analyze_program
     use semantic_analyzer_with_checks, only: analyze_program_with_checks
+    use semantic_pipeline_integration, only: analyze_semantics_with_pipeline
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
     use codegen_core, only: generate_code_from_arena, generate_code_polymorphic, &
@@ -145,9 +146,9 @@ contains
         if (error_msg /= "") return
         ! Debug AST output disabled - implement later if needed
 
-        ! Phase 3: Semantic Analysis (only for lazy fortran)
-        ! Use the version with INTENT checking
-        call analyze_program_with_checks(arena, prog_index)
+        ! Phase 3: Semantic Analysis with Variable Declaration Generation
+        ! Use the new semantic pipeline with variable declaration analyzer
+        call analyze_semantics_with_pipeline(arena, prog_index)
         ! Debug semantic output disabled - implement later if needed
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
@@ -198,9 +199,9 @@ contains
         call parse_tokens(tokens, arena, prog_index, error_msg)
         if (error_msg /= "") return
 
-        ! Phase 3: Semantic Analysis (only for lazy fortran)
-        ! Use the version with INTENT checking
-        call analyze_program_with_checks(arena, prog_index)
+        ! Phase 3: Semantic Analysis with Variable Declaration Generation
+        ! Use the new semantic pipeline with variable declaration analyzer
+        call analyze_semantics_with_pipeline(arena, prog_index)
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
         call standardize_ast(arena, prog_index)
@@ -1569,8 +1570,8 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             return
         end if
 
-        ! Phase 3: Semantic Analysis
-        call analyze_program_with_checks(arena, prog_index)
+        ! Phase 3: Semantic Analysis with Variable Declaration Generation
+        call analyze_semantics_with_pipeline(arena, prog_index)
 
         ! Phase 4: Standardization
         ! Skip standardization for multi-unit containers
@@ -1651,7 +1652,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
 
-        call analyze_program_with_checks(arena, prog_index)
+        call analyze_semantics_with_pipeline(arena, prog_index)
     end subroutine analyze_semantics
 
     subroutine emit_fortran(arena, prog_index, fortran_code)

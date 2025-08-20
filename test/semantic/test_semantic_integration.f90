@@ -31,8 +31,9 @@ program test_semantic_integration
 
     ! Test 3: Default pipeline creation works
     default_pipeline = create_default_semantic_pipeline()
-    if (default_pipeline%get_analyzer_count() /= 3) then
-        print *, "FAIL: Default pipeline should have 3 analyzers"
+    if (default_pipeline%get_analyzer_count() /= 4) then
+        print *, "FAIL: Default pipeline should have 4 analyzers (symbol, scope, type, variable_declaration)"
+        print *, "      Actual count:", default_pipeline%get_analyzer_count()
         error stop
     end if
     print *, "PASS: Default semantic pipeline creation works"

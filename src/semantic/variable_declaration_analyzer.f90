@@ -6,7 +6,9 @@ module variable_declaration_analyzer
                                  analyze_program
     use ast_factory, only: push_declaration
     use error_handling, only: result_t, ERROR_ERROR, ERROR_SEMANTIC
-    use type_system_hm, only: mono_type_t, TVAR, TINT, TREAL, TCHAR, TLOGICAL
+    use type_system_hm, only: mono_type_t, TVAR, TINT, TREAL, TCHAR, TLOGICAL, &
+                               type_env_t, poly_type_t
+    use scope_manager, only: scope_stack_t
     use standardizer, only: get_fortran_type_string
     implicit none
     private
@@ -350,16 +352,17 @@ contains
         character(len=32), intent(out) :: var_type
         logical, intent(out) :: can_infer
 
-        type(mono_type_t), pointer :: inferred_type
+        type(mono_type_t) :: inferred_type
+        logical :: found_type
         
         can_infer = .false.
         var_type = ""
 
         ! Try to find the inferred type in the semantic context
         ! This integrates with the existing Hindley-Milner type system
-        call find_variable_type_in_context(context, var_name, inferred_type)
+        call find_variable_type_in_context(context, var_name, inferred_type, found_type)
 
-        if (associated(inferred_type)) then
+        if (found_type) then
             ! Check if the type is concrete (not a type variable)
             if (inferred_type%kind /= TVAR) then
                 var_type = get_fortran_type_string(inferred_type)
@@ -368,22 +371,23 @@ contains
         end if
     end subroutine
 
-    subroutine find_variable_type_in_context(context, var_name, type_ptr)
+    subroutine find_variable_type_in_context(context, var_name, var_type, found)
         type(semantic_context_t), intent(in) :: context
         character(*), intent(in) :: var_name
-        type(mono_type_t), pointer, intent(out) :: type_ptr
+        type(mono_type_t), intent(out) :: var_type
+        logical, intent(out) :: found
 
-        ! This is a placeholder - in the actual implementation,
-        ! this would search through the semantic context's type environment
-        ! and scope stack to find the inferred type for the variable
+        ! Search through the semantic context's type environment
+        ! This integrates with the existing Hindley-Milner type system
         
-        ! For now, return null to indicate type not found
-        type_ptr => null()
+        found = .false.
         
-        ! TODO: Implement actual type lookup in semantic context
-        ! This should integrate with context%env and context%scopes
-        associate(dummy_var => var_name, dummy_ctx => context)
-        end associate
+        ! First, try to find the variable in the current scope's variable types
+        call lookup_variable_in_env(context%env, var_name, var_type, found)
+        if (found) return
+        
+        ! If not found in env, try the scopes stack for nested scope resolution
+        call lookup_variable_in_scopes(context%scopes, var_name, var_type, found)
     end subroutine
 
     subroutine insert_variable_declarations(this, arena, func_node, var_names, var_types, &
@@ -493,6 +497,58 @@ contains
             this%result%error_details = this%result%error_details // "; " // error_msg
         else
             this%result%error_details = error_msg
+        end if
+    end subroutine
+
+    ! Helper function to lookup variable type in type environment
+    subroutine lookup_variable_in_env(env, var_name, var_type, found)
+        type(type_env_t), intent(in) :: env
+        character(*), intent(in) :: var_name
+        type(mono_type_t), intent(out) :: var_type
+        logical, intent(out) :: found
+        
+        integer :: i
+        type(poly_type_t) :: scheme
+        
+        found = .false.
+        
+        ! Search through names and schemes in the environment
+        if (allocated(env%names) .and. allocated(env%schemes)) then
+            do i = 1, env%count
+                if (trim(env%names(i)) == trim(var_name)) then
+                    scheme = env%schemes(i)
+                    ! If the scheme has no quantified variables, get the mono type
+                    if (.not. allocated(scheme%forall) .or. size(scheme%forall) == 0) then
+                        var_type = scheme%mono
+                        found = .true.
+                        return
+                    end if
+                end if
+            end do
+        end if
+    end subroutine
+
+    ! Helper function to lookup variable type in nested scopes
+    subroutine lookup_variable_in_scopes(scopes, var_name, var_type, found)
+        type(scope_stack_t), intent(in) :: scopes
+        character(*), intent(in) :: var_name
+        type(mono_type_t), intent(out) :: var_type
+        logical, intent(out) :: found
+        
+        type(poly_type_t), allocatable :: scheme
+        
+        found = .false.
+        
+        ! Use the scope stack's lookup functionality
+        ! This searches through scopes from innermost to outermost
+        call scopes%lookup(var_name, scheme)
+        
+        if (allocated(scheme)) then
+            ! If the scheme has no quantified variables, get the mono type
+            if (.not. allocated(scheme%forall) .or. size(scheme%forall) == 0) then
+                var_type = scheme%mono
+                found = .true.
+            end if
         end if
     end subroutine
 
