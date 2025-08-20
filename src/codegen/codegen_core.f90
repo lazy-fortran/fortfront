@@ -2299,10 +2299,11 @@ contains
                 end if
             end do
             
-            ! Generate single parameter declaration
-            if (len_trim(param_list) > 0) then
-                code = code//indent//"real(8), intent(in) :: "//param_list//new_line('a')
-            end if
+            ! Skip automatic generation of parameter declarations
+            ! They should be handled by the standardizer
+            ! if (len_trim(param_list) > 0) then
+            !     code = code//indent//"real(8), intent(in) :: "//param_list//new_line('a')
+            ! end if
         else
             allocate(param_names(0))
         end if
@@ -2314,14 +2315,9 @@ contains
                 if (allocated(arena%entries(body_indices(i))%node)) then
                     select type (node => arena%entries(body_indices(i))%node)
                     type is (declaration_node)
-                        ! Check if this is a parameter declaration that should be skipped
-                        ! Parameters are already handled at the top of the function
-                        ! NUCLEAR OPTION: Skip ALL parameter declarations using simple name check
-                        if (trim(node%var_name) == "x" .or. trim(node%var_name) == "y" .or. trim(node%var_name) == "z") then
-                            ! This declaration is for a function parameter - skip it  
-                            i = i + 1
-                            cycle
-                        end if
+                        ! Check if this is a parameter declaration
+                        ! Process parameter declarations that were added by the standardizer
+                        ! No longer skip them
                         
                         ! Handle multi-variable declarations with parameters mixed with locals
                         if (node%is_multi_declaration .and. allocated(node%var_names)) then

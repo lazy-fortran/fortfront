@@ -233,6 +233,14 @@ contains
         type(poly_type_t), allocatable :: existing_scheme
         character(len=:), allocatable :: var_name
 
+        ! Pre-constrain target if RHS has character operations
+        if (assign%value_index > 0 .and. assign%value_index <= arena%size) then
+            if (node_has_character_op(arena, assign%value_index)) then
+                call constrain_for_character_operation(ctx, arena, &
+                                                      assign%target_index)
+            end if
+        end if
+
         ! Infer type of RHS
         typ = ctx%infer(arena, assign%value_index)
 
@@ -483,9 +491,14 @@ contains
             ! Found in environment - instantiate the type scheme
             typ = ctx%instantiate(scheme)
         else
-            ! Not found - create fresh type variable (TEMPORARY: should be error)
-            ! TODO: Re-enable after fixing parser multi-variable declaration bug
+            ! Not found - create fresh type variable
+            ! For undeclared variables, use a type variable that can be
+            ! later constrained by usage context
             typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+            
+            ! Store this type variable in scope for consistency
+            scheme = create_poly_type(forall_vars=[type_var_t::], mono=typ)
+            call ctx%scopes%define(ident%name, scheme)
         end if
     end function infer_identifier
 
@@ -499,6 +512,13 @@ contains
         type(mono_type_t) :: left_typ, right_typ, result_typ
         type(substitution_t) :: s1, s2, s3
         integer :: compat_level
+
+        ! For character concatenation, pre-constrain operands
+        if (trim(binop%operator) == "//") then
+            ! Pre-constrain operands for character concatenation
+            call constrain_for_character_operation(ctx, arena, binop%left_index)
+            call constrain_for_character_operation(ctx, arena, binop%right_index)
+        end if
 
         ! Infer left operand type
         left_typ = ctx%infer(arena, binop%left_index)
@@ -679,6 +699,43 @@ contains
             needs_temp = .false.
         end select
     end function needs_temporary
+
+    ! Constrain identifiers for character operations
+    recursive subroutine constrain_for_character_operation(ctx, arena, node_index)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: node_index
+        type(poly_type_t), allocatable :: scheme
+        type(mono_type_t) :: char_type
+        type(substitution_t) :: s1
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (identifier_node)
+            ! Check if identifier exists in scope
+            if (allocated(node%name) .and. len_trim(node%name) > 0) then
+                call ctx%scopes%lookup(node%name, scheme)
+                
+                if (.not. allocated(scheme)) then
+                    ! Undeclared identifier - pre-define as character
+                    char_type = create_mono_type(TCHAR, char_size=1)
+                    scheme = create_poly_type(forall_vars=[type_var_t::], &
+                                            mono=char_type)
+                    call ctx%scopes%define(node%name, scheme)
+                end if
+            end if
+        type is (binary_op_node)
+            ! Recursively constrain nested operations
+            if (trim(node%operator) == "//") then
+                call constrain_for_character_operation(ctx, arena, &
+                                                      node%left_index)
+                call constrain_for_character_operation(ctx, arena, &
+                                                      node%right_index)
+            end if
+        end select
+    end subroutine constrain_for_character_operation
 
     ! Infer type of function call
     function infer_function_call(ctx, arena, call_node) result(typ)
@@ -1496,6 +1553,7 @@ contains
         type(mono_type_t), allocatable :: param_types(:)
         type(poly_type_t) :: func_scheme
         integer :: i
+        logical :: has_character_operations
 
         ! Enter function scope
         call ctx%scopes%enter_function(func_def%name)
@@ -1503,15 +1561,34 @@ contains
         ! Clear parameter tracker for new function
         call ctx%param_tracker%clear()
 
+        ! First pass: check if function body has character operations
+        has_character_operations = check_for_character_operations(arena, func_def)
+
         ! Process parameters and add to local scope
         if (allocated(func_def%param_indices)) then
             allocate (param_types(size(func_def%param_indices)))
             do i = 1, size(func_def%param_indices)
-                ! For now, assign fresh type variables to parameters
-                param_types(i) = create_mono_type(TVAR, var=ctx%fresh_type_var())
+                ! Check if parameter is used in character operations
+                if (has_character_operations .and. &
+                    param_used_in_character_op(arena, func_def, i)) then
+                    ! Pre-constrain to character type
+                    param_types(i) = create_mono_type(TCHAR, char_size=1)
+                else
+                    ! Assign fresh type variable
+                    param_types(i) = create_mono_type(TVAR, var=ctx%fresh_type_var())
+                end if
 
                 ! Add parameter to local scope - get from arena
                 if (allocated(arena%entries(func_def%param_indices(i))%node)) then
+                    ! Store inferred type on the parameter node itself
+                    if (.not. allocated(arena%entries(func_def%param_indices(i))% &
+                                       node%inferred_type)) then
+                        allocate(arena%entries(func_def%param_indices(i))% &
+                                node%inferred_type)
+                    end if
+                    arena%entries(func_def%param_indices(i))%node%inferred_type = &
+                        param_types(i)
+                    
                     select type (param => arena%entries(func_def%param_indices(i))%node)
                     type is (identifier_node)
                         call ctx%scopes%define(param%name, &
@@ -1555,18 +1632,44 @@ contains
                 return_type = create_mono_type(TVAR, var=ctx%fresh_type_var())
             end select
         else
-            ! Infer return type (use a fresh type variable)
-            return_type = create_mono_type(TVAR, var=ctx%fresh_type_var())
+            ! Infer return type - check if function returns character values
+            if (has_character_operations .and. &
+                function_returns_character(arena, func_def)) then
+                return_type = create_mono_type(TCHAR, char_size=1)
+            else
+                ! Use a fresh type variable
+                return_type = create_mono_type(TVAR, var=ctx%fresh_type_var())
+            end if
         end if
 
-        ! TODO: Apply current substitutions to parameter types
-        ! This ensures parameter types are updated with constraints learned from body analysis
-        ! Temporarily disabled due to segfault investigation
-        ! if (allocated(param_types)) then
-        !     do i = 1, size(param_types)
-        !         param_types(i) = ctx%apply_subst_to_type(param_types(i))
-        !     end do
-        ! end if
+        ! Apply current substitutions to parameter types
+        ! This ensures parameter types are updated with constraints from body
+        if (allocated(param_types)) then
+            do i = 1, size(param_types)
+                param_types(i) = ctx%apply_subst_to_type(param_types(i))
+                
+                ! If still a type variable and used in character operations,
+                ! set to character type
+                if (param_types(i)%kind == TVAR .and. has_character_operations &
+                    .and. param_used_in_character_op(arena, func_def, i)) then
+                    param_types(i) = create_mono_type(TCHAR, char_size=1)
+                end if
+                
+                ! Update the inferred type on the parameter node
+                if (func_def%param_indices(i) > 0 .and. &
+                    func_def%param_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(func_def%param_indices(i))%node)) then
+                        if (.not. allocated(arena%entries(func_def%param_indices(i))% &
+                                           node%inferred_type)) then
+                            allocate(arena%entries(func_def%param_indices(i))% &
+                                    node%inferred_type)
+                        end if
+                        arena%entries(func_def%param_indices(i))%node%inferred_type = &
+                            param_types(i)
+                    end if
+                end if
+            end do
+        end if
 
         ! Build function type
         if (size(param_types) == 0) then
@@ -1648,6 +1751,188 @@ contains
         call ctx%scopes%define(sub_def%name, sub_scheme)
 
     end function analyze_subroutine_def
+
+    ! Check if function body contains character operations
+    function check_for_character_operations(arena, func_def) result(has_char_ops)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_def
+        logical :: has_char_ops
+        integer :: i
+        
+        has_char_ops = .false.
+        
+        if (allocated(func_def%body_indices)) then
+            do i = 1, size(func_def%body_indices)
+                if (node_has_character_op(arena, func_def%body_indices(i))) then
+                    has_char_ops = .true.
+                    return
+                end if
+            end do
+        end if
+    end function check_for_character_operations
+    
+    ! Check if a node contains character operations
+    recursive function node_has_character_op(arena, node_index) result(has_char)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: has_char
+        
+        has_char = .false.
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (binary_op_node)
+            if (trim(node%operator) == "//") then
+                has_char = .true.
+                return
+            end if
+            ! Check operands
+            has_char = node_has_character_op(arena, node%left_index) .or. &
+                      node_has_character_op(arena, node%right_index)
+        type is (assignment_node)
+            has_char = node_has_character_op(arena, node%value_index)
+        type is (literal_node)
+            has_char = (node%literal_kind == LITERAL_STRING)
+        end select
+    end function node_has_character_op
+    
+    ! Check if a parameter is used in character operations
+    function param_used_in_character_op(arena, func_def, param_idx) result(used)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_def
+        integer, intent(in) :: param_idx
+        logical :: used
+        character(len=:), allocatable :: param_name
+        integer :: i
+        
+        used = .false.
+        
+        ! Get parameter name
+        if (param_idx <= 0 .or. param_idx > size(func_def%param_indices)) return
+        if (func_def%param_indices(param_idx) <= 0 .or. &
+            func_def%param_indices(param_idx) > arena%size) return
+        if (.not. allocated(arena%entries(func_def%param_indices(param_idx))%node)) &
+            return
+        
+        select type (param => arena%entries(func_def%param_indices(param_idx))%node)
+        type is (identifier_node)
+            param_name = param%name
+        type is (parameter_declaration_node)
+            param_name = param%name
+        class default
+            return
+        end select
+        
+        if (.not. allocated(param_name)) return
+        
+        ! Check if parameter is used in character operations in body
+        if (allocated(func_def%body_indices)) then
+            do i = 1, size(func_def%body_indices)
+                if (identifier_in_char_op(arena, func_def%body_indices(i), &
+                                         param_name)) then
+                    used = .true.
+                    return
+                end if
+            end do
+        end if
+    end function param_used_in_character_op
+    
+    ! Check if an identifier is used in character operations
+    recursive function identifier_in_char_op(arena, node_index, name) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: name
+        logical :: found
+        
+        found = .false.
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (binary_op_node)
+            if (trim(node%operator) == "//") then
+                ! Check if either operand is our identifier
+                if (is_identifier_named(arena, node%left_index, name) .or. &
+                    is_identifier_named(arena, node%right_index, name)) then
+                    found = .true.
+                    return
+                end if
+            end if
+            ! Recursively check operands
+            found = identifier_in_char_op(arena, node%left_index, name) .or. &
+                   identifier_in_char_op(arena, node%right_index, name)
+        type is (assignment_node)
+            found = identifier_in_char_op(arena, node%value_index, name)
+        end select
+    end function identifier_in_char_op
+    
+    ! Check if a node is an identifier with a specific name
+    function is_identifier_named(arena, node_index, name) result(is_match)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: name
+        logical :: is_match
+        
+        is_match = .false.
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (identifier_node)
+            if (allocated(node%name)) then
+                is_match = (trim(node%name) == trim(name))
+            end if
+        end select
+    end function is_identifier_named
+    
+    ! Check if a function returns character values
+    function function_returns_character(arena, func_def) result(returns_char)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func_def
+        logical :: returns_char
+        integer :: i
+        
+        returns_char = .false.
+        
+        ! Check if any assignment to function name involves character operations
+        if (allocated(func_def%body_indices)) then
+            do i = 1, size(func_def%body_indices)
+                if (assignment_to_function_is_char(arena, &
+                                                  func_def%body_indices(i), &
+                                                  func_def%name)) then
+                    returns_char = .true.
+                    return
+                end if
+            end do
+        end if
+    end function function_returns_character
+    
+    ! Check if assignment to function name involves character operations
+    function assignment_to_function_is_char(arena, node_index, func_name) &
+             result(is_char)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: func_name
+        logical :: is_char
+        
+        is_char = .false.
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (assignment_node)
+            ! Check if target is the function name
+            if (is_identifier_named(arena, node%target_index, func_name)) then
+                ! Check if value is character expression
+                is_char = node_has_character_op(arena, node%value_index)
+            end if
+        end select
+    end function assignment_to_function_is_char
 
     ! Analyze if node with block scopes
     function analyze_if_node(ctx, arena, if_stmt, if_index) result(typ)
