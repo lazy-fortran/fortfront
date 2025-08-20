@@ -144,7 +144,7 @@ contains
         class(dependency_graph_t), intent(inout) :: this
         character(len=32), allocatable :: sorted_names(:)
         
-        integer, allocatable :: in_degree(:)
+        integer, allocatable :: in_degree(:)  ! True in-degree: number of nodes that depend on this
         integer, allocatable :: queue(:)
         integer :: queue_start, queue_end, queue_size
         integer :: i, j, dep_index, current_node
@@ -156,7 +156,8 @@ contains
             return
         end if
         
-        ! Calculate in-degrees for each node
+        ! Calculate TRUE in-degrees for each node
+        ! If node i depends on node dep_index, then dep_index has an incoming edge from i
         allocate(in_degree(this%node_count))
         in_degree = 0
         
@@ -164,12 +165,14 @@ contains
             do j = 1, size(this%nodes(i)%dependencies)
                 dep_index = this%find_node_index(this%nodes(i)%dependencies(j))
                 if (dep_index > 0) then
-                    in_degree(i) = in_degree(i) + 1
+                    ! Increment the in-degree of the dependency (not the dependent)
+                    in_degree(dep_index) = in_degree(dep_index) + 1
                 end if
             end do
         end do
         
-        ! Initialize queue with nodes having no dependencies
+        ! Initialize queue with nodes having in-degree 0 (no other nodes depend on them)
+        ! These are leaf nodes in the dependency graph
         allocate(queue(this%node_count))
         queue_start = 1
         queue_end = 0
@@ -183,7 +186,8 @@ contains
             end if
         end do
         
-        ! Process nodes in topological order
+        ! Process nodes in reverse topological order
+        ! (process leaves first, then their dependencies)
         allocate(temp_result(this%node_count))
         result_count = 0
         
@@ -193,29 +197,28 @@ contains
             queue_start = queue_start + 1
             queue_size = queue_size - 1
             
-            ! Add to result
+            ! Add to result (building result in reverse order)
             result_count = result_count + 1
-            temp_result(result_count) = this%nodes(current_node)%name
+            temp_result(this%node_count - result_count + 1) = this%nodes(current_node)%name
             
-            ! Find nodes that depend on current node and reduce their in-degree
-            do i = 1, this%node_count
-                do j = 1, size(this%nodes(i)%dependencies)
-                    if (trim(this%nodes(i)%dependencies(j)) == &
-                        trim(this%nodes(current_node)%name)) then
-                        in_degree(i) = in_degree(i) - 1
-                        if (in_degree(i) == 0) then
-                            queue_end = queue_end + 1
-                            queue(queue_end) = i
-                            queue_size = queue_size + 1
-                        end if
+            ! For each dependency of the current node, decrement its in-degree
+            ! When a dependency's in-degree reaches 0, all nodes that depend on it have been processed
+            do j = 1, size(this%nodes(current_node)%dependencies)
+                dep_index = this%find_node_index(this%nodes(current_node)%dependencies(j))
+                if (dep_index > 0) then
+                    in_degree(dep_index) = in_degree(dep_index) - 1
+                    if (in_degree(dep_index) == 0) then
+                        queue_end = queue_end + 1
+                        queue(queue_end) = dep_index
+                        queue_size = queue_size + 1
                     end if
-                end do
+                end if
             end do
         end do
         
-        ! Return result
+        ! Return result (copy from the portion of temp_result that was filled)
         allocate(sorted_names(result_count))
-        sorted_names(1:result_count) = temp_result(1:result_count)
+        sorted_names(1:result_count) = temp_result(this%node_count - result_count + 1:this%node_count)
     end function
 
     function get_execution_order(this) result(order)

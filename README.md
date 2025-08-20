@@ -20,9 +20,10 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **Comprehensive Testing**: Unit tests for transformation + CLI system tests
 - **Cross-Compiler Portability**: Robust test infrastructure supporting multiple Fortran compilers  
 - **CI/CD Stability**: Reliable continuous integration across different compiler environments
+- **Mixed Construct Support**: Handles modules with implicit main programs
 - **Standard Compliant**: Generates clean, standard Fortran code
 - **Automatic Variable Declarations**: Generates proper Fortran declarations for function parameters and variables
-- **Type Inference**: Automatic variable typing using Fortran implicit rules
+- **Type Inference**: Automatic variable typing algorithm with enhanced character type handling
 - **Extensible Architecture**: Plugin-based analysis pipeline
 
 ## Building
@@ -55,22 +56,29 @@ fortfront includes robust test infrastructure that works reliably across differe
 
 ## Usage
 
-### Command Line Interface
+Basic transformation pipeline:
 
 ```bash
-# Basic usage
+# Simple usage
 echo "x = 42" | fortfront
 
 # Function with automatic variable declarations
 echo "function twice(x) result(y)
 y = 2*x
 end function" | fortfront
+
+# Character handling  
+echo 'name = "hello" // " world"' | fortfront
 ```
 
-**Expected Output:**
+**Output:**
 ```fortran
 program main
     implicit none
+    integer :: x
+    character(len=11) :: name
+    x = 42
+    name = "hello" // " world"
 contains
     function twice(x) result(y)
         implicit none
@@ -138,3 +146,4 @@ fortfront provides comprehensive type safety and error reporting:
 ## License
 
 MIT License - see LICENSE file for details.
+
