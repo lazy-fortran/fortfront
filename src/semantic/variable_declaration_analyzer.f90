@@ -3,6 +3,7 @@ module variable_declaration_analyzer
     use ast_core, only: ast_arena_t, identifier_node, assignment_node, function_def_node, &
                         declaration_node, program_node, implicit_statement_node, literal_node, &
                         binary_op_node
+    use ast_types, only: LITERAL_STRING
     use semantic_analyzer, only: semantic_context_t
     use semantic_pipeline, only: shared_context_t
     use ast_factory, only: push_declaration
@@ -922,9 +923,44 @@ contains
             ! Direct literal assignment
             call infer_type_from_literal(node%value, var_type, found)
         type is (binary_op_node)
-            ! Binary operation - use left operand type
-            if (node%left_index > 0) then
-                call infer_type_from_expression(arena, node%left_index, var_type, found)
+            ! Binary operation - handle different operators
+            if (node%operator == "//") then
+                ! String concatenation - infer character type and compute length
+                block
+                    character(len=32) :: left_type, right_type
+                    logical :: left_found, right_found
+                    integer :: left_len, right_len, total_len
+                    
+                    ! Get types of both operands
+                    if (node%left_index > 0) then
+                        call infer_type_from_expression(arena, node%left_index, left_type, left_found)
+                    end if
+                    if (node%right_index > 0) then
+                        call infer_type_from_expression(arena, node%right_index, right_type, right_found)
+                    end if
+                    
+                    ! If both are character types, compute combined length
+                    if (left_found .and. right_found) then
+                        if (index(left_type, "character") > 0 .and. index(right_type, "character") > 0) then
+                            ! Extract lengths from type strings if present
+                            left_len = extract_character_length(arena, node%left_index)
+                            right_len = extract_character_length(arena, node%right_index)
+                            
+                            if (left_len > 0 .and. right_len > 0) then
+                                total_len = left_len + right_len
+                                write(var_type, '(a,i0,a)') "character(len=", total_len, ")"
+                            else
+                                var_type = "character(len=:), allocatable"
+                            end if
+                            found = .true.
+                        end if
+                    end if
+                end block
+            else
+                ! Other binary operations - use left operand type
+                if (node%left_index > 0) then
+                    call infer_type_from_expression(arena, node%left_index, var_type, found)
+                end if
             end if
         end select
     end subroutine
@@ -935,27 +971,36 @@ contains
         logical, intent(out) :: found
         
         character(len=:), allocatable :: trimmed
-        integer :: dot_pos
+        integer :: dot_pos, str_len
         
         found = .false.
         var_type = ""
         trimmed = trim(literal_value)
         
-        ! Check for real literals (contains decimal point)
-        dot_pos = index(trimmed, '.')
-        if (dot_pos > 0) then
-            ! It's a real literal
-            var_type = "real"
-            found = .true.
-        else if (is_integer_literal(trimmed)) then
-            var_type = "integer"
+        ! Check for string/character literals first (quoted strings)
+        if (is_character_literal(trimmed)) then
+            ! Calculate actual string length (excluding quotes)
+            str_len = len_trim(trimmed) - 2
+            if (str_len > 0) then
+                write(var_type, '(a,i0,a)') "character(len=", str_len, ")"
+            else
+                var_type = "character(len=0)"
+            end if
             found = .true.
         else if (is_logical_literal(trimmed)) then
             var_type = "logical"
             found = .true.
-        else if (is_character_literal(trimmed)) then
-            var_type = "character(len=*)"
-            found = .true.
+        else
+            ! Check for real literals (contains decimal point)
+            dot_pos = index(trimmed, '.')
+            if (dot_pos > 0) then
+                ! It's a real literal
+                var_type = "real"
+                found = .true.
+            else if (is_integer_literal(trimmed)) then
+                var_type = "integer"
+                found = .true.
+            end if
         end if
     end subroutine
     
@@ -989,6 +1034,38 @@ contains
             is_character_literal = (str(1:1) == "'" .and. str(len_trim(str):len_trim(str)) == "'") .or. &
                                   (str(1:1) == '"' .and. str(len_trim(str):len_trim(str)) == '"')
         end if
+    end function
+    
+    ! Helper function to extract character length from an expression node
+    recursive function extract_character_length(arena, expr_index) result(length)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        integer :: length
+        
+        length = 0
+        
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+        
+        select type (node => arena%entries(expr_index)%node)
+        type is (literal_node)
+            ! For string literals, length is string length minus 2 for quotes
+            if (node%literal_kind == LITERAL_STRING) then
+                length = len_trim(node%value) - 2  ! Subtract quotes
+            end if
+        type is (binary_op_node)
+            ! For concatenation, sum the lengths
+            if (node%operator == "//") then
+                block
+                    integer :: left_len, right_len
+                    left_len = extract_character_length(arena, node%left_index)
+                    right_len = extract_character_length(arena, node%right_index)
+                    if (left_len > 0 .and. right_len > 0) then
+                        length = left_len + right_len
+                    end if
+                end block
+            end if
+        end select
     end function
     
     subroutine to_lower(str)

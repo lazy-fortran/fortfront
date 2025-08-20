@@ -2444,6 +2444,11 @@ contains
                     allocate (stmt_indices(0))  ! Return empty array on failure
                 end if
                 return
+            else if (first_token%text == "implicit") then
+                ! Parse implicit statement (especially important for implicit none)
+                allocate (stmt_indices(1))
+                stmt_indices(1) = parse_implicit_statement(parser, arena)
+                return
             end if
         end if
 
