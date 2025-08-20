@@ -67,7 +67,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 31
+        integer, parameter :: NUM_INTRINSICS = 35
         integer :: i
 
         if (registry_initialized) return
@@ -200,16 +200,47 @@ contains
             name="index", return_type="integer", arg_types="character,character", &
             description="Substring position")
 
-        ! Variadic functions
+        ! Polymorphic min functions - different signatures for type promotion
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="min", return_type="numeric", arg_types="numeric,numeric,...", &
-            description="Minimum value")
+            name="min", return_type="integer", arg_types="integer,integer,...", &
+            description="Minimum value (integer)")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &
-            name="max", return_type="numeric", arg_types="numeric,numeric,...", &
-            description="Maximum value")
+            name="min", return_type="real", arg_types="real,real,...", &
+            description="Minimum value (real)")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+            name="min", return_type="real", arg_types="integer,real,...", &
+            description="Minimum value (mixed types)")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+            name="min", return_type="real", arg_types="real,integer,...", &
+            description="Minimum value (mixed types)")
+
+        ! Polymorphic max functions - different signatures for type promotion
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+            name="max", return_type="integer", arg_types="integer,integer,...", &
+            description="Maximum value (integer)")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+            name="max", return_type="real", arg_types="real,real,...", &
+            description="Maximum value (real)")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+            name="max", return_type="real", arg_types="integer,real,...", &
+            description="Maximum value (mixed types)")
+
+        i = i + 1
+        intrinsic_functions(i) = intrinsic_signature_t( &
+            name="max", return_type="real", arg_types="real,integer,...", &
+            description="Maximum value (mixed types)")
 
         i = i + 1
         intrinsic_functions(i) = intrinsic_signature_t( &

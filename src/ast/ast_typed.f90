@@ -8,8 +8,9 @@ module ast_typed
     public :: typed_ast_node
 
     ! Extended AST node with type information
+    ! Note: inferred_type is already present in the base ast_node type
     type, extends(ast_node), abstract :: typed_ast_node
-        type(mono_type_t), allocatable :: inferred_type
+        ! No additional fields needed - inferred_type is inherited from ast_node
     end type typed_ast_node
 
 end module ast_typed

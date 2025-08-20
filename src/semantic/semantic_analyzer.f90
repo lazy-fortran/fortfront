@@ -762,6 +762,58 @@ contains
         end select
     end subroutine constrain_char_op_limited
 
+    ! Infer type for polymorphic min/max calls with proper type promotion
+    function infer_min_max_call(ctx, arena, call_node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(call_or_subscript_node), intent(inout) :: call_node
+        type(mono_type_t) :: typ
+        type(mono_type_t), allocatable :: arg_types(:)
+        logical :: has_real, has_integer
+        integer :: i
+
+        ! Must have at least 2 arguments
+        if (.not. allocated(call_node%arg_indices) .or. size(call_node%arg_indices) < 2) then
+            ! Default to real type if insufficient arguments
+            typ = create_mono_type(TREAL)
+            return
+        end if
+
+        ! Infer all argument types
+        allocate(arg_types(size(call_node%arg_indices)))
+        has_real = .false.
+        has_integer = .false.
+
+        do i = 1, size(call_node%arg_indices)
+            if (call_node%arg_indices(i) > 0 .and. call_node%arg_indices(i) <= arena%size) then
+                arg_types(i) = infer_type(ctx, arena, call_node%arg_indices(i))
+                
+                ! Track types for promotion rule
+                if (arg_types(i)%kind == TREAL) then
+                    has_real = .true.
+                else if (arg_types(i)%kind == TINT) then
+                    has_integer = .true.
+                end if
+            else
+                ! Invalid argument - default to integer
+                arg_types(i) = create_mono_type(TINT)
+                has_integer = .true.
+            end if
+        end do
+
+        ! Apply Fortran type promotion rules:
+        ! - All integers → integer result
+        ! - Any real → real result (promotes integers to real)
+        if (has_real) then
+            typ = create_mono_type(TREAL)
+        else if (has_integer) then
+            typ = create_mono_type(TINT)
+        else
+            ! Fallback to real if no clear types
+            typ = create_mono_type(TREAL)
+        end if
+    end function infer_min_max_call
+
     ! Infer type of function call
     function infer_function_call(ctx, arena, call_node) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
@@ -772,6 +824,12 @@ contains
         type(mono_type_t), allocatable :: arg_types(:)
         type(substitution_t) :: s
         integer :: i
+
+        ! Handle polymorphic min/max functions specially
+        if (trim(call_node%name) == "min" .or. trim(call_node%name) == "max") then
+            typ = infer_min_max_call(ctx, arena, call_node)
+            return
+        end if
 
         ! Get function type
         fun_typ = ctx%get_builtin_function_type(call_node%name)
@@ -1226,11 +1284,11 @@ contains
         case ("real", "float")
             typ = create_fun_type(int_type, real_type)
 
-            ! Min/max - variadic functions that take 2 or more arguments
+            ! Min/max - polymorphic functions with type promotion
         case ("min", "max")
-            ! For now, create a type that accepts multiple arguments
-            ! This is a simplification - proper variadic support would be better
-            typ = create_fun_type(real_type, real_type)
+            ! Create a polymorphic type that promotes to the appropriate result type
+            ! This will be resolved during function call inference based on arguments
+            typ = create_mono_type(TVAR, var=this%fresh_type_var())
 
             ! Mod function
         case ("mod", "modulo")
