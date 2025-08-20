@@ -1458,6 +1458,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         type(ast_arena_t) :: arena
         integer :: prog_index
 
+
         allocate(character(len=0) :: error_msg)
         error_msg = ""
 
