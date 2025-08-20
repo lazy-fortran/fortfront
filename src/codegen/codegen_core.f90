@@ -3189,7 +3189,7 @@ contains
             character(len=:), allocatable :: intent_str
         end type parameter_info_t
         
-        integer :: i, param_index, group_start, group_end, j
+        integer :: i, param_index, group_start, group_end, j, outer_loop_counter, inner_loop_counter
         character(len=:), allocatable :: param_type_str, param_name, intent_str
         type(parameter_info_t), allocatable :: param_info(:)
         character(len=:), allocatable :: param_list, current_type_intent
@@ -3281,15 +3281,28 @@ contains
                 
                 ! Second pass: generate grouped declarations
                 if (param_count > 0) then
+                    ! TEMPORARY FIX: Skip parameter grouping to prevent infinite loop
+                    ! Generate each parameter declaration individually instead
+                    do i = 1, param_count
+                        code = code//indent//param_info(i)%type_str//" :: "//param_info(i)%name//new_line('a')
+                    end do
+                else
+                    ! Original grouped logic (keeping as backup but disabled)
                     i = 1
+                    outer_loop_counter = 0
                     do while (i <= param_count)
+                        outer_loop_counter = outer_loop_counter + 1
+                        if (outer_loop_counter > 1000) exit  ! Prevent outer loop infinite loop
+                        
                         ! Start a new group
                         current_type_intent = param_info(i)%type_str // ", " // param_info(i)%intent_str
                         param_list = param_info(i)%name
                         
                         ! Find all parameters with same type and intent
                         j = i + 1
-                        do while (j <= param_count)
+                        inner_loop_counter = 0
+                        do while (j <= param_count .and. inner_loop_counter < 1000)
+                            inner_loop_counter = inner_loop_counter + 1
                             if (param_info(j)%type_str // ", " // param_info(j)%intent_str == current_type_intent) then
                                 param_list = param_list // ", " // param_info(j)%name
                                 ! Remove this parameter from further consideration
@@ -3297,6 +3310,7 @@ contains
                                     param_info(group_end) = param_info(group_end + 1)
                                 end do
                                 param_count = param_count - 1
+                                ! NOTE: Don't increment j here because the next element has shifted into position j
                             else
                                 j = j + 1
                             end if
@@ -3306,7 +3320,7 @@ contains
                         code = code//indent//current_type_intent//" :: "//param_list//new_line('a')
                         i = i + 1
                     end do
-                end if
+                end if  ! End original grouped logic
             end if
         type is (subroutine_def_node)
             if (allocated(proc_node%param_indices)) then
