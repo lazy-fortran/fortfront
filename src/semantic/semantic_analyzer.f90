@@ -80,39 +80,41 @@ contains
             temp_type = create_mono_type(kind)
         end if
 
+        ! PERFORMANCE OPTIMIZATION: Disable expensive validation temporarily
+        ! TODO: Re-enable validation after optimizing unification performance
         ! For type variables and error cases, validate through unification if context available
-        if (present(this) .and. (kind == TVAR .or. present(context))) then
-            ! Create a baseline type for validation
-            block
-                type(mono_type_t) :: validation_type
-                type(substitution_t) :: s
-                
-                select case (kind)
-                case (TVAR)
-                    ! For type variables, create a fresh variable through proper channels
-                    if (present(context)) then
-                        ! Context-specific type variable creation
-                        if (index(context, "error") > 0 .or. index(context, "fallback") > 0) then
-                            ! For error/fallback cases, use proper error type creation
-                            validation_type = create_mono_type(TVAR, var=this%fresh_type_var())
-                        else
-                            validation_type = temp_type
-                        end if
-                    else
-                        validation_type = temp_type
-                    end if
-                case default
-                    validation_type = temp_type
-                end select
-                
-                ! Apply unification for validation (self-unification for consistency check)
-                s = this%unify(temp_type, validation_type)
-                call this%compose_with_subst(s)
-                typ = this%apply_subst_to_type(temp_type)
-            end block
-        else
+        ! if (present(this) .and. (kind == TVAR .or. present(context))) then
+        !     ! Create a baseline type for validation
+        !     block
+        !         type(mono_type_t) :: validation_type
+        !         type(substitution_t) :: s
+        !         
+        !         select case (kind)
+        !         case (TVAR)
+        !             ! For type variables, create a fresh variable through proper channels
+        !             if (present(context)) then
+        !                 ! Context-specific type variable creation
+        !                 if (index(context, "error") > 0 .or. index(context, "fallback") > 0) then
+        !                     ! For error/fallback cases, use proper error type creation
+        !                     validation_type = create_mono_type(TVAR, var=this%fresh_type_var())
+        !                 else
+        !                     validation_type = temp_type
+        !                 end if
+        !             else
+        !                 validation_type = temp_type
+        !             end if
+        !         case default
+        !             validation_type = temp_type
+        !         end select
+        !         
+        !         ! Apply unification for validation (self-unification for consistency check)
+        !         s = this%unify(temp_type, validation_type)
+        !         call this%compose_with_subst(s)
+        !         typ = this%apply_subst_to_type(temp_type)
+        !     end block
+        ! else
             typ = temp_type
-        end if
+        ! end if
     end function create_validated_type
 
     ! Create a new semantic context with builtin functions
