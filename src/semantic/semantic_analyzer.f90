@@ -1877,14 +1877,28 @@ contains
         end if
     end function param_used_in_character_op
     
-    ! Check if an identifier is used in character operations
-    recursive function identifier_in_char_op(arena, node_index, name) result(found)
+    ! Check if an identifier is used in character operations with depth limiting
+    function identifier_in_char_op(arena, node_index, name) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: name
         logical :: found
+        integer, parameter :: MAX_DEPTH = 50
+        
+        found = identifier_in_char_op_limited(arena, node_index, name, 0, MAX_DEPTH)
+    end function identifier_in_char_op
+    
+    ! Implementation with depth limiting to prevent infinite recursion
+    recursive function identifier_in_char_op_limited(arena, node_index, name, current_depth, max_depth) result(found)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index, current_depth, max_depth
+        character(len=*), intent(in) :: name
+        logical :: found
         
         found = .false.
+        
+        ! Depth limit to prevent stack overflow
+        if (current_depth >= max_depth) return
         
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
@@ -1899,19 +1913,19 @@ contains
                     return
                 end if
             end if
-            ! Recursively check operands
-            found = identifier_in_char_op(arena, node%left_index, name) .or. &
-                   identifier_in_char_op(arena, node%right_index, name)
+            ! Recursively check operands with depth tracking
+            found = identifier_in_char_op_limited(arena, node%left_index, name, current_depth + 1, max_depth) .or. &
+                   identifier_in_char_op_limited(arena, node%right_index, name, current_depth + 1, max_depth)
         type is (assignment_node)
             ! Check if identifier is the assignment target of a character expression
             if (is_identifier_named(arena, node%target_index, name)) then
                 found = node_has_character_op(arena, node%value_index)
             else
                 ! Check if identifier is used in the assignment value
-                found = identifier_in_char_op(arena, node%value_index, name)
+                found = identifier_in_char_op_limited(arena, node%value_index, name, current_depth + 1, max_depth)
             end if
         end select
-    end function identifier_in_char_op
+    end function identifier_in_char_op_limited
     
     ! Check if a node is an identifier with a specific name
     function is_identifier_named(arena, node_index, name) result(is_match)
