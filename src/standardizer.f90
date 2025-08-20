@@ -12,6 +12,8 @@ module standardizer
     use type_system_hm
     use json_module, only: json_core, json_value, json_file
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+    use error_handling, only: result_t, success_result, create_error_result, &
+                              ERROR_TYPE_SYSTEM
     implicit none
     private
     
@@ -20,6 +22,16 @@ module standardizer
     
     ! Constants
     integer, parameter :: INVALID_INTEGER = -999999
+
+    ! Result type for string operations
+    type, public :: string_result_t
+        type(result_t) :: result
+        character(len=:), allocatable :: value  ! Valid only if result%success = .true.
+    contains
+        procedure :: is_success => string_is_success
+        procedure :: get_value => string_get_value
+        procedure :: get_error => string_get_error
+    end type string_result_t
 
     public :: standardize_ast
     public :: standardize_ast_json
@@ -815,10 +827,9 @@ contains
                 if (allocated(arena%entries(assign%target_index)%node)) then
                     select type (target => arena%entries(assign%target_index)%node)
                     type is (identifier_node)
-                        ! Check if the value is an array expression
-                        var_type = "real(8)"  ! Default type
-                        
                         ! Try to get type from the value expression
+                        var_type = ""  ! Empty default indicates type not determined
+                        
                         if (assign%value_index > 0 .and. &
                             assign%value_index <= arena%size) then
                             if (allocated(arena%entries(assign%value_index)%node)) then
@@ -831,7 +842,13 @@ contains
                                     value_type => &
                                         get_expression_type(arena, assign%value_index)
                                     if (associated(value_type)) then
-                                        var_type = get_fortran_type_string(value_type)
+                                        block
+                                            type(string_result_t) :: type_result
+                                            type_result = get_fortran_type_string(value_type)
+                                            if (type_result%is_success()) then
+                                                var_type = type_result%get_value()
+                                            end if
+                                        end block
                                     end if
                                 end if
                             end if
@@ -889,13 +906,21 @@ contains
 
                 ! Determine type from inferred_type if available
                 if (allocated(identifier%inferred_type)) then
-                    var_types(var_count) = &
-                        get_fortran_type_string(identifier%inferred_type)
+                    block
+                        type(string_result_t) :: type_result
+                        type_result = get_fortran_type_string(identifier%inferred_type)
+                        if (type_result%is_success()) then
+                            var_types(var_count) = type_result%get_value()
+                            var_declared(var_count) = .true.
+                        else
+                            ! Skip variables with unknown types instead of defaulting
+                            var_count = var_count - 1
+                        end if
+                    end block
                 else
-                    var_types(var_count) = "real(8)"  ! Default type
+                    ! Skip variables with no type information instead of defaulting
+                    var_count = var_count - 1
                 end if
-
-                var_declared(var_count) = .true.
             end if
         end if
     end subroutine collect_identifier_var
@@ -1057,40 +1082,69 @@ contains
     end function has_explicit_declaration
 
     ! Convert mono_type_t to Fortran type string
-    recursive function get_fortran_type_string(mono_type) result(type_str)
+    recursive function get_fortran_type_string(mono_type) result(string_result)
         type(mono_type_t), intent(in) :: mono_type
-        character(len=:), allocatable :: type_str
+        type(string_result_t) :: string_result
+        type(string_result_t) :: elem_result
 
         select case (mono_type%kind)
         case (TINT)
-            type_str = "integer"
+            string_result%result = success_result()
+            string_result%value = "integer"
         case (TREAL)
+            string_result%result = success_result()
             if (standardizer_type_standardization_enabled) then
-                type_str = "real(8)"
+                string_result%value = "real(8)"
             else
-                type_str = "real"
+                string_result%value = "real"
             end if
         case (TLOGICAL)
-            type_str = "logical"
+            string_result%result = success_result()
+            string_result%value = "logical"
         case (TCHAR)
+            string_result%result = success_result()
             if (mono_type%size > 0) then
                 block
                     character(len=20) :: size_str
                     write (size_str, '(i0)') mono_type%size
-                    type_str = "character(len="//trim(size_str)//")"
+                    string_result%value = "character(len="//trim(size_str)//")"
                 end block
             else
-                type_str = "character(*)"
+                string_result%value = "character(*)"
             end if
         case (TARRAY)
             ! For arrays, get the element type
             if (allocated(mono_type%args) .and. size(mono_type%args) > 0) then
-                type_str = get_fortran_type_string(mono_type%args(1))
+                elem_result = get_fortran_type_string(mono_type%args(1))
+                if (elem_result%is_success()) then
+                    string_result%result = success_result()
+                    string_result%value = elem_result%get_value()
+                else
+                    string_result%result = create_error_result( &
+                        "Failed to determine array element type", &
+                        ERROR_TYPE_SYSTEM, &
+                        component="standardizer", &
+                        context="get_fortran_type_string", &
+                        suggestion="Ensure array element type is properly inferred" &
+                    )
+                end if
             else
-                type_str = "real(8)"  ! Default array element type
+                string_result%result = create_error_result( &
+                    "Array type has no element type information", &
+                    ERROR_TYPE_SYSTEM, &
+                    component="standardizer", &
+                    context="get_fortran_type_string", &
+                    suggestion="Array type should have at least one type argument for element type" &
+                )
             end if
         case default
-            type_str = "real(8)"  ! Default fallback
+            string_result%result = create_error_result( &
+                "Unknown or unsupported type kind", &
+                ERROR_TYPE_SYSTEM, &
+                component="standardizer", &
+                context="get_fortran_type_string", &
+                suggestion="Type inference may have failed or encountered an unsupported type" &
+            )
         end select
     end function get_fortran_type_string
 
@@ -1356,7 +1410,7 @@ contains
         type(mono_type_t), pointer :: expr_type
         character(len=:), allocatable :: elem_type_str
         
-        var_type = "real(8), dimension(:), allocatable"  ! Default
+        var_type = ""  ! Empty default indicates type not determined
         
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
@@ -1369,14 +1423,30 @@ contains
                 if (allocated(node%inferred_type)) then
                     ! The inferred type is TARRAY with element type in args(1)
                     ! get_fortran_type_string handles TARRAY by extracting element type
-                    elem_type_str = get_fortran_type_string(node%inferred_type)
+                    block
+                        type(string_result_t) :: type_result
+                        type_result = get_fortran_type_string(node%inferred_type)
+                        if (type_result%is_success()) then
+                            elem_type_str = type_result%get_value()
+                        else
+                            elem_type_str = ""
+                        end if
+                    end block
                 else
                     ! No inferred type, try to determine from elements
                     if (size(node%element_indices) > 0) then
                         ! Check the first element type
                         expr_type => get_expression_type(arena, node%element_indices(1))
                         if (associated(expr_type)) then
-                            elem_type_str = get_fortran_type_string(expr_type)
+                            block
+                                type(string_result_t) :: type_result
+                                type_result = get_fortran_type_string(expr_type)
+                                if (type_result%is_success()) then
+                                    elem_type_str = type_result%get_value()
+                                else
+                                    elem_type_str = ""
+                                end if
+                            end block
                         else
                             ! Try to infer from literal if possible
                             elem_type_str = &
@@ -1384,7 +1454,7 @@ contains
                                 node%element_indices(1))
                         end if
                     else
-                        elem_type_str = "real(8)"  ! Default for empty arrays
+                        elem_type_str = ""  ! No fallback for empty arrays
                     end if
                 end if
                 
@@ -1409,10 +1479,10 @@ contains
                 end if
             end if
         type is (call_or_subscript_node)
-            ! For array slices, try to calculate the size
+            ! For array slices, type cannot be determined without more context
             if (has_array_slice_args(arena, node)) then
-                ! For now, use allocatable. TODO: Calculate slice size
-                var_type = "real(8), dimension(:), allocatable"
+                ! Type cannot be determined for array slices without element type
+                var_type = ""
             end if
         end select
     end function get_array_var_type
@@ -1423,7 +1493,7 @@ contains
         integer, intent(in) :: elem_index
         character(len=:), allocatable :: type_str
         
-        type_str = "real(8)"  ! Default
+        type_str = ""  ! Empty default indicates type not determined
         
         if (elem_index <= 0 .or. elem_index > arena%size) return
         if (.not. allocated(arena%entries(elem_index)%node)) return
@@ -1434,13 +1504,17 @@ contains
             case (LITERAL_INTEGER)
                 type_str = "integer"
             case (LITERAL_REAL)
-                type_str = "real(8)"
+                if (standardizer_type_standardization_enabled) then
+                    type_str = "real(8)"
+                else
+                    type_str = "real"
+                end if
             case (LITERAL_STRING)
                 type_str = "character"
             case (LITERAL_LOGICAL)
                 type_str = "logical"
             case default
-                type_str = "real(8)"
+                type_str = ""  ! No fallback for unknown literal types
             end select
         end select
     end function infer_element_type_from_literal
@@ -1507,11 +1581,15 @@ contains
         ! Standardize return type
         if (allocated(func_def%return_type)) then
             if (func_def%return_type == "real") then
-                func_def%return_type = "real(8)"
+                if (standardizer_type_standardization_enabled) then
+                    func_def%return_type = "real(8)"
+                else
+                    func_def%return_type = "real"
+                end if
             end if
         else
-            ! Default to real(8) if no return type specified
-            func_def%return_type = "real(8)"
+            ! Function return type should be explicitly declared
+            ! No default assumption - let it remain unspecified
         end if
 
         ! Add implicit none at the beginning of function body
@@ -2577,5 +2655,28 @@ contains
             end if
         end select
     end subroutine collect_string_vars_needing_allocatable
+
+    ! String result type methods
+    function string_is_success(this) result(success)
+        class(string_result_t), intent(in) :: this
+        logical :: success
+        success = this%result%is_success()
+    end function string_is_success
+
+    function string_get_value(this) result(value)
+        class(string_result_t), intent(in) :: this
+        character(len=:), allocatable :: value
+        if (this%result%is_success() .and. allocated(this%value)) then
+            value = this%value
+        else
+            value = ""
+        end if
+    end function string_get_value
+
+    function string_get_error(this) result(error_msg)
+        class(string_result_t), intent(in) :: this
+        character(len=:), allocatable :: error_msg
+        error_msg = this%result%get_full_message()
+    end function string_get_error
 
 end module standardizer
