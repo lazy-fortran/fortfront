@@ -1,3 +1,252 @@
+# Automatic Function Variable Declaration Generation (Issue #320)
+
+## Problem Analysis
+
+**Current Issue**: Functions with undeclared variables produce invalid standard Fortran code. The semantic analyzer correctly infers types but the code generator doesn't emit explicit variable declarations for function-scoped variables, particularly result variables.
+
+**Example Problem**:
+```fortran
+! Input (lazy Fortran)
+function twice(x) result(y)
+y = 2*x
+end function
+
+! Current Output (INVALID - missing y declaration)
+function twice(x) result(y)
+    implicit none
+    real(8), intent(in) :: x
+    y = 2*x
+end function twice
+
+! Required Output (VALID - complete declarations)
+function twice(x) result(y)
+    implicit none
+    real(8), intent(in) :: x
+    real(8) :: y
+    y = 2*x
+end function twice
+```
+
+## Root Cause Analysis
+
+### Current Architecture Gaps
+
+1. **Standardizer Limitation**: The `standardizer.f90` module only handles `program_node` entries, not `function_def_node` or `subroutine_def_node`
+2. **Code Generation Gap**: The `codegen_core.f90` generates parameter declarations but not local/result variable declarations
+3. **Semantic Integration**: Type inference works correctly but doesn't trigger declaration generation for functions
+
+### Existing Infrastructure Analysis
+
+**✅ Available Components**:
+- **Type Inference**: `semantic_analyzer.f90` correctly infers all variable types including result variables
+- **Declaration Infrastructure**: `standardizer.f90` has comprehensive declaration generation for programs
+- **AST Storage**: Inferred types are stored in `node%inferred_type` for all variables
+
+**❌ Missing Components**:
+- **Function Standardization**: No equivalent to `insert_variable_declarations` for functions
+- **Function Variable Collection**: No function-specific variable discovery logic
+- **Result Variable Handling**: No special handling for function result variables
+
+## Solution Architecture
+
+### Phase 1: Extend Standardizer for Functions
+
+**Objective**: Add function-specific variable declaration generation to the standardizer
+
+**Key Changes**:
+1. **Function Standardization Entry Point**: Add `standardize_function_def` and `standardize_subroutine_def`
+2. **Function Variable Collection**: Implement `collect_function_variables` to find undeclared variables
+3. **Result Variable Detection**: Special logic for function result variables
+4. **Integration**: Call function standardization from main `standardize_ast`
+
+**Implementation Points**:
+- Add function handlers in `standardize_ast` main dispatch
+- Create `insert_function_variable_declarations` parallel to existing program logic
+- Handle function scope vs program scope properly
+- Preserve existing parameter declarations from semantic analyzer
+
+### Phase 2: Function Variable Discovery
+
+**Objective**: Collect all variables used in function bodies that need declarations
+
+**Key Changes**:
+1. **Variable Scanning**: Traverse function body to find all variable usage
+2. **Declaration Filtering**: Skip variables that already have explicit declarations
+3. **Result Variable Priority**: Always declare result variables even if not explicitly used
+4. **Parameter Exclusion**: Don't redeclare parameters (already handled)
+
+**Implementation Points**:
+- Reuse `collect_statement_vars` logic from standardizer
+- Add `collect_function_result_var` for result variable handling
+- Filter against existing `declaration_node` and `parameter_declaration_node` entries
+- Handle both named result variables and implicit function name results
+
+### Phase 3: Type-Based Declaration Generation
+
+**Objective**: Generate properly typed variable declarations from inferred types
+
+**Key Changes**:
+1. **Type Translation**: Convert `mono_type_t` to Fortran declaration strings
+2. **Result Variable Typing**: Use function result type or inferred type
+3. **Declaration Creation**: Generate `declaration_node` entries in AST
+4. **Position Management**: Insert declarations after `implicit none`
+
+**Implementation Points**:
+- Extend existing `create_declaration_from_type` logic
+- Handle character length specifications properly
+- Support array declarations with inferred dimensions
+- Generate clean, standard-compliant declaration syntax
+
+## Detailed Technical Specifications
+
+### 1. Function Standardization Integration
+
+**Location**: `src/standardizer.f90`
+
+```fortran
+! Add to standardize_ast main dispatch
+type is (function_def_node)
+    call standardize_function_def(arena, root_index, func_def)
+type is (subroutine_def_node)  
+    call standardize_subroutine_def(arena, root_index, sub_def)
+```
+
+**New Functions**:
+```fortran
+subroutine standardize_function_def(arena, func_index, func_def)
+    ! 1. Insert implicit none if missing
+    ! 2. Collect undeclared variables in function body
+    ! 3. Generate variable declarations from inferred types
+    ! 4. Insert declarations after implicit none
+end subroutine
+
+subroutine insert_function_variable_declarations(arena, func_def, func_index)
+    ! Parallel to insert_variable_declarations but for functions
+    ! Handle function-specific scoping and result variables
+end subroutine
+```
+
+### 2. Function Variable Collection Algorithm
+
+**Process**:
+1. **Scan Function Body**: Traverse `func_def%body_indices` to find variable usage
+2. **Extract Result Variable**: From `func_def%result_variable` or function name
+3. **Filter Declared Variables**: Check against existing declarations in body
+4. **Build Variable List**: Create list of undeclared variables needing declarations
+
+**Special Cases**:
+- **Result Variable**: Always include even if not used (required by Fortran standard)
+- **Parameter Variables**: Exclude from declaration generation (handled by semantic analyzer)
+- **Local Variables**: Include all variables used in assignments or expressions
+
+### 3. Type-Driven Declaration Generation
+
+**Type Mapping Logic**:
+```fortran
+function mono_type_to_fortran_decl(mono_type) result(decl_string)
+    select case (mono_type%kind)
+    case (TINT)
+        decl_string = "integer"
+    case (TREAL)  
+        decl_string = "real(8)"  ! Default real precision
+    case (TCHAR)
+        if (mono_type%char_size > 0) then
+            decl_string = "character(len=" // trim(int_to_string(mono_type%char_size)) // ")"
+        else
+            decl_string = "character(len=:), allocatable"
+        end if
+    case (TLOGICAL)
+        decl_string = "logical"
+    case (TARRAY)
+        ! Handle array declarations with proper dimensions
+    end select
+end function
+```
+
+### 4. Declaration Insertion Strategy
+
+**Position Logic**:
+1. **Find Insertion Point**: After `implicit none`, before first executable statement
+2. **Group Declarations**: Group by type for cleaner output
+3. **Preserve Order**: Maintain logical declaration order (parameters, locals, result)
+4. **Update Body Indices**: Properly insert new declaration nodes in function body
+
+## Implementation Plan
+
+### Step 1: Function Standardization Framework (45 min)
+- Add function handlers to `standardize_ast` dispatch
+- Create `standardize_function_def` and `standardize_subroutine_def` stubs  
+- Implement basic function body traversal
+- Add integration tests for function standardization
+
+### Step 2: Variable Collection Logic (1 hour)
+- Implement `collect_function_variables` reusing existing logic
+- Add `collect_function_result_var` for result variable handling
+- Create filtering logic for existing declarations
+- Test variable discovery on simple functions
+
+### Step 3: Declaration Generation (1 hour)
+- Extend `mono_type_to_fortran_decl` type conversion
+- Implement declaration node creation for functions
+- Add declaration insertion logic after `implicit none`
+- Handle multi-variable declarations properly
+
+### Step 4: Integration and Testing (45 min)
+- Test complete pipeline: semantic analysis → standardization → code generation
+- Verify Issue #320 example produces correct output
+- Check edge cases: no result variable, complex types, nested functions
+- Ensure no regressions in existing program standardization
+
+### Step 5: Cleanup and Optimization (30 min)
+- Remove any debugging code
+- Optimize variable collection performance
+- Add comprehensive error handling
+- Update documentation and code comments
+
+## Risk Assessment
+
+### High Risk
+- **AST Corruption**: Modifying function bodies could break existing nodes
+- **Mitigation**: Use arena-safe operations, validate node indices, comprehensive testing
+
+### Medium Risk  
+- **Type System Integration**: Converting inferred types to declarations
+- **Mitigation**: Reuse proven type conversion logic, test with all type variants
+
+### Low Risk
+- **Performance Impact**: Additional standardization pass for functions
+- **Mitigation**: Only process functions that need declarations, optimize collection
+
+## Success Criteria
+
+1. **Issue #320 Example Works**: The exact example from Issue #320 produces correct output
+2. **All Variable Types Supported**: Integer, real, character, logical, array declarations
+3. **Result Variables Always Declared**: Function result variables always get declarations
+4. **No Regressions**: Existing program standardization continues to work
+5. **Clean Code Generation**: Generated declarations are properly formatted and standard-compliant
+6. **Edge Cases Handled**: Functions without result variables, functions with explicit declarations
+
+## Testing Strategy
+
+### Unit Tests
+- Function variable collection
+- Type-to-declaration conversion  
+- Declaration insertion logic
+- Result variable detection
+
+### Integration Tests
+- Complete Issue #320 example pipeline
+- Functions with different variable types
+- Functions with mixed declared/undeclared variables
+- Functions with complex result types
+
+### Regression Tests
+- All existing standardizer tests
+- All existing semantic analysis tests
+- Full fortfront pipeline tests
+
+---
+
 # Character Type Inference Architecture (Issue #329)
 
 ## Problem Analysis
