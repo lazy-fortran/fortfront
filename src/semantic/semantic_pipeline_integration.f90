@@ -26,6 +26,7 @@ contains
         ! Create pipeline with default analyzers
         pipeline = create_default_semantic_pipeline()
         
+        
         ! Run analysis
         call pipeline%run_analysis(arena, root_index)
         

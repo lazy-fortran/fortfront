@@ -149,7 +149,7 @@ contains
     subroutine analyze_source_reconstruction(this, shared_context, arena, node_index)
         class(source_reconstruction_analyzer_t), intent(inout) :: this
         class(*), intent(in) :: shared_context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Build comprehensive mapping from AST nodes to source locations
@@ -501,7 +501,7 @@ contains
         type(source_context_t), intent(in) :: context
         type(source_location_t), intent(in) :: location
         integer, intent(in) :: node_index
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         character(:), allocatable :: source_text
         
         ! Generate source from AST node
@@ -623,7 +623,7 @@ contains
              result(source_text)
         class(strategy_dispatcher_t), intent(in) :: this
         type(source_context_t), intent(in) :: context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         character(:), allocatable :: source_text
         
@@ -712,7 +712,7 @@ contains
     ! Helper subroutines
     subroutine build_source_mapping(result, arena, root_index)
         type(source_reconstruction_result_t), intent(inout) :: result
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
         
         integer :: i, valid_nodes
@@ -820,7 +820,7 @@ contains
     end function
 
     function count_lines_in_arena(arena) result(line_count)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer :: line_count
         
         integer :: i, max_line
@@ -848,7 +848,7 @@ contains
 
     ! Additional helper functions for real source mapping
     function reconstruct_source_from_arena(arena) result(source_text)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         character(:), allocatable :: source_text
         
         integer :: i, line_num, max_lines

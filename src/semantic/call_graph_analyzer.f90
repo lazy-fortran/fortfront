@@ -33,7 +33,7 @@ contains
     subroutine analyze_call_graph(this, shared_context, arena, node_index)
         class(call_graph_analyzer_t), intent(inout) :: this
         class(*), intent(in) :: shared_context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Build call graph from AST using the function interface

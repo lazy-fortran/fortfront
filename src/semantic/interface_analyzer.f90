@@ -64,7 +64,7 @@ contains
     subroutine analyze_interfaces(this, shared_context, arena, node_index)
         class(interface_analyzer_t), intent(inout) :: this
         class(*), intent(in) :: shared_context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Extract interface signatures from procedures
@@ -114,7 +114,7 @@ contains
     function extract_interface_signature(this, proc_node_index, arena) result(signature)
         class(interface_analyzer_t), intent(in) :: this
         integer, intent(in) :: proc_node_index
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         type(interface_signature_t) :: signature
         
         ! Extract signature from function or subroutine node
@@ -222,7 +222,7 @@ contains
     ! Helper subroutines
     subroutine extract_all_signatures(result, arena, root_index)
         type(interface_comparison_result_t), intent(inout) :: result
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
         
         integer :: i, signature_count
@@ -263,7 +263,7 @@ contains
         use ast_nodes_data, only: parameter_declaration_node, INTENT_IN, INTENT_OUT, &
                                   INTENT_INOUT, INTENT_NONE
         type(interface_signature_t), intent(out) :: signature
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Initialize signature
@@ -330,7 +330,7 @@ contains
         use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
                                   INTENT_IN, INTENT_OUT, INTENT_INOUT, INTENT_NONE
         type(parameter_info_t), intent(out) :: parameters(:)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: param_indices(:)
         
         integer :: i, param_idx
@@ -351,7 +351,7 @@ contains
         use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
                                   INTENT_IN, INTENT_OUT, INTENT_INOUT, INTENT_NONE
         type(parameter_info_t), intent(out) :: param_info
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Initialize parameter info
@@ -487,7 +487,7 @@ contains
 
     ! Helper functions
     function is_procedure_node_type(arena, node_index) result(is_proc)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         logical :: is_proc
         

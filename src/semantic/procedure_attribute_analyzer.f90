@@ -82,7 +82,7 @@ contains
     subroutine analyze_procedure_attributes(this, shared_context, arena, node_index)
         class(procedure_attribute_analyzer_t), intent(inout) :: this
         class(*), intent(in) :: shared_context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Basic implementation - traverse arena for procedure declarations
@@ -228,7 +228,7 @@ contains
     
     subroutine extract_procedure_attributes(this, arena, node_index)
         class(procedure_attribute_analyzer_t), intent(inout) :: this
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Placeholder implementation
@@ -315,7 +315,7 @@ contains
     ! Helper subroutines (placeholder implementations)
     subroutine traverse_for_procedures(registry, arena, node_index)
         type(procedure_registry_t), intent(inout) :: registry
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Placeholder - would traverse AST to find procedure declarations
@@ -325,7 +325,7 @@ contains
     
     subroutine extract_all_attributes(registry, arena)
         type(procedure_registry_t), intent(inout) :: registry
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         
         ! Placeholder - would extract attributes from found procedures
         associate(dummy1 => registry, dummy2 => arena)

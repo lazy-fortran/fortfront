@@ -31,7 +31,7 @@ module variable_declaration_analyzer
     type, extends(semantic_analyzer_t) :: variable_declaration_analyzer_t
         type(variable_declaration_result_t) :: result
         logical :: analysis_complete = .false.
-        logical :: strict_mode = .true.  ! Error on uninferable types
+        logical :: strict_mode = .false.  ! Error on uninferable types
     contains
         procedure :: analyze => analyze_variable_declarations
         procedure :: get_results => get_declaration_results
@@ -46,7 +46,7 @@ contains
     subroutine analyze_variable_declarations(this, shared_context, arena, node_index)
         class(variable_declaration_analyzer_t), intent(inout) :: this
         class(*), intent(in) :: shared_context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
 
         logical :: success
@@ -65,14 +65,8 @@ contains
                     select type(sem_ctx)
                     type is (semantic_context_t)
                         ! Now we have the semantic context
-                        ! Create mutable copy for AST modification
-                        block
-                            type(ast_arena_t) :: mutable_arena
-                            mutable_arena = arena
-                            
-                            ! Process the AST to generate missing variable declarations
-                            call process_node_for_declarations(this, mutable_arena, sem_ctx, node_index, success)
-                        end block
+                        ! Process the AST to generate missing variable declarations
+                        call process_node_for_declarations(this, arena, sem_ctx, node_index, success)
                     class default
                         success = .false.
                     end select
@@ -81,15 +75,9 @@ contains
                 end if
             end block
         type is (semantic_context_t)
-            ! Create mutable copy for AST modification
-            block
-                type(ast_arena_t) :: mutable_arena
-                mutable_arena = arena
-                
-                ! Process the AST to generate missing variable declarations
-                ! using the shared context that already has type information
-                call process_node_for_declarations(this, mutable_arena, shared_context, node_index, success)
-            end block
+            ! Process the AST to generate missing variable declarations
+            ! using the shared context that already has type information
+            call process_node_for_declarations(this, arena, shared_context, node_index, success)
         class default
             ! Wrong context type - fail gracefully
             this%result%analysis_result%success = .false.
@@ -177,6 +165,7 @@ contains
         ! Function scope only - preserve program-level implicit behavior
         call collect_undeclared_variables(arena, func_node, var_names, undeclared_count)
         
+        
         if (undeclared_count == 0) return
 
         ! Allocate arrays for type information
@@ -195,6 +184,10 @@ contains
                     call set_type_inference_error(this, var_names(i))
                     success = .false.
                     cycle
+                else
+                    ! In non-strict mode, provide sensible defaults for Issue #320
+                    var_types(i) = "real"  ! Default to real for numeric computations
+                    can_infer(i) = .true.  ! Mark as inferable with default
                 end if
             end if
         end do
@@ -202,9 +195,11 @@ contains
         ! If any type inference failed and we're in strict mode, abort
         if (.not. success) return
 
+        
         ! Generate and insert variable declarations for successfully inferred types
         call insert_variable_declarations(this, arena, func_node, var_names, var_types, &
                                         can_infer, undeclared_count, success)
+        
     end subroutine
 
     subroutine collect_undeclared_variables(arena, func_node, var_names, count)
@@ -641,6 +636,7 @@ contains
         ! Replace the old array with the new one
         deallocate(func_node%body_indices)
         func_node%body_indices = new_body_indices
+        
         
         success = .true.
     end subroutine

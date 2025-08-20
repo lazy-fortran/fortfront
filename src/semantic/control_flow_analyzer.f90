@@ -38,7 +38,7 @@ contains
     subroutine analyze_control_flow(this, shared_context, arena, node_index)
         class(control_flow_analyzer_t), intent(inout) :: this
         class(*), intent(in) :: shared_context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Build CFG from AST using the function interface

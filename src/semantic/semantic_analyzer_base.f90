@@ -22,7 +22,7 @@ module semantic_analyzer_base
             import :: semantic_analyzer_t, ast_arena_t
             class(semantic_analyzer_t), intent(inout) :: this
             class(*), intent(in) :: shared_context  ! Will be semantic_context_t
-            type(ast_arena_t), intent(in) :: arena
+            type(ast_arena_t), intent(inout) :: arena
             integer, intent(in) :: node_index
         end subroutine
 

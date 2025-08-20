@@ -108,7 +108,7 @@ contains
 
     subroutine run_analysis(this, arena, root_node_index)
         class(semantic_pipeline_t), intent(inout) :: this
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_node_index
         
         character(len=32), allocatable :: execution_order(:)

@@ -63,7 +63,7 @@ contains
     subroutine analyze_symbols(this, shared_context, arena, node_index)
         class(symbol_analyzer_t), intent(inout) :: this
         class(*), intent(in) :: shared_context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Initialize fresh semantic context for symbol collection
@@ -102,7 +102,7 @@ contains
     subroutine analyze_types(this, shared_context, arena, node_index)
         class(type_analyzer_t), intent(inout) :: this
         class(*), intent(in) :: shared_context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Initialize context
@@ -138,7 +138,7 @@ contains
     subroutine analyze_scopes(this, shared_context, arena, node_index)
         class(scope_analyzer_t), intent(inout) :: this
         class(*), intent(in) :: shared_context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Initialize context

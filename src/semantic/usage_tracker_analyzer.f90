@@ -47,7 +47,7 @@ contains
     subroutine analyze_variable_usage(this, shared_context, arena, node_index)
         class(usage_tracker_analyzer_t), intent(inout) :: this
         class(*), intent(in) :: shared_context
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
         ! Reset state before analysis to handle repeated use
