@@ -390,12 +390,29 @@ contains
         lhs%size = rhs%size
         lhs%alloc_info = rhs%alloc_info
         
-        ! Copy var field using safe assignment
-        lhs%var = rhs%var
+        ! Copy var field safely to avoid type_var_assign issues
+        lhs%var%id = rhs%var%id
+        if (allocated(rhs%var%name)) then
+            if (allocated(lhs%var%name)) deallocate(lhs%var%name)
+            lhs%var%name = rhs%var%name
+        else
+            if (.not. allocated(lhs%var%name)) then
+                allocate(character(len=0) :: lhs%var%name)
+            end if
+        end if
         
-        ! SAFETY: Skip args copying to prevent finalizer cycles
-        ! This is a temporary workaround to prevent memory corruption
-        ! Args copying must be handled explicitly by caller if needed
+        ! SAFETY: Copy args only for safe cases to prevent finalizer cycles
+        ! Handle empty args arrays (size 0) which are safe to copy
+        if (allocated(rhs%args)) then
+            if (size(rhs%args) == 0) then
+                ! Safe to copy empty args array
+                if (allocated(lhs%args)) deallocate(lhs%args)
+                allocate(lhs%args(0))
+            else
+                ! Non-empty args arrays skipped to prevent memory corruption
+                ! Args copying must be handled explicitly by caller if needed
+            end if
+        end if
         
     end subroutine mono_type_assign
     
