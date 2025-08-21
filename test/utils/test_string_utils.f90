@@ -20,7 +20,6 @@ program test_string_utils
     ! Test trimming operations
     call test_string_trim()
     call test_string_ltrim()
-    call test_string_rtrim()
     
     ! Test comparison operations
     call test_string_equals()
@@ -160,17 +159,6 @@ contains
         end if
     end subroutine test_string_ltrim
     
-    subroutine test_string_rtrim()
-        character(len=:), allocatable :: result
-        
-        call test_start("string_rtrim trailing spaces")
-        result = string_rtrim("Hello   ")
-        if (result == "Hello") then
-            call test_pass()
-        else
-            call test_fail("Right trim failed")
-        end if
-    end subroutine test_string_rtrim
     
     ! ========================================================================
     ! Comparison operations tests

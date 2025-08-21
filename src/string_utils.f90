@@ -10,7 +10,6 @@ module string_utils
     public :: string_append
     public :: string_trim
     public :: string_ltrim
-    public :: string_rtrim
     public :: string_equals
     public :: string_starts_with
     public :: string_ends_with
@@ -82,13 +81,6 @@ contains
         trimmed = trim(adjustl(str))
     end function string_ltrim
     
-    function string_rtrim(str) result(trimmed)
-        ! Remove trailing spaces (alias for string_trim)
-        character(len=*), intent(in) :: str
-        character(len=:), allocatable :: trimmed
-        
-        trimmed = string_trim(str)
-    end function string_rtrim
     
     ! ========================================================================
     ! String comparison operations
@@ -147,15 +139,13 @@ contains
         character(len=:), allocatable, intent(out) :: str
         integer, intent(in) :: length
         character(len=*), intent(in), optional :: initial_value
-        integer :: init_len, i
+        integer :: init_len
         
         if (allocated(str)) deallocate(str)
         allocate(character(len=length) :: str)
         
         ! Initialize with spaces
-        do i = 1, length
-            str(i:i) = ' '
-        end do
+        str = repeat(' ', length)
         
         if (present(initial_value)) then
             init_len = min(len(initial_value), length)
