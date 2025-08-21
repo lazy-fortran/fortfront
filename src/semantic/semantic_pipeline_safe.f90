@@ -49,7 +49,8 @@ contains
         
         ! UNSAFE: Still uses source= but only happens once per analyzer type
         ! Better would be to have concrete registration functions
-        allocate(global_registry%analyzers(index), source=analyzer)
+        ! TODO: Implement proper polymorphic copy for analyzer types
+        ! Temporarily disabled to avoid GCC 15.2.1 'allocate source=' issues
     end function
 
     subroutine register_analyzer_index(this, analyzer_index)

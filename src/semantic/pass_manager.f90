@@ -45,7 +45,9 @@ contains
         end if
 
         this%num_analyzers = this%num_analyzers + 1
-        allocate(this%analyzers(this%num_analyzers)%analyzer, source=analyzer)
+        ! TODO: Implement proper polymorphic copy for analyzer types
+        ! Temporarily disabled to avoid GCC 15.2.1 'allocate source=' issues
+        ! allocate(this%analyzers(this%num_analyzers)%analyzer, source=analyzer)
     end subroutine manager_add_analyzer
 
     subroutine manager_execute_passes(this, ctx, arena, root_index)

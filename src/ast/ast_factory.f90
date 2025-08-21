@@ -187,14 +187,14 @@ contains
 
         if (present(component_indices)) then
             if (size(component_indices) > 0) then
-                allocate (dtype%component_indices, source=component_indices)
+                dtype%component_indices = component_indices
             end if
         end if
 
         if (present(param_indices)) then
             if (size(param_indices) > 0) then
                 dtype%has_parameters = .true.
-                allocate (dtype%param_indices, source=param_indices)
+                dtype%param_indices = param_indices
             end if
         end if
 
@@ -254,7 +254,7 @@ contains
 
         if (present(dimension_indices)) then
             decl%is_array = .true.
-            allocate (decl%dimension_indices, source=dimension_indices)
+            decl%dimension_indices = dimension_indices
         else
             decl%is_array = .false.
         end if
@@ -359,7 +359,7 @@ contains
 
         if (present(dimension_indices)) then
             decl%is_array = .true.
-            allocate (decl%dimension_indices, source=dimension_indices)
+            decl%dimension_indices = dimension_indices
         else
             decl%is_array = .false.
         end if
@@ -447,7 +447,7 @@ contains
         if (present(dimension_indices)) then
             if (size(dimension_indices) > 0) then
                 param%is_array = .true.
-                allocate (param%dimension_indices, source=dimension_indices)
+                param%dimension_indices = dimension_indices
             else
                 param%is_array = .false.
             end if

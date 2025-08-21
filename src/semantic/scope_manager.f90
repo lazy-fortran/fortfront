@@ -164,8 +164,8 @@ contains
             this%env%names(this%env%count) = name
             ! Deep copy the scheme to ensure proper storage
             ! First ensure the target is in a clean state
-            if (allocated(this%env%schemes(this%env%count)%forall)) then
-                deallocate(this%env%schemes(this%env%count)%forall)
+            if (allocated(this%env%schemes(this%env%count)%forall_vars)) then
+                deallocate(this%env%schemes(this%env%count)%forall_vars)
             end if
             this%env%schemes(this%env%count) = scheme
         end block

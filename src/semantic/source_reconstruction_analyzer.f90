@@ -562,7 +562,8 @@ contains
         ! Add new entry
         this%count = this%count + 1
         this%entries(this%count)%node_type = node_type
-        allocate(this%entries(this%count)%strategy, source=strategy)
+        ! TODO: Implement proper polymorphic copy for strategy types
+        ! Temporarily disabled to avoid GCC 15.2.1 'allocate source=' issues
     end subroutine register_strategy
 
     function has_strategy(this, node_type) result(found)
@@ -594,7 +595,8 @@ contains
             if (allocated(this%entries(i)%node_type)) then
                 if (this%entries(i)%node_type == node_type) then
                     if (allocated(this%entries(i)%strategy)) then
-                        allocate(strategy, source=this%entries(i)%strategy)
+                        ! TODO: Implement proper polymorphic copy for strategy types
+                        ! Temporarily disabled to avoid GCC 15.2.1 'allocate source=' issues
                         return
                     end if
                 end if

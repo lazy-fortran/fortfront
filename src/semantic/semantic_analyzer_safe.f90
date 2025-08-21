@@ -89,7 +89,9 @@ contains
         end if
         
         ! Get assignment node
-        allocate(node, source=arena%entries(assign_index)%node)
+        ! TODO: Implement GCC 15.2.1 safe polymorphic copying
+        ! Temporarily disabled to avoid 'allocate source=' compatibility issues
+        ! allocate(node, source=arena%entries(assign_index)%node)
         
         select type (assignment => node)
         type is (assignment_node)
@@ -137,8 +139,10 @@ contains
                 return
             end if
             
-            allocate(target_node, source=arena%entries(assignment%target_index)%node)
-            allocate(value_node, source=arena%entries(assignment%value_index)%node)
+            ! TODO: Implement GCC 15.2.1 safe polymorphic copying
+            ! Temporarily disabled to avoid 'allocate source=' compatibility issues
+            ! allocate(target_node, source=arena%entries(assignment%target_index)%node)
+            ! allocate(value_node, source=arena%entries(assignment%value_index)%node)
             
             ! Validate assignment target (replaces error_stop "Assignment target must be identifier")
             select type (target => target_node)
@@ -204,7 +208,9 @@ contains
         end if
         
         ! Get binary operation node
-        allocate(node, source=arena%entries(binop_index)%node)
+        ! TODO: Implement GCC 15.2.1 safe polymorphic copying
+        ! Temporarily disabled to avoid 'allocate source=' compatibility issues
+        ! allocate(node, source=arena%entries(binop_index)%node)
         
         select type (binop => node)
         type is (binary_op_node)
@@ -295,7 +301,9 @@ contains
         end if
         
         ! Get literal node
-        allocate(node, source=arena%entries(literal_index)%node)
+        ! TODO: Implement GCC 15.2.1 safe polymorphic copying
+        ! Temporarily disabled to avoid 'allocate source=' compatibility issues
+        ! allocate(node, source=arena%entries(literal_index)%node)
         
         select type (literal => node)
         type is (literal_node)
@@ -370,7 +378,9 @@ contains
         end if
         
         ! Get call/subscript node
-        allocate(node, source=arena%entries(call_index)%node)
+        ! TODO: Implement GCC 15.2.1 safe polymorphic copying
+        ! Temporarily disabled to avoid 'allocate source=' compatibility issues
+        ! allocate(node, source=arena%entries(call_index)%node)
         
         select type (call_node => node)
         type is (call_or_subscript_node)

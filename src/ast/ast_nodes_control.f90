@@ -441,7 +441,7 @@ contains
         lhs%num_indices = rhs%num_indices
         if (allocated(rhs%index_names)) then
             if (allocated(lhs%index_names)) deallocate(lhs%index_names)
-            allocate(lhs%index_names, source=rhs%index_names)
+            lhs%index_names = rhs%index_names
         end if
         if (allocated(rhs%lower_bound_indices)) then
             if (allocated(lhs%lower_bound_indices)) deallocate(lhs%lower_bound_indices)
@@ -469,7 +469,7 @@ contains
         lhs%is_parallel_safe = rhs%is_parallel_safe
         if (allocated(rhs%dependency_pairs)) then
             if (allocated(lhs%dependency_pairs)) deallocate(lhs%dependency_pairs)
-            allocate(lhs%dependency_pairs, source=rhs%dependency_pairs)
+            lhs%dependency_pairs = rhs%dependency_pairs
         end if
     end subroutine forall_assign
 

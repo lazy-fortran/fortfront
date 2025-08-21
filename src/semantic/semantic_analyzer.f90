@@ -586,9 +586,9 @@ contains
                 type(poly_type_t) :: temp_scheme
                 ! Manual copy to avoid assignment operator with allocatable
                 temp_scheme%mono = scheme%mono
-                if (allocated(scheme%forall)) then
-                    allocate(temp_scheme%forall(size(scheme%forall)))
-                    temp_scheme%forall = scheme%forall
+                if (allocated(scheme%forall_vars)) then
+                    allocate(temp_scheme%forall_vars(size(scheme%forall_vars)))
+                    temp_scheme%forall_vars = scheme%forall_vars
                 end if
                 typ = ctx%instantiate(temp_scheme)
             end block
@@ -1247,9 +1247,9 @@ contains
 
         ! Create fresh type variables for all quantified variables
         subst%count = 0
-        if (allocated(scheme%forall)) then
-            do i = 1, size(scheme%forall)
-                call subst%add(scheme%forall(i), &
+        if (allocated(scheme%forall_vars)) then
+            do i = 1, size(scheme%forall_vars)
+                call subst%add(scheme%forall_vars(i), &
                                create_mono_type(TVAR, var=this%fresh_type_var()))
             end do
         end if
@@ -1541,7 +1541,7 @@ contains
         ! Get free variables in monotype
         call free_type_vars(scheme%mono, mono_vars)
 
-        if (.not. allocated(scheme%forall) .or. size(scheme%forall) == 0) then
+        if (.not. allocated(scheme%forall_vars) .or. size(scheme%forall_vars) == 0) then
             vars = mono_vars
             return
         end if
@@ -1552,8 +1552,8 @@ contains
 
         do i = 1, size(mono_vars)
             quantified = .false.
-            do j = 1, size(scheme%forall)
-                if (mono_vars(i)%id == scheme%forall(j)%id) then
+            do j = 1, size(scheme%forall_vars)
+                if (mono_vars(i)%id == scheme%forall_vars(j)%id) then
                     quantified = .true.
                     exit
                 end if

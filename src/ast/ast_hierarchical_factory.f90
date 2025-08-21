@@ -375,7 +375,7 @@ contains
         
         if (present(dimension_ids)) then
             decl%is_array = .true.
-            allocate(decl%dimension_indices, source=dimension_ids)
+            decl%dimension_indices = dimension_ids
         end if
         
         ! Set other attributes
