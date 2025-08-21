@@ -63,6 +63,7 @@ module type_system_hm
         procedure :: to_string => poly_type_to_string
         procedure :: deep_copy => poly_type_deep_copy
         procedure :: assign => poly_type_assign
+        procedure :: init => poly_type_init
         generic :: assignment(=) => assign
     end type poly_type_t
 
@@ -492,6 +493,15 @@ contains
         ! Deep copy mono type (assignment operator handles deep copy)
         lhs%mono = rhs%mono
     end subroutine poly_type_assign
+
+    ! Initialize poly_type to ensure clean state
+    subroutine poly_type_init(this)
+        class(poly_type_t), intent(inout) :: this
+        ! Ensure forall is explicitly not allocated
+        if (allocated(this%forall)) deallocate(this%forall)
+        ! Initialize mono to a safe default
+        this%mono = create_mono_type(TVAR, var=type_var_t(id=-1, name=""))
+    end subroutine poly_type_init
 
     ! Add a substitution
     subroutine subst_add(this, var, typ)

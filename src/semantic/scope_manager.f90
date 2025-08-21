@@ -116,15 +116,11 @@ contains
             integer :: j
             do j = 1, this%env%count
                 if (this%env%names(j) == name) then
-                    ! Manual deep copy to avoid assignment operator issues
+                    ! Allocate and initialize to ensure clean state
                     allocate(scheme)
-                    ! Copy mono type
-                    scheme%mono = this%env%schemes(j)%mono
-                    ! Copy forall if allocated
-                    if (allocated(this%env%schemes(j)%forall)) then
-                        allocate(scheme%forall(size(this%env%schemes(j)%forall)))
-                        scheme%forall = this%env%schemes(j)%forall
-                    end if
+                    call scheme%init()
+                    ! Now safe to use assignment operator
+                    scheme = this%env%schemes(j)
                     return
                 end if
             end do

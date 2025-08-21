@@ -581,7 +581,17 @@ contains
 
         if (allocated(scheme)) then
             ! Found in environment - instantiate the type scheme
-            typ = ctx%instantiate(scheme)
+            ! Work around GCC 15.1.1 allocatable component issue
+            block
+                type(poly_type_t) :: temp_scheme
+                ! Manual copy to avoid assignment operator with allocatable
+                temp_scheme%mono = scheme%mono
+                if (allocated(scheme%forall)) then
+                    allocate(temp_scheme%forall(size(scheme%forall)))
+                    temp_scheme%forall = scheme%forall
+                end if
+                typ = ctx%instantiate(temp_scheme)
+            end block
         else
             ! Not found - create fresh type variable
             ! For undeclared variables, use a type variable that can be
@@ -1230,16 +1240,10 @@ contains
     ! Instantiate a type scheme
     function instantiate_type_scheme(this, scheme) result(typ)
         class(semantic_context_t), intent(inout) :: this
-        type(poly_type_t), allocatable, intent(in) :: scheme
+        type(poly_type_t), intent(in) :: scheme
         type(mono_type_t) :: typ
         type(substitution_t) :: subst
         integer :: i
-
-        ! Handle unallocated scheme (should not happen but be defensive)
-        if (.not. allocated(scheme)) then
-            typ = create_mono_type(TVAR, var=this%fresh_type_var())
-            return
-        end if
 
         ! Create fresh type variables for all quantified variables
         subst%count = 0
