@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <!DOCTYPE coverage
   SYSTEM 'http://cobertura.sourceforge.net/xml/coverage-04.dtd'>
-<coverage branch-rate="0.33634871512159675" branches-covered="26845" branches-valid="79813" complexity="0" line-rate="0.6798817161186849" lines-covered="13565" lines-valid="19952" timestamp="1755720444" version="2.0.3">
+<coverage branch-rate="0.33671440185104123" branches-covered="26922" branches-valid="79955" complexity="0" line-rate="0.6809668880787095" lines-covered="13635" lines-valid="20023" timestamp="1755755816" version="2.0.3">
 	<sources>
 		<source>.</source>
 	</sources>
@@ -15569,7 +15569,7 @@
 				</class>
 			</classes>
 		</package>
-		<package line-rate="0.6645649432534678" branch-rate="0.3452777407752764" name="src" complexity="0">
+		<package line-rate="0.6702180376610506" branch-rate="0.3471232515175508" name="src" complexity="0">
 			<classes>
 				<class branch-rate="0.1164079822616408" complexity="0" filename="src/error_handling.f90" line-rate="0.25906735751295334" name="src.error_handling.f90">
 					<methods>
@@ -22544,6 +22544,213 @@
 						<line branch="true" hits="0" number="2679" condition-coverage="0% (0/8)"/>
 						<line branch="false" hits="0" number="2680"/>
 						<line branch="true" hits="10105" number="2682" condition-coverage="56% (220/386)"/>
+					</lines>
+				</class>
+				<class branch-rate="0.5422535211267606" complexity="0" filename="src/string_utils.f90" line-rate="0.9859154929577465" name="src.string_utils.f90">
+					<methods>
+						<method name="110,__string_utils_MOD_string_starts_with" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="100" branch="false"/>
+							</lines>
+						</method>
+						<method name="126,__string_utils_MOD_string_ends_with" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="112" branch="false"/>
+							</lines>
+						</method>
+						<method name="134,__string_utils_MOD_string_contains" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="128" branch="false"/>
+							</lines>
+						</method>
+						<method name="173,__string_utils_MOD_string_allocate" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="140" branch="false"/>
+							</lines>
+						</method>
+						<method name="180,__string_utils_MOD_string_deallocate" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="175" branch="false"/>
+							</lines>
+						</method>
+						<method name="196,__string_utils_MOD_string_length" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="186" branch="false"/>
+							</lines>
+						</method>
+						<method name="208,__string_utils_MOD_string_is_empty" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="198" branch="false"/>
+							</lines>
+						</method>
+						<method name="36,__string_utils_MOD_string_copy" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="28" branch="false"/>
+							</lines>
+						</method>
+						<method name="45,__string_utils_MOD_string_concat" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="38" branch="false"/>
+							</lines>
+						</method>
+						<method name="63,__string_utils_MOD_string_append" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="47" branch="false"/>
+							</lines>
+						</method>
+						<method name="76,__string_utils_MOD_string_trim" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="69" branch="false"/>
+							</lines>
+						</method>
+						<method name="85,__string_utils_MOD_string_ltrim" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="78" branch="false"/>
+							</lines>
+						</method>
+						<method name="98,__string_utils_MOD_string_equals" signature="" line-rate="0.0" branch-rate="0.0">
+							<lines>
+								<line hits="0" number="92" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_starts_with" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="3" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_ends_with" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="3" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_contains" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="2" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_allocate" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="5" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_deallocate" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="2" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_length" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="2" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_is_empty" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="3" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_copy" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="4" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_concat" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="2" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_append" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="3" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_trim" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="2" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_ltrim" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="2" number="0" branch="false"/>
+							</lines>
+						</method>
+						<method name="__string_utils_MOD_string_equals" signature="" line-rate="1.0" branch-rate="1.0">
+							<lines>
+								<line hits="2" number="0" branch="false"/>
+							</lines>
+						</method>
+					</methods>
+					<lines>
+						<line branch="false" hits="8" number="28"/>
+						<line branch="true" hits="4" number="34" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="4" number="35" condition-coverage="50% (4/8)"/>
+						<line branch="true" hits="4" number="36" condition-coverage="50% (1/2)"/>
+						<line branch="false" hits="2" number="38"/>
+						<line branch="true" hits="2" number="43" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="2" number="44" condition-coverage="50% (4/8)"/>
+						<line branch="true" hits="2" number="45" condition-coverage="50% (1/2)"/>
+						<line branch="false" hits="11" number="47"/>
+						<line branch="false" hits="3" number="51"/>
+						<line branch="true" hits="3" number="54" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="3" number="55" condition-coverage="50% (4/8)"/>
+						<line branch="true" hits="3" number="57" condition-coverage="100% (2/2)"/>
+						<line branch="true" hits="1" number="58" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="2" number="61" condition-coverage="44% (8/18)"/>
+						<line branch="true" hits="6" number="63" condition-coverage="50% (2/4)"/>
+						<line branch="false" hits="2" number="69"/>
+						<line branch="true" hits="2" number="74" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="2" number="75" condition-coverage="50% (5/10)"/>
+						<line branch="true" hits="2" number="76" condition-coverage="50% (1/2)"/>
+						<line branch="false" hits="2" number="78"/>
+						<line branch="true" hits="2" number="83" condition-coverage="50% (2/4)"/>
+						<line branch="true" hits="2" number="84" condition-coverage="50% (5/10)"/>
+						<line branch="false" hits="2" number="85"/>
+						<line branch="false" hits="2" number="92"/>
+						<line branch="false" hits="2" number="97"/>
+						<line branch="false" hits="2" number="98"/>
+						<line branch="false" hits="3" number="100"/>
+						<line branch="false" hits="3" number="105"/>
+						<line branch="false" hits="1" number="106"/>
+						<line branch="false" hits="2" number="108"/>
+						<line branch="true" hits="6" number="110" condition-coverage="100% (2/2)"/>
+						<line branch="false" hits="3" number="112"/>
+						<line branch="false" hits="3" number="118"/>
+						<line branch="false" hits="3" number="119"/>
+						<line branch="false" hits="3" number="121"/>
+						<line branch="false" hits="0" number="122"/>
+						<line branch="false" hits="3" number="124"/>
+						<line branch="true" hits="6" number="126" condition-coverage="50% (1/2)"/>
+						<line branch="false" hits="2" number="128"/>
+						<line branch="false" hits="2" number="133"/>
+						<line branch="false" hits="2" number="134"/>
+						<line branch="false" hits="8" number="140"/>
+						<line branch="false" hits="5" number="148"/>
+						<line branch="true" hits="1" number="150" condition-coverage="25% (1/4)"/>
+						<line branch="false" hits="1" number="151"/>
+						<line branch="true" hits="4" number="154" condition-coverage="25% (1/4)"/>
+						<line branch="true" hits="4" number="157" condition-coverage="100% (2/2)"/>
+						<line branch="true" hits="1" number="158" condition-coverage="50% (2/4)"/>
+						<line branch="false" hits="1" number="159"/>
+						<line branch="true" hits="3" number="162" condition-coverage="50% (2/4)"/>
+						<line branch="true" hits="31" number="165" condition-coverage="57% (8/14)"/>
+						<line branch="true" hits="3" number="167" condition-coverage="100% (2/2)"/>
+						<line branch="false" hits="2" number="168"/>
+						<line branch="true" hits="2" number="169" condition-coverage="50% (1/2)"/>
+						<line branch="true" hits="2" number="170" condition-coverage="50% (2/4)"/>
+						<line branch="true" hits="5" number="173" condition-coverage="100% (2/2)"/>
+						<line branch="false" hits="2" number="175"/>
+						<line branch="true" hits="2" number="179" condition-coverage="75% (3/4)"/>
+						<line branch="false" hits="2" number="180"/>
+						<line branch="false" hits="3" number="186"/>
+						<line branch="true" hits="2" number="191" condition-coverage="100% (2/2)"/>
+						<line branch="false" hits="1" number="192"/>
+						<line branch="false" hits="1" number="194"/>
+						<line branch="false" hits="2" number="196"/>
+						<line branch="false" hits="3" number="198"/>
+						<line branch="true" hits="3" number="203" condition-coverage="100% (2/2)"/>
+						<line branch="false" hits="1" number="204"/>
+						<line branch="false" hits="2" number="206"/>
+						<line branch="false" hits="3" number="208"/>
+						<line branch="false" hits="2" number="210"/>
 					</lines>
 				</class>
 			</classes>
@@ -37239,7 +37446,7 @@
 						<line branch="true" hits="27288" number="424" condition-coverage="50% (5/10)"/>
 						<line branch="true" hits="27288" number="425" condition-coverage="50% (4/8)"/>
 						<line branch="true" hits="27288" number="427" condition-coverage="66% (4/6)"/>
-						<line branch="true" hits="26752" number="428" condition-coverage="50% (4/8)"/>
+						<line branch="true" hits="26830" number="428" condition-coverage="50% (4/8)"/>
 						<line branch="true" hits="27288" number="430" condition-coverage="50% (4/8)"/>
 						<line branch="true" hits="27288" number="431" condition-coverage="50% (4/8)"/>
 						<line branch="true" hits="27288" number="434" condition-coverage="66% (4/6)"/>
