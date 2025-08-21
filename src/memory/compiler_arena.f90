@@ -6,6 +6,7 @@ module compiler_arena
     
     use arena_memory
     use type_system_arena
+    use ast_arena_modern
     use iso_fortran_env, only: int64
     implicit none
     private
@@ -13,9 +14,6 @@ module compiler_arena
     public :: compiler_arena_t, compiler_arena_stats_t, create_compiler_arena, destroy_compiler_arena
     
     ! Future arena types - placeholders for unified architecture
-    type :: ast_arena_placeholder_t
-        integer :: placeholder = 0
-    end type ast_arena_placeholder_t
     
     type :: symbol_arena_placeholder_t  
         integer :: placeholder = 0
@@ -29,7 +27,7 @@ module compiler_arena
     type :: compiler_arena_t
         ! Core arenas for different data types
         type(type_arena_t) :: types                     ! Type system (already implemented)
-        type(ast_arena_placeholder_t) :: ast            ! AST nodes (placeholder)
+        type(ast_arena_t) :: ast                        ! AST nodes (modern implementation)
         type(symbol_arena_placeholder_t) :: symbols     ! Symbol tables (placeholder)
         type(literal_arena_placeholder_t) :: literals   ! String/number literals (placeholder)
         
@@ -104,8 +102,8 @@ contains
         ! Initialize type arena (already implemented)
         this%types = create_type_arena(size / 4)  ! Types typically need less memory
         
-        ! AST arena - placeholder (will be implemented in Issue #360)
-        ! this%ast = create_ast_arena(size)
+        ! Initialize AST arena (modern implementation)
+        this%ast = create_ast_arena(size)
         
         ! Symbol arena - placeholder (future implementation)
         ! this%symbols = create_symbol_arena(size / 2)
@@ -134,9 +132,9 @@ contains
         
         ! Destroy all sub-arenas
         call destroy_type_arena(this%types)
+        call destroy_ast_arena(this%ast)
         
         ! Future: destroy other arenas
-        ! call destroy_ast_arena(this%ast)
         ! call destroy_symbol_arena(this%symbols)  
         ! call destroy_literal_arena(this%literals)
         
@@ -158,9 +156,9 @@ contains
         
         ! Reset all sub-arenas
         call this%types%reset()
+        call this%ast%reset()
         
         ! Future: reset other arenas
-        ! call this%ast%reset()
         ! call this%symbols%reset()
         ! call this%literals%reset()
         
@@ -225,10 +223,18 @@ contains
         stats%total_memory = stats%total_memory + stats%types_memory
         stats%average_utilization = type_stats%utilization
         
+        ! Get AST arena statistics
+        block
+            type(ast_arena_stats_t) :: ast_stats
+            ast_stats = this%ast%get_stats()
+            stats%ast_memory = ast_stats%total_memory
+            stats%total_memory = stats%total_memory + stats%ast_memory
+            
+            ! Average utilization across arenas
+            stats%average_utilization = (type_stats%utilization + ast_stats%utilization) / 2.0
+        end block
+        
         ! Future: aggregate statistics from other arenas
-        ! ast_stats = this%ast%get_stats()
-        ! stats%ast_memory = ast_stats%total_memory
-        ! stats%total_memory = stats%total_memory + stats%ast_memory
         
         ! Calculate allocation rate (allocations per second)
         if (this%total_allocation_time > 0.0) then
@@ -283,9 +289,14 @@ contains
         type_stats = this%types%get_stats()
         this%total_bytes = this%total_bytes + type_stats%total_memory
         
+        ! Add memory from AST arena
+        block
+            type(ast_arena_stats_t) :: ast_stats
+            ast_stats = this%ast%get_stats()
+            this%total_bytes = this%total_bytes + ast_stats%total_memory
+        end block
+        
         ! Future: add memory from other arenas
-        ! ast_stats = this%ast%get_stats()
-        ! this%total_bytes = this%total_bytes + ast_stats%total_memory
     end subroutine compiler_arena_update_total_memory
     
     ! Cleanup procedure for module finalization
