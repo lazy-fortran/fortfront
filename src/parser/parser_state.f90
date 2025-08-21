@@ -8,7 +8,7 @@ module parser_state_module
 
     ! Parser state type for tracking position in token stream
     type, public :: parser_state_t
-        ! Arena-based token storage for performance
+        ! Arena-based token storage infrastructure (transitional)
         type(arena_t) :: token_arena
         type(arena_handle_t) :: tokens_handle
         integer :: token_count = 0
@@ -71,7 +71,7 @@ contains
             allocate(state%tokens(size(tokens)))
             state%tokens = tokens
             
-            ! Also store in arena for future use
+            ! Also store in arena infrastructure for future migration
             token_size = storage_size(tokens(1)) / 8 * size(tokens)
             state%tokens_handle = state%token_arena%allocate(token_size)
             
