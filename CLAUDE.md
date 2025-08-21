@@ -47,22 +47,20 @@ fpm test <test_name>
 
 ### Important build flags
 - Always use `-cpp` flag when building/testing (required for preprocessing)
-- Use `--profile debug` for debugging and coverage
+- Use `--profile debug` for debugging and coverage  
 - **GCC 15.2.1 Compatibility**: Required flags for safe operation:
   - `-fmax-stack-var-size=65536` - Handles large module files
   - `-finit-derived` - Initialize derived type components safely
-  - `-finit-local-zero` - Initialize local variables to zero
-  - `-fcheck=all` - Enable runtime checks for debugging
-  - `-g -O0` - Debug symbols and no optimization
 
 ## Development Tips
 
 - Do not always use `fpm clean all`. Only use clean in cases where all other fixes fail
-- **GCC 15.2.1 Compatibility**: The compiler has allocatable component handling issues requiring special flags
+- **GCC 15.2.1 Compatibility**: The compiler has allocatable component initialization bugs
   - Segmentation faults occur with default compiler settings on `poly_type_t` and other derived types with allocatable components
-  - The issue manifests as crashes during type assignment operations
-  - Use provided build scripts (./build.sh, ./test.sh) which include all necessary flags automatically
-  - **CRITICAL**: Never build or test without the full set of compatibility flags
+  - The issue manifests as crashes during type assignment operations and unallocated component access
+  - The `-finit-derived` flag ensures all derived type components are properly initialized 
+  - Use provided build scripts (./build.sh, ./test.sh) which include the necessary compatibility flags automatically
+  - **CRITICAL**: Never build or test without the `-finit-derived` flag on GCC 15.2.1+
 - **Avoid Using Shell Redirection Tricks**
   - Never use `2>&1` or similar shell redirection techniques blindly
   - These can mask underlying issues and make debugging more difficult
