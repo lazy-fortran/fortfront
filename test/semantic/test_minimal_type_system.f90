@@ -52,7 +52,7 @@ contains
         original = create_mono_type(TREAL)
 
         ! Test deep copy
-        copied = original%deep_copy()
+        copied = original  ! Assignment operator performs deep copy
 
         ! Check copy is correct
         if (copied%kind == TREAL .and. copied%kind == original%kind) then

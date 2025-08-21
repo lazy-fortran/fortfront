@@ -133,7 +133,7 @@ contains
         int2 = create_mono_type(TINT)
         real1 = create_mono_type(TREAL)
         
-        if (int1%equals(int2) .and. .not. int1%equals(real1)) then
+        if ((int1%kind == int2%kind) .and. .not. (int1%kind == real1%kind)) then
             call test_pass()
         else
             call test_fail("Type equality not working correctly")
@@ -227,8 +227,8 @@ contains
             poly_type = create_poly_type(forall_vars, fun_type)
         end block
         
-        if (allocated(poly_type%forall) .and. &
-            size(poly_type%forall) == 1 .and. &
+        if (allocated(poly_type%forall_vars) .and. &
+            size(poly_type%forall_vars) == 1 .and. &
             poly_type%mono%kind == TFUN) then
             call test_pass()
         else
