@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Test script for fortfront with GCC 15.1.1 compatibility
-# Adds the necessary flag to handle large module files
+# Test script for fortfront with GCC 15.2.1 compatibility
+# Adds necessary flags for large module files and safer allocatable handling
 
-echo "Running fortfront tests with GCC 15.1.1 compatibility..."
-fpm test --flag "-cpp -fmax-stack-var-size=65536" "$@"
+echo "Running fortfront tests with GCC 15.2.1 compatibility..."
+fpm test --flag "-cpp -fmax-stack-var-size=65536 -finit-derived -finit-local-zero -fcheck=all -g -O0" --profile debug "$@"
