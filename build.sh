@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Build script for fortfront with GCC 15.2.1 compatibility
-# Adds flags for large module files and specific allocatable workarounds
+# Adds flags for large module files and allocatable safety workarounds
 
 echo "Building fortfront with GCC 15.2.1 compatibility..."
-fpm build --flag "-cpp -fmax-stack-var-size=65536 -finit-derived" "$@"
+fpm build --flag "-cpp -fmax-stack-var-size=65536 -finit-derived -O1" "$@"
