@@ -67,7 +67,7 @@ contains
 
     ! Initialize the intrinsic function registry
     subroutine initialize_intrinsic_registry()
-        integer, parameter :: NUM_INTRINSICS = 35
+        integer, parameter :: NUM_INTRINSICS = 37
         integer :: i
 
         if (registry_initialized) return
