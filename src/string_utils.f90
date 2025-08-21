@@ -30,7 +30,7 @@ contains
         character(len=:), allocatable, intent(out) :: dest
         character(len=*), intent(in) :: src
         
-        if (allocated(dest)) deallocate(dest)
+        ! intent(out) automatically deallocates dest, so no self-assignment issue
         allocate(character(len=len(src)) :: dest)
         dest = src
     end subroutine string_copy
@@ -50,12 +50,15 @@ contains
         character(len=*), intent(in) :: src
         character(len=:), allocatable :: temp
         
+        ! Self-assignment protection - create temp copy of src first
+        allocate(character(len=len(src)) :: temp)
+        temp = src
+        
         if (.not. allocated(dest)) then
-            call string_copy(dest, src)
+            call string_copy(dest, temp)
         else
-            allocate(character(len=len(dest)+len(src)) :: temp)
-            temp = dest // src
-            call move_alloc(temp, dest)
+            ! Use the temp copy to avoid aliasing issues
+            dest = dest // temp
         end if
     end subroutine string_append
     
@@ -141,7 +144,21 @@ contains
         character(len=*), intent(in), optional :: initial_value
         integer :: init_len
         
+        ! Input validation - reject negative lengths
+        if (length < 0) then
+            ! For negative length, leave str unallocated
+            if (allocated(str)) deallocate(str)
+            return
+        end if
+        
         if (allocated(str)) deallocate(str)
+        
+        ! Handle zero-length allocation case
+        if (length == 0) then
+            allocate(character(len=0) :: str)
+            return
+        end if
+        
         allocate(character(len=length) :: str)
         
         ! Initialize with spaces
@@ -149,7 +166,9 @@ contains
         
         if (present(initial_value)) then
             init_len = min(len(initial_value), length)
-            str(1:init_len) = initial_value(1:init_len)
+            if (init_len > 0) then
+                str(1:init_len) = initial_value(1:init_len)
+            end if
         end if
     end subroutine string_allocate
     

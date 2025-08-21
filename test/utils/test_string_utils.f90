@@ -33,6 +33,11 @@ program test_string_utils
     call test_string_length()
     call test_string_is_empty()
     
+    ! Test memory safety features
+    call test_string_copy_self_assignment()
+    call test_string_append_self_assignment()
+    call test_string_allocate_negative_length()
+    
     ! String builder tests removed - causing memory issues
     
     print *, ""
@@ -342,6 +347,70 @@ contains
             call test_fail("Empty check non-empty failed")
         end if
     end subroutine test_string_is_empty
+    
+    ! ========================================================================
+    ! Memory safety tests
+    ! ========================================================================
+    
+    subroutine test_string_copy_self_assignment()
+        character(len=:), allocatable :: str
+        character(len=5) :: fixed_str
+        
+        call test_start("string_copy with same variable protection")
+        allocate(character(len=5) :: str)
+        str = "Hello"
+        fixed_str = str  ! Copy to fixed string to test copying back
+        
+        ! This should not crash or corrupt memory
+        call string_copy(str, fixed_str)
+        if (str == "Hello") then
+            call test_pass()
+        else
+            call test_fail("Copy protection failed")
+        end if
+    end subroutine test_string_copy_self_assignment
+    
+    subroutine test_string_append_self_assignment()
+        character(len=:), allocatable :: str
+        
+        call test_start("string_append self-assignment protection")
+        allocate(character(len=5) :: str)
+        str = "Hello"
+        
+        ! This should not crash or corrupt memory
+        call string_append(str, str)
+        if (str == "HelloHello") then
+            call test_pass()
+        else
+            call test_fail("Self-assignment protection failed")
+        end if
+    end subroutine test_string_append_self_assignment
+    
+    subroutine test_string_allocate_negative_length()
+        character(len=:), allocatable :: str
+        
+        call test_start("string_allocate negative length validation")
+        
+        ! Start with allocated string
+        allocate(character(len=5) :: str)
+        str = "Hello"
+        
+        ! Negative length should leave string unallocated
+        call string_allocate(str, -1)
+        if (.not. allocated(str)) then
+            call test_pass()
+        else
+            call test_fail("Negative length validation failed")
+        end if
+        
+        call test_start("string_allocate zero length")
+        call string_allocate(str, 0)
+        if (allocated(str) .and. len(str) == 0) then
+            call test_pass()
+        else
+            call test_fail("Zero length allocation failed")
+        end if
+    end subroutine test_string_allocate_negative_length
     
     ! ========================================================================
     ! Test utilities
