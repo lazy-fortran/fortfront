@@ -14,12 +14,22 @@ contains
         logical, intent(out) :: has_initializer, has_comma
         integer :: lookahead_pos
         type(token_t) :: lookahead_token
+        type(token_t), allocatable :: tokens(:)
         
         has_initializer = .false.
         has_comma = .false.
         lookahead_pos = parser%current_token
         
-        call scan_tokens(parser%tokens, lookahead_pos, has_initializer, has_comma)
+        ! Get tokens safely - ensure compatibility array is available
+        call parser%ensure_tokens_cached()
+        tokens = parser%get_all_tokens()
+        
+        ! Defensive check for empty token array
+        if (size(tokens) == 0) then
+            return  ! Safe defaults: no initializer, no comma
+        end if
+        
+        call scan_tokens(tokens, lookahead_pos, has_initializer, has_comma)
     end subroutine analyze_declaration_structure
 
     ! Core token scanning logic (kept under 50 lines per CLAUDE.md)
