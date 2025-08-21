@@ -315,11 +315,21 @@ contains
         character(len=:), allocatable :: var_name
 
         ! Pre-constrain target if RHS has character operations
-        ! Temporarily disabled to isolate segfault source
+        ! TEMPORARILY DISABLED due to segfault issues
+        ! TODO: Fix the poly_type assignment issue and re-enable
         ! if (assign%value_index > 0 .and. assign%value_index <= arena%size) then
         !     if (node_has_character_op(arena, assign%value_index)) then
-        !         call constrain_for_character_operation(ctx, arena, &
-        !                                               assign%target_index)
+        !         ! Directly constrain the target if it's an identifier
+        !         if (assign%target_index > 0 .and. &
+        !             assign%target_index <= arena%size) then
+        !             if (allocated(arena%entries(assign%target_index)%node)) then
+        !                 select type (target => &
+        !                             arena%entries(assign%target_index)%node)
+        !                 type is (identifier_node)
+        !                     call constrain_identifier_as_char(ctx, target)
+        !                 end select
+        !             end if
+        !         end if
         !     end if
         ! end if
 
@@ -596,11 +606,27 @@ contains
         integer :: compat_level
 
         ! For character concatenation, pre-constrain operands
-        ! Temporarily disabled to isolate segfault source
+        ! TEMPORARILY DISABLED due to segfault issues
+        ! TODO: Fix the poly_type assignment issue and re-enable
         ! if (trim(binop%operator) == "//") then
-        !     ! Pre-constrain operands for character concatenation
-        !     call constrain_for_character_operation(ctx, arena, binop%left_index)
-        !     call constrain_for_character_operation(ctx, arena, binop%right_index)
+        !     ! Check and constrain left operand if it's an identifier
+        !     if (binop%left_index > 0 .and. binop%left_index <= arena%size) then
+        !         if (allocated(arena%entries(binop%left_index)%node)) then
+        !             select type (left => arena%entries(binop%left_index)%node)
+        !             type is (identifier_node)
+        !                 call constrain_identifier_as_char(ctx, left)
+        !             end select
+        !         end if
+        !     end if
+        !     ! Check and constrain right operand if it's an identifier
+        !     if (binop%right_index > 0 .and. binop%right_index <= arena%size) then
+        !         if (allocated(arena%entries(binop%right_index)%node)) then
+        !             select type (right => arena%entries(binop%right_index)%node)
+        !             type is (identifier_node)
+        !                 call constrain_identifier_as_char(ctx, right)
+        !             end select
+        !         end if
+        !     end if
         ! end if
 
         ! Infer left operand type
@@ -783,65 +809,29 @@ contains
         end select
     end function needs_temporary
 
-    ! Constrain identifiers for character operations with depth limiting
-    subroutine constrain_for_character_operation(ctx, arena, node_index)
+    ! Simple non-recursive constraint for character identifiers
+    subroutine constrain_identifier_as_char(ctx, ident)
         type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: node_index
-        integer, parameter :: MAX_DEPTH = 50
+        type(identifier_node), intent(in) :: ident
         
-        call constrain_char_op_limited(ctx, arena, node_index, 0, MAX_DEPTH)
-    end subroutine constrain_for_character_operation
-
-    ! Implementation with depth limiting to prevent infinite recursion
-    recursive subroutine constrain_char_op_limited(ctx, arena, node_index, &
-                                                  current_depth, max_depth)
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in) :: node_index, current_depth, max_depth
         type(poly_type_t), allocatable :: scheme
         type(mono_type_t) :: char_type
         
-        ! Depth limit to prevent stack overflow
-        if (current_depth >= max_depth) return
+        ! Validate identifier
+        if (.not. allocated(ident%name)) return
+        if (len_trim(ident%name) == 0) return
         
-        ! Enhanced bounds checking
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        ! Check if already defined
+        call ctx%scopes%lookup(ident%name, scheme)
         
-        ! Additional safety check for context
-        if (ctx%scopes%depth <= 0 .or. .not. allocated(ctx%scopes%scopes)) return
-        
-        select type (node => arena%entries(node_index)%node)
-        type is (identifier_node)
-            ! Enhanced identifier validation and constraint
-            if (allocated(node%name) .and. len_trim(node%name) > 0) then
-                call ctx%scopes%lookup(node%name, scheme)
-                
-                if (.not. allocated(scheme)) then
-                    ! Undeclared identifier - pre-define as character
-                    char_type = create_mono_type(TCHAR, char_size=1)
-                    scheme = create_poly_type(forall_vars=[type_var_t::], &
-                                            mono=char_type)
-                    call ctx%scopes%define(node%name, scheme)
-                end if
-            end if
-        type is (binary_op_node)
-            ! Safe recursive constraining with depth tracking
-            if (allocated(node%operator) .and. trim(node%operator) == "//") then
-                ! Validate child indices before recursion
-                if (node%left_index > 0 .and. node%left_index <= arena%size) then
-                    call constrain_char_op_limited(ctx, arena, node%left_index, &
-                                                  current_depth + 1, max_depth)
-                end if
-                if (node%right_index > 0 .and. node%right_index <= arena%size) then
-                    call constrain_char_op_limited(ctx, arena, node%right_index, &
-                                                  current_depth + 1, max_depth)
-                end if
-            end if
-        end select
-    end subroutine constrain_char_op_limited
+        if (.not. allocated(scheme)) then
+            ! Undeclared identifier - pre-define as character
+            char_type = create_mono_type(TCHAR, char_size=1)
+            ! Use proper creation function to ensure correct initialization
+            scheme = create_poly_type(forall_vars=[type_var_t::], mono=char_type)
+            call ctx%scopes%define(ident%name, scheme)
+        end if
+    end subroutine constrain_identifier_as_char
 
     ! Infer type for polymorphic min/max calls with proper type promotion
     function infer_min_max_call(ctx, arena, call_node) result(typ)
@@ -1240,10 +1230,16 @@ contains
     ! Instantiate a type scheme
     function instantiate_type_scheme(this, scheme) result(typ)
         class(semantic_context_t), intent(inout) :: this
-        type(poly_type_t), intent(in) :: scheme
+        type(poly_type_t), allocatable, intent(in) :: scheme
         type(mono_type_t) :: typ
         type(substitution_t) :: subst
         integer :: i
+
+        ! Handle unallocated scheme (should not happen but be defensive)
+        if (.not. allocated(scheme)) then
+            typ = create_mono_type(TVAR, var=this%fresh_type_var())
+            return
+        end if
 
         ! Create fresh type variables for all quantified variables
         subst%count = 0

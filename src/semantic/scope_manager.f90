@@ -116,9 +116,15 @@ contains
             integer :: j
             do j = 1, this%env%count
                 if (this%env%names(j) == name) then
-                    ! Allocate and use assignment operator for deep copy
-                    allocate (scheme)
-                    scheme = this%env%schemes(j)
+                    ! Manual deep copy to avoid assignment operator issues
+                    allocate(scheme)
+                    ! Copy mono type
+                    scheme%mono = this%env%schemes(j)%mono
+                    ! Copy forall if allocated
+                    if (allocated(this%env%schemes(j)%forall)) then
+                        allocate(scheme%forall(size(this%env%schemes(j)%forall)))
+                        scheme%forall = this%env%schemes(j)%forall
+                    end if
                     return
                 end if
             end do
@@ -160,6 +166,11 @@ contains
             ! Add new binding
             this%env%count = this%env%count + 1
             this%env%names(this%env%count) = name
+            ! Deep copy the scheme to ensure proper storage
+            ! First ensure the target is in a clean state
+            if (allocated(this%env%schemes(this%env%count)%forall)) then
+                deallocate(this%env%schemes(this%env%count)%forall)
+            end if
             this%env%schemes(this%env%count) = scheme
         end block
 
