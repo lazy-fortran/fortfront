@@ -1,11 +1,57 @@
-.PHONY: all build test coverage clean clean-coverage clean-test-artifacts help
+.PHONY: all build test coverage clean clean-coverage clean-test-artifacts help install libfortfront.a
 
 # Default target
 all: build
 
 # Build the project
 build:
-	fpm build
+	fpm build --flag "-cpp -fmax-stack-var-size=65536"
+
+# Create libfortfront.a in project root for external linking
+libfortfront.a: build
+	@echo "=== Creating libfortfront.a in project root ==="
+	@LATEST_BUILD=$$(find build -name "libfortfront.a" -type f -printf "%T@ %p\n" | sort -n | tail -1 | cut -d' ' -f2-); \
+	if [ -n "$$LATEST_BUILD" ]; then \
+		cp "$$LATEST_BUILD" ./libfortfront.a; \
+		echo "libfortfront.a copied from $$LATEST_BUILD"; \
+	else \
+		echo "Error: libfortfront.a not found in build directory"; \
+		exit 1; \
+	fi
+
+# Installation variables
+PREFIX ?= /usr/local
+LIBDIR ?= $(PREFIX)/lib
+INCLUDEDIR ?= $(PREFIX)/include/fortfront
+PKGCONFIGDIR ?= $(LIBDIR)/pkgconfig
+
+# Install libfortfront.a and module files
+install: libfortfront.a
+	@echo "=== Installing libfortfront.a and module files ==="
+	install -d $(DESTDIR)$(LIBDIR)
+	install -d $(DESTDIR)$(INCLUDEDIR)
+	install -d $(DESTDIR)$(PKGCONFIGDIR)
+	install -m 644 libfortfront.a $(DESTDIR)$(LIBDIR)/
+	@echo "Installing Fortran module files..."
+	@LATEST_MOD_DIR=$$(find build -name "*.mod" -type f -printf "%T@ %h\n" | sort -n | tail -1 | cut -d' ' -f2-); \
+	if [ -n "$$LATEST_MOD_DIR" ]; then \
+		find "$$LATEST_MOD_DIR" -name "*.mod" -exec install -m 644 {} $(DESTDIR)$(INCLUDEDIR)/ \;; \
+		echo "Module files installed from $$LATEST_MOD_DIR"; \
+	else \
+		echo "Warning: No module files found"; \
+	fi
+	@echo "Generating pkg-config file..."
+	@echo "prefix=$(PREFIX)" > $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
+	@echo "exec_prefix=\$${prefix}" >> $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
+	@echo "libdir=\$${exec_prefix}/lib" >> $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
+	@echo "includedir=\$${prefix}/include/fortfront" >> $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
+	@echo "" >> $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
+	@echo "Name: fortfront" >> $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
+	@echo "Description: Core analysis frontend for lazy fortran - lexer, parser, semantic analysis, AST operations" >> $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
+	@echo "Version: 0.1.0" >> $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
+	@echo "Libs: -L\$${libdir} -lfortfront" >> $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
+	@echo "Cflags: -I\$${includedir}" >> $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
+	@echo "Installation completed successfully"
 
 # Run tests
 test:
@@ -40,6 +86,7 @@ coverage: clean-coverage
 # Clean build artifacts and test artifacts
 clean: clean-test-artifacts
 	fpm clean --all
+	rm -f libfortfront.a
 
 # Clean coverage files only
 clean-coverage:
@@ -61,6 +108,8 @@ help:
 	@echo "Available targets:"
 	@echo "  make          - Build the project (default)"
 	@echo "  make build    - Build the project"
+	@echo "  make libfortfront.a - Create libfortfront.a in project root for external linking"
+	@echo "  make install  - Install libfortfront.a, module files, and pkg-config"
 	@echo "  make test     - Run tests"
 	@echo "  make coverage - Generate coverage report with lcov"
 	@echo "  make clean    - Clean all build and test artifacts"
