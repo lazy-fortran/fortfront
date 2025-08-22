@@ -3,7 +3,7 @@ program test_type_arena_performance
     ! Compares arena-based allocation vs traditional allocatable approach
     
     use type_system_arena
-    use type_system_hm, only: TVAR, TINT, TREAL, TFUN, mono_type_t
+    use type_system_unified, only: TVAR, TINT, TREAL, TFUN, mono_type_t
     use iso_fortran_env, only: int64
     implicit none
     

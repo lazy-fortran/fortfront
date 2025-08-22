@@ -4,7 +4,6 @@ module test_where_forall_ast
     use codegen_core
     use lexer_core
     use parser_core
-    use json_writer
     implicit none
 
 contains

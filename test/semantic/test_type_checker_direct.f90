@@ -1,6 +1,6 @@
 program test_type_checker_direct
     use type_checker
-    use type_system_hm
+    use type_system_unified
     implicit none
     
     integer :: test_count, pass_count
@@ -139,22 +139,17 @@ contains
     
     subroutine test_array_conformance()
         type(mono_type_t) :: int_array1, int_array2, int_type
+        type(mono_type_t) :: element_types(1)
         logical :: conformant
         
         call test_start("Array conformance checking")
         
         int_type = create_mono_type(TINT)
         
-        ! Create array types with same size
-        allocate(int_array1%args(1))
-        int_array1%args(1) = int_type
-        int_array1 = create_mono_type(TARRAY, args=int_array1%args)
-        int_array1%size = 10
-        
-        allocate(int_array2%args(1))
-        int_array2%args(1) = int_type
-        int_array2 = create_mono_type(TARRAY, args=int_array2%args)
-        int_array2%size = 10
+        ! Create array types with same size using unified arena API
+        element_types(1) = int_type
+        int_array1 = create_mono_type(TARRAY, args=element_types, array_size=10)
+        int_array2 = create_mono_type(TARRAY, args=element_types, array_size=10)
         
         conformant = check_array_conformance(int_array1, int_array2)
         

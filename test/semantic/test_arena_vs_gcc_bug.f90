@@ -3,7 +3,7 @@ program test_arena_vs_gcc_bug
     ! Shows safe function types without self-referential allocatable components
     
     use type_system_arena
-    use type_system_hm, only: TVAR, TINT, TREAL, TFUN
+    use type_system_unified, only: TVAR, TINT, TREAL, TFUN
     implicit none
     
     integer :: test_count, pass_count

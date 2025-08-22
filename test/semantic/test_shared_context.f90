@@ -1,102 +1,67 @@
 program test_shared_context
-    use semantic_pipeline, only: shared_context_t, create_shared_context
+    ! Test basic semantic context functionality
+    use semantic_analyzer, only: semantic_context_t, create_semantic_context
+    use scope_manager, only: create_scope_stack
     implicit none
     
     logical :: tests_passed = .true.
     
-    ! Test shared context functionality
-    call test_context_storage()
-    call test_context_retrieval()
-    call test_context_has_result()
+    ! Test basic context functionality  
+    call test_context_creation()
+    call test_context_copy()
+    call test_context_scope_operations()
     
     if (tests_passed) then
-        print *, "TEST PASSED: shared context system"
+        print *, "TEST PASSED: semantic context system"
     else
-        print *, "TEST FAILED: shared context system"
+        print *, "TEST FAILED: semantic context system"
         stop 1
     end if
 
 contains
 
-    subroutine test_context_storage()
-        type(shared_context_t) :: context
-        integer :: test_data
+    subroutine test_context_creation()
+        type(semantic_context_t) :: context
         
-        context = create_shared_context()
-        test_data = 42
+        context = create_semantic_context()
         
-        ! Store a result
-        call context%store_result("test_analyzer", test_data)
-        
-        ! Check that it was stored
-        if (.not. context%has_result("test_analyzer")) then
-            print *, "ERROR: Result not stored correctly"
+        ! Verify context was created properly
+        if (context%next_var_id /= 1) then
             tests_passed = .false.
-            return
+            print *, "FAILED: context creation test - next_var_id should be 1"
         end if
         
-        print *, "SUCCESS: Context storage works"
-    end subroutine
+        ! This should not crash
+        print *, "Context creation test passed"
+    end subroutine test_context_creation
 
-    subroutine test_context_retrieval()
-        type(shared_context_t) :: context
-        integer :: test_data, retrieved_data
-        class(*), allocatable :: result
+    subroutine test_context_copy()
+        type(semantic_context_t) :: original, copied
         
-        context = create_shared_context()
-        test_data = 123
+        original = create_semantic_context()
+        original%next_var_id = 42
         
-        ! Store and retrieve
-        call context%store_result("retrieval_test", test_data)
-        result = context%get_result("retrieval_test")
+        ! Test deep copy
+        copied = original%deep_copy()
         
-        if (.not. allocated(result)) then
-            print *, "ERROR: Result not retrieved"
+        if (copied%next_var_id /= original%next_var_id) then
             tests_passed = .false.
-            return
+            print *, "FAILED: context copy test"
+        else
+            print *, "Context copy test passed"
         end if
-        
-        ! Check that we got the right data
-        select type(result)
-        type is (integer)
-            retrieved_data = result
-            if (retrieved_data /= 123) then
-                print *, "ERROR: Retrieved wrong data"
-                tests_passed = .false.
-                return
-            end if
-        class default
-            print *, "ERROR: Retrieved wrong type"
-            tests_passed = .false.
-            return
-        end select
-        
-        print *, "SUCCESS: Context retrieval works"
-    end subroutine
+    end subroutine test_context_copy
 
-    subroutine test_context_has_result()
-        type(shared_context_t) :: context
-        logical :: test_data
+    subroutine test_context_scope_operations()
+        type(semantic_context_t) :: context
         
-        context = create_shared_context()
-        test_data = .true.
+        context = create_semantic_context()
         
-        ! Test has_result for non-existent result
-        if (context%has_result("nonexistent")) then
-            print *, "ERROR: Should not have nonexistent result"
-            tests_passed = .false.
-            return
-        end if
+        ! Test scope operations exist (these are basic tests)
+        call context%scopes%enter_block()
+        call context%scopes%leave_scope()
         
-        ! Store and test has_result
-        call context%store_result("exists", test_data)
-        if (.not. context%has_result("exists")) then
-            print *, "ERROR: Should have existing result"
-            tests_passed = .false.
-            return
-        end if
-        
-        print *, "SUCCESS: has_result works correctly"
-    end subroutine
+        print *, "Scope operations test passed"
+    end subroutine test_context_scope_operations
 
 end program test_shared_context

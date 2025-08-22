@@ -1,23 +1,7 @@
 program test_scope_pattern
+    use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
+                                  create_mono_type, create_poly_type, TINT
     implicit none
-
-    ! Exact types from type_system_hm
-    type :: type_var_t
-        integer :: id
-        character(len=:), allocatable :: name
-    end type
-
-    type :: mono_type_t
-        integer :: kind
-        type(type_var_t) :: var
-        type(mono_type_t), allocatable :: args(:)
-        integer :: size
-    end type
-
-    type :: poly_type_t
-        type(type_var_t), allocatable :: forall (:)
-        type(mono_type_t) :: mono
-    end type
 
     type :: env_entry
         character(len=:), allocatable :: name
@@ -26,27 +10,37 @@ program test_scope_pattern
 
     type(poly_type_t), allocatable :: result
     type(env_entry), allocatable :: entries(:)
+    type(mono_type_t) :: mono_sin, mono_cos
 
-    ! Create some entries
+    ! Create some entries using unified arena system
     allocate (entries(2))
 
-    ! Entry 1
+    ! Entry 1 - create mono type using arena
+    mono_sin = create_mono_type(TINT)  ! Basic integer type
     entries(1)%name = "sin"
-    entries(1)%scheme%mono%kind = 1
-    entries(1)%scheme%mono%var%id = 1
-    entries(1)%scheme%mono%var%name = "real_to_real"
+    ! Use single element array instead of empty array
+    block
+        type(type_var_t) :: empty_forall(0)
+        entries(1)%scheme = create_poly_type(empty_forall, mono_sin)
+    end block
 
-    ! Entry 2
+    ! Entry 2 - create mono type using arena  
+    mono_cos = create_mono_type(TINT)  ! Basic integer type
     entries(2)%name = "cos"
-    entries(2)%scheme%mono%kind = 1
-    entries(2)%scheme%mono%var%id = 2
-    entries(2)%scheme%mono%var%name = "real_to_real"
+    block
+        type(type_var_t) :: empty_forall(0)
+        entries(2)%scheme = create_poly_type(empty_forall, mono_cos)
+    end block
 
     print *, "=== Test lookup pattern ==="
     call lookup("sin", result)
     if (allocated(result)) then
         print *, "Found result"
-        print *, "mono%var%name = ", result%mono%var%name
+        block
+            type(mono_type_t) :: mono
+            mono = result%get_mono()
+            print *, "mono type kind = ", mono%kind
+        end block
     else
         print *, "Not found"
     end if
@@ -75,41 +69,15 @@ contains
         do i = 1, size(entries)
             print *, "  Checking entry ", i, ": '", trim(entries(i)%name), "'"
             if (entries(i)%name == name) then
-                print *, "  Found match! Doing deep_copy..."
-                scheme = poly_deep_copy(entries(i)%scheme)
-                print *, "  Deep copy complete"
+                print *, "  Found match! Doing assignment..."
+                allocate(scheme)
+                scheme = entries(i)%scheme  ! Uses unified arena assignment
+                print *, "  Assignment complete"
                 return
             end if
         end do
 
         print *, "  Not found in entries"
     end subroutine
-
-    function mono_deep_copy(this) result(copy)
-        class(mono_type_t), intent(in) :: this
-        type(mono_type_t) :: copy
-
-        copy%kind = this%kind
-        copy%var = this%var  ! This should do automatic deep copy
-        copy%size = this%size
-
-        if (allocated(this%args)) then
-            allocate (copy%args(size(this%args)))
-            ! Would need recursive deep copy here
-        end if
-    end function
-
-    function poly_deep_copy(this) result(copy)
-        class(poly_type_t), intent(in) :: this
-        type(poly_type_t) :: copy
-        integer :: i
-
-        if (allocated(this%forall)) then
-            allocate (copy%forall(size(this%forall)))
-            copy%forall = this%forall
-        end if
-
-        copy%mono = mono_deep_copy(this%mono)
-    end function
 
 end program test_scope_pattern

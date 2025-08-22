@@ -1,5 +1,7 @@
 program test_symbol_table_api
     use fortfront
+    use type_system_unified, only: create_fun_type, create_mono_type, create_poly_type, &
+                                  type_var_t, TINT, TREAL
     implicit none
     
     type(ast_arena_t) :: arena
@@ -120,8 +122,11 @@ contains
         type(poly_type_t) :: int_scheme
         
         ! Create integer type
-        int_type%kind = TINT
-        int_scheme%mono = int_type
+        int_type = create_mono_type(TINT)
+        block
+            type(type_var_t) :: empty_forall(0)
+            int_scheme = create_poly_type(empty_forall, int_type)
+        end block
         
         ! Add test symbols to current scope
         call ctx%scopes%define("x", int_scheme)
@@ -136,14 +141,14 @@ contains
         type(mono_type_t) :: real_type, fun_type
         type(poly_type_t) :: sin_scheme
         
-        ! Create real -> real function type for sin
-        real_type%kind = TREAL
-        fun_type%kind = TFUN
-        allocate(fun_type%args(2))  ! [arg_type, return_type]
-        fun_type%args(1) = real_type  ! argument type
-        fun_type%args(2) = real_type  ! return type
+        ! Create real -> real function type for sin using unified arena API
+        real_type = create_mono_type(TREAL)
+        fun_type = create_fun_type(real_type, real_type)  ! real -> real
         
-        sin_scheme%mono = fun_type
+        block
+            type(type_var_t) :: empty_forall(0)
+            sin_scheme = create_poly_type(empty_forall, fun_type)
+        end block
         call ctx%scopes%define("sin", sin_scheme)
     end subroutine add_builtin_functions
     
