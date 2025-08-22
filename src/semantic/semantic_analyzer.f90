@@ -53,10 +53,10 @@ contains
     function create_semantic_context() result(ctx)
         type(semantic_context_t) :: ctx
         
-        call ctx%scopes%init()
-        call ctx%subst%init()
-        call ctx%param_tracker%init()
-        call ctx%temp_tracker%init()
+        ctx%scopes = create_scope_stack()
+        ctx%subst%count = 0
+        ctx%param_tracker%count = 0
+        ctx%temp_tracker = create_temp_tracker()
         ctx%next_var_id = 1
     end function create_semantic_context
 
@@ -143,7 +143,7 @@ contains
         type(mono_type_t), intent(in) :: t1, t2
         type(substitution_t) :: subst
         
-        call subst%init()  ! Empty substitution
+        subst%count = 0  ! Empty substitution
     end function unify_types
 
     ! Simplified instantiation
@@ -179,7 +179,7 @@ contains
         type(mono_type_t), intent(in) :: typ
         type(mono_type_t) :: result_typ
 
-        result_typ = this%subst%apply(typ)
+        call this%subst%apply(typ, result_typ)
     end function apply_current_substitution
 
     ! Compose substitution
