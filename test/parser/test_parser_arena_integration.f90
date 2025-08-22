@@ -108,19 +108,15 @@ contains
         ! Create arena for token storage
         arena = create_arena(chunk_size=8192)
         
-        ! EXPECTED BEHAVIOR (after implementation):
-        ! parser_state = create_parser_state_with_arena(tokens, arena)
-        ! uses_arena_handles = parser_state%tokens_stored_in_arena()
-        
-        ! CURRENT BEHAVIOR (will change to GREEN in implementation):
-        parser_state = create_parser_state(tokens)
+        ! GREEN PHASE BEHAVIOR (arena integration implemented):
+        parser_state = create_parser_state_with_arena(tokens, arena)
         uses_arena_handles = parser_state%uses_arena_storage()
         
-        ! Test assertion - this MUST fail in RED phase
+        ! Test assertion - this should PASS in GREEN phase
         if (uses_arena_handles) then
-            print *, '    UNEXPECTED PASS: Parser state already uses arena handles'
+            print *, '    PASS: Parser state uses arena handles'
         else
-            print *, '    EXPECTED FAIL: Parser state still uses allocatable arrays'
+            print *, '    FAIL: Parser state still uses allocatable arrays'
             failed_count = failed_count + 1
             passed = .false.
         end if

@@ -544,8 +544,14 @@ contains
             type_name = "logical"
 
         case ("//")
-            ! String concatenation
-            typ = create_mono_type(TCHAR)
+            ! String concatenation - calculate combined length
+            if (left_typ%kind == TCHAR .and. right_typ%kind == TCHAR) then
+                ! Both operands are character types - combine their lengths
+                typ = create_mono_type(TCHAR, char_size=left_typ%size + right_typ%size)
+            else
+                ! Fallback for non-character operands (shouldn't happen with proper typing)
+                typ = create_mono_type(TCHAR)
+            end if
             type_name = "character"
 
         case default
