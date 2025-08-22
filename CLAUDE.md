@@ -1,6 +1,34 @@
 # CLAUDE.md
 
+**MANDATORY FOUNDATION ARCHITECTURE**
+- **fortfront FIRST**: Static library foundation must be completed before any other work
+- **Zero Dependencies**: All tools must statically link libfortfront.a only
+- **Fortran Modules Required**: All external tool integration through Fortran module interfaces only  
+- **No Tool Dependencies**: Only fortfront foundation dependencies allowed
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 🎯 **MANDATORY PROJECT WORKFLOW**
+
+**BEFORE ANY DEVELOPMENT WORK**: All team workflow must follow these documents in order:
+
+1. **DESIGN.md**: Review current architecture and planned CST/AST split design
+2. **ROADMAP.md**: Follow the issue processing order for all development work
+3. **This file**: Technical guidance and patterns
+
+### Non-Negotiable Requirements
+- **Generational Arena Architecture**: MUST be implemented (Issues #359, #369, #370)
+- **CST/AST Split**: MUST be implemented following DESIGN.md specification
+- **Agent Workflow**: chris-architect may revise approaches as long as goals stay aligned
+- **System Integrity**: Every merge must keep the system functional
+- **No Legacy Code**: Complete cleanup with no redundancies ever
+
+### Development Workflow
+1. Check ROADMAP.md for current phase and dependencies
+2. Review DESIGN.md for architectural constraints
+3. Implement following patterns in this file
+4. Ensure all tests pass before any commit
+5. Update documentation as implementation progresses
 
 ## Build and Test Commands
 
@@ -64,6 +92,8 @@ fpm test <test_name>
 
 fortfront is a Fortran frontend that processes code through four distinct phases, with input validation as a supporting module:
 
+**⚠️ ARCHITECTURAL TRANSITION IN PROGRESS**: The system is migrating from combined AST to separate CST/AST structures. See DESIGN.md and ROADMAP.md for current status and implementation plan.
+
 **Input Validation** (`src/input_validation.f90`) - Dedicated validation module (Issue #262)
    - Comprehensive input validation with enhanced error reporting
    - Standalone module independent of frontend transformation pipeline
@@ -96,10 +126,17 @@ fortfront is a Fortran frontend that processes code through four distinct phases
 
 ### Key Design Patterns
 
+**CURRENT (Being Migrated)**:
 - **AST Arena**: All AST nodes are stored in a global arena (`ast_core.f90`)
 - **Visitor Pattern**: AST transformations use visitors (`ast_visitor.f90`)
 - **Typed AST**: Extended AST nodes with type information (`ast_typed.f90`)
 - **JSON Serialization**: Debug/inspection via JSON (`ast_json.f90`, `json_writer.f90`)
+
+**TARGET (Per DESIGN.md)**:
+- **Generational Arena Architecture**: Memory-safe arenas with generation tracking
+- **CST/AST Split**: Separate trees for source fidelity vs semantic analysis
+- **Stable UIDs**: Cross-tree linking for tooling and incremental compilation
+- **Zero-Copy Trivia**: Comments and whitespace preserved in CST
 
 ### Main Entry Points
 
@@ -239,3 +276,18 @@ See `docs/ERROR_HANDLING_GUIDE.md` for comprehensive examples and migration patt
 2. Restore full `inferred_type` copying in AST nodes  
 3. Remove defensive workarounds in semantic analyzer
 4. Ensure type information preservation throughout pipeline
+
+## 📋 **Current Development Status**
+
+**Active Phase**: Foundation & Critical Infrastructure (ROADMAP.md Phase 1-3)
+**Next Milestones**: 
+- Arena foundation (Issues #359, #369, #370, #398, #399)
+- Critical bug fixes (Issues #329, #354)
+- Error handling infrastructure (Issues #408, #409, #410)
+
+**Key Dependencies**: 
+- Arena system must be completed before CST/AST split can begin
+- Error handling foundation enables robust library integration
+- All foundational work must maintain backward compatibility
+
+**For External Contributors**: Follow ROADMAP.md processing order. Do not skip ahead to advanced features without foundation work complete.
