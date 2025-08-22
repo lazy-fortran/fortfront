@@ -1,8 +1,8 @@
 module parser_definition_statements_module
     ! Parser module for definition statement types (function, subroutine, interface, derived types)
     use lexer_core
-    use parser_state_module
-    use parser_dispatcher_module, only: parse_statement_dispatcher
+    use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_statements_module, only: parse_statement_in_if_block
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -255,6 +255,7 @@ contains
             block
                 type(token_t), allocatable :: stmt_tokens(:), all_tokens(:)
                 integer :: stmt_start, stmt_end, i, stmt_size, stmt_index
+                type(parser_state_t) :: block_parser
                 
                 call parser%ensure_tokens_cached()
                 all_tokens = parser%get_all_tokens()
@@ -279,7 +280,8 @@ contains
                     stmt_tokens(stmt_size + 1)%column = token%column + 1
                     
                     ! Parse the statement
-                    stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
+                    block_parser = create_parser_state(stmt_tokens)
+                    stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
                     
                     ! Add to body
                     if (stmt_index > 0) then
@@ -380,6 +382,7 @@ contains
             block
                 type(token_t), allocatable :: stmt_tokens(:), all_tokens(:)
                 integer :: stmt_start, stmt_end, i, stmt_size, stmt_index
+                type(parser_state_t) :: block_parser
                 
                 call parser%ensure_tokens_cached()
                 all_tokens = parser%get_all_tokens()
@@ -404,7 +407,8 @@ contains
                     stmt_tokens(stmt_size + 1)%column = token%column + 1
                     
                     ! Parse the statement
-                    stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
+                    block_parser = create_parser_state(stmt_tokens)
+                    stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
                     
                     ! Add to body
                     if (stmt_index > 0) then

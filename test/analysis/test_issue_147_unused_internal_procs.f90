@@ -21,7 +21,7 @@ contains
     subroutine test_unused_internal_procedure()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_program_statement
+        use parser_execution_statements_module, only: parse_program_statement
         use call_graph_builder_module, only: build_call_graph
         use call_graph_module, only: call_graph_t, find_unused_procedures
         character(len=:), allocatable :: source
@@ -76,7 +76,7 @@ contains
     subroutine test_used_internal_procedure()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_program_statement
+        use parser_execution_statements_module, only: parse_program_statement
         use call_graph_builder_module, only: build_call_graph
         use call_graph_module, only: call_graph_t, find_unused_procedures
         character(len=:), allocatable :: source
@@ -126,7 +126,7 @@ contains
     subroutine test_mixed_internal_procedures()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_program_statement
+        use parser_execution_statements_module, only: parse_program_statement
         use call_graph_builder_module, only: build_call_graph
         use call_graph_module, only: call_graph_t, find_unused_procedures
         character(len=:), allocatable :: source

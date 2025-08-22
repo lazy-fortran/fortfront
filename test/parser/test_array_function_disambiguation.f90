@@ -108,7 +108,7 @@ contains
             arena = create_ast_arena()
             block
                 use parser_state_module, only: parser_state_t, create_parser_state
-                use parser_statements_module, only: parse_program_statement
+                use parser_execution_statements_module, only: parse_program_statement
                 type(parser_state_t) :: parser
                 
                 parser = create_parser_state(tokens)
@@ -189,7 +189,7 @@ contains
             arena = create_ast_arena()
             block
                 use parser_state_module, only: parser_state_t, create_parser_state
-                use parser_statements_module, only: parse_program_statement
+                use parser_execution_statements_module, only: parse_program_statement
                 type(parser_state_t) :: parser
                 
                 parser = create_parser_state(tokens)

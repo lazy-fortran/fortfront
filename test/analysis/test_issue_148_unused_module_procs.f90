@@ -21,7 +21,7 @@ contains
     subroutine test_unused_module_procedure()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_module
+        use parser_import_statements_module, only: parse_module
         use call_graph_builder_module, only: build_call_graph
         use call_graph_module, only: call_graph_t, find_unused_procedures
         character(len=:), allocatable :: source
@@ -72,7 +72,7 @@ contains
     subroutine test_used_module_procedure()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_module
+        use parser_import_statements_module, only: parse_module
         use call_graph_builder_module, only: build_call_graph
         use call_graph_module, only: call_graph_t, find_unused_procedures
         character(len=:), allocatable :: source
@@ -125,7 +125,7 @@ contains
     subroutine test_mixed_usage_module_procedures()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_module
+        use parser_import_statements_module, only: parse_module
         use call_graph_builder_module, only: build_call_graph
         use call_graph_module, only: call_graph_t, find_unused_procedures
         character(len=:), allocatable :: source

@@ -3,7 +3,7 @@ program test_frontend_parser_explicit_types
     use ast_core
     use ast_factory
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_statements_module, only: parse_function_definition, parse_subroutine_definition
+    use parser_definition_statements_module, only: parse_function_definition, parse_subroutine_definition
     implicit none
 
     logical :: all_passed

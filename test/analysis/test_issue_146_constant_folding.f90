@@ -21,7 +21,7 @@ contains
     subroutine test_impossible_false_condition()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_program_statement
+        use parser_execution_statements_module, only: parse_program_statement
         use cfg_builder_module, only: build_control_flow_graph
         use control_flow_graph_module, only: control_flow_graph_t, get_unreachable_statements
         character(len=:), allocatable :: source
@@ -74,7 +74,7 @@ contains
     subroutine test_always_true_condition()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_program_statement
+        use parser_execution_statements_module, only: parse_program_statement
         use cfg_builder_module, only: build_control_flow_graph
         use control_flow_graph_module, only: control_flow_graph_t, get_unreachable_statements
         character(len=:), allocatable :: source
@@ -124,7 +124,7 @@ contains
     subroutine test_constant_expression_folding()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_program_statement
+        use parser_execution_statements_module, only: parse_program_statement
         use cfg_builder_module, only: build_control_flow_graph
         use control_flow_graph_module, only: control_flow_graph_t, get_unreachable_statements
         character(len=:), allocatable :: source

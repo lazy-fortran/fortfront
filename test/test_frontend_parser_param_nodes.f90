@@ -4,7 +4,7 @@ program test_frontend_parser_param_nodes
     use ast_factory
     use ast_nodes_data, only: intent_type_to_string
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_statements_module, only: parse_function_definition
+    use parser_definition_statements_module, only: parse_function_definition
     implicit none
 
     logical :: all_passed

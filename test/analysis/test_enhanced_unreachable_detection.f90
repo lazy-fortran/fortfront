@@ -5,7 +5,7 @@ program test_enhanced_unreachable_detection
                                           find_all_unreachable_code
     use lexer_core, only: tokenize_core
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_statements_module, only: parse_function_definition, parse_subroutine_definition
+    use parser_definition_statements_module, only: parse_function_definition, parse_subroutine_definition
     implicit none
 
     integer :: test_count, pass_count

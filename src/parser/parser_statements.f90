@@ -5,7 +5,6 @@ module parser_statements_module
     use parser_memory_statements_module
     use parser_execution_statements_module
     use parser_import_statements_module
-    use parser_definition_statements_module
     
     ! For backward compatibility, re-export all the parsing functions
     use parser_io_statements_module, only: &
@@ -21,9 +20,6 @@ module parser_statements_module
     use parser_import_statements_module, only: &
         parse_use_statement, parse_implicit_statement, parse_include_statement, &
         parse_module
-    use parser_definition_statements_module, only: &
-        parse_derived_type, parse_function_definition, parse_subroutine_definition, &
-        parse_interface_block, parse_typed_parameters
     
     ! Additional dependencies for remaining utility functions
     use iso_fortran_env, only: error_unit
@@ -41,9 +37,6 @@ module parser_statements_module
     ! Re-export all public functions for backward compatibility
     public :: parse_use_statement, parse_implicit_statement, parse_include_statement
     public :: parse_print_statement, parse_write_statement, parse_read_statement
-    public :: parse_function_definition, parse_subroutine_definition
-    public :: parse_interface_block, parse_module, parse_program_statement
-    public :: parse_typed_parameters, parse_derived_type
     public :: parse_stop_statement, parse_return_statement, parse_end_statement
     public :: parse_goto_statement, parse_error_stop_statement
     public :: parse_cycle_statement, parse_exit_statement

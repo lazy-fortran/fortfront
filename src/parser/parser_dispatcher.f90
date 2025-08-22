@@ -5,17 +5,19 @@ module parser_dispatcher_module
     use parser_state_module
     use parser_expressions_module
     use parser_declarations, only: parse_declaration, parse_derived_type_def
-    use parser_statements_module, only: parse_use_statement, parse_include_statement, &
-                                     parse_print_statement, parse_write_statement, &
-                                     parse_read_statement, parse_function_definition, &
-                                   parse_subroutine_definition, parse_interface_block, &
-                                        parse_module, parse_program_statement, &
-                                        parse_stop_statement, parse_return_statement, &
-                                        parse_goto_statement, parse_error_stop_statement, &
-                                        parse_cycle_statement, parse_exit_statement, &
-                                        parse_allocate_statement, &
-                                        parse_deallocate_statement, parse_call_statement, &
-                                        parse_end_statement
+    use parser_import_statements_module, only: parse_use_statement, parse_include_statement, &
+                                              parse_module
+    use parser_io_statements_module, only: parse_print_statement, parse_write_statement, &
+                                           parse_read_statement
+    use parser_definition_statements_module, only: parse_function_definition, &
+                                                  parse_subroutine_definition, &
+                                                  parse_interface_block
+    use parser_control_statements_module, only: parse_stop_statement, parse_return_statement, &
+                                               parse_goto_statement, parse_error_stop_statement, &
+                                               parse_cycle_statement, parse_exit_statement, &
+                                               parse_end_statement
+    use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
+    use parser_execution_statements_module, only: parse_call_statement, parse_program_statement
     use parser_control_flow_module, only: parse_if, parse_do_loop, parse_select_case, &
                                          parse_where_construct, parse_associate
     use ast_core
