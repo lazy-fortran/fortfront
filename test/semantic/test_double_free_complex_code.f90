@@ -38,7 +38,7 @@ program test_double_free_complex_code
     else
         print *, "ERROR: Compilation failed"
         print *, "Error message:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     print *, "All tests passed!"

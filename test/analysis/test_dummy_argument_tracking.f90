@@ -15,7 +15,8 @@ program test_dummy_argument_tracking
     if (all_tests_passed) then
         print *, "All dummy argument tracking tests PASSED!"
     else
-        error stop "Some dummy argument tracking tests FAILED!"
+        print *, "Some dummy argument tracking tests FAILED!"
+        stop 1
     end if
 
 contains
@@ -23,7 +24,7 @@ contains
     subroutine test_simple_dummy_argument()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_subroutine_definition
+        use parser_definition_statements_module, only: parse_subroutine_definition
         use variable_usage_tracker_module, only: get_identifiers_in_subtree
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)
@@ -88,7 +89,7 @@ contains
     subroutine test_multiple_dummy_arguments()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_subroutine_definition
+        use parser_definition_statements_module, only: parse_subroutine_definition
         use variable_usage_tracker_module, only: get_identifiers_in_subtree
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)
@@ -147,7 +148,7 @@ contains
     subroutine test_dummy_in_expression()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_function_definition
+        use parser_definition_statements_module, only: parse_function_definition
         use variable_usage_tracker_module, only: get_identifiers_in_subtree
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)
@@ -204,7 +205,7 @@ contains
     subroutine test_dummy_with_intent()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_subroutine_definition
+        use parser_definition_statements_module, only: parse_subroutine_definition
         use variable_usage_tracker_module, only: get_identifiers_in_subtree
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)
@@ -261,7 +262,7 @@ contains
     subroutine test_nested_subroutine_dummy()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_subroutine_definition
+        use parser_definition_statements_module, only: parse_subroutine_definition
         use variable_usage_tracker_module, only: get_identifiers_in_subtree
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)

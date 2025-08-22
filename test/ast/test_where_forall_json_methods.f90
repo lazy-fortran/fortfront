@@ -48,7 +48,8 @@ contains
         
         ! Verify something was added
         if (.not. associated(root)) then
-            error stop "JSON root not created"
+            print *, "JSON root not created"
+            stop 1
         end if
         
         call json%destroy(root)
@@ -88,7 +89,8 @@ contains
         call forall_stmt%to_json(json, root)
         
         if (.not. associated(root)) then
-            error stop "JSON root not created"
+            print *, "JSON root not created"
+            stop 1
         end if
         
         call json%destroy(root)
@@ -119,7 +121,8 @@ contains
         call where_single%to_json(json, root)
         
         if (.not. associated(root)) then
-            error stop "JSON root not created"
+            print *, "JSON root not created"
+            stop 1
         end if
         
         call json%destroy(root)
@@ -168,7 +171,8 @@ contains
         call where_stmt%to_json(json, root)
         
         if (.not. associated(root)) then
-            error stop "JSON root not created"
+            print *, "JSON root not created"
+            stop 1
         end if
         
         call json%destroy(root)
@@ -220,7 +224,8 @@ contains
         call forall_stmt%to_json(json, root)
         
         if (.not. associated(root)) then
-            error stop "JSON root not created"
+            print *, "JSON root not created"
+            stop 1
         end if
         
         call json%destroy(root)

@@ -9,7 +9,7 @@ module ast_introspection
     use ast_nodes_data
     use ast_nodes_io
     use ast_nodes_misc
-    use type_system_hm, only: mono_type_t
+    use type_system_unified, only: mono_type_t
     implicit none
     private
 
@@ -193,7 +193,7 @@ contains
         logical :: has_info
 
         ! Check if the node has inferred type information
-        has_info = allocated(node%inferred_type)
+        has_info = node%inferred_type%kind > 0
     end function has_semantic_info
 
     ! Get basic type kind from node (safe read-only access)
@@ -209,7 +209,7 @@ contains
         if (.not. allocated(arena%entries)) return
         if (size(arena%entries) < index) return
         if (.not. allocated(arena%entries(index)%node)) return
-        if (.not. allocated(arena%entries(index)%node%inferred_type)) return
+        if (.not. arena%entries(index)%node%inferred_type%kind > 0) return
         
         ! Safe read-only access to basic type kind
         type_kind = arena%entries(index)%node%inferred_type%kind
@@ -234,7 +234,7 @@ contains
         if (.not. allocated(arena%entries)) return
         if (size(arena%entries) < index) return
         if (.not. allocated(arena%entries(index)%node)) return
-        if (.not. allocated(arena%entries(index)%node%inferred_type)) return
+        if (.not. arena%entries(index)%node%inferred_type%kind > 0) return
         
         ! Safe read-only access to type details
         associate (node_type => arena%entries(index)%node%inferred_type)

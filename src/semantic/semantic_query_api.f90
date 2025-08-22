@@ -7,8 +7,8 @@ module semantic_query_api
     use scope_manager, only: scope_stack_t, SCOPE_GLOBAL, SCOPE_MODULE, &
                              SCOPE_FUNCTION, SCOPE_SUBROUTINE, SCOPE_BLOCK, &
                              SCOPE_INTERFACE
-    use type_system_hm, only: mono_type_t, poly_type_t, type_var_t, &
-                              TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
+    use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
+                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
     use parameter_tracker, only: parameter_tracker_t
     use ast_core
     use ast_nodes_core, only: identifier_node

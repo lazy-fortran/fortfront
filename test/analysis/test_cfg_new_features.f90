@@ -13,7 +13,8 @@ program test_cfg_new_features
     if (all_tests_passed) then
         print *, "All CFG new features tests PASSED!"
     else
-        error stop "Some CFG new features tests FAILED!"
+        print *, "Some CFG new features tests FAILED!"
+        stop 1
     end if
 
 contains

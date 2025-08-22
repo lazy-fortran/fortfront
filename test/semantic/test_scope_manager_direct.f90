@@ -1,6 +1,6 @@
 program test_scope_manager_direct
     use scope_manager
-    use type_system_hm
+    use type_system_unified
     implicit none
     
     integer :: test_count, pass_count

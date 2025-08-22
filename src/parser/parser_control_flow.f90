@@ -6,12 +6,12 @@ module parser_control_flow_module
     use parser_state_module
   use parser_expressions_module, only: parse_primary, parse_expression, &
                                        parse_logical_or, parse_range
-    use parser_statements_module, only: parse_print_statement, parse_write_statement, &
-                                        parse_read_statement, &
-                                        parse_cycle_statement, parse_exit_statement, &
-                                        parse_return_statement, parse_call_statement, &
-                                        parse_stop_statement, parse_goto_statement, &
-                                        parse_error_stop_statement
+    use parser_io_statements_module, only: parse_print_statement, parse_write_statement, &
+                                           parse_read_statement
+    use parser_control_statements_module, only: parse_cycle_statement, parse_exit_statement, &
+                                                parse_return_statement, parse_stop_statement, &
+                                                parse_goto_statement, parse_error_stop_statement
+    use parser_execution_statements_module, only: parse_call_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
     use ast_core

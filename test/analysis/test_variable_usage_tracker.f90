@@ -19,7 +19,8 @@ program test_variable_usage_tracker
     if (all_tests_passed) then
         print *, "All variable usage tracker tests PASSED!"
     else
-        error stop "Some variable usage tracker tests FAILED!"
+        print *, "Some variable usage tracker tests FAILED!"
+        stop 1
     end if
 
 contains

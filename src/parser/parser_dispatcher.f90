@@ -4,18 +4,21 @@ module parser_dispatcher_module
     use lexer_core
     use parser_state_module
     use parser_expressions_module
-    use parser_declarations, only: parse_declaration, parse_derived_type_def
-    use parser_statements_module, only: parse_use_statement, parse_include_statement, &
-                                     parse_print_statement, parse_write_statement, &
-                                     parse_read_statement, parse_function_definition, &
-                                   parse_subroutine_definition, parse_interface_block, &
-                                        parse_module, parse_program_statement, &
-                                        parse_stop_statement, parse_return_statement, &
-                                        parse_goto_statement, parse_error_stop_statement, &
-                                        parse_cycle_statement, parse_exit_statement, &
-                                        parse_allocate_statement, &
-                                        parse_deallocate_statement, parse_call_statement, &
-                                        parse_end_statement
+    use parser_declarations, only: parse_declaration, parse_multi_declaration, parse_derived_type_def
+    use parser_utils, only: analyze_declaration_structure
+    use parser_import_statements_module, only: parse_use_statement, parse_include_statement, &
+                                              parse_module
+    use parser_io_statements_module, only: parse_print_statement, parse_write_statement, &
+                                           parse_read_statement
+    use parser_definition_statements_module, only: parse_function_definition, &
+                                                  parse_subroutine_definition, &
+                                                  parse_interface_block
+    use parser_control_statements_module, only: parse_stop_statement, parse_return_statement, &
+                                               parse_goto_statement, parse_error_stop_statement, &
+                                               parse_cycle_statement, parse_exit_statement, &
+                                               parse_end_statement
+    use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
+    use parser_execution_statements_module, only: parse_call_statement, parse_program_statement
     use parser_control_flow_module, only: parse_if, parse_do_loop, parse_select_case, &
                                          parse_where_construct, parse_associate
     use ast_core
@@ -24,7 +27,10 @@ module parser_dispatcher_module
     implicit none
     private
 
-    public :: parse_statement_dispatcher
+    public :: parse_statement_dispatcher, get_additional_indices, clear_additional_indices
+    
+    ! Module variable to store additional indices from multi-declaration parsing
+    integer, allocatable :: additional_indices(:)
 
 contains
 
@@ -124,6 +130,7 @@ contains
 
         first_token = parser%peek()
         is_derived_type_def = .false.
+        
 
         if (first_token%text == "type") then
             ! Check if this is a derived type definition or variable declaration
@@ -146,7 +153,36 @@ contains
         else
             ! Other type keywords - check if it's a declaration
             if (has_double_colon(parser)) then
-                stmt_index = parse_declaration(parser, arena)
+                ! Check if this is single or multi-variable declaration
+                block
+                    logical :: has_initializer, has_comma
+                    integer, allocatable :: decl_indices(:)
+                    
+                    call analyze_declaration_structure(parser, has_initializer, has_comma)
+                    
+                    
+                    if (has_initializer .and. .not. has_comma) then
+                        ! Single variable with initializer - use parse_declaration
+                        stmt_index = parse_declaration(parser, arena)
+                    else if (has_comma) then
+                        ! Multi-variable declaration - use parse_multi_declaration  
+                        decl_indices = parse_multi_declaration(parser, arena)
+                        if (allocated(decl_indices) .and. size(decl_indices) > 0) then
+                            stmt_index = decl_indices(1)  ! Return first declaration index
+                            
+                            ! Store additional indices if any
+                            if (size(decl_indices) > 1) then
+                                allocate(additional_indices(size(decl_indices) - 1))
+                                additional_indices = decl_indices(2:)
+                            end if
+                        else
+                            stmt_index = parse_declaration(parser, arena)  ! Fallback
+                        end if
+                    else
+                        ! Single variable without initializer - use parse_declaration
+                        stmt_index = parse_declaration(parser, arena)
+                    end if
+                end block
             else
                 ! Could be function definition like "real function foo()"
                 stmt_index = parse_function_or_expression(parser, arena)
@@ -267,5 +303,24 @@ contains
         call arena%push(comment, "comment")
         comment_index = arena%size
     end function parse_comment
+
+    ! Get additional indices from multi-declaration parsing
+    function get_additional_indices() result(indices)
+        integer, allocatable :: indices(:)
+        
+        if (allocated(additional_indices)) then
+            allocate(indices(size(additional_indices)))
+            indices = additional_indices
+        else
+            allocate(indices(0))
+        end if
+    end function get_additional_indices
+    
+    ! Clear additional indices after use
+    subroutine clear_additional_indices()
+        if (allocated(additional_indices)) then
+            deallocate(additional_indices)
+        end if
+    end subroutine clear_additional_indices
 
 end module parser_dispatcher_module

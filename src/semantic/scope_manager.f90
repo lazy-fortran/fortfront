@@ -1,6 +1,6 @@
 module scope_manager
     ! Hierarchical scope management for semantic analysis
-    use type_system_hm
+    use type_system_unified
     implicit none
     private
 

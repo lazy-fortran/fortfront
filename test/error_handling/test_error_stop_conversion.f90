@@ -27,12 +27,14 @@ contains
         result = safe_push_where(arena, invalid_index)
         
         if (result%is_success()) then
-            error stop "Expected validation error but got success"
+            print *, "Expected validation error but got success"
+            stop 1
         end if
         
         ! Verify we get a structured error message
         if (len_trim(result%get_error()) == 0) then
-            error stop "Expected error message but got empty string"
+            print *, "Expected error message but got empty string"
+            stop 1
         end if
         
         print *, "✓ safe_push_where returns structured errors instead of error_stop"
@@ -41,7 +43,8 @@ contains
         ! First add a valid node to reference
         literal_index = push_literal(arena, "true", LITERAL_LOGICAL)
         if (literal_index <= 0) then
-            error stop "Failed to add literal node for testing"
+            print *, "Failed to add literal node for testing"
+            stop 1
         end if
         
         ! Now test with valid index
@@ -49,11 +52,13 @@ contains
         
         if (.not. result%is_success()) then
             print *, "Unexpected error: ", result%get_error()
-            error stop "Expected success but got error"
+            print *, "Expected success but got error"
+            stop 1
         end if
         
         if (result%get_index() <= 0) then
-            error stop "Expected valid node index but got <= 0"
+            print *, "Expected valid node index but got <= 0"
+            stop 1
         end if
         
         print *, "✓ safe_push_where succeeds with valid inputs"

@@ -43,13 +43,13 @@ program test_memory_corruption_fix
             ! Check for errors
             if (allocated(error_msg) .and. len(error_msg) > 0) then
                 print *, "ERROR in round ", round, ": ", error_msg
-                error stop 1
+                stop 1
             end if
             
             ! Check basic functionality
             if (len(output_code) == 0) then
                 print *, "ERROR: No output generated in round ", round
-                error stop 1
+                stop 1
             end if
             
             print *, "Round ", round, " completed successfully"

@@ -1,7 +1,7 @@
 program test_ast_semantic_introspection
     use fortfront
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
-    use type_system_hm, only: TINT, TREAL, TCHAR, TLOGICAL
+    use type_system_unified, only: TINT, TREAL, TCHAR, TLOGICAL
     implicit none
 
     logical :: all_passed = .true.

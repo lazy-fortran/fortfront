@@ -53,40 +53,52 @@ contains
         
         ! Verify all fields are copied correctly
         if (where2%mask_expr_index /= 42) then
-            error stop "WHERE assignment: mask_expr_index not copied"
+            print *, "WHERE assignment: mask_expr_index not copied"
+            stop 1
         end if
         if (.not. allocated(where2%where_body_indices)) then
-            error stop "WHERE assignment: where_body_indices not allocated"
+            print *, "WHERE assignment: where_body_indices not allocated"
+            stop 1
         end if
         if (size(where2%where_body_indices) /= 2) then
-            error stop "WHERE assignment: where_body_indices size incorrect"
+            print *, "WHERE assignment: where_body_indices size incorrect"
+            stop 1
         end if
         if (where2%where_body_indices(1) /= 1 .or. where2%where_body_indices(2) /= 2) then
-            error stop "WHERE assignment: where_body_indices values incorrect"
+            print *, "WHERE assignment: where_body_indices values incorrect"
+            stop 1
         end if
         if (.not. allocated(where2%elsewhere_clauses)) then
-            error stop "WHERE assignment: elsewhere_clauses not allocated"
+            print *, "WHERE assignment: elsewhere_clauses not allocated"
+            stop 1
         end if
         if (size(where2%elsewhere_clauses) /= 2) then
-            error stop "WHERE assignment: elsewhere_clauses size incorrect"
+            print *, "WHERE assignment: elsewhere_clauses size incorrect"
+            stop 1
         end if
         if (where2%elsewhere_clauses(1)%mask_index /= 10) then
-            error stop "WHERE assignment: elsewhere mask_index incorrect"
+            print *, "WHERE assignment: elsewhere mask_index incorrect"
+            stop 1
         end if
         if (.not. allocated(where2%elsewhere_clauses(2)%body_indices)) then
-            error stop "WHERE assignment: elsewhere body_indices not allocated"
+            print *, "WHERE assignment: elsewhere body_indices not allocated"
+            stop 1
         end if
         if (size(where2%elsewhere_clauses(2)%body_indices) /= 2) then
-            error stop "WHERE assignment: elsewhere body_indices size incorrect"
+            print *, "WHERE assignment: elsewhere body_indices size incorrect"
+            stop 1
         end if
         if (.not. where2%mask_is_simple) then
-            error stop "WHERE assignment: mask_is_simple not copied"
+            print *, "WHERE assignment: mask_is_simple not copied"
+            stop 1
         end if
         if (where2%can_vectorize) then
-            error stop "WHERE assignment: can_vectorize not copied"
+            print *, "WHERE assignment: can_vectorize not copied"
+            stop 1
         end if
         if (where2%line /= 100 .or. where2%column /= 20) then
-            error stop "WHERE assignment: line/column not copied"
+            print *, "WHERE assignment: line/column not copied"
+            stop 1
         end if
         
         print *, "  ✓ WHERE assignment operator successful"
@@ -126,49 +138,64 @@ contains
         
         ! Verify all fields are copied
         if (forall2%num_indices /= 3) then
-            error stop "FORALL assignment: num_indices not copied"
+            print *, "FORALL assignment: num_indices not copied"
+            stop 1
         end if
         if (.not. allocated(forall2%index_names)) then
-            error stop "FORALL assignment: index_names not allocated"
+            print *, "FORALL assignment: index_names not allocated"
+            stop 1
         end if
         if (any(forall2%index_names /= ["i", "j", "k"])) then
-            error stop "FORALL assignment: index_names values incorrect"
+            print *, "FORALL assignment: index_names values incorrect"
+            stop 1
         end if
         if (.not. allocated(forall2%lower_bound_indices)) then
-            error stop "FORALL assignment: lower_bound_indices not allocated"
+            print *, "FORALL assignment: lower_bound_indices not allocated"
+            stop 1
         end if
         if (any(forall2%lower_bound_indices /= [10, 20, 30])) then
-            error stop "FORALL assignment: lower_bound_indices values incorrect"
+            print *, "FORALL assignment: lower_bound_indices values incorrect"
+            stop 1
         end if
         if (.not. allocated(forall2%upper_bound_indices)) then
-            error stop "FORALL assignment: upper_bound_indices not allocated"
+            print *, "FORALL assignment: upper_bound_indices not allocated"
+            stop 1
         end if
         if (any(forall2%upper_bound_indices /= [100, 200, 300])) then
-            error stop "FORALL assignment: upper_bound_indices values incorrect"
+            print *, "FORALL assignment: upper_bound_indices values incorrect"
+            stop 1
         end if
         if (.not. allocated(forall2%stride_indices)) then
-            error stop "FORALL assignment: stride_indices not allocated"
+            print *, "FORALL assignment: stride_indices not allocated"
+            stop 1
         end if
         if (any(forall2%stride_indices /= [1, 2, 3])) then
-            error stop "FORALL assignment: stride_indices values incorrect"
+            print *, "FORALL assignment: stride_indices values incorrect"
+            stop 1
         end if
         if (.not. forall2%has_mask) then
-            error stop "FORALL assignment: has_mask not copied"
+            print *, "FORALL assignment: has_mask not copied"
+            stop 1
         end if
         if (forall2%mask_expr_index /= 50) then
-            error stop "FORALL assignment: mask_expr_index not copied"
+            print *, "FORALL assignment: mask_expr_index not copied"
+            stop 1
         end if
         if (.not. allocated(forall2%body_indices)) then
-            error stop "FORALL assignment: body_indices not allocated"
+            print *, "FORALL assignment: body_indices not allocated"
+            stop 1
         end if
         if (size(forall2%body_indices) /= 2) then
-            error stop "FORALL assignment: body_indices size incorrect"
+            print *, "FORALL assignment: body_indices size incorrect"
+            stop 1
         end if
         if (.not. forall2%has_dependencies) then
-            error stop "FORALL assignment: has_dependencies not copied"
+            print *, "FORALL assignment: has_dependencies not copied"
+            stop 1
         end if
         if (forall2%is_parallel_safe) then
-            error stop "FORALL assignment: is_parallel_safe not copied"
+            print *, "FORALL assignment: is_parallel_safe not copied"
+            stop 1
         end if
         
         print *, "  ✓ FORALL assignment operator successful"
@@ -187,13 +214,16 @@ contains
         ws2 = ws1
         
         if (ws2%mask_expr_index /= 100) then
-            error stop "WHERE stmt assignment: mask_expr_index not copied"
+            print *, "WHERE stmt assignment: mask_expr_index not copied"
+            stop 1
         end if
         if (ws2%assignment_index /= 200) then
-            error stop "WHERE stmt assignment: assignment_index not copied"
+            print *, "WHERE stmt assignment: assignment_index not copied"
+            stop 1
         end if
         if (ws2%line /= 10 .or. ws2%column /= 20) then
-            error stop "WHERE stmt assignment: line/column not copied"
+            print *, "WHERE stmt assignment: line/column not copied"
+            stop 1
         end if
         
         print *, "  ✓ WHERE statement assignment successful"
@@ -229,13 +259,16 @@ contains
         select type(node => arena%entries(where_idx)%node)
         type is (where_node)
             if (.not. node%mask_is_simple) then
-                error stop "mask_is_simple not preserved in arena"
+                print *, "mask_is_simple not preserved in arena"
+                stop 1
             end if
             if (.not. node%can_vectorize) then
-                error stop "can_vectorize not preserved in arena"
+                print *, "can_vectorize not preserved in arena"
+                stop 1
             end if
         class default
-            error stop "Wrong node type in arena"
+            print *, "Wrong node type in arena"
+            stop 1
         end select
         
         print *, "  ✓ WHERE structure preservation successful"
@@ -277,13 +310,16 @@ contains
         select type(node => arena%entries(forall_idx)%node)
         type is (forall_node)
             if (node%has_dependencies) then
-                error stop "has_dependencies not preserved in arena"
+                print *, "has_dependencies not preserved in arena"
+                stop 1
             end if
             if (.not. node%is_parallel_safe) then
-                error stop "is_parallel_safe not preserved in arena"
+                print *, "is_parallel_safe not preserved in arena"
+                stop 1
             end if
         class default
-            error stop "Wrong node type in arena"
+            print *, "Wrong node type in arena"
+            stop 1
         end select
         
         print *, "  ✓ FORALL structure preservation successful"

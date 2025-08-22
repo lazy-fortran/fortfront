@@ -1,6 +1,6 @@
 module ast_base
     use json_module
-    use type_system_hm, only: mono_type_t
+    use type_system_unified, only: mono_type_t
     use string_types, only: string_t
     implicit none
     private
@@ -20,7 +20,7 @@ module ast_base
     type, abstract, public :: ast_node
         integer :: line = 1
         integer :: column = 1
-        type(mono_type_t), allocatable :: inferred_type  ! Type information
+        type(mono_type_t) :: inferred_type  ! Type information
         ! from semantic analysis
         
         ! Constant folding information

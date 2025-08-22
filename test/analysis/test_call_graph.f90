@@ -18,7 +18,8 @@ program test_call_graph
     if (all_tests_passed) then
         print *, "All call graph tests PASSED!"
     else
-        error stop "Some call graph tests FAILED!"
+        print *, "Some call graph tests FAILED!"
+        stop 1
     end if
 
 contains

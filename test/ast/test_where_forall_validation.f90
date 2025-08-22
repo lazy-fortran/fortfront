@@ -38,36 +38,43 @@ contains
         long_name = repeat('i', MAX_INDEX_NAME_LENGTH)
         forall_idx = push_forall(arena, trim(long_name), start_idx, end_idx, 0, 0, [body_idx])
         if (forall_idx <= 0) then
-            error stop "Failed to create FORALL with max length index name"
+            print *, "Failed to create FORALL with max length index name"
+            stop 1
         end if
         
         ! Verify the index name was stored correctly
         select type(node => arena%entries(forall_idx)%node)
         type is (forall_node)
             if (len(node%index_names(1)) /= MAX_INDEX_NAME_LENGTH) then
-                error stop "Index name length not preserved correctly"
+                print *, "Index name length not preserved correctly"
+                stop 1
             end if
             if (node%index_names(1) /= long_name) then
-                error stop "Index name content not preserved correctly"
+                print *, "Index name content not preserved correctly"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         ! Test with multi-character index names
         valid_name = "loop_index_var"
         forall_idx = push_forall(arena, valid_name, start_idx, end_idx, 0, 0, [body_idx])
         if (forall_idx <= 0) then
-            error stop "Failed to create FORALL with multi-character index name"
+            print *, "Failed to create FORALL with multi-character index name"
+            stop 1
         end if
         
         select type(node => arena%entries(forall_idx)%node)
         type is (forall_node)
             if (node%index_names(1) /= valid_name) then
-                error stop "Multi-character index name not preserved"
+                print *, "Multi-character index name not preserved"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ FORALL index name length handling successful"
