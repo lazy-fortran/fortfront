@@ -32,6 +32,9 @@ module arena_memory
         integer :: capacity = 0               ! Chunk capacity in bytes
         integer :: used = 0                   ! Bytes currently used
         integer :: generation = 1             ! Current generation
+    contains
+        procedure :: assign_chunk => arena_chunk_assign
+        generic :: assignment(=) => assign_chunk
     end type arena_chunk_t
 
     ! Core arena allocator
@@ -53,6 +56,8 @@ module arena_memory
         procedure :: grow => arena_grow
         procedure :: get_data => arena_get_data
         procedure :: set_data => arena_set_data
+        procedure :: assign_arena => arena_assign
+        generic :: assignment(=) => assign_arena
     end type arena_t
 
     ! Arena statistics for monitoring
@@ -380,5 +385,46 @@ contains
         handle%generation = 0
         handle%chunk_id = 0
     end function null_handle
+
+    ! Deep copy assignment for arena chunks (prevents double free)
+    subroutine arena_chunk_assign(lhs, rhs)
+        class(arena_chunk_t), intent(out) :: lhs
+        type(arena_chunk_t), intent(in) :: rhs
+
+        ! Copy scalar members
+        lhs%capacity = rhs%capacity
+        lhs%used = rhs%used
+        lhs%generation = rhs%generation
+
+        ! Deep copy allocatable data
+        if (allocated(rhs%data)) then
+            allocate(lhs%data(size(rhs%data)))
+            lhs%data = rhs%data
+        end if
+    end subroutine arena_chunk_assign
+
+    ! Deep copy assignment for arenas (prevents double free)
+    subroutine arena_assign(lhs, rhs)
+        class(arena_t), intent(out) :: lhs
+        type(arena_t), intent(in) :: rhs
+        integer :: i
+
+        ! Copy scalar members
+        lhs%chunk_count = rhs%chunk_count
+        lhs%current_chunk = rhs%current_chunk
+        lhs%total_allocated = rhs%total_allocated
+        lhs%total_capacity = rhs%total_capacity
+        lhs%chunk_size = rhs%chunk_size
+        lhs%alignment = rhs%alignment
+        lhs%generation = rhs%generation
+
+        ! Deep copy chunks array
+        if (allocated(rhs%chunks)) then
+            allocate(lhs%chunks(size(rhs%chunks)))
+            do i = 1, size(rhs%chunks)
+                lhs%chunks(i) = rhs%chunks(i)  ! Uses chunk assignment operator
+            end do
+        end if
+    end subroutine arena_assign
 
 end module arena_memory

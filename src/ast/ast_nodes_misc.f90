@@ -175,7 +175,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
+            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
         else
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
@@ -220,7 +221,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
+            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
         else
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
@@ -273,7 +275,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
+            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
         else
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
@@ -320,7 +323,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
+            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
         else
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
@@ -369,7 +373,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
+            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
         else
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
@@ -405,7 +410,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
+            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
         else
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
@@ -439,7 +445,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
+            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
         else
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
@@ -476,7 +483,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
+            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
         else
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
@@ -521,7 +529,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
+            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
         else
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
@@ -584,7 +593,8 @@ contains
         if (allocated(rhs%inferred_type)) then
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
             allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type
+            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
         else
             if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         end if
