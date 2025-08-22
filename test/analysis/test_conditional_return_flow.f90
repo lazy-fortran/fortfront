@@ -25,7 +25,8 @@ program test_conditional_return_flow
     if (all_tests_passed) then
         print *, "All conditional return flow tests PASSED!"
     else
-        error stop "Some conditional return flow tests FAILED!"
+        print *, "Some conditional return flow tests FAILED!"
+        stop 1
     end if
 
 contains

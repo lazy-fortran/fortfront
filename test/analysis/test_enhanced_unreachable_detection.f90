@@ -20,7 +20,8 @@ program test_enhanced_unreachable_detection
     print *, "Tests passed: ", pass_count, "/", test_count
 
     if (pass_count /= test_count) then
-        error stop "Some tests failed"
+        print *, "Some tests failed"
+        stop 1
     end if
 
 contains

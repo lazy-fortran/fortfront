@@ -13,7 +13,8 @@ program test_issue_146_constant_folding
     if (all_tests_passed) then
         print *, "All issue #146 tests PASSED!"
     else
-        error stop "Some issue #146 tests FAILED!"
+        print *, "Some issue #146 tests FAILED!"
+        stop 1
     end if
 
 contains

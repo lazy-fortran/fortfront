@@ -24,7 +24,8 @@ program test_associate_variable_tracking
     if (all_tests_passed) then
         print *, "All associate variable tracking tests PASSED!"
     else
-        error stop "Some associate variable tracking tests FAILED!"
+        print *, "Some associate variable tracking tests FAILED!"
+        stop 1
     end if
 
 contains

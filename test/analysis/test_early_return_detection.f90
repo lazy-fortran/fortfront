@@ -15,7 +15,8 @@ program test_early_return_detection
     if (all_tests_passed) then
         print *, "All early return detection tests PASSED!"
     else
-        error stop "Some early return detection tests FAILED!"
+        print *, "Some early return detection tests FAILED!"
+        stop 1
     end if
 
 contains

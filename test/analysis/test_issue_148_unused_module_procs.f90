@@ -13,7 +13,8 @@ program test_issue_148_unused_module_procs
     if (all_tests_passed) then
         print *, "All issue #148 tests PASSED!"
     else
-        error stop "Some issue #148 tests FAILED!"
+        print *, "Some issue #148 tests FAILED!"
+        stop 1
     end if
 
 contains

@@ -18,7 +18,8 @@ program test_cfg_exception_handling
     if (all_tests_passed) then
         print *, "All CFG exception handling tests PASSED!"
     else
-        error stop "Some CFG exception handling tests FAILED!"
+        print *, "Some CFG exception handling tests FAILED!"
+        stop 1
     end if
 
 contains
