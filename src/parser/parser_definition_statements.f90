@@ -6,6 +6,8 @@ module parser_definition_statements_module
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
+    use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
+                              INTENT_IN, INTENT_OUT, INTENT_INOUT
     implicit none
     private
 
@@ -13,6 +15,85 @@ module parser_definition_statements_module
     public :: parse_interface_block, parse_typed_parameters
 
 contains
+
+    ! Merge parameter attributes from declaration nodes into parameter nodes
+    subroutine merge_parameter_attributes(arena, param_indices, body_indices)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: param_indices(:)
+        integer, intent(in) :: body_indices(:)
+        
+        integer :: i, j
+        character(len=:), allocatable :: param_name, decl_name
+        
+        ! For each parameter node
+        do i = 1, size(param_indices)
+            if (param_indices(i) <= 0 .or. param_indices(i) > arena%size) cycle
+            
+            select type (param_node => arena%entries(param_indices(i))%node)
+            type is (parameter_declaration_node)
+                param_name = param_node%name
+                
+                ! Look for corresponding declaration in body
+                do j = 1, size(body_indices)
+                    if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
+                    
+                    select type (body_node => arena%entries(body_indices(j))%node)
+                    type is (declaration_node)
+                        ! Check if this declaration is for the parameter
+                        if (body_node%is_multi_declaration) then
+                            ! Check multi-declaration var_names
+                            if (allocated(body_node%var_names)) then
+                                if (any(body_node%var_names == param_name)) then
+                                    ! Update parameter node with attributes
+                                    if (body_node%has_intent .and. allocated(body_node%intent)) then
+                                        select case (body_node%intent)
+                                        case ("in")
+                                            param_node%intent_type = INTENT_IN
+                                        case ("out")
+                                            param_node%intent_type = INTENT_OUT
+                                        case ("inout")
+                                            param_node%intent_type = INTENT_INOUT
+                                        end select
+                                    end if
+                                    param_node%is_optional = body_node%is_optional
+                                    
+                                    ! Also update type if not already set
+                                    if (param_node%type_name == "" .and. allocated(body_node%type_name)) then
+                                        param_node%type_name = body_node%type_name
+                                        param_node%kind_value = body_node%kind_value
+                                        param_node%has_kind = body_node%has_kind
+                                    end if
+                                end if
+                            end if
+                        else
+                            ! Single declaration
+                            if (allocated(body_node%var_name) .and. body_node%var_name == param_name) then
+                                ! Update parameter node with attributes
+                                if (body_node%has_intent .and. allocated(body_node%intent)) then
+                                    select case (body_node%intent)
+                                    case ("in")
+                                        param_node%intent_type = INTENT_IN
+                                    case ("out")
+                                        param_node%intent_type = INTENT_OUT
+                                    case ("inout")
+                                        param_node%intent_type = INTENT_INOUT
+                                    end select
+                                end if
+                                param_node%is_optional = body_node%is_optional
+                                
+                                ! Also update type if not already set
+                                if (param_node%type_name == "" .and. allocated(body_node%type_name)) then
+                                    param_node%type_name = body_node%type_name
+                                    param_node%kind_value = body_node%kind_value
+                                    param_node%has_kind = body_node%has_kind
+                                end if
+                            end if
+                        end if
+                    end select
+                end do
+            end select
+        end do
+    end subroutine merge_parameter_attributes
 
     ! Parse derived type parameters inside parentheses
     subroutine parse_derived_type_parameters(parser, arena, param_indices)
@@ -615,6 +696,13 @@ contains
             end block
         end do
 
+        ! Merge parameter attributes from body declarations
+        if (allocated(param_indices) .and. allocated(body_indices)) then
+            if (size(param_indices) > 0 .and. size(body_indices) > 0) then
+                call merge_parameter_attributes(arena, param_indices, body_indices)
+            end if
+        end if
+        
         ! Create function node
         func_index = push_function_def(arena, function_name, param_indices, &
                                        return_type_str, body_indices, &
@@ -750,6 +838,13 @@ contains
             end block
         end do
 
+        ! Merge parameter attributes from body declarations
+        if (allocated(param_indices) .and. allocated(body_indices)) then
+            if (size(param_indices) > 0 .and. size(body_indices) > 0) then
+                call merge_parameter_attributes(arena, param_indices, body_indices)
+            end if
+        end if
+        
         ! Create subroutine node
         sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
                                         line, column)

@@ -20,41 +20,51 @@ contains
         
         ! Test creating intrinsic function call nodes
         node = create_call_or_subscript("sin", dummy_args)
-        print *, "sin call should be marked as intrinsic"
-        stop 1
-        if (.not. allocated(node%intrinsic_signature)) &
+        if (.not. allocated(node%intrinsic_signature)) then
             print *, "sin call should have signature"
             stop 1
-        if (len_trim(node%intrinsic_signature) == 0) &
+        end if
+        if (len_trim(node%intrinsic_signature) == 0) then
             print *, "sin signature should not be empty"
             stop 1
-        if (node%intrinsic_signature /= "real(real)") &
+        end if
+        if (node%intrinsic_signature /= "real(real)") then
             print *, "sin signature should be 'real(real)'"
             stop 1
+        end if
         
         ! Test creating another intrinsic function call
         node = create_call_or_subscript("sqrt", dummy_args)
-        print *, "sqrt call should be marked as intrinsic"
-        stop 1
-        if (node%intrinsic_signature /= "real(real)") &
+        if (.not. allocated(node%intrinsic_signature)) then
+            print *, "sqrt call should be marked as intrinsic"
+            stop 1
+        end if
+        if (node%intrinsic_signature /= "real(real)") then
             print *, "sqrt signature should be 'real(real)'"
             stop 1
+        end if
         
         ! Test type conversion intrinsic
         node = create_call_or_subscript("int", dummy_args)
-        print *, "int call should be marked as intrinsic"
-        stop 1
-        if (node%intrinsic_signature /= "integer(real)") &
+        if (.not. allocated(node%intrinsic_signature)) then
+            print *, "int call should be marked as intrinsic"
+            stop 1
+        end if
+        if (node%intrinsic_signature /= "integer(real)") then
             print *, "int signature should be 'integer(real)'"
             stop 1
+        end if
         
         ! Test array intrinsic
         node = create_call_or_subscript("size", dummy_args)
-        print *, "size call should be marked as intrinsic"
-        stop 1
-        if (node%intrinsic_signature /= "integer(array)") &
+        if (.not. allocated(node%intrinsic_signature)) then
+            print *, "size call should be marked as intrinsic"
+            stop 1
+        end if
+        if (node%intrinsic_signature /= "integer(array)") then
             print *, "size signature should be 'integer(array)'"
             stop 1
+        end if
         
         print *, "  ✓ Intrinsic call node creation tests passed"
     end subroutine test_intrinsic_call_node_creation
@@ -67,19 +77,22 @@ contains
         
         ! Test creating user-defined function call nodes
         node = create_call_or_subscript("my_function", dummy_args)
-        print *, "my_function call should not be marked as intrinsic"
-        stop 1
-        if (allocated(node%intrinsic_signature) .and. len_trim(node%intrinsic_signature) > 0) &
+        if (allocated(node%intrinsic_signature) .and. len_trim(node%intrinsic_signature) > 0) then
             print *, "my_function should not have signature"
             stop 1
+        end if
         
         node = create_call_or_subscript("user_routine", dummy_args)
-        print *, "user_routine call should not be marked as intrinsic"
-        stop 1
+        if (allocated(node%intrinsic_signature) .and. len_trim(node%intrinsic_signature) > 0) then
+            print *, "user_routine should not have signature"
+            stop 1
+        end if
         
         node = create_call_or_subscript("calculate", dummy_args)
-        print *, "calculate call should not be marked as intrinsic"
-        stop 1
+        if (allocated(node%intrinsic_signature) .and. len_trim(node%intrinsic_signature) > 0) then
+            print *, "calculate should not have signature"
+            stop 1
+        end if
         
         print *, "  ✓ Non-intrinsic call node creation tests passed"
     end subroutine test_non_intrinsic_call_node_creation
@@ -110,22 +123,34 @@ contains
         
         ! Check that intrinsic information is included
         call json%get(parent, 'is_intrinsic', bool_val, found)
-        print *, "is_intrinsic field should be present"
-        stop 1
-        print *, "is_intrinsic should be true for sin"
-        stop 1
+        if (.not. found) then
+            print *, "is_intrinsic field should be present"
+            stop 1
+        end if
+        if (.not. bool_val) then
+            print *, "is_intrinsic should be true for sin"
+            stop 1
+        end if
         
         call json%get(parent, 'intrinsic_signature', str_val, found)
-        print *, "intrinsic_signature field should be present"
-        stop 1
-        print *, "intrinsic_signature should be 'real(real)'"
-        stop 1
+        if (.not. found) then
+            print *, "intrinsic_signature field should be present"
+            stop 1
+        end if
+        if (str_val /= 'real(real)') then
+            print *, "intrinsic_signature should be 'real(real)'"
+            stop 1
+        end if
         
         call json%get(parent, 'name', str_val, found)
-        print *, "name field should be present"
-        stop 1
-        print *, "name should be 'sin'"
-        stop 1
+        if (.not. found) then
+            print *, "name field should be present"
+            stop 1
+        end if
+        if (str_val /= 'sin') then
+            print *, "name should be 'sin'"
+            stop 1
+        end if
         
         ! Test with non-intrinsic function
         call json%destroy(root)
@@ -137,15 +162,21 @@ contains
         call node%to_json(json, parent)
         
         call json%get(parent, 'is_intrinsic', bool_val, found)
-        print *, "is_intrinsic field should be present for non-intrinsic"
-        stop 1
-        print *, "is_intrinsic should be false for my_function"
-        stop 1
+        if (.not. found) then
+            print *, "is_intrinsic field should be present for non-intrinsic"
+            stop 1
+        end if
+        if (bool_val) then
+            print *, "is_intrinsic should be false for my_function"
+            stop 1
+        end if
         
         ! intrinsic_signature should not be present for non-intrinsic functions
         call json%get(parent, 'intrinsic_signature', str_val, found)
-        print *, "intrinsic_signature should not be present for non-intrinsic"
-        stop 1
+        if (found) then
+            print *, "intrinsic_signature should not be present for non-intrinsic"
+            stop 1
+        end if
         
         call json%destroy(root)
         print *, "  ✓ Intrinsic JSON serialization tests passed"

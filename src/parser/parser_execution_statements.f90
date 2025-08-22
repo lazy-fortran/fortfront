@@ -182,6 +182,9 @@ contains
                     stmt_index = parse_allocate_statement(parser, arena)
                 case ("deallocate")
                     stmt_index = parse_deallocate_statement(parser, arena)
+                case ("if")
+                    ! Simple inline if parsing to avoid circular dependency
+                    stmt_index = parse_simple_if(parser, arena)
                 case default
                     ! Skip unknown keywords for now
                     token = parser%consume()
@@ -204,6 +207,147 @@ contains
             end if
         end do
     end subroutine parse_program_body
+
+    ! Parse a simple if statement (minimal implementation to avoid circular dependencies)
+    function parse_simple_if(parser, arena) result(if_index)
+        use parser_expressions_module, only: parse_expression
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: if_index
+        type(token_t) :: token
+        integer :: condition_index, line, column
+        integer, allocatable :: then_body_indices(:)
+        
+        if_index = 0
+        allocate(then_body_indices(0))
+        
+        ! Consume 'if' keyword
+        token = parser%consume()
+        line = token%line
+        column = token%column
+        
+        ! Parse condition in parentheses
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            token = parser%consume()  ! consume '('
+            ! Create a token array from current position for expression parser
+            block
+                type(token_t), allocatable :: expr_tokens(:)
+                integer :: start_pos, end_pos, paren_depth
+                
+                start_pos = parser%current_token
+                end_pos = start_pos
+                paren_depth = 1
+                
+                ! Find the matching closing parenthesis
+                do while (end_pos <= size(parser%tokens) .and. paren_depth > 0)
+                    if (parser%tokens(end_pos)%text == "(") then
+                        paren_depth = paren_depth + 1
+                    else if (parser%tokens(end_pos)%text == ")") then
+                        paren_depth = paren_depth - 1
+                    end if
+                    if (paren_depth > 0) end_pos = end_pos + 1
+                end do
+                
+                ! Extract tokens for expression
+                if (end_pos > start_pos) then
+                    allocate(expr_tokens(end_pos - start_pos))
+                    expr_tokens = parser%tokens(start_pos:end_pos-1)
+                    condition_index = parse_expression(expr_tokens, arena)
+                    parser%current_token = end_pos
+                else
+                    condition_index = 0
+                end if
+            end block
+            
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()  ! consume ')'
+            end if
+        else
+            condition_index = 0
+        end if
+        
+        ! Expect 'then'
+        token = parser%peek()
+        if (token%kind == TK_KEYWORD .and. token%text == "then") then
+            token = parser%consume()
+        end if
+        
+        ! Parse body until 'end if' or 'else' or 'elseif'
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            
+            ! Check for end of if
+            if (token%kind == TK_KEYWORD .and. token%text == "end") then
+                if (parser%current_token + 1 <= size(parser%tokens)) then
+                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                        parser%tokens(parser%current_token + 1)%text == "if") then
+                        token = parser%consume()  ! consume 'end'
+                        token = parser%consume()  ! consume 'if'
+                        exit
+                    end if
+                end if
+            else if (token%kind == TK_KEYWORD .and. &
+                    (token%text == "else" .or. token%text == "elseif")) then
+                ! For simplicity, skip else/elseif blocks for now
+                do while (.not. parser%is_at_end())
+                    token = parser%peek()
+                    if (token%kind == TK_KEYWORD .and. token%text == "end") then
+                        if (parser%current_token + 1 <= size(parser%tokens)) then
+                            if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                                parser%tokens(parser%current_token + 1)%text == "if") then
+                                token = parser%consume()  ! consume 'end'
+                                token = parser%consume()  ! consume 'if'
+                                exit
+                            end if
+                        end if
+                    end if
+                    token = parser%consume()
+                end do
+                exit
+            end if
+            
+            ! Parse statement in if body
+            call parse_if_body_statement(parser, arena, then_body_indices)
+        end do
+        
+        ! Create if node
+        if_index = push_if(arena, condition_index, then_body_indices, &
+                          line=line, column=column)
+    end function parse_simple_if
+    
+    ! Parse a statement in an if body
+    subroutine parse_if_body_statement(parser, arena, body_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(inout) :: body_indices(:)
+        type(token_t) :: token
+        integer :: stmt_index
+        
+        token = parser%peek()
+        stmt_index = 0
+        
+        select case (token%kind)
+        case (TK_KEYWORD)
+            select case (token%text)
+            case ("print")
+                stmt_index = parse_print_statement(parser, arena)
+            case ("real", "integer", "logical", "character")
+                stmt_index = parse_declaration(parser, arena)
+            case default
+                token = parser%consume()
+            end select
+        case (TK_NEWLINE)
+            token = parser%consume()
+        case default
+            token = parser%consume()
+        end select
+        
+        if (stmt_index > 0) then
+            body_indices = [body_indices, stmt_index]
+        end if
+    end subroutine parse_if_body_statement
 
     ! Parse a simple assignment statement
     subroutine parse_assignment_statement(parser, arena, stmt_index)
