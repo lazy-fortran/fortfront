@@ -19,7 +19,7 @@ module ast_factory
               push_read_statement_with_end, push_read_statement_with_all_specifiers, &
               push_write_statement_with_iostat, push_write_statement_with_format, &
               push_write_statement_with_runtime_format, push_end_statement
-    public :: push_function_def, push_subroutine_def, push_interface_block, push_module
+    public :: push_function_def, push_subroutine_def, push_interface_block, push_module, push_module_structured
     public :: push_stop, push_return, push_goto, push_error_stop
     public :: push_cycle, push_exit
     public :: push_where, push_where_construct, push_where_construct_with_elsewhere
@@ -1212,6 +1212,27 @@ contains
         module_index = arena%size
 
     end function push_module
+
+    ! Create complete module node with declaration and procedure indices
+    function push_module_structured(arena, name, declaration_indices, &
+                                    procedure_indices, has_contains, line, column, &
+                                    parent_index) result(module_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: name
+        integer, intent(in), optional :: declaration_indices(:), procedure_indices(:)
+        logical, intent(in), optional :: has_contains
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: module_index
+        type(module_node) :: mod_node
+
+        mod_node = create_module(name, declaration_indices=declaration_indices, &
+                                procedure_indices=procedure_indices, &
+                                has_contains=has_contains, line=line, column=column)
+
+        call arena%push(mod_node, "module_node", parent_index)
+        module_index = arena%size
+
+    end function push_module_structured
 
     ! Create STOP statement node and add to stack
     function push_stop(arena, stop_code_index, stop_message, line, column, &

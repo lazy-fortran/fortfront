@@ -5,6 +5,7 @@ module parser_statements_module
     use parser_memory_statements_module
     use parser_execution_statements_module
     use parser_import_statements_module
+    use parser_declarations, only: parse_declaration
     
     ! For backward compatibility, re-export all the parsing functions
     use parser_io_statements_module, only: &
@@ -210,6 +211,8 @@ contains
                 stmt_index = parse_print_statement(parser, arena)
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
+            case ("integer", "real", "logical", "character", "complex")
+                stmt_index = parse_declaration(parser, arena)
             case default
                 stmt_index = skip_unknown_statement(parser)
             end select

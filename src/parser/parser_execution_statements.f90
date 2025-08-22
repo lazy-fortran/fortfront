@@ -3,6 +3,8 @@ module parser_execution_statements_module
     use lexer_core
     use parser_state_module
     use parser_expressions_module, only: parse_range
+    use parser_declarations, only: parse_declaration
+    use parser_io_statements_module, only: parse_print_statement
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -171,7 +173,10 @@ contains
                 case ("implicit")
                     call parse_simple_implicit(parser, arena, stmt_index)
                 case ("real", "integer", "logical", "character", "complex")
-                    call parse_simple_declaration(parser, arena, stmt_index)
+                    ! Use full declaration parser to handle initializers properly
+                    stmt_index = parse_declaration(parser, arena)
+                case ("print")
+                    stmt_index = parse_print_statement(parser, arena)
                 case default
                     ! Skip unknown keywords for now
                     token = parser%consume()

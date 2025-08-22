@@ -617,8 +617,8 @@ contains
 
         ! Create function node
         func_index = push_function_def(arena, function_name, param_indices, &
-                                       result_variable_name, body_indices, &
-                                       line, column)
+                                       return_type_str, body_indices, &
+                                       line, column, result_variable=result_variable_name)
     end function parse_function_definition
 
     function parse_subroutine_definition(parser, arena) result(sub_index)
