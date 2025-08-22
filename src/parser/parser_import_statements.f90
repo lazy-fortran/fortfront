@@ -520,25 +520,46 @@ contains
                 end if
             end if
 
-            ! Create placeholder subroutine nodes for testing
+            ! Create basic subroutine nodes for contains section
             if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "subroutine") then
-                ! Skip to get subroutine name
                 token = parser%consume()  ! consume "subroutine"
-                if (.not. parser%is_at_end()) then
-                    token = parser%peek()
-                    if (token%kind == TK_IDENTIFIER) then
-                        ! Create a minimal subroutine node for testing
-                        block
-                            integer :: sub_index
-                            integer, allocatable :: empty_params(:), empty_body(:)
-                            allocate(empty_params(0))
-                            allocate(empty_body(0))
-                            sub_index = push_subroutine_def(arena, token%text, empty_params, empty_body, &
-                                                          token%line, token%column)
-                            procedure_indices = [procedure_indices, sub_index]
-                        end block
-                    end if
+                token = parser%peek()
+                if (token%kind == TK_IDENTIFIER) then
+                    block
+                        character(len=:), allocatable :: sub_name
+                        integer, allocatable :: empty_params(:), empty_body(:)
+                        integer :: sub_index
+                        sub_name = token%text
+                        token = parser%consume()  ! consume subroutine name
+                        allocate(empty_params(0))
+                        allocate(empty_body(0))
+                        sub_index = push_subroutine_def(arena, sub_name, empty_params, empty_body, &
+                                                      token%line, token%column)
+                        procedure_indices = [procedure_indices, sub_index]
+                    end block
                 end if
+                cycle
+            end if
+            
+            ! Create basic function nodes for contains section
+            if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "function") then
+                token = parser%consume()  ! consume "function"
+                token = parser%peek()
+                if (token%kind == TK_IDENTIFIER) then
+                    block
+                        character(len=:), allocatable :: func_name
+                        integer, allocatable :: empty_params(:), empty_body(:)
+                        integer :: func_index
+                        func_name = token%text
+                        token = parser%consume()  ! consume function name
+                        allocate(empty_params(0))
+                        allocate(empty_body(0))
+                        func_index = push_function_def(arena, func_name, empty_params, "integer", &
+                                                     empty_body, token%line, token%column)
+                        procedure_indices = [procedure_indices, func_index]
+                    end block
+                end if
+                cycle
             end if
             
             ! Only advance if we haven't handled this token specifically

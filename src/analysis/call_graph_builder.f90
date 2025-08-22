@@ -242,6 +242,10 @@ contains
                 end if
             end select
             
+            ! WORKAROUND: Parser doesn't properly link module procedures
+            ! Also traverse all children to find floating function definitions
+            call traverse_children_for_calls(builder, arena, node_index, current_scope)
+            
         case ("contains", "contains_section", "contains_node")
             ! Handle contains section - traverse all contained procedures in the current scope
             select type (node => arena%entries(node_index)%node)
