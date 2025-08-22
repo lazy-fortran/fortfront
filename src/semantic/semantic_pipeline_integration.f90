@@ -41,8 +41,8 @@ contains
     end subroutine analyze_semantics_with_pipeline
     
     ! Create default semantic analysis pipeline
-    function create_default_semantic_pipeline() result(pipeline)
-        type(semantic_pipeline_t) :: pipeline
+    subroutine create_default_semantic_pipeline(pipeline)
+        type(semantic_pipeline_t), intent(out) :: pipeline
         type(symbol_analyzer_t) :: symbol_analyzer
         type(type_analyzer_t) :: type_analyzer
         type(scope_analyzer_t) :: scope_analyzer
@@ -54,6 +54,6 @@ contains
         call pipeline%add_analyzer(symbol_analyzer, "symbol_analyzer")
         call pipeline%add_analyzer(scope_analyzer, "scope_analyzer")
         call pipeline%add_analyzer(type_analyzer, "type_analyzer")
-    end function create_default_semantic_pipeline
+    end subroutine create_default_semantic_pipeline
     
 end module semantic_pipeline_integration

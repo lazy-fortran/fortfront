@@ -29,8 +29,8 @@ program test_semantic_integration
     end if
     print *, "PASS: Built-in analyzers accessible through fortfront API"
 
-    ! Test 3: Default pipeline creation works
-    default_pipeline = create_default_semantic_pipeline()
+    ! Test 3: Default pipeline creation works  
+    call create_default_semantic_pipeline(default_pipeline)
     if (default_pipeline%get_analyzer_count() /= 3) then
         print *, "FAIL: Default pipeline should have 3 analyzers"
         stop 1
