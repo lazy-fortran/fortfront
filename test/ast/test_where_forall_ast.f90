@@ -4,7 +4,6 @@ module test_where_forall_ast
     use codegen_core
     use lexer_core
     use parser_core
-    use json_writer
     implicit none
 
 contains
@@ -49,23 +48,28 @@ contains
         where_idx = push_where(arena, mask_idx, body_indices)
         
         if (where_idx <= 0) then
-            error stop "Failed to create WHERE"
+            print *, "Failed to create WHERE"
+            stop 1
         end if
         
         ! Verify the node
         select type(node => arena%entries(where_idx)%node)
         type is (where_node)
             if (node%mask_expr_index /= mask_idx) then
-                error stop "Wrong mask index"
+                print *, "Wrong mask index"
+                stop 1
             end if
             if (.not. allocated(node%where_body_indices)) then
-                error stop "Body indices not allocated"
+                print *, "Body indices not allocated"
+                stop 1
             end if
             if (size(node%where_body_indices) /= 2) then
-                error stop "Wrong number of body indices"
+                print *, "Wrong number of body indices"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ Simple WHERE node created and verified"
@@ -93,23 +97,28 @@ contains
         where_idx = push_where(arena, mask1_idx, where_body, else_body)
         
         if (where_idx <= 0) then
-            error stop "Failed to create WHERE with ELSEWHERE"
+            print *, "Failed to create WHERE with ELSEWHERE"
+            stop 1
         end if
         
         ! Verify structure
         select type(node => arena%entries(where_idx)%node)
         type is (where_node)
             if (.not. allocated(node%elsewhere_clauses)) then
-                error stop "ELSEWHERE clauses not allocated"
+                print *, "ELSEWHERE clauses not allocated"
+                stop 1
             end if
             if (size(node%elsewhere_clauses) /= 1) then
-                error stop "Wrong number of ELSEWHERE clauses"
+                print *, "Wrong number of ELSEWHERE clauses"
+                stop 1
             end if
             if (node%elsewhere_clauses(1)%mask_index /= 0) then
-                error stop "Simple ELSEWHERE should have mask_index = 0"
+                print *, "Simple ELSEWHERE should have mask_index = 0"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ WHERE with ELSEWHERE clauses created"
@@ -133,7 +142,8 @@ contains
         where_idx = push_where(arena, mask_idx, body_indices)
         
         if (where_idx <= 0) then
-            error stop "Failed to create WHERE"
+            print *, "Failed to create WHERE"
+            stop 1
         end if
         
         print *, "  ✓ WHERE with body statements created"
@@ -156,20 +166,24 @@ contains
         forall_idx = push_forall(arena, "i", lower_idx, upper_idx, 0, 0, [body_idx])
         
         if (forall_idx <= 0) then
-            error stop "Failed to create FORALL"
+            print *, "Failed to create FORALL"
+            stop 1
         end if
         
         ! Verify the node was created
         select type(node => arena%entries(forall_idx)%node)
         type is (forall_node)
             if (node%num_indices /= 1) then
-                error stop "Wrong number of indices"
+                print *, "Wrong number of indices"
+                stop 1
             end if
             if (node%index_names(1) /= "i") then
-                error stop "Wrong index name"
+                print *, "Wrong index name"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ Simple FORALL node created"
@@ -193,17 +207,20 @@ contains
         forall_idx = push_forall(arena, "j", start_idx, end_idx, stride_idx, 0, [body_idx])
         
         if (forall_idx <= 0) then
-            error stop "Failed to create FORALL with stride"
+            print *, "Failed to create FORALL with stride"
+            stop 1
         end if
         
         ! Verify stride was set
         select type(node => arena%entries(forall_idx)%node)
         type is (forall_node)
             if (node%stride_indices(1) /= stride_idx) then
-                error stop "Stride not properly set"
+                print *, "Stride not properly set"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ FORALL with stride created"
@@ -227,20 +244,24 @@ contains
                                  0, mask_idx, [body_idx])
         
         if (forall_idx <= 0) then
-            error stop "Failed to create FORALL with mask"
+            print *, "Failed to create FORALL with mask"
+            stop 1
         end if
         
         ! Verify mask was set
         select type(node => arena%entries(forall_idx)%node)
         type is (forall_node)
             if (.not. node%has_mask) then
-                error stop "Mask flag not set"
+                print *, "Mask flag not set"
+                stop 1
             end if
             if (node%mask_expr_index /= mask_idx) then
-                error stop "Wrong mask index"
+                print *, "Wrong mask index"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ FORALL with mask created"
@@ -282,10 +303,12 @@ contains
         code = generate_code_from_arena(arena, where_idx)
         
         if (index(code, "where") == 0) then
-            error stop "Generated code missing 'where'"
+            print *, "Generated code missing 'where'"
+            stop 1
         end if
         if (index(code, "elsewhere") == 0) then
-            error stop "Generated code missing 'elsewhere'"
+            print *, "Generated code missing 'elsewhere'"
+            stop 1
         end if
         
         print *, "  ✓ WHERE code generation successful"
@@ -330,7 +353,8 @@ contains
         code = generate_code_from_arena(arena, forall_idx)
         
         if (index(code, "forall") == 0) then
-            error stop "Generated code missing 'forall'"
+            print *, "Generated code missing 'forall'"
+            stop 1
         end if
         
         print *, "  ✓ FORALL code generation successful"

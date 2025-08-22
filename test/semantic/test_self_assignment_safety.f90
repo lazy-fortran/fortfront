@@ -20,7 +20,7 @@ program test_self_assignment_safety
     else
         print *, ""
         print *, "FAILURE: Some self-assignment tests failed"
-        error stop 1
+        stop 1
     end if
 
 contains

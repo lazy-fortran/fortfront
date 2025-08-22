@@ -18,7 +18,8 @@ program test_control_flow_graph
     if (all_tests_passed) then
         print *, "All control flow graph tests PASSED!"
     else
-        error stop "Some control flow graph tests FAILED!"
+        print *, "Some control flow graph tests FAILED!"
+        stop 1
     end if
 
 contains

@@ -12,7 +12,7 @@ program test_dependencies_interface
         print *, "TEST PASSED: dependencies interface compiles correctly"
     else
         print *, "TEST FAILED: dependencies interface compilation"
-        error stop 1
+        stop 1
     end if
 
 contains

@@ -1,6 +1,8 @@
 module json_writer
     use json_module
     implicit none
+    
+    public :: json_write_tokens_to_file, json_write_ast_to_file
 
 contains
 

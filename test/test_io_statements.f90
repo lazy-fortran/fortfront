@@ -13,7 +13,8 @@ program test_io_statements
     ! Test OPEN and WRITE statements
     open(unit=unit, file=filename, status="replace", iostat=iostat)
     if (iostat /= 0) then
-        error stop "I/O test failed: Cannot open file for writing"
+        print *, "I/O test failed: Cannot open file for writing"
+        stop 1
     end if
     
     ! Write some data
@@ -26,12 +27,14 @@ program test_io_statements
     ! Test READ statement
     open(unit=unit, file=filename, status="old", iostat=iostat)
     if (iostat /= 0) then
-        error stop "I/O test failed: Cannot open file for reading"
+        print *, "I/O test failed: Cannot open file for reading"
+        stop 1
     end if
     
     read(unit, '(A)') line
     if (trim(line) /= "Test data file") then
-        error stop "I/O test failed: First line read incorrectly"
+        print *, "I/O test failed: First line read incorrectly"
+        stop 1
     end if
     
     ! Read the data back
@@ -40,7 +43,8 @@ program test_io_statements
     ! Check the data
     do i = 1, 5
         if (abs(data(i) - real(i)) > 1e-6) then
-            error stop "I/O test failed: Data read incorrectly"
+            print *, "I/O test failed: Data read incorrectly"
+            stop 1
         end if
     end do
     

@@ -141,7 +141,7 @@ program test_all_github_issues_fixed
         print *, "All functionality working correctly!"
     else
         print *, "❌ SOME ISSUES REMAIN UNFIXED"
-        error stop 1
+        stop 1
     end if
     
 end program test_all_github_issues_fixed

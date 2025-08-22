@@ -12,11 +12,26 @@ program test_cycle_exit
         result(count) = i
     end do
     
-    if (count /= 4) error stop "CYCLE test failed: count should be 4"
-    if (result(1) /= 1) error stop "CYCLE test failed: result(1) should be 1"
-    if (result(2) /= 2) error stop "CYCLE test failed: result(2) should be 2"
-    if (result(3) /= 4) error stop "CYCLE test failed: result(3) should be 4"
-    if (result(4) /= 5) error stop "CYCLE test failed: result(4) should be 5"
+    if (count /= 4) then
+        print *, "CYCLE test failed: count should be 4"
+        stop 1
+    end if
+    if (result(1) /= 1) then
+        print *, "CYCLE test failed: result(1) should be 1"
+        stop 1
+    end if
+    if (result(2) /= 2) then
+        print *, "CYCLE test failed: result(2) should be 2"
+        stop 1
+    end if
+    if (result(3) /= 4) then
+        print *, "CYCLE test failed: result(3) should be 4"
+        stop 1
+    end if
+    if (result(4) /= 5) then
+        print *, "CYCLE test failed: result(4) should be 5"
+        stop 1
+    end if
     
     ! Test basic EXIT
     count = 0
@@ -26,8 +41,14 @@ program test_cycle_exit
         result(count) = i
     end do
     
-    if (count /= 6) error stop "EXIT test failed: count should be 6"
-    if (result(6) /= 6) error stop "EXIT test failed: result(6) should be 6"
+    if (count /= 6) then
+        print *, "EXIT test failed: count should be 6"
+        stop 1
+    end if
+    if (result(6) /= 6) then
+        print *, "EXIT test failed: result(6) should be 6"
+        stop 1
+    end if
     
     ! Test labeled loops with CYCLE
     count = 0
@@ -38,7 +59,10 @@ program test_cycle_exit
         end do inner
     end do outer
     
-    if (count /= 3) error stop "Labeled CYCLE test failed: count should be 3"
+    if (count /= 3) then
+        print *, "Labeled CYCLE test failed: count should be 3"
+        stop 1
+    end if
     
     ! Test labeled loops with EXIT
     count = 0
@@ -49,7 +73,10 @@ program test_cycle_exit
         end do inner2
     end do outer2
     
-    if (count /= 8) error stop "Labeled EXIT test failed: count should be 8"
+    if (count /= 8) then
+        print *, "Labeled EXIT test failed: count should be 8"
+        stop 1
+    end if
     
     print *, "All tests passed!"
 end program test_cycle_exit

@@ -73,7 +73,7 @@ contains
     end function
 
     subroutine assign_test_analyzer(lhs, rhs)
-        class(simple_test_analyzer_t), intent(inout) :: lhs
+        class(simple_test_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
         select type(rhs)
@@ -87,10 +87,10 @@ contains
 
     function get_test_dependencies(this) result(deps)
         class(simple_test_analyzer_t), intent(in) :: this
-        character(len=32), allocatable :: deps(:)
+        character(:), allocatable :: deps(:)
         
         ! Test analyzer has no dependencies
-        allocate(deps(0))
+        allocate(character(len=0) :: deps(0))
         
         associate(dummy => this)
         end associate

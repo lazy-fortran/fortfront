@@ -36,7 +36,8 @@ contains
         ! Lex, parse, and analyze
         call lex_source(source_code, tokens, error_msg)
         if (error_msg /= "") then
-            error stop "FAIL: Lexing failed: " // error_msg
+            print *, "FAIL: Lexing failed: "
+            stop 1
         end if
         
         ! Debug token info
@@ -49,7 +50,8 @@ contains
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root_index, error_msg)
         if (error_msg /= "") then
-            error stop "FAIL: Parsing failed: " // error_msg
+            print *, "FAIL: Parsing failed: "
+            stop 1
         end if
         
         ctx = create_semantic_context()
@@ -78,17 +80,20 @@ contains
         
         ! Check that implicit none is preserved
         if (index(formatted_code, "implicit none") == 0) then
-            error stop "FAIL: implicit none should be preserved in formatted output"
+            print *, "FAIL: implicit none should be preserved in formatted output"
+            stop 1
         end if
         
         ! Check that declarations are preserved  
         if (index(formatted_code, "integer :: i") == 0) then
-            error stop "FAIL: variable declaration should be preserved"
+            print *, "FAIL: variable declaration should be preserved"
+            stop 1
         end if
         
         ! Check that assignments are preserved
         if (index(formatted_code, "i = 42") == 0) then
-            error stop "FAIL: assignment should be preserved"
+            print *, "FAIL: assignment should be preserved"
+            stop 1
         end if
         
         print *, "    ✓ Implicit none parsing"
@@ -109,13 +114,15 @@ contains
         ! Lex, parse, and analyze
         call lex_source(source_code, tokens, error_msg)
         if (error_msg /= "") then
-            error stop "FAIL: Lexing failed: " // error_msg
+            print *, "FAIL: Lexing failed: "
+            stop 1
         end if
         
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root_index, error_msg)
         if (error_msg /= "") then
-            error stop "FAIL: Parsing failed: " // error_msg
+            print *, "FAIL: Parsing failed: "
+            stop 1
         end if
         
         ctx = create_semantic_context()
@@ -134,15 +141,18 @@ contains
         
         ! Check key elements are preserved
         if (index(formatted_code, "implicit none") == 0) then
-            error stop "FAIL: implicit none missing"
+            print *, "FAIL: implicit none missing"
+            stop 1
         end if
         
         if (index(formatted_code, "integer ::") == 0) then
-            error stop "FAIL: integer declaration missing"  
+            print *, "FAIL: integer declaration missing"
+            stop 1
         end if
         
         if (index(formatted_code, "real") == 0) then
-            error stop "FAIL: real declaration missing"
+            print *, "FAIL: real declaration missing"
+            stop 1
         end if
         
         print *, "    ✓ Declarations and statements"
@@ -161,13 +171,15 @@ contains
         ! Lex, parse, and analyze
         call lex_source(source_code, tokens, error_msg)
         if (error_msg /= "") then
-            error stop "FAIL: Lexing failed: " // error_msg
+            print *, "FAIL: Lexing failed: "
+            stop 1
         end if
         
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root_index, error_msg)
         if (error_msg /= "") then
-            error stop "FAIL: Parsing failed: " // error_msg
+            print *, "FAIL: Parsing failed: "
+            stop 1
         end if
         
         ctx = create_semantic_context()
@@ -186,15 +198,18 @@ contains
         
         ! Check basic statements are preserved
         if (index(formatted_code, "i = 42") == 0) then
-            error stop "FAIL: assignment missing"
+            print *, "FAIL: assignment missing"
+            stop 1
         end if
         
         if (index(formatted_code, "print *, i") == 0) then
-            error stop "FAIL: print statement missing"
+            print *, "FAIL: print statement missing"
+            stop 1
         end if
         
         if (index(formatted_code, "implicit none") == 0) then
-            error stop "FAIL: implicit none missing"
+            print *, "FAIL: implicit none missing"
+            stop 1
         end if
         
         print *, "    ✓ Control flow"

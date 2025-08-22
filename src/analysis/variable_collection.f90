@@ -2,7 +2,7 @@ module variable_collection
     ! Unified variable collection utilities
     ! Consolidates DRY violations from multiple collection implementations
     use ast_core
-    use type_system_hm, only: mono_type_t
+    use type_system_arena, only: mono_handle_t, null_mono_handle
     implicit none
     private
 
@@ -25,7 +25,7 @@ module variable_collection
         logical :: needs_allocatable = .false.
         integer :: usage_count = 0
         integer :: node_index = 0
-        type(mono_type_t), allocatable :: inferred_type
+        type(mono_handle_t) :: inferred_type
     contains
         procedure :: assign => variable_info_assign
         generic :: assignment(=) => assign
@@ -439,7 +439,6 @@ contains
         ! Clear existing allocatable components
         if (allocated(lhs%name)) deallocate(lhs%name)
         if (allocated(lhs%type_name)) deallocate(lhs%type_name)
-        if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
         
         ! Copy scalar fields
         lhs%is_declared = rhs%is_declared
@@ -456,11 +455,8 @@ contains
             lhs%type_name = rhs%type_name
         end if
         
-        ! Deep copy allocatable inferred_type using mono_type assignment
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            lhs%inferred_type = rhs%inferred_type  ! Uses mono_type assignment (deep copy)
-        end if
+        ! Copy arena handle directly (no allocation needed)
+        lhs%inferred_type = rhs%inferred_type
     end subroutine variable_info_assign
 
     ! Deep copy assignment operator for variable_collection_t

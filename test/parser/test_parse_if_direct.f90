@@ -11,7 +11,8 @@ program test_parse_if_direct
     if (all_tests_passed) then
         print *, "All direct if parsing tests PASSED!"
     else
-        error stop "Some direct if parsing tests FAILED!"
+        print *, "Some direct if parsing tests FAILED!"
+        stop 1
     end if
 
 contains

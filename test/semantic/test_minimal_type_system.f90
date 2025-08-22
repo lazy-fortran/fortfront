@@ -1,5 +1,5 @@
 program test_minimal_type_system
-    use type_system_hm
+    use type_system_unified
     use iso_fortran_env, only: error_unit
     implicit none
 
@@ -51,8 +51,8 @@ contains
         ! Create original type
         original = create_mono_type(TREAL)
 
-        ! Test deep copy
-        copied = original%deep_copy()
+        ! Test copy via assignment operator
+        copied = original
 
         ! Check copy is correct
         if (copied%kind == TREAL .and. copied%kind == original%kind) then

@@ -1,7 +1,7 @@
 program test_ast_nodes_data_coverage
     use ast_nodes_data
     use json_module
-    use type_system_hm, only: mono_type_t
+    use type_system_unified, only: mono_type_t, create_mono_type, TINT
     implicit none
 
     integer :: total_tests, passed_tests
@@ -610,11 +610,13 @@ contains
         type(declaration_node) :: lhs, rhs
         type(mono_type_t) :: test_type
 
+        ! Initialize test type
+        test_type = create_mono_type(TINT)
+
         ! Test assignment with inferred_type (will fail due to missing base field copying)
         rhs%type_name = "real"
         rhs%line = 42
         rhs%column = 15
-        allocate(rhs%inferred_type)
         rhs%inferred_type = test_type
 
         lhs = rhs

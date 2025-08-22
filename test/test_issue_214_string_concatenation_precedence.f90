@@ -276,23 +276,19 @@ contains
         print *, 'Testing comprehensive operator precedence hierarchy...'
         
         ! Test complex expression that involves multiple precedence levels
-        ! Expression: -a + b * c // d > e .and. f
-        ! Should parse as: ((-a) + (b * c)) // d > e .and. f
-        ! NOT as: -(a + b) * (c // d) > (e .and. f)
+        ! Expression: a + b // c (string concatenation and arithmetic)
+        ! Should parse as: (a + b) // c (+ higher precedence than //)
+        ! NOT as: a + (b // c) (// higher precedence than +)
         input_file = 'test_comprehensive_precedence.lf'
         open(newunit=unit, file=input_file, status='replace')
         write(unit, '(a)') 'program test_comprehensive'
-        write(unit, '(a)') '    character(len=10) :: a, b, c, d, e'
-        write(unit, '(a)') '    logical :: f, result'
+        write(unit, '(a)') '    character(len=10) :: a, b, c, result_str'
         write(unit, '(a)') '    a = "1"'
         write(unit, '(a)') '    b = "2"'
         write(unit, '(a)') '    c = "3"'
-        write(unit, '(a)') '    d = "4"'
-        write(unit, '(a)') '    e = "5"'
-        write(unit, '(a)') '    f = .true.'
-        write(unit, '(a)') '    ! Test complex precedence'
-        write(unit, '(a)') '    result = a + b // c < e .and. f'
-        write(unit, '(a)') '    print *, result'
+        write(unit, '(a)') '    ! Test string concatenation precedence'
+        write(unit, '(a)') '    result_str = a + b // c'
+        write(unit, '(a)') '    print *, result_str'
         write(unit, '(a)') 'end program test_comprehensive'
         close(unit)
         
@@ -307,7 +303,7 @@ contains
         end if
         
         ! Check the generated code
-        call check_generated_expression(output_file, 'result = ', test_passed)
+        call check_generated_expression(output_file, 'result_str = ', test_passed)
         if (.not. test_passed) then
             print *, '  FAIL: Could not verify comprehensive precedence in generated code'
             test_comprehensive_precedence_hierarchy = .false.

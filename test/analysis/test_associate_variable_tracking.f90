@@ -2,7 +2,7 @@ program test_associate_variable_tracking
     use iso_fortran_env, only: error_unit
     use lexer_core, only: tokenize_core, token_t
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_statements_module, only: parse_subroutine_definition
+    use parser_definition_statements_module, only: parse_subroutine_definition
     use ast_core, only: ast_arena_t, create_ast_arena
     use variable_usage_tracker_module, only: get_identifiers_in_subtree
     implicit none
@@ -24,7 +24,8 @@ program test_associate_variable_tracking
     if (all_tests_passed) then
         print *, "All associate variable tracking tests PASSED!"
     else
-        error stop "Some associate variable tracking tests FAILED!"
+        print *, "Some associate variable tracking tests FAILED!"
+        stop 1
     end if
 
 contains

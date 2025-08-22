@@ -1,5 +1,7 @@
 program test_parser_statements_direct
     use parser_statements_module
+    use parser_execution_statements_module, only: parse_program_statement
+    use parser_import_statements_module, only: parse_module
     use parser_state_module
     use lexer_core
     use ast_core

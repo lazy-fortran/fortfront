@@ -17,7 +17,8 @@ program test_call_graph_comprehensive
     if (all_tests_passed) then
         print *, "All comprehensive call graph tests PASSED!"
     else
-        error stop "Some comprehensive call graph tests FAILED!"
+        print *, "Some comprehensive call graph tests FAILED!"
+        stop 1
     end if
 
 contains

@@ -4,7 +4,7 @@ program test_semantic_direct
     use ast_core, only: ast_arena_t, create_ast_arena, create_program, &
                         create_identifier, create_literal, create_assignment, &
                         program_node, LITERAL_INTEGER
-    use type_system_hm, only: mono_type_t, type_var_t, TINT, TREAL, TCHAR, TLOGICAL
+    use type_system_unified, only: mono_type_t, type_var_t, TINT, TREAL, TCHAR, TLOGICAL
     implicit none
 
     integer :: total_tests, passed_tests
@@ -57,12 +57,16 @@ program test_semantic_direct
 
     ! Test 4: Builtin function types - sin function
     call test_start("Builtin function types")
-    if (ctx%env%count >= 7) then  ! Should have at least 7 builtin functions
+    if (ctx%scopes%depth >= 1 .and. ctx%scopes%scopes(1)%env%count >= 7) then  ! Should have at least 7 builtin functions
         call test_pass()
     else
         call test_fail()
-        print *, "  Expected: env%count>=7 (builtin functions)"
-        print *, "  Got: env%count=", ctx%env%count
+        print *, "  Expected: global scope env%count>=7 (builtin functions)"
+        if (ctx%scopes%depth >= 1) then
+            print *, "  Got: env%count=", ctx%scopes%scopes(1)%env%count
+        else
+            print *, "  Got: no scopes available"
+        end if
     end if
 
     ! Test 5: Create empty program AST
@@ -117,12 +121,16 @@ program test_semantic_direct
     ctx = create_semantic_context()
     
     ! Should find sin function in environment
-    if (ctx%env%count > 0) then
+    if (ctx%scopes%depth >= 1 .and. ctx%scopes%scopes(1)%env%count > 0) then
         call test_pass()
     else
         call test_fail()
-        print *, "  Expected: builtin functions in env"
-        print *, "  Got: env%count=", ctx%env%count
+        print *, "  Expected: builtin functions in global scope env"
+        if (ctx%scopes%depth >= 1) then
+            print *, "  Got: env%count=", ctx%scopes%scopes(1)%env%count
+        else
+            print *, "  Got: no scopes available"
+        end if
     end if
 
     print *, ""

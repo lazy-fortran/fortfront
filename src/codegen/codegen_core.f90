@@ -4,7 +4,7 @@ module codegen_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
     use ast_nodes_control, only: associate_node
     use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, derived_type_node
-    use type_system_hm
+    use type_system_unified
     use string_types, only: string_t
     use codegen_indent
     implicit none
@@ -1365,7 +1365,7 @@ contains
         ! Determine the type string
         if (len_trim(node%type_name) > 0) then
             type_str = node%type_name
-        else if (allocated(node%inferred_type)) then
+        else if (node%inferred_type%kind > 0) then
             ! Handle type inference
             select case (node%inferred_type%kind)
             case (TINT)
@@ -1413,7 +1413,7 @@ contains
         ! Add allocatable if present or if string needs allocatable
         if (node%is_allocatable) then
             code = code//", allocatable"
-        else if (allocated(node%inferred_type)) then
+        else if (node%inferred_type%kind > 0) then
             if (node%inferred_type%alloc_info%needs_allocatable_string) then
                 code = code//", allocatable"
             end if

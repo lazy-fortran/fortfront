@@ -10,17 +10,29 @@ program test_stop_return
     
     ! Test RETURN in function
     result = test_return_function(5)
-    if (result /= 10) error stop "test_return_function(5) should return 10"
+    if (result /= 10) then
+        print *, "test_return_function(5) should return 10"
+        stop 1
+    end if
     
     result = test_return_function(0)
-    if (result /= -1) error stop "test_return_function(0) should return -1"
+    if (result /= -1) then
+        print *, "test_return_function(0) should return -1"
+        stop 1
+    end if
     
     ! Test early RETURN
     result = test_early_return(3)
-    if (result /= 6) error stop "test_early_return(3) should return 6"
+    if (result /= 6) then
+        print *, "test_early_return(3) should return 6"
+        stop 1
+    end if
     
     result = test_early_return(-1)
-    if (result /= 0) error stop "test_early_return(-1) should return 0"
+    if (result /= 0) then
+        print *, "test_early_return(-1) should return 0"
+        stop 1
+    end if
     
     print *, "All tests passed!"
     stop 0

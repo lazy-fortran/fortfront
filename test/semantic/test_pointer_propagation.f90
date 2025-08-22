@@ -5,7 +5,7 @@ program test_pointer_propagation
     use ast_arena
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program
-    use type_system_hm, only: allocation_info_t
+    use type_system_unified, only: allocation_info_t
     implicit none
 
     logical :: all_passed

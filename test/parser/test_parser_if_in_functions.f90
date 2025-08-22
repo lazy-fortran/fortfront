@@ -11,7 +11,8 @@ program test_parser_if_in_functions
     if (all_tests_passed) then
         print *, "All parser if-in-functions tests PASSED!"
     else
-        error stop "Some parser if-in-functions tests FAILED!"
+        print *, "Some parser if-in-functions tests FAILED!"
+        stop 1
     end if
 
 contains
@@ -19,7 +20,7 @@ contains
     subroutine test_if_statement_in_function_body()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_function_definition
+        use parser_definition_statements_module, only: parse_function_definition
         use ast_core, only: ast_arena_t, create_ast_arena
         character(len=:), allocatable :: source
         type(token_t), allocatable :: tokens(:)

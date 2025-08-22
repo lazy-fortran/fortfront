@@ -35,7 +35,7 @@ program test_fortfront_arena_debug
     end if
     
     ! Get arena stats
-    stats = get_arena_stats(arena)
+    stats = arena%get_stats()
     print *, "Arena statistics:"
     print *, "  Total nodes:", stats%total_nodes
     print *, "  Max depth:", stats%max_depth

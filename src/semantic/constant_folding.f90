@@ -46,11 +46,11 @@ contains
         ! Mark literals as constants and store their values
         node%is_constant = .true.
         
-        ! Store the constant value based on type
-        if (node%value == ".false.") then
+        ! Store the constant value based on type  
+        if (node%value == ".false." .or. node%value == ".FALSE.") then
             node%constant_logical = .false.
             node%constant_type = LITERAL_LOGICAL
-        else if (node%value == ".true.") then
+        else if (node%value == ".true." .or. node%value == ".TRUE.") then
             node%constant_logical = .true.
             node%constant_type = LITERAL_LOGICAL
         else if (node%literal_kind == LITERAL_INTEGER) then

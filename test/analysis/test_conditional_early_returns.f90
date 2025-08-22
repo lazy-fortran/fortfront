@@ -18,7 +18,8 @@ program test_conditional_early_returns
     if (all_tests_passed) then
         print *, "All conditional early return tests PASSED!"
     else
-        error stop "Some conditional early return tests FAILED!"
+        print *, "Some conditional early return tests FAILED!"
+        stop 1
     end if
 
 contains
@@ -26,7 +27,7 @@ contains
     subroutine test_exception_handling_pattern()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_subroutine_definition
+        use parser_definition_statements_module, only: parse_subroutine_definition
         use cfg_builder_module, only: build_control_flow_graph
         use control_flow_graph_module, only: control_flow_graph_t, find_unreachable_code
         character(len=:), allocatable :: source
@@ -93,7 +94,7 @@ contains
     subroutine test_early_return_pattern()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_function_definition
+        use parser_definition_statements_module, only: parse_function_definition
         use cfg_builder_module, only: build_control_flow_graph
         use control_flow_graph_module, only: control_flow_graph_t, find_unreachable_code
         character(len=:), allocatable :: source
@@ -160,7 +161,7 @@ contains
     subroutine test_nested_conditional_returns()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_subroutine_definition
+        use parser_definition_statements_module, only: parse_subroutine_definition
         use cfg_builder_module, only: build_control_flow_graph
         use control_flow_graph_module, only: control_flow_graph_t, find_unreachable_code
         character(len=:), allocatable :: source
@@ -217,7 +218,7 @@ contains
     subroutine test_multiple_return_paths()
         use lexer_core, only: tokenize_core
         use parser_state_module, only: parser_state_t, create_parser_state
-        use parser_statements_module, only: parse_function_definition
+        use parser_definition_statements_module, only: parse_function_definition
         use cfg_builder_module, only: build_control_flow_graph
         use control_flow_graph_module, only: control_flow_graph_t, find_unreachable_code
         character(len=:), allocatable :: source

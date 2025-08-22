@@ -172,7 +172,6 @@ contains
         
         print *, "Testing ERROR STOP node generation..."
         
-        ! Test 1: Basic error stop
         source = "program test" // new_line('a') // &
                 "error stop" // new_line('a') // &
                 "end program test"

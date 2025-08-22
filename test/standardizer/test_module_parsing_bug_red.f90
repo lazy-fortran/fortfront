@@ -20,7 +20,7 @@ program test_module_parsing_bug_red
         print *, 'SUCCESS: All tests pass - Issue #253 has been fixed!'
     else
         print *, 'Module parsing bug tests completed - failures expected until fix'
-        error stop 1  ! Use error stop for actual failures
+        stop 1
     end if
 
 contains

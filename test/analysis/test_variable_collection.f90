@@ -22,7 +22,7 @@ program test_variable_collection
         print *, 'All ', test_count, ' tests PASSED'
     else
         print *, passed_count, ' of ', test_count, ' tests passed'
-        error stop 1
+        stop 1
     end if
 
 contains

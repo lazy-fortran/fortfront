@@ -1,5 +1,5 @@
 program test_semantic_context_components
-    use type_system_hm
+    use type_system_unified
     use scope_manager
     use iso_fortran_env, only: error_unit
     implicit none

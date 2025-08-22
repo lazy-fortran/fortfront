@@ -2,13 +2,14 @@ program test_builtin_analyzers
     use ast_core, only: ast_arena_t, create_ast_arena
     use semantic_pipeline, only: semantic_pipeline_t, create_pipeline
     use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t
-    use semantic_analyzer, only: semantic_context_t
+    use semantic_analyzer, only: semantic_context_t, create_semantic_context
     implicit none
 
     type(semantic_pipeline_t) :: pipeline
     type(symbol_analyzer_t) :: symbol_analyzer
     type(type_analyzer_t) :: type_analyzer  
     type(scope_analyzer_t) :: scope_analyzer
+    type(semantic_context_t) :: context
     type(ast_arena_t) :: arena
     integer :: root_node_index
     class(*), allocatable :: results
@@ -17,6 +18,7 @@ program test_builtin_analyzers
 
     ! Initialize test environment
     arena = create_ast_arena()
+    context = create_semantic_context()
     root_node_index = 1  ! Dummy root node index
 
     ! Create pipeline
@@ -29,31 +31,31 @@ program test_builtin_analyzers
     
     if (pipeline%get_analyzer_count() /= 3) then
         print *, "FAIL: Pipeline should have 3 built-in analyzers"
-        error stop
+        stop 1
     end if
     print *, "PASS: Built-in analyzers registered successfully"
 
     ! Test 2: Run individual analyzers (skip pipeline execution to avoid memory issues)
     print *, "Testing individual analyzer execution..."
-    call symbol_analyzer%analyze(pipeline%context, arena, root_node_index)
-    call type_analyzer%analyze(pipeline%context, arena, root_node_index)  
-    call scope_analyzer%analyze(pipeline%context, arena, root_node_index)
+    call symbol_analyzer%analyze(context, arena, root_node_index)
+    call type_analyzer%analyze(context, arena, root_node_index)  
+    call scope_analyzer%analyze(context, arena, root_node_index)
     print *, "PASS: Individual analyzers executed successfully"
 
     ! Test 3: Verify analyzer names
     if (symbol_analyzer%get_name() /= "symbol_analyzer") then
         print *, "FAIL: Symbol analyzer name incorrect"
-        error stop
+        stop 1
     end if
     
     if (type_analyzer%get_name() /= "type_analyzer") then
         print *, "FAIL: Type analyzer name incorrect"
-        error stop
+        stop 1
     end if
     
     if (scope_analyzer%get_name() /= "scope_analyzer") then
         print *, "FAIL: Scope analyzer name incorrect"
-        error stop
+        stop 1
     end if
     print *, "PASS: All analyzer names correct"
 

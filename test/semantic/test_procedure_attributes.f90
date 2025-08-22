@@ -16,7 +16,7 @@ program test_procedure_attributes
         print *, "TEST PASSED: procedure attributes analyzer"
     else
         print *, "TEST FAILED: procedure attributes analyzer"
-        error stop 1
+        stop 1
     end if
 
 contains

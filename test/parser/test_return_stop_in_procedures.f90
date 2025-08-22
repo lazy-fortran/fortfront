@@ -21,7 +21,7 @@ program test_return_stop_in_procedures
     else
         print *, "ERROR: Failed to parse return in subroutine"
         if (len(error_msg) > 0) print *, "Error:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     ! Test 2: Stop in subroutine
@@ -38,7 +38,7 @@ program test_return_stop_in_procedures
     else
         print *, "ERROR: Failed to parse stop in subroutine"
         if (len(error_msg) > 0) print *, "Error:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     ! Test 3: Return in function
@@ -55,7 +55,7 @@ program test_return_stop_in_procedures
     else
         print *, "ERROR: Failed to parse return in function"
         if (len(error_msg) > 0) print *, "Error:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     ! Test 4: Multiple returns with control flow
@@ -93,13 +93,13 @@ program test_return_stop_in_procedures
                 print *, "✓ Multiple return statements parsed correctly"
             else
                 print *, "ERROR: Expected multiple return statements, found", count
-                error stop 1
+                stop 1
             end if
         end block
     else
         print *, "ERROR: Failed to parse complex return"
         if (len(error_msg) > 0) print *, "Error:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     ! Test 5: Stop with different codes
@@ -116,7 +116,7 @@ program test_return_stop_in_procedures
     else
         print *, "ERROR: Failed to parse stop statements"
         if (len(error_msg) > 0) print *, "Error:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     print *, "All return/stop statement tests passed!"

@@ -1,5 +1,5 @@
 program test_function_type_creation
-    use type_system_hm
+    use type_system_unified
     use iso_fortran_env, only: error_unit
     implicit none
 
@@ -59,12 +59,16 @@ contains
         write (*, '(A)') "Polymorphic type created successfully"
 
         ! Check poly type
-        if (poly_type%mono%kind == TFUN) then
-            pass_count = pass_count + 1
-            write (*, '(A)') "PASS: Polymorphic type creation"
-        else
-            write (*, '(A)') "FAIL: Polymorphic type creation"
-        end if
+        block
+            type(mono_type_t) :: mono
+            mono = poly_type%get_mono()
+            if (mono%kind == TFUN) then
+                pass_count = pass_count + 1
+                write (*, '(A)') "PASS: Polymorphic type creation"
+            else
+                write (*, '(A)') "FAIL: Polymorphic type creation"
+            end if
+        end block
 
         write (*, '(A)') "About to exit (poly type destructor will be called)"
     end subroutine test_poly_type_creation

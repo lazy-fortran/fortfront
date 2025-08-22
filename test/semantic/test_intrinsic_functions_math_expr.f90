@@ -24,7 +24,7 @@ program test_intrinsic_functions_math_expr
     else
         print *, "ERROR: Failed to analyze mathematical expression"
         print *, "Error message:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     ! Test simpler sqrt case
@@ -41,7 +41,7 @@ program test_intrinsic_functions_math_expr
     else
         print *, "ERROR: Failed to analyze simple sqrt expression"
         print *, "Error message:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     ! Test nested sqrt expressions
@@ -58,7 +58,7 @@ program test_intrinsic_functions_math_expr
     else
         print *, "ERROR: Failed to analyze nested sqrt expressions"
         print *, "Error message:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     print *, "All intrinsic function tests passed!"

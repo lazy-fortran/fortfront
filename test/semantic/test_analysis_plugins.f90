@@ -33,34 +33,34 @@ program test_analysis_plugins
     
     if (pipeline%get_analyzer_count() /= 5) then
         print *, "FAIL: Pipeline should have 5 analysis plugins"
-        error stop
+        stop 1
     end if
     print *, "PASS: All 5 analysis plugins registered successfully"
 
     ! Test 2: Verify analyzer names
     if (call_graph_analyzer%get_name() /= "call_graph_analyzer") then
         print *, "FAIL: Call graph analyzer name incorrect"
-        error stop
+        stop 1
     end if
     
     if (control_flow_analyzer%get_name() /= "control_flow_analyzer") then
         print *, "FAIL: Control flow analyzer name incorrect"  
-        error stop
+        stop 1
     end if
     
     if (usage_tracker_analyzer%get_name() /= "usage_tracker_analyzer") then
         print *, "FAIL: Usage tracker analyzer name incorrect"
-        error stop
+        stop 1
     end if
     
     if (source_reconstruction_analyzer%get_name() /= "source_reconstruction_analyzer") then
         print *, "FAIL: Source reconstruction analyzer name incorrect"
-        error stop
+        stop 1
     end if
     
     if (interface_analyzer%get_name() /= "interface_analyzer") then
         print *, "FAIL: Interface analyzer name incorrect"
-        error stop
+        stop 1
     end if
     
     print *, "PASS: All analyzer names correct"
@@ -77,31 +77,31 @@ program test_analysis_plugins
         results1 = call_graph_analyzer%get_results()
         if (.not. allocated(results1)) then
             print *, "FAIL: Call graph analyzer results not accessible"
-            error stop
+            stop 1
         end if
         
         results2 = control_flow_analyzer%get_results()
         if (.not. allocated(results2)) then
             print *, "FAIL: Control flow analyzer results not accessible"
-            error stop
+            stop 1
         end if
         
         results3 = usage_tracker_analyzer%get_results()
         if (.not. allocated(results3)) then
             print *, "FAIL: Usage tracker analyzer results not accessible"
-            error stop
+            stop 1
         end if
         
         results4 = source_reconstruction_analyzer%get_results()
         if (.not. allocated(results4)) then
             print *, "FAIL: Source reconstruction analyzer results not accessible"
-            error stop
+            stop 1
         end if
         
         results5 = interface_analyzer%get_results()
         if (.not. allocated(results5)) then
             print *, "FAIL: Interface analyzer results not accessible"
-            error stop
+            stop 1
         end if
         
         print *, "PASS: All analyzer results accessible"
@@ -118,28 +118,28 @@ program test_analysis_plugins
         unused_procedures = call_graph_analyzer%find_unused_procedures()
         if (.not. allocated(unused_procedures)) then
             print *, "FAIL: Call graph unused procedures not accessible"
-            error stop
+            stop 1
         end if
         
         ! Usage tracker analysis methods  
         unused_variables = usage_tracker_analyzer%find_unused_variables()
         if (.not. allocated(unused_variables)) then
             print *, "FAIL: Usage tracker unused variables not accessible"
-            error stop
+            stop 1
         end if
         
         ! Control flow analysis methods
         unreachable_code = control_flow_analyzer%find_unreachable_code()
         if (.not. allocated(unreachable_code)) then
             print *, "FAIL: Control flow unreachable code not accessible"
-            error stop
+            stop 1
         end if
         
         ! Interface analysis methods
         mismatches = interface_analyzer%find_interface_mismatches()
         if (.not. allocated(mismatches)) then
             print *, "FAIL: Interface mismatches not accessible"
-            error stop
+            stop 1
         end if
         
         print *, "PASS: All analysis-specific methods functional"

@@ -18,7 +18,8 @@ program test_cfg_exception_handling
     if (all_tests_passed) then
         print *, "All CFG exception handling tests PASSED!"
     else
-        error stop "Some CFG exception handling tests FAILED!"
+        print *, "Some CFG exception handling tests FAILED!"
+        stop 1
     end if
 
 contains
@@ -346,7 +347,6 @@ contains
         ! Build CFG
         cfg = build_cfg_from_arena(arena, root_index)
         
-        ! Check that we have exit blocks for error stop
         exit_blocks = get_cfg_exit_blocks(cfg)
         if (size(exit_blocks) == 0) then
             print *, "FAILED: No exit blocks found for error stop"

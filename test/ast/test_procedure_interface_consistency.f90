@@ -16,7 +16,8 @@ program test_procedure_interface_consistency
     if (all_tests_passed) then
         print *, "All procedure interface consistency tests PASSED!"
     else
-        error stop "Some procedure interface consistency tests FAILED!"
+        print *, "Some procedure interface consistency tests FAILED!"
+        stop 1
     end if
     
 contains

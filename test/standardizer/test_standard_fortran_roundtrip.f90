@@ -236,7 +236,7 @@ contains
         success = (len_trim(error_msg) == 0) .and. &
                   (index(output, 'module constants') > 0) .and. &
                   (index(output, 'implicit none') > 0) .and. &
-                  (index(output, 'real(8) ::') > 0) .and. &
+                  (index(output, 'real(8), parameter ::') > 0) .and. &
                   (index(output, 'pi') > 0) .and. &
                   (index(output, 'e') > 0) .and. &
                   (index(output, 'end module') > 0)

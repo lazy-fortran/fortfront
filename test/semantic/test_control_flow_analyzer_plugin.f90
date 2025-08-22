@@ -374,7 +374,8 @@ contains
         if (.not. condition) then
             print *, "  FAILED: ", trim(message)
             failed_count = failed_count + 1
-            error stop "Test failed"
+            print *, "Test failed"
+            stop 1
         end if
     end subroutine assert
 
@@ -387,7 +388,8 @@ contains
                  real(test_count - failed_count) / real(test_count) * 100.0, "%"
         
         if (failed_count > 0) then
-            error stop "Some tests failed"
+            print *, "Some tests failed"
+            stop 1
         else
             print *, "All tests passed!"
         end if

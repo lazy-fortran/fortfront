@@ -15,7 +15,7 @@ program test_issue_203_simple
         print *, 'Issue #203 fixed!'
     else
         print *, 'Issue #203 test failed!'
-        error stop 1
+        stop 1
     end if
     
 contains

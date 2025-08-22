@@ -24,7 +24,8 @@ program test_intent_semantic_check
     if (test_passed) then
         print *, "All INTENT semantic check tests passed!"
     else
-        error stop "Some INTENT semantic check tests failed!"
+        print *, "Some INTENT semantic check tests failed!"
+        stop 1
     end if
 
 contains

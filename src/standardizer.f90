@@ -9,7 +9,7 @@ module standardizer
 
     use ast_core
     use ast_factory
-    use type_system_hm
+    use type_system_unified
     use json_module, only: json_core, json_value, json_file
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use error_handling, only: result_t, success_result, create_error_result, &
@@ -651,7 +651,7 @@ contains
                                 select type (node => arena%entries(j)%node)
                                 type is (identifier_node)
                                     if (trim(node%name) == trim(var_names(i))) then
-                                        if (allocated(node%inferred_type)) then
+                                        if (node%inferred_type%kind > 0) then
                                             if (node%inferred_type%kind == TARRAY) then
                                                 found_array_type = .true.
                                                 decl_node%is_array = .true.
@@ -905,7 +905,7 @@ contains
                 var_names(var_count) = identifier%name
 
                 ! Determine type from inferred_type if available
-                if (allocated(identifier%inferred_type)) then
+                if (identifier%inferred_type%kind > 0) then
                     block
                         type(string_result_t) :: type_result
                         type_result = get_fortran_type_string(identifier%inferred_type)
@@ -1103,7 +1103,9 @@ contains
             string_result%value = "logical"
         case (TCHAR)
             string_result%result = success_result()
-            if (mono_type%size > 0) then
+            if (mono_type%alloc_info%needs_allocatable_string) then
+                string_result%value = "character(len=:), allocatable"
+            else if (mono_type%size > 0) then
                 block
                     character(len=20) :: size_str
                     write (size_str, '(i0)') mono_type%size
@@ -1114,8 +1116,8 @@ contains
             end if
         case (TARRAY)
             ! For arrays, get the element type
-            if (allocated(mono_type%args) .and. size(mono_type%args) > 0) then
-                elem_result = get_fortran_type_string(mono_type%args(1))
+            if (type_args_allocated(mono_type) .and. type_args_size(mono_type) > 0) then
+                elem_result = get_fortran_type_string(type_args_element(mono_type, 1))
                 if (elem_result%is_success()) then
                     string_result%result = success_result()
                     string_result%value = elem_result%get_value()
@@ -1169,16 +1171,16 @@ contains
         
         select type (node => arena%entries(expr_index)%node)
         type is (identifier_node)
-            if (allocated(node%inferred_type)) then
+            if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
             end if
         type is (array_literal_node)
-            if (allocated(node%inferred_type)) then
+            if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
             end if
         type is (call_or_subscript_node)
             ! Check if this is an array subscript
-            if (allocated(node%inferred_type)) then
+            if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
             else
                 ! If it's a subscript of an array, the result should be the &
@@ -1193,11 +1195,11 @@ contains
                 end if
             end if
         type is (binary_op_node)
-            if (allocated(node%inferred_type)) then
+            if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
             end if
         type is (literal_node)
-            if (allocated(node%inferred_type)) then
+            if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
             end if
         end select
@@ -1420,7 +1422,7 @@ contains
             ! For array literals, we know the exact size
             if (allocated(node%element_indices)) then
                 ! Try to get the inferred type of the array literal
-                if (allocated(node%inferred_type)) then
+                if (node%inferred_type%kind > 0) then
                     ! The inferred type is TARRAY with element type in args(1)
                     ! get_fortran_type_string handles TARRAY by extracting element type
                     block
@@ -2323,6 +2325,9 @@ contains
                         exit
                     end if
                 end do
+                ! Note: Variables not found in assigned_vars (like b, c in the test)
+                ! will remain needs_allocatable(i) = .false., which is correct
+                ! since they don't need allocatable attributes
             end do
             
             ! Check if any or all need allocatable
@@ -2497,6 +2502,13 @@ contains
             ! Replace the program's body_indices using move_alloc for O(1) performance
             call move_alloc(new_body_indices, prog%body_indices)
             
+            ! Mark the original declaration as invalid so it won't be processed by codegen
+            if (old_decl_index > 0 .and. old_decl_index <= arena%size) then
+                if (allocated(arena%entries(old_decl_index)%node)) then
+                    deallocate(arena%entries(old_decl_index)%node)
+                end if
+            end if
+            
         end select
     end subroutine update_program_body_indices
     
@@ -2570,13 +2582,13 @@ contains
                             ! Check if this declaration needs to be marked
                             do j = 1, var_count
                                 if (trim(stmt%var_name) == trim(string_vars_needing_allocatable(j))) then
-                                    if (allocated(stmt%inferred_type)) then
+                                    if (stmt%inferred_type%kind > 0) then
                                         stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
                                         ! Clear type_name so codegen uses inferred_type
                                         stmt%type_name = ""
                                     else
                                         ! Create an inferred_type for the declaration
-                                        allocate(stmt%inferred_type)
+                                        ! Initialize inferred_type directly
                                         stmt%inferred_type%kind = TCHAR
                                         stmt%inferred_type%size = 0  ! Unknown size for allocatable
                                         stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
@@ -2615,7 +2627,7 @@ contains
                 if (allocated(arena%entries(stmt%target_index)%node)) then
                     select type (target => arena%entries(stmt%target_index)%node)
                     type is (identifier_node)
-                        if (allocated(target%inferred_type)) then
+                        if (target%inferred_type%kind > 0) then
                             if (target%inferred_type%alloc_info%needs_allocatable_string) then
                                 var_name = target%name
                                 ! Add to list if not already present
