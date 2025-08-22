@@ -130,9 +130,9 @@ contains
         ! Currently skipped due to mono_type_t self-referential structure causing
         ! performance issues and potential infinite loops during assignment.
         ! This is a temporary workaround that breaks semantic information flow.
-        if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+        ! TODO: Implement proper cycle-safe deep copy for mono_type_t
+        ! (Disabled as documented in CLAUDE.md until proper fix)
         ! Copy derived class fields
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
         if (allocated(rhs%var_name)) lhs%var_name = rhs%var_name
@@ -151,11 +151,7 @@ contains
         lhs%is_target = rhs%is_target
         lhs%is_parameter = rhs%is_parameter
         if (allocated(rhs%dimension_indices)) then
-            if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
-            allocate(lhs%dimension_indices(size(rhs%dimension_indices)))
             lhs%dimension_indices = rhs%dimension_indices
-        else
-            if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
         end if
     end subroutine declaration_assign
 
@@ -213,9 +209,9 @@ contains
         ! Currently skipped due to mono_type_t self-referential structure causing
         ! performance issues and potential infinite loops during assignment.
         ! This is a temporary workaround that breaks semantic information flow.
-        if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+        ! TODO: Implement proper cycle-safe deep copy for mono_type_t
+        ! (Disabled as documented in CLAUDE.md until proper fix)
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
@@ -225,11 +221,7 @@ contains
         lhs%is_optional = rhs%is_optional
         lhs%is_array = rhs%is_array
         if (allocated(rhs%dimension_indices)) then
-            if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
-            allocate(lhs%dimension_indices(size(rhs%dimension_indices)))
             lhs%dimension_indices = rhs%dimension_indices
-        else
-            if (allocated(lhs%dimension_indices)) deallocate(lhs%dimension_indices)
         end if
     end subroutine parameter_declaration_assign
 
@@ -257,22 +249,18 @@ contains
         ! Currently skipped due to mono_type_t self-referential structure causing
         ! performance issues and potential infinite loops during assignment.
         ! This is a temporary workaround that breaks semantic information flow.
-        if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+        ! TODO: Implement proper cycle-safe deep copy for mono_type_t
+        ! (Disabled as documented in CLAUDE.md until proper fix)
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         ! Handle declaration_indices array
-        if (allocated(lhs%declaration_indices)) deallocate(lhs%declaration_indices)
         if (allocated(rhs%declaration_indices)) then
-            allocate(lhs%declaration_indices(size(rhs%declaration_indices)))
             lhs%declaration_indices = rhs%declaration_indices
         end if
         
         ! Handle procedure_indices array
-        if (allocated(lhs%procedure_indices)) deallocate(lhs%procedure_indices)
         if (allocated(rhs%procedure_indices)) then
-            allocate(lhs%procedure_indices(size(rhs%procedure_indices)))
             lhs%procedure_indices = rhs%procedure_indices
         end if
         lhs%has_contains = rhs%has_contains
@@ -302,24 +290,20 @@ contains
         ! Currently skipped due to mono_type_t self-referential structure causing
         ! performance issues and potential infinite loops during assignment.
         ! This is a temporary workaround that breaks semantic information flow.
-        if (allocated(lhs%inferred_type)) then
-            deallocate(lhs%inferred_type)
-        end if
+        ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
+        ! TODO: Implement proper cycle-safe deep copy for mono_type_t
+        ! (Disabled as documented in CLAUDE.md until proper fix)
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         ! Handle component_indices array
-        if (allocated(lhs%component_indices)) deallocate(lhs%component_indices)
         if (allocated(rhs%component_indices)) then
-            allocate(lhs%component_indices(size(rhs%component_indices)))
             lhs%component_indices = rhs%component_indices
         end if
         
         lhs%has_parameters = rhs%has_parameters
         
         ! Handle param_indices array
-        if (allocated(lhs%param_indices)) deallocate(lhs%param_indices)
         if (allocated(rhs%param_indices)) then
-            allocate(lhs%param_indices(size(rhs%param_indices)))
             lhs%param_indices = rhs%param_indices
         end if
     end subroutine derived_type_assign
