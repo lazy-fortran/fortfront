@@ -328,7 +328,7 @@ contains
                     case (TCHAR)
                         elem_str = "character"
                     case default
-                        elem_str = "unknown"
+                        elem_str = "element"
                     end select
 
                     if (this%size > 0) then
@@ -345,7 +345,7 @@ contains
                 str = "array"
             end if
         case default
-            str = "<unknown type>"
+            str = "type_var"
         end select
     end function mono_type_to_string
 

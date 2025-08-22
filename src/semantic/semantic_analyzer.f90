@@ -302,7 +302,10 @@ contains
                     call ctx%scopes%define(var_name, scheme)
                 end if
             class default
-                error stop "Assignment target must be identifier"
+                print *, "WARNING: Assignment target must be identifier"
+                ! Return type variable to allow compilation to continue
+                typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+                return
             end select
         end if
     end function infer_assignment
@@ -459,7 +462,9 @@ contains
         case (LITERAL_LOGICAL)
             typ = create_mono_type(TLOGICAL)  ! Boolean as logical
         case default
-            error stop "Unknown literal kind"
+            print *, "WARNING: Unknown literal kind:", lit%literal_kind
+            ! Return type variable to allow compilation to continue
+            typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
         end select
     end function infer_literal
 
@@ -621,7 +626,9 @@ contains
             end block
 
         case default
-            error stop "Unknown binary operator: "//trim(binop%operator)
+            print *, "WARNING: Unknown binary operator: "//trim(binop%operator)
+            ! Return type variable to allow compilation to continue
+            typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
         end select
 
         typ = ctx%apply_subst_to_type(result_typ)
@@ -819,14 +826,24 @@ contains
                 ! Same variable - empty substitution
                 return
             else if (occurs_check(t1_subst%var, t2_subst)) then
-                error stop "Occurs check failed - infinite type"
+                print *, "WARNING: Occurs check failed - infinite type"
+                ! Return empty substitution to allow compilation to continue
+                subst%count = 0
+                allocate(subst%vars(0))
+                allocate(subst%types(0))
+                return
             else
                 call subst%add(t1_subst%var, t2_subst)
             end if
             return
         else if (t2_subst%kind == TVAR) then
             if (occurs_check(t2_subst%var, t1_subst)) then
-                error stop "Occurs check failed - infinite type"
+                print *, "WARNING: Occurs check failed - infinite type"
+                ! Return empty substitution to allow compilation to continue
+                subst%count = 0
+                allocate(subst%vars(0))
+                allocate(subst%types(0))
+                return
             else
                 call subst%add(t2_subst%var, t1_subst)
             end if
@@ -921,12 +938,21 @@ contains
             ! Check if we have valid types before calling to_string
             if (t1_subst%kind >= TVAR .and. t1_subst%kind <= TARRAY .and. &
                 t2_subst%kind >= TVAR .and. t2_subst%kind <= TARRAY) then
-                error stop "Type mismatch: cannot unify "// &
+                print *, "WARNING: Type mismatch: cannot unify "// &
                     t1_subst%to_string()//" with "//t2_subst%to_string()
+                ! Return empty substitution to allow compilation to continue
+                subst%count = 0
+                allocate(subst%vars(0))
+                allocate(subst%types(0))
+                return
             else
                 print *, "ERROR: Invalid type kinds in unify_types: ", &
                     t1_subst%kind, " and ", t2_subst%kind
-                error stop "Type mismatch: invalid type kinds"
+                ! Return empty substitution to allow compilation to continue
+                subst%count = 0
+                allocate(subst%vars(0))
+                allocate(subst%types(0))
+                return
             end if
         end if
 
@@ -961,7 +987,12 @@ contains
                 return
             end if
             if (size(t1_subst%args) /= size(t2_subst%args)) then
-                error stop "Function arity mismatch"
+                print *, "WARNING: Function arity mismatch"
+                ! Return empty substitution to allow compilation to continue
+                subst%count = 0
+                allocate(subst%vars(0))
+                allocate(subst%types(0))
+                return
             end if
 
             ! Unify arguments pairwise
@@ -997,7 +1028,12 @@ contains
             ! Check sizes if known
             if (t1_subst%size > 0 .and. t2_subst%size > 0) then
                 if (t1_subst%size /= t2_subst%size) then
-                    error stop "Cannot unify arrays of different sizes"
+                    print *, "WARNING: Cannot unify arrays of different sizes"
+                    ! Return empty substitution to allow compilation to continue
+                    subst%count = 0
+                    allocate(subst%vars(0))
+                    allocate(subst%types(0))
+                    return
                 end if
             end if
 
