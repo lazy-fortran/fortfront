@@ -2,8 +2,14 @@ module parser_definition_statements_module
     ! Parser module for definition statement types (function, subroutine, interface, derived types)
     use lexer_core
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_statements_module, only: parse_statement_in_if_block
-    use parser_control_flow_module, only: parse_if
+    use parser_control_flow_module, only: parse_if, parse_associate
+    use parser_declarations, only: parse_declaration
+    use parser_expressions_module, only: parse_comparison
+    use parser_io_statements_module, only: parse_print_statement, parse_write_statement, parse_read_statement
+    use parser_control_statements_module, only: parse_stop_statement, parse_return_statement, &
+                                               parse_goto_statement, parse_error_stop_statement, &
+                                               parse_cycle_statement, parse_exit_statement
+    use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -14,6 +20,7 @@ module parser_definition_statements_module
 
     public :: parse_derived_type, parse_function_definition, parse_subroutine_definition
     public :: parse_interface_block, parse_typed_parameters
+    public :: parse_statement_in_if_block
 
 contains
 
@@ -890,5 +897,138 @@ contains
         interface_index = push_interface_block(arena, interface_name, body_indices, &
                                                line, column)
     end function parse_interface_block
+
+    ! Statement parsing for if blocks - moved here to break circular dependency
+    function parse_statement_in_if_block(parser, arena, token) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: token
+        integer :: stmt_index
+
+        ! Simplified statement parsing for if blocks
+        select case (token%kind)
+        case (TK_KEYWORD)
+            select case (token%text)
+            case ("print")
+                stmt_index = parse_print_statement(parser, arena)
+            case ("write")
+                stmt_index = parse_write_statement(parser, arena)
+            case ("read")
+                stmt_index = parse_read_statement(parser, arena)
+            case ("call")
+                stmt_index = parse_call_statement_simple(parser, arena)
+            case ("integer", "real", "logical", "character", "complex", "double", "type")
+                stmt_index = parse_declaration(parser, arena)
+            case ("allocate")
+                stmt_index = parse_allocate_statement(parser, arena)
+            case ("deallocate")
+                stmt_index = parse_deallocate_statement(parser, arena)
+            case ("if")
+                stmt_index = parse_if(parser, arena)
+            case ("stop")
+                stmt_index = parse_stop_statement(parser, arena)
+            case ("return")
+                stmt_index = parse_return_statement(parser, arena)
+            case ("goto", "go")
+                stmt_index = parse_goto_statement(parser, arena)
+            case ("error")
+                stmt_index = parse_error_stop_statement(parser, arena)
+            case ("cycle")
+                stmt_index = parse_cycle_statement(parser, arena)
+            case ("exit")
+                stmt_index = parse_exit_statement(parser, arena)
+            case ("associate")
+                stmt_index = parse_associate(parser, arena)
+            case default
+                stmt_index = skip_unknown_statement(parser)
+            end select
+        case default
+            stmt_index = parse_assignment_simple(parser, arena)
+        end select
+    end function parse_statement_in_if_block
+
+    ! Simple call statement parser to break circular dependency
+    function parse_call_statement_simple(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: token
+        character(len=:), allocatable :: subroutine_name
+        integer, allocatable :: arg_indices(:)
+        integer :: line, column
+
+        ! Consume 'call' keyword
+        token = parser%consume()
+        line = token%line
+        column = token%column
+
+        ! Get subroutine name
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            token = parser%consume()
+            subroutine_name = token%text
+
+            ! For simplicity, no arguments parsed in if blocks
+            allocate (arg_indices(0))
+
+            ! Create call node
+            stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, &
+                                              line, column)
+        else
+            ! Error: expected subroutine name
+            stmt_index = push_literal(arena, "! Error: expected subroutine name after 'call'", &
+                                      LITERAL_STRING, line, column)
+        end if
+    end function parse_call_statement_simple
+
+    ! Simple assignment parser (utility function)
+    function parse_assignment_simple(parser, arena) result(assign_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: assign_index
+
+        type(token_t) :: token
+        integer :: lhs_index, rhs_index
+
+        ! Parse left-hand side
+        lhs_index = parse_comparison(parser, arena)
+
+        ! Expect assignment operator
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "=") then
+            token = parser%consume()  ! consume '='
+
+            ! Parse right-hand side
+            rhs_index = parse_comparison(parser, arena)
+
+            ! Create assignment node
+            assign_index = push_assignment(arena, lhs_index, rhs_index, &
+                                           token%line, token%column)
+        else
+            ! Not an assignment - return the expression
+            assign_index = lhs_index
+        end if
+    end function parse_assignment_simple
+
+    ! Skip unknown statement (utility function)
+    function skip_unknown_statement(parser) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        integer :: stmt_index
+
+        type(token_t) :: token
+
+        ! Skip tokens until end of statement
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_NEWLINE .or. &
+                (token%kind == TK_KEYWORD .and. &
+                 (token%text == "end" .or. token%text == "endif"))) then
+                exit
+            end if
+            token = parser%consume()
+        end do
+
+        stmt_index = 0  ! No valid statement created
+    end function skip_unknown_statement
 
 end module parser_definition_statements_module

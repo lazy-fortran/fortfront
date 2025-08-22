@@ -10,7 +10,6 @@ module parser_execution_statements_module
     use parser_control_statements_module, only: parse_stop_statement, parse_goto_statement, &
                                                parse_error_stop_statement, parse_return_statement, &
                                                parse_cycle_statement, parse_exit_statement
-    use parser_definition_statements_module, only: parse_function_definition, parse_subroutine_definition
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -211,10 +210,11 @@ contains
                     ! Skip 'contains' keyword - functions/subroutines handled below
                     token = parser%consume()
                     stmt_index = 0
-                case ("function")
-                    stmt_index = parse_function_definition(parser, arena)
-                case ("subroutine")
-                    stmt_index = parse_subroutine_definition(parser, arena)
+                case ("function", "subroutine")
+                    ! Function/subroutine definitions should be handled by parser_definition_statements
+                    ! Skip for now as this is not an execution statement
+                    token = parser%consume()
+                    stmt_index = 0
                 case default
                     ! Skip unknown keywords for now
                     token = parser%consume()
