@@ -338,6 +338,9 @@ contains
             case default
                 token = parser%consume()
             end select
+        case (TK_IDENTIFIER)
+            ! Try parsing an assignment
+            call parse_assignment_statement(parser, arena, stmt_index)
         case (TK_NEWLINE)
             token = parser%consume()
         case default
