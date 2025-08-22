@@ -13,13 +13,15 @@ program test_intent_attribute
     ! Verify results
     do i = 1, 5
         if (abs(output_data(i) - input_data(i) * 2.0) > 1e-6) then
-            error stop "INTENT test failed: output incorrect"
+            print *, "INTENT test failed: output incorrect"
+            stop 1
         end if
     end do
     
     ! Verify work array was modified
     if (all(work_array == 0.0)) then
-        error stop "INTENT test failed: work array not modified"
+        print *, "INTENT test failed: work array not modified"
+        stop 1
     end if
     
     print *, "All INTENT tests passed!"

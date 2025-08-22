@@ -23,7 +23,7 @@ program test_frontend_parser_param_nodes
         print *, 'All parameter declaration node tests passed!'
     else
         print *, 'Some parameter declaration node tests failed!'
-        error stop 1
+        stop 1
     end if
 
 contains

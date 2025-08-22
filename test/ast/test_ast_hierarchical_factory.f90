@@ -29,10 +29,12 @@ contains
         ! Check initial state
         stats = factory%get_memory_stats()
         if (stats%nodes_created /= 0) then
-            error stop "FAIL: Initial nodes_created should be 0"
+            print *, "FAIL: Initial nodes_created should be 0"
+            stop 1
         end if
         if (stats%nodes_reused /= 0) then
-            error stop "FAIL: Initial nodes_reused should be 0"
+            print *, "FAIL: Initial nodes_reused should be 0"
+            stop 1
         end if
         
         write(*,*) "PASS: Factory creation and initialization"
@@ -49,19 +51,22 @@ contains
         ! Create identifier node
         id_node_id = factory%create_identifier_node("test_var", line=1, column=1)
         if (id_node_id <= 0) then
-            error stop "FAIL: identifier node creation failed"
+            print *, "FAIL: identifier node creation failed"
+            stop 1
         end if
         
         ! Create literal node
         lit_node_id = factory%create_literal_node("42", LITERAL_INTEGER, line=1, column=10)
         if (lit_node_id <= 0) then
-            error stop "FAIL: literal node creation failed"
+            print *, "FAIL: literal node creation failed"
+            stop 1
         end if
         
         ! Create assignment node with child references
         assign_node_id = factory%create_assignment_node(id_node_id, lit_node_id, line=1, column=1)
         if (assign_node_id <= 0) then
-            error stop "FAIL: assignment node creation failed"
+            print *, "FAIL: assignment node creation failed"
+            stop 1
         end if
         
         write(*,*) "PASS: Node creation and reference management"
@@ -81,7 +86,8 @@ contains
         node_ref = factory%get_node_reference(node_id)
         
         if (.not. allocated(node_ref)) then
-            error stop "FAIL: node reference should be valid"
+            print *, "FAIL: node reference should be valid"
+            stop 1
         end if
         
         ! Release reference
@@ -111,11 +117,13 @@ contains
         stats_after = factory%get_memory_stats()
         
         if (stats_after%nodes_created /= 10) then
-            error stop "FAIL: should have created 10 nodes"
+            print *, "FAIL: should have created 10 nodes"
+            stop 1
         end if
         
         if (stats_after%gc_cycles == 0) then
-            error stop "FAIL: garbage collection should have run"
+            print *, "FAIL: garbage collection should have run"
+            stop 1
         end if
         
         write(*,*) "PASS: Memory management and garbage collection"
@@ -135,7 +143,8 @@ contains
         node_id2 = factory%create_identifier_node("pooled2", line=2, column=1)
         
         if (node_id1 <= 0 .or. node_id2 <= 0) then
-            error stop "FAIL: pooled node creation failed"
+            print *, "FAIL: pooled node creation failed"
+            stop 1
         end if
         
         ! Optimize memory (should use pools)
@@ -143,7 +152,8 @@ contains
         
         stats = factory%get_memory_stats()
         if (stats%nodes_created /= 2) then
-            error stop "FAIL: should have created 2 nodes"
+            print *, "FAIL: should have created 2 nodes"
+            stop 1
         end if
         
         write(*,*) "PASS: Performance pools and optimization"

@@ -25,7 +25,7 @@ program test_semantic_pipeline
     ! Test 1: Pipeline starts with zero analyzers
     if (pipeline%get_analyzer_count() /= 0) then
         print *, "FAIL: Pipeline should start with 0 analyzers"
-        error stop
+        stop 1
     end if
     print *, "PASS: Pipeline starts with 0 analyzers"
 
@@ -34,7 +34,7 @@ program test_semantic_pipeline
     
     if (pipeline%get_analyzer_count() /= 1) then
         print *, "FAIL: Pipeline should have 1 analyzer after registration"
-        error stop
+        stop 1
     end if
     print *, "PASS: Analyzer registration works"
 
@@ -52,7 +52,7 @@ program test_semantic_pipeline
         type is (simple_test_analyzer_t)
             if (.not. a%was_executed()) then
                 print *, "FAIL: Test analyzer was not executed"
-                error stop
+                stop 1
             end if
             print *, "PASS: Analyzer execution works"
             
@@ -60,11 +60,11 @@ program test_semantic_pipeline
             results = a%get_results()
         class default
             print *, "FAIL: Wrong analyzer type"
-            error stop
+            stop 1
         end select
     else
         print *, "FAIL: Analyzer not allocated"
-        error stop
+        stop 1
     end if
     
     select type(results)
@@ -76,14 +76,14 @@ program test_semantic_pipeline
 
     if (.not. test_passed) then
         print *, "FAIL: Analyzer results incorrect"
-        error stop
+        stop 1
     end if
     print *, "PASS: Analyzer results accessible"
 
     ! Test 6: Verify analyzer name
     if (test_analyzer%get_name() /= "simple_test_analyzer") then
         print *, "FAIL: Analyzer name incorrect"
-        error stop
+        stop 1
     end if
     print *, "PASS: Analyzer name correct"
 

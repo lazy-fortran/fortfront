@@ -13,7 +13,7 @@ program test_pipeline_dependencies
         print *, "TEST PASSED: pipeline dependency registration"
     else
         print *, "TEST FAILED: pipeline dependency registration"
-        error stop 1
+        stop 1
     end if
 
 contains

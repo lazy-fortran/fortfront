@@ -17,7 +17,7 @@ program test_parameter_attributes_simple
         print *, 'PASS: Parameter attribute tests passed'
     else
         print *, 'FAIL: Parameter attribute tests failed'
-        error stop 1
+        stop 1
     end if
     
 contains

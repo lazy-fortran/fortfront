@@ -15,7 +15,8 @@ program test_dummy_argument_tracking
     if (all_tests_passed) then
         print *, "All dummy argument tracking tests PASSED!"
     else
-        error stop "Some dummy argument tracking tests FAILED!"
+        print *, "Some dummy argument tracking tests FAILED!"
+        stop 1
     end if
 
 contains

@@ -10,7 +10,8 @@ program test_advanced_type_inference
         
         do i = 1, 5
             if (arr(i) /= i) then
-                error stop "Type inference test failed: array literal values incorrect"
+                print *, "Type inference test failed: array literal values incorrect"
+                stop 1
             end if
         end do
     end block
@@ -24,7 +25,8 @@ program test_advanced_type_inference
         result = sum(int_arr) / size(int_arr)  ! Should promote to real
         
         if (abs(result - 30.0) > 1e-6) then
-            error stop "Type inference test failed: mixed arithmetic incorrect"
+            print *, "Type inference test failed: mixed arithmetic incorrect"
+            stop 1
         end if
     end block
     
@@ -37,7 +39,8 @@ program test_advanced_type_inference
         
         if (matrix(1,1) /= 1 .or. matrix(2,1) /= 2 .or. &
             matrix(1,2) /= 3 .or. matrix(2,2) /= 4) then
-            error stop "Type inference test failed: reshape incorrect"
+            print *, "Type inference test failed: reshape incorrect"
+            stop 1
         end if
     end block
     
@@ -50,7 +53,8 @@ program test_advanced_type_inference
         result = sqrt(x*x + y*y)  ! Should infer real throughout
         
         if (abs(result - sqrt(13.0)) > 1e-6) then
-            error stop "Type inference test failed: function composition incorrect"
+            print *, "Type inference test failed: function composition incorrect"
+            stop 1
         end if
     end block
     
@@ -63,7 +67,8 @@ program test_advanced_type_inference
         combined = trim(str1) // " " // trim(str2)
         
         if (combined /= "Hello World") then
-            error stop "Type inference test failed: string operations incorrect"
+            print *, "Type inference test failed: string operations incorrect"
+            stop 1
         end if
     end block
     

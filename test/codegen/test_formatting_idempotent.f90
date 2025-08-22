@@ -21,7 +21,7 @@ program test_formatting_idempotent
     if (len(error_msg) > 0) then
         print *, "ERROR: First formatting failed"
         print *, "Error message:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     ! Second formatting pass (should be identical)
@@ -29,7 +29,7 @@ program test_formatting_idempotent
     if (len(error_msg) > 0) then
         print *, "ERROR: Second formatting failed"
         print *, "Error message:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     ! Third formatting pass (should still be identical)
@@ -37,7 +37,7 @@ program test_formatting_idempotent
     if (len(error_msg) > 0) then
         print *, "ERROR: Third formatting failed"
         print *, "Error message:", trim(error_msg)
-        error stop 1
+        stop 1
     end if
     
     ! Check that all outputs are identical (formatting is idempotent)
@@ -88,7 +88,7 @@ program test_formatting_idempotent
         print *, "✓ Program structure preserved during formatting"
         print *, "All tests passed!"
     else
-        error stop 1
+        stop 1
     end if
     
 end program test_formatting_idempotent

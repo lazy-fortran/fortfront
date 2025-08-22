@@ -13,7 +13,7 @@ program test_shared_context
         print *, "TEST PASSED: shared context system"
     else
         print *, "TEST FAILED: shared context system"
-        error stop 1
+        stop 1
     end if
 
 contains

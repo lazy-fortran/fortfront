@@ -19,7 +19,8 @@ program test_ast_performance
     if (all_tests_passed) then
         print *, "All AST performance tests PASSED!"
     else
-        error stop "Some AST performance tests FAILED!"
+        print *, "Some AST performance tests FAILED!"
+        stop 1
     end if
 
 contains

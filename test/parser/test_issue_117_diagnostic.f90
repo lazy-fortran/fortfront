@@ -293,7 +293,7 @@ contains
         print *, "Testing code after error stop (for dead code detection)..."
         
         ! Simple error stop followed by unreachable code
-        source = "error stop 1"
+stop 1
         
         call tokenize_core(source, tokens)
         arena = create_ast_arena()

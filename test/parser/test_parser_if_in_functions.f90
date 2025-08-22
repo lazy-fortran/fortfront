@@ -11,7 +11,8 @@ program test_parser_if_in_functions
     if (all_tests_passed) then
         print *, "All parser if-in-functions tests PASSED!"
     else
-        error stop "Some parser if-in-functions tests FAILED!"
+        print *, "Some parser if-in-functions tests FAILED!"
+        stop 1
     end if
 
 contains

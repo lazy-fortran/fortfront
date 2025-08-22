@@ -5,23 +5,27 @@ program test_optional_params
     ! Test subroutine with optional parameter
     call compute(1.0, 2.0, result1)
     if (abs(result1 - 3.0) > 1e-6) then
-        error stop "Optional test failed: default tolerance result incorrect"
+        print *, "Optional test failed: default tolerance result incorrect"
+        stop 1
     end if
     
     call compute(1.0, 2.0, result2, 0.1)
     if (abs(result2 - 3.0) > 1e-6) then
-        error stop "Optional test failed: custom tolerance result incorrect"
+        print *, "Optional test failed: custom tolerance result incorrect"
+        stop 1
     end if
     
     ! Test function with optional parameter
     result3 = add_numbers(5.0, 3.0)
     if (abs(result3 - 8.0) > 1e-6) then
-        error stop "Optional test failed: function without optional incorrect"
+        print *, "Optional test failed: function without optional incorrect"
+        stop 1
     end if
     
     result3 = add_numbers(5.0, 3.0, 2.0)
     if (abs(result3 - 10.0) > 1e-6) then
-        error stop "Optional test failed: function with optional incorrect"
+        print *, "Optional test failed: function with optional incorrect"
+        stop 1
     end if
     
     print *, "All OPTIONAL parameter tests passed!"

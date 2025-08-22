@@ -74,6 +74,8 @@ module type_system_arena
         procedure :: validate_args => type_arena_validate_args
         procedure :: get_stats => type_arena_get_stats
         procedure :: reset => type_arena_reset
+        procedure :: assign_type_arena => type_arena_assign
+        generic :: assignment(=) => assign_type_arena
     end type type_arena_t
 
     ! Type arena statistics
@@ -422,5 +424,20 @@ contains
         valid = is_valid_handle(handle%handle) .and. &
                 handle%type_id > 0 .and. handle%count >= 0
     end function is_valid_args_handle
+
+    ! Deep copy assignment operator to prevent double free
+    subroutine type_arena_assign(lhs, rhs)
+        class(type_arena_t), intent(out) :: lhs
+        type(type_arena_t), intent(in) :: rhs
+        
+        ! Deep copy the underlying arena (uses arena_t's assignment)
+        lhs%arena = rhs%arena
+        
+        ! Copy scalar members
+        lhs%next_type_id = rhs%next_type_id
+        lhs%mono_count = rhs%mono_count
+        lhs%poly_count = rhs%poly_count
+        lhs%args_count = rhs%args_count
+    end subroutine type_arena_assign
 
 end module type_system_arena

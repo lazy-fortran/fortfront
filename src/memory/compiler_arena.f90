@@ -55,6 +55,8 @@ module compiler_arena
         procedure :: get_total_memory => compiler_arena_get_total_memory
         procedure :: validate_all => compiler_arena_validate_all
         procedure, private :: update_total_memory => compiler_arena_update_total_memory
+        procedure :: assign_compiler_arena => compiler_arena_assign
+        generic :: assignment(=) => assign_compiler_arena
     end type compiler_arena_t
     
     ! Unified statistics for all arenas
@@ -305,5 +307,28 @@ contains
         
         call arena%destroy()
     end subroutine destroy_compiler_arena
+    
+    ! Deep copy assignment operator to prevent double free
+    subroutine compiler_arena_assign(lhs, rhs)
+        class(compiler_arena_t), intent(out) :: lhs
+        type(compiler_arena_t), intent(in) :: rhs
+        
+        ! Copy sub-arenas (using their assignment operators)
+        lhs%types = rhs%types         ! Uses type_arena_t assignment
+        lhs%ast = rhs%ast             ! Uses ast_arena_t assignment
+        lhs%symbols = rhs%symbols     ! Placeholder - simple copy
+        lhs%literals = rhs%literals   ! Placeholder - simple copy
+        
+        ! Copy scalar members
+        lhs%generation = rhs%generation
+        lhs%total_bytes = rhs%total_bytes
+        lhs%is_initialized = rhs%is_initialized
+        lhs%total_allocations = rhs%total_allocations
+        lhs%total_deallocations = rhs%total_deallocations
+        lhs%total_allocation_time = rhs%total_allocation_time
+        lhs%checkpoint_generation = rhs%checkpoint_generation
+        lhs%default_chunk_size = rhs%default_chunk_size
+        lhs%enable_stats = rhs%enable_stats
+    end subroutine compiler_arena_assign
     
 end module compiler_arena

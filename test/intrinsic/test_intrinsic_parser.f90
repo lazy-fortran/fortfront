@@ -27,18 +27,22 @@ contains
         
         if (len_trim(error_msg) > 0) then
             print *, "Error: ", error_msg
-            error stop "Pipeline failed to process intrinsic functions"
+            print *, "Pipeline failed to process intrinsic functions"
+            stop 1
         end if
         
         if (.not. allocated(output) .or. len_trim(output) == 0) &
-            error stop "Pipeline should produce output"
+            print *, "Pipeline should produce output"
+            stop 1
         
         ! Check that the output contains the intrinsic function calls
         if (index(output, "sin(") == 0) &
-            error stop "Output should contain sin function call"
+            print *, "Output should contain sin function call"
+            stop 1
         
         if (index(output, "sqrt(") == 0) &
-            error stop "Output should contain sqrt function call"
+            print *, "Output should contain sqrt function call"
+            stop 1
         
         print *, "  ✓ Intrinsic function pipeline processing tests passed"
     end subroutine test_intrinsic_function_in_pipeline

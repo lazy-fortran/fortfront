@@ -29,7 +29,7 @@ program test_builtin_analyzers
     
     if (pipeline%get_analyzer_count() /= 3) then
         print *, "FAIL: Pipeline should have 3 built-in analyzers"
-        error stop
+        stop 1
     end if
     print *, "PASS: Built-in analyzers registered successfully"
 
@@ -43,17 +43,17 @@ program test_builtin_analyzers
     ! Test 3: Verify analyzer names
     if (symbol_analyzer%get_name() /= "symbol_analyzer") then
         print *, "FAIL: Symbol analyzer name incorrect"
-        error stop
+        stop 1
     end if
     
     if (type_analyzer%get_name() /= "type_analyzer") then
         print *, "FAIL: Type analyzer name incorrect"
-        error stop
+        stop 1
     end if
     
     if (scope_analyzer%get_name() /= "scope_analyzer") then
         print *, "FAIL: Scope analyzer name incorrect"
-        error stop
+        stop 1
     end if
     print *, "PASS: All analyzer names correct"
 

@@ -41,23 +41,28 @@ contains
         where_idx = push_where(arena, mask_idx, body_indices)
         
         if (where_idx <= 0) then
-            error stop "Failed to push WHERE node"
+            print *, "Failed to push WHERE node"
+            stop 1
         end if
         
         ! Verify the node
         select type(node => arena%entries(where_idx)%node)
         type is (where_node)
             if (node%mask_expr_index /= mask_idx) then
-                error stop "Wrong mask index"
+                print *, "Wrong mask index"
+                stop 1
             end if
             if (.not. allocated(node%where_body_indices)) then
-                error stop "Body indices not allocated"
+                print *, "Body indices not allocated"
+                stop 1
             end if
             if (size(node%where_body_indices) /= 2) then
-                error stop "Wrong number of body indices"
+                print *, "Wrong number of body indices"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ push_where (simple) successful"
@@ -84,23 +89,28 @@ contains
         where_idx = push_where(arena, mask_idx, where_body, final_body)
         
         if (where_idx <= 0) then
-            error stop "Failed to push WHERE with ELSEWHERE"
+            print *, "Failed to push WHERE with ELSEWHERE"
+            stop 1
         end if
         
         ! Verify the node
         select type(node => arena%entries(where_idx)%node)
         type is (where_node)
             if (.not. allocated(node%elsewhere_clauses)) then
-                error stop "ELSEWHERE clauses not allocated"
+                print *, "ELSEWHERE clauses not allocated"
+                stop 1
             end if
             if (size(node%elsewhere_clauses) /= 1) then
-                error stop "Wrong number of ELSEWHERE clauses"
+                print *, "Wrong number of ELSEWHERE clauses"
+                stop 1
             end if
             if (node%elsewhere_clauses(1)%mask_index /= 0) then
-                error stop "Simple ELSEWHERE should have mask_index = 0"
+                print *, "Simple ELSEWHERE should have mask_index = 0"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ push_where with ELSEWHERE successful"
@@ -123,32 +133,40 @@ contains
         forall_idx = push_forall(arena, "i", start_idx, end_idx, 0, 0, [body_idx])
         
         if (forall_idx <= 0) then
-            error stop "Failed to push FORALL node"
+            print *, "Failed to push FORALL node"
+            stop 1
         end if
         
         ! Verify the node
         select type(node => arena%entries(forall_idx)%node)
         type is (forall_node)
             if (node%num_indices /= 1) then
-                error stop "Wrong number of indices"
+                print *, "Wrong number of indices"
+                stop 1
             end if
             if (node%index_names(1) /= "i") then
-                error stop "Wrong index name"
+                print *, "Wrong index name"
+                stop 1
             end if
             if (node%lower_bound_indices(1) /= start_idx) then
-                error stop "Wrong lower bound"
+                print *, "Wrong lower bound"
+                stop 1
             end if
             if (node%upper_bound_indices(1) /= end_idx) then
-                error stop "Wrong upper bound"
+                print *, "Wrong upper bound"
+                stop 1
             end if
             if (node%stride_indices(1) /= 0) then
-                error stop "Default stride should be 0"
+                print *, "Default stride should be 0"
+                stop 1
             end if
             if (node%has_mask) then
-                error stop "Should not have mask"
+                print *, "Should not have mask"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ push_forall (simple) successful"
@@ -172,20 +190,24 @@ contains
         forall_idx = push_forall(arena, "i", start_idx, end_idx, 0, mask_idx, [body_idx])
         
         if (forall_idx <= 0) then
-            error stop "Failed to push FORALL with mask"
+            print *, "Failed to push FORALL with mask"
+            stop 1
         end if
         
         ! Verify the node
         select type(node => arena%entries(forall_idx)%node)
         type is (forall_node)
             if (.not. node%has_mask) then
-                error stop "Should have mask"
+                print *, "Should have mask"
+                stop 1
             end if
             if (node%mask_expr_index /= mask_idx) then
-                error stop "Wrong mask index"
+                print *, "Wrong mask index"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ push_forall with mask successful"
@@ -209,17 +231,20 @@ contains
         forall_idx = push_forall(arena, "i", start_idx, end_idx, step_idx, 0, [body_idx])
         
         if (forall_idx <= 0) then
-            error stop "Failed to push FORALL with stride"
+            print *, "Failed to push FORALL with stride"
+            stop 1
         end if
         
         ! Verify the node
         select type(node => arena%entries(forall_idx)%node)
         type is (forall_node)
             if (node%stride_indices(1) /= step_idx) then
-                error stop "Wrong stride index"
+                print *, "Wrong stride index"
+                stop 1
             end if
         class default
-            error stop "Wrong node type"
+            print *, "Wrong node type"
+            stop 1
         end select
         
         print *, "  ✓ push_forall with stride successful"

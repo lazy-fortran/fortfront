@@ -21,7 +21,8 @@ program test_expression_temporary_tracking
     if (all_tests_passed) then
         print *, "All expression temporary tracking tests PASSED!"
     else
-        error stop "Some expression temporary tracking tests FAILED!"
+        print *, "Some expression temporary tracking tests FAILED!"
+        stop 1
     end if
 
 contains

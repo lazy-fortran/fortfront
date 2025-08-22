@@ -47,7 +47,7 @@ program test_mono_type_empty_args
         print *, "✓ Empty args array handled correctly"
         print *, "All tests passed!"
     else
-        error stop 1
+        stop 1
     end if
     
 end program test_mono_type_empty_args

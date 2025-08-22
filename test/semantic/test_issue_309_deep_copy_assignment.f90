@@ -22,7 +22,7 @@ program test_issue_309_deep_copy_assignment
     else
         print *, ""
         print *, "FAILURE: Some tests failed"
-        error stop 1
+        stop 1
     end if
 
 contains

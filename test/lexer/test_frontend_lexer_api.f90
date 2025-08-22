@@ -23,7 +23,7 @@ program test_frontend_lexer_api
         print *, 'All lexer API tests passed!'
     else
         print *, 'Some lexer API tests failed!'
-        error stop 1  ! Use error stop for actual failures
+        stop 1
     end if
 
 contains

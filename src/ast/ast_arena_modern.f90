@@ -65,6 +65,8 @@ module ast_arena_modern
         procedure :: get_node_count => ast_arena_get_node_count
         procedure :: allocate_node => ast_arena_allocate_node
         procedure, private :: update_stats => ast_arena_update_stats
+        procedure :: assign_ast_arena => ast_arena_assign
+        generic :: assignment(=) => assign_ast_arena
     end type ast_arena_t
     
     ! Statistics for performance monitoring
@@ -308,5 +310,24 @@ contains
         ! This is a placeholder for future complex statistics
         continue
     end subroutine ast_arena_update_stats
+    
+    ! Deep copy assignment operator to prevent double free
+    subroutine ast_arena_assign(lhs, rhs)
+        class(ast_arena_t), intent(out) :: lhs
+        type(ast_arena_t), intent(in) :: rhs
+        
+        ! Copy scalar members
+        lhs%node_count = rhs%node_count
+        lhs%next_node_id = rhs%next_node_id
+        lhs%generation = rhs%generation
+        lhs%total_allocations = rhs%total_allocations
+        lhs%total_validations = rhs%total_validations
+        lhs%is_initialized = rhs%is_initialized
+        
+        ! Deep copy arena (uses arena's assignment operator)
+        if (rhs%is_initialized) then
+            lhs%arena = rhs%arena  ! This uses arena_t's deep copy assignment
+        end if
+    end subroutine ast_arena_assign
     
 end module ast_arena_modern

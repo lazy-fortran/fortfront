@@ -22,7 +22,7 @@ program test_issue_209_multi_var_allocatable
         print *, 'All tests PASSED'
     else
         print *, 'Some tests FAILED'
-        error stop 1  ! Use error stop for actual failures
+        stop 1
     end if
 
 contains

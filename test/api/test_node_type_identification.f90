@@ -15,7 +15,8 @@ program test_node_type_identification
     if (all_tests_passed) then
         print *, "All node type identification tests PASSED!"
     else
-        error stop "Some node type identification tests FAILED!"
+        print *, "Some node type identification tests FAILED!"
+        stop 1
     end if
 
 contains

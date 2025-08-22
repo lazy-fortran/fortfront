@@ -18,7 +18,8 @@ program test_conditional_early_returns
     if (all_tests_passed) then
         print *, "All conditional early return tests PASSED!"
     else
-        error stop "Some conditional early return tests FAILED!"
+        print *, "Some conditional early return tests FAILED!"
+        stop 1
     end if
 
 contains

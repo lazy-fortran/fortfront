@@ -15,7 +15,8 @@ program test_associate_construct_identifiers
     if (all_tests_passed) then
         print *, "All associate construct identifier tests PASSED!"
     else
-        error stop "Some associate construct identifier tests FAILED!"
+        print *, "Some associate construct identifier tests FAILED!"
+        stop 1
     end if
 
 contains

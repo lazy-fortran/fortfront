@@ -21,7 +21,8 @@ program test_frontend_parser_do_while
     if (tests_failed == 0) then
         print *, "All tests passed!"
     else
-        error stop "Some tests failed"
+        print *, "Some tests failed"
+        stop 1
     end if
 
 contains

@@ -46,16 +46,20 @@ contains
         
         ! Verify output
         if (index(code, "where (mask)") == 0) then
-            error stop "Missing 'where (mask)' in generated code"
+            print *, "Missing 'where (mask)' in generated code"
+            stop 1
         end if
         if (index(code, "a = 1") == 0) then
-            error stop "Missing first assignment in generated code"
+            print *, "Missing first assignment in generated code"
+            stop 1
         end if
         if (index(code, "b = 2") == 0) then
-            error stop "Missing second assignment in generated code"
+            print *, "Missing second assignment in generated code"
+            stop 1
         end if
         if (index(code, "end where") == 0) then
-            error stop "Missing 'end where' in generated code"
+            print *, "Missing 'end where' in generated code"
+            stop 1
         end if
         
         print *, "  ✓ Simple WHERE code generation successful"
@@ -85,10 +89,12 @@ contains
         
         ! Verify single-line format
         if (index(code, "where (x > 0) y = sqrt(x)") == 0) then
-            error stop "Single-line WHERE not generated correctly"
+            print *, "Single-line WHERE not generated correctly"
+            stop 1
         end if
         if (index(code, "end where") /= 0) then
-            error stop "Single-line WHERE should not have 'end where'"
+            print *, "Single-line WHERE should not have 'end where'"
+            stop 1
         end if
         
         print *, "  ✓ Single-line WHERE code generation successful"
@@ -135,18 +141,22 @@ contains
         
         ! Verify all parts
         if (index(code, "where (temp > 100)") == 0) then
-            error stop "Missing WHERE clause"
+            print *, "Missing WHERE clause"
+            stop 1
         end if
         if (index(code, "elsewhere (temp < 0)") == 0) then
-            error stop "Missing first ELSEWHERE with mask"
+            print *, "Missing first ELSEWHERE with mask"
+            stop 1
         end if
         if (index(code, "elsewhere (temp < 50)") == 0) then
-            error stop "Missing second ELSEWHERE with mask"
+            print *, "Missing second ELSEWHERE with mask"
+            stop 1
         end if
         ! Check for final ELSEWHERE without mask
         ! Look for "elsewhere" followed by newline and "state = 'liquid'"
         if (index(code, "elsewhere"//new_line('A')//"state = 'liquid'") == 0) then
-            error stop "Missing final ELSEWHERE without mask"
+            print *, "Missing final ELSEWHERE without mask"
+            stop 1
         end if
         
         print *, "  ✓ WHERE with multiple ELSEWHERE code generation successful"
@@ -172,13 +182,16 @@ contains
         
         ! Verify output
         if (index(code, "forall (i=1:n)") == 0) then
-            error stop "Missing 'forall (i=1:n)' in generated code"
+            print *, "Missing 'forall (i=1:n)' in generated code"
+            stop 1
         end if
         if (index(code, "a(i) = 0") == 0) then
-            error stop "Missing assignment in generated code"
+            print *, "Missing assignment in generated code"
+            stop 1
         end if
         if (index(code, "end forall") == 0) then
-            error stop "Missing 'end forall' in generated code"
+            print *, "Missing 'end forall' in generated code"
+            stop 1
         end if
         
         print *, "  ✓ Simple FORALL code generation successful"
@@ -205,7 +218,8 @@ contains
         
         ! Verify output includes stride
         if (index(code, "forall (j=2:10:2)") == 0) then
-            error stop "Missing 'forall (j=2:10:2)' with stride in generated code"
+            print *, "Missing 'forall (j=2:10:2)' with stride in generated code"
+            stop 1
         end if
         
         print *, "  ✓ FORALL with stride code generation successful"
@@ -251,7 +265,8 @@ contains
         
         ! TEMPORARY: Skip assertion due to character array corruption issue
         ! if (index(code, "forall (i=1:ni, j=1:nj:2, k=1:nk)") == 0) then
-        !     error stop "Multiple indices not generated correctly"
+     print *, "Multiple indices not generated correctly"
+     stop 1
         ! end if
         
         print *, "  ✓ FORALL with multiple indices code generation successful"
@@ -297,7 +312,8 @@ contains
         
         ! TEMPORARY: Skip assertion due to character array corruption issue
         ! if (index(code, "forall (i=1:n, j=1:m, i <= j)") == 0) then
-        !     error stop "FORALL with mask not generated correctly"
+     print *, "FORALL with mask not generated correctly"
+     stop 1
         ! end if
         
         print *, "  ✓ FORALL with mask code generation successful"

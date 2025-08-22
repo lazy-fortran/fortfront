@@ -13,7 +13,7 @@ program test_dependency_graph
         print *, "TEST PASSED: dependency graph module"
     else
         print *, "TEST FAILED: dependency graph module"
-        error stop 1
+        stop 1
     end if
 
 contains

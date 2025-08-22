@@ -17,7 +17,8 @@ program test_print_variable_tracking
     if (all_tests_passed) then
         print *, "All print variable tracking tests PASSED!"
     else
-        error stop "Some print variable tracking tests FAILED!"
+        print *, "Some print variable tracking tests FAILED!"
+        stop 1
     end if
 
 contains
