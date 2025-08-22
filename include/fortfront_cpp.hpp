@@ -79,17 +79,25 @@ namespace fortfront {
         }
         
         /*
-         * Get library version (placeholder implementation)
+         * Get library version
          */
         std::string get_version() const {
-            return "0.1.0";
+            if (!initialized_) {
+                throw FortfrontError("Library not initialized");
+            }
+            const char* version = fortfront_get_version();
+            return version ? std::string(version) : "";
         }
         
         /*
-         * Get build information (placeholder implementation)
+         * Get build information
          */
         std::string get_build_info() const {
-            return "fortfront static library build";
+            if (!initialized_) {
+                throw FortfrontError("Library not initialized");
+            }
+            const char* build_info = fortfront_get_build_info();
+            return build_info ? std::string(build_info) : "";
         }
         
         /*

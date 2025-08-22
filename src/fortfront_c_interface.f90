@@ -55,9 +55,9 @@ contains
         integer(c_int), intent(in), value :: length
         integer(c_int) :: status
         
-        character(len=length, kind=c_char), pointer :: source_string
         character(len=:), allocatable :: fortran_source, output, error_msg
-        integer :: i
+        character(len=1, kind=c_char), pointer :: char_array(:)
+        integer :: actual_length, i
         
         ! Check if library is initialized
         if (.not. library_initialized) then
@@ -69,7 +69,7 @@ contains
         ! Clear any previous error
         call clear_last_error()
         
-        ! Convert C string to Fortran string
+        ! Validate input parameters
         if (.not. c_associated(source_ptr)) then
             call set_last_error("Null source code pointer")
             status = -2
@@ -82,29 +82,32 @@ contains
             return
         end if
         
-        call c_f_pointer(source_ptr, source_string)
+        ! Convert C char array to Fortran string safely
+        call c_f_pointer(source_ptr, char_array, [length])
         
-        ! Convert C string to Fortran string (handle null termination)
-        allocate(character(len=length) :: fortran_source)
-        fortran_source = ""
+        ! Find actual string length (stopping at null terminator or end)
+        actual_length = 0
         do i = 1, length
-            if (source_string(i:i) == c_null_char) exit
-            fortran_source(i:i) = source_string(i:i)
+            if (char_array(i) == c_null_char) exit
+            actual_length = actual_length + 1
         end do
         
-        ! Trim to actual content length
-        fortran_source = trim(fortran_source)
-        
-        if (len(fortran_source) == 0) then
+        if (actual_length == 0) then
             call set_last_error("Empty source code")
             status = -4
             return
         end if
         
+        ! Allocate and copy the Fortran string
+        allocate(character(len=actual_length) :: fortran_source)
+        do i = 1, actual_length
+            fortran_source(i:i) = char_array(i)
+        end do
+        
         ! Transform the source code
         call transform_lazy_fortran_string(fortran_source, output, error_msg)
         
-        if (error_msg /= "") then
+        if (len(error_msg) > 0) then
             call set_last_error("Parse error: " // error_msg)
             status = -5
             return
@@ -135,7 +138,7 @@ contains
     ! Get library version
     function fortfront_get_version_c() result(version_ptr) bind(C, name="fortfront_get_version")
         type(c_ptr) :: version_ptr
-        character(len=len(FORTFRONT_VERSION), kind=c_char), target, save :: version_c
+        character(len=len(FORTFRONT_VERSION)+1, kind=c_char), target, save :: version_c
         
         version_c = FORTFRONT_VERSION // c_null_char
         version_ptr = c_loc(version_c)
@@ -144,7 +147,7 @@ contains
     ! Get build information
     function fortfront_get_build_info_c() result(build_ptr) bind(C, name="fortfront_get_build_info")
         type(c_ptr) :: build_ptr
-        character(len=len(BUILD_INFO), kind=c_char), target, save :: build_c
+        character(len=len(BUILD_INFO)+1, kind=c_char), target, save :: build_c
         
         build_c = BUILD_INFO // c_null_char
         build_ptr = c_loc(build_c)
