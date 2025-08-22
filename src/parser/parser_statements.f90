@@ -198,7 +198,7 @@ contains
 
     ! Parse statement within if block (utility function)
     function parse_statement_in_if_block(parser, arena, token) result(stmt_index)
-        use parser_control_flow_module, only: parse_associate
+        use parser_control_flow_module, only: parse_associate, parse_if
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: token
@@ -210,10 +210,32 @@ contains
             select case (token%text)
             case ("print")
                 stmt_index = parse_print_statement(parser, arena)
+            case ("write")
+                stmt_index = parse_write_statement(parser, arena)
+            case ("read")
+                stmt_index = parse_read_statement(parser, arena)
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
-            case ("integer", "real", "logical", "character", "complex")
+            case ("integer", "real", "logical", "character", "complex", "double", "type")
                 stmt_index = parse_declaration(parser, arena)
+            case ("allocate")
+                stmt_index = parse_allocate_statement(parser, arena)
+            case ("deallocate")
+                stmt_index = parse_deallocate_statement(parser, arena)
+            case ("if")
+                stmt_index = parse_if(parser, arena)
+            case ("stop")
+                stmt_index = parse_stop_statement(parser, arena)
+            case ("return")
+                stmt_index = parse_return_statement(parser, arena)
+            case ("goto", "go")
+                stmt_index = parse_goto_statement(parser, arena)
+            case ("error")
+                stmt_index = parse_error_stop_statement(parser, arena)
+            case ("cycle")
+                stmt_index = parse_cycle_statement(parser, arena)
+            case ("exit")
+                stmt_index = parse_exit_statement(parser, arena)
             case ("associate")
                 stmt_index = parse_associate(parser, arena)
             case default

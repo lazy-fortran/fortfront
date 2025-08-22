@@ -3,6 +3,7 @@ module parser_definition_statements_module
     use lexer_core
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_statements_module, only: parse_statement_in_if_block
+    use parser_control_flow_module, only: parse_if
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -681,9 +682,13 @@ contains
                     stmt_tokens(stmt_size + 1)%line = token%line
                     stmt_tokens(stmt_size + 1)%column = token%column + 1
                     
-                    ! Parse the statement
+                    ! Parse the statement - check for if statements first
                     block_parser = create_parser_state(stmt_tokens)
-                    stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                    if (stmt_tokens(1)%kind == TK_KEYWORD .and. stmt_tokens(1)%text == "if") then
+                        stmt_index = parse_if(block_parser, arena)
+                    else
+                        stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                    end if
                     
                     ! Add to body
                     if (stmt_index > 0) then
@@ -823,9 +828,13 @@ contains
                     stmt_tokens(stmt_size + 1)%line = token%line
                     stmt_tokens(stmt_size + 1)%column = token%column + 1
                     
-                    ! Parse the statement
+                    ! Parse the statement - check for if statements first
                     block_parser = create_parser_state(stmt_tokens)
-                    stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                    if (stmt_tokens(1)%kind == TK_KEYWORD .and. stmt_tokens(1)%text == "if") then
+                        stmt_index = parse_if(block_parser, arena)
+                    else
+                        stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                    end if
                     
                     ! Add to body
                     if (stmt_index > 0) then
