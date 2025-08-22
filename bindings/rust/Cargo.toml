@@ -1,0 +1,21 @@
+[package]
+name = "fortfront-sys"
+version = "0.1.0"
+edition = "2021"
+description = "Rust FFI bindings for libfortfront.a static library"
+license = "MIT"
+repository = "https://github.com/lazy-fortran/fortfront"
+
+[dependencies]
+thiserror = "1.0"
+
+[build-dependencies]
+pkg-config = "0.3"
+
+[lib]
+name = "fortfront_sys"
+crate-type = ["rlib"]
+
+# Link to libfortfront.a statically
+[package.metadata.cargo-link-lib]
+fortfront = "static"

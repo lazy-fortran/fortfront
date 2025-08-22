@@ -14,6 +14,8 @@ fortfront transforms lazy Fortran code to standard Fortran:
 ## Features
 
 - **Pure CLI Interface**: No API dependencies, works as standalone command
+- **Static Library**: `libfortfront.a` for integration into external projects
+- **Multi-Language Support**: C, C++, Fortran, and Rust interfaces
 - **High Performance**: <0.05ms average transformation time  
 - **Enhanced Error Reporting**: Clear error messages with line/column info
 - **Mixed Construct Support**: Handles modules with implicit main programs
@@ -23,7 +25,11 @@ fortfront transforms lazy Fortran code to standard Fortran:
 ## Building
 
 ```bash
+# Build CLI tool
 fpm build && fpm test
+
+# Build static library
+make libfortfront.a
 ```
 
 ## Usage
@@ -53,9 +59,23 @@ end program main
 
 fortrun automatically uses fortfront for .lf files: `fortrun hello.lf`
 
+### Static Library Integration
+
+```bash
+# Install system-wide
+sudo make install
+
+# Use in C projects
+gcc -o myapp myapp.c $(pkg-config --cflags --libs fortfront)
+
+# Use in C++ projects  
+g++ -o myapp myapp.cpp $(pkg-config --cflags --libs fortfront)
+```
+
 ## Documentation
 
-See `docs/` folder for detailed guides, API reference, and build instructions.
+- **[Static Library Integration](docs/STATIC_LIBRARY_INTEGRATION.md)** - Complete guide for using `libfortfront.a`
+- **API Reference** - See `docs/` folder for detailed guides and build instructions
 
 ## License
 

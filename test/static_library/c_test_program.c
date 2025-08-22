@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* 
  * NOTE: These declarations will fail in RED phase since C interface not implemented yet
