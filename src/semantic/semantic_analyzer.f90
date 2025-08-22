@@ -110,9 +110,7 @@ contains
 
         inferred = ctx%infer_stmt(arena, node_index)
 
-        if (.not. allocated(arena%entries(node_index)%node%inferred_type)) then
-            allocate (arena%entries(node_index)%node%inferred_type)
-        end if
+        ! Direct assignment without allocation since inferred_type is not allocatable
         arena%entries(node_index)%node%inferred_type = inferred
     end subroutine infer_and_store_type
 

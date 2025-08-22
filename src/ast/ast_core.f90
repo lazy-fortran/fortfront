@@ -19,7 +19,7 @@ module ast_core
     ! AST nodes can be safely copied using proper assignment operators that
     ! implement depth-limited copying for mono_type_t structures.
     
-    use type_system_hm, only: mono_type_t
+    use type_system_unified, only: mono_type_t
     use intrinsic_registry, only: get_intrinsic_info
     
     ! Re-export base types and interfaces
@@ -206,7 +206,6 @@ contains
         node%value_index = value_index
         node%operator = "="
         if (present(inferred_type)) then
-            allocate(node%inferred_type)
             node%inferred_type = inferred_type
         end if
         if (present(inferred_type_name)) then

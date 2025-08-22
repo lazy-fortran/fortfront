@@ -600,7 +600,7 @@ contains
         found = .false.
         if (node_exists(arena, node_index)) then
             if (allocated(arena%entries(node_index)%node)) then
-                if (allocated(arena%entries(node_index)%node%inferred_type)) then
+                if (arena%entries(node_index)%node%inferred_type%kind > 0) then
                     allocate(node_type)
                     ! Manual deep copy to avoid issues with assignment operator
                     associate (src_type => arena%entries(node_index)%node%inferred_type)
