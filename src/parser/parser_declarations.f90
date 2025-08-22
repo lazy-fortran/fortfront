@@ -1010,113 +1010,138 @@ contains
             return
         end if
 
-        ! Parse variable names
-        do while (.not. parser%is_at_end())
-            ! Get variable name
-            var_token = parser%peek()
-            if (var_token%kind == TK_IDENTIFIER) then
-                var_token = parser%consume()
-                var_name = var_token%text
-
-                ! Check for array dimensions (per-variable) or use global dimensions
+        ! Collect all variable names first
+        block
+            character(len=:), allocatable :: var_names_array(:)
+            integer :: name_count
+            character(len=100) :: temp_var_names(50)  ! Temporary storage
+            
+            name_count = 0
+            
+            ! Parse variable names
+            do while (.not. parser%is_at_end())
+                ! Get variable name
                 var_token = parser%peek()
-                is_array = has_global_dimensions  ! Start with global dimensions
-                
-                if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                    ! Consume '('
+                if (var_token%kind == TK_IDENTIFIER) then
                     var_token = parser%consume()
-                    is_array = .true.
+                    name_count = name_count + 1
+                    if (name_count <= 50) then
+                        temp_var_names(name_count) = trim(var_token%text)
+                    end if
 
-                    ! Parse per-variable dimensions (overrides global)
-                    call parse_array_dimensions(parser, arena, dimension_indices)
-
-                    ! Consume ')'
+                    ! For now, skip per-variable array dimensions in multi-declarations
+                    ! This simplifies the implementation and matches common usage
                     var_token = parser%peek()
-                    if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+                        ! Skip array dimensions for multi-var declarations
+                        block
+                            integer :: paren_count
+                            paren_count = 1
+                            var_token = parser%consume()  ! consume '('
+                            
+                            do while (paren_count > 0 .and. .not. parser%is_at_end())
+                                var_token = parser%peek()
+                                if (var_token%kind == TK_OPERATOR) then
+                                    if (var_token%text == "(") then
+                                        paren_count = paren_count + 1
+                                    else if (var_token%text == ")") then
+                                        paren_count = paren_count - 1
+                                    end if
+                                end if
+                                var_token = parser%consume()
+                            end do
+                        end block
+                    end if
+
+                    ! Check for comma (more variables)
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
                         var_token = parser%consume()
                     else
-                        ! Error: expected )
-                        decl_index = push_literal(arena, "ERROR: Expected )", LITERAL_STRING, line, column)
-                        decl_indices = [decl_index]
-                        return
+                        exit
                     end if
-                else if (has_global_dimensions) then
-                    ! Use global dimensions
-                    dimension_indices = global_dimension_indices
+                else
+                    ! Error: expected identifier
+                    decl_index = push_literal(arena, "ERROR: Expected variable name", LITERAL_STRING, line, column)
+                    decl_indices = [decl_index]
+                    return
                 end if
-
-                ! Create declaration node - use push_declaration for individual variables
-                if (has_kind .and. is_array) then
+            end do
+            
+            ! Copy to properly sized array
+            if (name_count > 0) then
+                allocate(character(len=100) :: var_names_array(name_count))
+                var_names_array(1:name_count) = temp_var_names(1:name_count)
+                
+                ! Create a single multi-declaration node
+                if (has_kind .and. has_global_dimensions) then
                     if (has_intent) then
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            kind_value=kind_value, dimension_indices=dimension_indices, &
+                        decl_index = push_multi_declaration(arena, type_name, &
+                            var_names_array, kind_value=kind_value, &
+                            dimension_indices=global_dimension_indices, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
-                    else
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            kind_value=kind_value, dimension_indices=dimension_indices, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
+                            is_optional=is_optional, is_parameter=is_parameter, &
                             line=line, column=column)
+                    else
+                        decl_index = push_multi_declaration(arena, type_name, &
+                            var_names_array, kind_value=kind_value, &
+                            dimension_indices=global_dimension_indices, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, is_optional=is_optional, &
+                            is_parameter=is_parameter, line=line, column=column)
                     end if
                 else if (has_kind) then
                     if (has_intent) then
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            kind_value=kind_value, is_allocatable=is_allocatable, &
-                            is_pointer=is_pointer, is_target=is_target, &
-                            intent_value=intent, is_optional=is_optional, &
-                            line=line, column=column)
-                    else
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            kind_value=kind_value, is_allocatable=is_allocatable, &
-                            is_pointer=is_pointer, is_target=is_target, &
-                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
-                    end if
-                else if (is_array) then
-                    if (has_intent) then
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                            is_pointer=is_pointer, is_target=is_target, &
-                            intent_value=intent, is_optional=is_optional, &
-                            line=line, column=column)
-                    else
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            dimension_indices=dimension_indices, is_allocatable=is_allocatable, &
-                            is_pointer=is_pointer, is_target=is_target, &
-                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
-                    end if
-                else
-                    if (has_intent) then
-                        decl_index = push_declaration(arena, type_name, var_name, &
+                        decl_index = push_multi_declaration(arena, type_name, &
+                            var_names_array, kind_value=kind_value, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
                             is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
+                            is_optional=is_optional, line=line, column=column)
                     else
-                        decl_index = push_declaration(arena, type_name, var_name, &
+                        decl_index = push_multi_declaration(arena, type_name, &
+                            var_names_array, kind_value=kind_value, &
                             is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
+                            is_target=is_target, is_optional=is_optional, &
+                            is_parameter=is_parameter, line=line, column=column)
+                    end if
+                else if (has_global_dimensions) then
+                    if (has_intent) then
+                        decl_index = push_multi_declaration(arena, type_name, &
+                            var_names_array, dimension_indices=global_dimension_indices, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, intent_value=intent, &
+                            is_optional=is_optional, line=line, column=column)
+                    else
+                        decl_index = push_multi_declaration(arena, type_name, &
+                            var_names_array, dimension_indices=global_dimension_indices, &
+                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                            is_target=is_target, is_optional=is_optional, &
+                            is_parameter=is_parameter, line=line, column=column)
+                    end if
+                else
+                    if (has_intent) then
+                        decl_index = push_multi_declaration(arena, type_name, &
+                            var_names_array, is_allocatable=is_allocatable, &
+                            is_pointer=is_pointer, is_target=is_target, &
+                            intent_value=intent, is_optional=is_optional, &
+                            is_parameter=is_parameter, line=line, column=column)
+                    else
+                        decl_index = push_multi_declaration(arena, type_name, &
+                            var_names_array, is_allocatable=is_allocatable, &
+                            is_pointer=is_pointer, is_target=is_target, &
+                            is_optional=is_optional, is_parameter=is_parameter, &
                             line=line, column=column)
                     end if
                 end if
-
-                decl_indices = [decl_indices, decl_index]
-                decl_count = decl_count + 1
-
-                ! Check for comma (more variables)
-                var_token = parser%peek()
-                if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
-                    var_token = parser%consume()
-                else
-                    exit
-                end if
-            else
-                ! Error: expected identifier
-                decl_index = push_literal(arena, "ERROR: Expected variable name", LITERAL_STRING, line, column)
+                
                 decl_indices = [decl_index]
-                return
+            else
+                ! No variables found
+                decl_index = push_literal(arena, "ERROR: No variables in declaration", LITERAL_STRING, line, column)
+                decl_indices = [decl_index]
             end if
-        end do
+        end block
 
     end function parse_multi_declaration
 

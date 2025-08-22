@@ -3,7 +3,8 @@ module parser_execution_statements_module
     use lexer_core
     use parser_state_module
     use parser_expressions_module, only: parse_range
-    use parser_declarations, only: parse_declaration
+    use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_utils, only: analyze_declaration_structure
     use parser_io_statements_module, only: parse_print_statement
     use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
     use parser_control_statements_module, only: parse_stop_statement, parse_goto_statement, &
@@ -177,8 +178,8 @@ contains
                 case ("implicit")
                     call parse_simple_implicit(parser, arena, stmt_index)
                 case ("real", "integer", "logical", "character", "complex")
-                    ! Use full declaration parser to handle initializers properly
-                    stmt_index = parse_declaration(parser, arena)
+                    ! Handle single vs multi-variable declarations
+                    call handle_variable_declaration(parser, arena, stmt_index)
                 case ("print")
                     stmt_index = parse_print_statement(parser, arena)
                 case ("allocate")
@@ -466,5 +467,36 @@ contains
                                                line=implicit_token%line, column=implicit_token%column)
         end if
     end subroutine parse_simple_implicit
+
+    ! Handle single vs multi-variable declarations (duplicate of dispatcher logic)
+    subroutine handle_variable_declaration(parser, arena, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        logical :: has_initializer, has_comma
+        integer, allocatable :: decl_indices(:)
+        
+        ! DEBUG: This should print if the subroutine is called
+        write (*,*) "handle_variable_declaration called"
+        
+        ! Analyze the declaration structure
+        call analyze_declaration_structure(parser, has_initializer, has_comma)
+        
+        if (has_initializer .and. .not. has_comma) then
+            ! Single variable with initializer - use parse_declaration
+            stmt_index = parse_declaration(parser, arena)
+        else if (has_comma) then
+            ! Multi-variable declaration - use parse_multi_declaration  
+            decl_indices = parse_multi_declaration(parser, arena)
+            if (allocated(decl_indices) .and. size(decl_indices) > 0) then
+                stmt_index = decl_indices(1)  ! Return multi-declaration index
+            else
+                stmt_index = parse_declaration(parser, arena)  ! Fallback
+            end if
+        else
+            ! Single variable without initializer - use parse_declaration
+            stmt_index = parse_declaration(parser, arena)
+        end if
+    end subroutine handle_variable_declaration
 
 end module parser_execution_statements_module

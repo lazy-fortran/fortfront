@@ -127,6 +127,7 @@ contains
 
         first_token = parser%peek()
         is_derived_type_def = .false.
+        
 
         if (first_token%text == "type") then
             ! Check if this is a derived type definition or variable declaration
@@ -156,6 +157,7 @@ contains
                     
                     call analyze_declaration_structure(parser, has_initializer, has_comma)
                     
+                    
                     if (has_initializer .and. .not. has_comma) then
                         ! Single variable with initializer - use parse_declaration
                         stmt_index = parse_declaration(parser, arena)
@@ -163,7 +165,7 @@ contains
                         ! Multi-variable declaration - use parse_multi_declaration  
                         decl_indices = parse_multi_declaration(parser, arena)
                         if (allocated(decl_indices) .and. size(decl_indices) > 0) then
-                            stmt_index = decl_indices(1)  ! Return first declaration index
+                            stmt_index = decl_indices(1)  ! Return multi-declaration index
                         else
                             stmt_index = parse_declaration(parser, arena)  ! Fallback
                         end if
