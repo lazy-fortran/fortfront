@@ -18,7 +18,7 @@ contains
 
     ! Parse single-variable declaration (e.g., real :: x)
     function parse_declaration(parser, arena) result(decl_index)
-        use ast_factory, only: push_declaration, push_literal, push_identifier
+        use ast_factory, only: push_declaration, push_literal, push_identifier, push_multi_declaration
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: decl_index
@@ -292,248 +292,234 @@ contains
             end if
         end if
 
-        ! Create the first declaration node
-        ! Check for initialization (= expression)
+        ! Collect all variable names first to determine if this is multi-declaration
         block
+            character(len=:), allocatable :: all_var_names(:)
+            integer :: var_count, i
+            character(len=100) :: temp_var_names(50)  ! Temporary storage
             integer :: initializer_index
+            
+            ! Start with the first variable we already parsed
+            var_count = 1
+            temp_var_names(1) = var_name
+            
+            ! Check for initialization (only valid for single variable declarations)
             var_token = parser%peek()
             initializer_index = 0
-
             if (var_token%kind == TK_OPERATOR .and. var_token%text == "=") then
-                ! Consume '='
-                var_token = parser%consume()
-                ! Parse the initializer expression
+                ! Only single variables can have initializers
+                var_token = parser%consume()  ! consume '='
                 initializer_index = parse_comparison(parser, arena)
-                ! Debug output
-                ! print *, "DEBUG: Parsed initializer, index =", initializer_index
-            else
-                ! print *, "DEBUG: No initializer found"
             end if
-
-            ! Determine final array status and dimensions
-            block
-                logical :: final_is_array
-                integer, allocatable :: final_dimension_indices(:)
-                
-                ! Per-variable dimensions take precedence over global dimensions
-                if (is_array) then
-                    final_is_array = .true.
-                    final_dimension_indices = dimension_indices
-                else if (has_global_dimensions) then
-                    final_is_array = .true.
-                    final_dimension_indices = global_dimension_indices
-                else
-                    final_is_array = .false.
-                end if
             
-                ! Create declaration node with or without initializer
-                if (has_kind .and. final_is_array) then
-                    if (has_intent) then
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            kind_value=kind_value, &
-                            initializer_index=initializer_index, &
-                            dimension_indices=final_dimension_indices, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
-                    else
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            kind_value=kind_value, &
-                            initializer_index=initializer_index, &
-                            dimension_indices=final_dimension_indices, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
-                            line=line, column=column)
-                    end if
-                else if (has_kind) then
-                    if (has_intent) then
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            kind_value=kind_value, &
-                            initializer_index=initializer_index, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
-                    else
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            kind_value=kind_value, &
-                            initializer_index=initializer_index, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
-                            line=line, column=column)
-                    end if
-                else if (final_is_array) then
-                    if (has_intent) then
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            initializer_index=initializer_index, &
-                            dimension_indices=final_dimension_indices, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
-                    else
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            initializer_index=initializer_index, &
-                            dimension_indices=final_dimension_indices, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
-                            line=line, column=column)
-                    end if
-                else
-                    if (has_intent) then
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            initializer_index=initializer_index, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
-                    else
-                        decl_index = push_declaration(arena, type_name, var_name, &
-                            initializer_index=initializer_index, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
-                            line=line, column=column)
-                    end if
-                end if
-            end block
-        end block
-
-        ! Handle additional variables in multi-variable declarations like &
-        ! "real :: a, b, c"
-        do while (.not. parser%is_at_end())
+            ! If there's no comma, this is a single declaration
             var_token = parser%peek()
-            if (var_token%kind == TK_EOF) exit
+            if (.not. (var_token%kind == TK_OPERATOR .and. var_token%text == ",")) then
+                ! Single variable declaration - use original logic
 
-            ! Check if we have a comma (indicating another variable)
-            if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
-                ! Consume the comma
-                var_token = parser%consume()
-
-                ! Get the next variable name
+                ! Determine final array status and dimensions
+                block
+                    logical :: final_is_array
+                    integer, allocatable :: final_dimension_indices(:)
+                    
+                    ! Per-variable dimensions take precedence over global dimensions
+                    if (is_array) then
+                        final_is_array = .true.
+                        final_dimension_indices = dimension_indices
+                    else if (has_global_dimensions) then
+                        final_is_array = .true.
+                        final_dimension_indices = global_dimension_indices
+                    else
+                        final_is_array = .false.
+                    end if
+                
+                    ! Create single variable declaration node
+                    if (has_kind .and. final_is_array) then
+                        if (has_intent) then
+                            decl_index = push_declaration(arena, type_name, var_name, &
+                                kind_value=kind_value, &
+                                initializer_index=initializer_index, &
+                                dimension_indices=final_dimension_indices, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, intent_value=intent, &
+                                is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
+                        else
+                            decl_index = push_declaration(arena, type_name, var_name, &
+                                kind_value=kind_value, &
+                                initializer_index=initializer_index, &
+                                dimension_indices=final_dimension_indices, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
+                                line=line, column=column)
+                        end if
+                    else if (has_kind) then
+                        if (has_intent) then
+                            decl_index = push_declaration(arena, type_name, var_name, &
+                                kind_value=kind_value, &
+                                initializer_index=initializer_index, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, intent_value=intent, &
+                                is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
+                        else
+                            decl_index = push_declaration(arena, type_name, var_name, &
+                                kind_value=kind_value, &
+                                initializer_index=initializer_index, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
+                                line=line, column=column)
+                        end if
+                    else if (final_is_array) then
+                        if (has_intent) then
+                            decl_index = push_declaration(arena, type_name, var_name, &
+                                initializer_index=initializer_index, &
+                                dimension_indices=final_dimension_indices, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, intent_value=intent, &
+                                is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
+                        else
+                            decl_index = push_declaration(arena, type_name, var_name, &
+                                initializer_index=initializer_index, &
+                                dimension_indices=final_dimension_indices, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
+                                line=line, column=column)
+                        end if
+                    else
+                        if (has_intent) then
+                            decl_index = push_declaration(arena, type_name, var_name, &
+                                initializer_index=initializer_index, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, intent_value=intent, &
+                                is_optional=is_optional, is_parameter=is_parameter, line=line, column=column)
+                        else
+                            decl_index = push_declaration(arena, type_name, var_name, &
+                                initializer_index=initializer_index, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, is_optional=is_optional, is_parameter=is_parameter, &
+                                line=line, column=column)
+                        end if
+                    end if
+                end block
+                return  ! Exit early for single variable
+            end if
+            
+            ! Multi-variable declaration - collect all variable names
+            do while (.not. parser%is_at_end())
                 var_token = parser%peek()
-                if (var_token%kind == TK_IDENTIFIER) then
+                if (var_token%kind == TK_EOF) exit
+
+                ! Check if we have a comma (indicating another variable)
+                if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
+                    ! Consume the comma
                     var_token = parser%consume()
-                    var_name = var_token%text
 
-                    ! Create additional declaration node for this variable
-                    ! Use same type information as the first variable
-                    block
-                        integer :: additional_decl_index
-                        logical :: final_is_array
-                        integer, allocatable :: final_dimension_indices(:)
-                        
-                        ! Per-variable dimensions take precedence over global
-                        if (is_array) then
-                            final_is_array = .true.
-                            final_dimension_indices = dimension_indices
-                        else if (has_global_dimensions) then
-                            final_is_array = .true.
-                            final_dimension_indices = global_dimension_indices
-                        else
-                            final_is_array = .false.
+                    ! Get the next variable name
+                    var_token = parser%peek()
+                    if (var_token%kind == TK_IDENTIFIER) then
+                        var_token = parser%consume()
+                        if (var_count < size(temp_var_names)) then
+                            var_count = var_count + 1
+                            temp_var_names(var_count) = trim(var_token%text)
                         end if
-                        
-                        if (has_kind .and. final_is_array) then
-                            if (has_intent) then
-                                additional_decl_index = push_declaration( &
-                                    arena, type_name, var_name, &
-                                    kind_value=kind_value, &
-                                    dimension_indices=final_dimension_indices, &
-                                    is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, &
-                                    is_target=is_target, intent_value=intent, &
-                                    is_optional=is_optional, &
-                                    line=line, column=column)
-                            else
-                                additional_decl_index = push_declaration( &
-                                    arena, type_name, var_name, &
-                                    kind_value=kind_value, &
-                                    dimension_indices=final_dimension_indices, &
-                                    is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, &
-                                    is_target=is_target, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            end if
-                        else if (has_kind) then
-                            if (has_intent) then
-                                additional_decl_index = push_declaration( &
-                                    arena, type_name, var_name, &
-                                    kind_value=kind_value, &
-                                    is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, &
-                                    is_target=is_target, &
-                                    intent_value=intent, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            else
-                                additional_decl_index = push_declaration( &
-                                    arena, type_name, var_name, &
-                                    kind_value=kind_value, &
-                                    is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, &
-                                    is_target=is_target, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            end if
-                        else if (final_is_array) then
-                            if (has_intent) then
-                                additional_decl_index = push_declaration( &
-                                    arena, type_name, var_name, &
-                                    dimension_indices=final_dimension_indices, &
-                                    is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, &
-                                    is_target=is_target, &
-                                    intent_value=intent, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            else
-                                additional_decl_index = push_declaration( &
-                                    arena, type_name, var_name, &
-                                    dimension_indices=final_dimension_indices, &
-                                    is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, &
-                                    is_target=is_target, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            end if
-                        else
-                            if (has_intent) then
-                                additional_decl_index = push_declaration( &
-                                    arena, type_name, var_name, &
-                                    is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, &
-                                    is_target=is_target, &
-                                    intent_value=intent, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            else
-                                additional_decl_index = push_declaration( &
-                                    arena, type_name, var_name, &
-                                    is_allocatable=is_allocatable, &
-                                    is_pointer=is_pointer, &
-                                    is_target=is_target, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            end if
-                        end if
-
-                        ! Note: Currently the function only returns the first &
-                        ! declaration index
-                        ! This means the additional declarations are created in &
-                        ! the arena but
-                        ! the caller only gets the first one. This is a limitation &
-                        ! of the current
-                        ! interface, but the declarations are still created and &
-                        ! available in the arena.
-                    end block
+                    else
+                        ! Error: expected identifier after comma
+                        decl_index = push_literal(arena, "ERROR: Expected variable name after comma", LITERAL_STRING, line, column)
+                        return
+                    end if
                 else
-                    ! Error: expected identifier after comma
-                    decl_index = push_literal(arena, "ERROR: Expected variable name after comma", LITERAL_STRING, line, column)
+                    ! No more variables, exit without consuming
                     exit
                 end if
-            else
-                ! No more variables, exit without consuming
-                exit
+            end do
+            
+            ! Create array of variable names for multi-declaration
+            if (var_count > 1) then
+                allocate(character(len=100) :: all_var_names(var_count))
+                all_var_names(1:var_count) = temp_var_names(1:var_count)
+                
+                ! Create single multi-declaration node with all variables
+                
+                ! Determine final array status and dimensions
+                block
+                    logical :: final_is_array
+                    integer, allocatable :: final_dimension_indices(:)
+                    
+                    if (is_array) then
+                        final_is_array = .true.
+                        final_dimension_indices = dimension_indices
+                    else if (has_global_dimensions) then
+                        final_is_array = .true.
+                        final_dimension_indices = global_dimension_indices
+                    else
+                        final_is_array = .false.
+                    end if
+                
+                    ! Create multi-declaration node
+                    if (has_kind .and. final_is_array) then
+                        if (has_intent) then
+                            decl_index = push_multi_declaration(arena, type_name, &
+                                all_var_names, kind_value=kind_value, &
+                                dimension_indices=final_dimension_indices, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, intent_value=intent, &
+                                is_optional=is_optional, is_parameter=is_parameter, &
+                                line=line, column=column)
+                        else
+                            decl_index = push_multi_declaration(arena, type_name, &
+                                all_var_names, kind_value=kind_value, &
+                                dimension_indices=final_dimension_indices, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, is_optional=is_optional, &
+                                is_parameter=is_parameter, line=line, column=column)
+                        end if
+                    else if (has_kind) then
+                        if (has_intent) then
+                            decl_index = push_multi_declaration(arena, type_name, &
+                                all_var_names, kind_value=kind_value, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, intent_value=intent, &
+                                is_optional=is_optional, is_parameter=is_parameter, &
+                                line=line, column=column)
+                        else
+                            decl_index = push_multi_declaration(arena, type_name, &
+                                all_var_names, kind_value=kind_value, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, is_optional=is_optional, &
+                                is_parameter=is_parameter, line=line, column=column)
+                        end if
+                    else if (final_is_array) then
+                        if (has_intent) then
+                            decl_index = push_multi_declaration(arena, type_name, &
+                                all_var_names, dimension_indices=final_dimension_indices, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, intent_value=intent, &
+                                is_optional=is_optional, is_parameter=is_parameter, &
+                                line=line, column=column)
+                        else
+                            decl_index = push_multi_declaration(arena, type_name, &
+                                all_var_names, dimension_indices=final_dimension_indices, &
+                                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                is_target=is_target, is_optional=is_optional, &
+                                is_parameter=is_parameter, line=line, column=column)
+                        end if
+                    else
+                        if (has_intent) then
+                            decl_index = push_multi_declaration(arena, type_name, &
+                                all_var_names, is_allocatable=is_allocatable, &
+                                is_pointer=is_pointer, is_target=is_target, &
+                                intent_value=intent, is_optional=is_optional, &
+                                is_parameter=is_parameter, line=line, column=column)
+                        else
+                            decl_index = push_multi_declaration(arena, type_name, &
+                                all_var_names, is_allocatable=is_allocatable, &
+                                is_pointer=is_pointer, is_target=is_target, &
+                                is_optional=is_optional, is_parameter=is_parameter, &
+                                line=line, column=column)
+                        end if
+                    end if
+                end block
             end if
-        end do
+        end block
 
     end function parse_declaration
 
@@ -1073,69 +1059,94 @@ contains
                 allocate(character(len=100) :: var_names_array(name_count))
                 var_names_array(1:name_count) = temp_var_names(1:name_count)
                 
-                ! Create a single multi-declaration node
-                if (has_kind .and. has_global_dimensions) then
-                    if (has_intent) then
-                        decl_index = push_multi_declaration(arena, type_name, &
-                            var_names_array, kind_value=kind_value, &
-                            dimension_indices=global_dimension_indices, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, is_parameter=is_parameter, &
-                            line=line, column=column)
-                    else
-                        decl_index = push_multi_declaration(arena, type_name, &
-                            var_names_array, kind_value=kind_value, &
-                            dimension_indices=global_dimension_indices, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, &
-                            is_parameter=is_parameter, line=line, column=column)
-                    end if
-                else if (has_kind) then
-                    if (has_intent) then
-                        decl_index = push_multi_declaration(arena, type_name, &
-                            var_names_array, kind_value=kind_value, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, line=line, column=column)
-                    else
-                        decl_index = push_multi_declaration(arena, type_name, &
-                            var_names_array, kind_value=kind_value, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, &
-                            is_parameter=is_parameter, line=line, column=column)
-                    end if
-                else if (has_global_dimensions) then
-                    if (has_intent) then
-                        decl_index = push_multi_declaration(arena, type_name, &
-                            var_names_array, dimension_indices=global_dimension_indices, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, intent_value=intent, &
-                            is_optional=is_optional, line=line, column=column)
-                    else
-                        decl_index = push_multi_declaration(arena, type_name, &
-                            var_names_array, dimension_indices=global_dimension_indices, &
-                            is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                            is_target=is_target, is_optional=is_optional, &
-                            is_parameter=is_parameter, line=line, column=column)
-                    end if
-                else
-                    if (has_intent) then
-                        decl_index = push_multi_declaration(arena, type_name, &
-                            var_names_array, is_allocatable=is_allocatable, &
-                            is_pointer=is_pointer, is_target=is_target, &
-                            intent_value=intent, is_optional=is_optional, &
-                            is_parameter=is_parameter, line=line, column=column)
-                    else
-                        decl_index = push_multi_declaration(arena, type_name, &
-                            var_names_array, is_allocatable=is_allocatable, &
-                            is_pointer=is_pointer, is_target=is_target, &
-                            is_optional=is_optional, is_parameter=is_parameter, &
-                            line=line, column=column)
-                    end if
-                end if
+                ! Create multiple individual declaration nodes
+                deallocate(decl_indices)
+                allocate(decl_indices(name_count))
                 
-                decl_indices = [decl_index]
+                block
+                    integer :: i
+                    do i = 1, name_count
+                    ! Determine final array status and dimensions for each variable
+                    block
+                        logical :: final_is_array
+                        integer, allocatable :: final_dimension_indices(:)
+                        
+                        if (has_global_dimensions) then
+                            final_is_array = .true.
+                            final_dimension_indices = global_dimension_indices
+                        else
+                            final_is_array = .false.
+                        end if
+                    
+                        ! Create individual declaration node for this variable
+                        if (has_kind .and. final_is_array) then
+                            if (has_intent) then
+                                decl_indices(i) = push_declaration(arena, type_name, &
+                                    trim(var_names_array(i)), kind_value=kind_value, &
+                                    dimension_indices=final_dimension_indices, &
+                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                    is_target=is_target, intent_value=intent, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
+                                    line=line, column=column)
+                            else
+                                decl_indices(i) = push_declaration(arena, type_name, &
+                                    trim(var_names_array(i)), kind_value=kind_value, &
+                                    dimension_indices=final_dimension_indices, &
+                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                    is_target=is_target, is_optional=is_optional, &
+                                    is_parameter=is_parameter, line=line, column=column)
+                            end if
+                        else if (has_kind) then
+                            if (has_intent) then
+                                decl_indices(i) = push_declaration(arena, type_name, &
+                                    trim(var_names_array(i)), kind_value=kind_value, &
+                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                    is_target=is_target, intent_value=intent, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
+                                    line=line, column=column)
+                            else
+                                decl_indices(i) = push_declaration(arena, type_name, &
+                                    trim(var_names_array(i)), kind_value=kind_value, &
+                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                    is_target=is_target, is_optional=is_optional, &
+                                    is_parameter=is_parameter, line=line, column=column)
+                            end if
+                        else if (final_is_array) then
+                            if (has_intent) then
+                                decl_indices(i) = push_declaration(arena, type_name, &
+                                    trim(var_names_array(i)), &
+                                    dimension_indices=final_dimension_indices, &
+                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                    is_target=is_target, intent_value=intent, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
+                                    line=line, column=column)
+                            else
+                                decl_indices(i) = push_declaration(arena, type_name, &
+                                    trim(var_names_array(i)), &
+                                    dimension_indices=final_dimension_indices, &
+                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                    is_target=is_target, is_optional=is_optional, &
+                                    is_parameter=is_parameter, line=line, column=column)
+                            end if
+                        else
+                            if (has_intent) then
+                                decl_indices(i) = push_declaration(arena, type_name, &
+                                    trim(var_names_array(i)), &
+                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                    is_target=is_target, intent_value=intent, &
+                                    is_optional=is_optional, is_parameter=is_parameter, &
+                                    line=line, column=column)
+                            else
+                                decl_indices(i) = push_declaration(arena, type_name, &
+                                    trim(var_names_array(i)), &
+                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                                    is_target=is_target, is_optional=is_optional, &
+                                    is_parameter=is_parameter, line=line, column=column)
+                            end if
+                        end if
+                    end block
+                    end do
+                end block
             else
                 ! No variables found
                 decl_index = push_literal(arena, "ERROR: No variables in declaration", LITERAL_STRING, line, column)

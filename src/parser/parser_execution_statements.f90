@@ -18,6 +18,9 @@ module parser_execution_statements_module
 
     public :: parse_call_statement, parse_program_statement
 
+    ! Module variable to store additional indices from multi-declaration parsing
+    integer, allocatable :: additional_execution_indices(:)
+
 contains
 
     ! Helper subroutine to parse call arguments
@@ -222,6 +225,14 @@ contains
             
             if (stmt_index > 0) then
                 body_indices = [body_indices, stmt_index]
+                
+                ! Handle additional indices from multi-declaration parsing
+                if (allocated(additional_execution_indices)) then
+                    if (size(additional_execution_indices) > 0) then
+                        body_indices = [body_indices, additional_execution_indices]
+                    end if
+                    deallocate(additional_execution_indices)
+                end if
             end if
         end do
     end subroutine parse_program_body
@@ -476,8 +487,6 @@ contains
         logical :: has_initializer, has_comma
         integer, allocatable :: decl_indices(:)
         
-        ! DEBUG: This should print if the subroutine is called
-        write (*,*) "handle_variable_declaration called"
         
         ! Analyze the declaration structure
         call analyze_declaration_structure(parser, has_initializer, has_comma)
@@ -489,7 +498,13 @@ contains
             ! Multi-variable declaration - use parse_multi_declaration  
             decl_indices = parse_multi_declaration(parser, arena)
             if (allocated(decl_indices) .and. size(decl_indices) > 0) then
-                stmt_index = decl_indices(1)  ! Return multi-declaration index
+                stmt_index = decl_indices(1)  ! Return first declaration index
+                
+                ! Store additional indices if any
+                if (size(decl_indices) > 1) then
+                    allocate(additional_execution_indices(size(decl_indices) - 1))
+                    additional_execution_indices = decl_indices(2:)
+                end if
             else
                 stmt_index = parse_declaration(parser, arena)  ! Fallback
             end if

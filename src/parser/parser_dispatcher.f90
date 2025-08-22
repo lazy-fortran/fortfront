@@ -27,7 +27,10 @@ module parser_dispatcher_module
     implicit none
     private
 
-    public :: parse_statement_dispatcher
+    public :: parse_statement_dispatcher, get_additional_indices, clear_additional_indices
+    
+    ! Module variable to store additional indices from multi-declaration parsing
+    integer, allocatable :: additional_indices(:)
 
 contains
 
@@ -165,7 +168,13 @@ contains
                         ! Multi-variable declaration - use parse_multi_declaration  
                         decl_indices = parse_multi_declaration(parser, arena)
                         if (allocated(decl_indices) .and. size(decl_indices) > 0) then
-                            stmt_index = decl_indices(1)  ! Return multi-declaration index
+                            stmt_index = decl_indices(1)  ! Return first declaration index
+                            
+                            ! Store additional indices if any
+                            if (size(decl_indices) > 1) then
+                                allocate(additional_indices(size(decl_indices) - 1))
+                                additional_indices = decl_indices(2:)
+                            end if
                         else
                             stmt_index = parse_declaration(parser, arena)  ! Fallback
                         end if
@@ -294,5 +303,24 @@ contains
         call arena%push(comment, "comment")
         comment_index = arena%size
     end function parse_comment
+
+    ! Get additional indices from multi-declaration parsing
+    function get_additional_indices() result(indices)
+        integer, allocatable :: indices(:)
+        
+        if (allocated(additional_indices)) then
+            allocate(indices(size(additional_indices)))
+            indices = additional_indices
+        else
+            allocate(indices(0))
+        end if
+    end function get_additional_indices
+    
+    ! Clear additional indices after use
+    subroutine clear_additional_indices()
+        if (allocated(additional_indices)) then
+            deallocate(additional_indices)
+        end if
+    end subroutine clear_additional_indices
 
 end module parser_dispatcher_module

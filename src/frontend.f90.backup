@@ -7,8 +7,7 @@ module frontend
                            TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
-    use parser_dispatcher_module, only: parse_statement_dispatcher, &
-                                           get_additional_indices, clear_additional_indices
+    use parser_dispatcher_module, only: parse_statement_dispatcher
     use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
                                           parse_select_case
     ! Migrated from ast_core: use explicit imports for better dependency management
@@ -957,16 +956,6 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
                 if (stmt_index > 0) then
                     body_indices = [body_indices, stmt_index]
-                    
-                    ! Handle additional indices from multi-declaration parsing
-                    block
-                        integer, allocatable :: extra_indices(:)
-                        extra_indices = get_additional_indices()
-                        if (size(extra_indices) > 0) then
-                            body_indices = [body_indices, extra_indices]
-                        end if
-                        call clear_additional_indices()
-                    end block
                 end if
 
                 deallocate (stmt_tokens)
