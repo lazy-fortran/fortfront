@@ -2140,64 +2140,20 @@ contains
             end if
         end do
         
-        ! Second pass: handle declaration groups for multi-variable splitting
-        call handle_declaration_groups_for_splitting(arena, prog, prog_index, &
-                                                     assigned_vars, assignment_counts, var_count)
+        ! Second pass: mark declarations for variables with multiple array assignments
+        do i = 1, size(prog%body_indices)
+            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                    call mark_declarations_allocatable(arena, prog%body_indices(i), &
+                                                      assigned_vars, assignment_counts, &
+                                                      var_count, prog_index)
+                end if
+            end if
+        end do
         
         deallocate(assigned_vars)
         deallocate(assignment_counts)
     end subroutine mark_allocatable_for_array_reassignments
-    
-    ! Handle declaration groups for proper multi-variable splitting (Issue #209)
-    subroutine handle_declaration_groups_for_splitting(arena, prog, prog_index, &
-                                                       assigned_vars, assignment_counts, var_count)
-        type(ast_arena_t), intent(inout) :: arena
-        type(program_node), intent(inout) :: prog
-        integer, intent(in) :: prog_index
-        character(len=64), intent(in) :: assigned_vars(:)
-        integer, intent(in) :: assignment_counts(:)
-        integer, intent(in) :: var_count
-        
-        integer :: i, group_start, group_end
-        character(len=:), allocatable :: group_type
-        logical :: group_is_array
-        integer, allocatable :: group_dim_indices(:)
-        
-        if (.not. allocated(prog%body_indices)) return
-        
-        i = 1
-        do while (i <= size(prog%body_indices))
-            ! Look for start of a declaration group
-            if (is_declaration_at_index(arena, prog%body_indices(i))) then
-                group_start = i
-                call get_declaration_type_info(arena, prog%body_indices(i), &
-                                             group_type, group_is_array, group_dim_indices)
-                
-                ! Find end of group (consecutive declarations of same type)
-                group_end = find_declaration_group_end(arena, prog%body_indices, &
-                                                      group_start, group_type, &
-                                                      group_is_array, group_dim_indices)
-                
-                ! If group has >1 declaration, check for splitting needs
-                if (group_end > group_start) then
-                    call handle_declaration_group_splitting(arena, prog, prog_index, &
-                                                           group_start, group_end, &
-                                                           assigned_vars, assignment_counts, var_count)
-                else
-                    ! Single declaration - handle individually
-                    call mark_single_declaration_allocatable(arena, prog%body_indices(i), &
-                                                           assigned_vars, assignment_counts, var_count)
-                end if
-                
-                i = group_end + 1
-            else
-                i = i + 1
-            end if
-        end do
-        
-        if (allocated(group_dim_indices)) deallocate(group_dim_indices)
-        
-    end subroutine handle_declaration_groups_for_splitting
     
     ! Count assignments to variables (helper for array reassignment detection)
     recursive subroutine count_variable_assignments(arena, stmt_index, assigned_vars, &
