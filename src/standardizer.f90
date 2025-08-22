@@ -1103,7 +1103,9 @@ contains
             string_result%value = "logical"
         case (TCHAR)
             string_result%result = success_result()
-            if (mono_type%size > 0) then
+            if (mono_type%alloc_info%needs_allocatable_string) then
+                string_result%value = "character(len=:), allocatable"
+            else if (mono_type%size > 0) then
                 block
                     character(len=20) :: size_str
                     write (size_str, '(i0)') mono_type%size

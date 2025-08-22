@@ -14,6 +14,71 @@ module parser_import_statements_module
 
 contains
 
+    ! Parse comma-separated list of identifiers (for only clause)
+    subroutine parse_identifier_list(parser, identifier_list)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: identifier_list(:)
+        character(len=:), allocatable :: temp_list(:)
+        type(token_t) :: token
+        integer :: count, capacity
+        
+        count = 0
+        capacity = 4  ! Initial capacity
+        allocate(character(len=64) :: temp_list(capacity))
+        
+        ! Parse first identifier
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            token = parser%consume()
+            count = count + 1
+            temp_list(count) = token%text
+            
+            ! Parse additional identifiers (comma-separated)
+            do while (.not. parser%is_at_end())
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    token = parser%consume()  ! consume ','
+                    token = parser%peek()
+                    if (token%kind == TK_IDENTIFIER) then
+                        token = parser%consume()
+                        
+                        ! Expand array if needed
+                        if (count >= capacity) then
+                            capacity = capacity * 2
+                            block
+                                character(len=64), allocatable :: new_temp_list(:)
+                                integer :: i
+                                allocate(new_temp_list(capacity))
+                                do i = 1, count
+                                    new_temp_list(i) = temp_list(i)
+                                end do
+                                deallocate(temp_list)
+                                call move_alloc(new_temp_list, temp_list)
+                            end block
+                        end if
+                        
+                        count = count + 1
+                        temp_list(count) = token%text
+                    else
+                        exit  ! Not an identifier after comma
+                    end if
+                else
+                    exit  ! Not a comma, end of list
+                end if
+            end do
+        end if
+        
+        ! Copy to final array with exact size
+        if (count > 0) then
+            allocate(character(len=64) :: identifier_list(count))
+            identifier_list(1:count) = temp_list(1:count)
+        else
+            allocate(character(len=0) :: identifier_list(0))
+        end if
+        
+        deallocate(temp_list)
+    end subroutine parse_identifier_list
+
     ! Helper to count letter ranges for allocation
     subroutine count_letter_ranges(parser, count)
         type(parser_state_t), intent(inout) :: parser
@@ -328,7 +393,12 @@ contains
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ":") then
                     token = parser%consume()  ! consume ':'
-                    ! Parse only list would go here (simplified)
+                    ! Parse only list - collect identifiers
+                    call parse_identifier_list(parser, only_list)
+                    ! For now, no rename support (simplified)
+                    allocate(character(len=0) :: rename_list(0))
+                else
+                    ! Malformed only clause
                     allocate(character(len=0) :: only_list(0))
                     allocate(character(len=0) :: rename_list(0))
                 end if

@@ -612,8 +612,10 @@ contains
         type(assignment_node), intent(inout) :: assign_node
         integer, intent(in) :: assign_index
         type(mono_type_t) :: typ
-        type(mono_type_t) :: expr_typ
+        type(mono_type_t) :: expr_typ, existing_typ
         type(poly_type_t) :: scheme
+        type(poly_type_t), allocatable :: existing_scheme
+        logical :: variable_exists
 
         ! Infer right-hand side type
         expr_typ = ctx%infer(arena, assign_node%value_index)
@@ -625,9 +627,31 @@ contains
             if (allocated(arena%entries(assign_node%target_index)%node)) then
                 select type (lhs_node => arena%entries(assign_node%target_index)%node)
                 type is (identifier_node)
-                    ! Generalize the expression type
+                    ! Check if variable already exists by attempting lookup
+                    call ctx%scopes%lookup(lhs_node%name, existing_scheme)
+                    variable_exists = allocated(existing_scheme)
+                    
+                    if (variable_exists) then
+                        ! Variable exists - check for type compatibility
+                        existing_typ = ctx%instantiate(existing_scheme)
+                        
+                        ! Handle character type unification
+                        if (existing_typ%kind == TCHAR .and. expr_typ%kind == TCHAR) then
+                            if (existing_typ%size /= expr_typ%size) then
+                                ! Different character lengths - make it allocatable
+                                expr_typ = create_mono_type(TCHAR)
+                                expr_typ%alloc_info%is_allocatable = .true.
+                                expr_typ%alloc_info%needs_allocatable_string = .true.
+                                expr_typ%size = 0  ! Deferred length
+                                
+                                ! Update all existing identifier nodes with this name
+                                call update_identifier_type_in_arena(arena, lhs_node%name, expr_typ)
+                            end if
+                        end if
+                    end if
+                    
+                    ! Generalize the expression type and define/update in scope
                     scheme = ctx%generalize(expr_typ)
-                    ! Define in current scope
                     call ctx%scopes%define(lhs_node%name, scheme)
                 end select
             end if
@@ -641,6 +665,26 @@ contains
             typ = expr_typ
         end if
     end function infer_assignment
+
+    ! Update all identifier nodes with the given name to have the specified type
+    subroutine update_identifier_type_in_arena(arena, var_name, new_type)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: var_name
+        type(mono_type_t), intent(in) :: new_type
+        integer :: i
+        
+        do i = 1, arena%size
+            if (allocated(arena%entries(i)%node)) then
+                select type (node => arena%entries(i)%node)
+                type is (identifier_node)
+                    if (trim(node%name) == trim(var_name)) then
+                        ! Update the inferred type for this identifier
+                        node%inferred_type = new_type
+                    end if
+                end select
+            end if
+        end do
+    end subroutine update_identifier_type_in_arena
 
     ! Infer type of array literal with proper type promotion
     function infer_array_literal(ctx, arena, arr_lit, arr_index) result(typ)

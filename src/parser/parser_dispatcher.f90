@@ -4,7 +4,8 @@ module parser_dispatcher_module
     use lexer_core
     use parser_state_module
     use parser_expressions_module
-    use parser_declarations, only: parse_declaration, parse_derived_type_def
+    use parser_declarations, only: parse_declaration, parse_multi_declaration, parse_derived_type_def
+    use parser_utils, only: analyze_declaration_structure
     use parser_import_statements_module, only: parse_use_statement, parse_include_statement, &
                                               parse_module
     use parser_io_statements_module, only: parse_print_statement, parse_write_statement, &
@@ -148,7 +149,29 @@ contains
         else
             ! Other type keywords - check if it's a declaration
             if (has_double_colon(parser)) then
-                stmt_index = parse_declaration(parser, arena)
+                ! Check if this is single or multi-variable declaration
+                block
+                    logical :: has_initializer, has_comma
+                    integer, allocatable :: decl_indices(:)
+                    
+                    call analyze_declaration_structure(parser, has_initializer, has_comma)
+                    
+                    if (has_initializer .and. .not. has_comma) then
+                        ! Single variable with initializer - use parse_declaration
+                        stmt_index = parse_declaration(parser, arena)
+                    else if (has_comma) then
+                        ! Multi-variable declaration - use parse_multi_declaration  
+                        decl_indices = parse_multi_declaration(parser, arena)
+                        if (allocated(decl_indices) .and. size(decl_indices) > 0) then
+                            stmt_index = decl_indices(1)  ! Return first declaration index
+                        else
+                            stmt_index = parse_declaration(parser, arena)  ! Fallback
+                        end if
+                    else
+                        ! Single variable without initializer - use parse_declaration
+                        stmt_index = parse_declaration(parser, arena)
+                    end if
+                end block
             else
                 ! Could be function definition like "real function foo()"
                 stmt_index = parse_function_or_expression(parser, arena)
