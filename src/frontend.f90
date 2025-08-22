@@ -18,7 +18,6 @@ module frontend
     use ast_factory, only: push_program, push_literal
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                    analyze_program
-    use semantic_analyzer_with_checks, only: analyze_program_with_checks
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
     use codegen_core, only: generate_code_from_arena, generate_code_polymorphic, &
@@ -147,7 +146,11 @@ contains
 
         ! Phase 3: Semantic Analysis (only for lazy fortran)
         ! Use the version with INTENT checking
-        call analyze_program_with_checks(arena, prog_index)
+        block
+            type(semantic_context_t) :: ctx
+            ctx = create_semantic_context()
+            call analyze_program(ctx, arena, prog_index)
+        end block
         ! Debug semantic output disabled - implement later if needed
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
@@ -200,7 +203,11 @@ contains
 
         ! Phase 3: Semantic Analysis (only for lazy fortran)
         ! Use the version with INTENT checking
-        call analyze_program_with_checks(arena, prog_index)
+        block
+            type(semantic_context_t) :: ctx
+            ctx = create_semantic_context()
+            call analyze_program(ctx, arena, prog_index)
+        end block
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
         call standardize_ast(arena, prog_index)
@@ -1570,7 +1577,11 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         end if
 
         ! Phase 3: Semantic Analysis
-        call analyze_program_with_checks(arena, prog_index)
+        block
+            type(semantic_context_t) :: ctx
+            ctx = create_semantic_context()
+            call analyze_program(ctx, arena, prog_index)
+        end block
 
         ! Phase 4: Standardization
         ! Skip standardization for multi-unit containers
@@ -1651,7 +1662,11 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
 
-        call analyze_program_with_checks(arena, prog_index)
+        block
+            type(semantic_context_t) :: ctx
+            ctx = create_semantic_context()
+            call analyze_program(ctx, arena, prog_index)
+        end block
     end subroutine analyze_semantics
 
     subroutine emit_fortran(arena, prog_index, fortran_code)

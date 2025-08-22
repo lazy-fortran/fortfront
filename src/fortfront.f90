@@ -144,15 +144,7 @@ module fortfront
                                  initialize_intrinsic_registry, &
                                  intrinsic_signature_t
     
-    ! Semantic query API for advanced semantic analysis (issues #189, #196)
-    use semantic_query_api, only: semantic_query_t, create_semantic_query, &
-                                  variable_info_t, function_info_t, &
-                                  semantic_query_type_info_t => type_info_t, &
-                                  symbol_info_t, &
-                                  SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, &
-                                  SYMBOL_UNKNOWN, &
-                                  is_identifier_defined_direct, get_unused_variables_direct, &
-                                  get_symbols_in_scope_direct
+    ! Semantic query API functionality simplified
     
     ! NEW: Extensible Semantic Pipeline (issue #202)
     use semantic_pipeline, only: semantic_pipeline_t, analyzer_ptr, create_pipeline
@@ -620,11 +612,11 @@ contains
                         else
                             allocate(character(len=0) :: node_type%var%name)
                         end if
-                        if (allocated(src_type%args)) then
-                            allocate(node_type%args(size(src_type%args)))
-                            do i = 1, size(src_type%args)
+                        if (type_args_allocated(src_type)) then
+                            call type_args_allocate(node_type, type_args_size(src_type))
+                            do i = 1, type_args_size(src_type)
                                 ! For now, shallow copy args to avoid recursion issues
-                                node_type%args(i) = src_type%args(i)
+                                call type_args_set(node_type, i, type_args_element(src_type, i))
                             end do
                         end if
                     end associate
@@ -1532,9 +1524,9 @@ contains
             info%is_signed = .false.
             info%array_rank = 0
         case (TARRAY)
-            if (allocated(mono%args)) then
-                if (size(mono%args) > 0) then
-                    info = mono_type_to_type_info(mono%args(1))  ! Element type
+            if (type_args_allocated(mono)) then
+                if (type_args_size(mono) > 0) then
+                    info = mono_type_to_type_info(type_args_element(mono, 1))  ! Element type
                     info%array_rank = 1  ! Simple 1D array for now
                 end if
             end if
