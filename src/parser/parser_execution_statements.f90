@@ -6,6 +6,9 @@ module parser_execution_statements_module
     use parser_declarations, only: parse_declaration
     use parser_io_statements_module, only: parse_print_statement
     use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
+    use parser_control_statements_module, only: parse_stop_statement, parse_goto_statement, &
+                                               parse_error_stop_statement, parse_return_statement, &
+                                               parse_cycle_statement, parse_exit_statement
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -185,6 +188,20 @@ contains
                 case ("if")
                     ! Simple inline if parsing to avoid circular dependency
                     stmt_index = parse_simple_if(parser, arena)
+                case ("stop")
+                    stmt_index = parse_stop_statement(parser, arena)
+                case ("go", "goto")
+                    stmt_index = parse_goto_statement(parser, arena)
+                case ("error")
+                    stmt_index = parse_error_stop_statement(parser, arena)
+                case ("return")
+                    stmt_index = parse_return_statement(parser, arena)
+                case ("cycle")
+                    stmt_index = parse_cycle_statement(parser, arena)
+                case ("exit")
+                    stmt_index = parse_exit_statement(parser, arena)
+                case ("call")
+                    stmt_index = parse_call_statement(parser, arena)
                 case default
                     ! Skip unknown keywords for now
                     token = parser%consume()
