@@ -1,0 +1,18 @@
+# Rust Test Project for libfortfront.a Static Linking
+#
+# **Given-When-Then**: Cargo configuration to verify linking with libfortfront.a
+# **Given**: libfortfront.a exists and provides C-compatible FFI interface
+# **When**: Building this Rust project with cargo build
+# **Then**: Should compile, link, and run without external dependencies
+
+[package]
+name = "fortfront-rust-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[build-dependencies]
+
+# NOTE: This build configuration will fail in RED phase since build script not implemented
+# The actual FFI bindings and build script will need to be created in the GREEN phase
