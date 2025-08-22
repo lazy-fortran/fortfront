@@ -88,6 +88,16 @@ contains
     subroutine function_def_assign(lhs, rhs)
         class(function_def_node), intent(inout) :: lhs
         class(function_def_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        ! Copy derived class fields
         lhs%name = rhs%name
         lhs%return_type = rhs%return_type
         if (allocated(rhs%result_variable)) lhs%result_variable = rhs%result_variable
@@ -125,6 +135,16 @@ contains
     subroutine subroutine_def_assign(lhs, rhs)
         class(subroutine_def_node), intent(inout) :: lhs
         class(subroutine_def_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        ! Copy derived class fields
         lhs%name = rhs%name
         if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
@@ -157,6 +177,16 @@ contains
     subroutine subroutine_call_assign(lhs, rhs)
         class(subroutine_call_node), intent(inout) :: lhs
         class(subroutine_call_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        ! Copy derived class fields
         lhs%name = rhs%name
         if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
     end subroutine subroutine_call_assign

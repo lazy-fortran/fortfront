@@ -96,14 +96,12 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy specific fields
         if (allocated(rhs%expression_indices)) then
             if (allocated(lhs%expression_indices)) deallocate(lhs%expression_indices)
@@ -133,14 +131,12 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy specific fields
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
         if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
@@ -193,14 +189,12 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy specific fields
         if (allocated(rhs%unit_spec)) lhs%unit_spec = rhs%unit_spec
         if (allocated(rhs%format_spec)) lhs%format_spec = rhs%format_spec
@@ -250,14 +244,12 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy specific fields
         if (allocated(rhs%descriptor_type)) lhs%descriptor_type = rhs%descriptor_type
         lhs%width = rhs%width

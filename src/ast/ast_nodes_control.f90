@@ -287,13 +287,12 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy specific fields
         lhs%condition_index = rhs%condition_index
         if (allocated(rhs%then_body_indices)) then
@@ -333,13 +332,12 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy specific components
         lhs%var_name = rhs%var_name
         if (allocated(rhs%label)) lhs%label = rhs%label
@@ -373,13 +371,12 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy specific components
         lhs%condition_index = rhs%condition_index
         if (allocated(rhs%body_indices)) then
@@ -434,13 +431,12 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy specific components
         lhs%num_indices = rhs%num_indices
         if (allocated(rhs%index_names)) then
@@ -506,13 +502,12 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy specific components
         lhs%selector_index = rhs%selector_index
         lhs%default_index = rhs%default_index
@@ -549,13 +544,12 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Deep copy allocatable arrays
         if (allocated(rhs%value_indices)) then
             if (allocated(lhs%value_indices)) deallocate(lhs%value_indices)
@@ -596,13 +590,12 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy specific components
         lhs%start_value = rhs%start_value
         lhs%end_value = rhs%end_value
@@ -633,13 +626,12 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Deep copy allocatable array
         if (allocated(rhs%body_indices)) then
             if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
@@ -685,13 +677,12 @@ contains
         
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         lhs%mask_expr_index = rhs%mask_expr_index
         if (allocated(rhs%where_body_indices)) then
             if (allocated(lhs%where_body_indices)) deallocate(lhs%where_body_indices)
@@ -741,13 +732,12 @@ contains
         class(cycle_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine cycle_assign
 
@@ -776,13 +766,12 @@ contains
         class(exit_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine exit_assign
 
@@ -814,13 +803,12 @@ contains
         class(stop_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         lhs%stop_code_index = rhs%stop_code_index
         if (allocated(rhs%stop_message)) lhs%stop_message = rhs%stop_message
     end subroutine stop_assign
@@ -849,13 +837,12 @@ contains
         class(return_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
     end subroutine return_assign
 
     ! Goto statement implementations
@@ -883,13 +870,12 @@ contains
         class(goto_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine goto_assign
 
@@ -921,13 +907,12 @@ contains
         class(error_stop_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         lhs%error_code_index = rhs%error_code_index
         if (allocated(rhs%error_message)) lhs%error_message = rhs%error_message
     end subroutine error_stop_assign
@@ -982,13 +967,12 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
 
         ! Copy associations
         if (allocated(rhs%associations)) then
@@ -1128,13 +1112,12 @@ contains
         class(where_stmt_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
-        if (allocated(rhs%inferred_type)) then
-            allocate(lhs%inferred_type)
-            ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-            ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        else
-            if (allocated(lhs%inferred_type)) deallocate(lhs%inferred_type)
-        end if
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         lhs%mask_expr_index = rhs%mask_expr_index
         lhs%assignment_index = rhs%assignment_index
     end subroutine where_stmt_assign

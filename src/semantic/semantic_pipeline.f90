@@ -128,12 +128,11 @@ contains
     function pipeline_get_analyzer(this, index) result(analyzer)
         class(semantic_pipeline_t), intent(in) :: this
         integer, intent(in) :: index
-        class(semantic_analyzer_t), pointer :: analyzer
+        class(semantic_analyzer_t), allocatable :: analyzer
         
-        analyzer => null()
         if (index > 0 .and. index <= this%count) then
             if (this%analyzers(index)%is_allocated()) then
-                analyzer => this%analyzers(index)%analyzer
+                allocate(analyzer, source=this%analyzers(index)%analyzer)
             end if
         end if
     end function pipeline_get_analyzer

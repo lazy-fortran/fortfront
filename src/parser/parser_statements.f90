@@ -198,6 +198,7 @@ contains
 
     ! Parse statement within if block (utility function)
     function parse_statement_in_if_block(parser, arena, token) result(stmt_index)
+        use parser_control_flow_module, only: parse_associate
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: token
@@ -213,6 +214,8 @@ contains
                 stmt_index = parse_call_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex")
                 stmt_index = parse_declaration(parser, arena)
+            case ("associate")
+                stmt_index = parse_associate(parser, arena)
             case default
                 stmt_index = skip_unknown_statement(parser)
             end select

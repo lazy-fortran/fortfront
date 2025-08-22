@@ -31,18 +31,21 @@ contains
             stop 1
         end if
         
-        if (.not. allocated(output) .or. len_trim(output) == 0) &
+        if (.not. allocated(output) .or. len_trim(output) == 0) then
             print *, "Pipeline should produce output"
             stop 1
+        end if
         
         ! Check that the output contains the intrinsic function calls
-        if (index(output, "sin(") == 0) &
+        if (index(output, "sin(") == 0) then
             print *, "Output should contain sin function call"
             stop 1
+        end if
         
-        if (index(output, "sqrt(") == 0) &
+        if (index(output, "sqrt(") == 0) then
             print *, "Output should contain sqrt function call"
             stop 1
+        end if
         
         print *, "  ✓ Intrinsic function pipeline processing tests passed"
     end subroutine test_intrinsic_function_in_pipeline

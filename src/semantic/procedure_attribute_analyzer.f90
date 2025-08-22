@@ -119,7 +119,7 @@ contains
     end function
     
     subroutine assign_procedure_attribute_analyzer(lhs, rhs)
-        class(procedure_attribute_analyzer_t), intent(inout) :: lhs
+        class(procedure_attribute_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
         select type(rhs)
@@ -133,10 +133,10 @@ contains
     
     function get_procedure_attribute_dependencies(this) result(deps)
         class(procedure_attribute_analyzer_t), intent(in) :: this
-        character(len=32), allocatable :: deps(:)
+        character(:), allocatable :: deps(:)
         
         ! No dependencies for procedure attribute analysis
-        allocate(character(len=32) :: deps(0))
+        allocate(character(len=0) :: deps(0))
         
         ! Avoid unused variable warning
         associate(dummy => this)

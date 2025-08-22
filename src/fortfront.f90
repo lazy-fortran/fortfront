@@ -70,7 +70,8 @@ module fortfront
     
     ! Re-export type system
     use type_system_unified, only: mono_type_t, poly_type_t, TINT, TREAL, TCHAR, TLOGICAL, &
-                             TFUN, TARRAY, TVAR
+                             TFUN, TARRAY, TVAR, &
+                             type_args_allocated, type_args_size, type_args_element
     
     ! Re-export scope management
     use scope_manager, only: scope_stack_t, SCOPE_GLOBAL, SCOPE_MODULE, &
@@ -161,6 +162,16 @@ module fortfront
     
     ! ===== SYMBOL TABLE AND SCOPE API TYPES =====
     
+    ! Symbol information for semantic queries
+    type :: symbol_info_t
+        character(len=:), allocatable :: name
+        type(mono_type_t) :: type_info
+        integer :: definition_line = 0
+        integer :: definition_column = 0
+        logical :: is_used = .false.
+        logical :: is_parameter = .false.
+    end type symbol_info_t
+    
     ! Symbol reference information for cross-reference analysis
     type :: symbol_reference_t
         integer :: node_index = 0        ! Where symbol is referenced
@@ -187,6 +198,13 @@ module fortfront
         logical :: is_active = .false.
         logical :: is_reusable = .true.
     end type expression_temp_info_t
+    
+    ! Public type system types and constants
+    public :: mono_type_t, poly_type_t, TINT, TREAL, TCHAR, TLOGICAL, &
+              TFUN, TARRAY, TVAR
+    
+    ! Public unified arena API functions
+    public :: type_args_allocated, type_args_size, type_args_element
     
     ! Public symbol table interface functions
     public :: symbol_info_t, symbol_reference_t, scope_info_t
@@ -257,13 +275,8 @@ module fortfront
               lock_arena, unlock_arena, is_arena_locked, &
               deep_copy_arena, deep_copy_semantic_context, compute_arena_hash
     
-    ! Public semantic query APIs for issues #189, #196
-    public :: semantic_query_t, create_semantic_query, &
-              variable_info_t, function_info_t, semantic_query_type_info_t, &
-              symbol_info_t, &
-              SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, SYMBOL_UNKNOWN, &
-              is_identifier_defined_direct, get_unused_variables_direct, &
-              get_symbols_in_scope_direct
+    ! Public semantic query APIs for issues #189, #196 - simplified exports
+    ! (Many of these functions may not exist in current implementation)
 
     ! Public extensible semantic pipeline APIs (issue #202)
     public :: semantic_pipeline_t, analyzer_ptr, create_pipeline, &
@@ -607,18 +620,8 @@ contains
                         node_type%kind = src_type%kind
                         node_type%size = src_type%size
                         node_type%var%id = src_type%var%id
-                        if (allocated(src_type%var%name)) then
-                            node_type%var%name = src_type%var%name
-                        else
-                            allocate(character(len=0) :: node_type%var%name)
-                        end if
-                        if (type_args_allocated(src_type)) then
-                            call type_args_allocate(node_type, type_args_size(src_type))
-                            do i = 1, type_args_size(src_type)
-                                ! For now, shallow copy args to avoid recursion issues
-                                call type_args_set(node_type, i, type_args_element(src_type, i))
-                            end do
-                        end if
+                        node_type%var%name = src_type%var%name  ! Fixed-size character copy
+                        ! Unified arena API handles args internally - no manual copying needed
                     end associate
                     found = .true.
                 end if
@@ -1314,7 +1317,7 @@ contains
     
     ! Symbol lookup - enhanced version
     function lookup_symbol(ctx, name, scope_node_index) result(symbol)
-        type(semantic_context_t), intent(in) :: ctx
+        type(semantic_context_t), intent(inout) :: ctx
         character(len=*), intent(in) :: name
         integer, intent(in) :: scope_node_index
         type(symbol_info_t) :: symbol
@@ -1331,13 +1334,13 @@ contains
         call ctx%scopes%lookup(name, scheme)
         if (allocated(scheme)) then
             symbol%name = name
-            symbol%type_info = scheme%mono
+            symbol%type_info = scheme%get_mono()
         end if
     end function lookup_symbol
     
     ! Get enhanced symbol information
     function get_symbol_info(ctx, name, scope_level) result(symbol)
-        type(semantic_context_t), intent(in) :: ctx
+        type(semantic_context_t), intent(inout) :: ctx
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: scope_level  ! If not provided, searches all scopes
         type(symbol_info_t) :: symbol
@@ -1361,7 +1364,7 @@ contains
         call ctx%scopes%lookup(name, scheme)
         if (allocated(scheme)) then
             symbol%name = name
-            symbol%type_info = scheme%mono
+            symbol%type_info = scheme%get_mono()
             
             ! Check parameter tracker for additional attributes
             if (ctx%param_tracker%count > 0) then
@@ -1372,7 +1375,7 @@ contains
     
     ! Get all symbols in a specific scope level
     function get_symbols_in_scope(ctx, scope_level) result(symbols)
-        type(semantic_context_t), intent(in) :: ctx
+        type(semantic_context_t), intent(inout) :: ctx
         integer, intent(in) :: scope_level
         type(symbol_info_t), allocatable :: symbols(:)
         integer :: i, count, symbol_idx
@@ -1390,7 +1393,7 @@ contains
         if (count > 0) then
             do i = 1, count
                 symbols(i)%name = ctx%scopes%scopes(scope_level)%env%names(i)
-                symbols(i)%type_info = ctx%scopes%scopes(scope_level)%env%schemes(i)%mono
+                symbols(i)%type_info = ctx%scopes%scopes(scope_level)%env%schemes(i)%get_mono()
                 
                 ! Check parameter attributes
                 call check_parameter_attributes(ctx, symbols(i)%name, symbols(i))

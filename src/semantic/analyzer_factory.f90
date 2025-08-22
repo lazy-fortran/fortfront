@@ -16,7 +16,7 @@ module analyzer_factory
 
     ! Factory type that holds a creator function
     type :: analyzer_factory_t
-        procedure(analyzer_creator_interface), pointer :: creator => null()
+        procedure(analyzer_creator_interface), pointer, nopass :: creator => null()
         character(len=:), allocatable :: type_name
         character(len=:), allocatable :: description
     contains
@@ -40,7 +40,7 @@ module analyzer_factory
     end type analyzer_registry_t
 
     ! Global registry instance
-    type(analyzer_registry_t), save :: global_registry
+    type(analyzer_registry_t), target, save :: global_registry
 
 contains
 

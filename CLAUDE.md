@@ -82,7 +82,7 @@ fortfront is a Fortran frontend that processes code through four distinct phases
 
 3. **Semantic Analysis** (`src/semantic/`) - Type checking and inference
    - Core module: `semantic_analyzer.f90`
-   - Type system: `type_system_hm.f90` (Hindley-Milner type inference)
+   - Type system: `type_system_unified.f90` (Unified arena-based type system)
    - Scope management: `scope_manager.f90`
    - **Extensible Pipeline**: `semantic_pipeline.f90` (Issue #202)
    - Built-in analyzers: `builtin_analyzers.f90`

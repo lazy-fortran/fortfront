@@ -5,6 +5,7 @@ module parser_execution_statements_module
     use parser_expressions_module, only: parse_range
     use parser_declarations, only: parse_declaration
     use parser_io_statements_module, only: parse_print_statement
+    use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -177,6 +178,10 @@ contains
                     stmt_index = parse_declaration(parser, arena)
                 case ("print")
                     stmt_index = parse_print_statement(parser, arena)
+                case ("allocate")
+                    stmt_index = parse_allocate_statement(parser, arena)
+                case ("deallocate")
+                    stmt_index = parse_deallocate_statement(parser, arena)
                 case default
                     ! Skip unknown keywords for now
                     token = parser%consume()

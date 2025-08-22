@@ -170,7 +170,7 @@ contains
 
     ! Assignment operators for deep copy
     subroutine assign_symbol_analyzer(lhs, rhs)
-        class(symbol_analyzer_t), intent(inout) :: lhs
+        class(symbol_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
         select type(rhs)
@@ -182,7 +182,7 @@ contains
     end subroutine
 
     subroutine assign_type_analyzer(lhs, rhs)
-        class(type_analyzer_t), intent(inout) :: lhs
+        class(type_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
         select type(rhs)
@@ -194,7 +194,7 @@ contains
     end subroutine
 
     subroutine assign_scope_analyzer(lhs, rhs)
-        class(scope_analyzer_t), intent(inout) :: lhs
+        class(scope_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
         select type(rhs)
@@ -208,10 +208,10 @@ contains
     ! Dependency functions for builtin analyzers
     function get_symbol_dependencies(this) result(deps)
         class(symbol_analyzer_t), intent(in) :: this
-        character(len=32), allocatable :: deps(:)
+        character(:), allocatable :: deps(:)
         
         ! Symbol analyzer has no dependencies - runs first
-        allocate(deps(0))
+        allocate(character(len=0) :: deps(0))
         
         associate(dummy => this)
         end associate
@@ -219,10 +219,10 @@ contains
 
     function get_type_dependencies(this) result(deps)
         class(type_analyzer_t), intent(in) :: this
-        character(len=32), allocatable :: deps(:)
+        character(:), allocatable :: deps(:)
         
         ! Type analyzer depends on symbols
-        allocate(deps(1))
+        allocate(character(len=16) :: deps(1))
         deps(1) = "symbol_analyzer"
         
         associate(dummy => this)
@@ -231,10 +231,10 @@ contains
 
     function get_scope_dependencies(this) result(deps)
         class(scope_analyzer_t), intent(in) :: this
-        character(len=32), allocatable :: deps(:)
+        character(:), allocatable :: deps(:)
         
         ! Scope analyzer has no dependencies for now
-        allocate(deps(0))
+        allocate(character(len=0) :: deps(0))
         
         associate(dummy => this)
         end associate

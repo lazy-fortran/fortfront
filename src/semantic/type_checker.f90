@@ -1,6 +1,6 @@
 module type_checker
     ! Type checking and compatibility rules for Fortran
-    use type_system_hm
+    use type_system_unified
     implicit none
     private
 
@@ -35,8 +35,8 @@ contains
                 assignable = (to_type%size >= from_type%size)
             case (TARRAY)
                 ! Arrays must have compatible element types and sizes
-                if (allocated(from_type%args) .and. allocated(to_type%args)) then
-                    assignable = is_assignable(from_type%args(1), to_type%args(1))
+                if (type_has_args(from_type) .and. type_has_args(to_type)) then
+                    assignable = is_assignable(type_get_arg(from_type, 1), type_get_arg(to_type, 1))
                     if (assignable .and. from_type%size > 0 .and. to_type%size > 0) then
                         assignable = (from_type%size == to_type%size)
                     end if
@@ -172,8 +172,8 @@ contains
         if (array1%kind /= TARRAY .or. array2%kind /= TARRAY) return
 
         ! Check element types are compatible
-        if (allocated(array1%args) .and. allocated(array2%args)) then
-            if (.not. is_assignable(array1%args(1), array2%args(1))) return
+        if (type_has_args(array1) .and. type_has_args(array2)) then
+            if (.not. is_assignable(type_get_arg(array1, 1), type_get_arg(array2, 1))) return
         else
             return
         end if

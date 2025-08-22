@@ -97,7 +97,7 @@ contains
 
     subroutine assign_interface_analyzer(lhs, rhs)
         use semantic_analyzer_base, only: semantic_analyzer_t
-        class(interface_analyzer_t), intent(inout) :: lhs
+        class(interface_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
         select type(rhs)
@@ -564,10 +564,10 @@ contains
 
     function get_interface_dependencies(this) result(deps)
         class(interface_analyzer_t), intent(in) :: this
-        character(len=32), allocatable :: deps(:)
+        character(:), allocatable :: deps(:)
         
         ! Interface analyzer has no dependencies
-        allocate(deps(0))
+        allocate(character(len=0) :: deps(0))
         
         associate(dummy => this)
         end associate

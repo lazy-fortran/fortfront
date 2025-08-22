@@ -102,6 +102,7 @@ contains
         line = 0
         column = 0
         in_variable_list = .true.
+        ! Initialize with proper empty arrays that can grow
         allocate(var_indices(0))
         allocate(shape_indices(0))
         
@@ -165,7 +166,8 @@ contains
         
         ! Create allocate statement node
         allocate_index = push_allocate(arena, var_indices, shape_indices, stat_var_index, &
-                                       errmsg_var_index, source_expr_index, mold_expr_index)
+                                       errmsg_var_index, source_expr_index, mold_expr_index, &
+                                       line, column)
     end function parse_allocate_statement
 
     function parse_deallocate_statement(parser, arena) result(deallocate_index)
@@ -256,7 +258,8 @@ contains
         end if
         
         ! Create deallocate statement node
-        deallocate_index = push_deallocate(arena, var_indices, stat_var_index, errmsg_var_index)
+        deallocate_index = push_deallocate(arena, var_indices, stat_var_index, errmsg_var_index, &
+                                          line, column)
     end function parse_deallocate_statement
 
 end module parser_memory_statements_module

@@ -126,13 +126,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
-        ! Currently skipped due to mono_type_t self-referential structure causing
-        ! performance issues and potential infinite loops during assignment.
-        ! This is a temporary workaround that breaks semantic information flow.
-        ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-        ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        ! (Disabled as documented in CLAUDE.md until proper fix)
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
         if (allocated(rhs%var_name)) lhs%var_name = rhs%var_name
@@ -205,13 +204,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
-        ! Currently skipped due to mono_type_t self-referential structure causing
-        ! performance issues and potential infinite loops during assignment.
-        ! This is a temporary workaround that breaks semantic information flow.
-        ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-        ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        ! (Disabled as documented in CLAUDE.md until proper fix)
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         if (allocated(rhs%type_name)) lhs%type_name = rhs%type_name
@@ -245,13 +243,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
-        ! Currently skipped due to mono_type_t self-referential structure causing
-        ! performance issues and potential infinite loops during assignment.
-        ! This is a temporary workaround that breaks semantic information flow.
-        ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-        ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        ! (Disabled as documented in CLAUDE.md until proper fix)
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         ! Handle declaration_indices array
@@ -286,13 +283,12 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
-        ! TODO: Implement proper inferred_type copying with cycle-safe deep copy
-        ! Currently skipped due to mono_type_t self-referential structure causing
-        ! performance issues and potential infinite loops during assignment.
-        ! This is a temporary workaround that breaks semantic information flow.
-        ! TEMPORARY: Skip inferred_type copying to prevent memory corruption
-        ! TODO: Implement proper cycle-safe deep copy for mono_type_t
-        ! (Disabled as documented in CLAUDE.md until proper fix)
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
         if (allocated(rhs%name)) lhs%name = rhs%name
         ! Handle component_indices array
