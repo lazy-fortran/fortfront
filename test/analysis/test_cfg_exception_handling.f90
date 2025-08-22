@@ -347,7 +347,6 @@ contains
         ! Build CFG
         cfg = build_cfg_from_arena(arena, root_index)
         
- stop 1
         exit_blocks = get_cfg_exit_blocks(cfg)
         if (size(exit_blocks) == 0) then
             print *, "FAILED: No exit blocks found for error stop"

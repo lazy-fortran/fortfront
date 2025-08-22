@@ -4,6 +4,7 @@ module parser_import_statements_module
     use parser_state_module
     use ast_core
     use ast_factory
+    use parser_declarations, only: parse_declaration
     use ast_types, only: LITERAL_STRING
     use url_utilities, only: extract_module_from_url
     implicit none
@@ -494,6 +495,29 @@ contains
             if (token%kind == TK_KEYWORD .and. token%text == "contains") then
                 has_contains = .true.
                 in_contains_section = .true.
+                token = parser%consume()  ! consume "contains"
+                cycle  ! Continue to next iteration
+            end if
+            
+            ! Parse declarations in module body (before contains)
+            if (.not. in_contains_section) then
+                if (token%kind == TK_KEYWORD) then
+                    select case (token%text)
+                    case ("integer", "real", "logical", "character", "complex")
+                        stmt_index = parse_declaration(parser, arena)
+                        if (stmt_index > 0) then
+                            declaration_indices = [declaration_indices, stmt_index]
+                        end if
+                        cycle  ! Continue to next iteration
+                    case ("implicit")
+                        ! Parse implicit statement
+                        call parse_simple_implicit_in_module(parser, arena, stmt_index)
+                        if (stmt_index > 0) then
+                            declaration_indices = [declaration_indices, stmt_index]
+                        end if
+                        cycle  ! Continue to next iteration
+                    end select
+                end if
             end if
 
             ! Create placeholder subroutine nodes for testing
@@ -517,13 +541,50 @@ contains
                 end if
             end if
             
-            ! Always advance to avoid infinite loop
-            token = parser%consume()
+            ! Only advance if we haven't handled this token specifically
+            ! (declarations and contains are handled above with cycle)
+            if (in_contains_section) then
+                token = parser%consume()  ! Always advance in contains section
+            else
+                token = parser%consume()  ! Advance for unhandled tokens
+            end if
         end do
 
         ! Create module node with proper structure
         module_index = push_module_structured(arena, module_name, declaration_indices, &
                                              procedure_indices, has_contains, line, column)
     end function parse_module
+    
+    ! Parse a simple implicit statement in module context
+    subroutine parse_simple_implicit_in_module(parser, arena, stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        type(token_t) :: implicit_token, none_token
+        character(len=:), allocatable :: implicit_type
+        
+        stmt_index = 0
+        
+        ! Get implicit keyword
+        implicit_token = parser%consume()
+        
+        ! Check for 'none'
+        none_token = parser%peek()
+        if (none_token%kind == TK_KEYWORD .and. none_token%text == "none") then
+            none_token = parser%consume()
+            implicit_type = "none"
+        else
+            implicit_type = "default"
+        end if
+        
+        ! Create implicit statement node
+        if (implicit_type == "none") then
+            stmt_index = push_implicit_statement(arena, .true., &
+                                               line=implicit_token%line, column=implicit_token%column)
+        else
+            stmt_index = push_implicit_statement(arena, .false., &
+                                               line=implicit_token%line, column=implicit_token%column)
+        end if
+    end subroutine parse_simple_implicit_in_module
 
 end module parser_import_statements_module
