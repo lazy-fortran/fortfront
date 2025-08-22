@@ -172,10 +172,10 @@ contains
         
         call lhs%clear()
         
+        lhs%count = rhs%count
+        lhs%initialized = rhs%initialized
+        
         if (rhs%initialized .and. rhs%count > 0) then
-            lhs%count = rhs%count
-            lhs%initialized = rhs%initialized
-            
             allocate(lhs%analyzers(rhs%count))
             allocate(lhs%analyzer_names(rhs%count))
             

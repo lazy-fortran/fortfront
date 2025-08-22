@@ -512,6 +512,8 @@ contains
         integer, intent(in) :: binop_index
         type(mono_type_t) :: typ
         type(mono_type_t) :: left_typ, right_typ
+        integer :: temp_id
+        character(len=:), allocatable :: type_name
 
         ! Infer left operand type
         left_typ = ctx%infer(arena, binop%left_index)
@@ -525,26 +527,36 @@ contains
             ! Numeric operations - use common type
             if (left_typ%kind == TINT .and. right_typ%kind == TINT) then
                 typ = create_mono_type(TINT)
+                type_name = "integer"
             else
                 typ = create_mono_type(TREAL)
+                type_name = "real"
             end if
 
         case ("<", ">", "<=", ">=", "==", "/=")
             ! Comparison operations return logical
             typ = create_mono_type(TLOGICAL)
+            type_name = "logical"
 
         case (".and.", ".or.")
             ! Logical operations
             typ = create_mono_type(TLOGICAL)
+            type_name = "logical"
 
         case ("//")
             ! String concatenation
             typ = create_mono_type(TCHAR)
+            type_name = "character"
 
         case default
             ! Default to real
             typ = create_mono_type(TREAL)
+            type_name = "real"
         end select
+
+        ! Create temporary for the binary operation result
+        temp_id = ctx%temp_tracker%allocate_temp(type_name, 8, binop_index)
+        call ctx%temp_tracker%mark_expr_temps(binop_index, [temp_id])
     end function infer_binary_op
 
     ! Infer type of function call (simplified)
