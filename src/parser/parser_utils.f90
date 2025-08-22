@@ -20,9 +20,13 @@ contains
         has_comma = .false.
         lookahead_pos = parser%current_token
         
-        ! Get tokens safely - ensure compatibility array is available
-        call parser%ensure_tokens_cached()
-        tokens = parser%get_all_tokens()
+        ! Get tokens directly from parser
+        if (allocated(parser%tokens)) then
+            allocate(tokens(size(parser%tokens)))
+            tokens = parser%tokens
+        else
+            allocate(tokens(0))
+        end if
         
         ! Defensive check for empty token array
         if (size(tokens) == 0) then

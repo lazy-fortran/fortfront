@@ -535,8 +535,12 @@ contains
                 block
                     type(token_t), allocatable :: all_tokens(:)
                     integer :: next_idx
-                    call parser%ensure_tokens_cached()
-                    all_tokens = parser%get_all_tokens()
+                    if (allocated(parser%tokens)) then
+                        allocate(all_tokens(size(parser%tokens)))
+                        all_tokens = parser%tokens
+                    else
+                        allocate(all_tokens(0))
+                    end if
                     next_idx = parser%current_token + 1
                     if (next_idx <= size(all_tokens)) then
                         if (all_tokens(next_idx)%kind == TK_KEYWORD .and. &
@@ -570,8 +574,12 @@ contains
                 integer :: stmt_start, stmt_end, i, stmt_size, stmt_index
                 type(parser_state_t) :: block_parser
                 
-                call parser%ensure_tokens_cached()
-                all_tokens = parser%get_all_tokens()
+                if (allocated(parser%tokens)) then
+                    allocate(all_tokens(size(parser%tokens)))
+                    all_tokens = parser%tokens
+                else
+                    allocate(all_tokens(0))
+                end if
                 stmt_start = parser%current_token
                 stmt_end = stmt_start
                 
@@ -662,8 +670,12 @@ contains
                 block
                     type(token_t), allocatable :: all_tokens(:)
                     integer :: next_idx
-                    call parser%ensure_tokens_cached()
-                    all_tokens = parser%get_all_tokens()
+                    if (allocated(parser%tokens)) then
+                        allocate(all_tokens(size(parser%tokens)))
+                        all_tokens = parser%tokens
+                    else
+                        allocate(all_tokens(0))
+                    end if
                     next_idx = parser%current_token + 1
                     if (next_idx <= size(all_tokens)) then
                         if (all_tokens(next_idx)%kind == TK_KEYWORD .and. &
@@ -697,8 +709,12 @@ contains
                 integer :: stmt_start, stmt_end, i, stmt_size, stmt_index
                 type(parser_state_t) :: block_parser
                 
-                call parser%ensure_tokens_cached()
-                all_tokens = parser%get_all_tokens()
+                if (allocated(parser%tokens)) then
+                    allocate(all_tokens(size(parser%tokens)))
+                    all_tokens = parser%tokens
+                else
+                    allocate(all_tokens(0))
+                end if
                 stmt_start = parser%current_token
                 stmt_end = stmt_start
                 
