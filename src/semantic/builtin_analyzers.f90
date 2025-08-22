@@ -3,7 +3,7 @@ module builtin_analyzers
     use ast_core, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program
-    use type_system_hm, only: mono_type_t
+    use type_system_unified, only: mono_type_t
     
     ! Import analysis plugins
     use call_graph_analyzer, only: call_graph_analyzer_t

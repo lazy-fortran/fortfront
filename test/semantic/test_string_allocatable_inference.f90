@@ -3,7 +3,7 @@ program test_string_allocatable_inference
     use ast_core, only: ast_arena_t, create_ast_arena, assignment_node, identifier_node
     use lexer_core
     use parser_dispatcher_module, only: parse_statement_dispatcher
-    use type_system_hm, only: mono_type_t, TCHAR
+    use type_system_unified, only: mono_type_t, TCHAR
     implicit none
 
     logical :: all_passed

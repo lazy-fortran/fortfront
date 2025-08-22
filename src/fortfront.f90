@@ -69,7 +69,7 @@ module fortfront
     use lexer_core, only: token_t, tokenize_core
     
     ! Re-export type system
-    use type_system_hm, only: mono_type_t, poly_type_t, TINT, TREAL, TCHAR, TLOGICAL, &
+    use type_system_unified, only: mono_type_t, poly_type_t, TINT, TREAL, TCHAR, TLOGICAL, &
                              TFUN, TARRAY, TVAR
     
     ! Re-export scope management

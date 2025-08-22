@@ -4,7 +4,7 @@ module codegen_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
     use ast_nodes_control, only: associate_node
     use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, derived_type_node
-    use type_system_hm
+    use type_system_unified
     use string_types, only: string_t
     use codegen_indent
     implicit none

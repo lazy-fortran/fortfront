@@ -1,6 +1,6 @@
 module semantic_analyzer_safe
     use ast_core
-    use type_system_hm
+    use type_system_unified
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     use error_handling, only: result_t, success_result, create_error_result, critical_result, &
                               error_collection_t, create_error_collection, &
