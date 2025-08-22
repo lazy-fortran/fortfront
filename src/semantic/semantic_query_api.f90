@@ -82,6 +82,9 @@ module semantic_query_api
         ! NOTE: definition_line/definition_column population requires connecting
         !       symbol declarations to AST node source locations during semantic 
         !       analysis. Currently these fields are exported but not populated.
+    contains
+        procedure :: assign => symbol_info_assign
+        generic :: assignment(=) => assign
     end type symbol_info_t
 
     ! Main query interface - WARNING: Assignment causes deep copies (issue #196)
@@ -107,6 +110,28 @@ module semantic_query_api
     end type semantic_query_t
 
 contains
+
+    ! Assignment operator for symbol_info_t to handle deep copy
+    subroutine symbol_info_assign(lhs, rhs)
+        class(symbol_info_t), intent(inout) :: lhs
+        type(symbol_info_t), intent(in) :: rhs
+        
+        ! Deep copy allocatable string
+        if (allocated(rhs%name)) then
+            lhs%name = rhs%name
+        else if (allocated(lhs%name)) then
+            deallocate(lhs%name)
+        end if
+        
+        ! Use mono_type_t's assignment operator for deep copy
+        lhs%type_info = rhs%type_info
+        
+        ! Copy scalar fields
+        lhs%definition_line = rhs%definition_line
+        lhs%definition_column = rhs%definition_column
+        lhs%is_used = rhs%is_used
+        lhs%is_parameter = rhs%is_parameter
+    end subroutine symbol_info_assign
 
     ! Create semantic query interface - WARNING: causes deep copies (issue #196)
     ! This function is retained for compatibility but should be avoided in production.
