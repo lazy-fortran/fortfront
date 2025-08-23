@@ -12,7 +12,11 @@ module ast_arena_modern
     public :: ast_arena_t, ast_handle_t, ast_node_arena_t
     public :: create_ast_arena, destroy_ast_arena
     public :: store_ast_node, get_ast_node, is_valid_ast_handle, null_ast_handle
-    public :: ast_arena_stats_t
+    public :: ast_arena_stats_t, ast_free_result_t
+    public :: free_ast_node, is_node_active, get_free_statistics
+    
+    ! Global counter for unique arena IDs
+    integer, save :: next_arena_id = 1
     
     ! Arena-based AST node storage (without allocatables to avoid GCC Bug 114612)
     type :: ast_node_arena_t
@@ -45,6 +49,7 @@ module ast_arena_modern
     type :: ast_handle_t
         integer :: node_id = 0                           ! Node ID in arena
         integer :: generation = 0                        ! Generation for validation
+        integer :: arena_id = 0                          ! Arena identifier for cross-arena safety
     end type ast_handle_t
     
     ! High-performance AST arena with slot management
@@ -59,14 +64,19 @@ module ast_arena_modern
         integer :: epoch = 1                            ! Current epoch for resets
         integer :: total_allocations = 0                ! Performance counter
         integer :: total_validations = 0                ! Validation counter
+        integer :: arena_id = 0                         ! Unique arena identifier
         logical :: is_initialized = .false.             ! Initialization state
     contains
         procedure :: reset => ast_arena_reset
         procedure :: get_stats => ast_arena_get_stats
         procedure :: validate => ast_arena_validate_handle
         procedure :: get_node_count => ast_arena_get_node_count
+        procedure :: get_arena_id => ast_arena_get_arena_id
         procedure :: allocate_node => ast_arena_allocate_node
         procedure :: assign_ast_arena => ast_arena_assign
+        procedure :: free_node => ast_arena_free_node
+        procedure :: is_active => ast_arena_is_node_active
+        procedure :: get_free_stats => ast_arena_get_free_stats
         generic :: assignment(=) => assign_ast_arena
     end type ast_arena_t
     
@@ -80,7 +90,17 @@ module ast_arena_modern
         real :: allocation_rate = 0.0                   ! Nodes per second
         integer :: max_depth = 0                        ! Maximum tree depth
         integer :: total_children = 0                   ! Total child relationships
+        integer :: active_nodes = 0                     ! Number of active (non-freed) nodes
+        integer :: freed_nodes = 0                      ! Number of freed nodes
+        real :: fragmentation = 0.0                     ! Memory fragmentation ratio
     end type ast_arena_stats_t
+    
+    ! Result type for node freeing operations
+    type :: ast_free_result_t
+        logical :: success = .false.                    ! Whether freeing succeeded
+        integer :: freed_generation = 0                 ! Generation when node was freed
+        character(len=:), allocatable :: error_message  ! Error description if failed
+    end type ast_free_result_t
     
 contains
     
@@ -88,7 +108,7 @@ contains
     function create_ast_arena(initial_capacity) result(ast_arena)
         integer, intent(in), optional :: initial_capacity
         type(ast_arena_t) :: ast_arena
-        integer :: capacity
+        integer :: capacity, i
         
         capacity = 1024  ! Default initial capacity
         if (present(initial_capacity)) capacity = initial_capacity
@@ -105,9 +125,17 @@ contains
         ast_arena%epoch = 1
         ast_arena%total_allocations = 0
         ast_arena%total_validations = 0
+        ast_arena%arena_id = next_arena_id
+        next_arena_id = next_arena_id + 1
         
-        ! Initialize all slots as free with epoch 0 (invalid)
+        ! Initialize all slots as invalid with generation 0 (only used slots get valid generations)
         ast_arena%slot_gen(:) = 0
+        
+        ! Populate free stack with all initial slots
+        do i = 1, capacity
+            ast_arena%free_top = ast_arena%free_top + 1
+            ast_arena%free_stack(ast_arena%free_top) = i
+        end do
         
         ast_arena%is_initialized = .true.
     end function create_ast_arena
@@ -154,9 +182,13 @@ contains
         ast_arena%nodes(slot_id) = node
         
         ! Set slot generation and create handle
-        ast_arena%slot_gen(slot_id) = ast_arena%epoch
+        ! Assign valid generation when slot is used (ensures cross-arena safety)
+        if (ast_arena%slot_gen(slot_id) == 0) then
+            ast_arena%slot_gen(slot_id) = 1  ! First use gets generation 1
+        end if
         handle%node_id = slot_id
-        handle%generation = ast_arena%epoch
+        handle%generation = ast_arena%slot_gen(slot_id)
+        handle%arena_id = ast_arena%arena_id
         
         ! Update counters
         ast_arena%node_count = ast_arena%node_count + 1
@@ -196,6 +228,7 @@ contains
         
         handle%node_id = 0
         handle%generation = 0
+        handle%arena_id = 0
     end function null_ast_handle
     
     ! Reset AST arena to clean state (epoch management)
@@ -267,6 +300,12 @@ contains
             return
         end if
         
+        ! Check arena ownership (cross-arena safety)
+        if (handle%arena_id /= this%arena_id) then
+            is_valid = .false.
+            return
+        end if
+        
         ! Check per-slot generation match (ABA-safe)
         if (this%slot_gen(handle%node_id) /= handle%generation) then
             is_valid = .false.
@@ -284,6 +323,14 @@ contains
         count = this%node_count
     end function ast_arena_get_node_count
     
+    ! Get arena ID
+    function ast_arena_get_arena_id(this) result(arena_id)
+        class(ast_arena_t), intent(in) :: this
+        integer :: arena_id
+        
+        arena_id = this%arena_id
+    end function ast_arena_get_arena_id
+    
     ! Allocate space for a new node (internal helper - deprecated)
     function ast_arena_allocate_node(this) result(handle)
         class(ast_arena_t), intent(inout) :: this
@@ -292,6 +339,99 @@ contains
         ! This is deprecated - use store_ast_node instead
         handle = null_ast_handle()
     end function ast_arena_allocate_node
+    
+    ! Free individual AST node with generation tracking
+    function ast_arena_free_node(this, handle) result(free_result)
+        class(ast_arena_t), intent(inout) :: this
+        type(ast_handle_t), intent(in) :: handle
+        type(ast_free_result_t) :: free_result
+        
+        ! Initialize result
+        free_result%success = .false.
+        free_result%freed_generation = 0
+        
+        ! Validate arena is initialized
+        if (.not. this%is_initialized) then
+            allocate(character(40) :: free_result%error_message)
+            free_result%error_message = "Arena not initialized"
+            return
+        end if
+        
+        ! Validate handle
+        if (.not. this%validate(handle)) then
+            allocate(character(25) :: free_result%error_message)
+            free_result%error_message = "Invalid handle for freeing"
+            return
+        end if
+        
+        ! Free the node by incrementing its slot generation (invalidates old handles)
+        this%slot_gen(handle%node_id) = this%slot_gen(handle%node_id) + 1  ! Invalidate old handles
+        free_result%freed_generation = handle%generation
+        
+        ! Add slot to free list for reuse
+        call push_free(this, handle%node_id)
+        
+        ! Update counters
+        this%node_count = this%node_count - 1
+        
+        free_result%success = .true.
+    end function ast_arena_free_node
+    
+    ! Check if a node handle is currently active (not freed)
+    function ast_arena_is_node_active(this, handle) result(is_active)
+        class(ast_arena_t), intent(inout) :: this
+        type(ast_handle_t), intent(in) :: handle
+        logical :: is_active
+        
+        ! A node is active if its handle is valid
+        is_active = this%validate(handle)
+    end function ast_arena_is_node_active
+    
+    ! Get statistics about freed vs active nodes
+    function ast_arena_get_free_stats(this) result(stats)
+        class(ast_arena_t), intent(in) :: this
+        type(ast_arena_stats_t) :: stats
+        
+        ! Get base statistics
+        stats = this%get_stats()
+        
+        ! Add freeing-specific statistics
+        stats%active_nodes = this%node_count
+        stats%freed_nodes = (this%total_allocations - this%node_count)
+        
+        ! Calculate fragmentation (ratio of free slots to total capacity)
+        if (this%cap > 0) then
+            stats%fragmentation = real(this%free_top) / real(this%cap)
+        else
+            stats%fragmentation = 0.0
+        end if
+    end function ast_arena_get_free_stats
+    
+    ! Public interface: Free AST node from arena
+    function free_ast_node(ast_arena, handle) result(free_result)
+        type(ast_arena_t), intent(inout) :: ast_arena
+        type(ast_handle_t), intent(in) :: handle
+        type(ast_free_result_t) :: free_result
+        
+        free_result = ast_arena%free_node(handle)
+    end function free_ast_node
+    
+    ! Public interface: Check if node is active
+    function is_node_active(ast_arena, handle) result(is_active)
+        type(ast_arena_t), intent(inout) :: ast_arena
+        type(ast_handle_t), intent(in) :: handle
+        logical :: is_active
+        
+        is_active = ast_arena%is_active(handle)
+    end function is_node_active
+    
+    ! Public interface: Get freeing statistics
+    function get_free_statistics(ast_arena) result(stats)
+        type(ast_arena_t), intent(in) :: ast_arena
+        type(ast_arena_stats_t) :: stats
+        
+        stats = ast_arena%get_free_stats()
+    end function get_free_statistics
     
     ! Pop slot from freelist or allocate new one
     function pop_slot(arena) result(slot_id)
@@ -348,8 +488,8 @@ contains
             new_free_stack(1:arena%free_top) = arena%free_stack(1:arena%free_top)
         end if
         
-        ! Initialize new slots as free
-        new_slot_gen(old_cap+1:new_cap) = 0
+        ! Initialize new slots as free with generation 1
+        new_slot_gen(old_cap+1:new_cap) = 1
         
         ! Build freelist for new slots
         do i = old_cap + 1, new_cap
@@ -376,6 +516,7 @@ contains
         lhs%epoch = rhs%epoch
         lhs%total_allocations = rhs%total_allocations
         lhs%total_validations = rhs%total_validations
+        lhs%arena_id = rhs%arena_id
         lhs%is_initialized = rhs%is_initialized
         
         ! Deep copy slot arrays
