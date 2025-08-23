@@ -50,7 +50,7 @@ module procedure_attribute_analyzer
     end type
     
     ! Efficient procedure registry
-    type :: procedure_registry_t
+    type, extends(semantic_result_base_t) :: procedure_registry_t
         type(procedure_info_t), allocatable :: procedures(:)
         integer :: procedure_count = 0
     contains
@@ -58,6 +58,11 @@ module procedure_attribute_analyzer
         procedure :: find_by_name
         procedure :: find_by_node
         procedure :: get_all_procedures
+        procedure :: get_result_type => registry_get_result_type
+        procedure :: clone_result => registry_clone_result
+        procedure :: merge_results => registry_merge_results
+        procedure :: assign => registry_assign
+        generic :: assignment(=) => assign
     end type
     
     ! Procedure attribute analyzer plugin
@@ -340,6 +345,56 @@ contains
         ! Placeholder - would validate attribute combinations
         associate(dummy => registry)
         end associate
+    end subroutine
+
+    ! Implementation of required abstract interfaces for procedure_registry_t
+    function registry_get_result_type(this) result(type_name)
+        class(procedure_registry_t), intent(in) :: this
+        character(:), allocatable :: type_name
+        
+        type_name = "procedure_registry_t"
+        associate(dummy => this)
+        end associate
+    end function
+
+    function registry_clone_result(this) result(cloned)
+        class(procedure_registry_t), intent(in) :: this
+        class(semantic_result_base_t), allocatable :: cloned
+        
+        allocate(procedure_registry_t :: cloned)
+        select type(cloned)
+        type is (procedure_registry_t)
+            cloned = this
+        end select
+    end function
+
+    subroutine registry_merge_results(this, other)
+        class(procedure_registry_t), intent(inout) :: this
+        class(semantic_result_base_t), intent(in) :: other
+        
+        select type(other)
+        type is (procedure_registry_t)
+            ! Merge other registry into this one
+            ! For now, just copy errors and warnings
+            this%has_errors = this%has_errors .or. other%has_errors
+            this%has_warnings = this%has_warnings .or. other%has_warnings
+        end select
+    end subroutine
+
+    subroutine registry_assign(this, other)
+        class(procedure_registry_t), intent(out) :: this
+        class(procedure_registry_t), intent(in) :: other
+        
+        ! Copy all components
+        this%procedures = other%procedures
+        this%procedure_count = other%procedure_count
+        
+        ! Copy base class components
+        this%result_id = other%result_id
+        this%result_type_name = other%result_type_name
+        this%has_errors = other%has_errors
+        this%has_warnings = other%has_warnings
+        this%summary = other%summary
     end subroutine
 
 end module procedure_attribute_analyzer

@@ -1,7 +1,7 @@
 module test_analyzer
     use semantic_analyzer_base, only: semantic_analyzer_t
     use semantic_context_types, only: semantic_context_base_t
-    use semantic_result_types, only: semantic_result_base_t
+    use semantic_result_types, only: semantic_result_base_t, test_result_t
     use ast_core, only: ast_arena_t
     implicit none
     private
@@ -46,10 +46,11 @@ contains
         class(semantic_result_base_t), allocatable :: results
         
         ! For testing, return the execution status
-        allocate(logical :: results)
+        allocate(test_result_t :: results)
         select type(results)
-        type is (logical)
-            results = this%analysis_executed
+        type is (test_result_t)
+            results%analysis_executed = this%analysis_executed
+            results%nodes_visited = this%nodes_visited
         end select
     end function
 

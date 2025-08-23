@@ -96,6 +96,18 @@ module semantic_result_types
         generic :: assignment(=) => assign
     end type call_graph_result_t
 
+    ! Simple test results for testing purposes
+    type, extends(semantic_result_base_t), public :: test_result_t
+        logical :: analysis_executed = .false.
+        integer :: nodes_visited = 0
+    contains
+        procedure :: get_result_type => test_get_result_type
+        procedure :: clone_result => test_clone_result
+        procedure :: merge_results => test_merge_results
+        procedure :: assign => test_result_assign
+        generic :: assignment(=) => assign
+    end type test_result_t
+
     ! Abstract interfaces
     abstract interface
         function get_result_type_interface(this) result(type_name)
@@ -390,5 +402,51 @@ contains
         lhs%call_relationships = rhs%call_relationships
         lhs%has_recursive_calls = rhs%has_recursive_calls
     end subroutine call_graph_result_assign
+
+    ! Test result implementations
+    function test_get_result_type(this) result(type_name)
+        class(test_result_t), intent(in) :: this
+        character(:), allocatable :: type_name
+        
+        type_name = "test_result_t"
+        associate(dummy => this)
+        end associate
+    end function test_get_result_type
+
+    function test_clone_result(this) result(cloned)
+        class(test_result_t), intent(in) :: this
+        class(semantic_result_base_t), allocatable :: cloned
+        
+        allocate(test_result_t :: cloned)
+        select type(cloned)
+        type is (test_result_t)
+            cloned = this
+        end select
+    end function test_clone_result
+
+    subroutine test_merge_results(this, other)
+        class(test_result_t), intent(inout) :: this
+        class(semantic_result_base_t), intent(in) :: other
+        
+        select type(other)
+        type is (test_result_t)
+            this%has_errors = this%has_errors .or. other%has_errors
+            this%has_warnings = this%has_warnings .or. other%has_warnings
+            this%nodes_visited = this%nodes_visited + other%nodes_visited
+        end select
+    end subroutine test_merge_results
+
+    subroutine test_result_assign(lhs, rhs)
+        class(test_result_t), intent(out) :: lhs
+        type(test_result_t), intent(in) :: rhs
+        
+        lhs%result_id = rhs%result_id
+        lhs%result_type_name = rhs%result_type_name
+        lhs%has_errors = rhs%has_errors
+        lhs%has_warnings = rhs%has_warnings
+        lhs%summary = rhs%summary
+        lhs%analysis_executed = rhs%analysis_executed
+        lhs%nodes_visited = rhs%nodes_visited
+    end subroutine test_result_assign
 
 end module semantic_result_types
