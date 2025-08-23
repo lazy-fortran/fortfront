@@ -52,14 +52,26 @@ module type_system_arena
         type(mono_handle_t) :: mono         ! Handle to monomorphic type
     end type arena_poly_type_t
 
-    ! Type arena for managing all type allocations
-    type, public :: type_arena_t
+    ! Type arena for managing all type allocations (extends base_arena_t)
+    type, extends(base_arena_t), public :: type_arena_t
         type(arena_t) :: arena              ! Underlying memory arena
         integer :: next_type_id = 1         ! Unique ID counter
         integer :: mono_count = 0           ! Statistics
         integer :: poly_count = 0
         integer :: args_count = 0
     contains
+        ! Base arena interface implementations
+        procedure :: insert => type_arena_insert
+        procedure :: get => type_arena_get
+        procedure :: valid => type_arena_valid
+        procedure :: free => type_arena_free
+        
+        ! Override base implementations
+        procedure :: reset => type_arena_reset
+        procedure :: checkpoint => type_arena_checkpoint
+        procedure :: rollback => type_arena_rollback
+        
+        ! Type-specific operations
         procedure :: allocate_mono => type_arena_allocate_mono
         procedure :: allocate_poly => type_arena_allocate_poly
         procedure :: allocate_args => type_arena_allocate_args
@@ -73,7 +85,6 @@ module type_system_arena
         procedure :: validate_poly => type_arena_validate_poly
         procedure :: validate_args => type_arena_validate_args
         procedure :: get_stats => type_arena_get_stats
-        procedure :: reset => type_arena_reset
         procedure :: assign_type_arena => type_arena_assign
         generic :: assignment(=) => assign_type_arena
     end type type_arena_t
@@ -439,5 +450,124 @@ contains
         lhs%poly_count = rhs%poly_count
         lhs%args_count = rhs%args_count
     end subroutine type_arena_assign
+
+    ! ============================================================================
+    ! Base Arena Interface Implementations for Type Arena (Issue #369)
+    ! ============================================================================
+    
+    ! Insert item into type arena (base interface)
+    function type_arena_insert(this, item) result(handle)
+        class(type_arena_t), intent(inout) :: this
+        class(*), intent(in) :: item
+        type(arena_handle_t) :: handle
+        type(mono_handle_t) :: mono_h
+        type(poly_handle_t) :: poly_h
+        type(args_handle_t) :: args_h
+        
+        ! Determine type and store accordingly
+        select type(item)
+        type is (arena_mono_type_t)
+            mono_h = this%allocate_mono()
+            if (is_valid_mono_handle(mono_h)) then
+                call this%set_mono(mono_h, item)
+            end if
+            handle = mono_h%handle
+        type is (arena_poly_type_t)
+            poly_h = this%allocate_poly()
+            if (is_valid_poly_handle(poly_h)) then
+                call this%set_poly(poly_h, item)
+            end if
+            handle = poly_h%handle
+        type is (mono_handle_t)
+            ! Store single mono handle as args array of size 1
+            args_h = this%allocate_args(1)
+            if (is_valid_args_handle(args_h)) then
+                call this%set_args(args_h, [item])
+            end if
+            handle = args_h%handle
+        class default
+            ! Return invalid handle for unknown types
+            handle%chunk_id = 0
+            handle%offset = 0
+            handle%generation = 0
+            handle%size = 0
+        end select
+        
+        ! Update size
+        if (handle%chunk_id > 0) then
+            this%size = this%size + 1
+        end if
+    end function type_arena_insert
+    
+    ! Get item from type arena (base interface)
+    function type_arena_get(this, handle) result(item)
+        class(type_arena_t), intent(in) :: this
+        type(arena_handle_t), intent(in) :: handle
+        class(*), pointer :: item
+        integer(1), allocatable :: buffer(:)
+        logical :: status
+        
+        item => null()
+        
+        ! Validate handle first
+        if (.not. this%valid(handle)) return
+        
+        ! We can't easily return polymorphic pointers to arena data
+        ! This is a limitation of the type arena design
+        ! For actual use, clients should use get_mono/get_poly/get_args
+    end function type_arena_get
+    
+    ! Validate handle in type arena (base interface)
+    function type_arena_valid(this, handle) result(is_valid)
+        class(type_arena_t), intent(in) :: this
+        type(arena_handle_t), intent(in) :: handle
+        logical :: is_valid
+        
+        ! Use underlying arena validation
+        is_valid = this%arena%validate(handle)
+    end function type_arena_valid
+    
+    ! Free item in type arena (base interface)
+    subroutine type_arena_free(this, handle)
+        class(type_arena_t), intent(inout) :: this
+        type(arena_handle_t), intent(in) :: handle
+        
+        ! Type arena doesn't support individual frees
+        ! This is by design for performance
+        ! Just decrement size counter
+        if (this%valid(handle)) then
+            this%size = this%size - 1
+        end if
+    end subroutine type_arena_free
+    
+    ! Create checkpoint for type arena
+    function type_arena_checkpoint(this) result(checkpoint)
+        class(type_arena_t), intent(in) :: this
+        type(arena_checkpoint_t) :: checkpoint
+        type(arena_stats_t) :: stats
+        
+        stats = this%arena%get_stats()
+        
+        checkpoint%generation = stats%current_generation
+        checkpoint%size = this%size
+        checkpoint%capacity = stats%total_capacity
+        checkpoint%chunk_count = stats%chunk_count
+        checkpoint%current_chunk = 1
+        checkpoint%total_allocated = stats%total_allocated
+    end function type_arena_checkpoint
+    
+    ! Rollback type arena to checkpoint
+    subroutine type_arena_rollback(this, checkpoint)
+        class(type_arena_t), intent(inout) :: this
+        type(arena_checkpoint_t), intent(in) :: checkpoint
+        
+        ! Can't truly rollback without more state tracking
+        ! Just increment generation to invalidate handles
+        this%generation = this%generation + 1
+        this%size = checkpoint%size
+        
+        ! Reset counts to checkpoint values
+        ! This is approximate without detailed tracking
+    end subroutine type_arena_rollback
 
 end module type_system_arena

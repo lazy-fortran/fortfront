@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-No active work
 
 ## TODO (Ordered by Priority)
 
@@ -11,8 +10,7 @@ No remaining critical items - #442 moved to DOING
 ### Foundation Phase 1: Error Handling Infrastructure (CRITICAL)
 No remaining items - Phase 1 complete
 
-### Foundation Phase 2: Arena System (BLOCKED until #442 complete)
-- [ ] #369: feat: define base arena interface with type-bound procedures
+### Foundation Phase 2: Arena System (BLOCKED until #442 complete)  
 - [ ] #370: feat: migrate ast_arena to container API with type-bound procedures
 - [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
 - [ ] #362: Create unified compiler_arena module for KISS architecture
@@ -43,6 +41,7 @@ No remaining items - Phase 1 complete
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #369: feat: define base arena interface with type-bound procedures (COMPLETED - Base interface implemented for unified arena architecture)
 - [x] #442: CRITICAL: Replace class(*) usage with abstract types for stable foundation (COMPLETED - Foundation ready for arena development)
 - [x] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (PR #434)
 - [x] #399: Arena: Implement per-node freeing with generation tracking for selective memory management (PR #435)

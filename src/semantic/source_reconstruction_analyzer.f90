@@ -1039,7 +1039,11 @@ contains
         lhs%original_source = rhs%original_source
         lhs%node_map = rhs%node_map
         lhs%total_lines = rhs%total_lines
-        lhs%line_starts = rhs%line_starts
+        
+        ! Handle deferred-length allocatable character array
+        if (allocated(rhs%line_starts)) then
+            allocate(lhs%line_starts(size(rhs%line_starts)), source=rhs%line_starts)
+        end if
     end subroutine source_reconstruction_result_assign
 
 end module source_reconstruction_analyzer

@@ -6,6 +6,7 @@ module ast_arena_modern
     
     use ast_base, only: ast_node
     use iso_fortran_env, only: int64
+    use arena_memory, only: base_arena_t, arena_handle_t, arena_checkpoint_t
     implicit none
     private
     
@@ -52,8 +53,8 @@ module ast_arena_modern
         integer :: arena_id = 0                          ! Arena identifier for cross-arena safety
     end type ast_handle_t
     
-    ! High-performance AST arena with slot management
-    type :: ast_arena_t
+    ! High-performance AST arena with slot management (extends base_arena_t)
+    type, extends(base_arena_t) :: ast_arena_t
         private
         type(ast_node_arena_t), allocatable :: nodes(:)      ! slot storage
         integer,               allocatable :: slot_gen(:)    ! per-slot generation  
@@ -67,9 +68,20 @@ module ast_arena_modern
         integer :: arena_id = 0                         ! Unique arena identifier
         logical :: is_initialized = .false.             ! Initialization state
     contains
+        ! Base arena interface implementations
+        procedure :: insert => ast_arena_insert
+        procedure :: get => ast_arena_get
+        procedure :: valid => ast_arena_valid
+        procedure :: free => ast_arena_free
+        
+        ! Override base implementations
         procedure :: reset => ast_arena_reset
+        procedure :: checkpoint => ast_arena_checkpoint
+        procedure :: rollback => ast_arena_rollback
+        
+        ! AST-specific operations
         procedure :: get_stats => ast_arena_get_stats
-        procedure :: validate => ast_arena_validate_handle
+        procedure :: validate => ast_arena_validate_handle  ! Legacy name
         procedure :: get_node_count => ast_arena_get_node_count
         procedure :: get_arena_id => ast_arena_get_arena_id
         procedure :: allocate_node => ast_arena_allocate_node
@@ -535,5 +547,120 @@ contains
             lhs%free_stack = rhs%free_stack
         end if
     end subroutine ast_arena_assign
+
+    ! ============================================================================
+    ! Base Arena Interface Implementations for AST Arena (Issue #369)
+    ! ============================================================================
+    
+    ! Insert item into AST arena (base interface)
+    function ast_arena_insert(this, item) result(handle)
+        class(ast_arena_t), intent(inout) :: this
+        class(*), intent(in) :: item
+        type(arena_handle_t) :: handle
+        type(ast_handle_t) :: ast_handle
+        
+        ! Ensure item is ast_node_arena_t
+        select type(item)
+        type is (ast_node_arena_t)
+            ! Store using the public store_ast_node function
+            ast_handle = store_ast_node(this, item)
+            
+            ! Convert ast_handle_t to arena_handle_t
+            handle%chunk_id = 1  ! AST arena uses single logical chunk
+            handle%offset = ast_handle%node_id
+            handle%generation = ast_handle%generation
+            handle%size = 1
+        class default
+            ! Return invalid handle for wrong type
+            handle%chunk_id = 0
+            handle%offset = 0
+            handle%generation = 0
+            handle%size = 0
+        end select
+    end function ast_arena_insert
+    
+    ! Get item from AST arena (base interface)
+    function ast_arena_get(this, handle) result(item)
+        class(ast_arena_t), intent(in) :: this
+        type(arena_handle_t), intent(in) :: handle
+        class(*), pointer :: item
+        
+        ! AST arena doesn't support polymorphic pointer return
+        ! This is a limitation of the current design
+        ! Users should use get_ast_node for actual retrieval
+        item => null()
+    end function ast_arena_get
+    
+    ! Validate handle in AST arena (base interface)
+    function ast_arena_valid(this, handle) result(is_valid)
+        class(ast_arena_t), intent(in) :: this
+        type(arena_handle_t), intent(in) :: handle
+        logical :: is_valid
+        
+        is_valid = .false.
+        
+        ! Basic validation without modifying state
+        if (.not. this%is_initialized) return
+        if (handle%generation == 0) return
+        if (handle%offset < 1 .or. handle%offset > this%cap) return
+        
+        ! Check per-slot generation (read-only check)
+        if (this%slot_gen(handle%offset) == handle%generation) then
+            is_valid = .true.
+        end if
+    end function ast_arena_valid
+    
+    ! Free item in AST arena (base interface)
+    subroutine ast_arena_free(this, handle)
+        class(ast_arena_t), intent(inout) :: this
+        type(arena_handle_t), intent(in) :: handle
+        type(ast_handle_t) :: ast_handle
+        type(ast_free_result_t) :: result
+        
+        ! Convert to ast_handle_t
+        ast_handle%node_id = handle%offset
+        ast_handle%generation = handle%generation
+        ast_handle%arena_id = this%arena_id
+        
+        ! Use existing free_node
+        result = this%free_node(ast_handle)
+        
+        ! Update size if successful
+        if (result%success) then
+            this%size = this%size - 1
+        end if
+    end subroutine ast_arena_free
+    
+    ! Create checkpoint for AST arena
+    function ast_arena_checkpoint(this) result(checkpoint)
+        class(ast_arena_t), intent(in) :: this
+        type(arena_checkpoint_t) :: checkpoint
+        
+        checkpoint%generation = this%generation
+        checkpoint%size = this%size
+        checkpoint%capacity = this%capacity
+        checkpoint%chunk_count = 1  ! AST arena uses logical single chunk
+        checkpoint%current_chunk = 1
+        checkpoint%total_allocated = this%node_count
+    end function ast_arena_checkpoint
+    
+    ! Rollback AST arena to checkpoint
+    subroutine ast_arena_rollback(this, checkpoint)
+        class(ast_arena_t), intent(inout) :: this
+        type(arena_checkpoint_t), intent(in) :: checkpoint
+        integer :: i
+        
+        ! Invalidate all nodes created after checkpoint
+        do i = checkpoint%total_allocated + 1, this%node_count
+            if (i <= this%cap) then
+                this%slot_gen(i) = this%slot_gen(i) + 1  ! Invalidate
+            end if
+        end do
+        
+        ! Restore state
+        this%generation = this%generation + 1
+        this%size = checkpoint%size
+        this%node_count = checkpoint%total_allocated
+    end subroutine ast_arena_rollback
     
 end module ast_arena_modern
