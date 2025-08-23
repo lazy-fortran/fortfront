@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #369: feat: define base arena interface with type-bound procedures (branch: feat/base-arena-interface-369)
 
 ## TODO (Ordered by Priority)
 
@@ -38,6 +37,7 @@ No remaining items - Phase 1 complete
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #369: feat: define base arena interface with type-bound procedures (branch: feat/base-arena-interface-369)
 - [x] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (PR #434)
 - [x] #400: Arena: Create comprehensive performance benchmark suite for arena operations (PR #436)
 - [x] #399: Arena: Implement per-node freeing with generation tracking for selective memory management (PR #435)
