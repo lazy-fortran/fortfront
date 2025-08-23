@@ -103,13 +103,18 @@ contains
         type(type_specifier_t), intent(out) :: type_spec
         type(token_t) :: token
         
+        ! Initialize all components explicitly
+        type_spec%has_kind = .false.
+        type_spec%kind_value = 0
+        type_spec%line = 1
+        type_spec%column = 1
+        if (allocated(type_spec%type_name)) deallocate(type_spec%type_name)
+        
         ! Get type name
         token = parser%consume()
         type_spec%type_name = token%text
         type_spec%line = token%line
         type_spec%column = token%column
-        type_spec%has_kind = .false.
-        type_spec%kind_value = 0
         
         ! Check for kind specification
         token = parser%peek()
@@ -138,7 +143,7 @@ contains
         type(declaration_attributes_t), intent(out) :: attrs
         type(token_t) :: token
         
-        ! Initialize attributes
+        ! Initialize all attributes explicitly
         attrs%is_allocatable = .false.
         attrs%is_pointer = .false.
         attrs%is_target = .false.
@@ -146,6 +151,8 @@ contains
         attrs%is_optional = .false.
         attrs%has_intent = .false.
         attrs%has_global_dimensions = .false.
+        if (allocated(attrs%intent)) deallocate(attrs%intent)
+        if (allocated(attrs%global_dimension_indices)) deallocate(attrs%global_dimension_indices)
         
         ! Parse attributes separated by commas
         do while (.not. parser%is_at_end())
@@ -264,7 +271,9 @@ contains
         character(len=100) :: temp_names(50)
         integer :: i
         
+        ! Initialize all components explicitly
         vars%count = 0
+        if (allocated(vars%names)) deallocate(vars%names)
         
         do while (.not. parser%is_at_end())
             token = parser%peek()
@@ -410,6 +419,10 @@ contains
         type(token_t) :: var_token
         character(len=100) :: temp_names(50)
         integer :: name_count, i
+        
+        ! Initialize all components explicitly
+        var_collection%count = 0
+        if (allocated(var_collection%names)) deallocate(var_collection%names)
         
         ! Start with the first variable we already parsed
         name_count = 1
@@ -748,6 +761,13 @@ contains
         type(type_specifier_t), intent(out) :: type_spec
         
         type(token_t) :: token
+        
+        ! Initialize all components explicitly
+        type_spec%has_kind = .false.
+        type_spec%kind_value = 0
+        type_spec%line = 1
+        type_spec%column = 1
+        if (allocated(type_spec%type_name)) deallocate(type_spec%type_name)
         
         ! Get type name
         token = parser%peek()
