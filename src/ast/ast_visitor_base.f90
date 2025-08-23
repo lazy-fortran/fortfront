@@ -159,7 +159,4 @@ module ast_visitor_base
         end subroutine visit_include_statement_interface
     end interface
 
-    ! Public interface
-    public :: ast_visitor_t
-
 end module ast_visitor_base
