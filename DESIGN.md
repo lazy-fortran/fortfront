@@ -1,10 +1,10 @@
 # fortfront Architecture Design
 
-**MANDATORY FOUNDATION REQUIREMENTS**
-- **Static Library Only**: fortfront builds as libfortfront.a with ZERO dependencies
-- **Pure Fortran Interface**: All external tools integrate through Fortran modules
-- **Self-Contained**: No external runtime dependencies whatsoever
-- **Tool Foundation**: ALL other tools (fluff, ffc, fortnb, fortcov, fortrun, fo) depend ONLY on fortfront
+**FPM-FIRST ARCHITECTURE**
+- **Dependency Management**: FPM automatically handles all tool dependencies via fpm.toml
+- **Pure Fortran Interface**: External tools integrate through standard Fortran modules
+- **Simple Integration**: Tools add `fortfront` as dependency - FPM handles the rest
+- **No Build Complexity**: FPM manages module compilation and linking automatically
 
 ## Table of Contents
 1. [Foundation Architecture (MANDATORY)](#foundation-architecture-mandatory)
@@ -20,85 +20,80 @@
 
 ---
 
-# Foundation Architecture (MANDATORY)
+# Foundation Architecture (FPM-FIRST)
 
 ## Core Mission
 
-fortfront is the **immutable foundation library** that ALL Fortran tooling builds upon. It provides a single, stable, self-contained static library (libfortfront.a) with zero external dependencies.
+fortfront is a **Fortran frontend library** that ALL Fortran tooling builds upon through FPM's automatic dependency management.
 
-## Build Requirements (NON-NEGOTIABLE)
+## Build Requirements (FPM-MANAGED)
 
-```makefile
-# MANDATORY build target
-libfortfront.a:
-	# Must produce single .a file
-	# Must have ZERO external dependencies  
-	# Must be linkable by Fortran tools via fpm/modules
-	# Must include ALL fortfront functionality
+```toml
+# FPM handles all dependency management
+# External tools simply add fortfront as dependency:
+[dependencies]
+fortfront = { path = "../fortfront" }
+# FPM automatically compiles and links all modules
 ```
 
 ## Dependency Architecture
 
 ```
-fortfront.a (THE FOUNDATION)
-    ↑ static link only
-    ├── fluff (static executable)
-    ├── ffc (static executable) 
-    ├── fortnb (static executable)
-    ├── fortcov (static executable)
-    ├── fortrun (static executable)
-    └── fo (static executable containing ALL above)
+fortfront (FPM library)
+    ↑ FPM dependency management
+    ├── fluff (FPM handles linking)
+    ├── ffc (FPM handles linking) 
+    ├── fortnb (FPM handles linking)
+    ├── fortcov (FPM handles linking)
+    ├── fortrun (FPM handles linking)
+    └── fo (FPM handles linking)
 ```
 
-**CRITICAL**: No tool ever depends on any other tool. All tools depend ONLY on fortfront.
+**SIMPLICITY**: FPM automatically manages all dependencies. No manual build complexity required.
 
-## Static Linking Strategy
+## FPM Integration Strategy
 
-### Why Static Linking is Mandatory
+### Why FPM is the Right Choice
 
-1. **Zero Dependency Hell**: No library version conflicts, missing dependencies, or installation complexity
-2. **Deployment Simplicity**: Copy single executable, run anywhere 
-3. **Performance**: No dynamic linking overhead, better optimization opportunities
-4. **Reliability**: No runtime dependency failures in production environments
-5. **Security**: Complete control over all code, no external attack vectors
+1. **Automatic Dependency Management**: FPM handles all module compilation and linking
+2. **Standard Fortran Practice**: Industry-standard dependency management
+3. **Zero Configuration**: External tools just add one line to fmp.toml
+4. **Maintainable**: No complex build scripts or manual library management
+5. **Reliable**: FPM's proven dependency resolution
 
-### Build Architecture
+### Project Architecture
 
 ```
 fortfront/
 ├── src/                    # All fortfront source code
-├── fpm.toml               # Builds libfortfront.a via fpm
-└── src/                   # Fortran modules for external tools
-    ├── fortfront_core.f90     # Main compilation interface
-    ├── fortfront_ast.f90      # AST access functions
-    ├── fortfront_semantic.f90 # Semantic analysis interface
-    └── fortfront_memory.f90   # Arena management interface
+├── fpm.toml               # Standard FPM library configuration
+└── Public API modules exposed automatically by FPM
 ```
 
 ### Tool Integration Pattern
 
-**Every external tool follows this pattern:**
+**Every external tool follows this simple pattern:**
 
 ```fortran
 ! Example: fluff main program
 program fluff_main
-    use fortfront_core        ! Direct Fortran module usage
-    use fortfront_ast         ! No C API needed
-    use fortfront_semantic    ! Pure Fortran integration
+    use frontend              ! Use existing fortfront modules
+    use ast_core             ! FPM makes all modules available
+    use semantic_analyzer    ! Direct access to functionality
     
-    integer(int64) :: ast_handle
+    type(compiler_state_t) :: state
     logical :: success
     
-    success = fortfront_compile_file("source.f90", ast_handle)
-    call analyze_for_lint_issues(ast_handle)
+    success = compile_source("source.f90", state)
+    call analyze_for_lint_issues(state%ast)
 end program
 ```
 
 ```toml
-# fluff/fpm.toml
+# fluff/fmp.toml
 [dependencies]
 fortfront = { path = "../fortfront" }
-# Result: Static linking via fmp, zero runtime dependencies
+# Result: FPM automatically handles all module compilation and linking
 ```
 
 ## Key Architectural Components
@@ -1206,30 +1201,30 @@ This solution is temporary until arena architecture (Phase 1) provides:
 - Memory managed by arena allocator
 - Complete compiler independence
 
-# Implementation Roadmap (Updated for Static Library Priority)
+# Implementation Roadmap (FPM-FIRST APPROACH)
 
-## Phase 0: Static Library Foundation (HIGHEST PRIORITY)
-**Goal**: Create fortfront as static library with Fortran modules - FOUNDATION FOR ALL OTHER TOOLS
+## Phase 0: FPM Integration Verification (HIGHEST PRIORITY)
+**Goal**: Verify FPM handles all dependency management correctly
 
-### Week 1: Fortran Module Foundation
-- [ ] Create `fortfront_core.f90` main interface
-- [ ] Create `fortfront_ast.f90` AST access interface
-- [ ] Create `fortfront_semantic.f90` semantic interface
-- [ ] Design handle-based node access system
+### Week 1: FPM Integration Testing
+- [ ] Create sample external tool using fortfront as FPM dependency
+- [ ] Verify FPM correctly compiles and links all fortfront modules
+- [ ] Test that external tools can access fortfront functionality
+- [ ] Document simple integration patterns
 
-### Week 2: Static Library Build
-- [ ] Modify fpm.toml to produce `libfortfront.a`
-- [ ] Verify zero external dependencies
-- [ ] Create fmp integration patterns
-- [ ] Test static linking with sample Fortran programs
+### Week 2: API Refinement
+- [ ] Identify which existing modules should be public API
+- [ ] Ensure clean module interfaces for external tool use
+- [ ] Add any missing convenience interfaces
+- [ ] Document public API patterns
 
-### Week 3: Module Interface Implementation
-- [ ] Implement all compilation functions
-- [ ] Add AST traversal procedures
-- [ ] Create memory management interfaces
-- [ ] Add comprehensive error handling types
+### Week 3: Integration Documentation
+- [ ] Create integration examples for different tool types
+- [ ] Document FPM dependency patterns
+- [ ] Create getting-started guide for external tools
+- [ ] Verify cross-platform FPM integration
 
-**Deliverable**: Working `libfortfront.a` with Fortran modules, ready for tool integration
+**Deliverable**: Verified FPM integration with documented patterns for external tool development
 
 ## Phase 1: Arena Unification (Issues #368-#376)
 **Goal**: Migrate to unified arena architecture with stable handles
