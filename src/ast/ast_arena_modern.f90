@@ -3,8 +3,10 @@ module ast_arena_modern
     ! Replaces deprecated ast_arena.f90 with high-performance, safe architecture
     ! Delivers 5-10x parsing speedup and 8x better cache locality
     ! Part of unified arena architecture for maximum performance and KISS
+    ! Issue #370: Now extends base_arena_t with type-bound container API
     
     use ast_base, only: ast_node
+    use arena_memory, only: base_arena_t, arena_handle_t
     use iso_fortran_env, only: int64
     implicit none
     private
@@ -53,7 +55,8 @@ module ast_arena_modern
     end type ast_handle_t
     
     ! High-performance AST arena with slot management
-    type :: ast_arena_t
+    ! Issue #370: Now extends base_arena_t with type-bound container API
+    type, extends(base_arena_t) :: ast_arena_t
         private
         type(ast_node_arena_t), allocatable :: nodes(:)      ! slot storage
         integer,               allocatable :: slot_gen(:)    ! per-slot generation  
@@ -67,6 +70,7 @@ module ast_arena_modern
         integer :: arena_id = 0                         ! Unique arena identifier
         logical :: is_initialized = .false.             ! Initialization state
     contains
+        ! Existing procedures (maintain backward compatibility)
         procedure :: reset => ast_arena_reset
         procedure :: get_stats => ast_arena_get_stats
         procedure :: validate => ast_arena_validate_handle
@@ -78,6 +82,15 @@ module ast_arena_modern
         procedure :: is_active => ast_arena_is_node_active
         procedure :: get_free_stats => ast_arena_get_free_stats
         generic :: assignment(=) => assign_ast_arena
+        
+        ! Helper for const validation
+        procedure :: is_valid_for_get => ast_arena_is_valid_const
+        
+        ! Issue #370: Implement deferred procedures from base_arena_t
+        procedure :: insert => ast_arena_insert
+        procedure :: get => ast_arena_get
+        procedure :: valid => ast_arena_valid
+        procedure :: free => ast_arena_free
     end type ast_arena_t
     
     ! Statistics for performance monitoring
@@ -138,6 +151,12 @@ contains
         end do
         
         ast_arena%is_initialized = .true.
+        
+        ! Issue #370: Initialize base_arena_t fields
+        ast_arena%generation = 1
+        ast_arena%size = 0
+        ast_arena%capacity = capacity
+        ast_arena%checkpoint_gen = 0
     end function create_ast_arena
     
     ! Destroy AST arena and free all memory
@@ -246,6 +265,10 @@ contains
         
         ! Mark all slots as invalid (generation 0)
         this%slot_gen(:) = 0
+        
+        ! Issue #370: Reset base_arena_t fields
+        this%generation = this%epoch
+        this%size = 0
     end subroutine ast_arena_reset
     
     ! Get arena statistics
@@ -314,6 +337,38 @@ contains
         
         is_valid = .true.
     end function ast_arena_validate_handle
+    
+    ! Const validation helper (no counter updates)
+    function ast_arena_is_valid_const(this, handle) result(is_valid)
+        class(ast_arena_t), intent(in) :: this
+        type(ast_handle_t), intent(in) :: handle
+        logical :: is_valid
+        
+        if (.not. this%is_initialized) then
+            is_valid = .false.
+            return
+        end if
+        
+        ! Check handle validity
+        if (.not. is_valid_ast_handle(handle)) then
+            is_valid = .false.
+            return
+        end if
+        
+        ! Check node ID range
+        if (handle%node_id < 1 .or. handle%node_id > this%cap) then
+            is_valid = .false.
+            return
+        end if
+        
+        ! Check per-slot generation match (ABA-safe)
+        if (this%slot_gen(handle%node_id) /= handle%generation) then
+            is_valid = .false.
+            return
+        end if
+        
+        is_valid = .true.
+    end function ast_arena_is_valid_const
     
     ! Get current node count
     function ast_arena_get_node_count(this) result(count)
@@ -535,5 +590,89 @@ contains
             lhs%free_stack = rhs%free_stack
         end if
     end subroutine ast_arena_assign
+    
+    ! Issue #370: Container API implementation for base_arena_t interface
+    
+    ! Insert AST node into arena using container API
+    function ast_arena_insert(this, item) result(handle)
+        class(ast_arena_t), intent(inout) :: this
+        class(*), intent(in) :: item
+        type(arena_handle_t) :: handle
+        
+        ! Handle only ast_node_arena_t items
+        select type (item)
+        type is (ast_node_arena_t)
+            ! Use existing store_ast_node implementation
+            handle = convert_ast_to_arena_handle(store_ast_node(this, item))
+            
+            ! Update base arena counters
+            this%size = this%size + 1
+            
+        class default
+            ! For non-AST types, return invalid handle
+            handle%offset = 0
+            handle%size = 0
+            handle%generation = 0
+            handle%chunk_id = 0
+        end select
+    end function ast_arena_insert
+    
+    ! Get AST node from arena using container API
+    function ast_arena_get(this, handle) result(item)
+        class(ast_arena_t), intent(in) :: this
+        type(arena_handle_t), intent(in) :: handle
+        class(*), pointer :: item
+        
+        ! For ast_arena_t, we don't return polymorphic data
+        ! The container API expects derived types to handle their specific data
+        ! Return null pointer - users should use get_ast_node for actual retrieval
+        item => null()
+    end function ast_arena_get
+    
+    ! Validate handle using container API
+    function ast_arena_valid(this, handle) result(is_valid)
+        class(ast_arena_t), intent(in) :: this
+        type(arena_handle_t), intent(in) :: handle
+        logical :: is_valid
+        
+        ! Convert to ast_handle_t and validate
+        type(ast_handle_t) :: ast_handle
+        ast_handle = convert_arena_to_ast_handle(handle)
+        
+        ! Use helper function for const validation
+        is_valid = this%is_valid_for_get(ast_handle)
+    end function ast_arena_valid
+    
+    ! Free AST node using container API (no-op for arena_t)
+    subroutine ast_arena_free(this, handle)
+        class(ast_arena_t), intent(inout) :: this
+        type(arena_handle_t), intent(in) :: handle
+        
+        ! For AST arena, we use bulk deallocation
+        ! Just update size counter if handle is valid
+        if (this%valid(handle)) then
+            this%size = this%size - 1
+        end if
+    end subroutine ast_arena_free
+    
+    ! Helper: Convert ast_handle_t to arena_handle_t
+    function convert_ast_to_arena_handle(ast_handle) result(arena_handle)
+        type(ast_handle_t), intent(in) :: ast_handle
+        type(arena_handle_t) :: arena_handle
+        
+        arena_handle%offset = ast_handle%node_id - 1  ! Convert 1-based to 0-based
+        arena_handle%size = 1  ! One node
+        arena_handle%generation = ast_handle%generation
+        arena_handle%chunk_id = 1  ! Single chunk for AST arena
+    end function convert_ast_to_arena_handle
+    
+    ! Helper: Convert arena_handle_t to ast_handle_t  
+    function convert_arena_to_ast_handle(arena_handle) result(ast_handle)
+        type(arena_handle_t), intent(in) :: arena_handle
+        type(ast_handle_t) :: ast_handle
+        
+        ast_handle%node_id = arena_handle%offset + 1  ! Convert 0-based to 1-based
+        ast_handle%generation = arena_handle%generation
+    end function convert_arena_to_ast_handle
     
 end module ast_arena_modern
