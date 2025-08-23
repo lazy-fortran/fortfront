@@ -97,9 +97,80 @@ module arena_memory
     end type arena_stats_t
 
 
+    ! Base arena interface types
+    type :: arena_checkpoint_t
+        integer :: generation = 0
+        integer :: size = 0
+        integer :: capacity = 0
+        integer :: chunk_count = 0
+        integer :: current_chunk = 0
+        integer :: total_allocated = 0
+    end type arena_checkpoint_t
+
+    ! Abstract base arena interface (Issue #369)
+    type, abstract, public :: base_arena_t
+        integer :: generation = 1
+        integer :: size = 0
+        integer :: capacity = 0
+    contains
+        ! Deferred procedures that implementations must provide
+        procedure(insert_interface), deferred :: insert
+        procedure(get_interface), deferred :: get
+        procedure(valid_interface), deferred :: valid
+        procedure(free_interface), deferred :: free
+        
+        ! Common implementations provided by base class
+        procedure :: reset => base_arena_reset
+        procedure :: checkpoint => base_arena_checkpoint
+        procedure :: rollback => base_arena_rollback
+    end type base_arena_t
+
+    ! Interface definitions for deferred procedures
+    abstract interface
+        function insert_interface(this, item) result(handle)
+            import :: base_arena_t, arena_handle_t
+            class(base_arena_t), intent(inout) :: this
+            class(*), intent(in) :: item
+            type(arena_handle_t) :: handle
+        end function insert_interface
+        
+        function get_interface(this, handle) result(item)
+            import :: base_arena_t, arena_handle_t
+            class(base_arena_t), intent(in) :: this
+            type(arena_handle_t), intent(in) :: handle
+            class(*), pointer :: item
+        end function get_interface
+        
+        function valid_interface(this, handle) result(is_valid)
+            import :: base_arena_t, arena_handle_t
+            class(base_arena_t), intent(in) :: this
+            type(arena_handle_t), intent(in) :: handle
+            logical :: is_valid
+        end function valid_interface
+        
+        subroutine free_interface(this, handle)
+            import :: base_arena_t, arena_handle_t
+            class(base_arena_t), intent(inout) :: this
+            type(arena_handle_t), intent(in) :: handle
+        end subroutine free_interface
+    end interface
+
+    ! Concrete basic arena implementation for testing
+    type, extends(base_arena_t), public :: basic_arena_t
+        type(arena_t), private :: internal_arena
+    contains
+        procedure :: init => basic_arena_init
+        procedure :: destroy => basic_arena_destroy
+        procedure :: insert => basic_arena_insert
+        procedure :: get => basic_arena_get
+        procedure :: valid => basic_arena_valid
+        procedure :: free => basic_arena_free
+    end type basic_arena_t
+
     ! Public interface
     public :: create_arena, destroy_arena
     public :: is_valid_handle, null_handle
+    public :: arena_checkpoint_t
     
     ! Example usage:
     !   type(arena_t) :: arena
@@ -454,6 +525,161 @@ contains
             end do
         end if
     end subroutine arena_assign
+
+    ! ============================================================================
+    ! Base Arena Interface Implementations (Issue #369)
+    ! ============================================================================
+
+    ! Reset arena to initial state (common implementation)
+    subroutine base_arena_reset(this)
+        class(base_arena_t), intent(inout) :: this
+        
+        ! Reset base fields
+        this%generation = this%generation + 1  ! Invalidate all handles
+        this%size = 0
+        
+        ! For basic_arena_t, also reset internal arena
+        select type(this)
+        type is (basic_arena_t)
+            call this%internal_arena%reset()
+        end select
+    end subroutine base_arena_reset
+
+    ! Create checkpoint for rollback
+    function base_arena_checkpoint(this) result(checkpoint)
+        class(base_arena_t), intent(in) :: this
+        type(arena_checkpoint_t) :: checkpoint
+        
+        checkpoint%generation = this%generation
+        checkpoint%size = this%size
+        checkpoint%capacity = this%capacity
+        
+        ! Derived classes should override to save additional state
+    end function base_arena_checkpoint
+
+    ! Rollback to previous checkpoint
+    subroutine base_arena_rollback(this, checkpoint)
+        class(base_arena_t), intent(inout) :: this
+        type(arena_checkpoint_t), intent(in) :: checkpoint
+        
+        ! Increment generation to invalidate handles created after checkpoint
+        this%generation = this%generation + 1
+        this%size = checkpoint%size
+        
+        ! Derived classes should override to restore additional state
+    end subroutine base_arena_rollback
+
+    ! ============================================================================
+    ! Basic Arena Implementation (Concrete test implementation)
+    ! ============================================================================
+
+    ! Initialize basic arena
+    subroutine basic_arena_init(this, chunk_size)
+        class(basic_arena_t), intent(inout) :: this
+        integer, intent(in), optional :: chunk_size
+        
+        if (present(chunk_size)) then
+            this%internal_arena = create_arena(chunk_size)
+        else
+            this%internal_arena = create_arena()
+        end if
+        
+        ! Initialize base class fields
+        this%generation = 1
+        this%size = 0
+        this%capacity = this%internal_arena%total_capacity
+    end subroutine basic_arena_init
+
+    ! Destroy basic arena
+    subroutine basic_arena_destroy(this)
+        class(basic_arena_t), intent(inout) :: this
+        
+        call destroy_arena(this%internal_arena)
+        
+        this%size = 0
+        this%generation = this%generation + 1
+    end subroutine basic_arena_destroy
+
+    ! Insert item into basic arena
+    function basic_arena_insert(this, item) result(handle)
+        class(basic_arena_t), intent(inout) :: this
+        class(*), intent(in) :: item
+        type(arena_handle_t) :: handle
+        integer :: item_size
+        integer(1), allocatable :: buffer(:)
+        logical :: status
+        
+        ! Calculate size needed for the item
+        ! For simplicity, use a fixed size for polymorphic items
+        item_size = 256  ! Fixed buffer size for testing
+        
+        ! Allocate from internal arena
+        handle = this%internal_arena%allocate(item_size)
+        
+        ! Override generation with base arena generation
+        handle%generation = this%generation
+        
+        ! Store item data (simplified - real implementation would serialize)
+        allocate(buffer(item_size))
+        buffer = 0  ! Initialize
+        
+        ! For integers, store the value
+        select type(item)
+        type is (integer)
+            if (item_size >= 4) then
+                buffer(1:4) = transfer(item, buffer(1:4))
+            end if
+        end select
+        
+        call this%internal_arena%set_data(handle, buffer, status)
+        deallocate(buffer)
+        
+        if (status) then
+            this%size = this%size + 1
+        else
+            handle = null_handle()
+        end if
+    end function basic_arena_insert
+
+    ! Get item from basic arena
+    function basic_arena_get(this, handle) result(item)
+        class(basic_arena_t), intent(in) :: this
+        type(arena_handle_t), intent(in) :: handle
+        class(*), pointer :: item
+        
+        ! Basic arena doesn't support polymorphic get
+        ! This is a limitation for testing purposes
+        item => null()
+    end function basic_arena_get
+
+    ! Validate handle in basic arena
+    function basic_arena_valid(this, handle) result(is_valid)
+        class(basic_arena_t), intent(in) :: this
+        type(arena_handle_t), intent(in) :: handle
+        logical :: is_valid
+        
+        ! First check base generation
+        if (handle%generation /= this%generation) then
+            is_valid = .false.
+            return
+        end if
+        
+        ! Then use internal arena validation for other checks
+        is_valid = this%internal_arena%validate(handle)
+    end function basic_arena_valid
+
+    ! Free item in basic arena
+    subroutine basic_arena_free(this, handle)
+        class(basic_arena_t), intent(inout) :: this
+        type(arena_handle_t), intent(in) :: handle
+        
+        ! Validate handle first
+        if (.not. this%valid(handle)) return
+        
+        ! Basic arena doesn't support individual frees
+        ! Just decrement size counter
+        this%size = this%size - 1
+    end subroutine basic_arena_free
 
 
 
