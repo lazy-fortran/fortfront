@@ -1,5 +1,6 @@
 program test_source_reconstruction_integration
     use source_reconstruction_analyzer, only: source_reconstruction_analyzer_t
+    use semantic_context_types, only: standard_context_t
     use ast_core, only: ast_arena_t, create_ast_arena, &
                         create_identifier, identifier_node, &
                         create_literal, literal_node, LITERAL_INTEGER
@@ -17,7 +18,8 @@ program test_source_reconstruction_integration
     call test_start("Full source reconstruction from arena")
     block
         type(source_reconstruction_analyzer_t) :: analyzer
-        type(ast_arena_t) :: arena
+        type(ast_arena_t), target :: arena
+        type(standard_context_t) :: context
         type(identifier_node) :: id_node
         type(literal_node) :: lit_node
         character(:), allocatable :: reconstructed_text
@@ -34,8 +36,12 @@ program test_source_reconstruction_integration
         lit_node = create_literal("42", LITERAL_INTEGER, line=2, column=1)
         call arena%push(lit_node, "literal")
         
-        ! Analyze with the arena
-        call analyzer%analyze(arena, arena, 1)
+        ! Create context
+        context%arena => arena
+        context%current_node_index = 1
+        
+        ! Analyze with the context and arena
+        call analyzer%analyze(context, arena, 1)
         
         ! Test that we can get node source text
         reconstructed_text = analyzer%get_node_source_text(1)
@@ -54,7 +60,8 @@ program test_source_reconstruction_integration
     call test_start("Context around node functionality")
     block
         type(source_reconstruction_analyzer_t) :: analyzer
-        type(ast_arena_t) :: arena
+        type(ast_arena_t), target :: arena
+        type(standard_context_t) :: context
         type(identifier_node) :: id_node
         character(:), allocatable :: context_text
         
@@ -63,8 +70,12 @@ program test_source_reconstruction_integration
         id_node = create_identifier("test_var", line=2, column=5)
         call arena%push(id_node, "identifier")
         
-        ! Analyze with the arena
-        call analyzer%analyze(arena, arena, 1)
+        ! Create context
+        context%arena => arena
+        context%current_node_index = 1
+        
+        ! Analyze with the context and arena
+        call analyzer%analyze(context, arena, 1)
         
         ! Get context around the node
         context_text = analyzer%get_context_around_node(1, 1)
@@ -82,7 +93,8 @@ program test_source_reconstruction_integration
     call test_start("Format source location")
     block
         type(source_reconstruction_analyzer_t) :: analyzer
-        type(ast_arena_t) :: arena
+        type(ast_arena_t), target :: arena
+        type(standard_context_t) :: context
         type(identifier_node) :: id_node
         character(:), allocatable :: location_str
         
@@ -91,8 +103,12 @@ program test_source_reconstruction_integration
         id_node = create_identifier("var", line=5, column=10)
         call arena%push(id_node, "identifier")
         
-        ! Analyze with the arena
-        call analyzer%analyze(arena, arena, 1)
+        ! Create context
+        context%arena => arena
+        context%current_node_index = 1
+        
+        ! Analyze with the context and arena
+        call analyzer%analyze(context, arena, 1)
         
         ! Format the location
         location_str = analyzer%format_source_location(1)
@@ -110,14 +126,19 @@ program test_source_reconstruction_integration
     call test_start("Invalid node handling")
     block
         type(source_reconstruction_analyzer_t) :: analyzer
-        type(ast_arena_t) :: arena
+        type(ast_arena_t), target :: arena
+        type(standard_context_t) :: context
         character(:), allocatable :: result
         
         ! Create empty arena
         arena = create_ast_arena()
         
+        ! Create context
+        context%arena => arena
+        context%current_node_index = 1
+        
         ! Analyze with empty arena
-        call analyzer%analyze(arena, arena, 1)
+        call analyzer%analyze(context, arena, 1)
         
         ! Try to get text for non-existent node
         result = analyzer%get_node_source_text(999)

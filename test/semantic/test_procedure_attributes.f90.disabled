@@ -1,6 +1,7 @@
 program test_procedure_attributes
     use procedure_attribute_analyzer, only: procedure_attribute_analyzer_t, procedure_info_t
     use ast_core, only: ast_arena_t, create_ast_arena
+    use semantic_context_types, only: standard_context_t
     implicit none
     
     logical :: tests_passed = .true.
@@ -24,13 +25,15 @@ contains
     subroutine test_analyzer_creation()
         type(procedure_attribute_analyzer_t) :: analyzer
         type(ast_arena_t) :: arena
+        type(standard_context_t) :: context
         integer :: root_index
         
         arena = create_ast_arena()
         root_index = 1
+        context%context_name = "test_context"
         
         ! Test that analyzer can be created and analyzed
-        call analyzer%analyze(0, arena, root_index)
+        call analyzer%analyze(context, arena, root_index)
         
         if (.not. analyzer%analysis_complete) then
             print *, "ERROR: Analysis should complete successfully"
@@ -44,10 +47,12 @@ contains
     subroutine test_attribute_extraction()
         type(procedure_attribute_analyzer_t) :: analyzer
         type(ast_arena_t) :: arena
+        type(standard_context_t) :: context
         character(:), allocatable :: attributes(:)
         
         arena = create_ast_arena()
-        call analyzer%analyze(0, arena, 1)
+        context%context_name = "test_context"
+        call analyzer%analyze(context, arena, 1)
         
         ! Test getting attributes for a non-existent procedure
         attributes = analyzer%get_all_attributes("nonexistent")
@@ -70,10 +75,12 @@ contains
     subroutine test_has_attribute_interface()
         type(procedure_attribute_analyzer_t) :: analyzer
         type(ast_arena_t) :: arena
+        type(standard_context_t) :: context
         logical :: has_pure
         
         arena = create_ast_arena()
-        call analyzer%analyze(0, arena, 1)
+        context%context_name = "test_context"
+        call analyzer%analyze(context, arena, 1)
         
         ! Test has_attribute for non-existent procedure
         has_pure = analyzer%has_attribute("nonexistent", "PURE")
@@ -144,9 +151,11 @@ contains
     subroutine test_analyzer_assignment()
         type(procedure_attribute_analyzer_t) :: analyzer1, analyzer2
         type(ast_arena_t) :: arena
+        type(standard_context_t) :: context
         
         arena = create_ast_arena()
-        call analyzer1%analyze(0, arena, 1)
+        context%context_name = "test_context"
+        call analyzer1%analyze(context, arena, 1)
         analyzer1%analysis_complete = .true.
         
         ! Test assignment

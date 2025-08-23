@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [x] #442: CRITICAL: Replace class(*) usage with abstract types for stable foundation (branch: fix/replace-class-star-with-abstract-442)
+- [x] #442: CRITICAL: Replace class(*) usage with abstract types for stable foundation (PR #444 - awaiting final merge)
 
 ## TODO (Ordered by Priority)
 

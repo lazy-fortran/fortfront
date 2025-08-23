@@ -98,10 +98,12 @@ contains
     
     ! Run analysis pipeline on AST
     subroutine pipeline_run_analysis(this, arena, node_index, shared_context)
+        use semantic_context_types, only: semantic_context_base_t, &
+                                         standard_context_t
         class(semantic_pipeline_t), intent(inout) :: this
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
-        class(*), intent(in), optional :: shared_context
+        class(semantic_context_base_t), intent(in), optional :: shared_context
         integer :: i
         
         if (.not. this%initialized .or. this%count == 0) return
@@ -114,8 +116,9 @@ contains
                 else
                     ! Create default context
                     block
-                        integer :: default_context
-                        default_context = 0
+                        type(standard_context_t) :: default_context
+                        default_context%context_id = 0
+                        default_context%context_name = "default"
                         call this%analyzers(i)%analyzer%analyze(default_context, &
                                                                arena, node_index)
                     end block

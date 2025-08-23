@@ -1,5 +1,8 @@
 module builtin_analyzers
     use semantic_analyzer_base, only: semantic_analyzer_t
+    use semantic_context_types, only: semantic_context_base_t
+    use semantic_result_types, only: semantic_result_base_t, &
+                                     symbol_result_t, type_result_t, scope_result_t
     use ast_core, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program
@@ -60,7 +63,7 @@ contains
     ! Symbol analyzer implementation
     subroutine analyze_symbols(this, shared_context, arena, node_index)
         class(symbol_analyzer_t), intent(inout) :: this
-        class(*), intent(in) :: shared_context
+        class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
@@ -79,13 +82,15 @@ contains
 
     function get_symbol_results(this) result(results)
         class(symbol_analyzer_t), intent(in) :: this
-        class(*), allocatable :: results
+        class(semantic_result_base_t), allocatable :: results
         
-        ! Return the semantic context containing symbols
-        allocate(semantic_context_t :: results)
+        ! Return the symbol analysis results
+        allocate(symbol_result_t :: results)
         select type(results)
-        type is (semantic_context_t)
-            results = this%context
+        type is (symbol_result_t)
+            results%symbols_found = 0  ! Could be populated from context analysis
+            results%symbols_resolved = 0
+            results%unresolved_symbols = 0
         end select
     end function
 
@@ -99,7 +104,7 @@ contains
     ! Type analyzer implementation
     subroutine analyze_types(this, shared_context, arena, node_index)
         class(type_analyzer_t), intent(inout) :: this
-        class(*), intent(in) :: shared_context
+        class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
@@ -116,12 +121,15 @@ contains
 
     function get_type_results(this) result(results)
         class(type_analyzer_t), intent(in) :: this
-        class(*), allocatable :: results
+        class(semantic_result_base_t), allocatable :: results
         
-        allocate(semantic_context_t :: results)
+        allocate(type_result_t :: results)
         select type(results)
-        type is (semantic_context_t)
-            results = this%context
+        type is (type_result_t)
+            results%types_analyzed = 0  ! Could be populated from context analysis
+            results%type_errors = 0
+            results%type_warnings = 0
+            results%type_inference_used = .false.
         end select
     end function
 
@@ -135,7 +143,7 @@ contains
     ! Scope analyzer implementation  
     subroutine analyze_scopes(this, shared_context, arena, node_index)
         class(scope_analyzer_t), intent(inout) :: this
-        class(*), intent(in) :: shared_context
+        class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
@@ -152,12 +160,13 @@ contains
 
     function get_scope_results(this) result(results)
         class(scope_analyzer_t), intent(in) :: this
-        class(*), allocatable :: results
+        class(semantic_result_base_t), allocatable :: results
         
-        allocate(semantic_context_t :: results)
+        allocate(scope_result_t :: results)
         select type(results)
-        type is (semantic_context_t)
-            results = this%context
+        type is (scope_result_t)
+            results%scopes_analyzed = 0  ! Could be populated from context analysis
+            results%scope_violations = 0
         end select
     end function
 

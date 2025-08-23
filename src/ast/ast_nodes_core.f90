@@ -1,6 +1,7 @@
 module ast_nodes_core
     use json_module
-    use ast_base, only: ast_node, visit_interface, to_json_interface
+    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+                         ast_visitor_base_t
     implicit none
     private
 
@@ -146,7 +147,7 @@ contains
     ! Stub implementations for program_node
     subroutine program_accept(this, visitor)
         class(program_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine program_accept
 
@@ -206,7 +207,7 @@ contains
     ! Stub implementations for assignment_node
     subroutine assignment_accept(this, visitor)
         class(assignment_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine assignment_accept
 
@@ -244,7 +245,7 @@ contains
     ! Stub implementations for pointer_assignment_node
     subroutine pointer_assignment_accept(this, visitor)
         class(pointer_assignment_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine pointer_assignment_accept
 
@@ -275,7 +276,7 @@ contains
     ! Stub implementations for identifier_node
     subroutine identifier_accept(this, visitor)
         class(identifier_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine identifier_accept
 
@@ -309,7 +310,7 @@ contains
     ! Stub implementations for literal_node
     subroutine literal_accept(this, visitor)
         class(literal_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine literal_accept
 
@@ -347,7 +348,7 @@ contains
     ! Stub implementations for binary_op_node
     subroutine binary_op_accept(this, visitor)
         class(binary_op_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine binary_op_accept
 
@@ -379,7 +380,7 @@ contains
     ! Stub implementations for call_or_subscript_node
     subroutine call_or_subscript_accept(this, visitor)
         class(call_or_subscript_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine call_or_subscript_accept
 
@@ -447,7 +448,7 @@ contains
     ! Stub implementations for array_literal_node
     subroutine array_literal_accept(this, visitor)
         class(array_literal_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine array_literal_accept
 
@@ -508,7 +509,7 @@ contains
     ! Stub implementations for component_access_node
     subroutine component_access_accept(this, visitor)
         class(component_access_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine component_access_accept
 
@@ -570,7 +571,7 @@ contains
     ! Stub implementations for range_subscript_node
     subroutine range_subscript_accept(this, visitor)
         class(range_subscript_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine range_subscript_accept
 

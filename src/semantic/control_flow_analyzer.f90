@@ -1,5 +1,7 @@
 module control_flow_analyzer
     use semantic_analyzer_base, only: semantic_analyzer_t
+    use semantic_context_types, only: semantic_context_base_t
+    use semantic_result_types, only: semantic_result_base_t, control_flow_result_t
     use ast_core, only: ast_arena_t
     use control_flow_graph_module, only: control_flow_graph_t, basic_block_t, &
         cfg_edge_t, create_control_flow_graph, &
@@ -37,7 +39,7 @@ contains
 
     subroutine analyze_control_flow(this, shared_context, arena, node_index)
         class(control_flow_analyzer_t), intent(inout) :: this
-        class(*), intent(in) :: shared_context
+        class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
@@ -49,13 +51,15 @@ contains
 
     function get_control_flow_results(this) result(results)
         class(control_flow_analyzer_t), intent(in) :: this
-        class(*), allocatable :: results
+        class(semantic_result_base_t), allocatable :: results
         
-        ! Return the control flow graph
-        allocate(control_flow_graph_t :: results)
+        ! Return the control flow analysis result
+        allocate(control_flow_result_t :: results)
         select type(results)
-        type is (control_flow_graph_t)
-            results = this%cfg
+        type is (control_flow_result_t)
+            results%basic_blocks = 0  ! Will be set properly later
+            results%unreachable_blocks = 0
+            results%has_infinite_loops = .false.
         end select
     end function
 

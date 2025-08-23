@@ -1,6 +1,7 @@
 program test_interface_analyzer_enhanced
     use interface_analyzer
     use semantic_analyzer_base, only: semantic_analyzer_t
+    use semantic_context_types, only: standard_context_t
     use semantic_pipeline, only: semantic_pipeline_t, create_pipeline
     use ast_core
     use frontend, only: lex_source, parse_tokens
@@ -664,7 +665,8 @@ contains
             "end subroutine"
         
         type(token_t), allocatable :: tokens(:)
-        type(ast_arena_t) :: arena
+        type(ast_arena_t), target :: arena
+        type(standard_context_t) :: sem_ctx
         integer :: root_index
         character(len=:), allocatable :: error_msg
         type(interface_analyzer_t) :: analyzer
@@ -674,11 +676,14 @@ contains
         print *, "Testing F009 parameter count mismatch detection..."
 
         arena = create_ast_arena()
+        ! Initialize standard context
+        sem_ctx%arena => arena
+        sem_ctx%current_node_index = 0
         call lex_source(source, tokens, error_msg)
         call parse_tokens(tokens, arena, root_index, error_msg)
 
         ! Perform interface analysis
-        call analyzer%analyze(arena, arena, root_index)
+        call analyzer%analyze(sem_ctx, arena, root_index)
         
         ! Check for F009 violations
         mismatches = analyzer%find_interface_mismatches()

@@ -2,15 +2,15 @@ program test_builtin_analyzers
     use ast_core, only: ast_arena_t, create_ast_arena
     use semantic_pipeline, only: semantic_pipeline_t, create_pipeline
     use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t
-    use semantic_analyzer, only: semantic_context_t, create_semantic_context
+    use semantic_context_types, only: standard_context_t
     implicit none
 
     type(semantic_pipeline_t) :: pipeline
     type(symbol_analyzer_t) :: symbol_analyzer
     type(type_analyzer_t) :: type_analyzer  
     type(scope_analyzer_t) :: scope_analyzer
-    type(semantic_context_t) :: context
-    type(ast_arena_t) :: arena
+    type(standard_context_t) :: context
+    type(ast_arena_t), target :: arena
     integer :: root_node_index
     class(*), allocatable :: results
 
@@ -18,7 +18,9 @@ program test_builtin_analyzers
 
     ! Initialize test environment
     arena = create_ast_arena()
-    context = create_semantic_context()
+    ! Initialize standard context
+    context%arena => arena
+    context%current_node_index = 0
     root_node_index = 1  ! Dummy root node index
 
     ! Create pipeline

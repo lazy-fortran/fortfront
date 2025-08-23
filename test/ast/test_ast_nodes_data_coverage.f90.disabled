@@ -1,8 +1,35 @@
 program test_ast_nodes_data_coverage
     use ast_nodes_data
+    use ast_visitor_base, only: ast_visitor_t
     use json_module
     use type_system_unified, only: mono_type_t, create_mono_type, TINT
     implicit none
+
+    ! Test visitor for accept tests
+    type, extends(ast_visitor_t) :: test_visitor_t
+    contains
+        ! All visitor methods must be implemented
+        procedure :: visit_program => test_visit_program
+        procedure :: visit_assignment => test_visit_assignment
+        procedure :: visit_binary_op => test_visit_binary_op
+        procedure :: visit_function_def => test_visit_function_def
+        procedure :: visit_subroutine_def => test_visit_subroutine_def
+        procedure :: visit_call_or_subscript => test_visit_call_or_subscript
+        procedure :: visit_subroutine_call => test_visit_subroutine_call
+        procedure :: visit_identifier => test_visit_identifier
+        procedure :: visit_literal => test_visit_literal
+        procedure :: visit_declaration => test_visit_declaration
+        procedure :: visit_print_statement => test_visit_print_statement
+        procedure :: visit_if => test_visit_if
+        procedure :: visit_do_loop => test_visit_do_loop
+        procedure :: visit_do_while => test_visit_do_while
+        procedure :: visit_select_case => test_visit_select_case
+        procedure :: visit_derived_type => test_visit_derived_type
+        procedure :: visit_interface_block => test_visit_interface_block
+        procedure :: visit_module => test_visit_module
+        procedure :: visit_use_statement => test_visit_use_statement
+        procedure :: visit_include_statement => test_visit_include_statement
+    end type test_visitor_t
 
     integer :: total_tests, passed_tests
 
@@ -321,10 +348,10 @@ contains
 
     subroutine test_declaration_accept()
         type(declaration_node) :: node
-        integer :: dummy_visitor
+        type(test_visitor_t) :: visitor
 
         ! Test accept (stub implementation)
-        call node%accept(dummy_visitor)
+        call node%accept(visitor)
 
         call test_pass()
     end subroutine test_declaration_accept
@@ -404,9 +431,9 @@ contains
 
     subroutine test_parameter_declaration_accept()
         type(parameter_declaration_node) :: node
-        integer :: dummy_visitor
+        type(test_visitor_t) :: visitor
 
-        call node%accept(dummy_visitor)
+        call node%accept(visitor)
         call test_pass()
     end subroutine test_parameter_declaration_accept
 
@@ -471,9 +498,9 @@ contains
 
     subroutine test_module_accept()
         type(module_node) :: node
-        integer :: dummy_visitor
+        type(test_visitor_t) :: visitor
 
-        call node%accept(dummy_visitor)
+        call node%accept(visitor)
         call test_pass()
     end subroutine test_module_accept
 
@@ -538,9 +565,9 @@ contains
 
     subroutine test_derived_type_accept()
         type(derived_type_node) :: node
-        integer :: dummy_visitor
+        type(test_visitor_t) :: visitor
 
-        call node%accept(dummy_visitor)
+        call node%accept(visitor)
         call test_pass()
     end subroutine test_derived_type_accept
 
@@ -656,5 +683,106 @@ contains
             stop 1
         end if
     end subroutine print_results
+
+    ! Test visitor stub implementations
+    subroutine test_visit_program(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_program
+
+    subroutine test_visit_assignment(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_assignment
+
+    subroutine test_visit_binary_op(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_binary_op
+
+    subroutine test_visit_function_def(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_function_def
+
+    subroutine test_visit_subroutine_def(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_subroutine_def
+
+    subroutine test_visit_call_or_subscript(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_call_or_subscript
+
+    subroutine test_visit_subroutine_call(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_subroutine_call
+
+    subroutine test_visit_identifier(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_identifier
+
+    subroutine test_visit_literal(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_literal
+
+    subroutine test_visit_declaration(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_declaration
+
+    subroutine test_visit_print_statement(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_print_statement
+
+    subroutine test_visit_if(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_if
+
+    subroutine test_visit_do_loop(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_do_loop
+
+    subroutine test_visit_do_while(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_do_while
+
+    subroutine test_visit_select_case(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_select_case
+
+    subroutine test_visit_derived_type(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_derived_type
+
+    subroutine test_visit_interface_block(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_interface_block
+
+    subroutine test_visit_module(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_module
+
+    subroutine test_visit_use_statement(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_use_statement
+
+    subroutine test_visit_include_statement(this, node)
+        class(test_visitor_t), intent(inout) :: this
+        class(*), intent(in) :: node
+    end subroutine test_visit_include_statement
 
 end program test_ast_nodes_data_coverage

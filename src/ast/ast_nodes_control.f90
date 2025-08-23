@@ -1,6 +1,7 @@
 module ast_nodes_control
     use json_module
-    use ast_base, only: ast_node, visit_interface, to_json_interface, ast_node_wrapper
+    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+                         ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 
@@ -269,7 +270,7 @@ contains
     ! Stub implementations for if_node
     subroutine if_accept(this, visitor)
         class(if_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine if_accept
 
@@ -315,7 +316,7 @@ contains
     ! Stub implementations for do_loop_node
     subroutine do_loop_accept(this, visitor)
         class(do_loop_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine do_loop_accept
 
@@ -354,7 +355,7 @@ contains
     ! Stub implementations for do_while_node
     subroutine do_while_accept(this, visitor)
         class(do_while_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine do_while_accept
 
@@ -389,7 +390,7 @@ contains
     ! Stub implementations for forall_node
     subroutine forall_accept(this, visitor)
         class(forall_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine forall_accept
 
@@ -476,7 +477,7 @@ contains
     ! Select case implementations
     subroutine select_case_accept(this, visitor)
         class(select_case_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Visitor pattern implementation
     end subroutine select_case_accept
 
@@ -522,7 +523,7 @@ contains
     ! Case block implementations
     subroutine case_block_accept(this, visitor)
         class(case_block_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine case_block_accept
 
     subroutine case_block_to_json(this, json, parent)
@@ -566,7 +567,7 @@ contains
     ! Case range implementations
     subroutine case_range_accept(this, visitor)
         class(case_range_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine case_range_accept
 
     subroutine case_range_to_json(this, json, parent)
@@ -604,7 +605,7 @@ contains
     ! Case default implementations
     subroutine case_default_accept(this, visitor)
         class(case_default_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine case_default_accept
 
     subroutine case_default_to_json(this, json, parent)
@@ -643,7 +644,7 @@ contains
     ! Where construct implementations
     subroutine where_accept(this, visitor)
         class(where_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine where_accept
 
     subroutine where_to_json(this, json, parent)
@@ -710,7 +711,7 @@ contains
     ! Cycle statement implementations
     subroutine cycle_accept(this, visitor)
         class(cycle_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine cycle_accept
 
     subroutine cycle_to_json(this, json, parent)
@@ -744,7 +745,7 @@ contains
     ! Exit statement implementations
     subroutine exit_accept(this, visitor)
         class(exit_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine exit_accept
 
     subroutine exit_to_json(this, json, parent)
@@ -778,7 +779,7 @@ contains
     ! Stop statement implementations
     subroutine stop_accept(this, visitor)
         class(stop_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine stop_accept
 
     subroutine stop_to_json(this, json, parent)
@@ -816,7 +817,7 @@ contains
     ! Return statement implementations
     subroutine return_accept(this, visitor)
         class(return_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine return_accept
 
     subroutine return_to_json(this, json, parent)
@@ -848,7 +849,7 @@ contains
     ! Goto statement implementations
     subroutine goto_accept(this, visitor)
         class(goto_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine goto_accept
 
     subroutine goto_to_json(this, json, parent)
@@ -882,7 +883,7 @@ contains
     ! Error stop statement implementations
     subroutine error_stop_accept(this, visitor)
         class(error_stop_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine error_stop_accept
 
     subroutine error_stop_to_json(this, json, parent)
@@ -920,7 +921,7 @@ contains
     ! ASSOCIATE node implementations
     subroutine associate_accept(this, visitor)
         class(associate_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine associate_accept
 
     subroutine associate_to_json(this, json, parent)
@@ -1089,7 +1090,7 @@ contains
     ! WHERE statement implementations
     subroutine where_stmt_accept(this, visitor)
         class(where_stmt_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine where_stmt_accept
 
     subroutine where_stmt_to_json(this, json, parent)

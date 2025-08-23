@@ -1,6 +1,7 @@
 module ast_nodes_data
     use json_module
-    use ast_base, only: ast_node, visit_interface, to_json_interface
+    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+                         ast_visitor_base_t
     implicit none
     private
 
@@ -109,7 +110,7 @@ contains
     ! Stub implementations for declaration_node
     subroutine declaration_accept(this, visitor)
         class(declaration_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine declaration_accept
 
@@ -157,7 +158,7 @@ contains
     ! Stub implementations for parameter_declaration_node
     subroutine parameter_declaration_accept(this, visitor)
         class(parameter_declaration_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine parameter_declaration_accept
 
@@ -226,7 +227,7 @@ contains
     ! Stub implementations for module_node
     subroutine module_accept(this, visitor)
         class(module_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine module_accept
 
@@ -266,7 +267,7 @@ contains
     ! Stub implementations for derived_type_node
     subroutine derived_type_accept(this, visitor)
         class(derived_type_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine derived_type_accept
 

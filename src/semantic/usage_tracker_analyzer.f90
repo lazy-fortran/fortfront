@@ -1,5 +1,7 @@
 module usage_tracker_analyzer
     use semantic_analyzer_base, only: semantic_analyzer_t
+    use semantic_context_types, only: semantic_context_base_t
+    use semantic_result_types, only: semantic_result_base_t, usage_result_t
     use ast_core, only: ast_arena_t
     use variable_usage_tracker_module, only: variable_usage_info_t, &
                                              create_variable_usage_info, &
@@ -46,7 +48,7 @@ contains
 
     subroutine analyze_variable_usage(this, shared_context, arena, node_index)
         class(usage_tracker_analyzer_t), intent(inout) :: this
-        class(*), intent(in) :: shared_context
+        class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
@@ -68,13 +70,15 @@ contains
 
     function get_usage_results(this) result(results)
         class(usage_tracker_analyzer_t), intent(in) :: this
-        class(*), allocatable :: results
+        class(semantic_result_base_t), allocatable :: results
         
         ! Return the usage analysis result
-        allocate(usage_analysis_result_t :: results)
+        allocate(usage_result_t :: results)
         select type(results)
-        type is (usage_analysis_result_t)
-            results = this%result
+        type is (usage_result_t)
+            results%variables_tracked = this%result%usage_info%total_count
+            results%unused_variables = size(this%result%unused_variables)
+            results%undefined_variables = size(this%result%undefined_variables)
         end select
     end function
 

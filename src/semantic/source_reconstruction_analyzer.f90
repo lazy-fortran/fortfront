@@ -1,5 +1,7 @@
 module source_reconstruction_analyzer
     use semantic_analyzer_base, only: semantic_analyzer_t
+    use semantic_context_types, only: semantic_context_base_t
+    use semantic_result_types, only: semantic_result_base_t
     use ast_core, only: ast_arena_t, ast_entry_t, identifier_node, literal_node, &
                         program_node, assignment_node, if_node, do_loop_node, &
                         function_def_node, declaration_node
@@ -118,11 +120,17 @@ module source_reconstruction_analyzer
     end type
 
     ! Source reconstruction result
-    type :: source_reconstruction_result_t
+    type, extends(semantic_result_base_t) :: source_reconstruction_result_t
         character(:), allocatable :: original_source
         type(source_map_t) :: node_map
         integer :: total_lines = 0
         character(:), allocatable :: line_starts(:)  ! Character positions
+    contains
+        procedure :: get_result_type => source_reconstruction_get_result_type
+        procedure :: clone_result => source_reconstruction_clone_result
+        procedure :: merge_results => source_reconstruction_merge_results
+        procedure :: assign => source_reconstruction_result_assign
+        generic :: assignment(=) => assign
     end type
 
     ! Source reconstruction analyzer plugin
@@ -148,7 +156,7 @@ contains
 
     subroutine analyze_source_reconstruction(this, shared_context, arena, node_index)
         class(source_reconstruction_analyzer_t), intent(inout) :: this
-        class(*), intent(in) :: shared_context
+        class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
@@ -162,7 +170,7 @@ contains
 
     function get_source_reconstruction_results(this) result(results)
         class(source_reconstruction_analyzer_t), intent(in) :: this
-        class(*), allocatable :: results
+        class(semantic_result_base_t), allocatable :: results
         
         ! Return the source reconstruction result
         allocate(source_reconstruction_result_t :: results)
@@ -991,5 +999,47 @@ contains
         write(temp_str, '(I0)') value
         str = trim(temp_str)
     end function int_to_str
+
+    ! Source reconstruction result implementations
+    function source_reconstruction_get_result_type(this) result(type_name)
+        class(source_reconstruction_result_t), intent(in) :: this
+        character(:), allocatable :: type_name
+        type_name = "source_reconstruction_result"
+    end function source_reconstruction_get_result_type
+
+    function source_reconstruction_clone_result(this) result(cloned)
+        class(source_reconstruction_result_t), intent(in) :: this
+        class(semantic_result_base_t), allocatable :: cloned
+        type(source_reconstruction_result_t) :: temp_result
+        
+        temp_result = this
+        allocate(cloned, source=temp_result)
+    end function source_reconstruction_clone_result
+
+    subroutine source_reconstruction_merge_results(this, other)
+        class(source_reconstruction_result_t), intent(inout) :: this
+        class(semantic_result_base_t), intent(in) :: other
+        
+        select type (other_result => other)
+        type is (source_reconstruction_result_t)
+            ! Merge source reconstruction results
+            this%total_lines = this%total_lines + other_result%total_lines
+        end select
+    end subroutine source_reconstruction_merge_results
+
+    subroutine source_reconstruction_result_assign(lhs, rhs)
+        class(source_reconstruction_result_t), intent(out) :: lhs
+        type(source_reconstruction_result_t), intent(in) :: rhs
+        
+        lhs%result_id = rhs%result_id
+        lhs%result_type_name = rhs%result_type_name
+        lhs%has_errors = rhs%has_errors
+        lhs%has_warnings = rhs%has_warnings
+        lhs%summary = rhs%summary
+        lhs%original_source = rhs%original_source
+        lhs%node_map = rhs%node_map
+        lhs%total_lines = rhs%total_lines
+        lhs%line_starts = rhs%line_starts
+    end subroutine source_reconstruction_result_assign
 
 end module source_reconstruction_analyzer
