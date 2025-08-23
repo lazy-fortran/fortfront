@@ -1,4 +1,5 @@
 module lexer_core
+    use error_handling
     implicit none
     private
 
@@ -25,8 +26,15 @@ module lexer_core
         generic :: assignment(=) => assign
     end type token_t
 
+    ! Lexer result types
+    type, public :: tokenize_result_t
+        type(result_t) :: result
+        type(token_t), allocatable :: tokens(:)
+        integer :: token_count = 0
+    end type
+
     ! Public interface
-    public :: tokenize_core
+    public :: tokenize_core, tokenize_safe
     public :: token_type_name
 
     ! Keywords list
@@ -56,6 +64,26 @@ module lexer_core
                                         ]
 
 contains
+
+    function tokenize_safe(source) result(tokenize_res)
+        character(len=*), intent(in) :: source
+        type(tokenize_result_t) :: tokenize_res
+        
+        ! Input validation
+        if (len(source) == 0) then
+            tokenize_res%result = warning_result( &
+                "Empty source provided to tokenizer", &
+                ERROR_VALIDATION, &
+                component="lexer", &
+                context="tokenize_safe", &
+                suggestion="Provide non-empty source text")
+            tokenize_res%token_count = 0
+            return
+        end if
+        
+        ! Delegate to core implementation with error handling
+        call tokenize_core_safe(source, tokenize_res)
+    end function tokenize_safe
 
     subroutine tokenize_core(source, tokens)
         character(len=*), intent(in) :: source
@@ -137,6 +165,120 @@ contains
         tokens = temp_tokens(1:token_count)
 
     end subroutine tokenize_core
+
+    subroutine tokenize_core_safe(source, tokenize_res)
+        character(len=*), intent(in) :: source
+        type(tokenize_result_t), intent(out) :: tokenize_res
+
+        type(token_t), allocatable :: temp_tokens(:)
+        integer :: pos, line_num, col_num, token_count
+        integer :: source_len
+        character(len=1) :: ch
+        type(result_t) :: scan_result
+
+        ! Initialize success result
+        tokenize_res%result = success_result()
+        
+        ! Initialize
+        source_len = len(source)
+        pos = 1
+        line_num = 1
+        col_num = 1
+        token_count = 0
+        allocate (temp_tokens(100))  ! Initial allocation
+
+        ! Main tokenization loop
+        do while (pos <= source_len)
+            ch = source(pos:pos)
+
+            ! Skip whitespace
+            if (is_whitespace(ch)) then
+                if (ch == new_line('a')) then
+                    line_num = line_num + 1
+                    col_num = 1
+                else
+                    col_num = col_num + 1
+                end if
+                pos = pos + 1
+                cycle
+            end if
+
+            ! Number literal
+            if (is_digit(ch)) then
+                call scan_number_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
+                if (scan_result%is_failure()) then
+                    tokenize_res%result = scan_result
+                    return
+                end if
+
+            ! String literal
+            else if (ch == '"' .or. ch == "'") then
+                call scan_string_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
+                if (scan_result%is_failure()) then
+                    tokenize_res%result = scan_result
+                    return
+                end if
+
+            ! Identifier or keyword
+            else if (is_letter(ch)) then
+                call scan_identifier_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
+                if (scan_result%is_failure()) then
+                    tokenize_res%result = scan_result
+                    return
+                end if
+
+            ! Comments - capture and emit as tokens
+            else if (ch == '!') then
+                call scan_comment_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
+                if (scan_result%is_failure()) then
+                    tokenize_res%result = scan_result
+                    return
+                end if
+
+            ! Logical constants and operators (starting with '.')
+            else if (ch == '.') then
+                call scan_logical_token_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
+                if (scan_result%is_failure()) then
+                    tokenize_res%result = scan_result
+                    return
+                end if
+
+            ! Operators
+            else if (is_operator(ch)) then
+                call scan_operator_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
+                if (scan_result%is_failure()) then
+                    tokenize_res%result = scan_result
+                    return
+                end if
+
+            ! Unknown character - now properly handled as error
+            else
+                tokenize_res%result = create_error_result( &
+                    "Invalid character '" // ch // "' in source", &
+                    ERROR_VALIDATION, &
+                    component="lexer", &
+                    context="tokenize", &
+                    suggestion="Remove or replace invalid character")
+                return
+            end if
+        end do
+
+        ! Add EOF token
+        token_count = token_count + 1
+        if (token_count > size(temp_tokens)) then
+            call resize_tokens(temp_tokens)
+        end if
+        temp_tokens(token_count)%kind = TK_EOF
+        temp_tokens(token_count)%text = ""
+        temp_tokens(token_count)%line = line_num
+        temp_tokens(token_count)%column = col_num
+
+        ! Copy to output
+        tokenize_res%token_count = token_count
+        allocate(tokenize_res%tokens(token_count))
+        tokenize_res%tokens = temp_tokens(1:token_count)
+
+    end subroutine tokenize_core_safe
 
     subroutine scan_number(source, pos, line_num, col_num, tokens, token_count)
         character(len=*), intent(in) :: source
@@ -299,6 +441,86 @@ contains
         tokens(token_count)%column = start_col
 
     end subroutine scan_string
+
+    subroutine scan_string_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(result_t), intent(out) :: scan_result
+
+        integer :: start_pos, start_col
+        character(len=1) :: quote_char
+        logical :: found_end
+
+        scan_result = success_result()
+        start_pos = pos
+        start_col = col_num
+        quote_char = source(pos:pos)
+        found_end = .false.
+
+        pos = pos + 1
+        col_num = col_num + 1
+
+        ! Scan until closing quote
+        do while (pos <= len(source))
+            if (source(pos:pos) == quote_char) then
+                ! Check if it's an escaped quote (doubled)
+                if (pos + 1 <= len(source)) then
+                    if (source(pos + 1:pos + 1) == quote_char) then
+                        ! Escaped quote - skip both characters
+                        pos = pos + 2
+                        col_num = col_num + 2
+                    else
+                        ! End of string
+                        pos = pos + 1
+                        col_num = col_num + 1
+                        found_end = .true.
+                        exit
+                    end if
+                else
+                    ! End of string
+                    pos = pos + 1
+                    col_num = col_num + 1
+                    found_end = .true.
+                    exit
+                end if
+            else if (source(pos:pos) == new_line('a')) then
+                ! Error: unterminated string
+                scan_result = create_error_result( &
+                    "Unterminated string literal", &
+                    ERROR_PARSER, &
+                    component="lexer", &
+                    context="scan_string", &
+                    suggestion="Add closing " // quote_char // " to complete string")
+                return
+            else
+                pos = pos + 1
+                col_num = col_num + 1
+            end if
+        end do
+
+        ! Check if we reached end without finding closing quote
+        if (.not. found_end) then
+            scan_result = create_error_result( &
+                "Unterminated string literal at end of source", &
+                ERROR_PARSER, &
+                component="lexer", &
+                context="scan_string", &
+                suggestion="Add closing " // quote_char // " to complete string")
+            return
+        end if
+
+        ! Add token
+        token_count = token_count + 1
+        if (token_count > size(tokens)) then
+            call resize_tokens(tokens)
+        end if
+        tokens(token_count)%kind = TK_STRING
+        tokens(token_count)%text = source(start_pos:pos - 1)
+        tokens(token_count)%line = line_num
+        tokens(token_count)%column = start_col
+
+    end subroutine scan_string_safe
 
     subroutine scan_identifier(source, pos, line_num, col_num, tokens, token_count)
         character(len=*), intent(in) :: source
@@ -554,6 +776,63 @@ contains
         col_num = col_num + 1
 
     end subroutine scan_logical_token
+
+    ! Safe scanning functions with proper error handling
+
+    subroutine scan_number_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(result_t), intent(out) :: scan_result
+
+        ! Numbers are generally robust, delegate to existing implementation
+        scan_result = success_result()
+        call scan_number(source, pos, line_num, col_num, tokens, token_count)
+    end subroutine scan_number_safe
+
+    subroutine scan_identifier_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(result_t), intent(out) :: scan_result
+
+        ! Identifiers are generally robust, delegate to existing implementation
+        scan_result = success_result()
+        call scan_identifier(source, pos, line_num, col_num, tokens, token_count)
+    end subroutine scan_identifier_safe
+
+    subroutine scan_comment_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(result_t), intent(out) :: scan_result
+
+        ! Comments are generally robust, delegate to existing implementation
+        scan_result = success_result()
+        call scan_comment(source, pos, line_num, col_num, tokens, token_count)
+    end subroutine scan_comment_safe
+
+    subroutine scan_operator_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(result_t), intent(out) :: scan_result
+
+        ! Operators are generally robust, delegate to existing implementation
+        scan_result = success_result()
+        call scan_operator(source, pos, line_num, col_num, tokens, token_count)
+    end subroutine scan_operator_safe
+
+    subroutine scan_logical_token_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(result_t), intent(out) :: scan_result
+
+        ! Logical tokens are generally robust, delegate to existing implementation
+        scan_result = success_result()
+        call scan_logical_token(source, pos, line_num, col_num, tokens, token_count)
+    end subroutine scan_logical_token_safe
 
     ! Helper functions
 
