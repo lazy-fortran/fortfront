@@ -37,6 +37,10 @@ module parser_result_types
     public :: success_parse_result, error_parse_result
     public :: success_compile_result, error_compile_result
 
+    ! Error recovery functions
+    public :: recover_to_statement_boundary, recover_to_closing_paren
+    public :: recover_to_next_token, skip_to_synchronization_point
+
 contains
 
     ! parse_result_t methods
@@ -177,5 +181,249 @@ contains
         compile_res%warnings = create_error_collection()
         call compile_res%set_error(message, code, component, context, suggestion)
     end function error_compile_result
+
+    ! Error recovery strategies for continued parsing after errors
+    
+    ! Recover to statement boundary (newline, semicolon, or end keyword)
+    function recover_to_statement_boundary(parser) result(recovery_res)
+        use parser_state_module, only: parser_state_t
+        use lexer_core, only: TK_KEYWORD, TK_NEWLINE, TK_OPERATOR, TK_EOF
+        type(parser_state_t), intent(inout) :: parser
+        type(result_t) :: recovery_res
+        
+        integer :: tokens_skipped
+        
+        tokens_skipped = 0
+        
+        ! Skip tokens until we find a statement boundary
+        do while (.not. parser%is_at_end())
+            block
+                use lexer_core, only: token_t
+                type(token_t) :: token
+                
+                token = parser%peek()
+                
+                ! Statement boundary tokens
+                if (token%kind == TK_NEWLINE) then
+                    exit  ! Found newline - good statement boundary
+                end if
+                
+                if (token%kind == TK_OPERATOR .and. token%text == ";") then
+                    exit  ! Found semicolon - statement separator
+                end if
+                
+                if (token%kind == TK_KEYWORD) then
+                    select case (token%text)
+                    case ("end", "contains", "else", "elseif", "endif", &
+                          "enddo", "endfunction", "endsubroutine", &
+                          "endmodule", "endprogram", "endinterface")
+                        exit  ! Found end keyword - statement boundary
+                    case ("integer", "real", "logical", "character", &
+                          "complex", "type", "function", "subroutine", &
+                          "program", "module", "if", "do", "select", &
+                          "use", "include", "call", "print", "write", &
+                          "read", "allocate", "deallocate")
+                        exit  ! Found statement-starting keyword
+                    end select
+                end if
+                
+                token = parser%consume()
+                tokens_skipped = tokens_skipped + 1
+                
+                ! Safety check - don't skip too many tokens
+                if (tokens_skipped > 100) then
+                    recovery_res = create_error_result( &
+                        "Error recovery failed: too many tokens skipped", &
+                        ERROR_PARSER, &
+                        "parser_result_types", &
+                        "recover_to_statement_boundary", &
+                        "Check for missing statement terminators" &
+                    )
+                    return
+                end if
+            end block
+        end do
+        
+        recovery_res = success_result()
+    end function recover_to_statement_boundary
+
+    ! Recover to closing parenthesis, bracket, or brace
+    function recover_to_closing_paren(parser, opening_char) result(recovery_res)
+        use parser_state_module, only: parser_state_t
+        use lexer_core, only: TK_OPERATOR, TK_EOF
+        type(parser_state_t), intent(inout) :: parser
+        character(len=1), intent(in) :: opening_char
+        type(result_t) :: recovery_res
+        
+        character(len=1) :: closing_char
+        integer :: nesting_level, tokens_skipped
+        
+        ! Determine closing character
+        select case (opening_char)
+        case ("(")
+            closing_char = ")"
+        case ("[")
+            closing_char = "]"
+        case ("{")
+            closing_char = "}"
+        case default
+            recovery_res = create_error_result( &
+                "Invalid opening character for recovery", &
+                ERROR_PARSER, &
+                "parser_result_types", &
+                "recover_to_closing_paren", &
+                "Use '(', '[', or '{' as opening character" &
+            )
+            return
+        end select
+        
+        nesting_level = 1
+        tokens_skipped = 0
+        
+        do while (.not. parser%is_at_end() .and. nesting_level > 0)
+            block
+                use lexer_core, only: token_t
+                type(token_t) :: token
+                
+                token = parser%peek()
+                
+                if (token%kind == TK_OPERATOR) then
+                    if (token%text == opening_char) then
+                        nesting_level = nesting_level + 1
+                    else if (token%text == closing_char) then
+                        nesting_level = nesting_level - 1
+                    end if
+                end if
+                
+                token = parser%consume()
+                tokens_skipped = tokens_skipped + 1
+                
+                ! Safety check
+                if (tokens_skipped > 200) then
+                    recovery_res = create_error_result( &
+                        "Error recovery failed: unmatched " // opening_char, &
+                        ERROR_PARSER, &
+                        "parser_result_types", &
+                        "recover_to_closing_paren", &
+                        "Check for missing " // closing_char &
+                    )
+                    return
+                end if
+            end block
+        end do
+        
+        if (nesting_level > 0) then
+            recovery_res = create_error_result( &
+                "Reached end of input with unmatched " // opening_char, &
+                ERROR_PARSER, &
+                "parser_result_types", &
+                "recover_to_closing_paren", &
+                "Add missing " // closing_char &
+            )
+        else
+            recovery_res = success_result()
+        end if
+    end function recover_to_closing_paren
+
+    ! Recover to next occurrence of specific token
+    function recover_to_next_token(parser, target_kind, target_text) result(recovery_res)
+        use parser_state_module, only: parser_state_t
+        use lexer_core, only: TK_EOF
+        type(parser_state_t), intent(inout) :: parser
+        integer, intent(in) :: target_kind
+        character(len=*), intent(in), optional :: target_text
+        type(result_t) :: recovery_res
+        
+        integer :: tokens_skipped
+        
+        tokens_skipped = 0
+        
+        do while (.not. parser%is_at_end())
+            block
+                use lexer_core, only: token_t
+                type(token_t) :: token
+                
+                token = parser%peek()
+                
+                if (token%kind == target_kind) then
+                    if (present(target_text)) then
+                        if (token%text == target_text) then
+                            exit  ! Found target token with matching text
+                        end if
+                    else
+                        exit  ! Found target token kind
+                    end if
+                end if
+                
+                token = parser%consume()
+                tokens_skipped = tokens_skipped + 1
+                
+                ! Safety check
+                if (tokens_skipped > 150) then
+                    recovery_res = create_error_result( &
+                        "Error recovery failed: target token not found", &
+                        ERROR_PARSER, &
+                        "parser_result_types", &
+                        "recover_to_next_token", &
+                        "Check for missing or malformed tokens" &
+                    )
+                    return
+                end if
+            end block
+        end do
+        
+        recovery_res = success_result()
+    end function recover_to_next_token
+
+    ! Skip to known synchronization points for robust error recovery
+    function skip_to_synchronization_point(parser) result(recovery_res)
+        use parser_state_module, only: parser_state_t
+        use lexer_core, only: TK_KEYWORD, TK_EOF
+        type(parser_state_t), intent(inout) :: parser
+        type(result_t) :: recovery_res
+        
+        integer :: tokens_skipped
+        
+        tokens_skipped = 0
+        
+        do while (.not. parser%is_at_end())
+            block
+                use lexer_core, only: token_t
+                type(token_t) :: token
+                
+                token = parser%peek()
+                
+                ! Synchronization points - major structural keywords
+                if (token%kind == TK_KEYWORD) then
+                    select case (token%text)
+                    case ("program", "module", "function", "subroutine", &
+                          "interface", "type", "contains", &
+                          "end", "endprogram", "endmodule", "endfunction", &
+                          "endsubroutine", "endinterface", "endtype")
+                        exit  ! Found major structural boundary
+                    case ("use", "include", "implicit")
+                        exit  ! Found declaration boundary
+                    end select
+                end if
+                
+                token = parser%consume()
+                tokens_skipped = tokens_skipped + 1
+                
+                ! Safety check
+                if (tokens_skipped > 300) then
+                    recovery_res = create_error_result( &
+                        "Error recovery failed: no synchronization point found", &
+                        ERROR_PARSER, &
+                        "parser_result_types", &
+                        "skip_to_synchronization_point", &
+                        "Check for missing end statements or malformed structure" &
+                    )
+                    return
+                end if
+            end block
+        end do
+        
+        recovery_res = success_result()
+    end function skip_to_synchronization_point
 
 end module parser_result_types
