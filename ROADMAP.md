@@ -1,34 +1,36 @@
 # fortfront Development Roadmap
 
-**MANDATORY FOUNDATION REQUIREMENTS**
-- **fortfront FIRST**: Static library foundation must be established before any other tools
-- **Zero Dependencies**: All tools statically link libfortfront.a only  
-- **Pure Fortran**: External tool integration through Fortran module interfaces
-- **Clean Tool Boundaries**: No tool dependencies except fortfront foundation
+**FPM-FIRST ARCHITECTURE**
+- **Dependency Management**: FPM automatically handles all tool dependencies via fpm.toml
+- **Pure Fortran**: External tool integration through standard Fortran module interfaces
+- **Simple Integration**: Tools add `fortfront` as dependency - FPM handles compilation and linking
+- **No Build Complexity**: FPM manages all module compilation and linking automatically
 
-This roadmap ensures fortfront foundation comes FIRST, then all other tools build upon it.
+This roadmap focuses on core functionality rather than unnecessary build complexity.
 
-## 🔥 **PHASE 0: fortfront FOUNDATION** (ABSOLUTE PRIORITY)
+## 🔥 **PHASE 0: FPM INTEGRATION VERIFICATION** (ABSOLUTE PRIORITY)
 
-**CRITICAL**: Create static library foundation that ALL other tools depend on
+**PRIORITY**: Verify FPM handles all dependency management correctly
 
-### Step 1: Static Library Build System
-- **#416**: Create libfortfront.a static library for pure Fortran integration
-- **Modify fpm.toml**: Update build system to produce static library
-- **Zero Dependencies**: Verify no external runtime dependencies whatsoever
+### Step 1: FPM Dependency Verification
+- **Test Integration**: Create sample external tool using fortfront as FPM dependency  
+- **Verify Compilation**: Confirm FPM correctly compiles and links all fortfront modules
+- **Test Functionality**: Ensure external tools can access fortfront functionality
+- **Document Patterns**: Create simple integration examples
 
-### Step 2: Fortran Module Infrastructure  
-- **#417**: Design pure Fortran module interfaces for external tools
-- **Implementation**: Create fortfront_core, fortfront_ast, fortfront_semantic modules
-- **Handle System**: Add structured error handling through Fortran result types
+### Step 2: API Surface Review
+- **Module Identification**: Identify which existing modules should be public API
+- **Interface Cleanup**: Ensure clean module interfaces for external tool use  
+- **Documentation**: Document public API patterns and usage
+- **Integration Guide**: Create getting-started guide for external tool developers
 
-### Step 3: Fortran Integration Validation
-- **#418**: Implement Fortran static linking validation tests
-- **Test Programs**: Create Fortran programs that link against libfortfront.a
-- **Static Linking**: Verify static linking produces self-contained executables
-- **Integration Tests**: Test Fortran module interfaces with sample external tools
+### Step 3: Cross-Platform Testing
+- **Platform Verification**: Test FPM integration across platforms
+- **Compiler Testing**: Verify with different Fortran compilers
+- **Tool Examples**: Create examples for different tool types (linter, compiler, formatter)
+- **Performance**: Verify no significant overhead from FPM dependency management
 
-**DELIVERABLE**: Working libfortfront.a with stable Fortran modules, ready for ALL tool integration
+**DELIVERABLE**: Verified FPM integration with documented patterns for external tool development
 
 ## 🏗️ **PHASE 1: Core Arena Foundation** (After Phase 0 Complete)
 
