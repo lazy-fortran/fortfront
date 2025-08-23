@@ -1,31 +1,46 @@
 # Development Backlog
 
+## DOING (Current Work)
+- [ ] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (branch: feat/parser-result-t-migration-410) - Foundation and error recovery complete, ready for review PR #434
+
 ## TODO (Ordered by Priority)
-- [ ] #369: Define base arena interface with type-bound procedures
-- [ ] #370: Migrate ast_arena to container API with type-bound procedures
-- [ ] #398: Arena: Implement arena handle validation with generation checking
-- [ ] #399: Arena: Implement per-node freeing with generation tracking for selective memory management
-- [ ] #329: Fix character type inference for string literals and expressions
-- [ ] #354: GCC 15.2.1 compatibility issue with allocatable components
-- [ ] #406: Refactor: Extract variable parsing and initialization logic from parse_declaration
+
+### Foundation Phase 1: Error Handling Infrastructure (CRITICAL)
+No remaining items - Phase 1 complete
+
+### Foundation Phase 2: Arena System (FOUNDATION)
+- [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
+- [ ] #369: feat: define base arena interface with type-bound procedures
+- [ ] #370: feat: migrate ast_arena to container API with type-bound procedures
+- [ ] #362: Create unified compiler_arena module for KISS architecture
+- [ ] #371: feat: integrate compiler_arena for unified memory management
+- [ ] #360: Migrate AST to modern high-performance arena with unified architecture
+
+### Foundation Phase 3: CST/AST Infrastructure (MAJOR)
 - [ ] #393: CST: Create basic CST node type definitions and module structure
 - [ ] #394: CST: Implement UID generation system for stable node identification
 - [ ] #395: CST: Implement lexer trivia collection for comments and whitespace
 - [ ] #396: CST: Create CST builder for parallel construction alongside AST
 - [ ] #397: CST: Implement CST to AST converter with bidirectional linking
+
+### Code Quality and Refactoring (ENHANCEMENT)
+- [ ] #407: Refactor: Extract multi-variable declaration handling from parse_declaration (Re-opened after regression fixes needed)
+- [ ] #406: Refactor: Extract variable parsing and initialization logic from parse_declaration
+- [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines)
+- [ ] #365: refactor: break down large functions >200 lines (9 functions)
+- [ ] #366: refactor: address remaining 24 functions exceeding 100-line limit
+- [ ] #367: refactor: address remaining large files >1000 lines
+
+### Type System Improvements (ENHANCEMENT)
 - [ ] #401: Type System: Implement constraint generation for Hindley-Milner type inference
 - [ ] #402: Type System: Implement unification algorithm with occurs check for constraint solving
 - [ ] #403: Type System: Implement constraint solver with let-polymorphism support
-- [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
 
-## DOING (Current Work)
-- [x] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (branch: feat/parser-result-t-migration-410)
-- [x] #359: Implement arena memory allocator with generation-based safety
+### Testing and Documentation (SUPPORT)
+- [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
-- [x] #408: Error Handling: Design and implement unified result_t type for consistent error handling
-- [x] #407: Refactor: extract multi-variable declaration handling from parse_declaration (PR #429)
-- [x] #428: Refactor: extract type specifier parsing from parse_declaration function
-- [x] #427: Feat: migrate lexer to unified result_t error handling
-- [x] #426: Arch: simplify foundation to FPM-first approach
-- [x] #424: Feat: Foundation static library architecture for pure Fortran integration
+- [x] #399: Arena: Implement per-node freeing with generation tracking for selective memory management (PR #435)
+- [x] #359: Implement arena memory allocator with generation-based safety (Comprehensive implementation complete)
+- [x] #408: Error Handling: Design and implement unified result_t type for consistent error handling (PR #432)
+- [x] #427: Error Handling: Migrate lexer to unified result_t error handling
