@@ -55,3 +55,4 @@ test_old_api.o
 
 # Log files
 *.log
+examples/external_tool_example
