@@ -143,6 +143,9 @@ contains
             compiler = create_compiler_arena(chunk_size=1048576, enable_stats=.true.)
         else
             ! Fallback to traditional initialization for backward compatibility
+            ! Initialize minimal compiler arena state for backward compatibility
+            compiler%generation = 1
+            compiler%is_initialized = .false.
             call init_ast_arena(compiler%ast)
         end if
 
@@ -262,6 +265,9 @@ contains
             ! Start at phase 2 since we skip lexing
             compiler%generation = 2
         else
+            ! Initialize minimal compiler arena state for backward compatibility
+            compiler%generation = 2  ! Start at phase 2 since we skip lexing
+            compiler%is_initialized = .false.
             call init_ast_arena(compiler%ast)
         end if
 
@@ -350,6 +356,9 @@ contains
             ! Start at phase 3 since we skip lexing and parsing
             compiler%generation = 3
         else
+            ! Initialize minimal compiler arena state for backward compatibility
+            compiler%generation = 3  ! Start at phase 3 since we skip lexing and parsing
+            compiler%is_initialized = .false.
             call init_ast_arena(compiler%ast)
         end if
 
@@ -425,6 +434,9 @@ prog_index = push_literal(compiler%ast, "! JSON loading not implemented", LITERA
             ! Start at phase 5 since we skip everything except codegen
             compiler%generation = 5
         else
+            ! Initialize minimal compiler arena state for backward compatibility  
+            compiler%generation = 5  ! Start at phase 5 since we skip everything except codegen
+            compiler%is_initialized = .false.
             call init_ast_arena(compiler%ast)
         end if
 
