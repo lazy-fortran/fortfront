@@ -13,7 +13,7 @@ module parser_declarations
     public :: parse_derived_type_def
     public :: parse_derived_type_component
     public :: parse_array_dimensions
-    public :: parse_type_specifier
+    public :: parse_type_specifier, parse_declaration_attributes
 
     ! Type specifier result type for structured type information
     type, public :: type_specifier_t
@@ -23,6 +23,19 @@ module parser_declarations
         integer :: line = 0
         integer :: column = 0
     end type type_specifier_t
+
+    ! Declaration attributes result type for structured attribute information
+    type, public :: declaration_attributes_t
+        logical :: is_allocatable = .false.
+        logical :: is_pointer = .false.
+        logical :: is_target = .false.
+        logical :: is_parameter = .false.
+        logical :: is_optional = .false.
+        logical :: has_intent = .false.
+        logical :: has_global_dimensions = .false.
+        character(len=:), allocatable :: intent
+        integer, allocatable :: global_dimension_indices(:)
+    end type declaration_attributes_t
 
 contains
 
@@ -115,46 +128,22 @@ contains
 
     end function parse_type_specifier
 
-    ! Parse single-variable declaration (e.g., real :: x)
-    function parse_declaration(parser, arena) result(decl_index)
-        use ast_factory, only: push_declaration, push_literal, push_identifier, push_multi_declaration
+    ! Parse declaration attributes (allocatable, pointer, intent, dimension, etc.)
+    subroutine parse_declaration_attributes(parser, arena, attr_info)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
-        integer :: decl_index
+        type(declaration_attributes_t), intent(out) :: attr_info
 
-        type(token_t) :: type_token, var_token
-        character(len=:), allocatable :: type_name, var_name
-        integer :: line, column, kind_value
-        logical :: has_kind, is_array, is_allocatable, is_pointer, is_target
-        logical :: has_intent, is_optional, has_global_dimensions, is_parameter
-        character(len=:), allocatable :: intent
-        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
+        type(token_t) :: var_token
 
-        ! Parse type specifier using extracted helper function
-        type(type_specifier_t) :: type_spec
-        type_spec = parse_type_specifier(parser)
-        
-        ! Handle errors from type specifier parsing
-        if (index(type_spec%type_name, "ERROR:") == 1) then
-            decl_index = push_literal(arena, type_spec%type_name, LITERAL_STRING, type_spec%line, type_spec%column)
-            return
-        end if
-        
-        ! Extract parsed information
-        type_name = type_spec%type_name
-        has_kind = type_spec%has_kind
-        kind_value = type_spec%kind_value
-        line = type_spec%line
-        column = type_spec%column
-        
-        ! Initialize attribute flags
-        is_allocatable = .false.
-        is_pointer = .false.
-        is_target = .false.
-        has_intent = .false.
-        is_optional = .false.
-        has_global_dimensions = .false.
-        is_parameter = .false.
+        ! Initialize all attributes to defaults
+        attr_info%is_allocatable = .false.
+        attr_info%is_pointer = .false.
+        attr_info%is_target = .false.
+        attr_info%is_parameter = .false.
+        attr_info%is_optional = .false.
+        attr_info%has_intent = .false.
+        attr_info%has_global_dimensions = .false.
 
         ! Check for attributes like allocatable (e.g., "real, allocatable :: arr")
         ! Parse multiple attributes separated by commas
@@ -168,23 +157,23 @@ contains
                 var_token = parser%peek()
                 if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                     var_token%text == "allocatable") then
-                    is_allocatable = .true.
+                    attr_info%is_allocatable = .true.
                     var_token = parser%consume()
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "pointer") then
-                    is_pointer = .true.
+                    attr_info%is_pointer = .true.
                     var_token = parser%consume()
                 else if (var_token%kind == TK_IDENTIFIER .and. &
                          var_token%text == "target") then
-                    is_target = .true.
+                    attr_info%is_target = .true.
                     var_token = parser%consume()
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "parameter") then
-                    is_parameter = .true.
+                    attr_info%is_parameter = .true.
                     var_token = parser%consume()
                 else if (var_token%kind == TK_IDENTIFIER .and. &
                          var_token%text == "dimension") then
-                    has_global_dimensions = .true.
+                    attr_info%has_global_dimensions = .true.
                     var_token = parser%consume()
                     
                     ! Parse dimension specification
@@ -193,7 +182,7 @@ contains
                         var_token = parser%consume()  ! consume '('
                         
                         ! Parse dimensions
-                        call parse_array_dimensions(parser, arena, global_dimension_indices)
+                        call parse_array_dimensions(parser, arena, attr_info%global_dimension_indices)
                         
                         ! Consume ')'
                         var_token = parser%peek()
@@ -203,7 +192,7 @@ contains
                     end if
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "dimension") then
-                    has_global_dimensions = .true.
+                    attr_info%has_global_dimensions = .true.
                     var_token = parser%consume()
                     
                     ! Parse dimension specification
@@ -212,7 +201,7 @@ contains
                         var_token = parser%consume()  ! consume '('
                         
                         ! Parse dimensions
-                        call parse_array_dimensions(parser, arena, global_dimension_indices)
+                        call parse_array_dimensions(parser, arena, attr_info%global_dimension_indices)
                         
                         ! Consume ')'
                         var_token = parser%peek()
@@ -222,7 +211,7 @@ contains
                     end if
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "intent") then
-                    has_intent = .true.
+                    attr_info%has_intent = .true.
                     var_token = parser%consume()  ! consume 'intent'
                     
                     ! Parse intent specification (in|out|inout) - simplified version  
@@ -232,7 +221,7 @@ contains
                         
                         var_token = parser%peek()
                         if (var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) then
-                            intent = var_token%text
+                            attr_info%intent = var_token%text
                             var_token = parser%consume()  ! consume intent value
                         end if
                         
@@ -244,7 +233,7 @@ contains
                     end if
                 else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
                          var_token%text == "optional") then
-                    is_optional = .true.
+                    attr_info%is_optional = .true.
                     var_token = parser%consume()
                 else
                     ! Unknown attribute - consume it and handle complex &
@@ -278,6 +267,66 @@ contains
                 exit
             end if
         end do
+
+    end subroutine parse_declaration_attributes
+
+    ! Parse single-variable declaration (e.g., real :: x)
+    function parse_declaration(parser, arena) result(decl_index)
+        use ast_factory, only: push_declaration, push_literal, push_identifier, push_multi_declaration
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: decl_index
+
+        type(token_t) :: type_token, var_token
+        character(len=:), allocatable :: type_name, var_name
+        integer :: line, column, kind_value
+        logical :: has_kind, is_array, is_allocatable, is_pointer, is_target
+        logical :: has_intent, is_optional, has_global_dimensions, is_parameter
+        character(len=:), allocatable :: intent
+        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
+        type(declaration_attributes_t) :: attr_info
+
+        ! Parse type specifier using extracted helper function
+        type(type_specifier_t) :: type_spec
+        type_spec = parse_type_specifier(parser)
+        
+        ! Handle errors from type specifier parsing
+        if (index(type_spec%type_name, "ERROR:") == 1) then
+            decl_index = push_literal(arena, type_spec%type_name, LITERAL_STRING, type_spec%line, type_spec%column)
+            return
+        end if
+        
+        ! Extract parsed information
+        type_name = type_spec%type_name
+        has_kind = type_spec%has_kind
+        kind_value = type_spec%kind_value
+        line = type_spec%line
+        column = type_spec%column
+        
+        ! Initialize attribute flags
+        is_allocatable = .false.
+        is_pointer = .false.
+        is_target = .false.
+        has_intent = .false.
+        is_optional = .false.
+        has_global_dimensions = .false.
+        is_parameter = .false.
+
+        ! Parse declaration attributes using extracted helper function
+        call parse_declaration_attributes(parser, arena, attr_info)
+        
+        ! Extract parsed attribute information
+        is_allocatable = attr_info%is_allocatable
+        is_pointer = attr_info%is_pointer
+        is_target = attr_info%is_target
+        is_parameter = attr_info%is_parameter
+        is_optional = attr_info%is_optional
+        has_intent = attr_info%has_intent
+        has_global_dimensions = attr_info%has_global_dimensions
+        if (allocated(attr_info%intent)) intent = attr_info%intent
+        if (allocated(attr_info%global_dimension_indices)) then
+            global_dimension_indices = attr_info%global_dimension_indices
+        end if
 
         ! Consume '::'
         var_token = parser%peek()
