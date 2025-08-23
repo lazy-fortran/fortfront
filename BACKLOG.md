@@ -1,6 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [x] #370: feat: migrate ast_arena to container API with type-bound procedures (branch: feat-migrate-ast-arena-370)
 
 ## TODO (Ordered by Priority)
 
@@ -10,8 +11,7 @@ No remaining critical items - #442 moved to DOING
 ### Foundation Phase 1: Error Handling Infrastructure (CRITICAL)
 No remaining items - Phase 1 complete
 
-### Foundation Phase 2: Arena System (BLOCKED until #442 complete)  
-- [ ] #370: feat: migrate ast_arena to container API with type-bound procedures
+### Foundation Phase 2: Arena System (Foundation complete, continuing development)
 - [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
 - [ ] #362: Create unified compiler_arena module for KISS architecture
 - [ ] #371: feat: integrate compiler_arena for unified memory management
