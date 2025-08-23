@@ -24,7 +24,7 @@ contains
 
     subroutine analyze_test(this, shared_context, arena, node_index)
         class(simple_test_analyzer_t), intent(inout) :: this
-        class(*), intent(in) :: shared_context
+        class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         
@@ -41,7 +41,7 @@ contains
 
     function get_test_results(this) result(results)
         class(simple_test_analyzer_t), intent(in) :: this
-        class(*), allocatable :: results
+        class(semantic_result_base_t), allocatable :: results
         
         ! For testing, return the execution status
         allocate(logical :: results)

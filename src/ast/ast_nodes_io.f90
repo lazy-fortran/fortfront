@@ -1,6 +1,7 @@
 module ast_nodes_io
     use json_module
-    use ast_base, only: ast_node, visit_interface, to_json_interface
+    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+                         ast_visitor_base_t
     implicit none
     private
 
@@ -79,7 +80,7 @@ contains
     ! Stub implementations for print_statement_node
     subroutine print_statement_accept(this, visitor)
         class(print_statement_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine print_statement_accept
 
@@ -114,7 +115,7 @@ contains
     ! Stub implementations for write_statement_node
     subroutine write_statement_accept(this, visitor)
         class(write_statement_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Stub implementation
     end subroutine write_statement_accept
 
@@ -155,7 +156,7 @@ contains
     ! Read statement implementations
     subroutine read_statement_accept(this, visitor)
         class(read_statement_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine read_statement_accept
 
     subroutine read_statement_to_json(this, json, parent)
@@ -213,7 +214,7 @@ contains
     ! Format descriptor implementations
     subroutine format_descriptor_accept(this, visitor)
         class(format_descriptor_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine format_descriptor_accept
 
     subroutine format_descriptor_to_json(this, json, parent)

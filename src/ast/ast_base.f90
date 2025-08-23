@@ -43,12 +43,16 @@ module ast_base
         generic :: assignment(=) => assign
     end type ast_node_wrapper
 
-    ! Abstract interfaces for visitor pattern and JSON serialization
+    ! Forward declaration for abstract visitor
+    type, abstract :: ast_visitor_base_t
+    end type ast_visitor_base_t
+
+    ! Abstract interfaces for visitor pattern and JSON serialization  
     abstract interface
         subroutine visit_interface(this, visitor)
-            import :: ast_node
+            import :: ast_node, ast_visitor_base_t
             class(ast_node), intent(in) :: this
-            class(*), intent(inout) :: visitor
+            class(ast_visitor_base_t), intent(inout) :: visitor
         end subroutine visit_interface
 
         subroutine to_json_interface(this, json, parent)
@@ -60,8 +64,8 @@ module ast_base
         end subroutine to_json_interface
     end interface
 
-    ! Make interfaces public
-    public :: visit_interface, to_json_interface
+    ! Make interfaces and visitor base public
+    public :: visit_interface, to_json_interface, ast_visitor_base_t
 
 contains
 

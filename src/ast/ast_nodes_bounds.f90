@@ -162,7 +162,7 @@ contains
     ! Visitor pattern implementations
     subroutine array_bounds_accept(this, visitor)
         class(array_bounds_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         
         ! Visitor pattern stub - would need full implementation
         ! For now, just validate the visitor is not null
@@ -170,7 +170,7 @@ contains
 
     subroutine array_slice_accept(this, visitor)
         class(array_slice_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         
         ! Visitor pattern stub - would need full implementation
         ! For now, just validate the visitor is not null
@@ -178,7 +178,7 @@ contains
 
     subroutine range_expression_accept(this, visitor)
         class(range_expression_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         
         ! Visitor pattern stub - would need full implementation
         ! For now, just validate the visitor is not null
@@ -186,7 +186,7 @@ contains
 
     subroutine array_operation_accept(this, visitor)
         class(array_operation_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         
         ! Visitor pattern stub - would need full implementation
         ! For now, just validate the visitor is not null

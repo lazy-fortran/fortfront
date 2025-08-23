@@ -1,6 +1,7 @@
 module ast_nodes_procedure
     use json_module
-    use ast_base, only: ast_node, visit_interface, to_json_interface
+    use ast_base, only: ast_node, visit_interface, to_json_interface, &
+                         ast_visitor_base_t
     implicit none
     private
 
@@ -55,7 +56,7 @@ contains
     ! Implementation for function_def_node
     subroutine function_def_accept(this, visitor)
         class(function_def_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Implementation is in ast_visitor.f90
     end subroutine function_def_accept
 
@@ -108,7 +109,7 @@ contains
     ! Implementation for subroutine_def_node
     subroutine subroutine_def_accept(this, visitor)
         class(subroutine_def_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Implementation is in ast_visitor.f90
     end subroutine subroutine_def_accept
 
@@ -153,7 +154,7 @@ contains
     ! Implementation for subroutine_call_node
     subroutine subroutine_call_accept(this, visitor)
         class(subroutine_call_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! Implementation is in ast_visitor.f90
     end subroutine subroutine_call_accept
 

@@ -1,6 +1,7 @@
 module ast_nodes_misc
     use json_module
-    use ast_base, only: ast_node, visit_interface, to_json_interface, string_t
+    use ast_base, only: ast_node, visit_interface, to_json_interface, string_t, &
+                         ast_visitor_base_t
     implicit none
     private
 
@@ -148,7 +149,7 @@ contains
     ! Complex literal implementations
     subroutine complex_literal_accept(this, visitor)
         class(complex_literal_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine complex_literal_accept
 
     subroutine complex_literal_to_json(this, json, parent)
@@ -186,7 +187,7 @@ contains
     ! Allocate statement implementations
     subroutine allocate_statement_accept(this, visitor)
         class(allocate_statement_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine allocate_statement_accept
 
     subroutine allocate_statement_to_json(this, json, parent)
@@ -242,7 +243,7 @@ contains
     ! Deallocate statement implementations
     subroutine deallocate_statement_accept(this, visitor)
         class(deallocate_statement_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine deallocate_statement_accept
 
     subroutine deallocate_statement_to_json(this, json, parent)
@@ -287,7 +288,7 @@ contains
     ! Use statement implementations
     subroutine use_statement_accept(this, visitor)
         class(use_statement_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine use_statement_accept
 
     subroutine use_statement_to_json(this, json, parent)
@@ -339,7 +340,7 @@ contains
     ! Include statement implementations
     subroutine include_statement_accept(this, visitor)
         class(include_statement_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine include_statement_accept
 
     subroutine include_statement_to_json(this, json, parent)
@@ -375,7 +376,7 @@ contains
     ! Contains node implementations
     subroutine contains_accept(this, visitor)
         class(contains_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine contains_accept
 
     subroutine contains_to_json(this, json, parent)
@@ -408,7 +409,7 @@ contains
     ! End statement node implementations
     subroutine end_statement_accept(this, visitor)
         class(end_statement_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine end_statement_accept
 
     subroutine end_statement_to_json(this, json, parent)
@@ -441,7 +442,7 @@ contains
     ! Interface block implementations
     subroutine interface_block_accept(this, visitor)
         class(interface_block_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
     end subroutine interface_block_accept
 
     subroutine interface_block_to_json(this, json, parent)
@@ -486,7 +487,7 @@ contains
     ! Comment node methods
     subroutine comment_accept(this, visitor)
         class(comment_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! For now, do nothing since we don't have a visitor framework in place
     end subroutine comment_accept
 
@@ -523,7 +524,7 @@ contains
     ! Implicit statement implementations
     subroutine implicit_statement_accept(this, visitor)
         class(implicit_statement_node), intent(in) :: this
-        class(*), intent(inout) :: visitor
+        class(ast_visitor_base_t), intent(inout) :: visitor
         ! For now, do nothing since we don't have a visitor framework in place
     end subroutine implicit_statement_accept
 

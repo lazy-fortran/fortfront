@@ -1,6 +1,8 @@
 module semantic_analyzer_base
     ! Base analyzer interface for the semantic pipeline
     use ast_core, only: ast_arena_t
+    use semantic_context_types, only: semantic_context_base_t
+    use semantic_result_types, only: semantic_result_base_t
     implicit none
     private
     
@@ -19,17 +21,17 @@ module semantic_analyzer_base
     ! Abstract interfaces for analyzer methods
     abstract interface
         subroutine analyze_interface(this, shared_context, arena, node_index)
-            import :: semantic_analyzer_t, ast_arena_t
+            import :: semantic_analyzer_t, ast_arena_t, semantic_context_base_t
             class(semantic_analyzer_t), intent(inout) :: this
-            class(*), intent(in) :: shared_context
+            class(semantic_context_base_t), intent(in) :: shared_context
             type(ast_arena_t), intent(in) :: arena
             integer, intent(in) :: node_index
         end subroutine analyze_interface
         
         function get_results_interface(this) result(results)
-            import :: semantic_analyzer_t
+            import :: semantic_analyzer_t, semantic_result_base_t
             class(semantic_analyzer_t), intent(in) :: this
-            class(*), allocatable :: results
+            class(semantic_result_base_t), allocatable :: results
         end function get_results_interface
         
         function get_name_interface(this) result(name)
