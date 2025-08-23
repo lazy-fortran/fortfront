@@ -13,41 +13,36 @@ module parser_declarations
     public :: parse_derived_type_def
     public :: parse_derived_type_component
     public :: parse_array_dimensions
+    public :: parse_type_specifier
+
+    ! Type specifier result type for structured type information
+    type, public :: type_specifier_t
+        character(len=:), allocatable :: type_name
+        logical :: has_kind = .false.
+        integer :: kind_value = 0
+        integer :: line = 0
+        integer :: column = 0
+    end type type_specifier_t
 
 contains
 
-    ! Parse single-variable declaration (e.g., real :: x)
-    function parse_declaration(parser, arena) result(decl_index)
-        use ast_factory, only: push_declaration, push_literal, push_identifier, push_multi_declaration
+    ! Parse type specifier (real, integer(4), type(point), etc.)
+    function parse_type_specifier(parser) result(type_spec)
+        use ast_factory, only: push_literal
         type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: decl_index
+        type(type_specifier_t) :: type_spec
 
         type(token_t) :: type_token, var_token
-        character(len=:), allocatable :: type_name, var_name
-        integer :: line, column, kind_value
-        logical :: has_kind, is_array, is_allocatable, is_pointer, is_target
-        logical :: has_intent, is_optional, has_global_dimensions, is_parameter
-        character(len=:), allocatable :: intent
-        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
 
         ! Get type name (real, integer, etc.)
         type_token = parser%consume()
-        type_name = type_token%text
-        line = type_token%line
-        column = type_token%column
-        has_kind = .false.
-        kind_value = 0
-        is_allocatable = .false.
-        is_pointer = .false.
-        is_target = .false.
-        has_intent = .false.
-        is_optional = .false.
-        has_global_dimensions = .false.
-        is_parameter = .false.
+        type_spec%type_name = type_token%text
+        type_spec%line = type_token%line
+        type_spec%column = type_token%column
+        type_spec%has_kind = .false.
+        type_spec%kind_value = 0
 
-        ! Check for kind specification (e.g., real(8)) or derived type (e.g., &
-        ! type(point))
+        ! Check for kind specification (e.g., real(8)) or derived type (e.g., type(point))
         var_token = parser%peek()
         if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
             ! Consume '('
@@ -58,26 +53,26 @@ contains
             if (var_token%kind == TK_NUMBER) then
                 ! This is a kind specification like real(8)
                 var_token = parser%consume()
-                read (var_token%text, *) kind_value
-                has_kind = .true.
+                read (var_token%text, *) type_spec%kind_value
+                type_spec%has_kind = .true.
 
                 ! Consume ')'
                 var_token = parser%peek()
                 if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
                     type_token = parser%consume()
                 else
-                    ! Error: expected )
-     decl_index = push_literal(arena, "ERROR: Expected )", LITERAL_STRING, line, column)
+                    ! Error: expected ) - for now, set error in type name
+                    type_spec%type_name = "ERROR: Expected )"
                     return
                 end if
             else if (var_token%kind == TK_IDENTIFIER) then
                 ! This could be a derived type like type(point) or character(len=20)
                 ! For now, we'll capture the full type specification as text
                 block
-                    character(len=:), allocatable :: type_spec
+                    character(len=:), allocatable :: type_spec_detail
                     integer :: paren_count
 
-                    type_spec = var_token%text
+                    type_spec_detail = var_token%text
                     var_token = parser%consume()
 
                     ! Check for more complex specifications like character(len=*)
@@ -95,11 +90,11 @@ contains
                         ! Don't consume the final closing parenthesis
                         if (paren_count > 0) then
                             var_token = parser%consume()
-                            type_spec = type_spec//var_token%text
+                            type_spec_detail = type_spec_detail//var_token%text
                         end if
                     end do
 
-                    type_name = type_name//"("//type_spec//")"
+                    type_spec%type_name = type_spec%type_name//"("//type_spec_detail//")"
                 end block
 
                 ! Consume ')'
@@ -107,18 +102,59 @@ contains
                 if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
                     type_token = parser%consume()
                 else
-                    ! Error: expected )
-     decl_index = push_literal(arena, "ERROR: Expected )", LITERAL_STRING, line, column)
+                    ! Error: expected ) - for now, set error in type name
+                    type_spec%type_name = "ERROR: Expected )"
                     return
                 end if
             else
-                ! Error: expected number or identifier
-                decl_index = push_literal(arena, &
-                    "ERROR: Expected kind value or type name", LITERAL_STRING, &
-                    line, column)
+                ! Error: expected number or identifier - for now, set error in type name
+                type_spec%type_name = "ERROR: Expected kind value or type name"
                 return
             end if
         end if
+
+    end function parse_type_specifier
+
+    ! Parse single-variable declaration (e.g., real :: x)
+    function parse_declaration(parser, arena) result(decl_index)
+        use ast_factory, only: push_declaration, push_literal, push_identifier, push_multi_declaration
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: decl_index
+
+        type(token_t) :: type_token, var_token
+        character(len=:), allocatable :: type_name, var_name
+        integer :: line, column, kind_value
+        logical :: has_kind, is_array, is_allocatable, is_pointer, is_target
+        logical :: has_intent, is_optional, has_global_dimensions, is_parameter
+        character(len=:), allocatable :: intent
+        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
+
+        ! Parse type specifier using extracted helper function
+        type(type_specifier_t) :: type_spec
+        type_spec = parse_type_specifier(parser)
+        
+        ! Handle errors from type specifier parsing
+        if (index(type_spec%type_name, "ERROR:") == 1) then
+            decl_index = push_literal(arena, type_spec%type_name, LITERAL_STRING, type_spec%line, type_spec%column)
+            return
+        end if
+        
+        ! Extract parsed information
+        type_name = type_spec%type_name
+        has_kind = type_spec%has_kind
+        kind_value = type_spec%kind_value
+        line = type_spec%line
+        column = type_spec%column
+        
+        ! Initialize attribute flags
+        is_allocatable = .false.
+        is_pointer = .false.
+        is_target = .false.
+        has_intent = .false.
+        is_optional = .false.
+        has_global_dimensions = .false.
+        is_parameter = .false.
 
         ! Check for attributes like allocatable (e.g., "real, allocatable :: arr")
         ! Parse multiple attributes separated by commas
