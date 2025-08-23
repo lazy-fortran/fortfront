@@ -124,7 +124,8 @@ contains
                 call execute_command_line('make --version >/dev/null 2>&1', exitstat=exit_code)
                 if (exit_code == 0) then
                     ! Test if GNU find with -printf works (needed by Makefile)
-                    call execute_command_line('find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
+                    call execute_command_line( &
+                        'find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
                 end if
                 if (exit_code == 0) then
                     call execute_command_line('make libfortfront.a 2>/dev/null', exitstat=exit_code)
@@ -206,7 +207,8 @@ contains
         call execute_command_line('make --version >/dev/null 2>&1', exitstat=exit_code)
         if (exit_code == 0) then
             ! Test if GNU find with -printf works (needed by Makefile)
-            call execute_command_line('find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
+            call execute_command_line( &
+                'find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
         end if
         if (exit_code == 0) then
             call execute_command_line('make libfortfront.a 2>/dev/null', exitstat=exit_code)
@@ -241,7 +243,8 @@ contains
         call execute_command_line('make --version >/dev/null 2>&1', exitstat=exit_code)
         if (exit_code == 0) then
             ! Test if GNU find with -printf works (needed by Makefile)
-            call execute_command_line('find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
+            call execute_command_line( &
+                'find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
         end if
         if (exit_code == 0) then
             ! Rebuild to ensure library is current
