@@ -98,9 +98,9 @@ module parser_declarations
 contains
 
     ! Parse type specification with optional kind
-    function parse_multi_type_spec(parser) result(type_spec)
+    subroutine parse_multi_type_spec(parser, type_spec)
         type(parser_state_t), intent(inout) :: parser
-        type(type_specifier_t) :: type_spec
+        type(type_specifier_t), intent(out) :: type_spec
         type(token_t) :: token
         
         ! Get type name
@@ -129,13 +129,13 @@ contains
                 end if
             end if
         end if
-    end function parse_multi_type_spec
+    end subroutine parse_multi_type_spec
 
     ! Parse multi-declaration attributes
-    function parse_multi_attributes(parser, arena) result(attrs)
+    subroutine parse_multi_attributes(parser, arena, attrs)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
-        type(declaration_attributes_t) :: attrs
+        type(declaration_attributes_t), intent(out) :: attrs
         type(token_t) :: token
         
         ! Initialize attributes
@@ -187,7 +187,7 @@ contains
                 end select
             end if
         end do
-    end function parse_multi_attributes
+    end subroutine parse_multi_attributes
 
     ! Parse intent specification
     subroutine parse_intent_spec(parser, intent_value)
@@ -257,9 +257,9 @@ contains
     end subroutine skip_attribute_parens
 
     ! Collect variable names from multi-declaration
-    function collect_multi_var_names(parser) result(vars)
+    subroutine collect_multi_var_names(parser, vars)
         type(parser_state_t), intent(inout) :: parser
-        type(var_collection_t) :: vars
+        type(var_collection_t), intent(out) :: vars
         type(token_t) :: token
         character(len=100) :: temp_names(50)
         integer :: i
@@ -293,7 +293,7 @@ contains
             allocate(character(len=100) :: vars%names(vars%count))
             vars%names(1:vars%count) = temp_names(1:vars%count)
         end if
-    end function collect_multi_var_names
+    end subroutine collect_multi_var_names
 
     ! Create declaration nodes for multiple variables
     subroutine create_multi_decl_nodes(arena, context, decl_indices)
@@ -392,18 +392,18 @@ contains
         end do
     end subroutine collect_type_components
 
-    ! Helper function to collect variable names from multi-variable declarations
+    ! Helper subroutine to collect variable names from multi-variable declarations
     ! 
     ! Extracts variable names from multi-variable declaration syntax like:
     ! integer :: x, y, z  -> collects ["x", "y", "z"]
     ! 
     ! @param parser Parser state for consuming tokens
     ! @param first_var_name First variable already parsed
-    ! @return var_collection_t Collection of all variable names
-    function collect_variable_names(parser, first_var_name) result(var_collection)
+    ! @param var_collection [OUT] Collection of all variable names
+    subroutine collect_variable_names(parser, first_var_name, var_collection)
         type(parser_state_t), intent(inout) :: parser
         character(len=*), intent(in) :: first_var_name
-        type(var_collection_t) :: var_collection
+        type(var_collection_t), intent(out) :: var_collection
         
         type(token_t) :: var_token
         character(len=100) :: temp_names(50)
@@ -447,7 +447,7 @@ contains
             allocate(character(len=100) :: var_collection%names(name_count))
             var_collection%names(1:name_count) = temp_names(1:name_count)
         end if
-    end function collect_variable_names
+    end subroutine collect_variable_names
 
     ! Helper function to determine final dimensions based on precedence rules
     !
@@ -738,10 +738,10 @@ contains
     ! Part of Issue #407 refactoring to extract helper functions from parse_declaration
     !
     ! @param parser Parser state for token consumption
-    ! @return type_specifier_t Structure containing type information
-    function parse_type_specifier(parser) result(type_spec)
+    ! @param type_spec [OUT] Structure containing type information
+    subroutine parse_type_specifier(parser, type_spec)
         type(parser_state_t), intent(inout) :: parser
-        type(type_specifier_t) :: type_spec
+        type(type_specifier_t), intent(out) :: type_spec
         
         type(token_t) :: token
         
@@ -805,7 +805,7 @@ contains
             type_spec%line = token%line
             type_spec%column = token%column
         end if
-    end function parse_type_specifier
+    end subroutine parse_type_specifier
 
     ! Parse simple declaration attributes (allocatable, pointer, target, parameter, optional)
     ! Split from parse_declaration_attributes to meet size limits (Issue #407)
@@ -1019,7 +1019,7 @@ contains
         type(var_collection_t) :: variables
         
         ! Parse type specifier and attributes
-        type_spec = parse_type_specifier(parser)
+        call parse_type_specifier(parser, type_spec)
         if (index(type_spec%type_name, "ERROR:") == 1) then
             decl_index = push_literal(arena, type_spec%type_name, LITERAL_STRING, &
                 type_spec%line, type_spec%column)
@@ -1070,7 +1070,7 @@ contains
         var_token = parser%peek()
         if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
             ! Multi-variable: collect all names and create nodes
-            variables = collect_variable_names(parser, var_name)
+            call collect_variable_names(parser, var_name, variables)
             
             ! Set up declaration parameters
             params%type_name = type_spec%type_name
@@ -1337,10 +1337,10 @@ contains
         allocate(decl_indices(0))
         
         ! Parse type specification
-        context%type_spec = parse_multi_type_spec(parser)
+        call parse_multi_type_spec(parser, context%type_spec)
         
         ! Parse declaration attributes
-        context%attrs = parse_multi_attributes(parser, arena)
+        call parse_multi_attributes(parser, arena, context%attrs)
         
         ! Consume '::'
         token = parser%peek()
@@ -1354,7 +1354,7 @@ contains
         end if
         
         ! Collect variable names
-        vars = collect_multi_var_names(parser)
+        call collect_multi_var_names(parser, vars)
         
         if (vars%count > 0) then
             ! Store in context
