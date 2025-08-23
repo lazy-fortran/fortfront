@@ -1397,8 +1397,11 @@ contains
 
     ! Assignment operator for var_collection_t to handle allocatable arrays safely
     subroutine assign_var_collection(lhs, rhs)
-        class(var_collection_t), intent(out) :: lhs
+        class(var_collection_t), intent(inout) :: lhs
         type(var_collection_t), intent(in) :: rhs
+        
+        ! Safely deallocate existing allocatables
+        if (allocated(lhs%names)) deallocate(lhs%names)
         
         lhs%count = rhs%count
         if (allocated(rhs%names) .and. rhs%count > 0) then
@@ -1409,8 +1412,12 @@ contains
 
     ! Assignment operator for declaration_attributes_t to handle allocatable arrays safely
     subroutine assign_decl_attributes(lhs, rhs)
-        class(declaration_attributes_t), intent(out) :: lhs
+        class(declaration_attributes_t), intent(inout) :: lhs
         type(declaration_attributes_t), intent(in) :: rhs
+        
+        ! Safely deallocate existing allocatables
+        if (allocated(lhs%intent)) deallocate(lhs%intent)
+        if (allocated(lhs%global_dimension_indices)) deallocate(lhs%global_dimension_indices)
         
         ! Copy scalar components
         lhs%is_allocatable = rhs%is_allocatable
@@ -1432,8 +1439,12 @@ contains
 
     ! Assignment operator for declaration_params_t to handle allocatable arrays safely
     subroutine assign_decl_params(lhs, rhs)
-        class(declaration_params_t), intent(out) :: lhs
+        class(declaration_params_t), intent(inout) :: lhs
         type(declaration_params_t), intent(in) :: rhs
+        
+        ! Safely deallocate existing allocatables
+        if (allocated(lhs%type_name)) deallocate(lhs%type_name)
+        if (allocated(lhs%intent)) deallocate(lhs%intent)
         
         ! Copy scalar components
         lhs%has_kind = rhs%has_kind
@@ -1458,8 +1469,11 @@ contains
 
     ! Assignment operator for type_specifier_t to handle allocatable arrays safely
     subroutine assign_type_spec(lhs, rhs)
-        class(type_specifier_t), intent(out) :: lhs
+        class(type_specifier_t), intent(inout) :: lhs
         type(type_specifier_t), intent(in) :: rhs
+        
+        ! Safely deallocate existing allocatables
+        if (allocated(lhs%type_name)) deallocate(lhs%type_name)
         
         ! Copy scalar components
         lhs%has_kind = rhs%has_kind
@@ -1475,8 +1489,11 @@ contains
 
     ! Assignment operator for multi_decl_context_t to handle allocatable arrays safely
     subroutine assign_multi_decl_context(lhs, rhs)
-        class(multi_decl_context_t), intent(out) :: lhs
+        class(multi_decl_context_t), intent(inout) :: lhs
         type(multi_decl_context_t), intent(in) :: rhs
+        
+        ! Safely deallocate existing allocatables
+        if (allocated(lhs%var_names)) deallocate(lhs%var_names)
         
         ! Copy nested types (these use their own assignment operators)
         lhs%type_spec = rhs%type_spec
