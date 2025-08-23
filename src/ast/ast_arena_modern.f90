@@ -91,6 +91,7 @@ module ast_arena_modern
         procedure :: get => ast_arena_get
         procedure :: valid => ast_arena_valid
         procedure :: free => ast_arena_free
+        procedure :: rollback => ast_arena_rollback
     end type ast_arena_t
     
     ! Statistics for performance monitoring
@@ -270,6 +271,18 @@ contains
         this%generation = this%epoch
         this%size = 0
     end subroutine ast_arena_reset
+    
+    ! Rollback to previous checkpoint (base_arena_t interface implementation)
+    subroutine ast_arena_rollback(this)
+        class(ast_arena_t), intent(inout) :: this
+        
+        ! For AST arena, rollback is equivalent to reset since we use bulk deallocation
+        ! This maintains consistent behavior with arena_t rollback
+        if (this%checkpoint_gen > 0) then
+            call this%reset()  ! This properly updates generations and clears nodes
+            this%generation = this%checkpoint_gen + 1  ! Invalidate post-checkpoint handles
+        end if
+    end subroutine ast_arena_rollback
     
     ! Get arena statistics
     function ast_arena_get_stats(this) result(stats)

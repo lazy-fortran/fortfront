@@ -67,9 +67,9 @@ module arena_memory
         procedure(valid_interface), deferred :: valid
         procedure(free_interface), deferred :: free
         
-        ! Common implementations provided by base
+        ! Common implementations provided by base  
         procedure :: checkpoint => base_arena_checkpoint
-        procedure :: rollback => base_arena_rollback
+        procedure(rollback_interface), deferred :: rollback
     end type base_arena_t
 
     ! Abstract interface definitions for deferred procedures (Issue #369)
@@ -100,6 +100,11 @@ module arena_memory
             class(base_arena_t), intent(inout) :: this
             type(arena_handle_t), intent(in) :: handle
         end subroutine free_interface
+        
+        subroutine rollback_interface(this)
+            import :: base_arena_t
+            class(base_arena_t), intent(inout) :: this
+        end subroutine rollback_interface
     end interface
 
     ! Memory chunk for arena storage
@@ -142,6 +147,7 @@ module arena_memory
         procedure :: get => arena_get_wrapper
         procedure :: valid => arena_valid_wrapper
         procedure :: free => arena_free_wrapper
+        procedure :: rollback => arena_rollback_wrapper
     end type arena_t
 
     ! Arena statistics for monitoring
@@ -507,7 +513,12 @@ contains
         lhs%total_capacity = rhs%total_capacity
         lhs%chunk_size = rhs%chunk_size
         lhs%alignment = rhs%alignment
+        
+        ! Copy base class members (inherited from base_arena_t)
         lhs%generation = rhs%generation
+        lhs%size = rhs%size
+        lhs%capacity = rhs%capacity
+        lhs%checkpoint_gen = rhs%checkpoint_gen
 
         ! Deep copy chunks array
         if (allocated(rhs%chunks)) then
@@ -578,6 +589,18 @@ contains
         end if
     end subroutine arena_free_wrapper
 
+    ! Rollback wrapper - delegates to existing reset logic
+    subroutine arena_rollback_wrapper(this)
+        class(arena_t), intent(inout) :: this
+        
+        ! For arena_t, rollback means reset to checkpoint state
+        ! This is equivalent to reset since arena_t uses bulk deallocation
+        if (this%checkpoint_gen > 0) then
+            call this%reset()  ! This properly updates all generations
+            this%generation = this%checkpoint_gen + 1  ! Invalidate post-checkpoint handles
+        end if
+    end subroutine arena_rollback_wrapper
+    
     ! Common implementations for base_arena_t (Issue #369)
     
     ! Create checkpoint for potential rollback
@@ -586,14 +609,5 @@ contains
         
         this%checkpoint_gen = this%generation
     end subroutine base_arena_checkpoint
-    
-    ! Rollback to previous checkpoint
-    subroutine base_arena_rollback(this)
-        class(base_arena_t), intent(inout) :: this
-        
-        ! Restore to checkpoint state
-        this%generation = this%checkpoint_gen + 1  ! Invalidate handles after checkpoint
-        this%size = 0  ! Reset size - derived types should override for proper rollback
-    end subroutine base_arena_rollback
 
 end module arena_memory
