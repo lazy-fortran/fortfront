@@ -1,8 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (branch: feat/parser-result-t-migration-410) - Foundation and error recovery complete, ready for review PR #434
-- [ ] #399: Arena: Implement per-node freeing with generation tracking for selective memory management (branch: feat/arena-per-node-freeing-399) - Implementation complete, ready for review PR #435
+- [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations (branch: feat/arena-performance-benchmarks-400)
 
 ## TODO (Ordered by Priority)
 
@@ -10,7 +9,6 @@
 No remaining items - Phase 1 complete
 
 ### Foundation Phase 2: Arena System (FOUNDATION)
-- [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
 - [ ] #369: feat: define base arena interface with type-bound procedures
 - [ ] #370: feat: migrate ast_arena to container API with type-bound procedures
 - [ ] #362: Create unified compiler_arena module for KISS architecture
@@ -41,10 +39,8 @@ No remaining items - Phase 1 complete
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
-<<<<<<< HEAD
+- [x] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (PR #434)
 - [x] #399: Arena: Implement per-node freeing with generation tracking for selective memory management (PR #435)
-=======
->>>>>>> 126a4ca (fix: resolve BACKLOG.md merge conflict)
 - [x] #359: Implement arena memory allocator with generation-based safety (Comprehensive implementation complete)
 - [x] #408: Error Handling: Design and implement unified result_t type for consistent error handling (PR #432)
 - [x] #427: Error Handling: Migrate lexer to unified result_t error handling
