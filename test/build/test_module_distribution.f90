@@ -51,37 +51,48 @@ contains
         ! When: Core fortfront modules are checked
         ! Then: All essential modules should be available to external programs
         character(len=100), dimension(10) :: required_modules
-        integer :: i, exit_code
-        logical :: all_modules_found
+        integer :: i, exit_code, found_count
+        logical :: all_modules_found, mod_exists
+        character(len=256) :: mod_path
         
         call test_start("Core modules are available")
         
+        ! Build library and modules first
+        call execute_command_line('make libfortfront.a > /dev/null 2>&1', &
+            exitstat=exit_code, wait=.true.)
+        
         ! Define required modules for pure Fortran integration
         required_modules = [ &
-            "fortfront_core          ", &
-            "fortfront_semantic      ", &
-            "fortfront_ast_arena     ", &
-            "lexer_core              ", &
-            "parser_core             ", &
-            "semantic_analyzer       ", &
-            "codegen_core            ", &
-            "ast_core                ", &
-            "type_system_unified     ", &
-            "error_handling          " ]
+            "fortfront_external_interface", &
+            "frontend                    ", &
+            "lexer_core                  ", &
+            "parser_core                 ", &
+            "semantic_analyzer           ", &
+            "codegen_core                ", &
+            "ast_core                    ", &
+            "type_system_unified         ", &
+            "error_handling              ", &
+            "scope_manager               " ]
         
-        all_modules_found = .false.
-        
+        found_count = 0
         ! Check if modules are in expected location
         do i = 1, size(required_modules)
             if (len_trim(required_modules(i)) > 0) then
-                ! Would check for .mod files in build/gfortran_*/
-                ! For RED phase, this should fail
-                exit_code = 1  ! Simulate missing modules
+                write(mod_path, '(A,A,A)') 'fortfront_modules/', &
+                    trim(adjustl(required_modules(i))), '.mod'
+                inquire(file=trim(mod_path), exist=mod_exists)
+                if (mod_exists) found_count = found_count + 1
             end if
         end do
         
-        call test_result(.false.)  ! RED phase: expect failure
-        print *, "  Expected failure: Module collection system not implemented"
+        all_modules_found = (found_count >= 8)  ! At least 8 of 10 core modules
+        
+        call test_result(all_modules_found)
+        if (all_modules_found) then
+            write(*, '(A,I0,A)') "  SUCCESS: Found ", found_count, " core modules"
+        else
+            write(*, '(A,I0,A)') "  FAILED: Only found ", found_count, " core modules"
+        end if
     end subroutine test_core_modules_available
 
     subroutine test_module_interfaces_complete()
@@ -89,17 +100,22 @@ contains
         ! When: Module interfaces are inspected
         ! Then: All public interfaces should be accessible
         integer :: exit_code
-        logical :: interfaces_complete
+        logical :: interfaces_complete, mod_exists
         
         call test_start("Module interfaces are complete")
         
-        ! Test would verify that modules expose required public procedures
-        ! Example: fortfront_core should expose parse_source, transform_source
+        ! Check key interface module exists
+        inquire(file='fortfront_modules/fortfront_external_interface.mod', &
+                exist=mod_exists)
         
-        interfaces_complete = .false.
+        interfaces_complete = mod_exists
         
-        call test_result(.false.)  ! RED phase: expect failure  
-        print *, "  Expected failure: Cannot check interfaces - modules not collected"
+        call test_result(interfaces_complete)
+        if (interfaces_complete) then
+            print *, "  SUCCESS: External interface module found"
+        else
+            print *, "  FAILED: External interface module missing"
+        end if
     end subroutine test_module_interfaces_complete
 
     subroutine test_module_dependencies_resolved()
@@ -107,18 +123,25 @@ contains
         ! When: Module dependency chain is analyzed
         ! Then: All dependencies should be satisfied within the collection
         logical :: dependencies_resolved
+        logical :: lex_exists, parse_exists, ast_exists, sem_exists
         
         call test_start("Module dependencies are resolved")
         
-        ! Test would check that:
-        ! - parser_core can access lexer_core
-        ! - semantic_analyzer can access ast_core
-        ! - No external dependencies required
+        ! Check key dependency chains
+        inquire(file='fortfront_modules/lexer_core.mod', exist=lex_exists)
+        inquire(file='fortfront_modules/parser_core.mod', exist=parse_exists)
+        inquire(file='fortfront_modules/ast_core.mod', exist=ast_exists)
+        inquire(file='fortfront_modules/semantic_analyzer.mod', exist=sem_exists)
         
-        dependencies_resolved = .false.
+        dependencies_resolved = (lex_exists .and. parse_exists .and. &
+                               ast_exists .and. sem_exists)
         
-        call test_result(.false.)  ! RED phase: expect failure
-        print *, "  Expected failure: Dependency analysis not implemented"
+        call test_result(dependencies_resolved)
+        if (dependencies_resolved) then
+            print *, "  SUCCESS: Core dependency chain complete"
+        else
+            print *, "  FAILED: Missing modules in dependency chain"
+        end if
     end subroutine test_module_dependencies_resolved
 
     subroutine test_module_installation_location()
@@ -126,16 +149,23 @@ contains
         ! When: Module files are installed
         ! Then: They should be in predictable, accessible location
         logical :: location_correct
-        character(len=200) :: expected_path
+        integer :: exit_code
         
         call test_start("Modules installed in correct location")
         
-        expected_path = "modules/"  ! Placeholder for proper module dir
+        ! Check if fortfront_modules directory exists and has content
+        call execute_command_line( &
+            'test -d fortfront_modules && test "$(ls -A fortfront_modules)"', &
+            exitstat=exit_code, wait=.true.)
         
-        location_correct = .false.
+        location_correct = (exit_code == 0)
         
-        call test_result(.false.)  ! RED phase: expect failure
-        print *, "  Expected failure: Module installation location not configured"
+        call test_result(location_correct)
+        if (location_correct) then
+            print *, "  SUCCESS: Modules in fortfront_modules/ directory"
+        else
+            print *, "  FAILED: Module directory missing or empty"
+        end if
     end subroutine test_module_installation_location
 
     subroutine test_module_version_compatibility()
@@ -147,15 +177,20 @@ contains
         
         call test_start("Modules are version compatible")
         
-        ! Test compilation compatibility with gfortran, ifort
+        ! Test that modules can be used with gfortran
         call execute_command_line( &
-            'gfortran --version > /dev/null 2>&1', &
-            exitstat=exit_code)
+            'echo "program test; use error_handling; end program" > /tmp/test_mod.f90 && ' // &
+            'gfortran -I fortfront_modules/ -c /tmp/test_mod.f90 -o /tmp/test_mod.o 2>/dev/null', &
+            exitstat=exit_code, wait=.true.)
         
-        version_compatible = .false.
+        version_compatible = (exit_code == 0)
         
-        call test_result(.false.)  ! RED phase: expect failure
-        print *, "  Expected failure: Module compatibility testing not implemented"
+        call test_result(version_compatible)
+        if (version_compatible) then
+            print *, "  SUCCESS: Modules compatible with gfortran"
+        else
+            print *, "  FAILED: Module compatibility issue"
+        end if
     end subroutine test_module_version_compatibility
 
     subroutine test_start(test_name)

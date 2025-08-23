@@ -1,4 +1,4 @@
-.PHONY: all build test coverage clean clean-coverage clean-test-artifacts help install libfortfront.a
+.PHONY: all build test coverage clean clean-coverage clean-test-artifacts help install libfortfront.a example
 
 # Default target
 all: build
@@ -9,7 +9,7 @@ build:
 
 # Create libfortfront.a in project root for external linking
 libfortfront.a: build
-	@echo "=== Creating libfortfront.a in project root ==="
+	@echo "=== Creating libfortfront.a and collecting modules ==="
 	@LATEST_BUILD=$$(find build -name "libfortfront.a" -type f -printf "%T@ %p\n" | sort -n | tail -1 | cut -d' ' -f2-); \
 	if [ -n "$$LATEST_BUILD" ]; then \
 		cp "$$LATEST_BUILD" ./libfortfront.a; \
@@ -17,6 +17,18 @@ libfortfront.a: build
 	else \
 		echo "Error: libfortfront.a not found in build directory"; \
 		exit 1; \
+	fi
+	@echo "Collecting Fortran module files..."
+	@mkdir -p fortfront_modules
+	@MOD_DIR=$$(find build -name "*.mod" -type f -printf "%T@ %h\n" | sort -n | tail -1 | cut -d' ' -f2-); \
+	if [ -n "$$MOD_DIR" ]; then \
+		for mod in $$(find "$$MOD_DIR" -name "*.mod" -type f); do \
+			MOD_NAME=$$(basename "$$mod"); \
+			if [[ ! "$$MOD_NAME" =~ ^(stdlib_|json_|iso_) ]]; then \
+				cp "$$mod" fortfront_modules/; \
+			fi; \
+		done; \
+		echo "Module files collected in fortfront_modules/"; \
 	fi
 
 # Installation variables
@@ -57,6 +69,14 @@ install: libfortfront.a
 test:
 	fpm test
 
+# Build and run example external tool
+example: libfortfront.a
+	@echo "=== Building example external tool ==="
+	@mkdir -p examples
+	@gfortran -I fortfront_modules/ examples/external_tool_example.f90 libfortfront.a -o examples/external_tool_example
+	@echo "=== Running example ===" 
+	@./examples/external_tool_example
+
 # Generate coverage report
 coverage: clean-coverage
 	@echo "=== Generating code coverage with lcov ==="
@@ -87,6 +107,7 @@ coverage: clean-coverage
 clean: clean-test-artifacts
 	fpm clean --all
 	rm -f libfortfront.a
+	rm -rf fortfront_modules/
 
 # Clean coverage files only
 clean-coverage:
@@ -108,9 +129,10 @@ help:
 	@echo "Available targets:"
 	@echo "  make          - Build the project (default)"
 	@echo "  make build    - Build the project"
-	@echo "  make libfortfront.a - Create libfortfront.a in project root for external linking"
+	@echo "  make libfortfront.a - Create static library and collect modules for external linking"
 	@echo "  make install  - Install libfortfront.a, module files, and pkg-config"
 	@echo "  make test     - Run tests"
+	@echo "  make example  - Build and run example external tool"
 	@echo "  make coverage - Generate coverage report with lcov"
 	@echo "  make clean    - Clean all build and test artifacts"
 	@echo "  make clean-coverage - Clean coverage files only"
