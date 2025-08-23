@@ -1,12 +1,12 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (branch: feat/parser-result-t-migration-410) - Foundation and error recovery complete, ready for review PR #434
+- [x] #442: CRITICAL: Replace class(*) usage with abstract types for stable foundation (branch: fix/replace-class-star-with-abstract-442)
 
 ## TODO (Ordered by Priority)
 
 ### CRITICAL: Foundation Architecture (BLOCKING ALL OTHER WORK)
-- [ ] #442: CRITICAL: Replace class(*) usage with abstract types for stable foundation
+No remaining critical items - #442 moved to DOING
 
 ### Foundation Phase 1: Error Handling Infrastructure (CRITICAL)
 No remaining items - Phase 1 complete
@@ -43,6 +43,7 @@ No remaining items - Phase 1 complete
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (PR #434)
 - [x] #399: Arena: Implement per-node freeing with generation tracking for selective memory management (PR #435)
 - [x] #359: Implement arena memory allocator with generation-based safety (Comprehensive implementation complete)
 - [x] #408: Error Handling: Design and implement unified result_t type for consistent error handling (PR #432)
