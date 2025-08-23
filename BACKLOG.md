@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## TODO (Ordered by Priority)
-- [ ] #359: Implement arena memory allocator with generation-based safety
 - [ ] #369: Define base arena interface with type-bound procedures
 - [ ] #370: Migrate ast_arena to container API with type-bound procedures
 - [ ] #398: Arena: Implement arena handle validation with generation checking
@@ -21,6 +20,7 @@
 
 ## DOING (Current Work)
 - [x] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (branch: feat/parser-result-t-migration-410)
+- [x] #359: Implement arena memory allocator with generation-based safety
 
 ## DONE (Completed)
 - [x] #408: Error Handling: Design and implement unified result_t type for consistent error handling
