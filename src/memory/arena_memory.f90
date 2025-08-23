@@ -53,6 +53,56 @@ module arena_memory
         integer :: chunk_id = 0       ! Which chunk contains data
     end type arena_handle_t
 
+    ! Base arena interface (Issue #369)
+    ! Abstract interface that all arena implementations must extend
+    type, abstract, public :: base_arena_t
+        integer :: generation = 1
+        integer :: size = 0
+        integer :: capacity = 0
+        integer :: checkpoint_gen = 0  ! For checkpoint/rollback
+    contains
+        ! Deferred procedures - must be implemented by concrete types
+        procedure(insert_interface), deferred :: insert
+        procedure(get_interface), deferred :: get
+        procedure(valid_interface), deferred :: valid
+        procedure(free_interface), deferred :: free
+        
+        ! Common implementations provided by base
+        procedure :: reset => base_arena_reset
+        procedure :: checkpoint => base_arena_checkpoint
+        procedure :: rollback => base_arena_rollback
+    end type base_arena_t
+
+    ! Abstract interface definitions for deferred procedures (Issue #369)
+    abstract interface
+        function insert_interface(this, item) result(handle)
+            import :: arena_handle_t, base_arena_t
+            class(base_arena_t), intent(inout) :: this
+            class(*), intent(in) :: item
+            type(arena_handle_t) :: handle
+        end function insert_interface
+        
+        function get_interface(this, handle) result(item)
+            import :: arena_handle_t, base_arena_t
+            class(base_arena_t), intent(in) :: this
+            type(arena_handle_t), intent(in) :: handle
+            class(*), pointer :: item
+        end function get_interface
+        
+        function valid_interface(this, handle) result(is_valid)
+            import :: arena_handle_t, base_arena_t
+            class(base_arena_t), intent(in) :: this
+            type(arena_handle_t), intent(in) :: handle
+            logical :: is_valid
+        end function valid_interface
+        
+        subroutine free_interface(this, handle)
+            import :: arena_handle_t, base_arena_t
+            class(base_arena_t), intent(inout) :: this
+            type(arena_handle_t), intent(in) :: handle
+        end subroutine free_interface
+    end interface
+
     ! Memory chunk for arena storage
     type :: arena_chunk_t
         integer(1), allocatable :: data(:)    ! Raw byte storage
@@ -65,7 +115,8 @@ module arena_memory
     end type arena_chunk_t
 
     ! Core arena allocator with generation-based handle validation (Issue #398)
-    type, public :: arena_t
+    ! Now extends base_arena_t interface (Issue #369)
+    type, extends(base_arena_t), public :: arena_t
         type(arena_chunk_t), allocatable :: chunks(:)  ! Memory chunks
         integer :: chunk_count = 0                     ! Number of chunks
         integer :: current_chunk = 1                   ! Active chunk index
@@ -73,8 +124,9 @@ module arena_memory
         integer :: total_capacity = 0                  ! Total capacity
         integer :: chunk_size = DEFAULT_CHUNK_SIZE     ! Size for new chunks
         integer :: alignment = DEFAULT_ALIGNMENT       ! Memory alignment
-        integer :: generation = 1                      ! Global generation
+        ! generation inherited from base_arena_t
     contains
+        ! Existing arena_t procedures
         procedure :: allocate => arena_allocate
         procedure :: validate => arena_validate        ! Handle validation with generation check
         procedure :: reset => arena_reset
@@ -85,6 +137,12 @@ module arena_memory
         procedure :: set_data => arena_set_data
         procedure :: assign_arena => arena_assign
         generic :: assignment(=) => assign_arena
+        
+        ! Implement deferred procedures from base_arena_t (Issue #369)
+        procedure :: insert => arena_insert_wrapper
+        procedure :: get => arena_get_wrapper
+        procedure :: valid => arena_valid_wrapper
+        procedure :: free => arena_free_wrapper
     end type arena_t
 
     ! Arena statistics for monitoring
@@ -145,6 +203,11 @@ contains
         arena%total_capacity = size
         arena%total_allocated = 0
         arena%generation = 1
+        
+        ! Initialize base class fields (Issue #369)
+        arena%size = 0
+        arena%capacity = size
+        arena%checkpoint_gen = 0
     end function create_arena
 
     ! Destroy arena and free all memory
@@ -455,6 +518,91 @@ contains
         end if
     end subroutine arena_assign
 
+    ! Wrapper implementations for base_arena_t interface (Issue #369)
+    
+    ! Insert wrapper - allocates raw bytes for polymorphic item
+    function arena_insert_wrapper(this, item) result(handle)
+        class(arena_t), intent(inout) :: this
+        class(*), intent(in) :: item
+        type(arena_handle_t) :: handle
+        
+        ! For arena_t, we can only handle raw bytes
+        ! This is a basic implementation - derived types should provide type-specific logic
+        select type (item)
+        type is (integer)
+            handle = this%allocate(4)  ! 4 bytes for integer
+        type is (real)
+            handle = this%allocate(4)  ! 4 bytes for real
+        type is (character(len=*))
+            handle = this%allocate(len(item))  ! Variable length
+        class default
+            ! Default fallback - allocate minimal space
+            handle = this%allocate(8)
+        end select
+        
+        ! Update base class counters
+        if (is_valid_handle(handle)) then
+            this%size = this%size + 1
+        end if
+    end function arena_insert_wrapper
+    
+    ! Get wrapper - returns null pointer (arena_t stores raw bytes only)
+    function arena_get_wrapper(this, handle) result(item)
+        class(arena_t), intent(in) :: this
+        type(arena_handle_t), intent(in) :: handle
+        class(*), pointer :: item
+        
+        ! arena_t only handles raw bytes, cannot reconstruct typed objects
+        ! Return null pointer - specific arena types should override this
+        item => null()
+    end function arena_get_wrapper
+    
+    ! Valid wrapper - delegate to existing validate method
+    function arena_valid_wrapper(this, handle) result(is_valid)
+        class(arena_t), intent(in) :: this
+        type(arena_handle_t), intent(in) :: handle
+        logical :: is_valid
+        
+        is_valid = this%validate(handle)
+    end function arena_valid_wrapper
+    
+    ! Free wrapper - no-op for arena_t (uses bulk deallocation)
+    subroutine arena_free_wrapper(this, handle)
+        class(arena_t), intent(inout) :: this
+        type(arena_handle_t), intent(in) :: handle
+        
+        ! arena_t uses bulk deallocation, so individual free is no-op
+        ! Just update size counter if handle is valid
+        if (this%validate(handle)) then
+            this%size = this%size - 1
+        end if
+    end subroutine arena_free_wrapper
 
+    ! Common implementations for base_arena_t (Issue #369)
+    
+    ! Reset arena and increment generation for handle invalidation
+    subroutine base_arena_reset(this)
+        class(base_arena_t), intent(inout) :: this
+        
+        this%generation = this%generation + 1
+        this%size = 0
+        ! Derived types should override to implement specific reset logic
+    end subroutine base_arena_reset
+    
+    ! Create checkpoint for potential rollback
+    subroutine base_arena_checkpoint(this)
+        class(base_arena_t), intent(inout) :: this
+        
+        this%checkpoint_gen = this%generation
+    end subroutine base_arena_checkpoint
+    
+    ! Rollback to previous checkpoint
+    subroutine base_arena_rollback(this)
+        class(base_arena_t), intent(inout) :: this
+        
+        ! Restore to checkpoint state
+        this%generation = this%checkpoint_gen + 1  ! Invalidate handles after checkpoint
+        this%size = 0  ! Reset size - derived types should override for proper rollback
+    end subroutine base_arena_rollback
 
 end module arena_memory
