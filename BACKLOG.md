@@ -26,6 +26,7 @@
 - [ ] #397: CST: Implement CST to AST converter with bidirectional linking
 
 ### Code Quality and Refactoring (ENHANCEMENT)
+- [ ] #407: Refactor: Extract multi-variable declaration handling from parse_declaration (Re-opened after regression fixes needed)
 - [ ] #406: Refactor: Extract variable parsing and initialization logic from parse_declaration
 - [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines)
 - [ ] #365: refactor: break down large functions >200 lines (9 functions)
@@ -41,4 +42,4 @@
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
-- [x] #407: Error Handling: Migrate lexer to unified result_t error handling
+- [x] #427: Error Handling: Migrate lexer to unified result_t error handling
