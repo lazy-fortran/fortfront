@@ -160,13 +160,213 @@ contains
         end if
     end function determine_final_dimensions
 
+    ! Push declaration with kind and dimensions  
+    function push_with_kind_dims(arena, type_name, var_name, kind_value, &
+            dimension_indices, initializer_index, has_init, &
+            is_allocatable, is_pointer, is_target, is_parameter, &
+            is_optional, intent_value, has_intent, line, column) result(index)
+        use ast_factory, only: push_declaration
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: type_name, var_name
+        integer, intent(in) :: kind_value, initializer_index, line, column
+        integer, allocatable, intent(in) :: dimension_indices(:)
+        logical, intent(in) :: has_init, has_intent
+        logical, intent(in) :: is_allocatable, is_pointer, is_target
+        logical, intent(in) :: is_parameter, is_optional
+        character(len=*), intent(in) :: intent_value
+        integer :: index
+        
+        if (has_intent .and. has_init) then
+            index = push_declaration(arena, type_name, var_name, &
+                kind_value=kind_value, dimension_indices=dimension_indices, &
+                initializer_index=initializer_index, &
+                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                is_target=is_target, intent_value=intent_value, &
+                is_optional=is_optional, is_parameter=is_parameter, &
+                line=line, column=column)
+        else if (has_intent) then
+            index = push_declaration(arena, type_name, var_name, &
+                kind_value=kind_value, dimension_indices=dimension_indices, &
+                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                is_target=is_target, intent_value=intent_value, &
+                is_optional=is_optional, is_parameter=is_parameter, &
+                line=line, column=column)
+        else if (has_init) then
+            index = push_declaration(arena, type_name, var_name, &
+                kind_value=kind_value, dimension_indices=dimension_indices, &
+                initializer_index=initializer_index, &
+                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                is_target=is_target, is_optional=is_optional, &
+                is_parameter=is_parameter, line=line, column=column)
+        else
+            index = push_declaration(arena, type_name, var_name, &
+                kind_value=kind_value, dimension_indices=dimension_indices, &
+                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                is_target=is_target, is_optional=is_optional, &
+                is_parameter=is_parameter, line=line, column=column)
+        end if
+    end function push_with_kind_dims
+
+    ! Push with kind only (no dimensions)
+    function push_with_kind_only(arena, type_name, var_name, kind_value, &
+            initializer_index, has_init, is_allocatable, is_pointer, is_target, &
+            is_parameter, is_optional, intent_value, has_intent, line, column) result(index)
+        use ast_factory, only: push_declaration
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: type_name, var_name, intent_value
+        integer, intent(in) :: kind_value, initializer_index, line, column
+        logical, intent(in) :: has_init, has_intent
+        logical, intent(in) :: is_allocatable, is_pointer, is_target
+        logical, intent(in) :: is_parameter, is_optional
+        integer :: index
+        
+        if (has_intent .and. has_init) then
+            index = push_declaration(arena, type_name, var_name, &
+                kind_value=kind_value, initializer_index=initializer_index, &
+                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                is_target=is_target, intent_value=intent_value, &
+                is_optional=is_optional, is_parameter=is_parameter, &
+                line=line, column=column)
+        else if (has_intent) then
+            index = push_declaration(arena, type_name, var_name, &
+                kind_value=kind_value, is_allocatable=is_allocatable, &
+                is_pointer=is_pointer, is_target=is_target, &
+                intent_value=intent_value, is_optional=is_optional, &
+                is_parameter=is_parameter, line=line, column=column)
+        else if (has_init) then
+            index = push_declaration(arena, type_name, var_name, &
+                kind_value=kind_value, initializer_index=initializer_index, &
+                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                is_target=is_target, is_optional=is_optional, &
+                is_parameter=is_parameter, line=line, column=column)
+        else
+            index = push_declaration(arena, type_name, var_name, &
+                kind_value=kind_value, is_allocatable=is_allocatable, &
+                is_pointer=is_pointer, is_target=is_target, &
+                is_optional=is_optional, is_parameter=is_parameter, &
+                line=line, column=column)
+        end if
+    end function push_with_kind_only
+
+    ! Push with dimensions only (no kind)
+    function push_with_dims_only(arena, type_name, var_name, dimension_indices, &
+            initializer_index, has_init, is_allocatable, is_pointer, is_target, &
+            is_parameter, is_optional, intent_value, has_intent, line, column) result(index)
+        use ast_factory, only: push_declaration
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: type_name, var_name, intent_value
+        integer, allocatable, intent(in) :: dimension_indices(:)
+        integer, intent(in) :: initializer_index, line, column
+        logical, intent(in) :: has_init, has_intent
+        logical, intent(in) :: is_allocatable, is_pointer, is_target
+        logical, intent(in) :: is_parameter, is_optional
+        integer :: index
+        
+        if (has_intent .and. has_init) then
+            index = push_declaration(arena, type_name, var_name, &
+                dimension_indices=dimension_indices, &
+                initializer_index=initializer_index, &
+                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                is_target=is_target, intent_value=intent_value, &
+                is_optional=is_optional, is_parameter=is_parameter, &
+                line=line, column=column)
+        else if (has_intent) then
+            index = push_declaration(arena, type_name, var_name, &
+                dimension_indices=dimension_indices, &
+                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                is_target=is_target, intent_value=intent_value, &
+                is_optional=is_optional, is_parameter=is_parameter, &
+                line=line, column=column)
+        else if (has_init) then
+            index = push_declaration(arena, type_name, var_name, &
+                dimension_indices=dimension_indices, &
+                initializer_index=initializer_index, &
+                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                is_target=is_target, is_optional=is_optional, &
+                is_parameter=is_parameter, line=line, column=column)
+        else
+            index = push_declaration(arena, type_name, var_name, &
+                dimension_indices=dimension_indices, &
+                is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                is_target=is_target, is_optional=is_optional, &
+                is_parameter=is_parameter, line=line, column=column)
+        end if
+    end function push_with_dims_only
+
+    ! Create a single declaration node with given parameters
+    ! Extracted to eliminate DRY violations in declaration creation
+    function create_single_declaration(arena, type_name, var_name, &
+            kind_value, has_kind, dimension_indices, has_dims, &
+            initializer_index, has_init, &
+            is_allocatable, is_pointer, is_target, is_parameter, &
+            is_optional, intent_value, has_intent, line, column) result(index)
+        use ast_factory, only: push_declaration
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: type_name, var_name
+        integer, intent(in) :: kind_value
+        logical, intent(in) :: has_kind
+        integer, allocatable, intent(in) :: dimension_indices(:)
+        logical, intent(in) :: has_dims
+        integer, intent(in) :: initializer_index
+        logical, intent(in) :: has_init
+        logical, intent(in) :: is_allocatable, is_pointer, is_target
+        logical, intent(in) :: is_parameter, is_optional
+        character(len=*), intent(in) :: intent_value
+        logical, intent(in) :: has_intent
+        integer, intent(in) :: line, column
+        integer :: index
+        
+        ! Route to appropriate helper based on primary attributes
+        if (has_kind .and. has_dims) then
+            index = push_with_kind_dims(arena, type_name, var_name, kind_value, &
+                dimension_indices, initializer_index, has_init, &
+                is_allocatable, is_pointer, is_target, is_parameter, &
+                is_optional, intent_value, has_intent, line, column)
+        else if (has_kind) then
+            index = push_with_kind_only(arena, type_name, var_name, kind_value, &
+                initializer_index, has_init, is_allocatable, is_pointer, &
+                is_target, is_parameter, is_optional, intent_value, &
+                has_intent, line, column)
+        else if (has_dims) then
+            index = push_with_dims_only(arena, type_name, var_name, dimension_indices, &
+                initializer_index, has_init, is_allocatable, is_pointer, &
+                is_target, is_parameter, is_optional, intent_value, &
+                has_intent, line, column)
+        else
+            ! Push without kind or dimensions
+            if (has_intent .and. has_init) then
+                index = push_declaration(arena, type_name, var_name, &
+                    initializer_index=initializer_index, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, intent_value=intent_value, &
+                    is_optional=is_optional, is_parameter=is_parameter, &
+                    line=line, column=column)
+            else if (has_intent) then
+                index = push_declaration(arena, type_name, var_name, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, intent_value=intent_value, &
+                    is_optional=is_optional, is_parameter=is_parameter, &
+                    line=line, column=column)
+            else if (has_init) then
+                index = push_declaration(arena, type_name, var_name, &
+                    initializer_index=initializer_index, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, is_optional=is_optional, &
+                    is_parameter=is_parameter, line=line, column=column)
+            else
+                index = push_declaration(arena, type_name, var_name, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, is_optional=is_optional, &
+                    is_parameter=is_parameter, line=line, column=column)
+            end if
+        end if
+    end function create_single_declaration
+
     ! Helper subroutine to create declaration nodes with unified logic
     !
     ! Creates individual AST declaration nodes for all variables in a multi-variable declaration,
-    ! ensuring all variables receive the same attributes. Handles all 8 combinations of:
-    ! - has_kind × has_dimensions × has_intent
-    !
-    ! Eliminates the massive nested conditional logic that previously existed in parse_declaration
+    ! ensuring all variables receive the same attributes. Uses create_single_declaration
+    ! to eliminate DRY violations.
     !
     ! @param arena AST arena for node creation
     ! @param params Unified declaration parameters (type, attributes, location)
@@ -175,7 +375,6 @@ contains
     ! @param has_final_dims Whether dimensions exist
     ! @param first_index [OUT] Index of first created declaration node
     subroutine create_declaration_nodes(arena, params, var_names, final_dims, has_final_dims, first_index)
-        use ast_factory, only: push_declaration
         type(ast_arena_t), intent(inout) :: arena
         type(declaration_params_t), intent(in) :: params
         character(len=*), intent(in) :: var_names(:)
@@ -184,80 +383,28 @@ contains
         integer, intent(out) :: first_index
         
         integer :: i, decl_index
+        character(len=:), allocatable :: intent_str
         
         first_index = 0
         
+        ! Set intent string if available
+        if (params%has_intent .and. allocated(params%intent)) then
+            intent_str = params%intent
+        else
+            intent_str = ""
+        end if
+        
         do i = 1, size(var_names)
-            ! Create declaration based on attribute combination
-            if (params%has_kind .and. has_final_dims) then
-                if (params%has_intent) then
-                    decl_index = push_declaration(arena, params%type_name, &
-                        trim(var_names(i)), kind_value=params%kind_value, &
-                        dimension_indices=final_dims, &
-                        is_allocatable=params%is_allocatable, is_pointer=params%is_pointer, &
-                        is_target=params%is_target, intent_value=params%intent, &
-                        is_optional=params%is_optional, is_parameter=params%is_parameter, &
-                        line=params%line, column=params%column)
-                else
-                    decl_index = push_declaration(arena, params%type_name, &
-                        trim(var_names(i)), kind_value=params%kind_value, &
-                        dimension_indices=final_dims, &
-                        is_allocatable=params%is_allocatable, is_pointer=params%is_pointer, &
-                        is_target=params%is_target, is_optional=params%is_optional, &
-                        is_parameter=params%is_parameter, &
-                        line=params%line, column=params%column)
-                end if
-            else if (params%has_kind) then
-                if (params%has_intent) then
-                    decl_index = push_declaration(arena, params%type_name, &
-                        trim(var_names(i)), kind_value=params%kind_value, &
-                        is_allocatable=params%is_allocatable, is_pointer=params%is_pointer, &
-                        is_target=params%is_target, intent_value=params%intent, &
-                        is_optional=params%is_optional, is_parameter=params%is_parameter, &
-                        line=params%line, column=params%column)
-                else
-                    decl_index = push_declaration(arena, params%type_name, &
-                        trim(var_names(i)), kind_value=params%kind_value, &
-                        is_allocatable=params%is_allocatable, is_pointer=params%is_pointer, &
-                        is_target=params%is_target, is_optional=params%is_optional, &
-                        is_parameter=params%is_parameter, &
-                        line=params%line, column=params%column)
-                end if
-            else if (has_final_dims) then
-                if (params%has_intent) then
-                    decl_index = push_declaration(arena, params%type_name, &
-                        trim(var_names(i)), &
-                        dimension_indices=final_dims, &
-                        is_allocatable=params%is_allocatable, is_pointer=params%is_pointer, &
-                        is_target=params%is_target, intent_value=params%intent, &
-                        is_optional=params%is_optional, is_parameter=params%is_parameter, &
-                        line=params%line, column=params%column)
-                else
-                    decl_index = push_declaration(arena, params%type_name, &
-                        trim(var_names(i)), &
-                        dimension_indices=final_dims, &
-                        is_allocatable=params%is_allocatable, is_pointer=params%is_pointer, &
-                        is_target=params%is_target, is_optional=params%is_optional, &
-                        is_parameter=params%is_parameter, &
-                        line=params%line, column=params%column)
-                end if
-            else
-                if (params%has_intent) then
-                    decl_index = push_declaration(arena, params%type_name, &
-                        trim(var_names(i)), &
-                        is_allocatable=params%is_allocatable, is_pointer=params%is_pointer, &
-                        is_target=params%is_target, intent_value=params%intent, &
-                        is_optional=params%is_optional, is_parameter=params%is_parameter, &
-                        line=params%line, column=params%column)
-                else
-                    decl_index = push_declaration(arena, params%type_name, &
-                        trim(var_names(i)), &
-                        is_allocatable=params%is_allocatable, is_pointer=params%is_pointer, &
-                        is_target=params%is_target, is_optional=params%is_optional, &
-                        is_parameter=params%is_parameter, &
-                        line=params%line, column=params%column)
-                end if
-            end if
+            ! Use create_single_declaration to eliminate duplication
+            decl_index = create_single_declaration(arena, &
+                params%type_name, trim(var_names(i)), &
+                params%kind_value, params%has_kind, &
+                final_dims, has_final_dims, &
+                0, .false., &  ! No initializer for multi-var declarations
+                params%is_allocatable, params%is_pointer, params%is_target, &
+                params%is_parameter, params%is_optional, &
+                intent_str, params%has_intent, &
+                params%line, params%column)
             
             ! Remember first declaration index to return
             if (i == 1) first_index = decl_index
@@ -344,15 +491,119 @@ contains
         end if
     end function parse_type_specifier
 
+    ! Parse simple declaration attributes (allocatable, pointer, target, parameter, optional)
+    ! Split from parse_declaration_attributes to meet size limits (Issue #407)
+    subroutine parse_simple_attributes(parser, attr_info)
+        type(parser_state_t), intent(inout) :: parser
+        type(declaration_attributes_t), intent(inout) :: attr_info
+        
+        type(token_t) :: token
+        
+        token = parser%peek()
+        if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD)) then
+            select case (token%text)
+            case ("allocatable")
+                attr_info%is_allocatable = .true.
+                token = parser%consume()
+            case ("pointer")
+                attr_info%is_pointer = .true.
+                token = parser%consume()
+            case ("target")
+                attr_info%is_target = .true.
+                token = parser%consume()
+            case ("parameter")
+                attr_info%is_parameter = .true.
+                token = parser%consume()
+            case ("optional")
+                attr_info%is_optional = .true.
+                token = parser%consume()
+            case default
+                ! Let parse_complex_attributes handle it
+            end select
+        end if
+    end subroutine parse_simple_attributes
+
+    ! Parse complex declaration attributes (dimension, intent, unknown attributes)
+    ! Split from parse_declaration_attributes to meet size limits (Issue #407)
+    subroutine parse_complex_attributes(parser, arena, attr_info)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(declaration_attributes_t), intent(inout) :: attr_info
+        
+        type(token_t) :: token
+        
+        token = parser%peek()
+        if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD)) then
+            select case (token%text)
+            case ("dimension")
+                attr_info%has_global_dimensions = .true.
+                token = parser%consume()
+                
+                ! Parse dimension specification
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                    token = parser%consume()  ! consume '('
+                    call parse_array_dimensions(parser, arena, attr_info%global_dimension_indices)
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                        token = parser%consume()
+                    end if
+                end if
+            case ("intent")
+                attr_info%has_intent = .true.
+                token = parser%consume()  ! consume 'intent'
+                
+                ! Parse intent specification
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                    token = parser%consume()  ! consume '('
+                    token = parser%peek()
+                    if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                        attr_info%intent = token%text
+                        token = parser%consume()  ! consume intent value
+                    end if
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                        token = parser%consume()  ! consume ')'
+                    end if
+                end if
+            case default
+                ! Unknown attribute - consume it
+                if (token%text /= "allocatable" .and. token%text /= "pointer" .and. &
+                    token%text /= "target" .and. token%text /= "parameter" .and. &
+                    token%text /= "optional") then
+                    token = parser%consume()
+                    
+                    ! If next token is '(', consume until matching ')'
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                        block
+                            integer :: paren_count
+                            paren_count = 1
+                            token = parser%consume()  ! consume '('
+                            
+                            do while (paren_count > 0 .and. .not. parser%is_at_end())
+                                token = parser%peek()
+                                if (token%kind == TK_OPERATOR) then
+                                    if (token%text == "(") then
+                                        paren_count = paren_count + 1
+                                    else if (token%text == ")") then
+                                        paren_count = paren_count - 1
+                                    end if
+                                end if
+                                token = parser%consume()
+                            end do
+                        end block
+                    end if
+                end if
+            end select
+        end if
+    end subroutine parse_complex_attributes
+
     ! Parse declaration attributes (allocatable, pointer, intent, etc.)
     !
     ! Extracts all declaration attributes from the comma-separated list following the type.
-    ! Examples:
-    ! - "integer, allocatable :: x"  -> is_allocatable=true
-    ! - "real, intent(in), dimension(10) :: arr" -> has_intent=true, intent="in", has_global_dimensions=true
-    !
-    ! Part of Issue #407 refactoring to simplify the massive parse_declaration function.
-    ! Previously this logic was embedded in 200+ lines of nested conditionals.
+    ! Split into parse_simple_attributes and parse_complex_attributes for size limits.
     !
     ! @param parser Parser state for token consumption
     ! @param arena AST arena for dimension parsing
@@ -379,90 +630,9 @@ contains
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
                 token = parser%consume()  ! consume ','
                 
-                ! Parse attribute
-                token = parser%peek()
-                if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD)) then
-                    select case (token%text)
-                    case ("allocatable")
-                        attr_info%is_allocatable = .true.
-                        token = parser%consume()
-                    case ("pointer")
-                        attr_info%is_pointer = .true.
-                        token = parser%consume()
-                    case ("target")
-                        attr_info%is_target = .true.
-                        token = parser%consume()
-                    case ("parameter")
-                        attr_info%is_parameter = .true.
-                        token = parser%consume()
-                    case ("optional")
-                        attr_info%is_optional = .true.
-                        token = parser%consume()
-                    case ("dimension")
-                        attr_info%has_global_dimensions = .true.
-                        token = parser%consume()
-                        
-                        ! Parse dimension specification
-                        token = parser%peek()
-                        if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                            token = parser%consume()  ! consume '('
-                            
-                            ! Parse dimensions
-                            call parse_array_dimensions(parser, arena, attr_info%global_dimension_indices)
-                            
-                            ! Consume ')'
-                            token = parser%peek()
-                            if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                                token = parser%consume()
-                            end if
-                        end if
-                    case ("intent")
-                        attr_info%has_intent = .true.
-                        token = parser%consume()  ! consume 'intent'
-                        
-                        ! Parse intent specification
-                        token = parser%peek()
-                        if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                            token = parser%consume()  ! consume '('
-                            
-                            token = parser%peek()
-                            if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
-                                attr_info%intent = token%text
-                                token = parser%consume()  ! consume intent value
-                            end if
-                            
-                            token = parser%peek()
-                            if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                                token = parser%consume()  ! consume ')'
-                            end if
-                        end if
-                    case default
-                        ! Unknown attribute - consume it
-                        token = parser%consume()
-                        
-                        ! If next token is '(', consume until matching ')'
-                        token = parser%peek()
-                        if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                            block
-                                integer :: paren_count
-                                paren_count = 1
-                                token = parser%consume()  ! consume '('
-                                
-                                do while (paren_count > 0 .and. .not. parser%is_at_end())
-                                    token = parser%peek()
-                                    if (token%kind == TK_OPERATOR) then
-                                        if (token%text == "(") then
-                                            paren_count = paren_count + 1
-                                        else if (token%text == ")") then
-                                            paren_count = paren_count - 1
-                                        end if
-                                    end if
-                                    token = parser%consume()
-                                end do
-                            end block
-                        end if
-                    end select
-                end if
+                ! First try simple attributes, then complex ones
+                call parse_simple_attributes(parser, attr_info)
+                call parse_complex_attributes(parser, arena, attr_info)
             else
                 ! No more attributes
                 exit
@@ -470,31 +640,54 @@ contains
         end do
     end subroutine parse_declaration_attributes
 
+    ! Process single variable declaration
+    function process_single_variable(arena, type_spec, attr_info, var_name, &
+            is_array, dimension_indices, has_initializer, initializer_index) result(decl_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(type_specifier_t), intent(in) :: type_spec
+        type(declaration_attributes_t), intent(in) :: attr_info
+        character(len=*), intent(in) :: var_name
+        logical, intent(in) :: is_array, has_initializer
+        integer, allocatable, intent(in) :: dimension_indices(:)
+        integer, intent(in) :: initializer_index
+        integer :: decl_index
+        
+        integer, allocatable :: final_dims(:)
+        character(len=:), allocatable :: intent_str
+        
+        ! Determine final dimensions
+        final_dims = determine_final_dimensions(is_array, dimension_indices, &
+            attr_info%has_global_dimensions, attr_info%global_dimension_indices)
+        
+        ! Set intent string
+        if (attr_info%has_intent .and. allocated(attr_info%intent)) then
+            intent_str = attr_info%intent
+        else
+            intent_str = ""
+        end if
+        
+        ! Create single declaration
+        decl_index = create_single_declaration(arena, &
+            type_spec%type_name, var_name, &
+            type_spec%kind_value, type_spec%has_kind, &
+            final_dims, allocated(final_dims), &
+            initializer_index, has_initializer, &
+            attr_info%is_allocatable, attr_info%is_pointer, attr_info%is_target, &
+            attr_info%is_parameter, attr_info%is_optional, &
+            intent_str, attr_info%has_intent, &
+            type_spec%line, type_spec%column)
+    end function process_single_variable
+
     ! Parse declaration statement - REFACTORED with helper functions (Issue #407)
     !
-    ! Handles both single and multi-variable declarations using extracted helper functions:
-    ! - parse_type_specifier() for type parsing
-    ! - parse_declaration_attributes() for attribute parsing  
-    ! - collect_variable_names() for multi-variable name collection
-    ! - determine_final_dimensions() for dimension precedence
-    ! - create_declaration_nodes() for AST node creation
-    !
-    ! REFACTORING ACHIEVEMENT:
-    ! - Function reduced from 244+ lines to 152 lines (37% reduction)
-    ! - Eliminated 8-level nested conditionals for attribute combinations
-    ! - Each helper function has single responsibility
-    ! - Complex multi-variable logic properly extracted
-    !
-    ! Examples:
-    ! - "integer :: x" -> single variable declaration
-    ! - "real, allocatable :: x, y, z" -> multi-variable with attribute propagation
-    ! - "integer, dimension(10) :: arr1(5), arr2" -> dimension precedence handling
+    ! Handles both single and multi-variable declarations using extracted helper functions.
+    ! Function reduced from 244+ lines to under 100 lines through aggressive extraction.
     !
     ! @param parser Parser state for token consumption
     ! @param arena AST arena for node creation
     ! @return decl_index Index of first created declaration node  
     function parse_declaration(parser, arena) result(decl_index)
-        use ast_factory, only: push_declaration, push_literal
+        use ast_factory, only: push_literal
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: decl_index
@@ -509,10 +702,11 @@ contains
         integer :: initializer_index
         type(var_collection_t) :: variables
         
-        ! Parse type specifier and attributes using extracted helper functions
+        ! Parse type specifier and attributes
         type_spec = parse_type_specifier(parser)
         if (index(type_spec%type_name, "ERROR:") == 1) then
-            decl_index = push_literal(arena, type_spec%type_name, LITERAL_STRING, type_spec%line, type_spec%column)
+            decl_index = push_literal(arena, type_spec%type_name, LITERAL_STRING, &
+                type_spec%line, type_spec%column)
             return
         end if
         
@@ -521,14 +715,16 @@ contains
         ! Consume '::' and get variable name
         var_token = parser%peek()
         if (.not. (var_token%kind == TK_OPERATOR .and. var_token%text == "::")) then
-            decl_index = push_literal(arena, "ERROR: Expected :: after type specification", LITERAL_STRING, type_spec%line, type_spec%column)
+            decl_index = push_literal(arena, "ERROR: Expected :: after type specification", &
+                LITERAL_STRING, type_spec%line, type_spec%column)
             return
         end if
         var_token = parser%consume()
         
         var_token = parser%peek()
         if (var_token%kind /= TK_IDENTIFIER) then
-            decl_index = push_literal(arena, "ERROR: Expected variable name", LITERAL_STRING, type_spec%line, type_spec%column)
+            decl_index = push_literal(arena, "ERROR: Expected variable name", &
+                LITERAL_STRING, type_spec%line, type_spec%column)
             return
         end if
         var_token = parser%consume()
@@ -546,7 +742,7 @@ contains
             end if
         end if
         
-        ! Check for initialization and collect variables
+        ! Check for initialization
         var_token = parser%peek()
         has_initializer = (var_token%kind == TK_OPERATOR .and. var_token%text == "=")
         if (has_initializer) then
@@ -574,74 +770,15 @@ contains
             params%line = type_spec%line
             params%column = type_spec%column
             
-            ! Determine final dimensions using helper function
-            final_dims = determine_final_dimensions(is_array, dimension_indices, attr_info%has_global_dimensions, attr_info%global_dimension_indices)
-            
-            ! Create declaration nodes using helper function
-            call create_declaration_nodes(arena, params, variables%names, final_dims, allocated(final_dims), decl_index)
+            ! Determine final dimensions and create nodes
+            final_dims = determine_final_dimensions(is_array, dimension_indices, &
+                attr_info%has_global_dimensions, attr_info%global_dimension_indices)
+            call create_declaration_nodes(arena, params, variables%names, &
+                final_dims, allocated(final_dims), decl_index)
         else
-            ! Single variable: create single node with all attributes
-            final_dims = determine_final_dimensions(is_array, dimension_indices, attr_info%has_global_dimensions, attr_info%global_dimension_indices)
-            
-            if (type_spec%has_kind .and. allocated(final_dims)) then
-                if (attr_info%has_intent) then
-                    decl_index = push_declaration(arena, type_spec%type_name, var_name, kind_value=type_spec%kind_value, &
-                        initializer_index=initializer_index, dimension_indices=final_dims, &
-                        is_allocatable=attr_info%is_allocatable, is_pointer=attr_info%is_pointer, &
-                        is_target=attr_info%is_target, intent_value=attr_info%intent, &
-                        is_optional=attr_info%is_optional, is_parameter=attr_info%is_parameter, &
-                        line=type_spec%line, column=type_spec%column)
-                else
-                    decl_index = push_declaration(arena, type_spec%type_name, var_name, kind_value=type_spec%kind_value, &
-                        initializer_index=initializer_index, dimension_indices=final_dims, &
-                        is_allocatable=attr_info%is_allocatable, is_pointer=attr_info%is_pointer, &
-                        is_target=attr_info%is_target, is_optional=attr_info%is_optional, &
-                        is_parameter=attr_info%is_parameter, line=type_spec%line, column=type_spec%column)
-                end if
-            else if (type_spec%has_kind) then
-                if (attr_info%has_intent) then
-                    decl_index = push_declaration(arena, type_spec%type_name, var_name, kind_value=type_spec%kind_value, &
-                        initializer_index=initializer_index, is_allocatable=attr_info%is_allocatable, &
-                        is_pointer=attr_info%is_pointer, is_target=attr_info%is_target, &
-                        intent_value=attr_info%intent, is_optional=attr_info%is_optional, &
-                        is_parameter=attr_info%is_parameter, line=type_spec%line, column=type_spec%column)
-                else
-                    decl_index = push_declaration(arena, type_spec%type_name, var_name, kind_value=type_spec%kind_value, &
-                        initializer_index=initializer_index, is_allocatable=attr_info%is_allocatable, &
-                        is_pointer=attr_info%is_pointer, is_target=attr_info%is_target, &
-                        is_optional=attr_info%is_optional, is_parameter=attr_info%is_parameter, &
-                        line=type_spec%line, column=type_spec%column)
-                end if
-            else if (allocated(final_dims)) then
-                if (attr_info%has_intent) then
-                    decl_index = push_declaration(arena, type_spec%type_name, var_name, &
-                        initializer_index=initializer_index, dimension_indices=final_dims, &
-                        is_allocatable=attr_info%is_allocatable, is_pointer=attr_info%is_pointer, &
-                        is_target=attr_info%is_target, intent_value=attr_info%intent, &
-                        is_optional=attr_info%is_optional, is_parameter=attr_info%is_parameter, &
-                        line=type_spec%line, column=type_spec%column)
-                else
-                    decl_index = push_declaration(arena, type_spec%type_name, var_name, &
-                        initializer_index=initializer_index, dimension_indices=final_dims, &
-                        is_allocatable=attr_info%is_allocatable, is_pointer=attr_info%is_pointer, &
-                        is_target=attr_info%is_target, is_optional=attr_info%is_optional, &
-                        is_parameter=attr_info%is_parameter, line=type_spec%line, column=type_spec%column)
-                end if
-            else
-                if (attr_info%has_intent) then
-                    decl_index = push_declaration(arena, type_spec%type_name, var_name, &
-                        initializer_index=initializer_index, is_allocatable=attr_info%is_allocatable, &
-                        is_pointer=attr_info%is_pointer, is_target=attr_info%is_target, &
-                        intent_value=attr_info%intent, is_optional=attr_info%is_optional, &
-                        is_parameter=attr_info%is_parameter, line=type_spec%line, column=type_spec%column)
-                else
-                    decl_index = push_declaration(arena, type_spec%type_name, var_name, &
-                        initializer_index=initializer_index, is_allocatable=attr_info%is_allocatable, &
-                        is_pointer=attr_info%is_pointer, is_target=attr_info%is_target, &
-                        is_optional=attr_info%is_optional, is_parameter=attr_info%is_parameter, &
-                        line=type_spec%line, column=type_spec%column)
-                end if
-            end if
+            ! Single variable declaration
+            decl_index = process_single_variable(arena, type_spec, attr_info, &
+                var_name, is_array, dimension_indices, has_initializer, initializer_index)
         end if
 
     end function parse_declaration
