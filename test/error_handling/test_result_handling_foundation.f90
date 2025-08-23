@@ -187,11 +187,11 @@ contains
             ERROR_ERROR == 3 .and. &
             ERROR_CRITICAL == 4 .and. &
             ERROR_VALIDATION == 100 .and. &
-            ERROR_PARSER == 200 .and. &
-            ERROR_SEMANTIC == 300 .and. &
-            ERROR_TYPE_SYSTEM == 400 .and. &
-            ERROR_MEMORY == 500 .and. &
-            ERROR_IO == 600 .and. &
+            ERROR_TYPE_SYSTEM == 200 .and. &
+            ERROR_MEMORY == 300 .and. &
+            ERROR_IO == 400 .and. &
+            ERROR_PARSER == 500 .and. &
+            ERROR_SEMANTIC == 600 .and. &
             ERROR_INTERNAL == 700) then
             call test_pass()
         else
