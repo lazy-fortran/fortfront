@@ -1127,6 +1127,85 @@ Each phase must:
 
 ---
 
+# GCC 15.2.1 Compatibility Solution (Issue #354)
+
+## Problem Statement
+GCC 15.2.1 introduces critical bugs with allocatable components in derived types causing:
+- Segmentation faults when accessing `poly_type_t` objects
+- Memory corruption during assignment operations  
+- Crashes when checking `allocated()` status on undefined objects
+- 19+ test failures blocking PR #346 and multiple feature developments
+
+## Root Cause Analysis
+The compiler fails to properly initialize allocatable components in derived types, particularly affecting:
+1. `poly_type_t` with cached allocatable arrays
+2. `substitution_t` with allocatable vars/types arrays
+3. `type_env_t` with allocatable names/schemes arrays
+
+## Implementation Strategy
+
+### Immediate Solution: Non-Allocatable Fixed-Size Arrays
+Replace allocatable components with fixed-size arrays and explicit size tracking:
+
+```fortran
+! Before (crashes with GCC 15.2.1)
+type :: substitution_t
+    integer :: count = 0
+    type(type_var_t), allocatable :: vars(:)
+    type(mono_type_t), allocatable :: types(:)
+end type
+
+! After (safe with all compilers)
+type :: substitution_t
+    integer :: count = 0
+    integer :: capacity = 0
+    integer, parameter :: MAX_SUBST_SIZE = 256
+    type(type_var_t) :: vars(MAX_SUBST_SIZE)
+    type(mono_type_t) :: types(MAX_SUBST_SIZE)
+contains
+    procedure :: ensure_capacity => substitution_ensure_capacity
+end type
+```
+
+### Design Rationale
+1. **CORRECTNESS over PERFORMANCE**: Fixed arrays ensure memory safety
+2. **Compiler Independence**: Works with all Fortran compilers
+3. **Predictable Memory**: No allocation failures at runtime
+4. **Arena Migration Path**: Aligns with planned arena architecture
+
+### Implementation Plan
+
+#### Step 1: Type System Refactoring
+- Convert `substitution_t` to fixed arrays (MAX_SUBST_SIZE = 256)
+- Convert `type_env_t` to fixed arrays (MAX_ENV_SIZE = 1024)  
+- Remove all allocatable components from `poly_type_t`
+- Add capacity tracking and bounds checking
+
+#### Step 2: Assignment Operator Updates
+- Simplify assignment operators to copy fixed arrays
+- Remove all `allocated()` checks causing crashes
+- Add explicit size/capacity copying
+- Ensure deep copy semantics maintained
+
+#### Step 3: Performance Optimization
+- Use `count` field for iteration bounds
+- Skip unused array elements in operations
+- Profile to ensure no performance regression
+- Document memory overhead tradeoffs
+
+### Compatibility Testing
+- Test with GCC 14.x, 15.1.1, 15.2.1
+- Test with Intel Fortran Compiler
+- Test with NAG Fortran Compiler
+- Ensure no regressions in any compiler
+
+### Long-term Migration
+This solution is temporary until arena architecture (Phase 1) provides:
+- Stable handle-based type storage
+- No allocatable components needed
+- Memory managed by arena allocator
+- Complete compiler independence
+
 # Implementation Roadmap (Updated for Static Library Priority)
 
 ## Phase 0: Static Library Foundation (HIGHEST PRIORITY)

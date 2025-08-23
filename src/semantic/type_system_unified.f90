@@ -79,25 +79,33 @@ module type_system_unified
         generic :: assignment(=) => assign
     end type poly_type_t
 
+    ! Maximum sizes for fixed arrays (GCC 15.2.1 compatibility)
+    integer, parameter :: MAX_SUBST_SIZE = 256
+    integer, parameter :: MAX_ENV_SIZE = 1024
+    integer, parameter :: MAX_NAME_LEN = 128
+    
     type :: substitution_t
         integer :: count = 0
-        type(type_var_t), allocatable :: vars(:)
-        type(mono_type_t), allocatable :: types(:)
+        integer :: capacity = MAX_SUBST_SIZE
+        type(type_var_t) :: vars(MAX_SUBST_SIZE)
+        type(mono_type_t) :: types(MAX_SUBST_SIZE)
     contains
         procedure :: add => substitution_add
         procedure :: apply => substitution_apply
         procedure :: assign => substitution_assign
+        procedure :: ensure_capacity => substitution_ensure_capacity
         generic :: assignment(=) => assign
     end type substitution_t
 
     type :: type_env_t
         integer :: count = 0
-        integer :: capacity = 0
-        character(len=:), allocatable :: names(:)
-        type(poly_type_t), allocatable :: schemes(:)
+        integer :: capacity = MAX_ENV_SIZE
+        character(len=MAX_NAME_LEN) :: names(MAX_ENV_SIZE)
+        type(poly_type_t) :: schemes(MAX_ENV_SIZE)
     contains
         procedure :: extend => type_env_extend
         procedure :: assign => type_env_assign
+        procedure :: ensure_capacity => type_env_ensure_capacity
         generic :: assignment(=) => assign
     end type type_env_t
 
@@ -306,33 +314,32 @@ contains
     subroutine substitution_assign(lhs, rhs)
         class(substitution_t), intent(out) :: lhs
         type(substitution_t), intent(in) :: rhs
+        integer :: i
 
         lhs%count = rhs%count
-        if (allocated(rhs%vars)) then
-            allocate(lhs%vars(size(rhs%vars)))
-            lhs%vars = rhs%vars
-        end if
-        if (allocated(rhs%types)) then
-            allocate(lhs%types(size(rhs%types)))
-            lhs%types = rhs%types
-        end if
+        lhs%capacity = rhs%capacity
+        
+        ! Copy only used elements for efficiency
+        do i = 1, rhs%count
+            lhs%vars(i) = rhs%vars(i)
+            lhs%types(i) = rhs%types(i)
+        end do
     end subroutine substitution_assign
 
     ! Type environment assignment
     subroutine type_env_assign(lhs, rhs)
         class(type_env_t), intent(out) :: lhs
         type(type_env_t), intent(in) :: rhs
+        integer :: i
 
         lhs%count = rhs%count
         lhs%capacity = rhs%capacity
-        if (allocated(rhs%names)) then
-            allocate(character(len=len(rhs%names)) :: lhs%names(size(rhs%names)))
-            lhs%names = rhs%names
-        end if
-        if (allocated(rhs%schemes)) then
-            allocate(lhs%schemes(size(rhs%schemes)))
-            lhs%schemes = rhs%schemes
-        end if
+        
+        ! Copy only used elements
+        do i = 1, rhs%count
+            lhs%names(i) = rhs%names(i)
+            lhs%schemes(i) = rhs%schemes(i)
+        end do
     end subroutine type_env_assign
 
     ! Mono type helper functions
@@ -476,31 +483,28 @@ contains
         type(type_var_t), intent(in) :: var
         type(mono_type_t), intent(in) :: typ
 
-        ! Extend arrays if needed
-        if (.not. allocated(this%vars)) then
-            allocate(this%vars(10))
-            allocate(this%types(10))
-        else if (this%count >= size(this%vars)) then
-            ! Grow arrays
-            block
-                type(type_var_t), allocatable :: temp_vars(:)
-                type(mono_type_t), allocatable :: temp_types(:)
-                integer :: new_size
-                
-                new_size = size(this%vars) * 2
-                allocate(temp_vars(new_size))
-                allocate(temp_types(new_size))
-                temp_vars(1:this%count) = this%vars(1:this%count)
-                temp_types(1:this%count) = this%types(1:this%count)
-                call move_alloc(temp_vars, this%vars)
-                call move_alloc(temp_types, this%types)
-            end block
+        ! Check capacity
+        if (this%count >= this%capacity) then
+            print *, "ERROR: Substitution capacity exceeded (", this%capacity, ")"
+            print *, "Consider increasing MAX_SUBST_SIZE parameter"
+            error stop 1
         end if
 
         this%count = this%count + 1
         this%vars(this%count) = var
         this%types(this%count) = typ
     end subroutine substitution_add
+    
+    subroutine substitution_ensure_capacity(this, required)
+        class(substitution_t), intent(in) :: this
+        integer, intent(in) :: required
+        
+        if (required > this%capacity) then
+            print *, "ERROR: Required substitution capacity (", required, &
+                    ") exceeds maximum (", this%capacity, ")"
+            error stop 1
+        end if
+    end subroutine substitution_ensure_capacity
 
     subroutine substitution_apply(this, input, output)
         class(substitution_t), intent(in) :: this
@@ -518,37 +522,34 @@ contains
         character(len=*), intent(in) :: name
         type(poly_type_t), intent(in) :: scheme
 
-        ! Initialize if needed
-        if (.not. allocated(this%names)) then
-            this%capacity = 10
-            allocate(character(len=256) :: this%names(this%capacity))
-            allocate(this%schemes(this%capacity))
-            this%count = 0
-        end if
-
-        ! Grow if needed
+        ! Check capacity
         if (this%count >= this%capacity) then
-            block
-                character(len=:), allocatable :: temp_names(:)
-                type(poly_type_t), allocatable :: temp_schemes(:)
-                integer :: new_capacity
-
-                new_capacity = this%capacity * 2
-                allocate(character(len=len(this%names)) :: temp_names(new_capacity))
-                allocate(temp_schemes(new_capacity))
-                temp_names(1:this%count) = this%names(1:this%count)
-                temp_schemes(1:this%count) = this%schemes(1:this%count)
-                deallocate(this%names, this%schemes)
-                call move_alloc(temp_names, this%names)
-                call move_alloc(temp_schemes, this%schemes)
-                this%capacity = new_capacity
-            end block
+            print *, "ERROR: Type environment capacity exceeded (", this%capacity, ")"
+            print *, "Consider increasing MAX_ENV_SIZE parameter"
+            error stop 1
+        end if
+        
+        ! Check name length
+        if (len(name) > MAX_NAME_LEN) then
+            print *, "ERROR: Name too long (", len(name), " > ", MAX_NAME_LEN, ")"
+            error stop 1
         end if
 
         this%count = this%count + 1
         this%names(this%count) = name
         this%schemes(this%count) = scheme
     end subroutine type_env_extend
+    
+    subroutine type_env_ensure_capacity(this, required)
+        class(type_env_t), intent(in) :: this
+        integer, intent(in) :: required
+        
+        if (required > this%capacity) then
+            print *, "ERROR: Required environment capacity (", required, &
+                    ") exceeds maximum (", this%capacity, ")"
+            error stop 1
+        end if
+    end subroutine type_env_ensure_capacity
 
     ! Public wrapper functions for compatibility with type_checker
     function type_has_args(typ) result(has_args)
