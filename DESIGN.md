@@ -1,5 +1,11 @@
 # fortfront Architecture Design
 
+**🚨 CRITICAL FOUNDATION ISSUE (Issue #442)**
+- **BLOCKING ALL WORK**: Current class(*) usage causes vtable linking failures
+- **30+ Files Affected**: AST nodes, semantic pipeline, arena storage all use class(*)
+- **Solution Required**: Move to abstract types with standard containers BEFORE any arena work
+- **Priority**: Issue #442 must be resolved before Issues #369, #370, CST/AST split, etc.
+
 **FPM-FIRST ARCHITECTURE**
 - **Dependency Management**: FPM automatically handles all tool dependencies via fpm.toml
 - **Pure Fortran Interface**: External tools integrate through standard Fortran modules
@@ -273,35 +279,53 @@ type :: arena_handle_t
 end type
 ```
 
-## Unified API
+## Unified API (POST Issue #442)
 
-All arenas implement this interface:
+After resolving class(*) vtable issues, arenas will implement standard container interface:
 
 ```fortran
-type, abstract :: base_arena_t
+! FUTURE: After Issue #442 resolved
+type :: node_container_t
+    integer :: node_type
+    type(assignment_node_t), allocatable :: assignment
+    type(expression_node_t), allocatable :: expression
+    ! ... concrete types instead of class(*)
+end type
+
+type :: typed_arena_t
+    type(node_container_t), allocatable :: nodes(:)
+    integer :: count, capacity
 contains
-    procedure(insert_interface), deferred :: insert  ! Add item
-    procedure(get_interface), deferred :: get       ! Retrieve item
-    procedure(valid_interface), deferred :: valid   ! Check handle
-    procedure(free_interface), deferred :: free     ! Mark as free
-    procedure :: reset        ! Bulk deallocation
-    procedure :: checkpoint   ! Save state
-    procedure :: rollback     ! Restore state
+    procedure :: store_node    ! Type-safe storage
+    procedure :: get_node      ! Type-safe retrieval
+    procedure :: validate      ! Handle validation
+    procedure :: reset         ! Bulk deallocation
 end type
 ```
 
+**NOTE**: Current abstract interface approach DISABLED due to vtable linking issues (Issue #442)
+
 ## Migration Plan
 
-### Current State
-- **36 files** use deprecated `ast_arena.f90`
+### PHASE 0: Foundation Fix (Issue #442) - CRITICAL
+**BLOCKS ALL OTHER WORK**
+- Replace class(*) usage in 30+ files with abstract types + containers
+- Eliminate vtable linking issues causing compilation failures
+- Create stable foundation for arena development
+- **STATUS**: NOT STARTED - BLOCKING PRIORITY
+
+### Current State (Post #442)
+- **36 files** use deprecated `ast_arena.f90` 
 - **1 file** uses `compiler_arena.f90` (test only)
 - **9 files** use `type_system_arena.f90`
+- **30+ files** use problematic class(*) - MUST FIX FIRST
 
-### Target State
-- All files use unified arena API
-- `compiler_arena.f90` coordinates all arenas
+### Target State (After #442)
+- All files use unified arena API with standard containers
+- `compiler_arena.f90` coordinates all arenas  
 - Generation increments between compilation phases
 - External tools access via stable UIDs
+- Zero class(*) usage in foundation code
 
 ---
 
