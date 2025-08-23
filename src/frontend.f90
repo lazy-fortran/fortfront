@@ -12,6 +12,8 @@ module frontend
     use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
                                           parse_select_case
     ! Migrated from ast_core: use explicit imports for better dependency management
+    use compiler_arena, only: compiler_arena_t, create_compiler_arena, &
+                                 destroy_compiler_arena, compiler_arena_stats_t
     use ast_arena, only: ast_arena_t, init_ast_arena
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: comment_node
@@ -59,6 +61,7 @@ module frontend
         logical :: debug_semantic = .false.
         logical :: debug_standardize = .false.
         logical :: debug_codegen = .false.
+        logical :: use_unified_arena = .true.  ! Use unified compiler arena
         character(len=:), allocatable :: output_file
     contains
         procedure :: deep_copy => compilation_options_deep_copy

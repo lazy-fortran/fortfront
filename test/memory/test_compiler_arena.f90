@@ -5,7 +5,8 @@ program test_compiler_arena
     
     use compiler_arena
     use type_system_arena
-    use ast_arena_modern
+    use ast_arena, only: ast_arena_t, init_ast_arena
+    use ast_factory, only: push_program
     implicit none
     
     integer :: test_count, pass_count
@@ -168,8 +169,7 @@ contains
     
     subroutine test_ast_arena_integration()
         type(compiler_arena_t) :: arena
-        type(ast_node_arena_t) :: test_node
-        type(ast_handle_t) :: handle
+        integer :: ast_index
         type(compiler_arena_stats_t) :: stats
         
         call test_start("AST arena integration")
@@ -177,15 +177,9 @@ contains
         arena = create_compiler_arena()
         
         ! Create AST node using integrated arena
-        test_node%node_type_name = "PROGRAM"
-        test_node%node_kind = 1
-        test_node%string_data = "test_program" 
-        test_node%depth = 0
-        test_node%child_count = 0
+        ast_index = push_program(arena%ast, "test_program", [integer::], 1, 1)
         
-        handle = store_ast_node(arena%ast, test_node)
-        
-        if (is_valid_ast_handle(handle)) then
+        if (ast_index > 0) then
             stats = arena%get_stats()
             if (stats%ast_memory >= 0) then
                 call test_pass()
