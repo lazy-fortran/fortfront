@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (branch: feat/parser-result-t-migration-410) - Foundation and error recovery complete, ready for review PR #434
+- [ ] #371: feat: integrate compiler_arena for unified memory management (branch: feat/integrate-compiler-arena-371)
 
 ## TODO (Ordered by Priority)
 
@@ -9,11 +9,8 @@
 No remaining items - Phase 1 complete
 
 ### Foundation Phase 2: Arena System (FOUNDATION)
-- [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
-- [ ] #369: feat: define base arena interface with type-bound procedures
 - [ ] #370: feat: migrate ast_arena to container API with type-bound procedures
 - [ ] #362: Create unified compiler_arena module for KISS architecture
-- [ ] #371: feat: integrate compiler_arena for unified memory management
 - [ ] #360: Migrate AST to modern high-performance arena with unified architecture
 
 ### Foundation Phase 3: CST/AST Infrastructure (MAJOR)
@@ -40,6 +37,9 @@ No remaining items - Phase 1 complete
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #369: feat: define base arena interface with type-bound procedures (PR #437)
+- [x] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (PR #434)
+- [x] #400: Arena: Create comprehensive performance benchmark suite for arena operations (PR #436)
 - [x] #399: Arena: Implement per-node freeing with generation tracking for selective memory management (PR #435)
 - [x] #359: Implement arena memory allocator with generation-based safety (Comprehensive implementation complete)
 - [x] #408: Error Handling: Design and implement unified result_t type for consistent error handling (PR #432)
