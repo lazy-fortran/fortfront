@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-No active work
+- [x] #442: CRITICAL: Replace class(*) usage with abstract types for stable foundation (PR #444 - awaiting final merge)
 
 ## TODO (Ordered by Priority)
 
@@ -43,7 +43,6 @@ No remaining items - Phase 1 complete
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
-- [x] #442: CRITICAL: Replace class(*) usage with abstract types for stable foundation - COMPLETED with comprehensive solution
 - [x] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (PR #434)
 - [x] #399: Arena: Implement per-node freeing with generation tracking for selective memory management (PR #435)
 - [x] #359: Implement arena memory allocator with generation-based safety (Comprehensive implementation complete)
