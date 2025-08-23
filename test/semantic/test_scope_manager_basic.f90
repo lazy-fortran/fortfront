@@ -68,8 +68,7 @@ contains
         write (*, '(A)') "About to call scope%lookup..."
         write (*, '(A,I0)') "Scope env count: ", scope%env%count
         write (*, '(A,I0)') "Scope env capacity: ", scope%env%capacity
-        write (*, '(A,L1)') "Names allocated: ", allocated(scope%env%names)
-        write (*, '(A,L1)') "Schemes allocated: ", allocated(scope%env%schemes)
+        write (*, '(A)') "Fixed arrays (always allocated)"
 
         call scope%lookup("nonexistent", result)
 
