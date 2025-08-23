@@ -12,7 +12,6 @@ program test_builtin_analyzers
     type(semantic_context_t) :: context
     type(ast_arena_t) :: arena
     integer :: root_node_index
-    class(*), allocatable :: results
 
     print *, "=== Built-in Analyzers Test ==="
 

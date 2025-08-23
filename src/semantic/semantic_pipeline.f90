@@ -7,6 +7,12 @@ module semantic_pipeline
     private
     
     public :: semantic_pipeline_t, analyzer_ptr, create_pipeline, destroy_pipeline
+    public :: default_context_t
+    
+    ! Simple default context type to avoid polymorphic vtab issues
+    type :: default_context_t
+        integer :: dummy = 0
+    end type default_context_t
     
     ! Type for holding analyzer pointers
     type :: analyzer_ptr
@@ -112,11 +118,11 @@ contains
                     call this%analyzers(i)%analyzer%analyze(shared_context, arena, &
                                                            node_index)
                 else
-                    ! Create default context
+                    ! Create default context to avoid polymorphic vtab issues
                     block
-                        integer :: default_context
-                        default_context = 0
-                        call this%analyzers(i)%analyzer%analyze(default_context, &
+                        type(default_context_t) :: default_ctx
+                        default_ctx%dummy = 0
+                        call this%analyzers(i)%analyzer%analyze(default_ctx, &
                                                                arena, node_index)
                     end block
                 end if

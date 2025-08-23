@@ -455,6 +455,4 @@ contains
         end if
     end subroutine arena_assign
 
-
-
 end module arena_memory
