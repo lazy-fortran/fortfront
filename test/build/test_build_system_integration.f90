@@ -105,12 +105,16 @@ contains
                 ! Try to build using Makefile (skip in problematic CI environments)
                 call execute_command_line('make --version >/dev/null 2>&1', exitstat=exit_code)
                 if (exit_code == 0) then
+                    ! Test if GNU find with -printf works (needed by Makefile)
+                    call execute_command_line('find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
+                end if
+                if (exit_code == 0) then
                     call execute_command_line('make libfortfront.a 2>/dev/null', exitstat=exit_code)
                     inquire(file='libfortfront.a', exist=file_exists)
                     makefile_works = (exit_code == 0) .and. file_exists
                 else
-                    ! make command not available, skip test
-                    print *, "  SKIP: make command not available"
+                    ! make command or GNU find not available, skip test
+                    print *, "  SKIP: make/find environment not compatible"
                     makefile_works = .true.
                 end if
             else
@@ -180,15 +184,19 @@ contains
             call execute_command_line('rm -rf fortfront_modules', exitstat=exit_code)
         end if
         
-        ! Rebuild using Makefile target (skip if make not available)
+        ! Rebuild using Makefile target (skip if make/find not fully compatible)
         call execute_command_line('make --version >/dev/null 2>&1', exitstat=exit_code)
+        if (exit_code == 0) then
+            ! Test if GNU find with -printf works (needed by Makefile)
+            call execute_command_line('find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
+        end if
         if (exit_code == 0) then
             call execute_command_line('make libfortfront.a 2>/dev/null', exitstat=exit_code)
             inquire(file='libfortfront.a', exist=file_exists_after)
             clean_rebuild_works = (exit_code == 0) .and. file_exists_after
         else
-            ! make not available, skip test
-            print *, "  SKIP: make not available for clean rebuild test"
+            ! make or find not available, skip test
+            print *, "  SKIP: make/find environment not compatible for clean rebuild"
             clean_rebuild_works = .true.
         end if
         
@@ -211,8 +219,12 @@ contains
         ! Check initial state
         inquire(file='libfortfront.a', exist=lib_exists_before)
         
-        ! Check if make is available for incremental build test
+        ! Check if make and bash environment work properly for incremental build test
         call execute_command_line('make --version >/dev/null 2>&1', exitstat=exit_code)
+        if (exit_code == 0) then
+            ! Test if GNU find with -printf works (needed by Makefile)
+            call execute_command_line('find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
+        end if
         if (exit_code == 0) then
             ! Rebuild to ensure library is current
             if (.not. lib_exists_before) then
@@ -225,8 +237,8 @@ contains
             
             incremental_works = (exit_code == 0) .and. lib_exists_after
         else
-            ! make not available, skip test
-            print *, "  SKIP: make not available for incremental build test"
+            ! make or find not available, skip test
+            print *, "  SKIP: make/find environment not compatible for incremental build"
             incremental_works = .true.
         end if
         
