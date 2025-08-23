@@ -73,11 +73,9 @@ contains
 
         ! No parent pointer - stack handles hierarchy
 
-        ! Initialize empty environment
+        ! Initialize empty environment (fixed arrays already allocated)
         scope%env%count = 0
-        scope%env%capacity = 10  ! Start with some capacity
-        allocate (character(len=256) :: scope%env%names(scope%env%capacity))
-        allocate (scope%env%schemes(scope%env%capacity))
+        ! capacity is already set by type definition
 
     end function create_scope
 
@@ -106,8 +104,8 @@ contains
             return
         end if
 
-        ! Additional safety check for uninitialized env
-        if (.not. allocated(this%env%names) .or. .not. allocated(this%env%schemes)) then
+        ! Fixed arrays are always allocated, check count instead
+        if (this%env%count == 0) then
             return
         end if
 
@@ -133,35 +131,17 @@ contains
         type(poly_type_t), intent(in) :: scheme
 
         ! Direct implementation to avoid type-bound procedure issues
-        block
-            character(len=:), allocatable :: temp_names(:)
-            type(poly_type_t), allocatable :: temp_schemes(:)
-            integer :: new_capacity, j
+        ! Check capacity (fixed arrays)
+        if (this%env%count >= this%env%capacity) then
+            print *, "ERROR: Scope environment capacity exceeded"
+            print *, "Consider increasing MAX_ENV_SIZE in type_system_unified"
+            error stop 1
+        end if
 
-            ! Initialize or grow arrays if needed
-            if (this%env%capacity == 0) then
-                this%env%capacity = 10
-                allocate (character(len=256) :: this%env%names(this%env%capacity))
-                allocate (this%env%schemes(this%env%capacity))
-            else if (this%env%count >= this%env%capacity) then
-                new_capacity = this%env%capacity*2
-                allocate (character(len=256) :: temp_names(new_capacity))
-                allocate (temp_schemes(new_capacity))
-                do j = 1, this%env%count
-                    temp_names(j) = this%env%names(j)
-                    temp_schemes(j) = this%env%schemes(j)
-                end do
-                ! Use move_alloc for O(1) performance instead of O(n) copying
-                call move_alloc(temp_names, this%env%names)
-                call move_alloc(temp_schemes, this%env%schemes)
-                this%env%capacity = new_capacity
-            end if
-
-            ! Add new binding
-            this%env%count = this%env%count + 1
-            this%env%names(this%env%count) = name
-            this%env%schemes(this%env%count) = scheme
-        end block
+        ! Add new binding
+        this%env%count = this%env%count + 1
+        this%env%names(this%env%count) = name
+        this%env%schemes(this%env%count) = scheme
 
     end subroutine scope_define
 
@@ -188,20 +168,14 @@ contains
                         if (allocated(this%scopes(i)%name)) then
                             temp_scopes(i)%name = this%scopes(i)%name
                         end if
-                        ! Deep copy env to avoid shallow copy issues
+                        ! Deep copy env (fixed arrays)
                         temp_scopes(i)%env%count = this%scopes(i)%env%count
                         temp_scopes(i)%env%capacity = this%scopes(i)%env%capacity
-                        if (allocated(this%scopes(i)%env%names)) then
-  allocate (character(len=256) :: temp_scopes(i)%env%names(this%scopes(i)%env%capacity))
-                            do j = 1, this%scopes(i)%env%count
-                               temp_scopes(i)%env%names(j) = this%scopes(i)%env%names(j)
-                            end do
-                        end if
-                        if (allocated(this%scopes(i)%env%schemes)) then
-                      allocate (temp_scopes(i)%env%schemes(this%scopes(i)%env%capacity))
-                            temp_scopes(i)%env%schemes(1:this%scopes(i)%env%count) = &
-                                this%scopes(i)%env%schemes(1:this%scopes(i)%env%count)
-                        end if
+                        ! Copy only used elements
+                        do j = 1, this%scopes(i)%env%count
+                            temp_scopes(i)%env%names(j) = this%scopes(i)%env%names(j)
+                            temp_scopes(i)%env%schemes(j) = this%scopes(i)%env%schemes(j)
+                        end do
                     end do
                 end block
             end if
@@ -217,29 +191,14 @@ contains
         if (allocated(new_scope%name)) then
             this%scopes(this%depth)%name = new_scope%name
         end if
-        ! Deep copy env to avoid shallow copy issues
+        ! Deep copy env (fixed arrays)
         this%scopes(this%depth)%env%count = new_scope%env%count
         this%scopes(this%depth)%env%capacity = new_scope%env%capacity
-        if (allocated(new_scope%env%names) .and. new_scope%env%capacity > 0) then
-            if (allocated(this%scopes(this%depth)%env%names)) then
-                deallocate (this%scopes(this%depth)%env%names)
-            end if
-            allocate(character(len=256) :: &
-                     this%scopes(this%depth)%env%names(new_scope%env%capacity))
-            do j = 1, new_scope%env%count
-                this%scopes(this%depth)%env%names(j) = new_scope%env%names(j)
-            end do
-        end if
-        if (allocated(new_scope%env%schemes) .and. new_scope%env%capacity > 0) then
-            if (allocated(this%scopes(this%depth)%env%schemes)) then
-                deallocate (this%scopes(this%depth)%env%schemes)
-            end if
-            allocate (this%scopes(this%depth)%env%schemes(new_scope%env%capacity))
-            if (new_scope%env%count > 0) then
-                this%scopes(this%depth)%env%schemes(1:new_scope%env%count) = &
-                    new_scope%env%schemes(1:new_scope%env%count)
-            end if
-        end if
+        ! Copy only used elements
+        do j = 1, new_scope%env%count
+            this%scopes(this%depth)%env%names(j) = new_scope%env%names(j)
+            this%scopes(this%depth)%env%schemes(j) = new_scope%env%schemes(j)
+        end do
 
     end subroutine stack_push_scope
 
