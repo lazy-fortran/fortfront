@@ -1,6 +1,9 @@
 module semantic_events
     !! Core event system for semantic analysis plugin architecture
     !! Provides event type definitions, data structures, and validation
+    use analysis_event_data, only: event_data_base_t
+    use semantic_context_types, only: semantic_context_base_t
+    use ast_core, only: ast_arena_t
     implicit none
     private
     
@@ -19,7 +22,7 @@ module semantic_events
         integer :: event_type = 0
         integer :: node_index = 0
         integer :: source_analyzer_id = 0
-        class(*), allocatable :: event_data
+        class(event_data_base_t), allocatable :: event_data
         logical :: consumed = .false.
         logical :: propagate = .true.
     end type
@@ -49,10 +52,10 @@ module semantic_events
     ! Event handler interface
     abstract interface
         subroutine event_handler_interface(event, context, arena)
-            import :: analysis_event_t
+            import :: analysis_event_t, semantic_context_base_t, ast_arena_t
             type(analysis_event_t), intent(inout) :: event
-            class(*), intent(inout) :: context
-            class(*), intent(inout) :: arena
+            class(semantic_context_base_t), intent(inout) :: context
+            type(ast_arena_t), intent(inout) :: arena
         end subroutine
     end interface
     
