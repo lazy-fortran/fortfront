@@ -1,5 +1,4 @@
 program test_string_utils
-    use string_utils
     implicit none
     
     integer :: total_tests, passed_tests
