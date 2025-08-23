@@ -93,7 +93,8 @@ contains
         
         ! Count fortfront symbols in the library
         call execute_command_line( &
-            'nm libfortfront.a 2>/dev/null | grep -c "__fortfront\|__lexer\|__parser\|__semantic\|__codegen\|__ast\|__frontend" || echo "0"', &
+            'nm libfortfront.a 2>/dev/null | grep -c "__fortfront\|__lexer\|__parser\|' // &
+            '__semantic\|__codegen\|__ast\|__frontend" || echo "0"', &
             exitstat=exit_code, wait=.true.)
         
         ! Check if we have a reasonable number of symbols (>100)
