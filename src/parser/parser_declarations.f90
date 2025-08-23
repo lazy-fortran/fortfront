@@ -32,6 +32,9 @@ module parser_declarations
     type :: var_collection_t
         character(len=:), allocatable :: names(:)
         integer :: count
+    contains
+        procedure :: assign_var_collection
+        generic :: assignment(=) => assign_var_collection
     end type var_collection_t
 
     ! Declaration parameters for unified creation
@@ -48,6 +51,9 @@ module parser_declarations
         character(len=:), allocatable :: intent
         integer :: line = 1
         integer :: column = 1
+    contains
+        procedure :: assign_decl_params
+        generic :: assignment(=) => assign_decl_params
     end type declaration_params_t
 
     ! Type specifier result from parse_type_specifier
@@ -57,6 +63,9 @@ module parser_declarations
         integer :: kind_value = 0
         integer :: line = 1
         integer :: column = 1
+    contains
+        procedure :: assign_type_spec
+        generic :: assignment(=) => assign_type_spec
     end type type_specifier_t
 
     ! Declaration attributes result from parse_declaration_attributes
@@ -70,6 +79,9 @@ module parser_declarations
         character(len=:), allocatable :: intent
         logical :: has_global_dimensions = .false.
         integer, allocatable :: global_dimension_indices(:)
+    contains
+        procedure :: assign_decl_attributes
+        generic :: assignment(=) => assign_decl_attributes
     end type declaration_attributes_t
 
     ! Multi-declaration context for parsing
@@ -78,6 +90,9 @@ module parser_declarations
         type(declaration_attributes_t) :: attrs
         character(len=:), allocatable :: var_names(:)
         integer :: var_count
+    contains
+        procedure :: assign_multi_decl_context
+        generic :: assignment(=) => assign_multi_decl_context
     end type multi_decl_context_t
 
 contains
@@ -451,16 +466,14 @@ contains
         integer, allocatable, intent(in) :: per_var_dims(:), global_dims(:)
         integer, allocatable :: final_dims(:)
         
+        ! Initialize as unallocated
         ! Per-variable dimensions take precedence over global dimensions
-        if (has_per_var_dims) then
-            if (allocated(per_var_dims)) then
-                final_dims = per_var_dims
-            end if
-        else if (has_global_dims) then
-            if (allocated(global_dims)) then
-                final_dims = global_dims
-            end if
+        if (has_per_var_dims .and. allocated(per_var_dims)) then
+            final_dims = per_var_dims
+        else if (has_global_dims .and. allocated(global_dims)) then
+            final_dims = global_dims
         end if
+        ! If neither condition is met, final_dims remains unallocated
     end function determine_final_dimensions
 
     ! Push declaration with kind and dimensions  
@@ -1357,5 +1370,100 @@ contains
         end if
         
     end function parse_multi_declaration
+
+    ! Assignment operator for var_collection_t to handle allocatable arrays safely
+    subroutine assign_var_collection(lhs, rhs)
+        class(var_collection_t), intent(out) :: lhs
+        type(var_collection_t), intent(in) :: rhs
+        
+        lhs%count = rhs%count
+        if (allocated(rhs%names) .and. rhs%count > 0) then
+            allocate(character(len=len(rhs%names)) :: lhs%names(size(rhs%names)))
+            lhs%names = rhs%names
+        end if
+    end subroutine assign_var_collection
+
+    ! Assignment operator for declaration_attributes_t to handle allocatable arrays safely
+    subroutine assign_decl_attributes(lhs, rhs)
+        class(declaration_attributes_t), intent(out) :: lhs
+        type(declaration_attributes_t), intent(in) :: rhs
+        
+        ! Copy scalar components
+        lhs%is_allocatable = rhs%is_allocatable
+        lhs%is_pointer = rhs%is_pointer
+        lhs%is_target = rhs%is_target
+        lhs%is_parameter = rhs%is_parameter
+        lhs%is_optional = rhs%is_optional
+        lhs%has_intent = rhs%has_intent
+        lhs%has_global_dimensions = rhs%has_global_dimensions
+        
+        ! Copy allocatable components safely
+        if (allocated(rhs%intent)) then
+            lhs%intent = rhs%intent
+        end if
+        if (allocated(rhs%global_dimension_indices)) then
+            lhs%global_dimension_indices = rhs%global_dimension_indices
+        end if
+    end subroutine assign_decl_attributes
+
+    ! Assignment operator for declaration_params_t to handle allocatable arrays safely
+    subroutine assign_decl_params(lhs, rhs)
+        class(declaration_params_t), intent(out) :: lhs
+        type(declaration_params_t), intent(in) :: rhs
+        
+        ! Copy scalar components
+        lhs%has_kind = rhs%has_kind
+        lhs%kind_value = rhs%kind_value
+        lhs%is_allocatable = rhs%is_allocatable
+        lhs%is_pointer = rhs%is_pointer
+        lhs%is_target = rhs%is_target
+        lhs%is_parameter = rhs%is_parameter
+        lhs%is_optional = rhs%is_optional
+        lhs%has_intent = rhs%has_intent
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        
+        ! Copy allocatable components safely
+        if (allocated(rhs%type_name)) then
+            lhs%type_name = rhs%type_name
+        end if
+        if (allocated(rhs%intent)) then
+            lhs%intent = rhs%intent
+        end if
+    end subroutine assign_decl_params
+
+    ! Assignment operator for type_specifier_t to handle allocatable arrays safely
+    subroutine assign_type_spec(lhs, rhs)
+        class(type_specifier_t), intent(out) :: lhs
+        type(type_specifier_t), intent(in) :: rhs
+        
+        ! Copy scalar components
+        lhs%has_kind = rhs%has_kind
+        lhs%kind_value = rhs%kind_value
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        
+        ! Copy allocatable components safely
+        if (allocated(rhs%type_name)) then
+            lhs%type_name = rhs%type_name
+        end if
+    end subroutine assign_type_spec
+
+    ! Assignment operator for multi_decl_context_t to handle allocatable arrays safely
+    subroutine assign_multi_decl_context(lhs, rhs)
+        class(multi_decl_context_t), intent(out) :: lhs
+        type(multi_decl_context_t), intent(in) :: rhs
+        
+        ! Copy nested types (these use their own assignment operators)
+        lhs%type_spec = rhs%type_spec
+        lhs%attrs = rhs%attrs
+        lhs%var_count = rhs%var_count
+        
+        ! Copy allocatable components safely
+        if (allocated(rhs%var_names)) then
+            allocate(character(len=len(rhs%var_names)) :: lhs%var_names(size(rhs%var_names)))
+            lhs%var_names = rhs%var_names
+        end if
+    end subroutine assign_multi_decl_context
 
 end module parser_declarations
