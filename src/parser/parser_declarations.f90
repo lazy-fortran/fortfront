@@ -72,7 +72,378 @@ module parser_declarations
         integer, allocatable :: global_dimension_indices(:)
     end type declaration_attributes_t
 
+    ! Multi-declaration context for parsing
+    type :: multi_decl_context_t
+        type(type_specifier_t) :: type_spec
+        type(declaration_attributes_t) :: attrs
+        character(len=:), allocatable :: var_names(:)
+        integer :: var_count
+    end type multi_decl_context_t
+
 contains
+
+    ! Parse type specification with optional kind
+    function parse_multi_type_spec(parser) result(type_spec)
+        type(parser_state_t), intent(inout) :: parser
+        type(type_specifier_t) :: type_spec
+        type(token_t) :: token
+        
+        ! Get type name
+        token = parser%consume()
+        type_spec%type_name = token%text
+        type_spec%line = token%line
+        type_spec%column = token%column
+        type_spec%has_kind = .false.
+        type_spec%kind_value = 0
+        
+        ! Check for kind specification
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            token = parser%consume()  ! '('
+            
+            token = parser%peek()
+            if (token%kind == TK_NUMBER) then
+                token = parser%consume()
+                read (token%text, *) type_spec%kind_value
+                type_spec%has_kind = .true.
+                
+                ! Consume ')'
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    token = parser%consume()
+                end if
+            end if
+        end if
+    end function parse_multi_type_spec
+
+    ! Parse multi-declaration attributes
+    function parse_multi_attributes(parser, arena) result(attrs)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(declaration_attributes_t) :: attrs
+        type(token_t) :: token
+        
+        ! Initialize attributes
+        attrs%is_allocatable = .false.
+        attrs%is_pointer = .false.
+        attrs%is_target = .false.
+        attrs%is_parameter = .false.
+        attrs%is_optional = .false.
+        attrs%has_intent = .false.
+        attrs%has_global_dimensions = .false.
+        
+        ! Parse attributes separated by commas
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind /= TK_OPERATOR .or. token%text /= ",") exit
+            
+            token = parser%consume()  ! ','
+            token = parser%peek()
+            
+            if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD)) then
+                select case (token%text)
+                case ("allocatable")
+                    attrs%is_allocatable = .true.
+                    token = parser%consume()
+                case ("pointer")
+                    attrs%is_pointer = .true.
+                    token = parser%consume()
+                case ("target")
+                    attrs%is_target = .true.
+                    token = parser%consume()
+                case ("parameter")
+                    attrs%is_parameter = .true.
+                    token = parser%consume()
+                case ("optional")
+                    attrs%is_optional = .true.
+                    token = parser%consume()
+                case ("dimension")
+                    attrs%has_global_dimensions = .true.
+                    token = parser%consume()
+                    call parse_attribute_parens(parser, arena, attrs%global_dimension_indices)
+                case ("intent")
+                    attrs%has_intent = .true.
+                    token = parser%consume()
+                    call parse_intent_spec(parser, attrs%intent)
+                case default
+                    ! Unknown attribute - consume and skip parentheses if present
+                    token = parser%consume()
+                    call skip_attribute_parens(parser)
+                end select
+            end if
+        end do
+    end function parse_multi_attributes
+
+    ! Parse intent specification
+    subroutine parse_intent_spec(parser, intent_value)
+        type(parser_state_t), intent(inout) :: parser
+        character(len=:), allocatable, intent(out) :: intent_value
+        type(token_t) :: token
+        
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            token = parser%consume()  ! '('
+            
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
+                intent_value = token%text
+                token = parser%consume()
+            end if
+            
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()  ! ')'
+            end if
+        end if
+    end subroutine parse_intent_spec
+
+    ! Parse attribute parentheses for dimensions
+    subroutine parse_attribute_parens(parser, arena, dimension_indices)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(out) :: dimension_indices(:)
+        type(token_t) :: token
+        
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            token = parser%consume()  ! '('
+            call parse_array_dimensions(parser, arena, dimension_indices)
+            
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()  ! ')'
+            end if
+        end if
+    end subroutine parse_attribute_parens
+
+    ! Skip unknown attribute parentheses
+    subroutine skip_attribute_parens(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+        integer :: paren_count
+        
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            paren_count = 1
+            token = parser%consume()
+            
+            do while (paren_count > 0 .and. .not. parser%is_at_end())
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR) then
+                    if (token%text == "(") then
+                        paren_count = paren_count + 1
+                    else if (token%text == ")") then
+                        paren_count = paren_count - 1
+                    end if
+                end if
+                token = parser%consume()
+            end do
+        end if
+    end subroutine skip_attribute_parens
+
+    ! Collect variable names from multi-declaration
+    function collect_multi_var_names(parser) result(vars)
+        type(parser_state_t), intent(inout) :: parser
+        type(var_collection_t) :: vars
+        type(token_t) :: token
+        character(len=100) :: temp_names(50)
+        integer :: i
+        
+        vars%count = 0
+        
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind /= TK_IDENTIFIER) exit
+            
+            token = parser%consume()
+            vars%count = vars%count + 1
+            if (vars%count <= 50) then
+                temp_names(vars%count) = trim(token%text)
+            end if
+            
+            ! Skip per-variable array dimensions
+            call skip_attribute_parens(parser)
+            
+            ! Check for more variables
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()
+            else
+                exit
+            end if
+        end do
+        
+        ! Copy to properly sized array
+        if (vars%count > 0) then
+            allocate(character(len=100) :: vars%names(vars%count))
+            vars%names(1:vars%count) = temp_names(1:vars%count)
+        end if
+    end function collect_multi_var_names
+
+    ! Create declaration nodes for multiple variables
+    subroutine create_multi_decl_nodes(arena, context, decl_indices)
+        use ast_factory, only: push_declaration
+        type(ast_arena_t), intent(inout) :: arena
+        type(multi_decl_context_t), intent(in) :: context
+        integer, allocatable, intent(out) :: decl_indices(:)
+        integer :: i
+        logical :: is_array
+        integer, allocatable :: dims(:)
+        
+        allocate(decl_indices(context%var_count))
+        
+        ! Determine array status
+        is_array = context%attrs%has_global_dimensions
+        if (is_array) then
+            dims = context%attrs%global_dimension_indices
+        end if
+        
+        do i = 1, context%var_count
+            if (context%type_spec%has_kind .and. is_array) then
+                if (context%attrs%has_intent) then
+                    decl_indices(i) = push_declaration(arena, &
+                        context%type_spec%type_name, trim(context%var_names(i)), &
+                        kind_value=context%type_spec%kind_value, &
+                        dimension_indices=dims, &
+                        is_allocatable=context%attrs%is_allocatable, &
+                        is_pointer=context%attrs%is_pointer, &
+                        is_target=context%attrs%is_target, &
+                        intent_value=context%attrs%intent, &
+                        is_optional=context%attrs%is_optional, &
+                        is_parameter=context%attrs%is_parameter, &
+                        line=context%type_spec%line, column=context%type_spec%column)
+                else
+                    decl_indices(i) = push_declaration(arena, &
+                        context%type_spec%type_name, trim(context%var_names(i)), &
+                        kind_value=context%type_spec%kind_value, &
+                        dimension_indices=dims, &
+                        is_allocatable=context%attrs%is_allocatable, &
+                        is_pointer=context%attrs%is_pointer, &
+                        is_target=context%attrs%is_target, &
+                        is_optional=context%attrs%is_optional, &
+                        is_parameter=context%attrs%is_parameter, &
+                        line=context%type_spec%line, column=context%type_spec%column)
+                end if
+            else if (context%type_spec%has_kind) then
+                if (context%attrs%has_intent) then
+                    decl_indices(i) = push_declaration(arena, &
+                        context%type_spec%type_name, trim(context%var_names(i)), &
+                        kind_value=context%type_spec%kind_value, &
+                        is_allocatable=context%attrs%is_allocatable, &
+                        is_pointer=context%attrs%is_pointer, &
+                        is_target=context%attrs%is_target, &
+                        intent_value=context%attrs%intent, &
+                        is_optional=context%attrs%is_optional, &
+                        is_parameter=context%attrs%is_parameter, &
+                        line=context%type_spec%line, column=context%type_spec%column)
+                else
+                    decl_indices(i) = push_declaration(arena, &
+                        context%type_spec%type_name, trim(context%var_names(i)), &
+                        kind_value=context%type_spec%kind_value, &
+                        is_allocatable=context%attrs%is_allocatable, &
+                        is_pointer=context%attrs%is_pointer, &
+                        is_target=context%attrs%is_target, &
+                        is_optional=context%attrs%is_optional, &
+                        is_parameter=context%attrs%is_parameter, &
+                        line=context%type_spec%line, column=context%type_spec%column)
+                end if
+            else if (is_array) then
+                if (context%attrs%has_intent) then
+                    decl_indices(i) = push_declaration(arena, &
+                        context%type_spec%type_name, trim(context%var_names(i)), &
+                        dimension_indices=dims, &
+                        is_allocatable=context%attrs%is_allocatable, &
+                        is_pointer=context%attrs%is_pointer, &
+                        is_target=context%attrs%is_target, &
+                        intent_value=context%attrs%intent, &
+                        is_optional=context%attrs%is_optional, &
+                        is_parameter=context%attrs%is_parameter, &
+                        line=context%type_spec%line, column=context%type_spec%column)
+                else
+                    decl_indices(i) = push_declaration(arena, &
+                        context%type_spec%type_name, trim(context%var_names(i)), &
+                        dimension_indices=dims, &
+                        is_allocatable=context%attrs%is_allocatable, &
+                        is_pointer=context%attrs%is_pointer, &
+                        is_target=context%attrs%is_target, &
+                        is_optional=context%attrs%is_optional, &
+                        is_parameter=context%attrs%is_parameter, &
+                        line=context%type_spec%line, column=context%type_spec%column)
+                end if
+            else
+                if (context%attrs%has_intent) then
+                    decl_indices(i) = push_declaration(arena, &
+                        context%type_spec%type_name, trim(context%var_names(i)), &
+                        is_allocatable=context%attrs%is_allocatable, &
+                        is_pointer=context%attrs%is_pointer, &
+                        is_target=context%attrs%is_target, &
+                        intent_value=context%attrs%intent, &
+                        is_optional=context%attrs%is_optional, &
+                        is_parameter=context%attrs%is_parameter, &
+                        line=context%type_spec%line, column=context%type_spec%column)
+                else
+                    decl_indices(i) = push_declaration(arena, &
+                        context%type_spec%type_name, trim(context%var_names(i)), &
+                        is_allocatable=context%attrs%is_allocatable, &
+                        is_pointer=context%attrs%is_pointer, &
+                        is_target=context%attrs%is_target, &
+                        is_optional=context%attrs%is_optional, &
+                        is_parameter=context%attrs%is_parameter, &
+                        line=context%type_spec%line, column=context%type_spec%column)
+                end if
+            end if
+        end do
+    end subroutine create_multi_decl_nodes
+
+    ! Check if tokens form "end type"
+    function is_end_type(parser) result(is_end)
+        type(parser_state_t), intent(inout) :: parser
+        logical :: is_end
+        type(parser_state_t) :: saved_state
+        type(token_t) :: token
+        
+        is_end = .false.
+        saved_state = parser
+        
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER .and. token%text == "end") then
+            token = parser%consume()
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER .and. token%text == "type") then
+                is_end = .true.
+            end if
+        end if
+        
+        ! Restore state if not end type
+        if (.not. is_end) then
+            parser = saved_state
+        else
+            ! Consume "type" as well
+            token = parser%consume()
+        end if
+    end function is_end_type
+
+    ! Collect derived type components
+    subroutine collect_type_components(parser, arena, component_indices, count)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, allocatable, intent(out) :: component_indices(:)
+        integer, intent(out) :: count
+        integer :: comp_index
+        
+        allocate(component_indices(0))
+        count = 0
+        
+        do while (.not. parser%is_at_end())
+            if (is_end_type(parser)) exit
+            
+            comp_index = parse_derived_type_component(parser, arena)
+            if (comp_index > 0) then
+                component_indices = [component_indices, comp_index]
+                count = count + 1
+            end if
+        end do
+    end subroutine collect_type_components
 
     ! Helper function to collect variable names from multi-variable declarations
     ! 
@@ -858,121 +1229,67 @@ contains
 
     ! Parse derived type definition
     function parse_derived_type_def(parser, arena) result(type_index)
-        use ast_factory, only: push_derived_type, push_literal, &
-            push_identifier, push_declaration
+        use ast_factory, only: push_derived_type, push_literal
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: type_index
-
+        
         type(token_t) :: token
         character(len=:), allocatable :: type_name
-        integer :: line, column
-        integer, allocatable :: component_indices(:)
-        integer :: component_count
-        integer, allocatable :: param_indices(:)
-        integer :: param_count
+        integer :: line, column, component_count
+        integer, allocatable :: component_indices(:), param_indices(:)
         logical :: has_parameters
-
+        
         ! Consume "type" keyword
         token = parser%peek()
-        if (token%kind == TK_KEYWORD .and. token%text == "type") then
-            token = parser%consume()
-        else
-            ! Error: expected type keyword
-            type_index = push_literal(arena, &
-                "ERROR: Expected 'type' keyword", LITERAL_STRING, &
-                token%line, token%column)
+        if (token%kind /= TK_KEYWORD .or. token%text /= "type") then
+            type_index = push_literal(arena, "ERROR: Expected 'type' keyword", &
+                LITERAL_STRING, token%line, token%column)
             return
         end if
+        token = parser%consume()
         
         ! Consume "::" operator
         token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == "::") then
-            token = parser%consume()
-        else
-            ! Error: expected ::
-            type_index = push_literal(arena, &
-                "ERROR: Expected '::' after type", LITERAL_STRING, &
-                token%line, token%column)
+        if (token%kind /= TK_OPERATOR .or. token%text /= "::") then
+            type_index = push_literal(arena, "ERROR: Expected '::' after type", &
+                LITERAL_STRING, token%line, token%column)
             return
         end if
-
+        token = parser%consume()
+        
         ! Get type name
         token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
-            token = parser%consume()
-            type_name = token%text
-            line = token%line
-            column = token%column
-        else
-            ! Error: expected type name
-            type_index = push_literal(arena, &
-                "ERROR: Expected type name", LITERAL_STRING, &
-                token%line, token%column)
+        if (token%kind /= TK_IDENTIFIER) then
+            type_index = push_literal(arena, "ERROR: Expected type name", &
+                LITERAL_STRING, token%line, token%column)
             return
         end if
-
-        ! Check for parameters (e.g., type :: mytype(kind))
+        token = parser%consume()
+        type_name = token%text
+        line = token%line
+        column = token%column
+        
+        ! Check for parameters
         has_parameters = .false.
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
-            ! Consume '('
-            token = parser%consume()
+            token = parser%consume()  ! '('
             has_parameters = .true.
-
-            ! Parse parameters
-            call parse_derived_type_parameters(parser, arena, param_indices, param_count)
-
-            ! Consume ')'
+            call parse_derived_type_parameters(parser, arena, param_indices, component_count)
+            
             token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                token = parser%consume()
-            else
-                ! Error: expected )
-                type_index = push_literal(arena, &
-                    "ERROR: Expected ) after type parameters", LITERAL_STRING, &
-                    line, column)
+            if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
+                type_index = push_literal(arena, "ERROR: Expected ) after type parameters", &
+                    LITERAL_STRING, line, column)
                 return
             end if
+            token = parser%consume()  ! ')'
         end if
-
-        ! Parse components
-        component_count = 0
-        allocate (component_indices(0))
-
-        ! Parse until we find "end type"
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-
-            ! Check for "end type"
-            if (token%kind == TK_IDENTIFIER .and. token%text == "end") then
-                ! Don't consume "end" yet, check if next is "type"
-                block
-                    type(parser_state_t) :: saved_state
-                    saved_state = parser
-                    token = parser%consume()  ! consume "end"
-                    token = parser%peek()
-                    if (token%kind == TK_IDENTIFIER .and. token%text == "type") then
-                        token = parser%consume()  ! consume "type"
-                        exit
-                    else
-                        ! Restore state before "end" was consumed
-                        parser = saved_state
-                    end if
-                end block
-            end if
-
-            ! Parse component declaration
-            block
-                integer :: comp_index
-                comp_index = parse_derived_type_component(parser, arena)
-                if (comp_index > 0) then
-                    component_indices = [component_indices, comp_index]
-                    component_count = component_count + 1
-                end if
-            end block
-        end do
-
+        
+        ! Collect components
+        call collect_type_components(parser, arena, component_indices, component_count)
+        
         ! Create derived type node
         if (has_parameters) then
             type_index = push_derived_type(arena, type_name, &
@@ -984,7 +1301,7 @@ contains
                 component_indices=component_indices, &
                 line=line, column=column)
         end if
-
+        
     end function parse_derived_type_def
 
     ! Parse derived type component
@@ -1062,358 +1379,51 @@ contains
 
     ! Parse multi-variable declaration (e.g., real :: a, b, c)
     function parse_multi_declaration(parser, arena) result(decl_indices)
-        use ast_factory, only: push_declaration, push_multi_declaration, push_literal
+        use ast_factory, only: push_literal
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable :: decl_indices(:)
-
-        type(token_t) :: type_token, var_token, token
-        character(len=:), allocatable :: type_name
-        integer :: line, column, kind_value
-        logical :: has_kind, is_allocatable, is_pointer, is_target
-        logical :: has_intent, is_optional, is_parameter
-        character(len=:), allocatable :: intent
-        integer :: decl_count, decl_index
-        character(len=:), allocatable :: var_name
-        logical :: is_array, has_global_dimensions
-        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
-
-        allocate (decl_indices(0))
-        decl_count = 0
-
-        ! Get type name (real, integer, etc.)
-        type_token = parser%consume()
-        type_name = type_token%text
-        line = type_token%line
-        column = type_token%column
-        has_kind = .false.
-        kind_value = 0
-        is_allocatable = .false.
-        is_pointer = .false.
-        is_target = .false.
-        has_intent = .false.
-        is_optional = .false.
-        has_global_dimensions = .false.
-        is_parameter = .false.
-
-        ! Check for kind specification (e.g., real(8))
-        var_token = parser%peek()
-        if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-            ! Consume '('
-            type_token = parser%consume()
-
-            ! Get kind value
-            var_token = parser%peek()
-            if (var_token%kind == TK_NUMBER) then
-                var_token = parser%consume()
-                read (var_token%text, *) kind_value
-                has_kind = .true.
-
-                ! Consume ')'
-                var_token = parser%peek()
-                if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
-                    type_token = parser%consume()
-                else
-                    ! Error: expected )
-     decl_index = push_literal(arena, "ERROR: Expected )", LITERAL_STRING, line, column)
-                    decl_indices = [decl_index]
-                    return
-                end if
-            end if
-        end if
-
-        ! Check for attributes like allocatable
-        ! Parse multiple attributes separated by commas
-        do while (.not. parser%is_at_end())
-            var_token = parser%peek()
-            if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
-                ! Consume ','
-                var_token = parser%consume()
-
-                ! Parse attribute
-                var_token = parser%peek()
-                if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
-                    var_token%text == "allocatable") then
-                    is_allocatable = .true.
-                    var_token = parser%consume()
-                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
-                         var_token%text == "pointer") then
-                    is_pointer = .true.
-                    var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. &
-                         var_token%text == "target") then
-                    is_target = .true.
-                    var_token = parser%consume()
-                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
-                         var_token%text == "parameter") then
-                    is_parameter = .true.
-                    var_token = parser%consume()
-                else if (var_token%kind == TK_IDENTIFIER .and. &
-                         var_token%text == "dimension") then
-                    has_global_dimensions = .true.
-                    var_token = parser%consume()
-                    
-                    ! Parse dimension specification
-                    var_token = parser%peek()
-                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                        var_token = parser%consume()  ! consume '('
-                        
-                        ! Parse dimensions
-                        call parse_array_dimensions(parser, arena, global_dimension_indices)
-                        
-                        ! Consume ')'
-                        var_token = parser%peek()
-                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
-                            var_token = parser%consume()
-                        end if
-                    end if
-                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
-                         var_token%text == "dimension") then
-                    has_global_dimensions = .true.
-                    var_token = parser%consume()
-                    
-                    ! Parse dimension specification
-                    var_token = parser%peek()
-                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                        var_token = parser%consume()  ! consume '('
-                        
-                        ! Parse dimensions
-                        call parse_array_dimensions(parser, arena, global_dimension_indices)
-                        
-                        ! Consume ')'
-                        var_token = parser%peek()
-                        if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
-                            var_token = parser%consume()
-                        end if
-                    end if
-                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
-                         var_token%text == "intent") then
-                    has_intent = .true.
-                    var_token = parser%consume()  ! consume 'intent'
-                    
-                    ! Parse intent specification (in|out|inout) - simplified version  
-                    var_token = parser%peek()
-                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                        var_token = parser%consume()  ! consume '('
-                        
-                        var_token = parser%peek()
-                        if (var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) then
-                            intent = var_token%text
-                            var_token = parser%consume()  ! consume intent value
-                        end if
-                        
-                        var_token = parser%peek()
-                        if (var_token%kind == TK_OPERATOR .and. &
-                            var_token%text == ")") then
-                            var_token = parser%consume()  ! consume ')'
-                        end if
-                    end if
-                else if ((var_token%kind == TK_IDENTIFIER .or. var_token%kind == TK_KEYWORD) .and. &
-                         var_token%text == "optional") then
-                    is_optional = .true.
-                    var_token = parser%consume()
-                else
-                    ! Unknown attribute - consume it and handle complex &
-                    ! attributes like intent(out)
-                    var_token = parser%consume()
-                    
-                    ! If next token is '(', consume until we find matching ')'
-                    var_token = parser%peek()
-                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                        block
-                            integer :: paren_count
-                            paren_count = 1
-                            var_token = parser%consume()  ! consume '('
-                            
-                            do while (paren_count > 0 .and. .not. parser%is_at_end())
-                                var_token = parser%peek()
-                                if (var_token%kind == TK_OPERATOR) then
-                                    if (var_token%text == "(") then
-                                        paren_count = paren_count + 1
-                                    else if (var_token%text == ")") then
-                                        paren_count = paren_count - 1
-                                    end if
-                                end if
-                                var_token = parser%consume()
-                            end do
-                        end block
-                    end if
-                end if
-            else
-                ! No more attributes
-                exit
-            end if
-        end do
-
+        
+        type(multi_decl_context_t) :: context
+        type(var_collection_t) :: vars
+        type(token_t) :: token
+        integer :: decl_index
+        
+        allocate(decl_indices(0))
+        
+        ! Parse type specification
+        context%type_spec = parse_multi_type_spec(parser)
+        
+        ! Parse declaration attributes
+        context%attrs = parse_multi_attributes(parser, arena)
+        
         ! Consume '::'
-        var_token = parser%peek()
-        if (var_token%kind == TK_OPERATOR .and. var_token%text == "::") then
-            type_token = parser%consume()
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "::") then
+            token = parser%consume()
         else
-            ! Error: expected ::
-            decl_index = push_literal(arena, "ERROR: Expected ::", LITERAL_STRING, line, column)
+            decl_index = push_literal(arena, "ERROR: Expected ::", &
+                LITERAL_STRING, context%type_spec%line, context%type_spec%column)
             decl_indices = [decl_index]
             return
         end if
-
-        ! Collect all variable names first
-        block
-            character(len=:), allocatable :: var_names_array(:)
-            integer :: name_count
-            character(len=100) :: temp_var_names(50)  ! Temporary storage
+        
+        ! Collect variable names
+        vars = collect_multi_var_names(parser)
+        
+        if (vars%count > 0) then
+            ! Store in context
+            context%var_names = vars%names
+            context%var_count = vars%count
             
-            name_count = 0
-            
-            ! Parse variable names
-            do while (.not. parser%is_at_end())
-                ! Get variable name
-                var_token = parser%peek()
-                if (var_token%kind == TK_IDENTIFIER) then
-                    var_token = parser%consume()
-                    name_count = name_count + 1
-                    if (name_count <= 50) then
-                        temp_var_names(name_count) = trim(var_token%text)
-                    end if
-
-                    ! For now, skip per-variable array dimensions in multi-declarations
-                    ! This simplifies the implementation and matches common usage
-                    var_token = parser%peek()
-                    if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-                        ! Skip array dimensions for multi-var declarations
-                        block
-                            integer :: paren_count
-                            paren_count = 1
-                            var_token = parser%consume()  ! consume '('
-                            
-                            do while (paren_count > 0 .and. .not. parser%is_at_end())
-                                var_token = parser%peek()
-                                if (var_token%kind == TK_OPERATOR) then
-                                    if (var_token%text == "(") then
-                                        paren_count = paren_count + 1
-                                    else if (var_token%text == ")") then
-                                        paren_count = paren_count - 1
-                                    end if
-                                end if
-                                var_token = parser%consume()
-                            end do
-                        end block
-                    end if
-
-                    ! Check for comma (more variables)
-                    var_token = parser%peek()
-                    if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
-                        var_token = parser%consume()
-                    else
-                        exit
-                    end if
-                else
-                    ! Error: expected identifier
-                    decl_index = push_literal(arena, "ERROR: Expected variable name", LITERAL_STRING, line, column)
-                    decl_indices = [decl_index]
-                    return
-                end if
-            end do
-            
-            ! Copy to properly sized array
-            if (name_count > 0) then
-                allocate(character(len=100) :: var_names_array(name_count))
-                var_names_array(1:name_count) = temp_var_names(1:name_count)
-                
-                ! Create multiple individual declaration nodes
-                deallocate(decl_indices)
-                allocate(decl_indices(name_count))
-                
-                block
-                    integer :: i
-                    do i = 1, name_count
-                    ! Determine final array status and dimensions for each variable
-                    block
-                        logical :: final_is_array
-                        integer, allocatable :: final_dimension_indices(:)
-                        
-                        if (has_global_dimensions) then
-                            final_is_array = .true.
-                            final_dimension_indices = global_dimension_indices
-                        else
-                            final_is_array = .false.
-                        end if
-                    
-                        ! Create individual declaration node for this variable
-                        if (has_kind .and. final_is_array) then
-                            if (has_intent) then
-                                decl_indices(i) = push_declaration(arena, type_name, &
-                                    trim(var_names_array(i)), kind_value=kind_value, &
-                                    dimension_indices=final_dimension_indices, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, intent_value=intent, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            else
-                                decl_indices(i) = push_declaration(arena, type_name, &
-                                    trim(var_names_array(i)), kind_value=kind_value, &
-                                    dimension_indices=final_dimension_indices, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, is_optional=is_optional, &
-                                    is_parameter=is_parameter, line=line, column=column)
-                            end if
-                        else if (has_kind) then
-                            if (has_intent) then
-                                decl_indices(i) = push_declaration(arena, type_name, &
-                                    trim(var_names_array(i)), kind_value=kind_value, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, intent_value=intent, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            else
-                                decl_indices(i) = push_declaration(arena, type_name, &
-                                    trim(var_names_array(i)), kind_value=kind_value, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, is_optional=is_optional, &
-                                    is_parameter=is_parameter, line=line, column=column)
-                            end if
-                        else if (final_is_array) then
-                            if (has_intent) then
-                                decl_indices(i) = push_declaration(arena, type_name, &
-                                    trim(var_names_array(i)), &
-                                    dimension_indices=final_dimension_indices, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, intent_value=intent, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            else
-                                decl_indices(i) = push_declaration(arena, type_name, &
-                                    trim(var_names_array(i)), &
-                                    dimension_indices=final_dimension_indices, &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, is_optional=is_optional, &
-                                    is_parameter=is_parameter, line=line, column=column)
-                            end if
-                        else
-                            if (has_intent) then
-                                decl_indices(i) = push_declaration(arena, type_name, &
-                                    trim(var_names_array(i)), &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, intent_value=intent, &
-                                    is_optional=is_optional, is_parameter=is_parameter, &
-                                    line=line, column=column)
-                            else
-                                decl_indices(i) = push_declaration(arena, type_name, &
-                                    trim(var_names_array(i)), &
-                                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
-                                    is_target=is_target, is_optional=is_optional, &
-                                    is_parameter=is_parameter, line=line, column=column)
-                            end if
-                        end if
-                    end block
-                    end do
-                end block
-            else
-                ! No variables found
-                decl_index = push_literal(arena, "ERROR: No variables in declaration", LITERAL_STRING, line, column)
-                decl_indices = [decl_index]
-            end if
-        end block
-
+            ! Create declaration nodes
+            call create_multi_decl_nodes(arena, context, decl_indices)
+        else
+            decl_index = push_literal(arena, "ERROR: No variables in declaration", &
+                LITERAL_STRING, context%type_spec%line, context%type_spec%column)
+            decl_indices = [decl_index]
+        end if
+        
     end function parse_multi_declaration
 
 end module parser_declarations
