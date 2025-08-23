@@ -15,6 +15,9 @@ module ast_arena_modern
     public :: ast_arena_stats_t, ast_free_result_t
     public :: free_ast_node, is_node_active, get_free_statistics
     
+    ! Global counter for unique arena IDs
+    integer, save :: next_arena_id = 1
+    
     ! Arena-based AST node storage (without allocatables to avoid GCC Bug 114612)
     type :: ast_node_arena_t
         character(len=64) :: node_type_name = ""         ! Node type for debugging
@@ -46,6 +49,7 @@ module ast_arena_modern
     type :: ast_handle_t
         integer :: node_id = 0                           ! Node ID in arena
         integer :: generation = 0                        ! Generation for validation
+        integer :: arena_id = 0                          ! Arena identifier for cross-arena safety
     end type ast_handle_t
     
     ! High-performance AST arena with slot management
@@ -60,12 +64,14 @@ module ast_arena_modern
         integer :: epoch = 1                            ! Current epoch for resets
         integer :: total_allocations = 0                ! Performance counter
         integer :: total_validations = 0                ! Validation counter
+        integer :: arena_id = 0                         ! Unique arena identifier
         logical :: is_initialized = .false.             ! Initialization state
     contains
         procedure :: reset => ast_arena_reset
         procedure :: get_stats => ast_arena_get_stats
         procedure :: validate => ast_arena_validate_handle
         procedure :: get_node_count => ast_arena_get_node_count
+        procedure :: get_arena_id => ast_arena_get_arena_id
         procedure :: allocate_node => ast_arena_allocate_node
         procedure :: assign_ast_arena => ast_arena_assign
         procedure :: free_node => ast_arena_free_node
@@ -119,9 +125,11 @@ contains
         ast_arena%epoch = 1
         ast_arena%total_allocations = 0
         ast_arena%total_validations = 0
+        ast_arena%arena_id = next_arena_id
+        next_arena_id = next_arena_id + 1
         
-        ! Initialize all slots as free with generation 1 (first valid generation)
-        ast_arena%slot_gen(:) = 1
+        ! Initialize all slots as invalid with generation 0 (only used slots get valid generations)
+        ast_arena%slot_gen(:) = 0
         
         ! Populate free stack with all initial slots
         do i = 1, capacity
@@ -174,9 +182,13 @@ contains
         ast_arena%nodes(slot_id) = node
         
         ! Set slot generation and create handle
-        ! Use current slot generation (don't increment here, only on freeing)
+        ! Assign valid generation when slot is used (ensures cross-arena safety)
+        if (ast_arena%slot_gen(slot_id) == 0) then
+            ast_arena%slot_gen(slot_id) = 1  ! First use gets generation 1
+        end if
         handle%node_id = slot_id
         handle%generation = ast_arena%slot_gen(slot_id)
+        handle%arena_id = ast_arena%arena_id
         
         ! Update counters
         ast_arena%node_count = ast_arena%node_count + 1
@@ -216,6 +228,7 @@ contains
         
         handle%node_id = 0
         handle%generation = 0
+        handle%arena_id = 0
     end function null_ast_handle
     
     ! Reset AST arena to clean state (epoch management)
@@ -287,6 +300,12 @@ contains
             return
         end if
         
+        ! Check arena ownership (cross-arena safety)
+        if (handle%arena_id /= this%arena_id) then
+            is_valid = .false.
+            return
+        end if
+        
         ! Check per-slot generation match (ABA-safe)
         if (this%slot_gen(handle%node_id) /= handle%generation) then
             is_valid = .false.
@@ -303,6 +322,14 @@ contains
         
         count = this%node_count
     end function ast_arena_get_node_count
+    
+    ! Get arena ID
+    function ast_arena_get_arena_id(this) result(arena_id)
+        class(ast_arena_t), intent(in) :: this
+        integer :: arena_id
+        
+        arena_id = this%arena_id
+    end function ast_arena_get_arena_id
     
     ! Allocate space for a new node (internal helper - deprecated)
     function ast_arena_allocate_node(this) result(handle)
@@ -489,6 +516,7 @@ contains
         lhs%epoch = rhs%epoch
         lhs%total_allocations = rhs%total_allocations
         lhs%total_validations = rhs%total_validations
+        lhs%arena_id = rhs%arena_id
         lhs%is_initialized = rhs%is_initialized
         
         ! Deep copy slot arrays
