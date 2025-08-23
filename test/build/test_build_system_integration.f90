@@ -40,13 +40,17 @@ program test_build_system_integration
         call test_incremental_build()
     else
         ! In CI: Skip complex tests but count them as passed
-        print *, "Testing: Makefile static library target works  ... SKIP: CI environment detected"
+        call test_start("Makefile static library target works")
+        print *, "SKIP: CI environment detected"
         call test_result(.true.)
-        print *, "Testing: Build script automation  ... SKIP: CI environment detected" 
+        call test_start("Build script automation")
+        print *, "SKIP: CI environment detected"
         call test_result(.true.)
-        print *, "Testing: Clean rebuild produces consistent results  ... SKIP: CI environment detected"
+        call test_start("Clean rebuild produces consistent results")
+        print *, "SKIP: CI environment detected"
         call test_result(.true.)
-        print *, "Testing: Incremental build updates library correctly  ... SKIP: CI environment detected"
+        call test_start("Incremental build updates library correctly")
+        print *, "SKIP: CI environment detected"
         call test_result(.true.)
     end if
     
