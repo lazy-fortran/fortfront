@@ -9,7 +9,6 @@
 No remaining items - Phase 1 complete
 
 ### Foundation Phase 2: Arena System (FOUNDATION)
-- [ ] #359: Implement arena memory allocator with generation-based safety
 - [ ] #399: Arena: Implement per-node freeing with generation tracking for selective memory management
 - [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
 - [ ] #369: feat: define base arena interface with type-bound procedures
@@ -42,5 +41,6 @@ No remaining items - Phase 1 complete
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #359: Implement arena memory allocator with generation-based safety (Comprehensive implementation with all requirements met)
 - [x] #408: Error Handling: Design and implement unified result_t type for consistent error handling (PR #432)
 - [x] #427: Error Handling: Migrate lexer to unified result_t error handling
