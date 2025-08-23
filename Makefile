@@ -20,16 +20,17 @@ libfortfront.a: build
 	fi
 	@echo "Collecting Fortran module files..."
 	@mkdir -p fortfront_modules
-	@MOD_DIR=$$(find build -name "*.mod" -type f -printf "%T@ %h\n" | sort -n | tail -1 | cut -d' ' -f2-); \
-	if [ -n "$$MOD_DIR" ]; then \
-		for mod in $$(find "$$MOD_DIR" -name "*.mod" -type f); do \
-			MOD_NAME=$$(basename "$$mod"); \
-			if [[ ! "$$MOD_NAME" =~ ^(stdlib_|json_|iso_) ]]; then \
-				cp "$$mod" fortfront_modules/; \
+	@for mod_dir in $$(find build -name "*.mod" -type f -exec dirname {} \; | sort -u); do \
+		for mod in "$$mod_dir"/*.mod; do \
+			if [ -f "$$mod" ]; then \
+				MOD_NAME=$$(basename "$$mod"); \
+				if [[ ! "$$MOD_NAME" =~ ^(stdlib_|json_|iso_) ]]; then \
+					cp "$$mod" fortfront_modules/ 2>/dev/null || true; \
+				fi; \
 			fi; \
 		done; \
-		echo "Module files collected in fortfront_modules/"; \
-	fi
+	done
+	@echo "Module files collected from all build directories in fortfront_modules/"
 
 # Installation variables
 PREFIX ?= /usr/local
@@ -45,13 +46,10 @@ install: libfortfront.a
 	install -d $(DESTDIR)$(PKGCONFIGDIR)
 	install -m 644 libfortfront.a $(DESTDIR)$(LIBDIR)/
 	@echo "Installing Fortran module files..."
-	@LATEST_MOD_DIR=$$(find build -name "*.mod" -type f -printf "%T@ %h\n" | sort -n | tail -1 | cut -d' ' -f2-); \
-	if [ -n "$$LATEST_MOD_DIR" ]; then \
-		find "$$LATEST_MOD_DIR" -name "*.mod" -exec install -m 644 {} $(DESTDIR)$(INCLUDEDIR)/ \;; \
-		echo "Module files installed from $$LATEST_MOD_DIR"; \
-	else \
-		echo "Warning: No module files found"; \
-	fi
+	@for mod_dir in $$(find build -name "*.mod" -type f -exec dirname {} \; | sort -u); do \
+		find "$$mod_dir" -name "*.mod" -exec install -m 644 {} $(DESTDIR)$(INCLUDEDIR)/ \; 2>/dev/null || true; \
+	done
+	@echo "Module files installed from all build directories"
 	@echo "Generating pkg-config file..."
 	@echo "prefix=$(PREFIX)" > $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
 	@echo "exec_prefix=\$${prefix}" >> $(DESTDIR)$(PKGCONFIGDIR)/fortfront.pc
@@ -73,7 +71,7 @@ test:
 example: libfortfront.a
 	@echo "=== Building example external tool ==="
 	@mkdir -p examples
-	@gfortran -I fortfront_modules/ examples/external_tool_example.f90 libfortfront.a -o examples/external_tool_example
+	@gfortran -fmax-stack-var-size=65536 -I fortfront_modules/ examples/external_tool_example.f90 libfortfront.a -o examples/external_tool_example
 	@echo "=== Running example ===" 
 	@./examples/external_tool_example
 
