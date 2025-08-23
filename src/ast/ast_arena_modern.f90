@@ -564,6 +564,12 @@ contains
         class(ast_arena_t), intent(out) :: lhs
         type(ast_arena_t), intent(in) :: rhs
         
+        ! Copy base class fields (Issue #370)
+        lhs%generation = rhs%generation
+        lhs%size = rhs%size
+        lhs%capacity = rhs%capacity
+        lhs%checkpoint_gen = rhs%checkpoint_gen
+        
         ! Copy scalar members
         lhs%cap = rhs%cap
         lhs%free_top = rhs%free_top
