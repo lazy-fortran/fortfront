@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-No active work
+- [x] #369: feat: define base arena interface with type-bound procedures (branch: feat-base-arena-interface-369)
 
 ## TODO (Ordered by Priority)
 
@@ -11,8 +11,7 @@ No remaining critical items - #442 moved to DOING
 ### Foundation Phase 1: Error Handling Infrastructure (CRITICAL)
 No remaining items - Phase 1 complete
 
-### Foundation Phase 2: Arena System (BLOCKED until #442 complete)
-- [ ] #369: feat: define base arena interface with type-bound procedures
+### Foundation Phase 2: Arena System (BLOCKED until #442 complete)  
 - [ ] #370: feat: migrate ast_arena to container API with type-bound procedures
 - [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
 - [ ] #362: Create unified compiler_arena module for KISS architecture
