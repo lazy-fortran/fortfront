@@ -1,6 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #371: feat: integrate compiler_arena for unified memory management
 
 ## TODO (Ordered by Priority)
 
@@ -10,7 +11,6 @@ No remaining items - Phase 1 complete
 ### Foundation Phase 2: Arena System (FOUNDATION)
 - [ ] #370: feat: migrate ast_arena to container API with type-bound procedures
 - [ ] #362: Create unified compiler_arena module for KISS architecture
-- [ ] #371: feat: integrate compiler_arena for unified memory management
 - [ ] #360: Migrate AST to modern high-performance arena with unified architecture
 
 ### Foundation Phase 3: CST/AST Infrastructure (MAJOR)
