@@ -68,7 +68,6 @@ module arena_memory
         procedure(free_interface), deferred :: free
         
         ! Common implementations provided by base
-        procedure :: reset => base_arena_reset
         procedure :: checkpoint => base_arena_checkpoint
         procedure :: rollback => base_arena_rollback
     end type base_arena_t
@@ -316,6 +315,7 @@ contains
         this%current_chunk = 1
         this%total_allocated = 0
         this%generation = this%generation + 1  ! Invalidate all handles
+        this%size = 0  ! Reset base class size counter
     end subroutine arena_reset
 
     ! Clear arena and free excess memory
@@ -579,15 +579,6 @@ contains
     end subroutine arena_free_wrapper
 
     ! Common implementations for base_arena_t (Issue #369)
-    
-    ! Reset arena and increment generation for handle invalidation
-    subroutine base_arena_reset(this)
-        class(base_arena_t), intent(inout) :: this
-        
-        this%generation = this%generation + 1
-        this%size = 0
-        ! Derived types should override to implement specific reset logic
-    end subroutine base_arena_reset
     
     ! Create checkpoint for potential rollback
     subroutine base_arena_checkpoint(this)
