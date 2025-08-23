@@ -6,10 +6,12 @@ module parser_declarations
     use ast_types, only: LITERAL_STRING
     use ast_nodes_data, only: INTENT_IN, INTENT_OUT, INTENT_INOUT
     use parser_expressions_module, only: parse_expression, parse_comparison, parse_range
+    use parser_result_types, only: parse_result_t, success_parse_result, error_parse_result
+    use error_handling, only: ERROR_PARSER
     implicit none
     private
 
-    public :: parse_declaration, parse_multi_declaration
+    public :: parse_declaration, parse_multi_declaration, parse_declaration_with_result
     public :: parse_derived_type_def
     public :: parse_derived_type_component
     public :: parse_array_dimensions
@@ -619,6 +621,186 @@ contains
         end block
 
     end function parse_declaration
+
+    ! New result-based declaration parser with structured error handling
+    function parse_declaration_with_result(parser, arena) result(parse_res)
+        use ast_factory, only: push_declaration, push_literal, push_identifier, push_multi_declaration
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(parse_result_t) :: parse_res
+
+        type(token_t) :: type_token, var_token
+        character(len=:), allocatable :: type_name, var_name
+        integer :: line, column, kind_value, decl_index
+        logical :: has_kind, is_array, is_allocatable, is_pointer, is_target
+        logical :: has_intent, is_optional, has_global_dimensions, is_parameter
+        character(len=:), allocatable :: intent
+        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
+        type(declaration_attributes_t) :: attr_info
+
+        ! Parse type specifier using extracted helper function
+        type(type_specifier_t) :: type_spec
+        type_spec = parse_type_specifier(parser)
+        
+        ! Handle errors from type specifier parsing with structured error handling
+        if (index(type_spec%type_name, "ERROR:") == 1) then
+            parse_res = error_parse_result( &
+                type_spec%type_name(7:), &  ! Remove "ERROR: " prefix
+                ERROR_PARSER, &
+                "parser_declarations", &
+                "parse_declaration_with_result", &
+                "Check type specification syntax" &
+            )
+            return
+        end if
+        
+        ! Extract parsed information
+        type_name = type_spec%type_name
+        has_kind = type_spec%has_kind
+        kind_value = type_spec%kind_value
+        line = type_spec%line
+        column = type_spec%column
+        
+        ! Initialize attribute flags
+        is_allocatable = .false.
+        is_pointer = .false.
+        is_target = .false.
+        has_intent = .false.
+        is_optional = .false.
+        has_global_dimensions = .false.
+        is_parameter = .false.
+
+        ! Parse declaration attributes using extracted helper function
+        call parse_declaration_attributes(parser, arena, attr_info)
+        
+        ! Extract parsed attribute information
+        is_allocatable = attr_info%is_allocatable
+        is_pointer = attr_info%is_pointer
+        is_target = attr_info%is_target
+        is_parameter = attr_info%is_parameter
+        is_optional = attr_info%is_optional
+        has_intent = attr_info%has_intent
+        has_global_dimensions = attr_info%has_global_dimensions
+        if (has_intent) intent = attr_info%intent
+        if (has_global_dimensions) global_dimension_indices = attr_info%global_dimension_indices
+
+        ! Expect "::" after type and attributes
+        type_token = parser%peek()
+        if (type_token%kind /= TK_OPERATOR .or. type_token%text /= "::") then
+            parse_res = error_parse_result( &
+                "Expected '::' after type specification and attributes", &
+                ERROR_PARSER, &
+                "parser_declarations", &
+                "parse_declaration_with_result", &
+                "Add '::' separator: '" // trim(type_name) // " :: variable_name'" &
+            )
+            return
+        end if
+        
+        type_token = parser%consume()  ! Consume "::"
+
+        ! Now parse variable names
+        var_token = parser%peek()
+        if (var_token%kind /= TK_IDENTIFIER) then
+            parse_res = error_parse_result( &
+                "Expected variable name after '::'", &
+                ERROR_PARSER, &
+                "parser_declarations", &
+                "parse_declaration_with_result", &
+                "Add variable name: '" // trim(type_name) // " :: variable_name'" &
+            )
+            return
+        end if
+        
+        var_token = parser%consume()
+        var_name = trim(var_token%text)
+
+        ! Check for array dimensions on the variable name
+        is_array = .false.
+        type_token = parser%peek()
+        if (type_token%kind == TK_OPERATOR .and. type_token%text == "(") then
+            type_token = parser%consume()  ! Consume "("
+            call parse_array_dimensions(parser, arena, dimension_indices)
+            is_array = .true.
+            
+            ! Expect closing parenthesis
+            type_token = parser%peek()
+            if (type_token%kind /= TK_OPERATOR .or. type_token%text /= ")") then
+                parse_res = error_parse_result( &
+                    "Expected closing parenthesis ')' after array dimensions", &
+                    ERROR_PARSER, &
+                    "parser_declarations", &
+                    "parse_declaration_with_result", &
+                    "Add ')' after dimensions: 'integer :: arr(10)'" &
+                )
+                return
+            end if
+            type_token = parser%consume()  ! Consume ")"
+        end if
+
+        ! Create declaration node with all parsed information
+        if (has_kind .and. is_array) then
+            if (has_intent) then
+                decl_index = push_declaration(arena, type_name, var_name, &
+                    kind_value=kind_value, dimension_indices=dimension_indices, &
+                    line=line, column=column, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, is_parameter=is_parameter, &
+                    is_optional=is_optional, intent_value=intent)
+            else
+                decl_index = push_declaration(arena, type_name, var_name, &
+                    kind_value=kind_value, dimension_indices=dimension_indices, &
+                    line=line, column=column, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, is_parameter=is_parameter, &
+                    is_optional=is_optional)
+            end if
+        else if (has_kind) then
+            if (has_intent) then
+                decl_index = push_declaration(arena, type_name, var_name, &
+                    kind_value=kind_value, line=line, column=column, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, is_parameter=is_parameter, &
+                    is_optional=is_optional, intent_value=intent)
+            else
+                decl_index = push_declaration(arena, type_name, var_name, &
+                    kind_value=kind_value, line=line, column=column, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, is_parameter=is_parameter, &
+                    is_optional=is_optional)
+            end if
+        else if (is_array) then
+            if (has_intent) then
+                decl_index = push_declaration(arena, type_name, var_name, &
+                    dimension_indices=dimension_indices, line=line, column=column, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, is_parameter=is_parameter, &
+                    is_optional=is_optional, intent_value=intent)
+            else
+                decl_index = push_declaration(arena, type_name, var_name, &
+                    dimension_indices=dimension_indices, line=line, column=column, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, is_parameter=is_parameter, &
+                    is_optional=is_optional)
+            end if
+        else
+            if (has_intent) then
+                decl_index = push_declaration(arena, type_name, var_name, &
+                    line=line, column=column, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, is_parameter=is_parameter, &
+                    is_optional=is_optional, intent_value=intent)
+            else
+                decl_index = push_declaration(arena, type_name, var_name, &
+                    line=line, column=column, &
+                    is_allocatable=is_allocatable, is_pointer=is_pointer, &
+                    is_target=is_target, is_parameter=is_parameter, &
+                    is_optional=is_optional)
+            end if
+        end if
+
+        parse_res = success_parse_result(decl_index)
+    end function parse_declaration_with_result
 
     ! Parse array dimensions helper
     subroutine parse_array_dimensions(parser, arena, dimension_indices)
