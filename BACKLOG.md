@@ -5,20 +5,23 @@
 
 ## TODO (Ordered by Priority)
 
+### CRITICAL: Foundation Architecture (BLOCKING ALL OTHER WORK)
+- [ ] #442: CRITICAL: Replace class(*) usage with abstract types for stable foundation
+
 ### Foundation Phase 1: Error Handling Infrastructure (CRITICAL)
 No remaining items - Phase 1 complete
 
-### Foundation Phase 2: Arena System (FOUNDATION)
-- [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
+### Foundation Phase 2: Arena System (BLOCKED until #442 complete)
 - [ ] #369: feat: define base arena interface with type-bound procedures
 - [ ] #370: feat: migrate ast_arena to container API with type-bound procedures
+- [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
 - [ ] #362: Create unified compiler_arena module for KISS architecture
 - [ ] #371: feat: integrate compiler_arena for unified memory management
 - [ ] #360: Migrate AST to modern high-performance arena with unified architecture
 
-### Foundation Phase 3: CST/AST Infrastructure (MAJOR)
+### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until #442 complete)
 - [ ] #393: CST: Create basic CST node type definitions and module structure
-- [ ] #394: CST: Implement UID generation system for stable node identification
+- [ ] #394: CST: Implement UID generation system for stable node identification  
 - [ ] #395: CST: Implement lexer trivia collection for comments and whitespace
 - [ ] #396: CST: Create CST builder for parallel construction alongside AST
 - [ ] #397: CST: Implement CST to AST converter with bidirectional linking
