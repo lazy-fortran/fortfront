@@ -291,7 +291,9 @@ contains
         ! Copy to properly sized array
         if (vars%count > 0) then
             allocate(character(len=100) :: vars%names(vars%count))
-            vars%names(1:vars%count) = temp_names(1:vars%count)
+            do i = 1, vars%count
+                vars%names(i) = trim(temp_names(i))
+            end do
         end if
     end subroutine collect_multi_var_names
 
@@ -407,7 +409,7 @@ contains
         
         type(token_t) :: var_token
         character(len=100) :: temp_names(50)
-        integer :: name_count
+        integer :: name_count, i
         
         ! Start with the first variable we already parsed
         name_count = 1
@@ -445,7 +447,9 @@ contains
         var_collection%count = name_count
         if (name_count > 0) then
             allocate(character(len=100) :: var_collection%names(name_count))
-            var_collection%names(1:name_count) = temp_names(1:name_count)
+            do i = 1, name_count
+                var_collection%names(i) = trim(temp_names(i))
+            end do
         end if
     end subroutine collect_variable_names
 
