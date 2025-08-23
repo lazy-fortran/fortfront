@@ -1,12 +1,12 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [x] #408: Error Handling: Design and implement unified result_t type for consistent error handling (branch: feat/unified-result-t-error-handling)
+- [ ] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (branch: feat/parser-result-t-migration-410)
 
 ## TODO (Ordered by Priority)
 
 ### Foundation Phase 1: Error Handling Infrastructure (CRITICAL)
-- [ ] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery
+No remaining items - Phase 1 complete
 
 ### Foundation Phase 2: Arena System (FOUNDATION)
 - [ ] #359: Implement arena memory allocator with generation-based safety
@@ -42,4 +42,5 @@
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #408: Error Handling: Design and implement unified result_t type for consistent error handling
 - [x] #427: Error Handling: Migrate lexer to unified result_t error handling
