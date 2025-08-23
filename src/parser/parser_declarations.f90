@@ -292,108 +292,40 @@ contains
         
         allocate(decl_indices(context%var_count))
         
-        ! Determine array status
         is_array = context%attrs%has_global_dimensions
         if (is_array) then
             dims = context%attrs%global_dimension_indices
         end if
         
         do i = 1, context%var_count
-            if (context%type_spec%has_kind .and. is_array) then
-                if (context%attrs%has_intent) then
-                    decl_indices(i) = push_declaration(arena, &
-                        context%type_spec%type_name, trim(context%var_names(i)), &
-                        kind_value=context%type_spec%kind_value, &
-                        dimension_indices=dims, &
-                        is_allocatable=context%attrs%is_allocatable, &
-                        is_pointer=context%attrs%is_pointer, &
-                        is_target=context%attrs%is_target, &
-                        intent_value=context%attrs%intent, &
-                        is_optional=context%attrs%is_optional, &
-                        is_parameter=context%attrs%is_parameter, &
-                        line=context%type_spec%line, column=context%type_spec%column)
-                else
-                    decl_indices(i) = push_declaration(arena, &
-                        context%type_spec%type_name, trim(context%var_names(i)), &
-                        kind_value=context%type_spec%kind_value, &
-                        dimension_indices=dims, &
-                        is_allocatable=context%attrs%is_allocatable, &
-                        is_pointer=context%attrs%is_pointer, &
-                        is_target=context%attrs%is_target, &
-                        is_optional=context%attrs%is_optional, &
-                        is_parameter=context%attrs%is_parameter, &
-                        line=context%type_spec%line, column=context%type_spec%column)
-                end if
-            else if (context%type_spec%has_kind) then
-                if (context%attrs%has_intent) then
-                    decl_indices(i) = push_declaration(arena, &
-                        context%type_spec%type_name, trim(context%var_names(i)), &
-                        kind_value=context%type_spec%kind_value, &
-                        is_allocatable=context%attrs%is_allocatable, &
-                        is_pointer=context%attrs%is_pointer, &
-                        is_target=context%attrs%is_target, &
-                        intent_value=context%attrs%intent, &
-                        is_optional=context%attrs%is_optional, &
-                        is_parameter=context%attrs%is_parameter, &
-                        line=context%type_spec%line, column=context%type_spec%column)
-                else
-                    decl_indices(i) = push_declaration(arena, &
-                        context%type_spec%type_name, trim(context%var_names(i)), &
-                        kind_value=context%type_spec%kind_value, &
-                        is_allocatable=context%attrs%is_allocatable, &
-                        is_pointer=context%attrs%is_pointer, &
-                        is_target=context%attrs%is_target, &
-                        is_optional=context%attrs%is_optional, &
-                        is_parameter=context%attrs%is_parameter, &
-                        line=context%type_spec%line, column=context%type_spec%column)
-                end if
-            else if (is_array) then
-                if (context%attrs%has_intent) then
-                    decl_indices(i) = push_declaration(arena, &
-                        context%type_spec%type_name, trim(context%var_names(i)), &
-                        dimension_indices=dims, &
-                        is_allocatable=context%attrs%is_allocatable, &
-                        is_pointer=context%attrs%is_pointer, &
-                        is_target=context%attrs%is_target, &
-                        intent_value=context%attrs%intent, &
-                        is_optional=context%attrs%is_optional, &
-                        is_parameter=context%attrs%is_parameter, &
-                        line=context%type_spec%line, column=context%type_spec%column)
-                else
-                    decl_indices(i) = push_declaration(arena, &
-                        context%type_spec%type_name, trim(context%var_names(i)), &
-                        dimension_indices=dims, &
-                        is_allocatable=context%attrs%is_allocatable, &
-                        is_pointer=context%attrs%is_pointer, &
-                        is_target=context%attrs%is_target, &
-                        is_optional=context%attrs%is_optional, &
-                        is_parameter=context%attrs%is_parameter, &
-                        line=context%type_spec%line, column=context%type_spec%column)
-                end if
-            else
-                if (context%attrs%has_intent) then
-                    decl_indices(i) = push_declaration(arena, &
-                        context%type_spec%type_name, trim(context%var_names(i)), &
-                        is_allocatable=context%attrs%is_allocatable, &
-                        is_pointer=context%attrs%is_pointer, &
-                        is_target=context%attrs%is_target, &
-                        intent_value=context%attrs%intent, &
-                        is_optional=context%attrs%is_optional, &
-                        is_parameter=context%attrs%is_parameter, &
-                        line=context%type_spec%line, column=context%type_spec%column)
-                else
-                    decl_indices(i) = push_declaration(arena, &
-                        context%type_spec%type_name, trim(context%var_names(i)), &
-                        is_allocatable=context%attrs%is_allocatable, &
-                        is_pointer=context%attrs%is_pointer, &
-                        is_target=context%attrs%is_target, &
-                        is_optional=context%attrs%is_optional, &
-                        is_parameter=context%attrs%is_parameter, &
-                        line=context%type_spec%line, column=context%type_spec%column)
-                end if
-            end if
+            decl_indices(i) = create_multi_decl_node(arena, context, &
+                trim(context%var_names(i)), is_array, dims)
         end do
     end subroutine create_multi_decl_nodes
+
+    ! Create a single declaration node for multi-variable declarations
+    function create_multi_decl_node(arena, context, var_name, is_array, dims) &
+            result(node_index)
+        use ast_factory, only: push_declaration
+        type(ast_arena_t), intent(inout) :: arena
+        type(multi_decl_context_t), intent(in) :: context
+        character(len=*), intent(in) :: var_name
+        logical, intent(in) :: is_array
+        integer, allocatable, intent(in) :: dims(:)
+        integer :: node_index
+        
+        ! Use existing single declaration function with parameter resolution
+        node_index = create_single_declaration(arena, &
+            context%type_spec%type_name, var_name, &
+            context%type_spec%kind_value, context%type_spec%has_kind, &
+            dims, is_array, &
+            0, .false., &  ! no initializer for multi-declarations
+            context%attrs%is_allocatable, context%attrs%is_pointer, &
+            context%attrs%is_target, context%attrs%is_parameter, &
+            context%attrs%is_optional, context%attrs%intent, &
+            context%attrs%has_intent, &
+            context%type_spec%line, context%type_spec%column)
+    end function create_multi_decl_node
 
     ! Check if tokens form "end type"
     function is_end_type(parser) result(is_end)
