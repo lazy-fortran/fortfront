@@ -41,13 +41,18 @@ contains
         type(ast_arena_t) :: arena
         integer :: capacity
         
-        arena%ast_arena_compat_t = create_ast_arena_compat(initial_capacity)
-        arena%size = 0  ! Initialize size from base_arena_t
-        
-        ! CRITICAL FIX: Ensure base capacity is initialized properly
+        ! Set default capacity first
         capacity = 1024
         if (present(initial_capacity)) capacity = initial_capacity
+        
+        ! Create compatibility layer with explicit capacity
+        arena%ast_arena_compat_t = create_ast_arena_compat(capacity)
+        
+        ! CRITICAL FIX: Manually set capacity field to ensure it's available at the ast_arena_t level
+        ! This is needed because the parent assignment may not properly propagate all base fields
         arena%capacity = capacity
+        arena%size = 0  ! Initialize size from base_arena_t
+        arena%generation = 1  ! Initialize generation from base_arena_t
     end function create_ast_arena
     
     ! Push with size synchronization for backward compatibility
@@ -86,6 +91,12 @@ contains
         
         ! Use the core implementation through compatibility layer
         free_result = arena%ast_arena_compat_t%free_node(handle)
+        
+        ! Sync compat_size with actual node count for statistics
+        if (free_result%success) then
+            arena%ast_arena_compat_t%compat_size = &
+                arena%ast_arena_compat_t%ast_arena_core_t%get_node_count()
+        end if
     end function free_ast_node
     
     ! Check if node is active
@@ -103,8 +114,8 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(ast_arena_stats_t) :: stats
         
-        ! Use the core implementation through compatibility layer
-        stats = arena%ast_arena_compat_t%get_stats()
+        ! Use the core implementation's free stats directly
+        stats = arena%ast_arena_compat_t%ast_arena_core_t%get_free_stats()
     end function get_free_statistics
     
     ! Store an AST node
@@ -116,6 +127,12 @@ contains
         
         ! Delegate to core function through inheritance casting
         ast_handle = core_store(arena%ast_arena_compat_t%ast_arena_core_t, node)
+        
+        ! Sync compat_size with actual node count for statistics
+        if (is_valid_ast_handle(ast_handle)) then
+            arena%ast_arena_compat_t%compat_size = &
+                arena%ast_arena_compat_t%ast_arena_core_t%get_node_count()
+        end if
     end function store_ast_node
     
     ! Get an AST node
@@ -135,6 +152,10 @@ contains
         
         ! Delegate to reset method in core
         call this%ast_arena_compat_t%reset()
+        
+        ! Sync compat_size with actual node count (should be 0 after reset)
+        this%ast_arena_compat_t%compat_size = &
+            this%ast_arena_compat_t%ast_arena_core_t%get_node_count()
     end subroutine clear_ast_arena
     
 end module ast_arena_modern

@@ -279,7 +279,7 @@ contains
         ! Mark all slots as invalid (generation 0)
         this%slot_gen(:) = 0
         
-        ! Rebuild free stack with all slots
+        ! Rebuild free stack with all slots (they're all available after reset)
         do i = 1, this%cap
             this%free_top = this%free_top + 1
             this%free_stack(this%free_top) = i
@@ -407,7 +407,7 @@ contains
         ! Add slot to free list for reuse
         call push_free(this, handle%node_id)
         
-        ! Update counters
+        ! Update counters - decrement node count since we freed a node
         this%node_count = this%node_count - 1
         
         free_result%success = .true.
@@ -524,8 +524,8 @@ contains
             new_free_stack(1:arena%free_top) = arena%free_stack(1:arena%free_top)
         end if
         
-        ! Initialize new slots as free with generation 1
-        new_slot_gen(old_cap+1:new_cap) = 1
+        ! Initialize new slots as free with generation 0 (unused)
+        new_slot_gen(old_cap+1:new_cap) = 0
         
         ! Build freelist for new slots
         do i = old_cap + 1, new_cap
@@ -544,6 +544,11 @@ contains
     subroutine ast_arena_assign(lhs, rhs)
         class(ast_arena_core_t), intent(out) :: lhs
         type(ast_arena_core_t), intent(in) :: rhs
+        
+        ! CRITICAL FIX: Copy base class fields first (base_arena_t)
+        lhs%generation = rhs%generation
+        lhs%size = rhs%size
+        lhs%capacity = rhs%capacity
         
         ! Copy scalar members
         lhs%cap = rhs%cap
