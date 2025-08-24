@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [x] #371: feat: integrate compiler_arena for unified memory management (branch: feat-integrate-compiler-arena-371)
 
 ## TODO (Ordered by Priority)
 
@@ -39,6 +38,7 @@ No remaining items - Phase 1 complete
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #371: feat: integrate compiler_arena for unified memory management (COMPLETED - Integrated into all compilation phases with comprehensive phase tracking)
 - [x] #362: Create unified compiler_arena module for KISS architecture (COMPLETED - Module implemented with comprehensive tests)
 - [x] #400: Arena: Create comprehensive performance benchmark suite for arena operations (branch: feat-arena-benchmark-suite-400 - 6 benchmark modules created)
 - [x] #370: feat: migrate ast_arena to container API with type-bound procedures (PR #446 - Container API migration complete with full backward compatibility)
