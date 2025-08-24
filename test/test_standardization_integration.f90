@@ -63,7 +63,7 @@ contains
             print *, "  Last result: '", trim(code_result), "'"
         end if
         
-        call arena%ast_arena_compat_t%reset()
+        call arena%clear()
     end function test_real_literal_through_pipeline
 
 end program test_standardization_integration

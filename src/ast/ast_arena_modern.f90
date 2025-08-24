@@ -26,6 +26,9 @@ module ast_arena_modern
     
     ! Use compatibility arena directly as the main arena type
     type, extends(ast_arena_compat_t) :: ast_arena_t
+    contains
+        ! Compatibility method for old API
+        procedure :: clear => clear_ast_arena
     end type ast_arena_t
 
 contains
@@ -95,5 +98,13 @@ contains
         ! Delegate to core function through inheritance casting
         arena_node = core_get(arena%ast_arena_compat_t%ast_arena_core_t, handle)
     end function get_ast_node
+    
+    ! Clear/reset arena (compatibility wrapper)
+    subroutine clear_ast_arena(this)
+        class(ast_arena_t), intent(inout) :: this
+        
+        ! Delegate to reset method in core
+        call this%ast_arena_compat_t%reset()
+    end subroutine clear_ast_arena
     
 end module ast_arena_modern
