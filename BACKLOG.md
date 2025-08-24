@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations (branch: feat-arena-benchmark-suite-400)
+
 
 ## TODO (Ordered by Priority)
 
@@ -24,6 +24,7 @@ No remaining items - Phase 1 complete
 - [ ] #397: CST: Implement CST to AST converter with bidirectional linking
 
 ### Code Quality and Refactoring (ENHANCEMENT)
+- [ ] #448: refactor: reduce function sizes in bench_arena_comparison.f90
 - [ ] #407: Refactor: Extract multi-variable declaration handling from parse_declaration (Re-opened after regression fixes needed)
 - [ ] #406: Refactor: Extract variable parsing and initialization logic from parse_declaration
 - [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines)
@@ -40,6 +41,7 @@ No remaining items - Phase 1 complete
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #400: Arena: Create comprehensive performance benchmark suite for arena operations (branch: feat-arena-benchmark-suite-400 - 6 benchmark modules created)
 - [x] #370: feat: migrate ast_arena to container API with type-bound procedures (PR #446 - Container API migration complete with full backward compatibility)
 - [x] #369: feat: define base arena interface with type-bound procedures (COMPLETED - Base interface implemented for unified arena architecture)
 - [x] #442: CRITICAL: Replace class(*) usage with abstract types for stable foundation (COMPLETED - Foundation ready for arena development)
