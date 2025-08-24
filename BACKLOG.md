@@ -33,11 +33,29 @@ No remaining items - Phase 2 development continuing
 - [ ] #402: Type System: Implement unification algorithm with occurs check for constraint solving
 - [ ] #403: Type System: Implement constraint solver with let-polymorphism support
 
+### Repository Maintenance (SUPPORT)
+- [ ] #439: fix: rescue commits from main (repository hygiene - rescue branch cleanup)
+
 ### Testing and Documentation (SUPPORT)
 - [ ] #450: test: re-enable temporarily disabled tests for issues #4 and #321
 - [ ] #451: test: complete AST arena integration test coverage
 - [ ] #452: feature: restore debug output capabilities in frontend compilation pipeline
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
+
+### Epic Planning and Architecture (FUTURE WORK)
+- [ ] #392: epic: CST/AST Split Implementation - Complete Migration Plan
+- [ ] #391: feat: CST Phase 5 - Implement advanced CST/AST features and external tool integration  
+- [ ] #390: feat: CST Phase 4 - Remove legacy code and optimize CST/AST system
+- [ ] #389: feat: CST Phase 3 - Migrate parser modules to CST-first construction
+- [ ] #388: feat: CST Phase 2 - Implement CST to AST converter with bidirectional links
+- [ ] #387: feat: CST Phase 1 - Implement parallel CST construction alongside existing AST
+- [ ] #386: feat: CST Phase 0 - Create foundation infrastructure for CST/AST split
+- [ ] #385: feat: complete Hindley-Milner type inference with constraint solving
+- [ ] #384: feat: implement concrete syntax tree (CST) with trivia preservation
+- [ ] #383: epic: unified arena architecture implementation roadmap
+- [ ] #382: test: comprehensive arena testing suite
+- [ ] #381: doc: create comprehensive arena architecture documentation
+- [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Completed)
 - [x] #454: Update tests to use modern AST arena API after Issue #360 (COMPLETED - PR #459 successfully modernized test suite with modern arena API)
