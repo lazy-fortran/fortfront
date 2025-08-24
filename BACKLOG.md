@@ -1,8 +1,8 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (CRITICAL HANDBACK - PR #460 CI failing on both Linux and Windows platforms)
-- [ ] #441: Subroutines and functions not handled properly (REOPENED - CI failures in PR #460 indicate incomplete resolution)
+- [ ] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (CRITICAL HANDBACK - PR #460 CI still failing after build flag updates, architectural issue requires implementation fix)
+- [ ] #441: Subroutines and functions not handled properly (CRITICAL HANDBACK - CI failures in PR #460 persist despite build configuration changes, core parsing logic needs fix)
 
 **🚨 URGENT: SYSTEM-WIDE CRITICAL FAILURE**
 - **Scope**: Affects main branch AND all feature branches (not just PR #460)
