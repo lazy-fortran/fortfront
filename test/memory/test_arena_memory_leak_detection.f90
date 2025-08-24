@@ -292,7 +292,7 @@ contains
         if (arena1%size /= 0) partial_cleanup_safe = .false.
         
         ! Test 2: Arena with minimal content
-        call init_ast_arena(arena2)
+        arena2 = create_ast_arena()
         id_node = create_identifier("partial")
         call arena2%push(id_node, "identifier")
         call arena2%clear()
