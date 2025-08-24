@@ -64,7 +64,6 @@ contains
         type(ast_arena_t) :: arena
         type(ast_handle_t), allocatable :: handles(:)
         type(ast_node_arena_t) :: node, retrieved_node
-        type(ast_node_arena_t), pointer :: node_ptr
         real(real64) :: start_time, end_time
         integer :: i, iter, sum
         type(benchmark_result_t) :: result
@@ -84,8 +83,8 @@ contains
         sum = 0
         do iter = 1, WARMUP_ITERATIONS
             do i = 1, min(size, 100)
-                node_ptr => get_ast_node(arena, handles(i))
-                if (associated(node_ptr)) sum = sum + node_ptr%integer_data
+                retrieved_node = get_ast_node(arena, handles(i))
+                sum = sum + retrieved_node%integer_data
             end do
         end do
         
@@ -95,10 +94,8 @@ contains
         
         do iter = 1, BENCH_ITERATIONS
             do i = 1, size
-                node_ptr => get_ast_node(arena, handles(i))
-                if (associated(node_ptr)) then
-                    sum = sum + node_ptr%integer_data
-                end if
+                retrieved_node = get_ast_node(arena, handles(i))
+                sum = sum + retrieved_node%integer_data
             end do
         end do
         
@@ -127,8 +124,7 @@ contains
         type(ast_arena_t) :: arena
         type(ast_handle_t), allocatable :: handles(:)
         integer, allocatable :: random_indices(:)
-        type(ast_node_arena_t) :: node
-        type(ast_node_arena_t), pointer :: node_ptr
+        type(ast_node_arena_t) :: node, retrieved_node
         real(real64) :: start_time, end_time
         real :: rand_val
         integer :: i, iter, idx, sum
@@ -156,8 +152,8 @@ contains
         do iter = 1, WARMUP_ITERATIONS/10
             do i = 1, min(size, 100)
                 idx = random_indices(i)
-                node_ptr => get_ast_node(arena, handles(idx))
-                if (associated(node_ptr)) sum = sum + node_ptr%integer_data
+                retrieved_node = get_ast_node(arena, handles(idx))
+                sum = sum + retrieved_node%integer_data
             end do
         end do
         
@@ -168,10 +164,8 @@ contains
         do iter = 1, BENCH_ITERATIONS
             do i = 1, size
                 idx = random_indices(mod(i + iter - 1, size) + 1)
-                node_ptr => get_ast_node(arena, handles(idx))
-                if (associated(node_ptr)) then
-                    sum = sum + node_ptr%integer_data
-                end if
+                retrieved_node = get_ast_node(arena, handles(idx))
+                sum = sum + retrieved_node%integer_data
             end do
         end do
         
@@ -200,8 +194,7 @@ contains
         integer, intent(in) :: size, stride
         type(ast_arena_t) :: arena
         type(ast_handle_t), allocatable :: handles(:)
-        type(ast_node_arena_t) :: node
-        type(ast_node_arena_t), pointer :: node_ptr
+        type(ast_node_arena_t) :: node, retrieved_node
         real(real64) :: start_time, end_time
         integer :: i, iter, idx, sum, access_count
         type(benchmark_result_t) :: result
@@ -225,8 +218,8 @@ contains
         do iter = 1, WARMUP_ITERATIONS/10
             idx = 1
             do while (idx <= min(size, 100))
-                node_ptr => get_ast_node(arena, handles(idx))
-                if (associated(node_ptr)) sum = sum + node_ptr%integer_data
+                retrieved_node = get_ast_node(arena, handles(idx))
+                sum = sum + retrieved_node%integer_data
                 idx = idx + stride
             end do
         end do
@@ -238,10 +231,8 @@ contains
         do iter = 1, BENCH_ITERATIONS
             idx = 1
             do while (idx <= size)
-                node_ptr => get_ast_node(arena, handles(idx))
-                if (associated(node_ptr)) then
-                    sum = sum + node_ptr%integer_data
-                end if
+                retrieved_node = get_ast_node(arena, handles(idx))
+                sum = sum + retrieved_node%integer_data
                 idx = idx + stride
             end do
         end do
@@ -281,8 +272,7 @@ contains
         integer, intent(in) :: size
         type(ast_arena_t) :: arena
         type(ast_handle_t), allocatable :: handles(:)
-        type(ast_node_arena_t) :: node
-        type(ast_node_arena_t), pointer :: node_ptr, child_ptr
+        type(ast_node_arena_t) :: node, retrieved_node, child_node
         real(real64) :: start_time, end_time
         integer :: i, iter, sum, traversals
         type(benchmark_result_t) :: result
@@ -310,14 +300,12 @@ contains
         traversals = 0
         do iter = 1, WARMUP_ITERATIONS/10
             do i = 1, min(size/10, 100)
-                node_ptr => get_ast_node(arena, handles(i))
-                if (associated(node_ptr)) then
-                    sum = sum + node_ptr%integer_data
-                    ! Traverse to first child if exists
-                    if (node_ptr%first_child_id > 0 .and. node_ptr%first_child_id <= size) then
-                        child_ptr => get_ast_node(arena, handles(node_ptr%first_child_id))
-                        if (associated(child_ptr)) sum = sum + child_ptr%integer_data
-                    end if
+                retrieved_node = get_ast_node(arena, handles(i))
+                sum = sum + retrieved_node%integer_data
+                ! Traverse to first child if exists
+                if (retrieved_node%first_child_id > 0 .and. retrieved_node%first_child_id <= size) then
+                    child_node = get_ast_node(arena, handles(retrieved_node%first_child_id))
+                    sum = sum + child_node%integer_data
                 end if
             end do
         end do
@@ -330,19 +318,15 @@ contains
         do iter = 1, BENCH_ITERATIONS
             ! Depth-first traversal pattern
             do i = 1, size
-                node_ptr => get_ast_node(arena, handles(i))
-                if (associated(node_ptr)) then
-                    sum = sum + node_ptr%integer_data
+                retrieved_node = get_ast_node(arena, handles(i))
+                sum = sum + retrieved_node%integer_data
+                traversals = traversals + 1
+                
+                ! Access first child
+                if (retrieved_node%first_child_id > 0 .and. retrieved_node%first_child_id <= size) then
+                    child_node = get_ast_node(arena, handles(retrieved_node%first_child_id))
+                    sum = sum + child_node%integer_data
                     traversals = traversals + 1
-                    
-                    ! Access first child
-                    if (node_ptr%first_child_id > 0 .and. node_ptr%first_child_id <= size) then
-                        child_ptr => get_ast_node(arena, handles(node_ptr%first_child_id))
-                        if (associated(child_ptr)) then
-                            sum = sum + child_ptr%integer_data
-                            traversals = traversals + 1
-                        end if
-                    end if
                 end if
             end do
         end do
@@ -371,8 +355,7 @@ contains
         integer, intent(in) :: size
         type(ast_arena_t) :: arena
         type(ast_handle_t), allocatable :: handles(:)
-        type(ast_node_arena_t) :: node
-        type(ast_node_arena_t), pointer :: node_ptr, sibling_ptr
+        type(ast_node_arena_t) :: node, retrieved_node
         real(real64) :: start_time, end_time
         integer :: i, iter, sum, traversals
         type(benchmark_result_t) :: result
@@ -397,14 +380,10 @@ contains
         do iter = 1, WARMUP_ITERATIONS/10
             i = 1
             do while (i <= min(size, 100))
-                node_ptr => get_ast_node(arena, handles(i))
-                if (associated(node_ptr)) then
-                    sum = sum + node_ptr%integer_data
-                    i = node_ptr%next_sibling_id
-                    if (i == 0) exit
-                else
-                    exit
-                end if
+                retrieved_node = get_ast_node(arena, handles(i))
+                sum = sum + retrieved_node%integer_data
+                i = retrieved_node%next_sibling_id
+                if (i == 0) exit
             end do
         end do
         
@@ -417,14 +396,10 @@ contains
             ! Traverse sibling chain
             i = 1
             do while (i <= size .and. i > 0)
-                node_ptr => get_ast_node(arena, handles(i))
-                if (associated(node_ptr)) then
-                    sum = sum + node_ptr%integer_data
-                    traversals = traversals + 1
-                    i = node_ptr%next_sibling_id
-                else
-                    exit
-                end if
+                retrieved_node = get_ast_node(arena, handles(i))
+                sum = sum + retrieved_node%integer_data
+                traversals = traversals + 1
+                i = retrieved_node%next_sibling_id
             end do
         end do
         

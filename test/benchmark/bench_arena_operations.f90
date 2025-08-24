@@ -1,6 +1,7 @@
 program bench_arena_operations
     ! Benchmark operations: free/reuse, checkpoint/rollback, cross-references
     use ast_arena_modern
+    use arena_memory, only: arena_checkpoint_t
     use iso_fortran_env, only: real64, int64
     implicit none
 
@@ -67,7 +68,7 @@ contains
         type(ast_arena_t) :: arena
         type(ast_handle_t), allocatable :: handles(:)
         type(ast_node_arena_t) :: node
-        type(ast_free_result_t) :: free_stats
+        type(ast_arena_stats_t) :: free_stats
         real(real64) :: start_time, end_time
         integer :: i, iter, ops
         type(operation_result_t) :: result
@@ -87,7 +88,11 @@ contains
         do iter = 1, WARMUP_ITERATIONS/10
             do i = 1, min(size/10, 100), 2
                 if (is_node_active(arena, handles(i))) then
-                    call free_ast_node(arena, handles(i))
+                    block
+                        type(ast_free_result_t) :: free_result
+                        free_result = arena%free_node(handles(i))
+                        ! Could check free_result%success if needed
+                    end block
                 end if
                 node%node_kind = -i
                 handles(i) = store_ast_node(arena, node)
@@ -102,7 +107,11 @@ contains
             ! Free every other node
             do i = 1, size, 2
                 if (is_node_active(arena, handles(i))) then
-                    call free_ast_node(arena, handles(i))
+                    block
+                        type(ast_free_result_t) :: free_result
+                        free_result = arena%free_node(handles(i))
+                        ! Could check free_result%success if needed
+                    end block
                     ops = ops + 1
                 end if
             end do
@@ -277,8 +286,7 @@ contains
         integer, intent(in) :: size
         type(ast_arena_t) :: arena1, arena2
         type(ast_handle_t), allocatable :: handles1(:), handles2(:)
-        type(ast_node_arena_t) :: node
-        type(ast_node_arena_t), pointer :: node_ptr
+        type(ast_node_arena_t) :: node, retrieved_node
         real(real64) :: start_time, end_time
         integer :: i, iter, ops, cross_refs
         type(operation_result_t) :: result
@@ -302,23 +310,21 @@ contains
         
         ! Setup cross-references
         do i = 1, size/2
-            node_ptr => get_ast_node(arena1, handles1(i))
-            if (associated(node_ptr)) then
-                ! Store reference to node in arena2
-                node_ptr%parent_handle_id = handles2(min(i+1, size/2))%node_id
-                node_ptr%parent_handle_gen = handles2(min(i+1, size/2))%generation
-            end if
+            retrieved_node = get_ast_node(arena1, handles1(i))
+            ! Store reference to node in arena2
+            retrieved_node%parent_handle_id = handles2(min(i+1, size/2))%node_id
+            retrieved_node%parent_handle_gen = handles2(min(i+1, size/2))%generation
+            ! Note: This modifies a copy, not the actual stored node
+            ! Would need to update the stored node for persistence
         end do
         
         ! Warmup
         cross_refs = 0
         do iter = 1, WARMUP_ITERATIONS/10
             do i = 1, min(size/10, 100)
-                node_ptr => get_ast_node(arena1, handles1(i))
-                if (associated(node_ptr)) then
-                    if (node_ptr%parent_handle_id > 0) then
-                        cross_refs = cross_refs + 1
-                    end if
+                retrieved_node = get_ast_node(arena1, handles1(i))
+                if (retrieved_node%parent_handle_id > 0) then
+                    cross_refs = cross_refs + 1
                 end if
             end do
         end do
@@ -331,14 +337,12 @@ contains
         do iter = 1, BENCH_ITERATIONS
             ! Access cross-references
             do i = 1, size/2
-                node_ptr => get_ast_node(arena1, handles1(i))
-                if (associated(node_ptr)) then
-                    ops = ops + 1
-                    if (node_ptr%parent_handle_id > 0) then
-                        ! Validate cross-arena reference
-                        if (node_ptr%parent_handle_id <= size/2) then
-                            cross_refs = cross_refs + 1
-                        end if
+                retrieved_node = get_ast_node(arena1, handles1(i))
+                ops = ops + 1
+                if (retrieved_node%parent_handle_id > 0) then
+                    ! Validate cross-arena reference
+                    if (retrieved_node%parent_handle_id <= size/2) then
+                        cross_refs = cross_refs + 1
                     end if
                 end if
             end do

@@ -110,7 +110,7 @@ contains
         type(ast_handle_t), allocatable :: handles(:)
         type(ast_node_arena_t) :: node
         type(ast_arena_stats_t) :: stats
-        type(ast_free_result_t) :: free_stats
+        type(ast_arena_stats_t) :: free_stats
         type(memory_result_t) :: result
         character(len=64) :: test_name
         integer :: i, nodes_to_free, freed_count
@@ -139,7 +139,11 @@ contains
             i = int(rand_val * size) + 1
             
             if (.not. is_freed(i)) then
-                call free_ast_node(arena, handles(i))
+                block
+                    type(ast_free_result_t) :: free_result
+                    free_result = arena%free_node(handles(i))
+                    ! Could check free_result%success if needed
+                end block
                 is_freed(i) = .true.
                 freed_count = freed_count + 1
             end if
@@ -169,7 +173,7 @@ contains
         result%fragmentation = real(fragmentation_percent, real64) / 100.0
         result%bytes_per_node = real(stats%total_memory, real64) / real(size - freed_count + 1, real64)
         result%active_nodes = free_stats%active_nodes
-        result%free_slots = free_stats%free_slots
+        result%free_slots = free_stats%freed_nodes  ! Use freed_nodes as free slots
         
         call add_result(result)
         call destroy_ast_arena(arena)

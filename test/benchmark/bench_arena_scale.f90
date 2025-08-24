@@ -133,7 +133,7 @@ contains
         type(ast_arena_t) :: arena
         type(ast_handle_t), allocatable :: handles(:)
         type(ast_node_arena_t) :: node
-        type(ast_node_arena_t), pointer :: node_ptr
+        type(ast_node_arena_t) :: retrieved_node
         real(real64) :: start_time, end_time
         integer :: i, iter, sum
         type(scalability_result_t) :: result
@@ -155,10 +155,8 @@ contains
             call cpu_time(start_time)
             
             do i = 1, scale
-                node_ptr => get_ast_node(arena, handles(i))
-                if (associated(node_ptr)) then
-                    sum = sum + node_ptr%integer_data
-                end if
+                retrieved_node = get_ast_node(arena, handles(i))
+                sum = sum + retrieved_node%integer_data
             end do
             
             call cpu_time(end_time)
@@ -203,7 +201,7 @@ contains
         type(ast_arena_t) :: arena
         type(ast_handle_t), allocatable :: handles(:)
         type(ast_node_arena_t) :: node
-        type(ast_node_arena_t), pointer :: node_ptr
+        type(ast_node_arena_t) :: retrieved_node
         real(real64) :: start_time, end_time
         integer :: i, iter, current, sum
         type(scalability_result_t) :: result
@@ -233,13 +231,10 @@ contains
             ! Traverse linked list
             current = 1
             do while (current > 0 .and. current <= scale)
-                node_ptr => get_ast_node(arena, handles(current))
-                if (associated(node_ptr)) then
-                    sum = sum + node_ptr%integer_data
-                    current = node_ptr%next_sibling_id
-                else
-                    exit
-                end if
+                retrieved_node = get_ast_node(arena, handles(current))
+                sum = sum + retrieved_node%integer_data
+                current = retrieved_node%next_sibling_id
+                if (current == 0) exit
             end do
             
             call cpu_time(end_time)
@@ -306,7 +301,11 @@ contains
             ! Free half the nodes
             do i = 1, scale, 2
                 if (is_node_active(arena, handles(i))) then
-                    call free_ast_node(arena, handles(i))
+                    block
+                        type(ast_free_result_t) :: free_result
+                        free_result = arena%free_node(handles(i))
+                        ! Could check free_result%success if needed
+                    end block
                     ops = ops + 1
                 end if
             end do

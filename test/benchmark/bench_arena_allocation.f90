@@ -148,7 +148,11 @@ contains
                 call random_number(rand_val)
                 idx = int(rand_val * size) + 1
                 if (is_node_active(arena, handles(idx))) then
-                    call free_ast_node(arena, handles(idx))
+                    block
+                        type(ast_free_result_t) :: free_result
+                        free_result = arena%free_node(handles(idx))
+                        ! Could check free_result%success if needed for accuracy
+                    end block
                 end if
                 node%node_kind = idx
                 node%integer_data = iter * 1000 + idx
@@ -262,8 +266,11 @@ contains
                 if (rand_val < 0.3) then
                     ! Free operation (30%)
                     if (i <= size/2 .and. is_node_active(arena, handles(i))) then
-                        call free_ast_node(arena, handles(i))
-                        op_count = op_count + 1
+                        block
+                            type(ast_free_result_t) :: free_result
+                            free_result = arena%free_node(handles(i))
+                            if (free_result%success) op_count = op_count + 1
+                        end block
                     end if
                 else if (rand_val < 0.7) then
                     ! Allocate new (40%)
