@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #454: Update tests to use modern AST arena API after Issue #360
 
 ## TODO (Ordered by Priority)
 
@@ -42,6 +41,7 @@ No remaining items - Phase 2 development continuing
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #454: Update tests to use modern AST arena API after Issue #360 (COMPLETED - PR #459 successfully modernized test suite with modern arena API)
 - [x] #441: Subroutines and functions not handled properly (COMPLETED - PR #460 fixed critical parsing regression with stable solution)
 - [x] #457: Parser fails on simple expressions with 'No statements found in file' (COMPLETED - PR #458 fixed arena size synchronization issue)
 - [x] #360: Migrate AST to modern high-performance arena with unified architecture (COMPLETED - PR #453 merged with generation-based handles and unified architecture)
