@@ -35,6 +35,9 @@ No remaining items - Phase 1 complete
 - [ ] #403: Type System: Implement constraint solver with let-polymorphism support
 
 ### Testing and Documentation (SUPPORT)
+- [ ] #450: test: re-enable temporarily disabled tests for issues #4 and #321
+- [ ] #451: test: complete AST arena integration test coverage
+- [ ] #452: feature: restore debug output capabilities in frontend compilation pipeline
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
