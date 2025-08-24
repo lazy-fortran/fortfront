@@ -2,7 +2,6 @@ program test_array_function_disambiguation
     use ast_core
     use ast_nodes_core
     use ast_factory
-    use ast_arena
     use parser_core
     use parser_state_module
     use parser_statements_module

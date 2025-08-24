@@ -2,7 +2,6 @@ program test_get_identifiers_issue
     use frontend, only: lex_file, parse_tokens
     use lexer_core, only: token_t, tokenize_core
     use ast_core
-    use ast_arena
     use variable_usage_tracker_module, only: get_identifiers_in_subtree
     implicit none
     
