@@ -12,9 +12,7 @@ module ast_arena_modern
     use ast_arena_core, only: ast_arena_core_t, ast_handle_t, ast_node_arena_t, &
                               ast_arena_stats_t, ast_free_result_t, &
                               create_ast_arena_core, destroy_ast_arena_core, &
-                              store_ast_node, get_ast_node, is_valid_ast_handle, &
-                              null_ast_handle, free_ast_node, is_node_active, &
-                              get_free_statistics
+                              is_valid_ast_handle, null_ast_handle
     use ast_arena_compat, only: ast_arena_compat_t, ast_entry_t, &
                                 create_ast_arena_compat
     implicit none
@@ -46,5 +44,56 @@ contains
         
         call destroy_ast_arena_core(arena%ast_arena_compat_t%ast_arena_core_t)
     end subroutine destroy_ast_arena
+    
+    ! Free an AST node
+    function free_ast_node(arena, handle) result(free_result)
+        type(ast_arena_t), intent(inout) :: arena
+        type(ast_handle_t), intent(in) :: handle
+        type(ast_free_result_t) :: free_result
+        
+        ! Use the core implementation through compatibility layer
+        free_result = arena%ast_arena_compat_t%free_node(handle)
+    end function free_ast_node
+    
+    ! Check if node is active
+    function is_node_active(arena, handle) result(is_active)
+        type(ast_arena_t), intent(inout) :: arena
+        type(ast_handle_t), intent(in) :: handle
+        logical :: is_active
+        
+        ! Use the core implementation through compatibility layer
+        is_active = arena%ast_arena_compat_t%is_active(handle)
+    end function is_node_active
+    
+    ! Get free statistics
+    function get_free_statistics(arena) result(stats)
+        type(ast_arena_t), intent(inout) :: arena
+        type(ast_arena_stats_t) :: stats
+        
+        ! Use the core implementation through compatibility layer
+        stats = arena%ast_arena_compat_t%get_stats()
+    end function get_free_statistics
+    
+    ! Store an AST node
+    function store_ast_node(arena, node) result(ast_handle)
+        use ast_arena_core, only: core_store => store_ast_node
+        type(ast_arena_t), intent(inout) :: arena  
+        type(ast_node_arena_t), intent(in) :: node
+        type(ast_handle_t) :: ast_handle
+        
+        ! Delegate to core function through inheritance casting
+        ast_handle = core_store(arena%ast_arena_compat_t%ast_arena_core_t, node)
+    end function store_ast_node
+    
+    ! Get an AST node
+    function get_ast_node(arena, handle) result(arena_node)
+        use ast_arena_core, only: core_get => get_ast_node
+        type(ast_arena_t), intent(inout) :: arena
+        type(ast_handle_t), intent(in) :: handle
+        type(ast_node_arena_t) :: arena_node
+        
+        ! Delegate to core function through inheritance casting
+        arena_node = core_get(arena%ast_arena_compat_t%ast_arena_core_t, handle)
+    end function get_ast_node
     
 end module ast_arena_modern
