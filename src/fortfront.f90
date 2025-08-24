@@ -588,11 +588,10 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(ast_arena_stats_t) :: stats
         
-        ! Use compatibility fields from the arena 
+        ! Use stats from the arena
+        stats = arena%get_stats()
         stats%total_nodes = arena%compat_size
         stats%max_depth = arena%max_depth
-        stats%capacity = arena%cap
-        stats%memory_usage = arena%cap * 64  ! Rough estimate
     end function get_arena_stats
     
     ! Analyze program with explicit context (for advanced usage)
