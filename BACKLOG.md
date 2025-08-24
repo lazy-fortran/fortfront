@@ -5,7 +5,7 @@
 ## TODO (Ordered by Priority)
 
 ### CRITICAL: Foundation Architecture (BLOCKING ALL OTHER WORK)
-- [ ] #393: CST: Create basic CST node type definitions and module structure (PR #455 pending CI completion)
+No remaining items - Foundation architecture complete
 
 ### Foundation Phase 1: Error Handling Infrastructure (CRITICAL)
 No remaining items - Phase 1 complete
@@ -14,7 +14,6 @@ No remaining items - Phase 1 complete
 No remaining items - Phase 2 development continuing
 
 ### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until #442 complete)
-- [ ] #393: CST: Create basic CST node type definitions and module structure
 - [ ] #394: CST: Implement UID generation system for stable node identification  
 - [ ] #395: CST: Implement lexer trivia collection for comments and whitespace
 - [ ] #396: CST: Create CST builder for parallel construction alongside AST
