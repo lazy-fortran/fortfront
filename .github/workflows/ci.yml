@@ -81,7 +81,9 @@ jobs:
     - name: Run tests with coverage
       run: |
         fpm clean --all
-        fpm test --profile debug --flag '-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g'
+        # Use custom flags to ensure GCC compatibility across versions
+        export FPM_FFLAGS='-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g -O0'
+        fpm test --flag "$FPM_FFLAGS"
 
     - name: Generate coverage data for coverage-action
       run: |
