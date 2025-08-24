@@ -21,7 +21,7 @@ contains
         integer :: literal_index
         
         ! Initialize arena for testing
-        call init_ast_arena(arena)
+        arena = create_ast_arena()
         
         ! Test 1: Invalid mask expression index should return error result, not error_stop
         result = safe_push_where(arena, invalid_index)
