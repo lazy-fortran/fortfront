@@ -645,7 +645,7 @@ contains
         integer :: i, index_var_len
 
         ! Validate arena is initialized
-        if (arena%size <= 0 .or. .not. allocated(arena%entries)) then
+        if (.not. allocated(arena%entries)) then
             error stop "Arena not properly initialized in push_forall"
         end if
 
@@ -1344,7 +1344,7 @@ contains
         integer :: i
 
         ! Validate arena is initialized
-        if (arena%size <= 0 .or. .not. allocated(arena%entries)) then
+        if (.not. allocated(arena%entries)) then
             error stop "Arena not properly initialized in push_where"
         end if
 

@@ -53,7 +53,7 @@ contains
             call analyze_program_impl(ctx, arena, stmt_index)
             
             ! Check if semantic analysis succeeded (basic check)
-            if (arena%size <= 0) then
+            if (.not. allocated(arena%entries)) then
                 write(error_unit, '(A)') &
                     "Warning: Semantic analysis may have failed"
             end if
