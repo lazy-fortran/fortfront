@@ -48,23 +48,23 @@ program test_issue_441_subroutine_parsing
     ! Check for the bugs
     print *, "=== Bug Analysis ==="
     
-    ! Bug 1: Missing print statements
-    bug1_present = index(output_code, 'print*,"foo"') == 0
+    ! Bug 1: Missing print statements (check for standardized format)
+    bug1_present = index(output_code, 'print *, "foo"') == 0
     if (bug1_present) then
         print *, "BUG 1 CONFIRMED: print statements missing from subroutine foo"
     else
         print *, "BUG 1 FIXED: print statement present in subroutine foo"
     end if
     
-    bug2_present = index(output_code, 'print*,"bar"') == 0
+    bug2_present = index(output_code, 'print *, "bar"') == 0
     if (bug2_present) then
         print *, "BUG 2 CONFIRMED: print statements missing from subroutine bar"
     else
         print *, "BUG 2 FIXED: print statement present in subroutine bar"
     end if
     
-    ! Bug 3: Duplicate subroutine bar - count occurrences
-    search_text = "subroutine bar"
+    ! Bug 3: Duplicate subroutine bar - count occurrences (search for opening declaration only)
+    search_text = "subroutine bar()"
     count = 0
     start_pos = 1
     
