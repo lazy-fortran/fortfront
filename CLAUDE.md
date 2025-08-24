@@ -69,12 +69,17 @@ genhtml coverage_filtered.info --output-directory coverage_html \
 
 ### Run a specific test
 ```bash
-fpm test <test_name>
-# Example: fpm test test_frontend_lexer_api
+fpm test <test_name> --flag "-cpp -fmax-stack-var-size=65536"
+# Example: fpm test test_frontend_lexer_api --flag "-cpp -fmax-stack-var-size=65536"
+
+# Or use the convenience script (recommended):
+./test.sh <test_name>
 ```
 
 ### Important build flags
-- Always use `-cpp` flag when building/testing (required for preprocessing)
+- **CRITICAL**: Always use `-cpp -fmax-stack-var-size=65536` flags when building/testing
+- `-cpp`: Required for preprocessing
+- `-fmax-stack-var-size=65536`: **MANDATORY for GCC 15.x compatibility** - prevents module reading failures
 - Use `--profile debug` for debugging and coverage
 
 ## Development Tips
