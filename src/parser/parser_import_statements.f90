@@ -902,8 +902,25 @@ contains
                         arg_indices = [arg_indices, arg_index]
                     end block
                     token = parser%consume()
+                    
+                    ! After parsing a string literal, check if we're at end of statement
+                    token = parser%peek()
+                    if (token%kind == TK_NEWLINE) then
+                        exit  ! End of print statement
+                    else if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                        token = parser%consume()  ! consume comma and continue
+                    else
+                        ! No comma after string - end of print arguments
+                        exit
+                    end if
                 else if (token%kind == TK_IDENTIFIER) then
-                    ! Variable reference
+                    ! Variable reference - but be careful not to consume keywords that end the statement
+                    if (token%text == "end" .or. token%text == "subroutine" .or. &
+                        token%text == "function") then
+                        ! This identifier likely belongs to a different statement
+                        exit
+                    end if
+                    
                     block
                         integer :: arg_index
                         arg_index = push_identifier(arena, token%text, &
@@ -911,6 +928,17 @@ contains
                         arg_indices = [arg_indices, arg_index]
                     end block
                     token = parser%consume()
+                    
+                    ! After parsing an identifier, check if we're at end of statement
+                    token = parser%peek()
+                    if (token%kind == TK_NEWLINE) then
+                        exit  ! End of print statement
+                    else if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                        token = parser%consume()  ! consume comma and continue
+                    else
+                        ! No comma after identifier - end of print arguments
+                        exit
+                    end if
                 else if (token%kind == TK_NUMBER) then
                     ! Numeric literal
                     block
@@ -920,11 +948,22 @@ contains
                         arg_indices = [arg_indices, arg_index]
                     end block
                     token = parser%consume()
+                    
+                    ! After parsing a number, check if we're at end of statement
+                    token = parser%peek()
+                    if (token%kind == TK_NEWLINE) then
+                        exit  ! End of print statement
+                    else if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                        token = parser%consume()  ! consume comma and continue
+                    else
+                        ! No comma after number - end of print arguments
+                        exit
+                    end if
                 else if (token%kind == TK_OPERATOR .and. token%text == ",") then
                     token = parser%consume()  ! consume comma
                 else
-                    ! Skip unknown token
-                    token = parser%consume()
+                    ! Unknown token - likely end of print statement
+                    exit
                 end if
             end do
         end if
