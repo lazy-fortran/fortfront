@@ -5,6 +5,7 @@ module parser_import_statements_module
     use ast_core
     use ast_factory
     use parser_declarations, only: parse_declaration
+    ! Removed circular dependency to parser_definition_statements_module
     use ast_types, only: LITERAL_STRING
     use url_utilities, only: extract_module_from_url
     implicit none
@@ -520,44 +521,20 @@ contains
                 end if
             end if
 
-            ! Create basic subroutine nodes for contains section
+            ! Parse subroutine definitions for contains section (safe module context)
             if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "subroutine") then
-                token = parser%consume()  ! consume "subroutine"
-                token = parser%peek()
-                if (token%kind == TK_IDENTIFIER) then
-                    block
-                        character(len=:), allocatable :: sub_name
-                        integer, allocatable :: empty_params(:), empty_body(:)
-                        integer :: sub_index
-                        sub_name = token%text
-                        token = parser%consume()  ! consume subroutine name
-                        allocate(empty_params(0))
-                        allocate(empty_body(0))
-                        sub_index = push_subroutine_def(arena, sub_name, empty_params, empty_body, &
-                                                      token%line, token%column)
-                        procedure_indices = [procedure_indices, sub_index]
-                    end block
+                stmt_index = parse_subroutine_in_module(parser, arena)
+                if (stmt_index > 0) then
+                    procedure_indices = [procedure_indices, stmt_index]
                 end if
                 cycle
             end if
             
-            ! Create basic function nodes for contains section
+            ! Parse function definitions for contains section (safe module context)
             if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "function") then
-                token = parser%consume()  ! consume "function"
-                token = parser%peek()
-                if (token%kind == TK_IDENTIFIER) then
-                    block
-                        character(len=:), allocatable :: func_name
-                        integer, allocatable :: empty_params(:), empty_body(:)
-                        integer :: func_index
-                        func_name = token%text
-                        token = parser%consume()  ! consume function name
-                        allocate(empty_params(0))
-                        allocate(empty_body(0))
-                        func_index = push_function_def(arena, func_name, empty_params, "integer", &
-                                                     empty_body, token%line, token%column)
-                        procedure_indices = [procedure_indices, func_index]
-                    end block
+                stmt_index = parse_function_in_module(parser, arena)
+                if (stmt_index > 0) then
+                    procedure_indices = [procedure_indices, stmt_index]
                 end if
                 cycle
             end if
@@ -607,5 +584,499 @@ contains
                                                line=implicit_token%line, column=implicit_token%column)
         end if
     end subroutine parse_simple_implicit_in_module
+
+    ! Safe subroutine parsing for module contexts (avoids circular dependencies)
+    function parse_subroutine_in_module(parser, arena) result(sub_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: sub_index
+        type(token_t) :: token
+        character(len=:), allocatable :: subroutine_name
+        integer :: line, column
+        integer, allocatable :: param_indices(:), body_indices(:)
+        
+        ! Consume subroutine keyword
+        token = parser%consume()
+        line = token%line
+        column = token%column
+        
+        ! Get subroutine name
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            subroutine_name = token%text
+            token = parser%consume()
+        else
+            subroutine_name = "unnamed_subroutine"
+        end if
+        
+        ! Parse parameters (simplified - no type info)
+        allocate(param_indices(0))
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            token = parser%consume()  ! consume '('
+            
+            ! Parse parameter names only
+            do while (.not. parser%is_at_end())
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    token = parser%consume()  ! consume ')'
+                    exit
+                end if
+                
+                if (token%kind == TK_IDENTIFIER) then
+                    ! Create simple parameter node
+                    block
+                        integer :: param_index
+                        param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
+                                                               line=token%line, column=token%column)
+                        param_indices = [param_indices, param_index]
+                    end block
+                    token = parser%consume()
+                end if
+                
+                ! Skip commas
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    token = parser%consume()
+                end if
+            end do
+        end if
+        
+        ! Parse subroutine body until "end subroutine" (simplified)
+        allocate(body_indices(0))
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            
+            ! Check for end of subroutine
+            if (token%kind == TK_KEYWORD .and. token%text == "end") then
+                if (parser%current_token + 1 <= size(parser%tokens)) then
+                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                        parser%tokens(parser%current_token + 1)%text == "subroutine") then
+                        ! Consume "end subroutine"
+                        token = parser%consume()  ! consume "end"
+                        token = parser%consume()  ! consume "subroutine"
+                        ! Optionally consume subroutine name
+                        if (.not. parser%is_at_end()) then
+                            token = parser%peek()
+                            if (token%kind == TK_IDENTIFIER .and. token%text == subroutine_name) then
+                                token = parser%consume()
+                            end if
+                        end if
+                        exit
+                    end if
+                end if
+            end if
+            
+            ! Parse basic statements for subroutine body (avoiding circular dependencies)
+            if (token%kind /= TK_NEWLINE) then
+                block
+                    integer :: stmt_index
+                    stmt_index = parse_basic_statement_in_subroutine(parser, arena)
+                    if (stmt_index > 0) then
+                        body_indices = [body_indices, stmt_index]
+                    end if
+                end block
+            else
+                token = parser%consume()  ! consume newline
+            end if
+        end do
+        
+        ! Create subroutine node
+        sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
+                                       line, column)
+    end function parse_subroutine_in_module
+
+    ! Safe function parsing for module contexts (avoids circular dependencies)
+    function parse_function_in_module(parser, arena) result(func_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: func_index
+        type(token_t) :: token
+        character(len=:), allocatable :: function_name, return_type_str
+        integer :: line, column
+        integer, allocatable :: param_indices(:), body_indices(:)
+        
+        ! Initialize
+        return_type_str = ""
+        
+        ! Check if we have a return type before "function"
+        token = parser%peek()
+        if (token%kind == TK_KEYWORD .and. &
+            (token%text == "real" .or. token%text == "integer" .or. &
+             token%text == "logical" .or. token%text == "character")) then
+            return_type_str = token%text
+            token = parser%consume()
+        end if
+        
+        ! Consume function keyword
+        token = parser%peek()
+        if (token%kind == TK_KEYWORD .and. token%text == "function") then
+            line = token%line
+            column = token%column
+            token = parser%consume()
+        else
+            func_index = 0
+            return
+        end if
+        
+        ! Get function name
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            function_name = token%text
+            token = parser%consume()
+        else
+            function_name = "unnamed_function"
+        end if
+        
+        ! Parse parameters (simplified - no type info)
+        allocate(param_indices(0))
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+            token = parser%consume()  ! consume '('
+            
+            ! Parse parameter names only
+            do while (.not. parser%is_at_end())
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    token = parser%consume()  ! consume ')'
+                    exit
+                end if
+                
+                if (token%kind == TK_IDENTIFIER) then
+                    ! Create simple parameter node
+                    block
+                        integer :: param_index
+                        param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
+                                                               line=token%line, column=token%column)
+                        param_indices = [param_indices, param_index]
+                    end block
+                    token = parser%consume()
+                end if
+                
+                ! Skip commas
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    token = parser%consume()
+                end if
+            end do
+        end if
+        
+        ! Skip result clause if present
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER .and. token%text == "result") then
+            token = parser%consume()
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                token = parser%consume()
+                token = parser%peek()
+                if (token%kind == TK_IDENTIFIER) then
+                    token = parser%consume()
+                end if
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                    token = parser%consume()
+                end if
+            end if
+        end if
+        
+        ! Parse function body until "end function" (simplified)
+        allocate(body_indices(0))
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            
+            ! Check for end of function
+            if (token%kind == TK_KEYWORD .and. token%text == "end") then
+                if (parser%current_token + 1 <= size(parser%tokens)) then
+                    if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                        parser%tokens(parser%current_token + 1)%text == "function") then
+                        ! Consume "end function"
+                        token = parser%consume()  ! consume "end"
+                        token = parser%consume()  ! consume "function"
+                        ! Optionally consume function name
+                        if (.not. parser%is_at_end()) then
+                            token = parser%peek()
+                            if (token%kind == TK_IDENTIFIER .and. token%text == function_name) then
+                                token = parser%consume()
+                            end if
+                        end if
+                        exit
+                    end if
+                end if
+            end if
+            
+            ! Parse basic statements for subroutine body (avoiding circular dependencies)
+            if (token%kind /= TK_NEWLINE) then
+                block
+                    integer :: stmt_index
+                    stmt_index = parse_basic_statement_in_subroutine(parser, arena)
+                    if (stmt_index > 0) then
+                        body_indices = [body_indices, stmt_index]
+                    end if
+                end block
+            else
+                token = parser%consume()  ! consume newline
+            end if
+        end do
+        
+        ! Create function node
+        func_index = push_function_def(arena, function_name, param_indices, &
+                                      return_type_str, body_indices, &
+                                      line, column, result_variable="")
+    end function parse_function_in_module
+
+    ! Basic statement parsing for subroutine/function bodies (avoiding circular deps)
+    function parse_basic_statement_in_subroutine(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: token
+        
+        ! Check first token to determine statement type
+        token = parser%peek()
+        stmt_index = 0
+        
+        select case (token%kind)
+        case (TK_KEYWORD)
+            select case (token%text)
+            case ("print")
+                stmt_index = parse_simple_print_statement(parser, arena)
+            case ("integer", "real", "logical", "character", "complex", "double")
+                stmt_index = parse_declaration(parser, arena)
+            case ("call")
+                stmt_index = parse_simple_call_statement(parser, arena)
+            case default
+                ! Skip unknown statement by consuming tokens until end of line
+                call skip_to_end_of_line(parser)
+                stmt_index = 0
+            end select
+        case (TK_IDENTIFIER)
+            ! Likely assignment statement
+            stmt_index = parse_simple_assignment_statement(parser, arena)
+        case default
+            ! Skip unknown token
+            call skip_to_end_of_line(parser)
+            stmt_index = 0
+        end select
+    end function parse_basic_statement_in_subroutine
+
+    ! Simple print statement parser for subroutine bodies
+    function parse_simple_print_statement(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: token
+        integer, allocatable :: arg_indices(:)
+        integer :: line, column
+        
+        ! Consume 'print' keyword
+        token = parser%consume()
+        line = token%line
+        column = token%column
+        
+        ! Expect '*' or format specifier
+        allocate(arg_indices(0))
+        
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "*") then
+            token = parser%consume()  ! consume '*'
+            
+            ! Optional comma (may not be present in compact format like print*,"foo")
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                token = parser%consume()  ! consume ','
+            end if
+            
+            ! Parse print arguments until end of line
+            do while (.not. parser%is_at_end())
+                token = parser%peek()
+                if (token%kind == TK_NEWLINE) then
+                    exit
+                end if
+                
+                if (token%kind == TK_STRING) then
+                    ! String literal
+                    block
+                        integer :: arg_index
+                        arg_index = push_literal(arena, token%text, LITERAL_STRING, &
+                                               token%line, token%column)
+                        arg_indices = [arg_indices, arg_index]
+                    end block
+                    token = parser%consume()
+                    
+                    ! After parsing a string literal, check if we're at end of statement
+                    token = parser%peek()
+                    if (token%kind == TK_NEWLINE) then
+                        exit  ! End of print statement
+                    else if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                        token = parser%consume()  ! consume comma and continue
+                    else
+                        ! No comma after string - end of print arguments
+                        exit
+                    end if
+                else if (token%kind == TK_IDENTIFIER) then
+                    ! Variable reference - but be careful not to consume keywords that end the statement
+                    if (token%text == "end" .or. token%text == "subroutine" .or. &
+                        token%text == "function") then
+                        ! This identifier likely belongs to a different statement
+                        exit
+                    end if
+                    
+                    block
+                        integer :: arg_index
+                        arg_index = push_identifier(arena, token%text, &
+                                                  token%line, token%column)
+                        arg_indices = [arg_indices, arg_index]
+                    end block
+                    token = parser%consume()
+                    
+                    ! After parsing an identifier, check if we're at end of statement
+                    token = parser%peek()
+                    if (token%kind == TK_NEWLINE) then
+                        exit  ! End of print statement
+                    else if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                        token = parser%consume()  ! consume comma and continue
+                    else
+                        ! No comma after identifier - end of print arguments
+                        exit
+                    end if
+                else if (token%kind == TK_NUMBER) then
+                    ! Numeric literal
+                    block
+                        integer :: arg_index
+                        arg_index = push_literal(arena, token%text, LITERAL_INTEGER, &
+                                               token%line, token%column)
+                        arg_indices = [arg_indices, arg_index]
+                    end block
+                    token = parser%consume()
+                    
+                    ! After parsing a number, check if we're at end of statement
+                    token = parser%peek()
+                    if (token%kind == TK_NEWLINE) then
+                        exit  ! End of print statement
+                    else if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                        token = parser%consume()  ! consume comma and continue
+                    else
+                        ! No comma after number - end of print arguments
+                        exit
+                    end if
+                else if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    token = parser%consume()  ! consume comma
+                else
+                    ! Unknown token - likely end of print statement
+                    exit
+                end if
+            end do
+        end if
+        
+        ! Create print statement node
+        stmt_index = push_print_statement(arena, "*", arg_indices, line, column)
+    end function parse_simple_print_statement
+
+    ! Simple call statement parser for subroutine bodies
+    function parse_simple_call_statement(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: token
+        character(len=:), allocatable :: subroutine_name
+        integer, allocatable :: arg_indices(:)
+        integer :: line, column
+        
+        ! Consume 'call' keyword
+        token = parser%consume()
+        line = token%line
+        column = token%column
+        
+        ! Get subroutine name
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            subroutine_name = token%text
+            token = parser%consume()
+            
+            ! For simplicity, no arguments parsed (can be enhanced later)
+            allocate(arg_indices(0))
+            
+            ! Skip to end of line
+            call skip_to_end_of_line(parser)
+            
+            ! Create call statement node
+            stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, &
+                                            line, column)
+        else
+            ! Error: expected subroutine name
+            stmt_index = 0
+            call skip_to_end_of_line(parser)
+        end if
+    end function parse_simple_call_statement
+
+    ! Simple assignment statement parser for subroutine bodies
+    function parse_simple_assignment_statement(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+        type(token_t) :: token
+        integer :: lhs_index, rhs_index
+        
+        stmt_index = 0
+        
+        ! Parse left-hand side (identifier)
+        token = parser%peek()
+        if (token%kind == TK_IDENTIFIER) then
+            lhs_index = push_identifier(arena, token%text, token%line, token%column)
+            token = parser%consume()
+            
+            ! Expect assignment operator
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                token = parser%consume()  ! consume '='
+                
+                ! Parse right-hand side (simple expression)
+                token = parser%peek()
+                if (token%kind == TK_STRING) then
+                    rhs_index = push_literal(arena, token%text, LITERAL_STRING, &
+                                           token%line, token%column)
+                    token = parser%consume()
+                else if (token%kind == TK_NUMBER) then
+                    rhs_index = push_literal(arena, token%text, LITERAL_INTEGER, &
+                                           token%line, token%column)
+                    token = parser%consume()
+                else if (token%kind == TK_IDENTIFIER) then
+                    rhs_index = push_identifier(arena, token%text, &
+                                              token%line, token%column)
+                    token = parser%consume()
+                else
+                    ! Skip to end of line for complex expressions
+                    call skip_to_end_of_line(parser)
+                    return
+                end if
+                
+                ! Skip remaining tokens on line
+                call skip_to_end_of_line(parser)
+                
+                ! Create assignment node
+                stmt_index = push_assignment(arena, lhs_index, rhs_index, &
+                                           token%line, token%column)
+            else
+                call skip_to_end_of_line(parser)
+            end if
+        else
+            call skip_to_end_of_line(parser)
+        end if
+    end function parse_simple_assignment_statement
+
+    ! Skip tokens until end of line
+    subroutine skip_to_end_of_line(parser)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+        
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_NEWLINE) then
+                token = parser%consume()  ! consume newline
+                exit
+            end if
+            token = parser%consume()
+        end do
+    end subroutine skip_to_end_of_line
 
 end module parser_import_statements_module
