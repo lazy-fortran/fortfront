@@ -55,6 +55,7 @@ jobs:
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
         sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-14 100
+        sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-14 100
     
     - name: Cache FPM dependencies
       uses: actions/cache@v4
