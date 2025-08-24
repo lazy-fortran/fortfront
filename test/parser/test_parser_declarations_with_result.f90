@@ -1,7 +1,7 @@
 program test_parser_declarations_with_result
     use lexer_core, only: tokenize_safe, tokenize_result_t
     use parser_state_module, only: create_parser_state
-    use ast_arena, only: ast_arena_t, create_ast_arena
+    use ast_core, only: ast_arena_t, create_ast_arena
     use parser_declarations, only: parse_declaration_with_result
     use parser_result_types, only: parse_result_t
     implicit none

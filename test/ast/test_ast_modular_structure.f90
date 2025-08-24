@@ -3,7 +3,7 @@ program test_ast_modular_structure
     ! This test will initially FAIL until we implement the split modules
     
     use ast_base, only: ast_node
-    use ast_arena, only: ast_arena_t, create_ast_arena
+    use ast_core, only: ast_arena_t, create_ast_arena
     use ast_nodes_core, only: program_node, assignment_node, identifier_node, literal_node
     use ast_nodes_control, only: if_node, do_loop_node
     use ast_nodes_procedure, only: function_def_node, subroutine_call_node

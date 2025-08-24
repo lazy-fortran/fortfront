@@ -5,7 +5,7 @@ program test_arena_memory_leak_detection
     ! When: Testing various scenarios that could cause memory leaks
     ! Then: All scenarios should properly manage memory without leaks
     
-    use ast_arena, only: ast_arena_t, create_ast_arena, init_ast_arena, ast_arena_stats_t
+    use ast_core, only: ast_arena_t, create_ast_arena, ast_arena_stats_t
     use ast_base, only: ast_node
     use ast_nodes_core, only: identifier_node, literal_node
     use ast_core, only: create_identifier, create_literal, LITERAL_INTEGER, LITERAL_STRING
