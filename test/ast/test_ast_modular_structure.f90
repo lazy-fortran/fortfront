@@ -53,7 +53,6 @@ contains
         arena = create_ast_arena()
         
         print *, "  DEBUG: Arena size=", arena%size, "capacity=", arena%capacity
-        print *, "  DEBUG: Arena initial_capacity=", arena%initial_capacity
         
         if (arena%size /= 0) then
             print *, "  FAIL: Expected arena size 0, got", arena%size
