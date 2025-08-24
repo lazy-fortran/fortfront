@@ -1,7 +1,7 @@
 module call_graph_builder_module
     use iso_fortran_env, only: error_unit
     use ast_core
-    use ast_arena
+    use ast_arena_modern
     use ast_visitor
     use ast_traversal, only: traverse_ast
     use call_graph_module

@@ -8,7 +8,7 @@ module frontend_parsing
     use parser_core, only: parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                            get_additional_indices, clear_additional_indices
-    use ast_arena, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: comment_node
     use ast_factory, only: push_program
