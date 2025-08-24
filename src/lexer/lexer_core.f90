@@ -21,7 +21,6 @@ module lexer_core
         integer :: line = 1
         integer :: column = 1
     contains
-        procedure :: deep_copy => token_deep_copy
         procedure :: assign => token_assign
         generic :: assignment(=) => assign
     end type token_t
@@ -926,19 +925,6 @@ contains
     end function token_type_name
 
     ! Deep copy procedures for token_t
-    function token_deep_copy(this) result(copy)
-        class(token_t), intent(in) :: this
-        type(token_t) :: copy
-
-        copy%kind = this%kind
-        copy%line = this%line
-        copy%column = this%column
-
-        if (allocated(this%text)) then
-            copy%text = this%text
-        end if
-    end function token_deep_copy
-
     subroutine token_assign(lhs, rhs)
         class(token_t), intent(out) :: lhs
         type(token_t), intent(in) :: rhs
