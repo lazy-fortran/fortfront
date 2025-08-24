@@ -1,7 +1,7 @@
 module constant_folding
     ! Module for compile-time constant folding and evaluation
     use ast_core
-    use ast_arena
+    use ast_arena_modern
     implicit none
     private
     

@@ -1,7 +1,7 @@
 module variable_usage_tracker_module
     use iso_fortran_env, only: error_unit
     use ast_core
-    use ast_arena
+    use ast_arena_modern
     use ast_nodes_core, only: binary_op_node, call_or_subscript_node, &
                               identifier_node, component_access_node
     use ast_nodes_bounds, only: array_slice_node

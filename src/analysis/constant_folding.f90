@@ -1,7 +1,7 @@
 module constant_folding_module
     use iso_fortran_env, only: error_unit
     use ast_core
-    use ast_arena
+    use ast_arena_modern
     implicit none
     private
 

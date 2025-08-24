@@ -28,9 +28,8 @@ module ast_core
                         LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
                         LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX
     
-    ! Re-export arena functionality
-    use ast_arena, only: ast_arena_t, ast_entry_t, ast_arena_stats_t, create_ast_arena, &
-                         init_ast_arena
+    ! Re-export arena functionality (modern generational arena)
+    use ast_arena_modern, only: ast_arena_t, ast_entry_t, ast_arena_stats_t, create_ast_arena, destroy_ast_arena
     
     ! Re-export all node types
     use ast_nodes_core, only: program_node, assignment_node, &
@@ -81,7 +80,7 @@ module ast_core
               ast_node_wrapper
     public :: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL, &
               LITERAL_ARRAY, LITERAL_COMPLEX
-    public :: ast_arena_t, ast_entry_t, ast_arena_stats_t, create_ast_arena, init_ast_arena
+    public :: ast_arena_t, ast_entry_t, ast_arena_stats_t, create_ast_arena, destroy_ast_arena
     public :: program_node, assignment_node, pointer_assignment_node, &
               identifier_node, literal_node
     public :: binary_op_node, call_or_subscript_node, array_literal_node
