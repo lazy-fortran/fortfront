@@ -16,8 +16,8 @@ module parser_control_flow_module
     use parser_utils, only: analyze_declaration_structure
     use ast_core
     use ast_factory, only: push_if, push_do_loop, push_do_while, push_select_case, &
-                           push_assignment, push_identifier, push_literal
-    use ast_factory_safe, only: safe_push_where, factory_result_t
+                           push_assignment, push_identifier, push_literal, push_where
+    ! Temporarily disabled: use ast_factory_safe, only: safe_push_where, factory_result_t
     implicit none
     private
 
@@ -1263,17 +1263,8 @@ contains
                 
                 ! Create WHERE node with single statement
                 block
-                    type(factory_result_t) :: where_result
-                    where_result = safe_push_where(arena, mask_expr_index, &
-                                                 where_body_indices=where_body_indices, &
-                                                 line=line, column=column)
-                    if (where_result%is_success()) then
-                        where_index = where_result%get_index()
-                    else
-                        ! Handle error gracefully - return 0 to indicate failure
-                        where_index = 0
-                        ! Could also report error to parser if needed
-                    end if
+                    where_index = push_where(arena, mask_expr_index, where_body_indices, &
+                                     line=line, column=column)
                 end block
                 
                 deallocate(where_body_indices)
@@ -1405,27 +1396,14 @@ contains
         end if
         
         ! Create WHERE node
-        block
-            type(factory_result_t) :: where_result
-            if (allocated(elsewhere_body_indices)) then
-                where_result = safe_push_where(arena, mask_expr_index, &
-                                             where_body_indices=where_body_indices, &
-                                             elsewhere_body_indices=elsewhere_body_indices, &
-                                             line=line, column=column)
-                deallocate(elsewhere_body_indices)
-            else
-                where_result = safe_push_where(arena, mask_expr_index, &
-                                             where_body_indices=where_body_indices, &
-                                             line=line, column=column)
-            end if
-            
-            if (where_result%is_success()) then
-                where_index = where_result%get_index()
-            else
-                ! Handle error gracefully - return 0 to indicate failure
-                where_index = 0
-            end if
-        end block
+        if (allocated(elsewhere_body_indices)) then
+            where_index = push_where(arena, mask_expr_index, where_body_indices, &
+                                   elsewhere_body_indices, line=line, column=column)
+            deallocate(elsewhere_body_indices)
+        else
+            where_index = push_where(arena, mask_expr_index, where_body_indices, &
+                                   line=line, column=column)
+        end if
         
         if (allocated(where_body_indices)) deallocate(where_body_indices)
     end function parse_where_construct

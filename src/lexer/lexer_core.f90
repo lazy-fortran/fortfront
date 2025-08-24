@@ -929,11 +929,11 @@ contains
     function token_deep_copy(this) result(copy)
         class(token_t), intent(in) :: this
         type(token_t) :: copy
-
+        
         copy%kind = this%kind
         copy%line = this%line
         copy%column = this%column
-
+        
         if (allocated(this%text)) then
             copy%text = this%text
         end if
