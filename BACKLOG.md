@@ -37,6 +37,7 @@ No remaining items - Phase 2 development continuing
 - [ ] #439: fix: rescue commits from main (repository hygiene - rescue branch cleanup)
 
 ### Testing and Documentation (SUPPORT)
+- [ ] #456: Get rid of disabled tests. Either adapt to current system and enable, or delete if obsoleted
 - [ ] #450: test: re-enable temporarily disabled tests for issues #4 and #321
 - [ ] #451: test: complete AST arena integration test coverage
 - [ ] #452: feature: restore debug output capabilities in frontend compilation pipeline
