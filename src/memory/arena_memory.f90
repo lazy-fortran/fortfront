@@ -246,6 +246,7 @@ contains
         type(arena_handle_t) :: handle
         integer :: aligned_size, required_size
         integer :: chunk_idx
+        integer :: loop_count  ! Safety counter for infinite loop prevention
 
         ! Validate size
         if (size <= 0) then
@@ -258,7 +259,9 @@ contains
         
         ! Find chunk with space or grow
         chunk_idx = this%current_chunk
-        do while (chunk_idx <= this%chunk_count)
+        loop_count = 0
+        do while (chunk_idx <= this%chunk_count .and. loop_count < 100)
+            loop_count = loop_count + 1
             if (this%chunks(chunk_idx)%used + aligned_size &
                 <= this%chunks(chunk_idx)%capacity) then
                 exit  ! Found space

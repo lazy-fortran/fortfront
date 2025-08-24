@@ -154,10 +154,13 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
+        integer :: loop_count  ! Safety counter
 
         expr_index = parse_logical_or(parser, arena)
+        loop_count = 0
 
-        do while (.not. parser%is_at_end())
+        do while (.not. parser%is_at_end() .and. loop_count < 1000)
+            loop_count = loop_count + 1
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
                 (op_token%text == ".eqv." .or. op_token%text == ".neqv.")) then
@@ -182,10 +185,13 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
+        integer :: loop_count  ! Safety counter
 
         expr_index = parse_logical_and(parser, arena)
+        loop_count = 0
 
-        do while (.not. parser%is_at_end())
+        do while (.not. parser%is_at_end() .and. loop_count < 1000)
+            loop_count = loop_count + 1
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == ".or.") then
                 op_token = parser%consume()  ! consume operator
@@ -209,10 +215,13 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
+        integer :: loop_count  ! Safety counter
 
         expr_index = parse_comparison(parser, arena)
+        loop_count = 0
 
-        do while (.not. parser%is_at_end())
+        do while (.not. parser%is_at_end() .and. loop_count < 1000)
+            loop_count = loop_count + 1
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == ".and.") then
                 op_token = parser%consume()  ! consume operator
@@ -263,10 +272,13 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
+        integer :: loop_count  ! Safety counter
 
         expr_index = parse_term(parser, arena)
+        loop_count = 0
 
-        do while (.not. parser%is_at_end())
+        do while (.not. parser%is_at_end() .and. loop_count < 1000)
+            loop_count = loop_count + 1
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == "//") then
                 op_token = parser%consume()
@@ -298,10 +310,13 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
+        integer :: loop_count  ! Safety counter
 
         expr_index = parse_factor(parser, arena)
+        loop_count = 0
 
-        do while (.not. parser%is_at_end())
+        do while (.not. parser%is_at_end() .and. loop_count < 1000)
+            loop_count = loop_count + 1
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
                 (op_token%text == "+" .or. op_token%text == "-")) then
@@ -323,10 +338,13 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
+        integer :: loop_count  ! Safety counter
 
         expr_index = parse_unary(parser, arena)
+        loop_count = 0
 
-        do while (.not. parser%is_at_end())
+        do while (.not. parser%is_at_end() .and. loop_count < 1000)
+            loop_count = loop_count + 1
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
                 (op_token%text == "*" .or. op_token%text == "/")) then
@@ -924,11 +942,14 @@ contains
         integer, intent(in) :: base_expr
         integer :: expr_index
         type(token_t) :: op_token
+        integer :: loop_count  ! Safety counter
         
         expr_index = base_expr
+        loop_count = 0
         
         ! Handle postfix operators in a loop
-        do while (.not. parser%is_at_end())
+        do while (.not. parser%is_at_end() .and. loop_count < 1000)
+            loop_count = loop_count + 1
             op_token = parser%peek()
             
             if (op_token%kind == TK_OPERATOR .and. op_token%text == "%") then
