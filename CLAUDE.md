@@ -35,7 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Build
 ```bash
 # Standard build
-fpm build --flag "-cpp -fmax-stack-var-size=65536"
+fpm build --flag "-cpp -fmax-stack-var-size=131072"
 
 # Or use the convenience script (recommended)
 ./build.sh
@@ -44,7 +44,7 @@ fpm build --flag "-cpp -fmax-stack-var-size=65536"
 ### Run all tests
 ```bash
 # Standard test
-fpm test --flag "-cpp -fmax-stack-var-size=65536"
+fpm test --flag "-cpp -fmax-stack-var-size=131072"
 
 # Or use the convenience script (recommended)
 ./test.sh
@@ -53,7 +53,7 @@ fpm test --flag "-cpp -fmax-stack-var-size=65536"
 ### Run tests with coverage (Linux only)
 ```bash
 fpm clean --all
-fpm test --profile debug --flag '-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g'
+fpm test --profile debug --flag '-cpp -fmax-stack-var-size=131072 -fprofile-arcs -ftest-coverage -g'
 lcov --capture --directory build/ --output-file coverage.info \
   --rc branch_coverage=1 \
   --ignore-errors inconsistent
@@ -69,17 +69,17 @@ genhtml coverage_filtered.info --output-directory coverage_html \
 
 ### Run a specific test
 ```bash
-fpm test <test_name> --flag "-cpp -fmax-stack-var-size=65536"
-# Example: fpm test test_frontend_lexer_api --flag "-cpp -fmax-stack-var-size=65536"
+fpm test <test_name> --flag "-cpp -fmax-stack-var-size=131072"
+# Example: fpm test test_frontend_lexer_api --flag "-cpp -fmax-stack-var-size=131072"
 
 # Or use the convenience script (recommended):
 ./test.sh <test_name>
 ```
 
 ### Important build flags
-- **CRITICAL**: Always use `-cpp -fmax-stack-var-size=65536` flags when building/testing
+- **CRITICAL**: Always use `-cpp -fmax-stack-var-size=131072` flags when building/testing
 - `-cpp`: Required for preprocessing
-- `-fmax-stack-var-size=65536`: **MANDATORY for GCC 15.x compatibility** - prevents module reading failures
+- `-fmax-stack-var-size=131072`: **MANDATORY for GCC 15.x compatibility** - prevents module reading failures, increased from 65536 for coverage builds
 - Use `--profile debug` for debugging and coverage
 
 ## Development Tips

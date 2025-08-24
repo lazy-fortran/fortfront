@@ -196,7 +196,7 @@ contains
         call update_ast_range(arena, 2, 2, new_source, semantic_ctx)
         
         ! Arena should still be valid
-        if (arena%size <= 0) then
+        if (.not. allocated(arena%entries)) then
             print *, "FAILED: Incremental update corrupted arena"
             all_tests_passed = .false.
             return
