@@ -1,3 +1,7 @@
+! GCC coverage instrumentation workaround:
+! Complex module interfaces with optional array parameters cause module reading errors
+! with -fprofile-arcs -ftest-coverage flags ("Expected right parenthesis" error).
+! This is a known GCC limitation with complex module interfaces and coverage.
 module ast_factory_safe
     use ast_core
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
@@ -482,7 +486,7 @@ contains
         character(len=*), intent(in) :: index_var
         integer, intent(in) :: start_index, end_index
         integer, intent(in), optional :: step_index, mask_index
-        integer, intent(in), optional :: body_indices(:)
+        integer, dimension(:), intent(in), optional :: body_indices
         integer, intent(in), optional :: line, column, parent_index
         type(factory_result_t) :: factory_result
         
@@ -627,8 +631,8 @@ contains
                             elsewhere_body_indices, line, column, parent_index) result(factory_result)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: mask_expr_index
-        integer, intent(in), optional :: where_body_indices(:)
-        integer, intent(in), optional :: elsewhere_body_indices(:)
+        integer, dimension(:), intent(in), optional :: where_body_indices
+        integer, dimension(:), intent(in), optional :: elsewhere_body_indices
         integer, intent(in), optional :: line, column, parent_index
         type(factory_result_t) :: factory_result
         
@@ -689,7 +693,7 @@ contains
                                    line, column, parent_index, result_variable) result(factory_result)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
-        integer, intent(in), optional :: param_indices(:), body_indices(:)
+        integer, dimension(:), intent(in), optional :: param_indices, body_indices
         character(len=*), intent(in), optional :: return_type, result_variable
         integer, intent(in), optional :: line, column, parent_index
         type(factory_result_t) :: factory_result
@@ -762,7 +766,7 @@ contains
                                      line, column, parent_index) result(factory_result)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
-        integer, intent(in), optional :: param_indices(:), body_indices(:)
+        integer, dimension(:), intent(in), optional :: param_indices, body_indices
         integer, intent(in), optional :: line, column, parent_index
         type(factory_result_t) :: factory_result
         

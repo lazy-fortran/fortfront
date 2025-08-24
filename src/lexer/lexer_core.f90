@@ -21,9 +21,9 @@ module lexer_core
         integer :: line = 1
         integer :: column = 1
     contains
+        procedure, private :: assign => token_assign
+        generic, public :: assignment(=) => assign
         procedure :: deep_copy => token_deep_copy
-        procedure :: assign => token_assign
-        generic :: assignment(=) => assign
     end type token_t
 
     ! Lexer result types
