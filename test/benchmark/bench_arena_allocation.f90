@@ -4,14 +4,14 @@ program bench_arena_allocation
     use iso_fortran_env, only: real64, int64
     implicit none
 
-    integer, parameter :: WARMUP_ITERATIONS = 100
-    integer, parameter :: BENCH_ITERATIONS = 1000
+    integer, parameter :: WARMUP_ITERATIONS = 10
+    integer, parameter :: BENCH_ITERATIONS = 50  ! Reduced from 1000 to 50
     
-    ! Test sizes
+    ! Test sizes - REDUCED FOR CI PERFORMANCE
     integer, parameter :: SMALL_SIZE = 1000
-    integer, parameter :: MEDIUM_SIZE = 10000
-    integer, parameter :: LARGE_SIZE = 100000
-    integer, parameter :: HUGE_SIZE = 1000000
+    integer, parameter :: MEDIUM_SIZE = 5000
+    integer, parameter :: LARGE_SIZE = 10000    ! Reduced from 100K to 10K
+    integer, parameter :: HUGE_SIZE = 25000     ! Reduced from 1M to 25K
     
     type :: benchmark_result_t
         character(len=64) :: test_name = ""

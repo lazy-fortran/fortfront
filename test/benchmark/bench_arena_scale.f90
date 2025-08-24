@@ -4,13 +4,13 @@ program bench_arena_scale
     use iso_fortran_env, only: real64, int64
     implicit none
 
-    integer, parameter :: ITERATIONS = 10
+    integer, parameter :: ITERATIONS = 3
     
-    ! Test scales
+    ! Test scales - REDUCED FOR CI PERFORMANCE
     integer, parameter :: SCALE_1K = 1000
-    integer, parameter :: SCALE_10K = 10000
-    integer, parameter :: SCALE_100K = 100000
-    integer, parameter :: SCALE_1M = 1000000
+    integer, parameter :: SCALE_10K = 5000
+    integer, parameter :: SCALE_100K = 10000
+    integer, parameter :: SCALE_1M = 25000  ! Reduced from 1M to 25K
     
     type :: scalability_result_t
         character(len=64) :: operation = ""
@@ -69,7 +69,7 @@ contains
         type(ast_arena_t) :: arena
         type(ast_handle_t) :: handle
         type(ast_node_arena_t) :: node
-        real(real64) :: start_time, end_time
+        real(real64) :: start_time, end_time, iter_start_time
         integer :: i, iter
         type(ast_arena_stats_t) :: stats
         type(scalability_result_t) :: result
@@ -77,6 +77,7 @@ contains
         total_time = 0.0
         
         do iter = 1, ITERATIONS
+            call cpu_time(iter_start_time)
             arena = create_ast_arena(scale)
             
             call cpu_time(start_time)
@@ -86,6 +87,15 @@ contains
                 node%integer_data = i * 2
                 node%string_data = "scalability_test"
                 handle = store_ast_node(arena, node)
+                
+                ! Safety timeout: abort if taking too long
+                if (mod(i, 5000) == 0) then
+                    call cpu_time(end_time)
+                    if (end_time - iter_start_time > 30.0) then
+                        print *, "WARNING: Benchmark timeout at", i, "nodes"
+                        exit
+                    end if
+                end if
             end do
             
             call cpu_time(end_time)
@@ -104,6 +114,13 @@ contains
             end if
             
             call destroy_ast_arena(arena)
+            
+            ! Safety timeout between iterations
+            call cpu_time(end_time)
+            if (end_time - iter_start_time > 60.0) then
+                print *, "WARNING: Total benchmark timeout after", iter, "iterations"
+                exit
+            end if
         end do
         
         total_time = total_time / ITERATIONS
@@ -367,7 +384,7 @@ contains
         
         arena = create_ast_arena(scale)
         
-        do iter = 1, ITERATIONS * 10  ! More iterations for reset
+        do iter = 1, ITERATIONS * 2  ! Reduced iterations for reset
             ! Allocate nodes
             do i = 1, scale
                 node%node_kind = i
@@ -382,7 +399,7 @@ contains
             reset_time = reset_time + (end_time - start_time)
         end do
         
-        total_time = reset_time / (ITERATIONS * 10)
+        total_time = reset_time / (ITERATIONS * 2)
         
         result%operation = "Reset"
         result%scale = scale

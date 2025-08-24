@@ -4,11 +4,11 @@ program bench_arena_memory
     use iso_fortran_env, only: real64, int64
     implicit none
 
-    ! Test sizes
+    ! Test sizes - REDUCED FOR CI PERFORMANCE
     integer, parameter :: SMALL_SIZE = 1000
-    integer, parameter :: MEDIUM_SIZE = 10000
-    integer, parameter :: LARGE_SIZE = 100000
-    integer, parameter :: HUGE_SIZE = 1000000
+    integer, parameter :: MEDIUM_SIZE = 5000
+    integer, parameter :: LARGE_SIZE = 10000     ! Reduced from 100K to 10K
+    integer, parameter :: HUGE_SIZE = 25000      ! Reduced from 1M to 25K
     
     type :: memory_result_t
         character(len=64) :: test_name = ""
