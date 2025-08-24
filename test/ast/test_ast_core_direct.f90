@@ -1,8 +1,8 @@
 program test_ast_core_direct
     ! Modernized test using modern AST arena API instead of deprecated ast_core
-    use ast_arena_modern, only: ast_arena_t, create_ast_arena
-    use ast_core, only: create_identifier, create_literal, identifier_node, literal_node, &
-                        LITERAL_INTEGER, LITERAL_STRING, ast_arena_stats_t
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t
+    use ast_types, only: create_identifier, create_literal, identifier_node, literal_node, &
+                        LITERAL_INTEGER, LITERAL_STRING
     implicit none
 
     integer :: total_tests, passed_tests

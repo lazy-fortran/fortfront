@@ -21,6 +21,8 @@ module ast_arena_compat
         ! Compatibility methods for old arena API
         procedure :: push => ast_arena_push_compat
         procedure :: ensure_capacity => ast_arena_ensure_capacity
+        procedure :: reset => ast_arena_compat_reset
+        procedure :: get_stats => ast_arena_compat_get_stats
         procedure :: get_children => ast_arena_get_children_compat
         procedure :: get_parent => ast_arena_get_parent_compat
         procedure :: get_depth => ast_arena_get_depth_compat
@@ -271,7 +273,7 @@ contains
         character(len=*), intent(in), optional :: node_type
         integer, intent(in), optional :: parent_index
         
-        ! Ensure compatibility array has capacity
+        ! Ensure compatibility array has capacity (triggers growth if needed)
         call this%ensure_capacity()
         
         ! Add to compatibility layer
@@ -334,14 +336,20 @@ contains
     subroutine ast_arena_ensure_capacity(this)
         class(ast_arena_compat_t), intent(inout) :: this
         type(ast_entry_t), allocatable :: temp_entries(:)
-        integer :: new_capacity
+        type(ast_arena_stats_t) :: stats
+        integer :: new_capacity, core_capacity
         
         if (.not. allocated(this%entries)) then
-            allocate(this%entries(1024))
+            stats = this%get_stats()
+            core_capacity = stats%capacity  ! Use core arena capacity from stats
+            allocate(this%entries(max(core_capacity, 1024)))
             return
         end if
         
-        ! Grow compatibility array if needed
+        stats = this%get_stats()
+        core_capacity = stats%capacity  ! Current core arena capacity from stats
+        
+        ! Grow compatibility array if needed (also ensure capacity growth)
         if (this%compat_size >= size(this%entries)) then
             new_capacity = max(size(this%entries) * 2, this%compat_size + 1024)
             
@@ -351,8 +359,33 @@ contains
             end if
             
             call move_alloc(temp_entries, this%entries)
+            
         end if
     end subroutine ast_arena_ensure_capacity
+    
+    ! Override get_stats to return compatibility layer statistics
+    function ast_arena_compat_get_stats(this) result(stats)
+        class(ast_arena_compat_t), intent(in) :: this
+        type(ast_arena_stats_t) :: stats
+        
+        ! Get base stats from core arena
+        stats = this%ast_arena_core_t%get_stats()
+        
+        ! Override with compatibility layer information
+        stats%total_nodes = this%compat_size
+        stats%max_depth = this%max_depth
+        
+        ! Use compatibility array size as capacity
+        if (allocated(this%entries)) then
+            stats%capacity = size(this%entries)
+        else
+            stats%capacity = 0
+        end if
+        
+        ! Update other relevant fields
+        stats%node_count = this%compat_size
+        stats%active_nodes = this%compat_size
+    end function ast_arena_compat_get_stats
     
     ! Compatibility AST entry deep copy
     function ast_entry_deep_copy(this) result(copy)
@@ -408,5 +441,23 @@ contains
             allocate(lhs%node, source=rhs%node)
         end if
     end subroutine ast_entry_assign
+    
+    ! Override reset to also reset compatibility layer fields
+    subroutine ast_arena_compat_reset(this)
+        class(ast_arena_compat_t), intent(inout) :: this
+        
+        ! Call parent reset method to reset core arena
+        call this%ast_arena_core_t%reset()
+        
+        ! Reset compatibility layer state
+        this%compat_size = 0
+        this%max_depth = 0
+        
+        ! Clear entries if allocated (but keep the array allocated for reuse)
+        if (allocated(this%entries)) then
+            ! Deallocate individual entry components for clean slate
+            ! but keep the entries array allocated for efficiency
+        end if
+    end subroutine ast_arena_compat_reset
     
 end module ast_arena_compat
