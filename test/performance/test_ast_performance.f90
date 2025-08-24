@@ -110,8 +110,8 @@ contains
         arena = create_ast_arena()
         initial_capacity = arena%capacity
         
-        ! Add many dummy nodes to grow arena
-        do i = 1, 100
+        ! Add many dummy nodes to grow arena (need >1024 nodes to trigger growth)
+        do i = 1, 300
             source = "x = " // char(48 + mod(i, 10))  ! x = 0, x = 1, etc.
             call lex_source(source, tokens, error_msg)
             if (error_msg == "") then
@@ -122,6 +122,9 @@ contains
         ! Arena should have grown
         if (arena%capacity <= initial_capacity) then
             print *, "FAILED: Arena did not grow as expected"
+            print *, "  Initial capacity:", initial_capacity
+            print *, "  Final capacity:", arena%capacity
+            print *, "  Final size:", arena%size
             all_tests_passed = .false.
             return
         end if
