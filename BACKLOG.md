@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [x] #370: feat: migrate ast_arena to container API with type-bound procedures (branch: feat-migrate-ast-arena-370)
+
 
 ## TODO (Ordered by Priority)
 
@@ -41,6 +41,7 @@ No remaining items - Phase 1 complete
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #370: feat: migrate ast_arena to container API with type-bound procedures (PR #446 - Container API migration complete with full backward compatibility)
 - [x] #369: feat: define base arena interface with type-bound procedures (COMPLETED - Base interface implemented for unified arena architecture)
 - [x] #442: CRITICAL: Replace class(*) usage with abstract types for stable foundation (COMPLETED - Foundation ready for arena development)
 - [x] #410: Error Handling: Migrate parser to use unified result_t with comprehensive error recovery (PR #434)
