@@ -1,14 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (CRITICAL HANDBACK - PR #460 CI failing, system-wide test instability remains despite partial local improvements)
-
-**🚨 URGENT: SYSTEM-WIDE CRITICAL FAILURE - PARTIAL PROGRESS**
-- **Scope**: Affects main branch AND all feature branches, though local tests show some improvement
-- **Symptoms**: Tests show infinite "STOP 0" loops but complete successfully, CI still failing with parsing issues
-- **Root Cause**: Arena modernization work from PRs #455, #459 introduced architectural instability, parsing bugs remain
-- **Current Status**: Local tests show progress (tests pass after noise), but CI still fails - implementation incomplete
-- **Action**: SERGEI IMMEDIATE ATTENTION - Fix parsing logic for subroutines/functions as documented in PR #460, address remaining CI failures
+- [ ] #394: CST: Implement UID generation system for stable node identification
 
 ## TODO (Ordered by Priority)
 
@@ -22,7 +15,6 @@ No remaining items - Phase 1 complete
 No remaining items - Phase 2 development continuing
 
 ### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until #442 complete)
-- [ ] #394: CST: Implement UID generation system for stable node identification  
 - [ ] #395: CST: Implement lexer trivia collection for comments and whitespace
 - [ ] #396: CST: Create CST builder for parallel construction alongside AST
 - [ ] #397: CST: Implement CST to AST converter with bidirectional linking
@@ -69,6 +61,7 @@ No remaining items - Phase 2 development continuing
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Completed)
+- [x] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (RESOLVED - Test suite running successfully, all tests passing, regression resolved)
 - [x] #441: Subroutines and functions not handled properly (COMPLETED - PR #460 successfully fixed parsing regression, core issue resolved)
 - [x] #393: CST: Create basic CST node type definitions and module structure (COMPLETED - PR #455 implemented foundation CST types and arena management)
 - [x] #454: Update tests to use modern AST arena API after Issue #360 (COMPLETED - PR #459 successfully modernized test suite with modern arena API)
