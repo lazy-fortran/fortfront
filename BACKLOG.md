@@ -1,7 +1,8 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (ACTIVE - sergei working, CI still failing)
+- [ ] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (CRITICAL HANDBACK - PR #460 CI failing on both Linux and Windows platforms)
+- [ ] #441: Subroutines and functions not handled properly (REOPENED - CI failures in PR #460 indicate incomplete resolution)
 
 **🚨 URGENT: SYSTEM-WIDE CRITICAL FAILURE**
 - **Scope**: Affects main branch AND all feature branches (not just PR #460)
@@ -69,7 +70,6 @@ No remaining items - Phase 2 development continuing
 ## DONE (Completed)
 - [x] #393: CST: Create basic CST node type definitions and module structure (COMPLETED - PR #455 implemented foundation CST types and arena management)
 - [x] #454: Update tests to use modern AST arena API after Issue #360 (COMPLETED - PR #459 successfully modernized test suite with modern arena API)
-- [x] #441: Subroutines and functions not handled properly (COMPLETED - PR #460 fixed critical parsing regression with stable solution)
 - [x] #457: Parser fails on simple expressions with 'No statements found in file' (COMPLETED - PR #458 fixed arena size synchronization issue)
 - [x] #360: Migrate AST to modern high-performance arena with unified architecture (COMPLETED - PR #453 merged with generation-based handles and unified architecture)
 - [x] #371: feat: integrate compiler_arena for unified memory management (COMPLETED - Integrated into all compilation phases with comprehensive phase tracking)
