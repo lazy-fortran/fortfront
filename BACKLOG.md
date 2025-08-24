@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-
+- [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations (branch: feat-arena-benchmark-suite-400)
 
 ## TODO (Ordered by Priority)
 
@@ -12,7 +12,6 @@ No remaining critical items - #442 moved to DOING
 No remaining items - Phase 1 complete
 
 ### Foundation Phase 2: Arena System (Foundation complete, continuing development)
-- [ ] #400: Arena: Create comprehensive performance benchmark suite for arena operations
 - [ ] #362: Create unified compiler_arena module for KISS architecture
 - [ ] #371: feat: integrate compiler_arena for unified memory management
 - [ ] #360: Migrate AST to modern high-performance arena with unified architecture
