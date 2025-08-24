@@ -137,6 +137,7 @@ contains
         type(declaration_attributes_t), intent(out) :: attr_info
 
         type(token_t) :: var_token
+        integer :: attr_loop_count
 
         ! Initialize all attributes to defaults
         attr_info%is_allocatable = .false.
@@ -149,7 +150,9 @@ contains
 
         ! Check for attributes like allocatable (e.g., "real, allocatable :: arr")
         ! Parse multiple attributes separated by commas
-        do while (.not. parser%is_at_end())
+        attr_loop_count = 0
+        do while (.not. parser%is_at_end() .and. attr_loop_count < 100)
+            attr_loop_count = attr_loop_count + 1
             var_token = parser%peek()
             if (var_token%kind == TK_OPERATOR .and. var_token%text == ",") then
                 ! Consume ','
