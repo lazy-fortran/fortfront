@@ -45,11 +45,17 @@ jobs:
         chmod +x fpm-0.12.0-linux-x86_64-gcc-12
         sudo mv fpm-0.12.0-linux-x86_64-gcc-12 /usr/local/bin/fpm
     
-    - name: Cache apt packages
-      uses: awalsh128/cache-apt-pkgs-action@v1
-      with:
-        packages: gfortran lcov
-        version: 1.0
+    - name: Setup newer GCC
+      run: |
+        # Add GCC 14 PPA for Ubuntu (fixes module reading issues with coverage)
+        sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo apt-get install -y gfortran-14 gcc-14 g++-14 lcov
+        # Set GCC 14 as default
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
+        sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-14 100
+        sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-14 100
     
     - name: Cache FPM dependencies
       uses: actions/cache@v4
