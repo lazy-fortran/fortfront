@@ -6,7 +6,7 @@ module compiler_arena
     
     use arena_memory
     use type_system_arena
-    use ast_arena_modern
+    use ast_arena, only: ast_arena_t, init_ast_arena, ast_arena_stats_t
     use iso_fortran_env, only: int64
     implicit none
     private
@@ -54,6 +54,7 @@ module compiler_arena
         procedure :: get_stats => compiler_arena_get_stats
         procedure :: get_total_memory => compiler_arena_get_total_memory
         procedure :: validate_all => compiler_arena_validate_all
+        procedure :: next_phase => compiler_arena_next_phase
         procedure, private :: update_total_memory => compiler_arena_update_total_memory
         procedure :: assign_compiler_arena => compiler_arena_assign
         generic :: assignment(=) => assign_compiler_arena
@@ -104,8 +105,8 @@ contains
         ! Initialize type arena (already implemented)
         this%types = create_type_arena(size / 4)  ! Types typically need less memory
         
-        ! Initialize AST arena (modern implementation)
-        this%ast = create_ast_arena(size)
+        ! Initialize AST arena (regular implementation)
+        call init_ast_arena(this%ast)
         
         ! Symbol arena - placeholder (future implementation)
         ! this%symbols = create_symbol_arena(size / 2)
@@ -132,9 +133,9 @@ contains
         
         if (.not. this%is_initialized) return
         
-        ! Destroy all sub-arenas
+        ! Clear all sub-arenas (ast_arena doesn't have explicit destroy)
         call destroy_type_arena(this%types)
-        call destroy_ast_arena(this%ast)
+        call this%ast%clear()
         
         ! Future: destroy other arenas
         ! call destroy_symbol_arena(this%symbols)  
@@ -158,7 +159,7 @@ contains
         
         ! Reset all sub-arenas
         call this%types%reset()
-        call this%ast%reset()
+        call this%ast%clear()
         
         ! Future: reset other arenas
         ! call this%symbols%reset()
@@ -229,11 +230,11 @@ contains
         block
             type(ast_arena_stats_t) :: ast_stats
             ast_stats = this%ast%get_stats()
-            stats%ast_memory = ast_stats%total_memory
+            stats%ast_memory = ast_stats%memory_usage
             stats%total_memory = stats%total_memory + stats%ast_memory
             
-            ! Average utilization across arenas
-            stats%average_utilization = (type_stats%utilization + ast_stats%utilization) / 2.0
+            ! Average utilization across arenas (use simple approximation)
+            stats%average_utilization = type_stats%utilization  ! Just use type arena utilization
         end block
         
         ! Future: aggregate statistics from other arenas
@@ -278,6 +279,36 @@ contains
         !             this%literals%validate_all()
     end function compiler_arena_validate_all
     
+    ! Advance to next compilation phase with generation increment
+    subroutine compiler_arena_next_phase(this, phase_name)
+        class(compiler_arena_t), intent(inout) :: this
+        character(len=*), intent(in) :: phase_name
+        
+        if (.not. this%is_initialized) return
+        
+        ! Increment generation for all arenas
+        this%generation = this%generation + 1
+        
+        ! Update generation for sub-arenas that support it
+        ! Type arena generation update (if needed for future implementations)
+        ! this%types%generation = this%generation
+        
+        ! AST arena generation update (if needed for future implementations) 
+        ! this%ast%generation = this%generation
+        
+        ! Future: update generation for symbol and literal arenas
+        ! this%symbols%generation = this%generation
+        ! this%literals%generation = this%generation
+        
+        ! Update memory statistics after phase transition
+        call compiler_arena_update_total_memory(this)
+        
+        ! Optional: Log phase transition for debugging
+        ! if (debug_enabled) then
+        !     print *, "Compiler Phase: ", trim(phase_name), " Generation: ", this%generation
+        ! end if
+    end subroutine compiler_arena_next_phase
+    
     ! Update total memory from all sub-arenas
     subroutine compiler_arena_update_total_memory(this)
         class(compiler_arena_t), intent(inout) :: this
@@ -295,7 +326,7 @@ contains
         block
             type(ast_arena_stats_t) :: ast_stats
             ast_stats = this%ast%get_stats()
-            this%total_bytes = this%total_bytes + ast_stats%total_memory
+            this%total_bytes = this%total_bytes + ast_stats%memory_usage
         end block
         
         ! Future: add memory from other arenas
