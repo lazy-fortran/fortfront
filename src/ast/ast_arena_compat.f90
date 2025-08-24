@@ -67,6 +67,9 @@ contains
         allocate(arena%entries(capacity))
         arena%compat_size = 0
         arena%max_depth = 0
+        
+        ! CRITICAL FIX: Synchronize base arena capacity field with actual capacity
+        arena%capacity = capacity
     end function create_ast_arena_compat
     
     ! Compatibility method: get children indices for parent node
@@ -342,7 +345,10 @@ contains
         if (.not. allocated(this%entries)) then
             stats = this%get_stats()
             core_capacity = stats%capacity  ! Use core arena capacity from stats
-            allocate(this%entries(max(core_capacity, 1024)))
+            new_capacity = max(core_capacity, 1024)
+            allocate(this%entries(new_capacity))
+            ! CRITICAL FIX: Synchronize base arena capacity field
+            this%capacity = new_capacity
             return
         end if
         
@@ -360,6 +366,8 @@ contains
             
             call move_alloc(temp_entries, this%entries)
             
+            ! CRITICAL FIX: Synchronize base arena capacity field with new capacity
+            this%capacity = new_capacity
         end if
     end subroutine ast_arena_ensure_capacity
     

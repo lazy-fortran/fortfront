@@ -39,9 +39,15 @@ contains
     function create_ast_arena(initial_capacity) result(arena)
         integer, intent(in), optional :: initial_capacity
         type(ast_arena_t) :: arena
+        integer :: capacity
         
         arena%ast_arena_compat_t = create_ast_arena_compat(initial_capacity)
         arena%size = 0  ! Initialize size from base_arena_t
+        
+        ! CRITICAL FIX: Ensure base capacity is initialized properly
+        capacity = 1024
+        if (present(initial_capacity)) capacity = initial_capacity
+        arena%capacity = capacity
     end function create_ast_arena
     
     ! Push with size synchronization for backward compatibility
@@ -56,6 +62,13 @@ contains
         
         ! Sync size field with compat_size
         this%size = this%compat_size
+        
+        ! CRITICAL FIX: Sync capacity field to prevent validation errors
+        if (allocated(this%entries)) then
+            this%capacity = size(this%entries)
+        else
+            this%capacity = 0
+        end if
     end subroutine ast_arena_push_with_size_sync
     
     ! Destroy AST arena
