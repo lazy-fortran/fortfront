@@ -65,6 +65,17 @@ module fortfront
     use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, INTENT_IN, &
                              INTENT_OUT, INTENT_INOUT
     
+    ! Re-export CST core functionality (Issue #393)
+    use cst_core, only: create_cst_node, create_trivia, get_node_kind_name, &
+                       is_trivia_kind, validate_cst_node, validate_trivia, &
+                       add_child_to_cst_node, set_cst_node_text, &
+                       add_leading_trivia, add_trailing_trivia
+    use cst_nodes, only: cst_node_t, trivia_t, CST_PROGRAM, CST_SUBROUTINE, &
+                        CST_FUNCTION, CST_DECLARATION, CST_ASSIGNMENT, CST_CALL, &
+                        CST_IDENTIFIER, CST_LITERAL, CST_OPERATOR, CST_COMMENT, &
+                        CST_WHITESPACE, CST_NEWLINE
+    use cst_arena, only: cst_arena_t, cst_handle_t, create_cst_arena
+    
     ! Re-export semantic analyzer functionality
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     use expression_temporary_tracker_module, only: temp_info_t
