@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #457: Parser fails on simple expressions with 'No statements found in file' (CRITICAL - affects 60+ tests, blocks all CI)
+(No current work)
 
 ## TODO (Ordered by Priority)
 
@@ -44,6 +44,7 @@ No remaining items - Phase 2 development continuing
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #457: Parser fails on simple expressions with 'No statements found in file' (COMPLETED - PR #458 fixed arena size synchronization issue)
 - [x] #360: Migrate AST to modern high-performance arena with unified architecture (COMPLETED - PR #453 merged with generation-based handles and unified architecture)
 - [x] #371: feat: integrate compiler_arena for unified memory management (COMPLETED - Integrated into all compilation phases with comprehensive phase tracking)
 - [x] #362: Create unified compiler_arena module for KISS architecture (COMPLETED - Module implemented with comprehensive tests)
