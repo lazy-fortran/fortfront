@@ -2,6 +2,7 @@ module ast_nodes_core
     use json_module
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
                          ast_visitor_base_t
+    use uid_generator, only: generate_uid
     implicit none
     private
 
@@ -189,6 +190,7 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -224,6 +226,7 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -262,6 +265,7 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -294,6 +298,7 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -328,6 +333,7 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -365,6 +371,7 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -429,6 +436,7 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -465,6 +473,7 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -487,6 +496,7 @@ contains
 
         node%pointer_index = pointer_index
         node%target_index = target_index
+        node%uid = generate_uid()
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_pointer_assignment
@@ -497,6 +507,7 @@ contains
         character(len=*), intent(in), optional :: syntax_style
         type(array_literal_node) :: node
         node%element_indices = element_indices
+        node%uid = generate_uid()
         if (present(line)) node%line = line
         if (present(column)) node%column = column
         if (present(syntax_style)) then
@@ -540,6 +551,7 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -564,6 +576,7 @@ contains
         
         node%base_expr_index = base_expr_index
         node%component_name = component_name
+        node%uid = generate_uid()
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_component_access
@@ -603,6 +616,7 @@ contains
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -626,6 +640,7 @@ contains
         type(range_subscript_node) :: node
         
         node%base_expr_index = base_expr_index
+        node%uid = generate_uid()
         if (present(start_index)) then
             node%start_index = start_index
         else

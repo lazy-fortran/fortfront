@@ -1,5 +1,6 @@
 module ast_nodes_control
     use json_module
+    use uid_generator, only: generate_uid
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
                          ast_node_wrapper, ast_visitor_base_t
     implicit none
@@ -288,6 +289,7 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -333,6 +335,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -372,6 +375,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -432,6 +436,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -503,6 +508,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -545,6 +551,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -591,6 +598,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -627,6 +635,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -678,6 +687,7 @@ contains
         
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -733,6 +743,7 @@ contains
         class(cycle_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -767,6 +778,7 @@ contains
         class(exit_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -804,6 +816,7 @@ contains
         class(stop_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -838,6 +851,7 @@ contains
         class(return_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -871,6 +885,7 @@ contains
         class(goto_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -908,6 +923,7 @@ contains
         class(error_stop_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -968,6 +984,7 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -1001,6 +1018,7 @@ contains
         integer, intent(in), optional :: line, column
         type(do_loop_node) :: node
 
+        node%uid = generate_uid()
         node%var_name = var_name
         node%start_expr_index = start_expr_index
         node%end_expr_index = end_expr_index
@@ -1022,6 +1040,7 @@ contains
         integer, intent(in), optional :: line, column
         type(do_while_node) :: node
 
+        node%uid = generate_uid()
         node%condition_index = condition_index
 
         if (present(body_indices)) then
@@ -1043,6 +1062,7 @@ contains
         integer, intent(in), optional :: line, column
         type(if_node) :: node
 
+        node%uid = generate_uid()
         node%condition_index = condition_index
 
         if (present(then_body_indices)) then
@@ -1075,6 +1095,7 @@ contains
         integer, intent(in), optional :: line, column
         type(select_case_node) :: node
 
+        node%uid = generate_uid()
         node%selector_index = expr_index
         if (present(case_indices)) then
             if (size(case_indices) > 0) then
@@ -1113,6 +1134,7 @@ contains
         class(where_stmt_node), intent(in) :: rhs
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -1130,6 +1152,7 @@ contains
         integer, intent(in), optional :: line, column
         type(associate_node) :: node
 
+        node%uid = generate_uid()
         if (size(associations) > 0) then
             node%associations = associations
         end if

@@ -1,5 +1,6 @@
 module ast_nodes_io
     use json_module
+    use uid_generator, only: generate_uid
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
                          ast_visitor_base_t
     implicit none
@@ -97,6 +98,7 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -132,6 +134,7 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -190,6 +193,7 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -245,6 +249,7 @@ contains
         ! Copy base fields
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -269,6 +274,7 @@ contains
         integer, intent(in), optional :: line, column
         type(print_statement_node) :: node
 
+        node%uid = generate_uid()
         if (present(expression_indices)) then
             if (size(expression_indices) > 0) then
                 node%expression_indices = expression_indices

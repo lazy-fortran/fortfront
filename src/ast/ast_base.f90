@@ -2,6 +2,7 @@ module ast_base
     use json_module
     use type_system_unified, only: mono_type_t
     use string_types, only: string_t
+    use uid_generator, only: uid_t
     implicit none
     private
 
@@ -22,6 +23,9 @@ module ast_base
         integer :: column = 1
         type(mono_type_t) :: inferred_type  ! Type information
         ! from semantic analysis
+        
+        ! Unique identifier for CST/AST bidirectional linking
+        type(uid_t) :: uid
         
         ! Constant folding information
         logical :: is_constant = .false.  ! True if this node is a compile-time constant
