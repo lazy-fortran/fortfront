@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (HANDOFF TO SERGEI)
+- [ ] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (HANDOFF TO SERGEI)
 
 **🚨 URGENT: SYSTEM-WIDE CRITICAL FAILURE**
 - **Scope**: Affects main branch AND all feature branches (not just PR #460)
