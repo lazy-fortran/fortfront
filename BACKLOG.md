@@ -1,6 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [x] #360: Migrate AST to modern high-performance arena with unified architecture (branch: feat-migrate-ast-arena-360)
 
 ## TODO (Ordered by Priority)
 
@@ -11,7 +12,7 @@ No remaining critical items - #442 moved to DOING
 No remaining items - Phase 1 complete
 
 ### Foundation Phase 2: Arena System (Foundation complete, continuing development)
-- [ ] #360: Migrate AST to modern high-performance arena with unified architecture
+No remaining items - Phase 2 development continuing
 
 ### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until #442 complete)
 - [ ] #393: CST: Create basic CST node type definitions and module structure
