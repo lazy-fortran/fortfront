@@ -14,6 +14,7 @@ module frontend
     ! Migrated from ast_core: use explicit imports for better dependency management
     use ast_arena, only: ast_arena_t, init_ast_arena
     use ast_nodes_core, only: program_node
+    use compiler_arena, only: compiler_arena_t, create_compiler_arena, destroy_compiler_arena
     use ast_nodes_misc, only: comment_node
     use ast_base, only: LITERAL_STRING
     use ast_factory, only: push_program, push_literal
@@ -96,7 +97,7 @@ contains
 
         ! Local variables
         type(token_t), allocatable :: tokens(:)
-        type(ast_arena_t) :: arena
+        type(compiler_arena_t) :: compiler_arena
         integer :: prog_index
         character(len=:), allocatable :: code, source
         integer :: unit, iostat
@@ -134,32 +135,39 @@ contains
         end block
         close (unit)
 
+        ! Initialize unified compiler arena for all phases
+        compiler_arena = create_compiler_arena()
+
         ! Phase 1: Lexical Analysis
+        call compiler_arena%next_phase("lexer")
         call lex_file(source, tokens, error_msg)
         if (error_msg /= "") return
         ! Debug tokens output disabled - implement later if needed
 
         ! Phase 2: Parsing
-        call init_ast_arena(arena)
-        call parse_tokens(tokens, arena, prog_index, error_msg)
+        call compiler_arena%next_phase("parser")
+        call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
         if (error_msg /= "") return
         ! Debug AST output disabled - implement later if needed
 
         ! Phase 3: Semantic Analysis (only for lazy fortran)
+        call compiler_arena%next_phase("semantic")
         ! Use the version with INTENT checking
         block
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
-            call analyze_program(ctx, arena, prog_index)
+            call analyze_program(ctx, compiler_arena%ast, prog_index)
         end block
         ! Debug semantic output disabled - implement later if needed
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
-        call standardize_ast(arena, prog_index)
+        call compiler_arena%next_phase("standardization")
+        call standardize_ast(compiler_arena%ast, prog_index)
         ! Debug standardize output disabled - implement later if needed
 
         ! Phase 5: Standard Fortran Code Generation
-        code = generate_code_from_arena(arena, prog_index)
+        call compiler_arena%next_phase("codegen")
+        code = generate_code_from_arena(compiler_arena%ast, prog_index)
 
         ! Debug codegen output disabled - implement later if needed
 
@@ -171,6 +179,9 @@ contains
             print '(a)', code
         end if
 
+        ! Cleanup unified compiler arena
+        call destroy_compiler_arena(compiler_arena)
+
     end subroutine compile_source
 
     ! Compile from tokens JSON (skip phase 1)
@@ -180,7 +191,7 @@ contains
         character(len=*), intent(out) :: error_msg
 
         type(token_t), allocatable :: tokens(:)
-        type(ast_arena_t) :: arena
+        type(compiler_arena_t) :: compiler_arena
         integer :: prog_index
         character(len=:), allocatable :: code
         type(path_validation_result_t) :: validation_result
@@ -194,32 +205,41 @@ contains
             return
         end if
 
+        ! Initialize unified compiler arena 
+        compiler_arena = create_compiler_arena()
+
         ! Read tokens from JSON
         tokens = json_read_tokens_from_file(tokens_json_file)
 
         ! Phase 2: Parsing
-        call init_ast_arena(arena)
-        call parse_tokens(tokens, arena, prog_index, error_msg)
+        call compiler_arena%next_phase("parser")
+        call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
         if (error_msg /= "") return
 
         ! Phase 3: Semantic Analysis (only for lazy fortran)
+        call compiler_arena%next_phase("semantic")
         ! Use the version with INTENT checking
         block
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
-            call analyze_program(ctx, arena, prog_index)
+            call analyze_program(ctx, compiler_arena%ast, prog_index)
         end block
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
-        call standardize_ast(arena, prog_index)
+        call compiler_arena%next_phase("standardization")
+        call standardize_ast(compiler_arena%ast, prog_index)
 
         ! Phase 5: Code Generation
-        call generate_fortran_code(arena, prog_index, code)
+        call compiler_arena%next_phase("codegen")
+        call generate_fortran_code(compiler_arena%ast, prog_index, code)
 
         ! Write output (only if not in compile mode - backend handles file creation)
         if (allocated(options%output_file) .and. allocated(options%output_file)) then
             call write_output_file(options%output_file, code, error_msg)
         end if
+
+        ! Cleanup unified compiler arena
+        call destroy_compiler_arena(compiler_arena)
 
     end subroutine compile_from_tokens_json
 
@@ -229,7 +249,7 @@ contains
         type(compilation_options_t), intent(in) :: options
         character(len=*), intent(out) :: error_msg
 
-        type(ast_arena_t) :: arena
+        type(compiler_arena_t) :: compiler_arena
         integer :: prog_index
         character(len=:), allocatable :: code
         type(path_validation_result_t) :: validation_result
@@ -243,28 +263,36 @@ contains
             return
         end if
 
+        ! Initialize unified compiler arena
+        compiler_arena = create_compiler_arena()
+
         ! Read AST from JSON - simplified for now
-        call init_ast_arena(arena)
-prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRING, 1, 1)
+prog_index = push_literal(compiler_arena%ast, "! JSON loading not implemented", LITERAL_STRING, 1, 1)
 
         ! Phase 3: Semantic Analysis
+        call compiler_arena%next_phase("semantic")
         ! Note: This path doesn't use INTENT checking since it's for testing
         block
             type(semantic_context_t) :: sem_ctx
             sem_ctx = create_semantic_context()
-            call analyze_program(sem_ctx, arena, prog_index)
+            call analyze_program(sem_ctx, compiler_arena%ast, prog_index)
         end block
 
         ! Phase 4: Standardization
-        call standardize_ast(arena, prog_index)
+        call compiler_arena%next_phase("standardization")
+        call standardize_ast(compiler_arena%ast, prog_index)
 
         ! Phase 5: Code Generation
-        call generate_fortran_code(arena, prog_index, code)
+        call compiler_arena%next_phase("codegen")
+        call generate_fortran_code(compiler_arena%ast, prog_index, code)
 
         ! Write output (only if not in compile mode - backend handles file creation)
         if (allocated(options%output_file) .and. allocated(options%output_file)) then
             call write_output_file(options%output_file, code, error_msg)
         end if
+
+        ! Cleanup unified compiler arena
+        call destroy_compiler_arena(compiler_arena)
 
     end subroutine compile_from_ast_json
 
@@ -274,7 +302,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
         type(compilation_options_t), intent(in) :: options
         character(len=*), intent(out) :: error_msg
 
-        type(ast_arena_t) :: arena
+        type(compiler_arena_t) :: compiler_arena
         integer :: prog_index
         character(len=:), allocatable :: code
         type(path_validation_result_t) :: validation_result
@@ -288,18 +316,24 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             return
         end if
 
+        ! Initialize unified compiler arena
+        compiler_arena = create_compiler_arena()
+
         ! Read annotated AST and semantic context from JSON - simplified
-        call init_ast_arena(arena)
-        prog_index = push_literal(arena, "! Semantic JSON loading not implemented", &
+        prog_index = push_literal(compiler_arena%ast, "! Semantic JSON loading not implemented", &
                                  LITERAL_STRING, 1, 1)
 
         ! Phase 4: Code Generation (direct from annotated AST)
-        call generate_fortran_code(arena, prog_index, code)
+        call compiler_arena%next_phase("codegen")
+        call generate_fortran_code(compiler_arena%ast, prog_index, code)
 
         ! Write output (only if not in compile mode - backend handles file creation)
         if (allocated(options%output_file) .and. allocated(options%output_file)) then
             call write_output_file(options%output_file, code, error_msg)
         end if
+
+        ! Cleanup unified compiler arena
+        call destroy_compiler_arena(compiler_arena)
 
     end subroutine compile_from_semantic_json
 
@@ -1472,23 +1506,31 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
 
         ! Local variables for 4-phase pipeline
         type(token_t), allocatable :: tokens(:)
-        type(ast_arena_t) :: arena
+        type(compiler_arena_t) :: compiler_arena
         integer :: prog_index
 
         allocate(character(len=0) :: error_msg)
         error_msg = ""
+
+        ! Initialize unified compiler arena
+        compiler_arena = create_compiler_arena()
 
         ! Handle empty or whitespace-only input
         if (len_trim(input) == 0 .or. is_whitespace_only(input)) then
             output = "program main" // new_line('A') // &
                      "    implicit none" // new_line('A') // &
                      "end program main" // new_line('A')
+            call destroy_compiler_arena(compiler_arena)
             return
         end if
 
         ! Phase 1: Lexical Analysis
+        call compiler_arena%next_phase("lexer")
         call lex_source(input, tokens, error_msg)
-        if (error_msg /= "") return
+        if (error_msg /= "") then
+            call destroy_compiler_arena(compiler_arena)
+            return
+        end if
 
         ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
         call validate_basic_syntax(input, tokens, error_msg)
@@ -1502,6 +1544,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     "    implicit none" // new_line('A') // &
                     "    ! Original code could not be parsed" // new_line('A') // &
                     "end program main" // new_line('A')
+            call destroy_compiler_arena(compiler_arena)
             return
         end if
 
@@ -1523,6 +1566,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                 output = "program main" // new_line('A') // &
                          "    implicit none" // new_line('A') // &
                          "end program main" // new_line('A')
+                call destroy_compiler_arena(compiler_arena)
                 return
             end if
         end block
@@ -1533,6 +1577,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             output = "program main" // new_line('A') // &
                      "    implicit none" // new_line('A') // &
                      "end program main" // new_line('A')
+            call destroy_compiler_arena(compiler_arena)
             return
         end if
 
@@ -1542,16 +1587,17 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             output = "program main" // new_line('A') // &
                      "    implicit none" // new_line('A') // &
                      "end program main" // new_line('A')
+            call destroy_compiler_arena(compiler_arena)
             return
         end if
 
         ! Phase 2: Parsing
-        call init_ast_arena(arena)
-        call parse_tokens(tokens, arena, prog_index, error_msg)
+        call compiler_arena%next_phase("parser")
+        call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
         if (error_msg /= "") then
             ! Enhanced error reporting for parsing failures (Issue #256 requirements)
             if (prog_index > 0) then
-                call emit_fortran(arena, prog_index, output)
+                call emit_fortran(compiler_arena%ast, prog_index, output)
                 ! Append comprehensive error information to output
                 output = output // new_line('A') // &
                         "! COMPILATION FAILED - PARSING ERROR" // new_line('A') // &
@@ -1572,6 +1618,7 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                         "    ! ERROR: Original code could not be parsed" // new_line('A') // &
                         "end program main" // new_line('A')
             end if
+            call destroy_compiler_arena(compiler_arena)
             return
         end if
 
@@ -1584,24 +1631,27 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
                     "    implicit none" // new_line('A') // &
                     "    ! Original code could not be structured as a program" // new_line('A') // &
                     "end program main" // new_line('A')
+            call destroy_compiler_arena(compiler_arena)
             return
         end if
 
         ! Phase 3: Semantic Analysis
+        call compiler_arena%next_phase("semantic")
         block
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
-            call analyze_program(ctx, arena, prog_index)
+            call analyze_program(ctx, compiler_arena%ast, prog_index)
         end block
 
         ! Phase 4: Standardization
+        call compiler_arena%next_phase("standardization")
         ! Skip standardization for multi-unit containers
         block
             logical :: skip_standardization
             skip_standardization = .false.
-            if (prog_index > 0 .and. prog_index <= arena%size) then
-                if (allocated(arena%entries(prog_index)%node)) then
-                    select type (node => arena%entries(prog_index)%node)
+            if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
+                if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
+                    select type (node => compiler_arena%ast%entries(prog_index)%node)
                     type is (program_node)
                         if (node%name == "__MULTI_UNIT__") then
                             skip_standardization = .true.
@@ -1611,12 +1661,16 @@ prog_index = push_literal(arena, "! JSON loading not implemented", LITERAL_STRIN
             end if
 
             if (.not. skip_standardization) then
-                call standardize_ast(arena, prog_index)
+                call standardize_ast(compiler_arena%ast, prog_index)
             end if
         end block
 
         ! Phase 5: Code Generation
-        output = generate_code_from_arena(arena, prog_index)
+        call compiler_arena%next_phase("codegen")
+        output = generate_code_from_arena(compiler_arena%ast, prog_index)
+
+        ! Cleanup unified compiler arena
+        call destroy_compiler_arena(compiler_arena)
     end subroutine transform_lazy_fortran_string
 
     ! String-based transformation function with formatting options
