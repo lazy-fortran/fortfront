@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-
+- [x] #371: feat: integrate compiler_arena for unified memory management (branch: feat-integrate-compiler-arena-371)
 
 ## TODO (Ordered by Priority)
 
@@ -12,7 +12,6 @@ No remaining critical items - #442 moved to DOING
 No remaining items - Phase 1 complete
 
 ### Foundation Phase 2: Arena System (Foundation complete, continuing development)
-- [ ] #371: feat: integrate compiler_arena for unified memory management
 - [ ] #360: Migrate AST to modern high-performance arena with unified architecture
 
 ### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until #442 complete)
