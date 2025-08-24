@@ -2,7 +2,7 @@ module parser_declarations
     use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD
     use parser_state_module, only: parser_state_t
-    use ast_arena, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     use ast_types, only: LITERAL_STRING
     use ast_nodes_data, only: INTENT_IN, INTENT_OUT, INTENT_INOUT
     use parser_expressions_module, only: parse_expression, parse_comparison, parse_range

@@ -12,7 +12,7 @@ module frontend_core
     use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
                                           parse_select_case
     ! Migrated from ast_core: use explicit imports for better dependency management
-    use ast_arena, only: ast_arena_t, init_ast_arena
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use compiler_arena, only: compiler_arena_t, create_compiler_arena, destroy_compiler_arena
     use ast_nodes_misc, only: comment_node

@@ -1,7 +1,7 @@
 module cfg_builder_module
     use iso_fortran_env, only: error_unit
     use ast_core
-    use ast_arena
+    use ast_arena_modern
     use control_flow_graph_module
     use constant_folding_module, only: evaluate_constant_condition
     implicit none
