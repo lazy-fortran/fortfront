@@ -1,6 +1,6 @@
 module ast_nodes_bounds
     use ast_base
-    use ast_arena, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     use json_module
     implicit none
     private
@@ -109,7 +109,7 @@ contains
         type(array_bounds_node), pointer :: node
         
         node => null()
-        if (index > 0 .and. index <= arena%size) then
+        if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
             type is (array_bounds_node)
                 node => p
@@ -123,7 +123,7 @@ contains
         type(array_slice_node), pointer :: node
         
         node => null()
-        if (index > 0 .and. index <= arena%size) then
+        if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
             type is (array_slice_node)
                 node => p
@@ -137,7 +137,7 @@ contains
         type(range_expression_node), pointer :: node
         
         node => null()
-        if (index > 0 .and. index <= arena%size) then
+        if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
             type is (range_expression_node)
                 node => p
@@ -151,7 +151,7 @@ contains
         type(array_operation_node), pointer :: node
         
         node => null()
-        if (index > 0 .and. index <= arena%size) then
+        if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
             type is (array_operation_node)
                 node => p

@@ -18,7 +18,7 @@ module ast_arena_safe
 contains
 
     function safe_arena_push(arena, node, node_type) result(index)
-        use ast_arena, only: ast_arena_t
+        use ast_arena_modern, only: ast_arena_t
         type(ast_arena_t), intent(inout) :: arena
         class(ast_node), intent(in) :: node
         character(*), intent(in), optional :: node_type

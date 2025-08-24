@@ -6,7 +6,7 @@ module compiler_arena
     
     use arena_memory
     use type_system_arena
-    use ast_arena, only: ast_arena_t, init_ast_arena, ast_arena_stats_t
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t, destroy_ast_arena
     use iso_fortran_env, only: int64
     implicit none
     private
@@ -105,8 +105,8 @@ contains
         ! Initialize type arena (already implemented)
         this%types = create_type_arena(size / 4)  ! Types typically need less memory
         
-        ! Initialize AST arena (regular implementation)
-        call init_ast_arena(this%ast)
+        ! Initialize AST arena (modern implementation with generational handles)
+        this%ast = create_ast_arena(size)
         
         ! Symbol arena - placeholder (future implementation)
         ! this%symbols = create_symbol_arena(size / 2)
@@ -133,9 +133,9 @@ contains
         
         if (.not. this%is_initialized) return
         
-        ! Clear all sub-arenas (ast_arena doesn't have explicit destroy)
+        ! Clear all sub-arenas using modern arena destroy
         call destroy_type_arena(this%types)
-        call this%ast%clear()
+        call destroy_ast_arena(this%ast)
         
         ! Future: destroy other arenas
         ! call destroy_symbol_arena(this%symbols)  
@@ -159,7 +159,7 @@ contains
         
         ! Reset all sub-arenas
         call this%types%reset()
-        call this%ast%clear()
+        call this%ast%reset()
         
         ! Future: reset other arenas
         ! call this%symbols%reset()
@@ -230,11 +230,11 @@ contains
         block
             type(ast_arena_stats_t) :: ast_stats
             ast_stats = this%ast%get_stats()
-            stats%ast_memory = ast_stats%memory_usage
+            stats%ast_memory = ast_stats%total_memory
             stats%total_memory = stats%total_memory + stats%ast_memory
             
-            ! Average utilization across arenas (use simple approximation)
-            stats%average_utilization = type_stats%utilization  ! Just use type arena utilization
+            ! Average utilization across arenas (average type and AST utilization)
+            stats%average_utilization = (type_stats%utilization + ast_stats%utilization) / 2.0
         end block
         
         ! Future: aggregate statistics from other arenas
@@ -326,7 +326,7 @@ contains
         block
             type(ast_arena_stats_t) :: ast_stats
             ast_stats = this%ast%get_stats()
-            this%total_bytes = this%total_bytes + ast_stats%memory_usage
+            this%total_bytes = this%total_bytes + ast_stats%total_memory
         end block
         
         ! Future: add memory from other arenas

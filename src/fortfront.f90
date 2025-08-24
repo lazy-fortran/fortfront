@@ -588,11 +588,11 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(ast_arena_stats_t) :: stats
         
-        ! Direct access instead of type-bound procedure to avoid compiler crash
-        stats%total_nodes = arena%size
+        ! Use compatibility fields from the arena 
+        stats%total_nodes = arena%compat_size
         stats%max_depth = arena%max_depth
-        stats%capacity = arena%capacity
-        stats%memory_usage = arena%capacity * 64  ! Rough estimate
+        stats%capacity = arena%cap
+        stats%memory_usage = arena%cap * 64  ! Rough estimate
     end function get_arena_stats
     
     ! Analyze program with explicit context (for advanced usage)

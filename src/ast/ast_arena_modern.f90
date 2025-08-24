@@ -10,7 +10,7 @@ module ast_arena_modern
     implicit none
     private
     
-    public :: ast_arena_t, ast_handle_t, ast_node_arena_t
+    public :: ast_arena_t, ast_handle_t, ast_node_arena_t, ast_entry_t
     public :: create_ast_arena, destroy_ast_arena
     public :: store_ast_node, get_ast_node, is_valid_ast_handle, null_ast_handle
     public :: ast_arena_stats_t, ast_free_result_t
@@ -55,7 +55,12 @@ module ast_arena_modern
     
     ! High-performance AST arena with slot management (extends base_arena_t)
     type, extends(base_arena_t) :: ast_arena_t
-        private
+        ! Compatibility layer for old arena API (public for compatibility)
+        type(ast_entry_t), allocatable :: entries(:)    ! Compatibility entry access
+        integer :: compat_size = 0                      ! Compatibility: current size
+        integer :: max_depth = 0                        ! Compatibility: maximum tree depth
+        
+        ! Internal fields (exposed but considered private - don't use directly)
         type(ast_node_arena_t), allocatable :: nodes(:)      ! slot storage
         integer,               allocatable :: slot_gen(:)    ! per-slot generation  
         integer,               allocatable :: free_stack(:)  ! freelist (indices)
@@ -90,6 +95,20 @@ module ast_arena_modern
         procedure :: is_active => ast_arena_is_node_active
         procedure :: get_free_stats => ast_arena_get_free_stats
         generic :: assignment(=) => assign_ast_arena
+        
+        ! Compatibility methods for old arena API
+        procedure :: push => ast_arena_push_compat
+        procedure :: ensure_capacity => ast_arena_ensure_capacity
+        procedure :: get_children => ast_arena_get_children_compat
+        procedure :: get_parent => ast_arena_get_parent_compat
+        procedure :: get_depth => ast_arena_get_depth_compat
+        procedure :: get_next_sibling => ast_arena_get_next_sibling_compat
+        procedure :: get_previous_sibling => ast_arena_get_previous_sibling_compat
+        procedure :: get_block_statements => ast_arena_get_block_statements_compat
+        procedure :: is_last_in_block => ast_arena_is_last_in_block_compat
+        procedure :: is_block_node => ast_arena_is_block_node_compat
+        procedure :: add_child => ast_arena_add_child_compat
+        procedure :: find_by_type => ast_arena_find_by_type_compat
     end type ast_arena_t
     
     ! Statistics for performance monitoring
@@ -105,6 +124,11 @@ module ast_arena_modern
         integer :: active_nodes = 0                     ! Number of active (non-freed) nodes
         integer :: freed_nodes = 0                      ! Number of freed nodes
         real :: fragmentation = 0.0                     ! Memory fragmentation ratio
+        
+        ! Compatibility fields for old arena API
+        integer :: total_nodes = 0                      ! Alias for node_count
+        integer :: capacity = 0                         ! Arena capacity 
+        integer :: memory_usage = 0                     ! Alias for total_memory
     end type ast_arena_stats_t
     
     ! Result type for node freeing operations
@@ -113,6 +137,20 @@ module ast_arena_modern
         integer :: freed_generation = 0                 ! Generation when node was freed
         character(len=:), allocatable :: error_message  ! Error description if failed
     end type ast_free_result_t
+    
+    ! Compatibility type for bridging to old arena API
+    type :: ast_entry_t
+        class(ast_node), allocatable :: node    ! The AST node itself
+        integer :: parent_index = 0             ! Index of parent node (0 for root)
+        integer :: depth = 0                    ! Depth in tree (0 for root)
+        character(len=:), allocatable :: node_type  ! Type name for debugging
+        integer, allocatable :: child_indices(:)    ! Indices of child nodes
+        integer :: child_count = 0              ! Number of children
+    contains
+        procedure :: deep_copy => ast_entry_deep_copy
+        procedure :: assign => ast_entry_assign
+        generic :: assignment(=) => assign
+    end type ast_entry_t
     
 contains
     
@@ -142,7 +180,7 @@ contains
         
         ! Initialize base class fields
         ast_arena%generation = 1
-        ast_arena%size = 0
+        ast_arena%compat_size = 0
         ast_arena%capacity = capacity
         
         ! Initialize all slots as invalid with generation 0 (only used slots get valid generations)
@@ -155,6 +193,11 @@ contains
         end do
         
         ast_arena%is_initialized = .true.
+        
+        ! Initialize compatibility layer
+        allocate(ast_arena%entries(capacity))
+        ast_arena%compat_size = 0
+        ast_arena%max_depth = 0
     end function create_ast_arena
     
     ! Destroy AST arena and free all memory
@@ -166,6 +209,7 @@ contains
         if (allocated(ast_arena%nodes)) deallocate(ast_arena%nodes)
         if (allocated(ast_arena%slot_gen)) deallocate(ast_arena%slot_gen)
         if (allocated(ast_arena%free_stack)) deallocate(ast_arena%free_stack)
+        if (allocated(ast_arena%entries)) deallocate(ast_arena%entries)
         
         ast_arena%cap = 0
         ast_arena%free_top = 0
@@ -263,6 +307,8 @@ contains
         this%node_count = 0
         this%free_top = 0
         this%size = 0  ! Reset base size
+        this%compat_size = 0  ! Reset compatibility size
+        this%max_depth = 0  ! Reset max depth
         
         ! Mark all slots as invalid (generation 0)
         this%slot_gen(:) = 0
@@ -297,8 +343,15 @@ contains
             stats%allocation_rate = real(this%node_count) / real(this%total_allocations)
         end if
         
-        stats%max_depth = 0  ! Would be calculated during tree traversal
+        stats%max_depth = this%max_depth  ! Use tracked max depth from compatibility layer
         stats%total_children = 0  ! Would be sum of all child_count fields
+        
+        ! Populate compatibility fields for old arena API
+        stats%total_nodes = this%node_count
+        stats%capacity = this%cap
+        stats%memory_usage = int(stats%total_memory)
+        stats%active_nodes = this%node_count
+        stats%freed_nodes = this%total_allocations - this%node_count
     end function ast_arena_get_stats
     
     ! Validate AST handle against arena (per-slot generation checking)
@@ -544,6 +597,8 @@ contains
         lhs%total_validations = rhs%total_validations
         lhs%arena_id = rhs%arena_id
         lhs%is_initialized = rhs%is_initialized
+        lhs%compat_size = rhs%compat_size
+        lhs%max_depth = rhs%max_depth
         
         ! Deep copy slot arrays
         if (allocated(rhs%nodes)) then
@@ -559,6 +614,14 @@ contains
         if (allocated(rhs%free_stack)) then
             allocate(lhs%free_stack(size(rhs%free_stack)))
             lhs%free_stack = rhs%free_stack
+        end if
+        
+        ! Deep copy compatibility layer
+        if (allocated(rhs%entries)) then
+            allocate(lhs%entries(size(rhs%entries)))
+            if (rhs%compat_size > 0) then
+                lhs%entries(1:rhs%compat_size) = rhs%entries(1:rhs%compat_size)
+            end if
         end if
     end subroutine ast_arena_assign
 
@@ -691,7 +754,354 @@ contains
         
         ! Restore counts
         this%size = checkpoint%size
+        this%compat_size = checkpoint%size
         this%node_count = checkpoint%total_allocated
     end subroutine ast_arena_rollback
+    
+    ! ============================================================================
+    ! Compatibility Layer for Old Arena API
+    ! ============================================================================
+    
+    ! Compatibility method: get children indices for parent node
+    function ast_arena_get_children_compat(this, parent_index) result(child_indices)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: parent_index
+        integer, allocatable :: child_indices(:)
+        
+        ! Return children indices from compatibility layer
+        if (parent_index > 0 .and. parent_index <= this%compat_size) then
+            if (allocated(this%entries(parent_index)%child_indices)) then
+                allocate(child_indices(this%entries(parent_index)%child_count))
+                child_indices = this%entries(parent_index)%child_indices( &
+                    1:this%entries(parent_index)%child_count)
+            else
+                allocate(child_indices(0))
+            end if
+        else
+            allocate(child_indices(0))
+        end if
+    end function ast_arena_get_children_compat
+    
+    ! Compatibility method: get parent node (polymorphic return)
+    function ast_arena_get_parent_compat(this, index) result(parent_node)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: index
+        class(ast_node), allocatable :: parent_node
+        integer :: parent_index
+        
+        if (index > 0 .and. index <= this%compat_size) then
+            parent_index = this%entries(index)%parent_index
+            if (parent_index > 0 .and. parent_index <= this%compat_size) then
+                if (allocated(this%entries(parent_index)%node)) then
+                    allocate(parent_node, source=this%entries(parent_index)%node)
+                end if
+            end if
+        end if
+    end function ast_arena_get_parent_compat
+    
+    ! Compatibility method: get node depth
+    function ast_arena_get_depth_compat(this, index) result(depth)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: index
+        integer :: depth
+        
+        if (index > 0 .and. index <= this%compat_size) then
+            depth = this%entries(index)%depth
+        else
+            depth = 0
+        end if
+    end function ast_arena_get_depth_compat
+    
+    ! Compatibility method: get next sibling
+    function ast_arena_get_next_sibling_compat(this, node_index) result(next_sibling)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: node_index
+        integer :: next_sibling
+        integer :: parent_idx, i
+        integer, allocatable :: siblings(:)
+        
+        next_sibling = 0
+        
+        if (node_index > 0 .and. node_index <= this%compat_size) then
+            parent_idx = this%entries(node_index)%parent_index
+            if (parent_idx > 0) then
+                siblings = this%get_children(parent_idx)
+                
+                ! Find current node in parent's children and return next one
+                do i = 1, size(siblings)
+                    if (siblings(i) == node_index .and. i < size(siblings)) then
+                        next_sibling = siblings(i + 1)
+                        exit
+                    end if
+                end do
+            end if
+        end if
+    end function ast_arena_get_next_sibling_compat
+    
+    ! Compatibility method: get previous sibling  
+    function ast_arena_get_previous_sibling_compat(this, node_index) result(prev_sibling)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: node_index
+        integer :: prev_sibling
+        integer :: parent_idx, i
+        integer, allocatable :: siblings(:)
+        
+        prev_sibling = 0
+        
+        if (node_index > 0 .and. node_index <= this%compat_size) then
+            parent_idx = this%entries(node_index)%parent_index
+            if (parent_idx > 0) then
+                siblings = this%get_children(parent_idx)
+                
+                ! Find current node in parent's children and return previous one
+                do i = 1, size(siblings)
+                    if (siblings(i) == node_index .and. i > 1) then
+                        prev_sibling = siblings(i - 1)
+                        exit
+                    end if
+                end do
+            end if
+        end if
+    end function ast_arena_get_previous_sibling_compat
+    
+    ! Compatibility method: get block statements
+    function ast_arena_get_block_statements_compat(this, block_index) result(stmt_indices)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: block_index
+        integer, allocatable :: stmt_indices(:)
+        
+        ! Default: return children of the block node
+        stmt_indices = this%get_children(block_index)
+    end function ast_arena_get_block_statements_compat
+    
+    ! Compatibility method: check if node is last in block
+    function ast_arena_is_last_in_block_compat(this, node_index) result(is_last)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: node_index
+        logical :: is_last
+        integer :: next_idx
+        
+        is_last = .false.
+        next_idx = this%get_next_sibling(node_index)
+        
+        ! If no next sibling, this is the last statement in the block
+        is_last = (next_idx == 0)
+    end function ast_arena_is_last_in_block_compat
+    
+    ! Compatibility method: check if node is block type
+    function ast_arena_is_block_node_compat(this, node_index) result(is_block)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: node_index
+        logical :: is_block
+        character(len=:), allocatable :: node_type
+        
+        is_block = .false.
+        
+        if (node_index > 0 .and. node_index <= this%compat_size) then
+            if (allocated(this%entries(node_index)%node_type)) then
+                node_type = this%entries(node_index)%node_type
+                
+                ! Check for known block types
+                is_block = (node_type == "if_statement" .or. &
+                           node_type == "do_loop" .or. &
+                           node_type == "do_while" .or. &
+                           node_type == "forall" .or. &
+                           node_type == "where" .or. &
+                           node_type == "select_case" .or. &
+                           node_type == "function_def" .or. &
+                           node_type == "subroutine_def" .or. &
+                           node_type == "program" .or. &
+                           node_type == "module")
+            end if
+        end if
+    end function ast_arena_is_block_node_compat
+    
+    ! Compatibility method: add child relationship
+    subroutine ast_arena_add_child_compat(this, parent_index, child_index)
+        class(ast_arena_t), intent(inout) :: this
+        integer, intent(in) :: parent_index, child_index
+        
+        call add_child_compat(this, parent_index, child_index)
+    end subroutine ast_arena_add_child_compat
+    
+    ! Compatibility method: find nodes by type
+    function ast_arena_find_by_type_compat(this, type_name) result(indices)
+        class(ast_arena_t), intent(in) :: this
+        character(len=*), intent(in) :: type_name
+        integer, allocatable :: indices(:)
+        
+        integer :: i, count
+        integer, allocatable :: temp_indices(:)
+        
+        ! Count matching nodes first
+        count = 0
+        do i = 1, this%compat_size
+            if (allocated(this%entries(i)%node_type)) then
+                if (this%entries(i)%node_type == type_name) then
+                    count = count + 1
+                end if
+            end if
+        end do
+        
+        ! Allocate result array
+        allocate(indices(count))
+        if (count == 0) return
+        
+        ! Fill result array
+        count = 0
+        do i = 1, this%compat_size
+            if (allocated(this%entries(i)%node_type)) then
+                if (this%entries(i)%node_type == type_name) then
+                    count = count + 1
+                    indices(count) = i
+                end if
+            end if
+        end do
+    end function ast_arena_find_by_type_compat
+    
+    ! Compatibility push method for old AST factory code
+    subroutine ast_arena_push_compat(this, node, node_type, parent_index)
+        class(ast_arena_t), intent(inout) :: this
+        class(ast_node), intent(in) :: node
+        character(len=*), intent(in), optional :: node_type
+        integer, intent(in), optional :: parent_index
+        
+        ! Ensure compatibility array has capacity
+        call this%ensure_capacity()
+        
+        ! Add to compatibility layer
+        this%compat_size = this%compat_size + 1
+        
+        ! Store in compatibility entries array
+        if (allocated(this%entries(this%compat_size)%node)) deallocate(this%entries(this%compat_size)%node)
+        allocate(this%entries(this%compat_size)%node, source=node)
+        
+        ! Set metadata
+        if (present(node_type)) then
+            this%entries(this%compat_size)%node_type = node_type
+        else
+            this%entries(this%compat_size)%node_type = "unknown"
+        end if
+        
+        ! Set parent relationship
+        if (present(parent_index)) then
+            this%entries(this%compat_size)%parent_index = parent_index
+            if (parent_index > 0 .and. parent_index <= this%compat_size) then
+                this%entries(this%compat_size)%depth = this%entries(parent_index)%depth + 1
+                
+                ! Add this child to parent's children list
+                call add_child_compat(this, parent_index, this%compat_size)
+            else
+                this%entries(this%compat_size)%depth = 0
+            end if
+        else
+            this%entries(this%compat_size)%parent_index = 0
+            this%entries(this%compat_size)%depth = 0
+        end if
+        
+        ! Update max depth tracking
+        this%max_depth = max(this%max_depth, this%entries(this%compat_size)%depth)
+        
+        ! Update node count to stay in sync
+        this%node_count = this%compat_size
+    end subroutine ast_arena_push_compat
+    
+    ! Add child relationship in compatibility layer
+    subroutine add_child_compat(arena, parent_index, child_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: parent_index, child_index
+        
+        ! Grow children array using Fortran array extension syntax
+        if (.not. allocated(arena%entries(parent_index)%child_indices)) then
+            allocate(arena%entries(parent_index)%child_indices(1))
+            arena%entries(parent_index)%child_indices(1) = child_index
+            arena%entries(parent_index)%child_count = 1
+        else
+            ! Use Fortran array extension syntax 
+            arena%entries(parent_index)%child_indices = &
+                [arena%entries(parent_index)%child_indices, child_index]
+            arena%entries(parent_index)%child_count = &
+                arena%entries(parent_index)%child_count + 1
+        end if
+    end subroutine add_child_compat
+    
+    ! Ensure compatibility array has sufficient capacity
+    subroutine ast_arena_ensure_capacity(this)
+        class(ast_arena_t), intent(inout) :: this
+        type(ast_entry_t), allocatable :: temp_entries(:)
+        integer :: new_capacity
+        
+        if (.not. allocated(this%entries)) then
+            allocate(this%entries(1024))
+            return
+        end if
+        
+        ! Grow compatibility array if needed
+        if (this%compat_size >= size(this%entries)) then
+            new_capacity = max(size(this%entries) * 2, this%compat_size + 1024)
+            
+            allocate(temp_entries(new_capacity))
+            if (this%compat_size > 0) then
+                temp_entries(1:this%compat_size) = this%entries(1:this%compat_size)
+            end if
+            
+            call move_alloc(temp_entries, this%entries)
+        end if
+    end subroutine ast_arena_ensure_capacity
+    
+    ! Compatibility AST entry deep copy
+    function ast_entry_deep_copy(this) result(copy)
+        class(ast_entry_t), intent(in) :: this
+        type(ast_entry_t) :: copy
+        
+        ! Copy scalar fields
+        copy%parent_index = this%parent_index
+        copy%depth = this%depth
+        copy%child_count = this%child_count
+        
+        ! Copy allocatable fields
+        if (allocated(this%node_type)) then
+            copy%node_type = this%node_type
+        end if
+        
+        if (allocated(this%child_indices)) then
+            copy%child_indices = this%child_indices
+        end if
+        
+        if (allocated(this%node)) then
+            allocate(copy%node, source=this%node)
+        end if
+    end function ast_entry_deep_copy
+    
+    ! Compatibility AST entry assignment
+    subroutine ast_entry_assign(lhs, rhs)
+        class(ast_entry_t), intent(inout) :: lhs
+        class(ast_entry_t), intent(in) :: rhs
+        
+        ! Copy scalar fields
+        lhs%parent_index = rhs%parent_index
+        lhs%depth = rhs%depth
+        lhs%child_count = rhs%child_count
+        
+        ! Copy allocatable strings
+        if (allocated(rhs%node_type)) then
+            lhs%node_type = rhs%node_type
+        else
+            if (allocated(lhs%node_type)) deallocate(lhs%node_type)
+        end if
+        
+        ! Copy child indices
+        if (allocated(rhs%child_indices)) then
+            lhs%child_indices = rhs%child_indices
+        else
+            if (allocated(lhs%child_indices)) deallocate(lhs%child_indices)
+        end if
+        
+        ! Copy polymorphic node
+        if (allocated(lhs%node)) deallocate(lhs%node)
+        if (allocated(rhs%node)) then
+            allocate(lhs%node, source=rhs%node)
+        end if
+    end subroutine ast_entry_assign
     
 end module ast_arena_modern
