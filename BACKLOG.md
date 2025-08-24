@@ -1,15 +1,15 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (CRITICAL HANDBACK - PR #460 CI still failing after build flag updates, architectural issue requires implementation fix)
-- [ ] #441: Subroutines and functions not handled properly (CRITICAL HANDBACK - CI failures in PR #460 persist despite build configuration changes, core parsing logic needs fix)
+- [ ] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (CRITICAL HANDBACK - PR #460 CI failing, system-wide test instability remains despite partial local improvements)
+- [ ] #441: Subroutines and functions not handled properly (CRITICAL HANDBACK - PR #460 CI failing, core parsing logic for subroutines/functions requires implementation fix as documented in PR)
 
-**🚨 URGENT: SYSTEM-WIDE CRITICAL FAILURE**
-- **Scope**: Affects main branch AND all feature branches (not just PR #460)
-- **Symptoms**: Tests timeout with infinite "STOP 0" loops, segmentation faults, CI failures
-- **Root Cause**: Arena modernization work from PRs #455, #459 introduced architectural instability
-- **Impact**: BLOCKING all development - entire test suite non-functional
-- **Action**: IMMEDIATE SERGEI ATTENTION required for system architecture fix
+**🚨 URGENT: SYSTEM-WIDE CRITICAL FAILURE - PARTIAL PROGRESS**
+- **Scope**: Affects main branch AND all feature branches, though local tests show some improvement
+- **Symptoms**: Tests show infinite "STOP 0" loops but complete successfully, CI still failing with parsing issues
+- **Root Cause**: Arena modernization work from PRs #455, #459 introduced architectural instability, parsing bugs remain
+- **Current Status**: Local tests show progress (tests pass after noise), but CI still fails - implementation incomplete
+- **Action**: SERGEI IMMEDIATE ATTENTION - Fix parsing logic for subroutines/functions as documented in PR #460, address remaining CI failures
 
 ## TODO (Ordered by Priority)
 
