@@ -2,7 +2,6 @@
 
 ## DOING (Current Work)
 
-
 ## TODO (Ordered by Priority)
 
 ### CRITICAL: Foundation Architecture (BLOCKING ALL OTHER WORK)
@@ -12,7 +11,6 @@ No remaining critical items - #442 moved to DOING
 No remaining items - Phase 1 complete
 
 ### Foundation Phase 2: Arena System (Foundation complete, continuing development)
-- [ ] #371: feat: integrate compiler_arena for unified memory management
 - [ ] #360: Migrate AST to modern high-performance arena with unified architecture
 
 ### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until #442 complete)
@@ -37,9 +35,13 @@ No remaining items - Phase 1 complete
 - [ ] #403: Type System: Implement constraint solver with let-polymorphism support
 
 ### Testing and Documentation (SUPPORT)
+- [ ] #450: test: re-enable temporarily disabled tests for issues #4 and #321
+- [ ] #451: test: complete AST arena integration test coverage
+- [ ] #452: feature: restore debug output capabilities in frontend compilation pipeline
 - [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
 
 ## DONE (Completed)
+- [x] #371: feat: integrate compiler_arena for unified memory management (COMPLETED - Integrated into all compilation phases with comprehensive phase tracking)
 - [x] #362: Create unified compiler_arena module for KISS architecture (COMPLETED - Module implemented with comprehensive tests)
 - [x] #400: Arena: Create comprehensive performance benchmark suite for arena operations (branch: feat-arena-benchmark-suite-400 - 6 benchmark modules created)
 - [x] #370: feat: migrate ast_arena to container API with type-bound procedures (PR #446 - Container API migration complete with full backward compatibility)
