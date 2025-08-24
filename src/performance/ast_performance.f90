@@ -310,7 +310,7 @@ contains
         ! 4. Update semantic information
         
         ! Simple validation that arena is valid
-        if (arena%size <= 0) then
+        if (.not. allocated(arena%entries)) then
             write(error_unit, *) "Warning: Cannot update invalid arena"
             return
         end if
