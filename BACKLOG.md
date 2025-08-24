@@ -1,13 +1,13 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #454: Update tests to use modern AST arena API after Issue #360 (CRITICAL - system integrity after arena migration)
+- [ ] #441: Subroutines and functions not handled properly (HIGH PRIORITY BUG - major parsing issue)
 
 ## TODO (Ordered by Priority)
 
 ### CRITICAL: Foundation Architecture (BLOCKING ALL OTHER WORK)
 - [ ] #393: CST: Create basic CST node type definitions and module structure (PR #455 pending CI completion)
-- [ ] #441: Subroutines and functions not handled properly (HIGH PRIORITY BUG - major parsing issue)
+- [ ] #454: Update tests to use modern AST arena API after Issue #360 (PR #459 - HANDOFF TO SERGEI for completion)
 
 ### Foundation Phase 1: Error Handling Infrastructure (CRITICAL)
 No remaining items - Phase 1 complete
