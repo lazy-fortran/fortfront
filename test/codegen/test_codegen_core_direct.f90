@@ -23,7 +23,7 @@ program test_codegen_core_direct
     arena = create_ast_arena()
     id_node = create_identifier("test_var", 1, 1)
     call arena%push(id_node, "identifier")
-    node_index = arena%current_index
+    node_index = arena%size
     code = generate_code_from_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "test_var") > 0) then
         call test_pass()
@@ -38,7 +38,7 @@ program test_codegen_core_direct
     arena = create_ast_arena()
     lit_node = create_literal("42", LITERAL_INTEGER, 1, 1)
     call arena%push(lit_node, "literal")
-    node_index = arena%current_index
+    node_index = arena%size
     code = generate_code_from_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "42") > 0) then
         call test_pass()
@@ -53,7 +53,7 @@ program test_codegen_core_direct
     arena = create_ast_arena()
     lit_node = create_literal("'hello'", LITERAL_STRING, 1, 1)
     call arena%push(lit_node, "literal")
-    node_index = arena%current_index
+    node_index = arena%size
     code = generate_code_from_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "hello") > 0) then
         call test_pass()
@@ -67,7 +67,7 @@ program test_codegen_core_direct
     call test_start("Generate empty program code")
     arena = create_ast_arena()
     call arena%push(create_program("test_prog", [integer::]), "program")
-    node_index = arena%current_index
+    node_index = arena%size
     code = generate_code_from_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "program") > 0) then
         call test_pass()
