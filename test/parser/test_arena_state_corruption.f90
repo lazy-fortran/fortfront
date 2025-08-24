@@ -5,7 +5,6 @@ program test_arena_state_corruption
     ! when enhanced error reporting from Issue #256 corrupts arena state
     
     use ast_core, only: ast_arena_t, create_ast_arena
-    use ast_arena, only: init_ast_arena
     use lexer_core, only: token_t, tokenize_core
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_expression

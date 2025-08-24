@@ -5,7 +5,7 @@ program test_arena_cleanup_consistency
     ! When: Different cleanup scenarios are tested (normal, error, repeated, nested)
     ! Then: All cleanup operations should use arena%clear() consistently and safely
     
-    use ast_arena, only: ast_arena_t, create_ast_arena, init_ast_arena, ast_arena_stats_t
+    use ast_core, only: ast_arena_t, create_ast_arena, ast_arena_stats_t
     use ast_base, only: ast_node
     use ast_nodes_core, only: identifier_node, literal_node
     use ast_core, only: create_identifier, create_literal, LITERAL_INTEGER

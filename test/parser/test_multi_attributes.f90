@@ -2,7 +2,6 @@ program test_multi_attributes
     use frontend
     use ast_core
     use ast_nodes_data, only: declaration_node
-    use ast_arena
     use lexer_core, only: token_t
     implicit none
 

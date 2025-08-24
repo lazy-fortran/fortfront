@@ -5,7 +5,7 @@ program test_arena_memory_leak_detection
     ! When: Testing various scenarios that could cause memory leaks
     ! Then: All scenarios should properly manage memory without leaks
     
-    use ast_arena, only: ast_arena_t, create_ast_arena, init_ast_arena, ast_arena_stats_t
+    use ast_core, only: ast_arena_t, create_ast_arena, ast_arena_stats_t
     use ast_base, only: ast_node
     use ast_nodes_core, only: identifier_node, literal_node
     use ast_core, only: create_identifier, create_literal, LITERAL_INTEGER, LITERAL_STRING
@@ -292,7 +292,7 @@ contains
         if (arena1%size /= 0) partial_cleanup_safe = .false.
         
         ! Test 2: Arena with minimal content
-        call init_ast_arena(arena2)
+        arena2 = create_ast_arena()
         id_node = create_identifier("partial")
         call arena2%push(id_node, "identifier")
         call arena2%clear()

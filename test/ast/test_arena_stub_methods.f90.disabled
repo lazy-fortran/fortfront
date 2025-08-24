@@ -1,5 +1,5 @@
 program test_arena_stub_methods
-    use ast_arena
+    use ast_core
     use ast_base
     use ast_nodes_core
     implicit none

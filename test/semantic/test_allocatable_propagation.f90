@@ -2,7 +2,6 @@ program test_allocatable_propagation
     use frontend
     use ast_core
     use ast_nodes_data, only: declaration_node
-    use ast_arena
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program
     use type_system_unified, only: allocation_info_t

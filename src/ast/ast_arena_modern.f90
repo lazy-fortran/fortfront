@@ -29,6 +29,8 @@ module ast_arena_modern
     contains
         ! Compatibility method for old API
         procedure :: clear => clear_ast_arena
+        ! Override push to sync size field
+        procedure :: push => ast_arena_push_with_size_sync
     end type ast_arena_t
 
 contains
@@ -39,7 +41,22 @@ contains
         type(ast_arena_t) :: arena
         
         arena%ast_arena_compat_t = create_ast_arena_compat(initial_capacity)
+        arena%size = 0  ! Initialize size from base_arena_t
     end function create_ast_arena
+    
+    ! Push with size synchronization for backward compatibility
+    subroutine ast_arena_push_with_size_sync(this, node, node_type, parent_index)
+        class(ast_arena_t), intent(inout) :: this
+        class(ast_node), intent(in) :: node
+        character(len=*), intent(in), optional :: node_type
+        integer, intent(in), optional :: parent_index
+        
+        ! Call parent push method
+        call this%ast_arena_compat_t%push(node, node_type, parent_index)
+        
+        ! Sync size field with compat_size
+        this%size = this%compat_size
+    end subroutine ast_arena_push_with_size_sync
     
     ! Destroy AST arena
     subroutine destroy_ast_arena(arena)

@@ -1,5 +1,4 @@
 program test_ast_parent_indices
-    use ast_arena
     use ast_core
     use parser_control_flow_module
     use parser_state_module

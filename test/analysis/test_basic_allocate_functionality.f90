@@ -2,7 +2,6 @@ program test_basic_allocate_functionality
     use frontend, only: lex_source, parse_tokens
     use lexer_core, only: token_t
     use ast_core
-    use ast_arena
     use variable_usage_tracker_module, only: get_identifiers_in_subtree
     use fortfront, only: find_nodes_by_type
     implicit none
