@@ -82,7 +82,7 @@ jobs:
       run: |
         fpm clean --all
         # Use custom flags to ensure GCC compatibility across versions
-        export FPM_FFLAGS='-cpp -fmax-stack-var-size=65536 -fprofile-arcs -ftest-coverage -g -O0'
+        export FPM_FFLAGS='-cpp -fmax-stack-var-size=131072 -fprofile-arcs -ftest-coverage -g -O0'
         fpm test --flag "$FPM_FFLAGS"
 
     - name: Generate coverage data for coverage-action
@@ -272,7 +272,7 @@ jobs:
       shell: msys2 {0}
       run: |
         echo "Running all tests..."
-        fpm test --flag "-cpp -fmax-stack-var-size=65536"
+        fpm test --flag "-cpp -fmax-stack-var-size=131072"
 
   # macOS CI temporarily disabled due to runner issues
   # test-macos:
