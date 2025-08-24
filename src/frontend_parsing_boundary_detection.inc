@@ -167,16 +167,34 @@
 
         if (in_function .and. is_end_function(tokens, i)) then
             nesting_level = nesting_level - 1
-            unit_end = i + 1  ! Include both "end" and "function" tokens
-            i = i + 2  ! Skip both "end" and "function" tokens
+            ! Check if there's a function name after "end function"
+            if (i + 2 <= size(tokens) .and. tokens(i + 2)%kind == TK_IDENTIFIER) then
+                unit_end = i + 2  ! Include "end", "function", and function name
+                i = i + 3  ! Skip all three tokens
+            else
+                unit_end = i + 1  ! Include both "end" and "function" tokens
+                i = i + 2  ! Skip both "end" and "function" tokens
+            end if
         else if (in_subroutine .and. is_end_subroutine(tokens, i)) then
             nesting_level = nesting_level - 1
-            unit_end = i + 1  ! Include both "end" and "subroutine" tokens
-            i = i + 2  ! Skip both "end" and "subroutine" tokens
+            ! Check if there's a subroutine name after "end subroutine"
+            if (i + 2 <= size(tokens) .and. tokens(i + 2)%kind == TK_IDENTIFIER) then
+                unit_end = i + 2  ! Include "end", "subroutine", and subroutine name
+                i = i + 3  ! Skip all three tokens
+            else
+                unit_end = i + 1  ! Include both "end" and "subroutine" tokens
+                i = i + 2  ! Skip both "end" and "subroutine" tokens
+            end if
         else if (in_module .and. is_end_module(tokens, i)) then
             nesting_level = nesting_level - 1
-            unit_end = i + 1  ! Include both "end" and "module" tokens
-            i = i + 2  ! Skip both "end" and "module" tokens
+            ! Check if there's a module name after "end module"
+            if (i + 2 <= size(tokens) .and. tokens(i + 2)%kind == TK_IDENTIFIER) then
+                unit_end = i + 2  ! Include "end", "module", and module name
+                i = i + 3  ! Skip all three tokens
+            else
+                unit_end = i + 1  ! Include both "end" and "module" tokens
+                i = i + 2  ! Skip both "end" and "module" tokens
+            end if
         else if (in_do_loop .and. is_end_do(tokens, i)) then
             nesting_level = nesting_level - 1
             unit_end = i + 1  ! Include both "end" and "do" tokens
