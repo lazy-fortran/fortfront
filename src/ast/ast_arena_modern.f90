@@ -140,6 +140,11 @@ contains
         ast_arena%arena_id = next_arena_id
         next_arena_id = next_arena_id + 1
         
+        ! Initialize base class fields
+        ast_arena%generation = 1
+        ast_arena%size = 0
+        ast_arena%capacity = capacity
+        
         ! Initialize all slots as invalid with generation 0 (only used slots get valid generations)
         ast_arena%slot_gen(:) = 0
         
@@ -246,18 +251,27 @@ contains
     ! Reset AST arena to clean state (epoch management)
     subroutine ast_arena_reset(this)
         class(ast_arena_t), intent(inout) :: this
+        integer :: i
         
         if (.not. this%is_initialized) return
         
-        ! Increment epoch to invalidate all existing handles
+        ! Increment generations to invalidate all existing handles
         this%epoch = this%epoch + 1
+        this%generation = this%generation + 1  ! Increment base generation
         
         ! Reset counters
         this%node_count = 0
         this%free_top = 0
+        this%size = 0  ! Reset base size
         
         ! Mark all slots as invalid (generation 0)
         this%slot_gen(:) = 0
+        
+        ! Rebuild free stack with all slots
+        do i = 1, this%cap
+            this%free_top = this%free_top + 1
+            this%free_stack(this%free_top) = i
+        end do
     end subroutine ast_arena_reset
     
     ! Get arena statistics
@@ -568,8 +582,12 @@ contains
             ! Convert ast_handle_t to arena_handle_t
             handle%chunk_id = 1  ! AST arena uses single logical chunk
             handle%offset = ast_handle%node_id
-            handle%generation = ast_handle%generation
+            ! Use base generation for container API handles
+            handle%generation = this%generation
             handle%size = 1
+            
+            ! Update base class size
+            this%size = this%node_count
         class default
             ! Return invalid handle for wrong type
             handle%chunk_id = 0
@@ -604,8 +622,11 @@ contains
         if (handle%generation == 0) return
         if (handle%offset < 1 .or. handle%offset > this%cap) return
         
-        ! Check per-slot generation (read-only check)
-        if (this%slot_gen(handle%offset) == handle%generation) then
+        ! Check generation - handle must match current arena generation
+        if (handle%generation /= this%generation) return
+        
+        ! Check if slot is allocated (non-zero generation means allocated)
+        if (this%slot_gen(handle%offset) > 0) then
             is_valid = .true.
         end if
     end function ast_arena_valid
@@ -614,21 +635,22 @@ contains
     subroutine ast_arena_free(this, handle)
         class(ast_arena_t), intent(inout) :: this
         type(arena_handle_t), intent(in) :: handle
-        type(ast_handle_t) :: ast_handle
-        type(ast_free_result_t) :: result
         
-        ! Convert to ast_handle_t
-        ast_handle%node_id = handle%offset
-        ast_handle%generation = handle%generation
-        ast_handle%arena_id = this%arena_id
+        ! Validate handle first
+        if (.not. this%valid(handle)) return
         
-        ! Use existing free_node
-        result = this%free_node(ast_handle)
+        ! Mark slot as free by setting generation to 0
+        this%slot_gen(handle%offset) = 0
         
-        ! Update size if successful
-        if (result%success) then
-            this%size = this%size - 1
+        ! Add slot to free list for reuse
+        if (this%free_top < this%cap) then
+            this%free_top = this%free_top + 1
+            this%free_stack(this%free_top) = handle%offset
         end if
+        
+        ! Update counters
+        this%node_count = this%node_count - 1
+        this%size = this%node_count  ! Keep base size in sync
     end subroutine ast_arena_free
     
     ! Create checkpoint for AST arena
@@ -637,8 +659,8 @@ contains
         type(arena_checkpoint_t) :: checkpoint
         
         checkpoint%generation = this%generation
-        checkpoint%size = this%size
-        checkpoint%capacity = this%capacity
+        checkpoint%size = this%node_count  ! Use actual node count
+        checkpoint%capacity = this%cap
         checkpoint%chunk_count = 1  ! AST arena uses logical single chunk
         checkpoint%current_chunk = 1
         checkpoint%total_allocated = this%node_count
@@ -650,15 +672,24 @@ contains
         type(arena_checkpoint_t), intent(in) :: checkpoint
         integer :: i
         
-        ! Invalidate all nodes created after checkpoint
+        ! Increment global generation to invalidate post-checkpoint handles
+        this%generation = this%generation + 1
+        
+        ! Reset free stack to state at checkpoint
+        this%free_top = 0
+        
+        ! Rebuild free stack with slots allocated after checkpoint
         do i = checkpoint%total_allocated + 1, this%node_count
             if (i <= this%cap) then
-                this%slot_gen(i) = this%slot_gen(i) + 1  ! Invalidate
+                ! Increment slot generation to invalidate old handles
+                this%slot_gen(i) = this%slot_gen(i) + 1
+                ! Add to free stack for reuse
+                this%free_top = this%free_top + 1
+                this%free_stack(this%free_top) = i
             end if
         end do
         
-        ! Restore state
-        this%generation = this%generation + 1
+        ! Restore counts
         this%size = checkpoint%size
         this%node_count = checkpoint%total_allocated
     end subroutine ast_arena_rollback
