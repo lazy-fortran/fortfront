@@ -1042,28 +1042,14 @@ contains
             if (token%kind == TK_OPERATOR .and. token%text == "=") then
                 token = parser%consume()  ! consume '='
                 
-                ! Parse right-hand side (simple expression)
-                token = parser%peek()
-                if (token%kind == TK_STRING) then
-                    rhs_index = push_literal(arena, token%text, LITERAL_STRING, &
-                                           token%line, token%column)
-                    token = parser%consume()
-                else if (token%kind == TK_NUMBER) then
-                    rhs_index = push_literal(arena, token%text, LITERAL_INTEGER, &
-                                           token%line, token%column)
-                    token = parser%consume()
-                else if (token%kind == TK_IDENTIFIER) then
-                    rhs_index = push_identifier(arena, token%text, &
-                                              token%line, token%column)
-                    token = parser%consume()
-                else
-                    ! Skip to end of line for complex expressions
+                ! Parse right-hand side (expression)
+                rhs_index = parse_simple_rhs_expression(parser, arena)
+                
+                if (rhs_index <= 0) then
+                    ! Failed to parse expression
                     call skip_to_end_of_line(parser)
                     return
                 end if
-                
-                ! Skip remaining tokens on line
-                call skip_to_end_of_line(parser)
                 
                 ! Create assignment node
                 stmt_index = push_assignment(arena, lhs_index, rhs_index, &
@@ -1076,6 +1062,72 @@ contains
         end if
     end function parse_simple_assignment_statement
 
+    ! Parse simple right-hand side expression (handles binary operations)
+    function parse_simple_rhs_expression(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+        type(token_t) :: token
+        integer :: left_index, right_index
+        character(len=:), allocatable :: op_text
+        
+        expr_index = 0
+        
+        ! Parse first operand
+        token = parser%peek()
+        if (token%kind == TK_STRING) then
+            left_index = push_literal(arena, token%text, LITERAL_STRING, &
+                                     token%line, token%column)
+            token = parser%consume()
+        else if (token%kind == TK_NUMBER) then
+            left_index = push_literal(arena, token%text, LITERAL_INTEGER, &
+                                     token%line, token%column)
+            token = parser%consume()
+        else if (token%kind == TK_IDENTIFIER) then
+            left_index = push_identifier(arena, token%text, &
+                                        token%line, token%column)
+            token = parser%consume()
+        else
+            return  ! Invalid expression
+        end if
+        
+        ! Check for binary operator
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. &
+            (token%text == "+" .or. token%text == "-" .or. &
+             token%text == "*" .or. token%text == "/" .or. &
+             token%text == "**")) then
+            op_text = token%text
+            token = parser%consume()  ! consume operator
+            
+            ! Parse second operand
+            token = parser%peek()
+            if (token%kind == TK_STRING) then
+                right_index = push_literal(arena, token%text, LITERAL_STRING, &
+                                         token%line, token%column)
+                token = parser%consume()
+            else if (token%kind == TK_NUMBER) then
+                right_index = push_literal(arena, token%text, LITERAL_INTEGER, &
+                                         token%line, token%column)
+                token = parser%consume()
+            else if (token%kind == TK_IDENTIFIER) then
+                right_index = push_identifier(arena, token%text, &
+                                            token%line, token%column)
+                token = parser%consume()
+            else
+                expr_index = left_index  ! Return just the left operand
+                return
+            end if
+            
+            ! Create binary operation node
+            expr_index = push_binary_op(arena, left_index, right_index, op_text, &
+                                       token%line, token%column)
+        else
+            ! No operator, just return the single operand
+            expr_index = left_index
+        end if
+    end function parse_simple_rhs_expression
+    
     ! Skip tokens until end of line
     subroutine skip_to_end_of_line(parser)
         type(parser_state_t), intent(inout) :: parser
