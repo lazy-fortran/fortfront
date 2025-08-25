@@ -1,11 +1,12 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #365: refactor: break down large functions >200 lines (9 functions)
+- [ ] #397: CST to AST converter with bidirectional UID linking (CRITICAL: CI failure in test_call_graph_comprehensive - HANDBACK TO SERGEI)
 
 ## TODO (Ordered by Priority)
 
 ### Code Quality and Refactoring (ENHANCEMENT)
+- [ ] #365: refactor: break down large functions >200 lines (9 functions)
 - [ ] #366: refactor: address remaining 24 functions exceeding 100-line limit
 - [ ] #367: refactor: address remaining large files >1000 lines
 
