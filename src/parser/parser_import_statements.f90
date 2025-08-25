@@ -542,7 +542,12 @@ contains
             ! Only advance if we haven't handled this token specifically
             ! (declarations and contains are handled above with cycle)
             if (in_contains_section) then
-                token = parser%consume()  ! Always advance in contains section
+                ! Only consume tokens that are not function/subroutine keywords to prevent
+                ! interfering with multiple procedure definitions in contains section
+                if (.not. (token%kind == TK_KEYWORD .and. &
+                          (token%text == "function" .or. token%text == "subroutine"))) then
+                    token = parser%consume()  ! Advance for non-procedure tokens
+                end if
             else
                 token = parser%consume()  ! Advance for unhandled tokens
             end if
@@ -802,6 +807,13 @@ contains
                         exit
                     end if
                 end if
+            end if
+            
+            ! Stop parsing body if we encounter another function or subroutine definition
+            ! This prevents consuming tokens that belong to subsequent procedures
+            if (token%kind == TK_KEYWORD .and. &
+                (token%text == "function" .or. token%text == "subroutine")) then
+                exit  ! Don't consume, let the module parser handle it
             end if
             
             ! Parse basic statements for subroutine body (avoiding circular dependencies)
