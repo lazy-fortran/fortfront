@@ -17,7 +17,7 @@ program fortfront_cli
     
     do
         ! Read line by line for proper redirection and pipe support
-        read(5, '(A)', iostat=io_stat) buffer
+        read(input_unit, '(A)', iostat=io_stat) buffer
         
         ! Handle end conditions
         if (io_stat == iostat_end) exit
