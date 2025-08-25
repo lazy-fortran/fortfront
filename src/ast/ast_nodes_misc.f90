@@ -173,6 +173,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -217,6 +218,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -269,6 +271,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -315,6 +318,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -363,6 +367,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -398,6 +403,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -431,6 +437,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -467,6 +474,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -511,6 +519,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical
@@ -573,6 +582,7 @@ contains
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
+        lhs%uid = rhs%uid
         lhs%inferred_type = rhs%inferred_type
         lhs%is_constant = rhs%is_constant
         lhs%constant_logical = rhs%constant_logical

@@ -37,6 +37,8 @@ No remaining items - Phase 2 development continuing
 - [ ] #439: fix: rescue commits from main (repository hygiene - rescue branch cleanup)
 
 ### Testing and Documentation (SUPPORT)
+- [ ] #467: fix: call graph test failures in main branch
+- [ ] #468: fix: AST transformation test failures in main branch
 - [ ] #464: test: call graph analysis tests failing due to known limitations
 - [ ] #465: test: module parsing test failing for Issue #253
 - [ ] #456: Get rid of disabled tests. Either adapt to current system and enable, or delete if obsoleted
