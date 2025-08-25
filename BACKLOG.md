@@ -1,12 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [x] #486: CLI: Input redirection fails while pipe works for lazy-fortran processing (branch: bug-cli-redirection-486)
+- [ ] #488: Mixed constructs: Implicit main statements ignored when module present (CRITICAL - core lazy-fortran use case)
 
 ## CURRENT SPRINT (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
-- [ ] #488: Mixed constructs: Implicit main statements ignored when module present (CRITICAL - core lazy-fortran use case)
 - [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs (CRITICAL - architectural flaw)
 
 ### HIGH PRIORITY - Core Parser Gaps
@@ -97,3 +96,4 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Sprint Completed)
+- [x] #486: CLI: Input redirection fails while pipe works for lazy-fortran processing (CRITICAL SYSTEM FIX - GCC 15.2.1 compatibility)
