@@ -591,7 +591,7 @@ contains
     end subroutine parse_simple_implicit_in_module
 
     ! Safe subroutine parsing for module contexts (avoids circular dependencies)
-    function parse_subroutine_in_module(parser, arena) result(sub_index)
+    recursive function parse_subroutine_in_module(parser, arena) result(sub_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: sub_index
@@ -658,23 +658,50 @@ contains
                 if (parser%current_token + 1 <= size(parser%tokens)) then
                     if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
                         parser%tokens(parser%current_token + 1)%text == "subroutine") then
-                        ! Consume "end subroutine"
-                        token = parser%consume()  ! consume "end"
-                        token = parser%consume()  ! consume "subroutine"
-                        ! Optionally consume subroutine name
-                        if (.not. parser%is_at_end()) then
-                            token = parser%peek()
-                            if (token%kind == TK_IDENTIFIER .and. token%text == subroutine_name) then
-                                token = parser%consume()
+                        ! Check if this "end subroutine" belongs to this subroutine
+                        ! Look ahead to see if there's a subroutine name
+                        if (parser%current_token + 2 <= size(parser%tokens) .and. &
+                            parser%tokens(parser%current_token + 2)%kind == TK_IDENTIFIER) then
+                            ! There is a name - check if it matches our subroutine
+                            if (parser%tokens(parser%current_token + 2)%text == subroutine_name) then
+                                ! This is our matching "end subroutine" - consume it and exit
+                                token = parser%consume()  ! consume "end"
+                                token = parser%consume()  ! consume "subroutine" 
+                                token = parser%consume()  ! consume subroutine name
+                                exit
+                            else
+                                ! This "end subroutine" belongs to a nested procedure - continue parsing
+                                ! Don't consume these tokens, let the nested procedure parser handle them
                             end if
+                        else
+                            ! No name after "end subroutine" - assume it's ours
+                            token = parser%consume()  ! consume "end"
+                            token = parser%consume()  ! consume "subroutine"
+                            exit
                         end if
-                        exit
                     end if
                 end if
             end if
             
-            ! Parse basic statements for subroutine body (avoiding circular dependencies)
-            if (token%kind /= TK_NEWLINE) then
+            ! Handle nested procedures directly to avoid recursive call issues
+            if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
+                block
+                    integer :: nested_index
+                    nested_index = parse_subroutine_in_module(parser, arena)
+                    if (nested_index > 0) then
+                        body_indices = [body_indices, nested_index]
+                    end if
+                end block
+            else if (token%kind == TK_KEYWORD .and. token%text == "function") then
+                block
+                    integer :: nested_index
+                    nested_index = parse_function_in_module(parser, arena)
+                    if (nested_index > 0) then
+                        body_indices = [body_indices, nested_index]
+                    end if
+                end block
+            else if (token%kind /= TK_NEWLINE) then
+                ! Parse basic statements for subroutine body (avoiding circular dependencies)
                 block
                     integer :: stmt_index
                     stmt_index = parse_basic_statement_in_subroutine(parser, arena)
@@ -693,7 +720,7 @@ contains
     end function parse_subroutine_in_module
 
     ! Safe function parsing for module contexts (avoids circular dependencies)
-    function parse_function_in_module(parser, arena) result(func_index)
+    recursive function parse_function_in_module(parser, arena) result(func_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: func_index
@@ -795,17 +822,27 @@ contains
                 if (parser%current_token + 1 <= size(parser%tokens)) then
                     if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
                         parser%tokens(parser%current_token + 1)%text == "function") then
-                        ! Consume "end function"
-                        token = parser%consume()  ! consume "end"
-                        token = parser%consume()  ! consume "function"
-                        ! Optionally consume function name
-                        if (.not. parser%is_at_end()) then
-                            token = parser%peek()
-                            if (token%kind == TK_IDENTIFIER .and. token%text == function_name) then
-                                token = parser%consume()
+                        ! Check if this "end function" belongs to this function
+                        ! Look ahead to see if there's a function name
+                        if (parser%current_token + 2 <= size(parser%tokens) .and. &
+                            parser%tokens(parser%current_token + 2)%kind == TK_IDENTIFIER) then
+                            ! There is a name - check if it matches our function
+                            if (parser%tokens(parser%current_token + 2)%text == function_name) then
+                                ! This is our matching "end function" - consume it and exit
+                                token = parser%consume()  ! consume "end"
+                                token = parser%consume()  ! consume "function" 
+                                token = parser%consume()  ! consume function name
+                                exit
+                            else
+                                ! This "end function" belongs to a nested procedure - continue parsing
+                                ! Don't consume these tokens, let the nested procedure parser handle them
                             end if
+                        else
+                            ! No name after "end function" - assume it's ours
+                            token = parser%consume()  ! consume "end"
+                            token = parser%consume()  ! consume "function"
+                            exit
                         end if
-                        exit
                     end if
                 end if
             end if
@@ -817,8 +854,25 @@ contains
                 exit  ! Don't consume, let the module parser handle it
             end if
             
-            ! Parse basic statements for subroutine body (avoiding circular dependencies)
-            if (token%kind /= TK_NEWLINE) then
+            ! Handle nested procedures directly to avoid recursive call issues
+            if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
+                block
+                    integer :: nested_index
+                    nested_index = parse_subroutine_in_module(parser, arena)
+                    if (nested_index > 0) then
+                        body_indices = [body_indices, nested_index]
+                    end if
+                end block
+            else if (token%kind == TK_KEYWORD .and. token%text == "function") then
+                block
+                    integer :: nested_index
+                    nested_index = parse_function_in_module(parser, arena)
+                    if (nested_index > 0) then
+                        body_indices = [body_indices, nested_index]
+                    end if
+                end block
+            else if (token%kind /= TK_NEWLINE) then
+                ! Parse basic statements for subroutine body (avoiding circular dependencies)
                 block
                     integer :: stmt_index
                     stmt_index = parse_basic_statement_in_subroutine(parser, arena)
