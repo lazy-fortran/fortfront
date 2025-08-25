@@ -1,11 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines)
 
 ## TODO (Ordered by Priority)
 
 ### Code Quality and Refactoring (ENHANCEMENT)
-- [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines)
 - [ ] #365: refactor: break down large functions >200 lines (9 functions)
 - [ ] #366: refactor: address remaining 24 functions exceeding 100-line limit
 - [ ] #367: refactor: address remaining large files >1000 lines
