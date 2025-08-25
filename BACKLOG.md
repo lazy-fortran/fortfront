@@ -36,6 +36,7 @@ No remaining items - Phase 2 development continuing
 - [ ] #439: fix: rescue commits from main (repository hygiene - rescue branch cleanup)
 
 ### Testing and Documentation (SUPPORT)
+- [ ] #470: tooling: FMP module dependency resolution bug blocking CST tests
 - [ ] #467: fix: call graph test failures in main branch
 - [ ] #468: fix: AST transformation test failures in main branch
 - [ ] #464: test: call graph analysis tests failing due to known limitations
