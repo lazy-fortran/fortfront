@@ -445,6 +445,119 @@ contains
 
     end function parse_type_specifier
 
+    ! Parse variable with initialization from declaration tokens
+    subroutine parse_variable_with_initialization(parser, arena, type_name, &
+                                                  has_kind, kind_value, &
+                                                  attr_info, line, column, &
+                                                  decl_index)
+        use ast_factory, only: push_literal
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: type_name
+        logical, intent(in) :: has_kind
+        integer, intent(in) :: kind_value
+        type(declaration_attributes_t), intent(in) :: attr_info
+        integer, intent(in) :: line, column
+        integer, intent(out) :: decl_index
+
+        type(token_t) :: var_token
+        character(len=:), allocatable :: var_name
+        logical :: is_array
+        integer, allocatable :: dimension_indices(:)
+        
+        ! Initialize output
+        decl_index = 0
+        
+        ! Consume '::'
+        var_token = parser%peek()
+        if (var_token%kind == TK_OPERATOR .and. var_token%text == "::") then
+            var_token = parser%consume()
+        else
+            ! Error: expected ::
+            decl_index = push_literal(arena, &
+                "ERROR: Expected :: after type specification", LITERAL_STRING, &
+                line, column)
+            return
+        end if
+
+        ! Get variable name
+        var_token = parser%peek()
+        if (var_token%kind == TK_IDENTIFIER) then
+            var_token = parser%consume()
+            var_name = var_token%text
+        else
+            ! Error: expected identifier
+            decl_index = push_literal(arena, &
+                "ERROR: Expected variable name", LITERAL_STRING, &
+                line, column)
+            return
+        end if
+
+        ! Check for array dimensions (e.g., real :: arr(10))
+        var_token = parser%peek()
+        is_array = .false.
+        if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
+            ! Consume '('
+            var_token = parser%consume()
+            is_array = .true.
+
+            ! Parse dimensions
+            call parse_array_dimensions(parser, arena, dimension_indices)
+
+            ! Consume ')'
+            var_token = parser%peek()
+            if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
+                var_token = parser%consume()
+            else
+                ! Error: expected )
+                decl_index = push_literal(arena, &
+                    "ERROR: Expected ) after array dimensions", LITERAL_STRING, &
+                    line, column)
+                return
+            end if
+        end if
+
+        ! Handle multi-variable declarations and initialization
+        block
+            character(len=:), allocatable :: collected_var_names(:)
+            integer :: var_count, initializer_index
+            type(parse_result_t) :: collection_result
+            
+            ! Collect all variable names using safe helper function
+            call collect_variable_names(parser, arena, var_name, collected_var_names, &
+                                        var_count, initializer_index, collection_result)
+            
+            ! Check for collection errors
+            if (collection_result%is_failure()) then
+                decl_index = push_literal(arena, collection_result%result%get_message(), &
+                                          LITERAL_STRING, line, column)
+                return
+            end if
+            
+            ! Handle single variable with initializer
+            if (var_count == 1 .and. initializer_index == 0) then
+                ! Check if we need to parse initializer
+                var_token = parser%peek()
+                if (var_token%kind == TK_OPERATOR .and. var_token%text == "=") then
+                    var_token = parser%consume()  ! consume '='
+                    initializer_index = parse_comparison(parser, arena)
+                end if
+            end if
+            
+            ! Create declaration nodes using safe helper function
+            decl_index = create_declaration_nodes(arena, type_name, collected_var_names, &
+                                                  var_count, has_kind, kind_value, &
+                                                  attr_info%has_intent, attr_info%intent, &
+                                                  is_array, dimension_indices, &
+                                                  attr_info%has_global_dimensions, &
+                                                  attr_info%global_dimension_indices, &
+                                                  attr_info%is_allocatable, attr_info%is_pointer, &
+                                                  attr_info%is_target, attr_info%is_optional, &
+                                                  attr_info%is_parameter, &
+                                                  initializer_index, line, column)
+        end block
+    end subroutine parse_variable_with_initialization
+
     ! Parse declaration attributes (allocatable, pointer, intent, dimension, etc.)
     subroutine parse_declaration_attributes(parser, arena, attr_info)
         type(parser_state_t), intent(inout) :: parser
@@ -597,13 +710,9 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: decl_index
 
-        type(token_t) :: type_token, var_token
-        character(len=:), allocatable :: type_name, var_name
+        character(len=:), allocatable :: type_name
         integer :: line, column, kind_value
-        logical :: has_kind, is_array, is_allocatable, is_pointer, is_target
-        logical :: has_intent, is_optional, has_global_dimensions, is_parameter
-        character(len=:), allocatable :: intent
-        integer, allocatable :: dimension_indices(:), global_dimension_indices(:)
+        logical :: has_kind
         type(declaration_attributes_t) :: attr_info
 
         ! Parse type specifier using extracted helper function
@@ -622,117 +731,14 @@ contains
         kind_value = type_spec%kind_value
         line = type_spec%line
         column = type_spec%column
-        
-        ! Initialize attribute flags
-        is_allocatable = .false.
-        is_pointer = .false.
-        is_target = .false.
-        has_intent = .false.
-        is_optional = .false.
-        has_global_dimensions = .false.
-        is_parameter = .false.
 
         ! Parse declaration attributes using extracted helper function
         call parse_declaration_attributes(parser, arena, attr_info)
         
-        ! Extract parsed attribute information
-        is_allocatable = attr_info%is_allocatable
-        is_pointer = attr_info%is_pointer
-        is_target = attr_info%is_target
-        is_parameter = attr_info%is_parameter
-        is_optional = attr_info%is_optional
-        has_intent = attr_info%has_intent
-        has_global_dimensions = attr_info%has_global_dimensions
-        if (allocated(attr_info%intent)) intent = attr_info%intent
-        if (allocated(attr_info%global_dimension_indices)) then
-            global_dimension_indices = attr_info%global_dimension_indices
-        end if
-
-        ! Consume '::'
-        var_token = parser%peek()
-        if (var_token%kind == TK_OPERATOR .and. var_token%text == "::") then
-            type_token = parser%consume()
-        else
-            ! Error: expected ::
-            decl_index = push_literal(arena, &
-                "ERROR: Expected :: after type specification", LITERAL_STRING, &
-                line, column)
-            return
-        end if
-
-        ! Get variable name
-        var_token = parser%peek()
-        if (var_token%kind == TK_IDENTIFIER) then
-            var_token = parser%consume()
-            var_name = var_token%text
-        else
-            ! Error: expected identifier
-            decl_index = push_literal(arena, &
-                "ERROR: Expected variable name", LITERAL_STRING, &
-                line, column)
-            return
-        end if
-
-        ! Check for array dimensions (e.g., real :: arr(10))
-        var_token = parser%peek()
-        is_array = .false.
-        if (var_token%kind == TK_OPERATOR .and. var_token%text == "(") then
-            ! Consume '('
-            var_token = parser%consume()
-            is_array = .true.
-
-            ! Parse dimensions
-            call parse_array_dimensions(parser, arena, dimension_indices)
-
-            ! Consume ')'
-            var_token = parser%peek()
-            if (var_token%kind == TK_OPERATOR .and. var_token%text == ")") then
-                var_token = parser%consume()
-            else
-                ! Error: expected )
-                decl_index = push_literal(arena, &
-                    "ERROR: Expected ) after array dimensions", LITERAL_STRING, &
-                    line, column)
-                return
-            end if
-        end if
-
-        ! Use helper functions to safely handle multi-variable declarations
-        block
-            character(len=:), allocatable :: collected_var_names(:)
-            integer :: var_count, initializer_index
-            type(parse_result_t) :: collection_result
-            
-            ! Collect all variable names using safe helper function
-            call collect_variable_names(parser, arena, var_name, collected_var_names, &
-                                        var_count, initializer_index, collection_result)
-            
-            ! Check for collection errors
-            if (collection_result%is_failure()) then
-                decl_index = push_literal(arena, collection_result%result%get_message(), LITERAL_STRING, &
-                                          line, column)
-                return
-            end if
-            
-            ! Handle single variable with initializer
-            if (var_count == 1 .and. initializer_index == 0) then
-                ! Check if we need to parse initializer
-                var_token = parser%peek()
-                if (var_token%kind == TK_OPERATOR .and. var_token%text == "=") then
-                    var_token = parser%consume()  ! consume '='
-                    initializer_index = parse_comparison(parser, arena)
-                end if
-            end if
-            
-            ! Create declaration nodes using safe helper function
-            decl_index = create_declaration_nodes(arena, type_name, collected_var_names, &
-                                                  var_count, has_kind, kind_value, &
-                                                  has_intent, intent, is_array, dimension_indices, &
-                                                  has_global_dimensions, global_dimension_indices, &
-                                                  is_allocatable, is_pointer, is_target, &
-                                                  is_optional, is_parameter, &
-                                                  initializer_index, line, column)
-        end block
+        ! Parse variable with initialization using extracted helper function
+        call parse_variable_with_initialization(parser, arena, type_name, &
+                                                has_kind, kind_value, attr_info, &
+                                                line, column, decl_index)
 
     end function parse_declaration
 
