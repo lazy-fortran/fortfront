@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #407: Refactor: Extract multi-variable declaration handling from parse_declaration
 
 ## TODO (Ordered by Priority)
 
@@ -18,6 +17,7 @@
 - [ ] #403: Type System: Implement constraint solver with let-polymorphism support
 
 ### Testing and Documentation (SUPPORT)
+- [ ] #475: parser: nested internal procedures not fully tracked in call graph analysis
 - [ ] #470: tooling: FMP module dependency resolution bug blocking CST tests
 - [ ] #467: fix: call graph test failures in main branch
 - [ ] #468: fix: AST transformation test failures in main branch
@@ -52,6 +52,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Completed)
+- [x] #407: Refactor: Extract multi-variable declaration handling from parse_declaration (COMPLETED - PR #473 merged successfully with 59% size reduction, eliminated memory safety issues, and fixed critical parsing bugs affecting test_call_graph and test_module_parsing_bug_red)
 - [x] #448: refactor: reduce function sizes in bench_arena_comparison.f90 (COMPLETED - Issue resolved as obsolete, referenced file does not exist in codebase)
 - [x] #397: CST: Implement CST to AST converter with bidirectional linking (COMPLETED - PR #472 successfully implemented converter with memory corruption fixes, enabling CST/AST split roadmap completion)
 - [x] #463: CRITICAL: System-wide regression from arena modernization (COMPLETED - sergei successfully resolved O(n²) performance bottleneck, eliminated memory corruption and segmentation faults, restored CI pipeline functionality)
