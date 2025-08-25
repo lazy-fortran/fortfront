@@ -7,27 +7,34 @@ program fortfront_cli
     character(len=4096) :: line
     integer :: iostat
     
-    ! Read all input from stdin - use approach that works for both pipes and redirection
+    ! Read all input from stdin - robust approach for both pipes and redirection
     allocate(character(len=0) :: input_text)
     
-    ! Read data line by line with explicit error handling for EOF
+    ! Read data line by line with comprehensive error handling
     do
         read(input_unit, '(A)', iostat=iostat) line
-        ! Check for EOF first
+        
+        ! Handle EOF - this is the normal termination condition
         if (iostat == iostat_end) exit
-        ! Check for other read errors
-        if (iostat /= 0) then
-            ! For file redirection, iostat might be positive
-            if (iostat > 0) then
-                ! Try to continue for recoverable errors
-                cycle
-            else
-                write(error_unit, '(A,I0)') 'Error reading from stdin: ', iostat
-                stop 1
-            end if
+        
+        ! Handle successful reads
+        if (iostat == 0) then
+            input_text = input_text // trim(line) // new_line('A')
+            cycle
         end if
-        ! Successfully read a line
-        input_text = input_text // trim(line) // new_line('A')
+        
+        ! Handle error conditions
+        ! Positive iostat values indicate system errors
+        ! Negative iostat values (other than iostat_end) indicate format errors
+        if (iostat > 0) then
+            ! System error - could be transient, but likely serious
+            write(error_unit, '(A,I0)') 'System error reading from stdin: ', iostat
+            stop 1
+        else
+            ! Format or other error - treat as fatal for consistency
+            write(error_unit, '(A,I0)') 'Format error reading from stdin: ', iostat
+            stop 1
+        end if
     end do
     
     ! Allow empty input - let the frontend handle it gracefully
