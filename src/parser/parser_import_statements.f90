@@ -923,16 +923,16 @@ contains
                 ! Handle nested function definitions  
                 stmt_index = parse_function_in_module(parser, arena)
             case default
-                ! Skip unknown statement by consuming tokens until end of line
-                call skip_to_end_of_line(parser)
+                ! Unknown keyword - consume it
+                token = parser%consume()
                 stmt_index = 0
             end select
         case (TK_IDENTIFIER)
             ! Likely assignment statement
             stmt_index = parse_simple_assignment_statement(parser, arena)
         case default
-            ! Skip unknown token
-            call skip_to_end_of_line(parser)
+            ! Unknown token - consume it
+            token = parser%consume()
             stmt_index = 0
         end select
     end function parse_basic_statement_in_subroutine
@@ -1071,11 +1071,21 @@ contains
             subroutine_name = token%text
             token = parser%consume()
             
-            ! For simplicity, no arguments parsed (can be enhanced later)
+            ! For simplicity, skip arguments if present
             allocate(arg_indices(0))
-            
-            ! Skip to end of line
-            call skip_to_end_of_line(parser)
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                token = parser%consume()  ! consume '('
+                ! Skip until closing parenthesis
+                do while (.not. parser%is_at_end())
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                        token = parser%consume()  ! consume ')'
+                        exit
+                    end if
+                    token = parser%consume()  ! skip argument tokens
+                end do
+            end if
             
             ! Create call statement node
             stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, &
@@ -1083,7 +1093,6 @@ contains
         else
             ! Error: expected subroutine name
             stmt_index = 0
-            call skip_to_end_of_line(parser)
         end if
     end function parse_simple_call_statement
 
@@ -1113,7 +1122,6 @@ contains
                 
                 if (rhs_index <= 0) then
                     ! Failed to parse expression
-                    call skip_to_end_of_line(parser)
                     return
                 end if
                 
@@ -1121,10 +1129,12 @@ contains
                 stmt_index = push_assignment(arena, lhs_index, rhs_index, &
                                            token%line, token%column)
             else
-                call skip_to_end_of_line(parser)
+                ! No assignment operator
+                stmt_index = 0
             end if
         else
-            call skip_to_end_of_line(parser)
+            ! No identifier
+            stmt_index = 0
         end if
     end function parse_simple_assignment_statement
 
