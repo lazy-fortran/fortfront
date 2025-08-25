@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #397: CST to AST converter with bidirectional UID linking (CRITICAL: CI failure in test_call_graph_comprehensive - HANDBACK TO SERGEI)
 
 ## TODO (Ordered by Priority)
 
