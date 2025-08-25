@@ -1,12 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #448: refactor: reduce function sizes in bench_arena_comparison.f90
+- [ ] #407: Refactor: Extract multi-variable declaration handling from parse_declaration
 
 ## TODO (Ordered by Priority)
 
 ### Code Quality and Refactoring (ENHANCEMENT)
-- [ ] #407: Refactor: Extract multi-variable declaration handling from parse_declaration (Re-opened after regression fixes needed)
 - [ ] #406: Refactor: Extract variable parsing and initialization logic from parse_declaration
 - [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines)
 - [ ] #365: refactor: break down large functions >200 lines (9 functions)
@@ -53,6 +52,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Completed)
+- [x] #448: refactor: reduce function sizes in bench_arena_comparison.f90 (COMPLETED - Issue resolved as obsolete, referenced file does not exist in codebase)
 - [x] #397: CST: Implement CST to AST converter with bidirectional linking (COMPLETED - PR #472 successfully implemented converter with memory corruption fixes, enabling CST/AST split roadmap completion)
 - [x] #463: CRITICAL: System-wide regression from arena modernization (COMPLETED - sergei successfully resolved O(n²) performance bottleneck, eliminated memory corruption and segmentation faults, restored CI pipeline functionality)
 - [x] #396: CST: Create CST builder for parallel construction alongside AST (COMPLETED - Implementation merged to main with fixed root handle bug, 12/12 tests passing, approved by Patrick)
