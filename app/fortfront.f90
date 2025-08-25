@@ -4,34 +4,81 @@ program fortfront_cli
     implicit none
     
     character(len=:), allocatable :: input_text, output_text, error_msg
-    character(len=4096) :: line
-    integer :: iostat
+    character(len=:), allocatable :: temp_text
+    character(len=4096) :: buffer
+    integer :: io_stat, total_size, capacity, line_len
+    integer, parameter :: MAX_INPUT_SIZE = 10485760  ! 10MB safety limit
+    integer, parameter :: INITIAL_CAPACITY = 8192
     
-    ! Read all input from stdin - use approach that works for both pipes and redirection
-    allocate(character(len=0) :: input_text)
+    ! Secure line-by-line reading with O(N) memory allocation
+    capacity = INITIAL_CAPACITY
+    allocate(character(len=capacity) :: input_text)
+    total_size = 0
     
-    ! Read data line by line with explicit error handling for EOF
     do
-        read(input_unit, '(A)', iostat=iostat) line
-        ! Check for EOF first
-        if (iostat == iostat_end) exit
-        ! Check for other read errors
-        if (iostat /= 0) then
-            ! For file redirection, iostat might be positive
-            if (iostat > 0) then
-                ! Try to continue for recoverable errors
-                cycle
-            else
-                write(error_unit, '(A,I0)') 'Error reading from stdin: ', iostat
+        ! Read line by line for proper redirection and pipe support
+        read(input_unit, '(A)', iostat=io_stat) buffer
+        
+        ! Handle end conditions
+        if (io_stat == iostat_end) exit
+        if (io_stat > 0) then
+            write(error_unit, '(A)') 'Error reading input'
+            stop 1
+        end if
+        
+        ! Get actual line length (trimmed content)
+        line_len = len_trim(buffer)
+        
+        ! Security check: prevent memory exhaustion attacks  
+        ! Account for content + newline + potential growth
+        if (total_size + line_len + 1 > MAX_INPUT_SIZE) then
+            write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
+                MAX_INPUT_SIZE, ' bytes)'
+            stop 1
+        end if
+        
+        ! Grow buffer if needed (double when full)
+        if (total_size + line_len + 1 > capacity) then
+            do while (capacity < total_size + line_len + 1 .and. capacity <= MAX_INPUT_SIZE)
+                capacity = min(capacity * 2, MAX_INPUT_SIZE)
+            end do
+            
+            if (capacity > MAX_INPUT_SIZE) then
+                write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
+                    MAX_INPUT_SIZE, ' bytes)'
                 stop 1
             end if
+            
+            ! Reallocate with larger capacity
+            allocate(character(len=capacity) :: temp_text)
+            if (total_size > 0) then
+                temp_text(1:total_size) = input_text(1:total_size)
+            end if
+            call move_alloc(temp_text, input_text)
         end if
-        ! Successfully read a line
-        input_text = input_text // trim(line) // new_line('A')
+        
+        ! Add line content if not empty
+        if (line_len > 0) then
+            input_text(total_size+1:total_size+line_len) = buffer(1:line_len)
+            total_size = total_size + line_len
+        end if
+        
+        ! Always add newline to preserve source structure
+        input_text(total_size+1:total_size+1) = new_line('A')
+        total_size = total_size + 1
     end do
     
-    ! Allow empty input - let the frontend handle it gracefully
-    ! Empty input should generate a minimal valid program
+    ! Trim to actual size to save memory
+    if (total_size == 0) then
+        allocate(character(len=0) :: temp_text)
+    else
+        allocate(character(len=total_size) :: temp_text)
+        temp_text = input_text(1:total_size)
+    end if
+    call move_alloc(temp_text, input_text)
+    
+    ! Handle empty input gracefully - no special error messages needed
+    ! Empty input is valid and should generate minimal program
     
     ! Transform lazy fortran to standard fortran
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
