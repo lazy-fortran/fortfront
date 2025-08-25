@@ -1,11 +1,14 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #478: CRITICAL: PR #477 test failures/hangs blocking merge (HANDBACK TO SERGEI)
 
 ## TODO (Ordered by Priority)
 
+### Critical Blocking Issues (URGENT)
+- [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines) - PENDING PR #477 test fix
+
 ### Code Quality and Refactoring (ENHANCEMENT)
-- [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines)
 - [ ] #365: refactor: break down large functions >200 lines (9 functions)
 - [ ] #366: refactor: address remaining 24 functions exceeding 100-line limit
 - [ ] #367: refactor: address remaining large files >1000 lines
