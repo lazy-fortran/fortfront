@@ -134,10 +134,9 @@ program test_codegen_core_direct
 
     if (passed_tests == total_tests) then
         print *, "All codegen core direct tests passed!"
-        stop 0
     else
         print *, "Some codegen core tests failed!"
-        stop 1
+        error stop 1
     end if
 
 contains

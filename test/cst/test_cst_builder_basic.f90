@@ -217,10 +217,11 @@ program test_cst_builder_basic
         print *, "  ✓ CST node validation"
         print *, ""
         print *, "Ready for Issue #397: CST to AST converter"
-        stop 0
+        print *, ""
+        print *, "✓ All CST builder basic tests PASSED!"
     else
         print *, "Some CST builder basic tests failed!"
-        stop 1
+        error stop 1
     end if
 
 contains

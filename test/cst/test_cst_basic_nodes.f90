@@ -240,10 +240,9 @@ program test_cst_basic_nodes
 
     if (passed_tests == total_tests) then
         print *, "All CST basic node tests passed!"
-        stop 0
     else
         print *, "Some CST basic node tests failed!"
-        stop 1
+        error stop 1
     end if
 
 contains

@@ -173,10 +173,9 @@ program test_cst_enhanced_features
 
     if (passed_tests == total_tests) then
         print *, "All CST enhanced features tests passed!"
-        stop 0
     else
         print *, "Some CST enhanced features tests failed!"
-        stop 1
+        error stop 1
     end if
 
 contains
