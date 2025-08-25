@@ -127,6 +127,65 @@ contains
         this%conversion_count = this%conversion_count + 1
     end function convert_cst_tree_to_ast
     
+    ! Count trivia elements that will be stripped from CST node
+    subroutine count_trivia_stripped(cst_node, conv_result)
+        type(cst_node_t), intent(in) :: cst_node
+        type(conversion_result_t), intent(inout) :: conv_result
+        
+        if (allocated(cst_node%leading_trivia)) then
+            conv_result%trivia_stripped = conv_result%trivia_stripped + &
+                                         size(cst_node%leading_trivia)
+        end if
+        if (allocated(cst_node%trailing_trivia)) then
+            conv_result%trivia_stripped = conv_result%trivia_stripped + &
+                                         size(cst_node%trailing_trivia)
+        end if
+    end subroutine count_trivia_stripped
+    
+    ! Set source position information on AST node if preservation enabled
+    subroutine preserve_node_position(this, cst_node, ast_node_obj)
+        class(cst_to_ast_converter_t), intent(in) :: this
+        type(cst_node_t), intent(in) :: cst_node
+        class(ast_node), intent(inout) :: ast_node_obj
+        
+        if (this%preserve_positions) then
+            ! Map CST positions to AST line/column (simplified mapping)
+            ast_node_obj%line = max(1, cst_node%start_pos)
+            ast_node_obj%column = 1  ! Simplified - would need lexer context for precise column
+        end if
+    end subroutine preserve_node_position
+    
+    ! Process all children of CST node recursively
+    recursive subroutine convert_children_recursive(this, cst_arena, cst_node, &
+                                                   ast_index, conv_result)
+        class(cst_to_ast_converter_t), intent(inout) :: this
+        type(cst_arena_t), intent(in) :: cst_arena
+        type(cst_node_t), intent(in) :: cst_node
+        integer, intent(in) :: ast_index
+        type(conversion_result_t), intent(inout) :: conv_result
+        
+        integer :: child_ast_index, i
+        type(cst_node_t) :: child_cst
+        type(cst_handle_t) :: child_handle
+        
+        if (.not. allocated(cst_node%children)) return
+        
+        do i = 1, size(cst_node%children)
+            ! Create child handle
+            child_handle%index = cst_node%children(i)
+            child_handle%generation = cst_arena%global_generation
+            
+            ! Get child CST node
+            child_cst = cst_arena%get(child_handle)
+            if (child_cst%kind < 0) cycle  ! Skip invalid children
+            
+            ! Recursively convert child
+            call convert_node_recursive(this, cst_arena, child_cst, &
+                                       ast_index, child_ast_index, conv_result)
+            if (conv_result%result%is_failure()) return
+        end do
+    end subroutine convert_children_recursive
+    
     ! Convert single CST node to AST node (internal recursive helper)
     recursive subroutine convert_node_recursive(this, cst_arena, cst_node, &
                                                parent_index, ast_index, conv_result)
@@ -138,33 +197,19 @@ contains
         type(conversion_result_t), intent(inout) :: conv_result
         
         class(ast_node), allocatable :: ast_node_obj
-        integer :: child_ast_index, i
-        type(cst_node_t) :: child_cst
-        type(cst_handle_t) :: child_handle
         
         ! Convert CST node to appropriate AST node type
         call create_ast_node_from_cst(cst_node, ast_node_obj, conv_result)
         if (conv_result%result%is_failure()) return
         
         ! Count trivia stripped
-        if (allocated(cst_node%leading_trivia)) then
-            conv_result%trivia_stripped = conv_result%trivia_stripped + &
-                                         size(cst_node%leading_trivia)
-        end if
-        if (allocated(cst_node%trailing_trivia)) then
-            conv_result%trivia_stripped = conv_result%trivia_stripped + &
-                                         size(cst_node%trailing_trivia)
-        end if
+        call count_trivia_stripped(cst_node, conv_result)
         
         ! Set UID for bidirectional linking
         ast_node_obj%uid%value = cst_node%uid
         
         ! Preserve source positions if enabled
-        if (this%preserve_positions) then
-            ! Map CST positions to AST line/column (simplified mapping)
-            ast_node_obj%line = max(1, cst_node%start_pos)
-            ast_node_obj%column = 1  ! Simplified - would need lexer context for precise column
-        end if
+        call preserve_node_position(this, cst_node, ast_node_obj)
         
         ! Add to AST arena
         call this%ast_arena%push(ast_node_obj)
@@ -172,25 +217,61 @@ contains
         conv_result%nodes_converted = conv_result%nodes_converted + 1
         
         ! Recursively convert children
-        if (allocated(cst_node%children)) then
-            do i = 1, size(cst_node%children)
-                ! Create child handle
-                child_handle%index = cst_node%children(i)
-                child_handle%generation = cst_arena%global_generation
-                
-                ! Get child CST node
-                child_cst = cst_arena%get(child_handle)
-                if (child_cst%kind < 0) cycle  ! Skip invalid children
-                
-                ! Recursively convert child
-                call convert_node_recursive(this, cst_arena, child_cst, &
-                                           ast_index, child_ast_index, conv_result)
-                if (conv_result%result%is_failure()) return
-                
-                ! Note: Parent-child relationships are maintained through arena structure
-            end do
-        end if
+        call convert_children_recursive(this, cst_arena, cst_node, ast_index, conv_result)
     end subroutine convert_node_recursive
+    
+    ! Create identifier AST node from CST node text
+    subroutine create_identifier_ast_node(cst_node, ast_node_obj)
+        type(cst_node_t), intent(in) :: cst_node
+        class(ast_node), allocatable, intent(out) :: ast_node_obj
+        
+        type(string_t) :: text_string
+        
+        allocate(identifier_node :: ast_node_obj)
+        if (allocated(cst_node%text)) then
+            text_string = string_t(cst_node%text)
+            select type (id_node => ast_node_obj)
+            type is (identifier_node)
+                id_node%name = cst_node%text
+            end select
+        end if
+    end subroutine create_identifier_ast_node
+    
+    ! Create literal AST node from CST node text with type inference
+    subroutine create_literal_ast_node(cst_node, ast_node_obj)
+        type(cst_node_t), intent(in) :: cst_node
+        class(ast_node), allocatable, intent(out) :: ast_node_obj
+        
+        type(string_t) :: text_string
+        
+        allocate(literal_node :: ast_node_obj)
+        if (allocated(cst_node%text)) then
+            text_string = string_t(cst_node%text)
+            select type (lit_node => ast_node_obj)
+            type is (literal_node)
+                lit_node%value = cst_node%text
+                ! Infer literal type from text content
+                call infer_literal_type(cst_node%text, lit_node)
+            end select
+        end if
+    end subroutine create_literal_ast_node
+    
+    ! Create operator AST node from CST node text
+    subroutine create_operator_ast_node(cst_node, ast_node_obj)
+        type(cst_node_t), intent(in) :: cst_node
+        class(ast_node), allocatable, intent(out) :: ast_node_obj
+        
+        type(string_t) :: text_string
+        
+        allocate(binary_op_node :: ast_node_obj)
+        if (allocated(cst_node%text)) then
+            text_string = string_t(cst_node%text)
+            select type (op_node => ast_node_obj)
+            type is (binary_op_node)
+                op_node%operator = cst_node%text
+            end select
+        end if
+    end subroutine create_operator_ast_node
     
     ! Create appropriate AST node from CST node
     subroutine create_ast_node_from_cst(cst_node, ast_node_obj, conv_result)
@@ -198,50 +279,19 @@ contains
         class(ast_node), allocatable, intent(out) :: ast_node_obj
         type(conversion_result_t), intent(inout) :: conv_result
         
-        type(string_t) :: text_string
-        
         select case (cst_node%kind)
         case (CST_PROGRAM)
             allocate(program_node :: ast_node_obj)
-            
         case (CST_ASSIGNMENT)
             allocate(assignment_node :: ast_node_obj)
-            
         case (CST_CALL)
             allocate(subroutine_call_node :: ast_node_obj)
-            
         case (CST_IDENTIFIER)
-            allocate(identifier_node :: ast_node_obj)
-            if (allocated(cst_node%text)) then
-                text_string = string_t(cst_node%text)
-                select type (id_node => ast_node_obj)
-                type is (identifier_node)
-                    id_node%name = cst_node%text
-                end select
-            end if
-            
+            call create_identifier_ast_node(cst_node, ast_node_obj)
         case (CST_LITERAL)
-            allocate(literal_node :: ast_node_obj)
-            if (allocated(cst_node%text)) then
-                text_string = string_t(cst_node%text)
-                select type (lit_node => ast_node_obj)
-                type is (literal_node)
-                    lit_node%value = cst_node%text
-                    ! Infer literal type from text content
-                    call infer_literal_type(cst_node%text, lit_node)
-                end select
-            end if
-            
+            call create_literal_ast_node(cst_node, ast_node_obj)
         case (CST_OPERATOR)
-            allocate(binary_op_node :: ast_node_obj)
-            if (allocated(cst_node%text)) then
-                text_string = string_t(cst_node%text)
-                select type (op_node => ast_node_obj)
-                type is (binary_op_node)
-                    op_node%operator = cst_node%text
-                end select
-            end if
-            
+            call create_operator_ast_node(cst_node, ast_node_obj)
         case default
             ! Create generic AST node for unsupported CST types
             allocate(program_node :: ast_node_obj)  ! Fallback
@@ -290,37 +340,50 @@ contains
         conv_result%nodes_converted = 1
     end function convert_single_cst_node
     
-    ! Infer literal type from text content
-    subroutine infer_literal_type(text, lit_node)
-        character(len=*), intent(in) :: text
+    ! Check if text represents a logical literal (.true./.false.)
+    function check_logical_literal(trimmed_text, lit_node) result(is_logical)
+        character(len=*), intent(in) :: trimmed_text
         type(literal_node), intent(inout) :: lit_node
+        logical :: is_logical
         
-        character(len=len(text)) :: trimmed_text
-        integer :: dot_pos, int_val, ios
-        real :: real_val
         logical :: logical_val
         
-        trimmed_text = trim(adjustl(text))
-        
-        ! Check for logical literal
+        is_logical = .false.
         if (trimmed_text == '.true.' .or. trimmed_text == '.false.') then
             lit_node%literal_type = "logical"
             logical_val = (trimmed_text == '.true.')
             lit_node%constant_logical = logical_val
             lit_node%is_constant = .true.
             lit_node%constant_type = LITERAL_LOGICAL
-            return
+            is_logical = .true.
         end if
+    end function check_logical_literal
+    
+    ! Check if text represents a string literal (quoted)
+    function check_string_literal(trimmed_text, lit_node) result(is_string)
+        character(len=*), intent(in) :: trimmed_text
+        type(literal_node), intent(inout) :: lit_node
+        logical :: is_string
         
-        ! Check for string literal
+        is_string = .false.
         if ((trimmed_text(1:1) == '"' .and. trimmed_text(len_trim(trimmed_text):len_trim(trimmed_text)) == '"') .or. &
             (trimmed_text(1:1) == "'" .and. trimmed_text(len_trim(trimmed_text):len_trim(trimmed_text)) == "'")) then
             lit_node%literal_type = "character"
             lit_node%constant_type = LITERAL_STRING
-            return
+            is_string = .true.
         end if
+    end function check_string_literal
+    
+    ! Check if text represents a real literal (contains decimal point)
+    function check_real_literal(trimmed_text, lit_node) result(is_real)
+        character(len=*), intent(in) :: trimmed_text
+        type(literal_node), intent(inout) :: lit_node
+        logical :: is_real
         
-        ! Check for real literal (contains decimal point)
+        integer :: dot_pos, ios
+        real :: real_val
+        
+        is_real = .false.
         dot_pos = index(trimmed_text, '.')
         if (dot_pos > 0) then
             read(trimmed_text, *, iostat=ios) real_val
@@ -329,19 +392,44 @@ contains
                 lit_node%constant_real = real_val
                 lit_node%is_constant = .true.
                 lit_node%constant_type = LITERAL_REAL
-                return
+                is_real = .true.
             end if
         end if
+    end function check_real_literal
+    
+    ! Check if text represents an integer literal
+    function check_integer_literal(trimmed_text, lit_node) result(is_integer)
+        character(len=*), intent(in) :: trimmed_text
+        type(literal_node), intent(inout) :: lit_node
+        logical :: is_integer
         
-        ! Try integer literal
+        integer :: int_val, ios
+        
+        is_integer = .false.
         read(trimmed_text, *, iostat=ios) int_val
         if (ios == 0) then
             lit_node%literal_type = "integer"
             lit_node%constant_integer = int_val
             lit_node%is_constant = .true.
             lit_node%constant_type = LITERAL_INTEGER
-            return
+            is_integer = .true.
         end if
+    end function check_integer_literal
+    
+    ! Infer literal type from text content
+    subroutine infer_literal_type(text, lit_node)
+        character(len=*), intent(in) :: text
+        type(literal_node), intent(inout) :: lit_node
+        
+        character(len=len(text)) :: trimmed_text
+        
+        trimmed_text = trim(adjustl(text))
+        
+        ! Check each literal type in order of specificity
+        if (check_logical_literal(trimmed_text, lit_node)) return
+        if (check_string_literal(trimmed_text, lit_node)) return
+        if (check_real_literal(trimmed_text, lit_node)) return
+        if (check_integer_literal(trimmed_text, lit_node)) return
         
         ! Default to string if nothing else matches
         lit_node%literal_type = "character"

@@ -96,18 +96,14 @@ contains
         allocate(mapping%entries(capacity))
     end function create_node_mapping
     
-    ! Add bidirectional mapping between CST and AST nodes
-    function node_mapping_add(this, cst_uid, ast_uid, cst_index, ast_index) result(res)
-        class(node_mapping_t), intent(inout) :: this
+    ! Validate mapping input parameters
+    function validate_mapping_inputs(cst_uid, ast_uid, cst_index, ast_index) result(res)
         type(uid_t), intent(in) :: cst_uid
         type(uid_t), intent(in) :: ast_uid
         integer, intent(in) :: cst_index
         integer, intent(in) :: ast_index
         type(result_t) :: res
         
-        type(mapping_entry_t) :: entry
-        
-        ! Validate inputs
         if (.not. cst_uid%is_valid() .or. .not. ast_uid%is_valid()) then
             res = create_error_result( &
                 "Invalid UIDs provided for mapping", &
@@ -130,17 +126,47 @@ contains
             return
         end if
         
+        res = success_result()
+    end function validate_mapping_inputs
+    
+    ! Create mapping entry from validated inputs
+    function create_mapping_entry(cst_uid, ast_uid, cst_index, ast_index, generation) result(entry)
+        type(uid_t), intent(in) :: cst_uid
+        type(uid_t), intent(in) :: ast_uid
+        integer, intent(in) :: cst_index
+        integer, intent(in) :: ast_index
+        integer, intent(in) :: generation
+        type(mapping_entry_t) :: entry
+        
+        entry%cst_uid = cst_uid
+        entry%ast_uid = ast_uid
+        entry%cst_arena_index = cst_index
+        entry%ast_arena_index = ast_index
+        entry%mapping_generation = generation
+    end function create_mapping_entry
+    
+    ! Add bidirectional mapping between CST and AST nodes
+    function node_mapping_add(this, cst_uid, ast_uid, cst_index, ast_index) result(res)
+        class(node_mapping_t), intent(inout) :: this
+        type(uid_t), intent(in) :: cst_uid
+        type(uid_t), intent(in) :: ast_uid
+        integer, intent(in) :: cst_index
+        integer, intent(in) :: ast_index
+        type(result_t) :: res
+        
+        type(mapping_entry_t) :: entry
+        
+        ! Validate inputs
+        res = validate_mapping_inputs(cst_uid, ast_uid, cst_index, ast_index)
+        if (res%is_failure()) return
+        
         ! Resize if necessary
         if (this%size >= this%capacity) then
             call this%resize(this%capacity * 2)
         end if
         
         ! Create new mapping entry
-        entry%cst_uid = cst_uid
-        entry%ast_uid = ast_uid
-        entry%cst_arena_index = cst_index
-        entry%ast_arena_index = ast_index
-        entry%mapping_generation = this%current_generation
+        entry = create_mapping_entry(cst_uid, ast_uid, cst_index, ast_index, this%current_generation)
         
         ! Add to array
         this%size = this%size + 1
