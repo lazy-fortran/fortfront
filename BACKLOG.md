@@ -1,20 +1,15 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #396: CST: Create CST builder for parallel construction alongside AST
 
 ## TODO (Ordered by Priority)
 
-### CRITICAL: Foundation Architecture (BLOCKING ALL OTHER WORK)
-No remaining items - Foundation architecture complete
+### CRITICAL: System-Wide Regression (BLOCKING ALL WORK)
+- [ ] #463: CRITICAL: System-wide regression from arena modernization - infinite timeout loops in entire test suite (INCORRECTLY marked resolved - memory corruption and test failures persist)
 
-### Foundation Phase 1: Error Handling Infrastructure (CRITICAL)
-No remaining items - Phase 1 complete
-
-### Foundation Phase 2: Arena System (Foundation complete, continuing development)
-No remaining items - Phase 2 development continuing
-
-### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until #442 complete)
-- [ ] #396: CST: Create CST builder for parallel construction alongside AST
+### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until Issue #463 resolved)
+- [ ] #396: CST: Create CST builder for parallel construction alongside AST (Implementation complete and approved, blocked by system regression)
 - [ ] #397: CST: Implement CST to AST converter with bidirectional linking
 
 ### Code Quality and Refactoring (ENHANCEMENT)
@@ -64,7 +59,6 @@ No remaining items - Phase 2 development continuing
 ## DONE (Completed)
 - [x] #395: CST: Implement lexer trivia collection for comments and whitespace (COMPLETED - PR #469 successfully implemented lexer trivia collection system with comprehensive error handling and full test coverage)
 - [x] #394: CST: Implement UID generation system for stable node identification (COMPLETED - PR #466 successfully implemented foundation UID system with 1012 tests passing and 0.008μs performance)
-- [x] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (RESOLVED - Test suite running successfully, all tests passing, regression resolved)
 - [x] #441: Subroutines and functions not handled properly (COMPLETED - PR #460 successfully fixed parsing regression, core issue resolved)
 - [x] #393: CST: Create basic CST node type definitions and module structure (COMPLETED - PR #455 implemented foundation CST types and arena management)
 - [x] #454: Update tests to use modern AST arena API after Issue #360 (COMPLETED - PR #459 successfully modernized test suite with modern arena API)
