@@ -1,11 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #448: refactor: reduce function sizes in bench_arena_comparison.f90
 
 ## TODO (Ordered by Priority)
 
 ### Code Quality and Refactoring (ENHANCEMENT)
-- [ ] #448: refactor: reduce function sizes in bench_arena_comparison.f90
 - [ ] #407: Refactor: Extract multi-variable declaration handling from parse_declaration (Re-opened after regression fixes needed)
 - [ ] #406: Refactor: Extract variable parsing and initialization logic from parse_declaration
 - [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines)
