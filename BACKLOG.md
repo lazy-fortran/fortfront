@@ -1,15 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #478: CRITICAL: PR #477 test failures/hangs blocking merge (HANDBACK TO SERGEI)
+- [ ] #365: refactor: break down large functions >200 lines (9 functions)
 
 ## TODO (Ordered by Priority)
 
-### Critical Blocking Issues (URGENT)
-- [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines) - PENDING PR #477 test fix
-
 ### Code Quality and Refactoring (ENHANCEMENT)
-- [ ] #365: refactor: break down large functions >200 lines (9 functions)
 - [ ] #366: refactor: address remaining 24 functions exceeding 100-line limit
 - [ ] #367: refactor: address remaining large files >1000 lines
 
@@ -55,6 +51,8 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Completed)
+- [x] #364: refactor: break down parse_declaration function (519 lines -> <100 lines) (COMPLETED - PR #477 merged with 89.3% size reduction, achieved 347→37 lines, fixed performance regression, optimized helper functions 198→96 lines (51% reduction), architectural excellence confirmed by Patrick)
+- [x] #478: CRITICAL: PR #477 test failures/hangs blocking merge (COMPLETED - Performance regression successfully resolved by sergei, tests now complete in ~1 second vs >2 minutes, all functionality preserved)
 - [x] #406: Refactor: Extract variable parsing and initialization logic from parse_declaration (COMPLETED - PR #476 merged with 74% function size reduction, extracted parse_variable_with_initialization helper (111 lines), streamlined parse_declaration to 37 lines)
 - [x] #407: Refactor: Extract multi-variable declaration handling from parse_declaration (COMPLETED - PR #473 merged successfully with 59% size reduction, eliminated memory safety issues, and fixed critical parsing bugs affecting test_call_graph and test_module_parsing_bug_red)
 - [x] #448: refactor: reduce function sizes in bench_arena_comparison.f90 (COMPLETED - Issue resolved as obsolete, referenced file does not exist in codebase)
