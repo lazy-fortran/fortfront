@@ -4,12 +4,6 @@
 
 ## TODO (Ordered by Priority)
 
-### CRITICAL: System-Wide Regression (BLOCKING ALL WORK)
-- [ ] #463: CRITICAL: System-wide regression from arena modernization - infinite timeout loops in entire test suite (INCORRECTLY marked resolved - memory corruption and test failures persist)
-
-### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until Issue #463 resolved)
-- [ ] #397: CST: Implement CST to AST converter with bidirectional linking
-
 ### Code Quality and Refactoring (ENHANCEMENT)
 - [ ] #448: refactor: reduce function sizes in bench_arena_comparison.f90
 - [ ] #407: Refactor: Extract multi-variable declaration handling from parse_declaration (Re-opened after regression fixes needed)
@@ -24,20 +18,24 @@
 - [ ] #402: Type System: Implement unification algorithm with occurs check for constraint solving
 - [ ] #403: Type System: Implement constraint solver with let-polymorphism support
 
-### Repository Maintenance (SUPPORT)
-- [ ] #439: fix: rescue commits from main (repository hygiene - rescue branch cleanup)
-
 ### Testing and Documentation (SUPPORT)
 - [ ] #470: tooling: FMP module dependency resolution bug blocking CST tests
 - [ ] #467: fix: call graph test failures in main branch
 - [ ] #468: fix: AST transformation test failures in main branch
 - [ ] #464: test: call graph analysis tests failing due to known limitations
 - [ ] #465: test: module parsing test failing for Issue #253
+- [ ] #462: Tests run much too long on CI/CD
+- [ ] #461: Get rid of -fmax-stack-var-size argument
 - [ ] #456: Get rid of disabled tests. Either adapt to current system and enable, or delete if obsoleted
 - [ ] #450: test: re-enable temporarily disabled tests for issues #4 and #321
 - [ ] #451: test: complete AST arena integration test coverage
 - [ ] #452: feature: restore debug output capabilities in frontend compilation pipeline
-- [ ] #361: Create GCC Bug 114612 test suite and permanent regression prevention
+
+### Repository Maintenance (SUPPORT)
+- [ ] #439: fix: rescue commits from main (repository hygiene - rescue branch cleanup)
+
+### Documentation (SUPPORT) 
+- [ ] #381: doc: create comprehensive arena architecture documentation
 
 ### Epic Planning and Architecture (FUTURE WORK)
 - [ ] #392: epic: CST/AST Split Implementation - Complete Migration Plan
@@ -55,6 +53,8 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Completed)
+- [x] #397: CST: Implement CST to AST converter with bidirectional linking (COMPLETED - PR #472 successfully implemented converter with memory corruption fixes, enabling CST/AST split roadmap completion)
+- [x] #463: CRITICAL: System-wide regression from arena modernization (COMPLETED - sergei successfully resolved O(n²) performance bottleneck, eliminated memory corruption and segmentation faults, restored CI pipeline functionality)
 - [x] #396: CST: Create CST builder for parallel construction alongside AST (COMPLETED - Implementation merged to main with fixed root handle bug, 12/12 tests passing, approved by Patrick)
 - [x] #395: CST: Implement lexer trivia collection for comments and whitespace (COMPLETED - PR #469 successfully implemented lexer trivia collection system with comprehensive error handling and full test coverage)
 - [x] #394: CST: Implement UID generation system for stable node identification (COMPLETED - PR #466 successfully implemented foundation UID system with 1012 tests passing and 0.008μs performance)
