@@ -118,10 +118,9 @@
                                     in_subroutine, in_module, in_do_loop, &
                                     in_select_case, in_if_block, nesting_level)
 
-            if (nesting_level > 0) then
-                unit_end = i
-                i = i + 1
-            end if
+            ! CRITICAL BUG FIX: Always increment i to prevent infinite loops
+            unit_end = i
+            i = i + 1
 
             ! Stop when we've closed all nested constructs
             if (nesting_level == 0) exit
