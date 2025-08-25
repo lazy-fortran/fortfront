@@ -600,6 +600,7 @@ contains
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         
+        
         ! Consume subroutine keyword
         token = parser%consume()
         line = token%line
@@ -856,6 +857,17 @@ contains
                 stmt_index = parse_declaration(parser, arena)
             case ("call")
                 stmt_index = parse_simple_call_statement(parser, arena)
+            case ("contains")
+                ! Handle contains section with nested procedures
+                token = parser%consume()  ! consume 'contains'
+                stmt_index = 0  ! contains itself is not a statement, just a marker
+                ! The nested procedures will be parsed in subsequent iterations
+            case ("subroutine")
+                ! Handle nested subroutine definitions
+                stmt_index = parse_subroutine_in_module(parser, arena)
+            case ("function")
+                ! Handle nested function definitions  
+                stmt_index = parse_function_in_module(parser, arena)
             case default
                 ! Skip unknown statement by consuming tokens until end of line
                 call skip_to_end_of_line(parser)

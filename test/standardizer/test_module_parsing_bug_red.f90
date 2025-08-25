@@ -156,7 +156,7 @@ contains
         
         ! Check if module structure is preserved (declarations + procedures)
         if (index(output, 'n = 10') > 0 .and. &
-            index(output, 'real :: x') > 0 .and. &
+            index(output, 'x = 1.0') > 0 .and. &
             index(output, 'contains') > 0 .and. &
             index(output, 'function get_n') > 0 .and. &
             index(output, 'end module data_mod') > 0) then
