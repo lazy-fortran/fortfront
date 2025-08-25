@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #396: CST: Create CST builder for parallel construction alongside AST
 
 ## TODO (Ordered by Priority)
 
@@ -9,7 +8,6 @@
 - [ ] #463: CRITICAL: System-wide regression from arena modernization - infinite timeout loops in entire test suite (INCORRECTLY marked resolved - memory corruption and test failures persist)
 
 ### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until Issue #463 resolved)
-- [ ] #396: CST: Create CST builder for parallel construction alongside AST (Implementation complete and approved, blocked by system regression)
 - [ ] #397: CST: Implement CST to AST converter with bidirectional linking
 
 ### Code Quality and Refactoring (ENHANCEMENT)
@@ -57,6 +55,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Completed)
+- [x] #396: CST: Create CST builder for parallel construction alongside AST (COMPLETED - Implementation merged to main with fixed root handle bug, 12/12 tests passing, approved by Patrick)
 - [x] #395: CST: Implement lexer trivia collection for comments and whitespace (COMPLETED - PR #469 successfully implemented lexer trivia collection system with comprehensive error handling and full test coverage)
 - [x] #394: CST: Implement UID generation system for stable node identification (COMPLETED - PR #466 successfully implemented foundation UID system with 1012 tests passing and 0.008μs performance)
 - [x] #441: Subroutines and functions not handled properly (COMPLETED - PR #460 successfully fixed parsing regression, core issue resolved)
