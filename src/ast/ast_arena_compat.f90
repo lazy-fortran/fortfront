@@ -282,8 +282,11 @@ contains
         ! Add to compatibility layer
         this%compat_size = this%compat_size + 1
         
-        ! Store in compatibility entries array
-        if (allocated(this%entries(this%compat_size)%node)) deallocate(this%entries(this%compat_size)%node)
+        ! Store in compatibility entries array (safe allocation with minimal checking)
+        ! Note: For newly grown entries, node will never be allocated, but we check for safety
+        if (allocated(this%entries(this%compat_size)%node)) then
+            deallocate(this%entries(this%compat_size)%node)
+        end if
         allocate(this%entries(this%compat_size)%node, source=node)
         
         ! Set metadata
@@ -320,18 +323,30 @@ contains
     subroutine add_child_compat(arena, parent_index, child_index)
         type(ast_arena_compat_t), intent(inout) :: arena
         integer, intent(in) :: parent_index, child_index
+        integer, allocatable :: temp_children(:)
+        integer :: new_count
         
-        ! Grow children array using Fortran array extension syntax
+        ! Optimized children array growth with O(1) amortized complexity
         if (.not. allocated(arena%entries(parent_index)%child_indices)) then
-            allocate(arena%entries(parent_index)%child_indices(1))
+            ! Initialize with reasonable capacity to avoid frequent reallocations
+            allocate(arena%entries(parent_index)%child_indices(8))
             arena%entries(parent_index)%child_indices(1) = child_index
             arena%entries(parent_index)%child_count = 1
         else
-            ! Use Fortran array extension syntax 
-            arena%entries(parent_index)%child_indices = &
-                [arena%entries(parent_index)%child_indices, child_index]
-            arena%entries(parent_index)%child_count = &
-                arena%entries(parent_index)%child_count + 1
+            new_count = arena%entries(parent_index)%child_count + 1
+            
+            ! Only reallocate when we exceed capacity
+            if (new_count > size(arena%entries(parent_index)%child_indices)) then
+                ! Double the capacity for amortized O(1) performance
+                allocate(temp_children(size(arena%entries(parent_index)%child_indices) * 2))
+                temp_children(1:arena%entries(parent_index)%child_count) = &
+                    arena%entries(parent_index)%child_indices(1:arena%entries(parent_index)%child_count)
+                call move_alloc(temp_children, arena%entries(parent_index)%child_indices)
+            end if
+            
+            ! Add new child at the end
+            arena%entries(parent_index)%child_indices(new_count) = child_index
+            arena%entries(parent_index)%child_count = new_count
         end if
     end subroutine add_child_compat
     
@@ -361,7 +376,9 @@ contains
             
             allocate(temp_entries(new_capacity))
             if (this%compat_size > 0) then
-                temp_entries(1:this%compat_size) = this%entries(1:this%compat_size)
+                ! PERFORMANCE FIX: Manually move entries to avoid expensive deep copying
+                call move_entries_fast(this%entries(1:this%compat_size), &
+                                     temp_entries(1:this%compat_size))
             end if
             
             call move_alloc(temp_entries, this%entries)
@@ -467,5 +484,34 @@ contains
             ! but keep the entries array allocated for efficiency
         end if
     end subroutine ast_arena_compat_reset
+    
+    ! Fast entry movement using move_alloc to avoid deep copying
+    subroutine move_entries_fast(source, dest)
+        type(ast_entry_t), intent(inout) :: source(:)
+        type(ast_entry_t), intent(inout) :: dest(:)
+        integer :: i
+        
+        do i = 1, size(source)
+            ! Move scalar fields
+            dest(i)%parent_index = source(i)%parent_index
+            dest(i)%depth = source(i)%depth
+            dest(i)%child_count = source(i)%child_count
+            
+            ! Move allocatable strings using move_alloc for performance
+            if (allocated(source(i)%node_type)) then
+                call move_alloc(source(i)%node_type, dest(i)%node_type)
+            end if
+            
+            ! Move child indices array using move_alloc
+            if (allocated(source(i)%child_indices)) then
+                call move_alloc(source(i)%child_indices, dest(i)%child_indices)
+            end if
+            
+            ! Move polymorphic node using move_alloc (no copying!)
+            if (allocated(source(i)%node)) then
+                call move_alloc(source(i)%node, dest(i)%node)
+            end if
+        end do
+    end subroutine move_entries_fast
     
 end module ast_arena_compat
