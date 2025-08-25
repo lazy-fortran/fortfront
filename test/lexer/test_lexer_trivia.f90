@@ -33,7 +33,7 @@ contains
         test_count = test_count + 1
         
         ! Default options should not collect trivia
-        options = options%default()
+        options = default_lexer_options()
         call tokenize_with_options(source, tokens, options)
         
         if (.not. allocated(tokens)) then
@@ -69,7 +69,7 @@ contains
         test_count = test_count + 1
         
         ! Enable trivia collection
-        options = options%with_trivia()
+        options = trivia_lexer_options()
         call tokenize_with_options(source, tokens, options)
         
         if (.not. allocated(tokens)) then
@@ -117,7 +117,7 @@ contains
         test_count = test_count + 1
         
         ! Enable trivia collection
-        options = options%with_trivia()
+        options = trivia_lexer_options()
         call tokenize_with_options(source, tokens, options)
         
         if (.not. allocated(tokens)) then
@@ -157,7 +157,7 @@ contains
         test_count = test_count + 1
         
         ! Enable trivia collection
-        options = options%with_trivia()
+        options = trivia_lexer_options()
         call tokenize_with_options(source, tokens, options)
         
         if (.not. allocated(tokens)) then
@@ -200,7 +200,7 @@ contains
         test_count = test_count + 1
         
         ! Enable trivia collection
-        options = options%with_trivia()
+        options = trivia_lexer_options()
         call tokenize_with_options(source, tokens, options)
         
         if (.not. allocated(tokens)) then
@@ -267,7 +267,7 @@ contains
         call tokenize_core(source, tokens_old)
         
         ! Test with new interface but trivia disabled
-        options = options%default()
+        options = default_lexer_options()
         call tokenize_with_options(source, tokens_new, options)
         
         if (.not. allocated(tokens_old) .or. .not. allocated(tokens_new)) then
@@ -317,7 +317,7 @@ contains
         test_count = test_count + 1
         
         ! Enable trivia collection
-        options = options%with_trivia()
+        options = trivia_lexer_options()
         call tokenize_with_options(source, tokens, options)
         
         if (.not. allocated(tokens)) then
