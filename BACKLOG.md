@@ -1,6 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #396: CST: Create CST builder for parallel construction alongside AST
 
 ## TODO (Ordered by Priority)
 
@@ -14,7 +15,6 @@ No remaining items - Phase 1 complete
 No remaining items - Phase 2 development continuing
 
 ### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until #442 complete)
-- [ ] #396: CST: Create CST builder for parallel construction alongside AST
 - [ ] #397: CST: Implement CST to AST converter with bidirectional linking
 
 ### Code Quality and Refactoring (ENHANCEMENT)
