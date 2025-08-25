@@ -168,6 +168,10 @@ contains
                         call traverse_for_calls(builder, arena, &
                                                node%body_indices(i), new_scope)
                     end do
+                else
+                    ! If no body_indices, try to get all children and traverse them
+                    ! This handles cases where the subroutine body structure is different
+                    call traverse_children_for_calls(builder, arena, node_index, new_scope)
                 end if
             end select
             
@@ -225,26 +229,29 @@ contains
             ! Handle module node
             select type (node => arena%entries(node_index)%node)
             type is (module_node)
+                ! Set module scope for procedures
+                new_scope = node%name
+                
                 ! Visit module declarations
                 if (allocated(node%declaration_indices)) then
                     do i = 1, size(node%declaration_indices)
                         call traverse_for_calls(builder, arena, &
-                                               node%declaration_indices(i), "")
+                                               node%declaration_indices(i), new_scope)
                     end do
                 end if
                 
-                ! Visit module procedures
+                ! Visit module procedures with module scope
                 if (allocated(node%procedure_indices)) then
                     do i = 1, size(node%procedure_indices)
                         call traverse_for_calls(builder, arena, &
-                                               node%procedure_indices(i), "")
+                                               node%procedure_indices(i), new_scope)
                     end do
                 end if
+                
+                ! WORKAROUND: Parser doesn't properly link module procedures
+                ! Also traverse all children to find floating function definitions
+                call traverse_children_for_calls(builder, arena, node_index, new_scope)
             end select
-            
-            ! WORKAROUND: Parser doesn't properly link module procedures
-            ! Also traverse all children to find floating function definitions
-            call traverse_children_for_calls(builder, arena, node_index, current_scope)
             
         case ("contains", "contains_section", "contains_node")
             ! Handle contains section - traverse all contained procedures in the current scope
