@@ -89,10 +89,9 @@ program test_issue_441_subroutine_parsing
     if (bug1_present .or. bug2_present .or. bug3_present) then
         print *, "CRITICAL: Multiple parsing/codegen bugs confirmed in Issue #441"
         print *, "This affects subroutine and function parsing throughout the system"
-        stop 1
+        error stop 1
     else
         print *, "SUCCESS: All bugs appear to be fixed!"
-        stop 0
     end if
     
 end program test_issue_441_subroutine_parsing

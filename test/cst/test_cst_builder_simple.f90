@@ -370,10 +370,9 @@ program test_cst_builder
 
     if (passed_tests == total_tests) then
         print *, "All CST builder tests passed!"
-        stop 0
     else
         print *, "Some CST builder tests failed!"
-        stop 1
+        error stop 1
     end if
 
 contains

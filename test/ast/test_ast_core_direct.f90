@@ -190,10 +190,9 @@ program test_ast_core_direct
 
     if (passed_tests == total_tests) then
         print *, "All modernized AST core tests passed!"
-        stop 0
     else
         print *, "Some modernized AST core tests failed!"
-        stop 1
+        error stop 1
     end if
 
 contains
