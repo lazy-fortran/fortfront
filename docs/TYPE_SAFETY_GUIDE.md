@@ -19,13 +19,18 @@ end function
 
 **Generated Output:**
 ```fortran
-function calculate(a, b) result(sum)
+program main
     implicit none
-    real(8), intent(in) :: a, b
-    real(8) :: sum
-    sum = a + b
-end function calculate
+contains
+    function calculate(a, b) result(sum)
+        implicit none
+        real(8), intent(in) :: a, b
+        sum = a + b
+    end function calculate
+end program main
 ```
+
+**⚠️ Note**: The result variable `sum` declaration is currently missing from the generated output. This is a known limitation where function result variables are not properly declared.
 
 ### Enhanced Character Type Safety
 

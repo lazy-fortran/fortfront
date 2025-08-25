@@ -70,10 +70,12 @@ echo 'names = ["alice", "bob", "charlie"]' | fortfront
 ```fortran
 program main
     implicit none
-    character(len=7) :: names(3)
+    character(len=5) :: names(3)
     names = [character(len=7) :: "alice", "bob", "charlie"]
 end program main
 ```
+
+**⚠️ Note**: There is currently an inconsistency where the variable is declared with `len=5` but the array constructor uses `len=7`. This is a known type system issue.
 
 ## Character Type Unification
 

@@ -1,6 +1,8 @@
 # Mixed Constructs Support Guide
 
-fortfront supports mixed Fortran constructs in a single source file, enabling flexible code organization patterns commonly used in lazy Fortran development.
+**⚠️ CURRENT STATUS: MIXED CONSTRUCTS ARE NOT FUNCTIONAL**
+
+This guide documents the intended behavior for mixed Fortran constructs. **These features are currently not working** and require development work to restore functionality.
 
 ## Overview
 
@@ -207,22 +209,58 @@ call something()
 end program
 ```
 
-## Testing Examples
+## Current Status - BROKEN EXAMPLES
 
-Test mixed construct support with these verified examples:
+**⚠️ WARNING: These examples DO NOT currently work:**
 
 ```bash
-# Basic module + main
+# Basic module + main - FAILS
 echo -e "module test\nend module\nx = 42" | fortfront
+# Result: Module generated correctly, but main program shows "Unrecognized operator '='" error
 
-# Module with subroutines
+# Module with subroutines - FAILS  
 echo -e "module math\ncontains\nsubroutine add()\nend subroutine\nend module\ncall add()" | fortfront
+# Result: Only module generated, main program with subroutine call completely missing
 
-# Module with variables  
+# Module with variables - FAILS
 echo -e "module data\ninteger :: n = 5\nend module\ninteger :: result\nresult = n" | fortfront
-
-# Complex example: multiple modules with functions
-echo -e "module constants\nreal :: pi = 3.14159\nend module\n\nmodule circle\nuse constants\ncontains\nreal function area(r)\nreal :: r\narea = pi * r * r\nend function\nend module\n\nuse circle\nreal :: radius = 2.0\nprint *, area(radius)" | fortfront
+# Result: Only module generated, main program completely missing
 ```
 
-All examples generate proper standard Fortran with both module and main program components properly structured and type-inferred.
+**Root Cause**: Mixed construct parsing has a regression where statement parsing fails after module definitions.
+
+## Workarounds
+
+Until mixed constructs are restored, use these alternatives:
+
+### Separate Module and Main Files
+```fortran
+! file1.f90 - Module definition
+module utilities
+contains
+    subroutine greet()
+        print *, "Hello!"
+    end subroutine
+end module
+
+! file2.f90 - Main program  
+program main
+    use utilities
+    call greet()
+end program
+```
+
+### Explicit Program Structure
+```fortran
+! If mixed constructs fail, use explicit program:
+module test_module
+    integer :: shared_var = 42
+end module
+
+program main
+    use test_module
+    integer :: local_var
+    local_var = shared_var
+    print *, local_var
+end program
+```

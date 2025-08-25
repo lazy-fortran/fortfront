@@ -18,7 +18,7 @@ fortfront transforms lazy Fortran code to standard Fortran:
 - **Multi-Language Support**: C, C++, Fortran, and Rust interfaces
 - **High Performance**: <0.05ms average transformation time  
 - **Enhanced Error Reporting**: Clear error messages with line/column info
-- **Mixed Construct Support**: Handles modules with implicit main programs
+- **Basic Lazy Fortran**: Transforms simple assignments and expressions to standard Fortran
 - **Standard Compliant**: Generates clean, standard Fortran code
 - **Type Inference**: Automatic variable typing algorithm with enhanced character type handling
 
@@ -49,11 +49,34 @@ echo 'name = "hello" // " world"' | fortfront
 program main
     implicit none
     integer :: x
-    character(len=11) :: name
     x = 42
+end program main
+```
+
+```fortran
+program main
+    implicit none
+    character(len=11) :: name
     name = "hello" // " world"
 end program main
 ```
+
+### Supported Features
+
+fortfront successfully handles these lazy Fortran patterns:
+
+**✅ Working Features:**
+- Variable assignments: `x = 42`, `y = 3.14`, `name = "Alice"`
+- String operations: `greeting = "hello" // " world"`  
+- Print statements: `print *, "Hello World"`
+- Character type inference: automatic length calculation and allocatable types
+- Basic arithmetic: `result = x + y * 2`
+- Multiple variable assignments with type inference
+
+**⚠️ Current Limitations:**
+- **Mixed constructs** (modules + implicit main programs) are not currently functional
+- **Function parameters** default to `real(8)` regardless of usage context
+- **Complex expressions** with undefined variables may require explicit declarations
 
 ### Integration with fortrun
 
