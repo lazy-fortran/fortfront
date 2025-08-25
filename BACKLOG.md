@@ -1,11 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [x] #486: CLI: Input redirection fails while pipe works for lazy-fortran processing (branch: bug-cli-redirection-486)
 
 ## CURRENT SPRINT (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
-- [ ] #486: CLI: Input redirection fails while pipe works for lazy-fortran processing (CRITICAL - blocks all user functionality)
 - [ ] #488: Mixed constructs: Implicit main statements ignored when module present (CRITICAL - core lazy-fortran use case)
 - [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs (CRITICAL - architectural flaw)
 
