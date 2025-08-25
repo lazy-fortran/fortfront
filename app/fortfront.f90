@@ -1,47 +1,73 @@
 program fortfront_cli
     use iso_fortran_env, only: input_unit, output_unit, error_unit, iostat_end
-    use iso_c_binding, only: c_int
     use frontend, only: transform_lazy_fortran_string
     implicit none
     
-    interface
-        function getchar() bind(c, name="getchar")
-            import :: c_int
-            integer(c_int) :: getchar
-        end function getchar
-    end interface
-    
     character(len=:), allocatable :: input_text, output_text, error_msg
-    integer(c_int) :: ch
+    character(len=:), allocatable :: temp_text
+    character(len=4096) :: buffer
+    integer :: io_stat, buffer_size, total_size, capacity
+    integer, parameter :: MAX_INPUT_SIZE = 10485760  ! 10MB safety limit
+    integer, parameter :: INITIAL_CAPACITY = 8192
     
-    ! GCC 15.x compatibility: Use C interop approach for reliable stdin reading
-    ! This works around issues with Fortran I/O redirection in GCC 15.x
-    allocate(character(len=0) :: input_text)
+    ! Secure buffered reading with O(N) memory allocation
+    capacity = INITIAL_CAPACITY
+    allocate(character(len=capacity) :: input_text)
+    total_size = 0
     
-    ! Use C getchar() approach for maximum GCC 15.x compatibility
     do
-        ch = getchar()
-        if (ch == -1) exit  ! EOF
-        input_text = input_text // achar(ch)
+        ! Read in chunks to avoid character-by-character processing
+        read(input_unit, '(A)', advance='no', size=buffer_size, iostat=io_stat) buffer
         
-        ! Safety limit to prevent infinite reads
-        if (len(input_text) > 1000000) then
-            write(error_unit, '(A)') 'Input too large (>1MB), stopping'
+        ! Handle end conditions
+        if (io_stat == iostat_end) exit
+        if (io_stat > 0) then
+            write(error_unit, '(A)') 'Error reading input'
             stop 1
         end if
+        
+        ! Security check: prevent memory exhaustion attacks
+        if (total_size + buffer_size > MAX_INPUT_SIZE) then
+            write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
+                MAX_INPUT_SIZE, ' bytes)'
+            stop 1
+        end if
+        
+        ! Grow buffer if needed (double when full)
+        if (total_size + buffer_size > capacity) then
+            do while (capacity < total_size + buffer_size .and. capacity <= MAX_INPUT_SIZE)
+                capacity = min(capacity * 2, MAX_INPUT_SIZE)
+            end do
+            
+            if (capacity > MAX_INPUT_SIZE) then
+                write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
+                    MAX_INPUT_SIZE, ' bytes)'
+                stop 1
+            end if
+            
+            ! Reallocate with larger capacity
+            allocate(character(len=capacity) :: temp_text)
+            temp_text(1:total_size) = input_text(1:total_size)
+            call move_alloc(temp_text, input_text)
+        end if
+        
+        ! Copy buffer data efficiently
+        input_text(total_size+1:total_size+buffer_size) = buffer(1:buffer_size)
+        total_size = total_size + buffer_size
     end do
     
-    ! GCC 15.2.1 compatibility note: If no input was read, check if this might be
-    ! a redirection issue and provide helpful error message
-    if (len(input_text) == 0) then
-        write(error_unit, '(A)') 'WARNING: No input received.'
-        write(error_unit, '(A)') 'If you used file redirection (< file.lf), this may be a GCC 15.2.1 compatibility issue.'
-        write(error_unit, '(A)') 'Please use pipes instead: cat file.lf | fortfront'
-        ! Continue processing - empty input should still generate a minimal program
+    ! Trim to actual size to save memory
+    if (total_size == 0) then
+        allocate(character(len=0) :: temp_text)
+    else
+        allocate(character(len=total_size) :: temp_text)
+        temp_text = input_text(1:total_size)
     end if
+    call move_alloc(temp_text, input_text)
     
-    ! Allow empty input - let the frontend handle it gracefully
-    ! Empty input should generate a minimal valid program
+    ! Handle empty input gracefully - no special error messages needed
+    ! Empty input is valid and should generate minimal program
+    
     
     ! Transform lazy fortran to standard fortran
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
