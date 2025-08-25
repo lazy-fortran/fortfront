@@ -103,6 +103,10 @@ contains
         context%trivia_count = 0
         context%initialized = .true.
         
+        ! Initialize root handle to invalid state
+        context%root_handle%index = 0
+        context%root_handle%generation = 0
+        
         ! Initialize parent stack with reasonable default size
         allocate(context%parent_stack(100))  ! Allow up to 100 levels of nesting
         context%parent_stack(:) = 0
@@ -162,7 +166,7 @@ contains
         build_result%success = .true.
         
         ! Update root handle if this is the first node
-        if (.not. builder%context%initialized .or. builder%context%root_handle%index == 0) then
+        if (builder%context%root_handle%index == 0) then
             builder%context%root_handle = build_result%handle
         end if
     end function build_cst_node
