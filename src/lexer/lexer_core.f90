@@ -26,6 +26,9 @@ module lexer_core
         character(len=:), allocatable :: text
         integer :: line = 1
         integer :: column = 1
+    contains
+        procedure :: assign => trivia_token_assign
+        generic :: assignment(=) => assign
     end type trivia_token_t
 
     ! Token structure
@@ -38,8 +41,8 @@ module lexer_core
         type(trivia_token_t), allocatable :: leading_trivia(:)
         type(trivia_token_t), allocatable :: trailing_trivia(:)
     contains
-        procedure :: deep_copy => token_deep_copy
         procedure :: assign => token_assign
+        procedure :: deep_copy => token_deep_copy
         generic :: assignment(=) => assign
     end type token_t
 
@@ -50,8 +53,8 @@ module lexer_core
         logical :: preserve_whitespace = .false.   ! Preserve whitespace as tokens
         logical :: preserve_comments = .true.      ! Always preserve comments
     contains
-        procedure :: with_trivia => options_with_trivia
         procedure :: default => options_default
+        procedure :: with_trivia => options_with_trivia
     end type lexer_options_t
 
     ! Lexer result types
@@ -1007,14 +1010,22 @@ contains
         end if
     end function token_deep_copy
 
+    ! MEMORY SAFE token assignment operator
     subroutine token_assign(lhs, rhs)
-        class(token_t), intent(out) :: lhs
+        class(token_t), intent(inout) :: lhs  ! Changed to inout for safe cleanup
         type(token_t), intent(in) :: rhs
 
+        ! MEMORY SAFETY: Clean up existing allocatables first
+        if (allocated(lhs%text)) deallocate(lhs%text)
+        if (allocated(lhs%leading_trivia)) deallocate(lhs%leading_trivia)
+        if (allocated(lhs%trailing_trivia)) deallocate(lhs%trailing_trivia)
+
+        ! Copy scalar fields
         lhs%kind = rhs%kind
         lhs%line = rhs%line
         lhs%column = rhs%column
 
+        ! Copy allocatable text
         if (allocated(rhs%text)) then
             lhs%text = rhs%text
         end if
@@ -1452,5 +1463,24 @@ contains
             trivia_count = 0
         end if
     end subroutine scan_operator_with_trivia
+
+    ! MEMORY SAFE trivia token assignment operator
+    subroutine trivia_token_assign(lhs, rhs)
+        class(trivia_token_t), intent(inout) :: lhs
+        type(trivia_token_t), intent(in) :: rhs
+
+        ! MEMORY SAFETY: Clean up existing allocatables first
+        if (allocated(lhs%text)) deallocate(lhs%text)
+
+        ! Copy scalar fields
+        lhs%kind = rhs%kind
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+
+        ! Copy allocatable text
+        if (allocated(rhs%text)) then
+            lhs%text = rhs%text
+        end if
+    end subroutine trivia_token_assign
 
 end module lexer_core
