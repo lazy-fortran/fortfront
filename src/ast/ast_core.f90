@@ -21,6 +21,7 @@ module ast_core
     
     use type_system_unified, only: mono_type_t
     use intrinsic_registry, only: get_intrinsic_info
+    use uid_generator, only: generate_uid
     
     ! Re-export base types and interfaces
     use ast_base, only: ast_node, visit_interface, to_json_interface, string_t, &
@@ -136,6 +137,7 @@ contains
         type(identifier_node) :: node
 
         node%name = name
+        node%uid = generate_uid()
         if (present(line)) then
             node%line = line
         end if
@@ -152,6 +154,7 @@ contains
 
         node%value = value
         node%literal_kind = kind
+        node%uid = generate_uid()
         if (present(line)) then
             node%line = line
         end if
@@ -170,6 +173,7 @@ contains
         node%left_index = left_index
         node%right_index = right_index
         node%operator = operator
+        node%uid = generate_uid()
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_binary_op
@@ -181,6 +185,7 @@ contains
         type(call_or_subscript_node) :: node
 
         node%name = name
+        node%uid = generate_uid()
         if (present(args)) then
             if (size(args) > 0) then
                 node%arg_indices = args
@@ -204,6 +209,7 @@ contains
         node%target_index = target_index
         node%value_index = value_index
         node%operator = "="
+        node%uid = generate_uid()
         if (present(inferred_type)) then
             node%inferred_type = inferred_type
         end if
@@ -222,6 +228,7 @@ contains
         type(program_node) :: node
 
         node%name = name
+        node%uid = generate_uid()
         if (present(body_indices)) then
             if (size(body_indices) > 0) then
                 node%body_indices = body_indices
@@ -238,6 +245,7 @@ contains
         type(subroutine_call_node) :: node
 
         node%name = name
+        node%uid = generate_uid()
         if (present(args)) then
             if (size(args) > 0) then
                 node%arg_indices = args
@@ -258,6 +266,7 @@ contains
         integer :: i
 
         node%module_name = module_name
+        node%uid = generate_uid()
         if (present(url_spec)) node%url_spec = url_spec
         if (present(has_only)) node%has_only = has_only
         
@@ -298,6 +307,7 @@ contains
         integer :: i, dash_pos
 
         node%is_none = is_none
+        node%uid = generate_uid()
         
         if (.not. is_none) then
             if (present(type_name)) node%type_spec%type_name = type_name
@@ -333,6 +343,7 @@ contains
         type(include_statement_node) :: node
 
         node%filename = filename
+        node%uid = generate_uid()
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_include_statement
@@ -344,6 +355,7 @@ contains
         integer, intent(in), optional :: line, column
         type(interface_block_node) :: node
 
+        node%uid = generate_uid()
         if (present(name)) node%name = name
         if (present(kind)) node%kind = kind
         if (present(operator)) node%operator = operator
@@ -366,6 +378,7 @@ contains
         integer, intent(in), optional :: line, column
         type(module_node) :: node
 
+        node%uid = generate_uid()
         node%name = name
         if (present(has_contains)) node%has_contains = has_contains
         
@@ -391,6 +404,7 @@ contains
         integer, intent(in), optional :: line, column
         type(stop_node) :: node
 
+        node%uid = generate_uid()
         if (present(stop_code_index)) node%stop_code_index = stop_code_index
         if (present(stop_message)) node%stop_message = stop_message
         if (present(line)) node%line = line
@@ -401,6 +415,7 @@ contains
         integer, intent(in), optional :: line, column
         type(return_node) :: node
 
+        node%uid = generate_uid()
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_return
@@ -410,6 +425,7 @@ contains
         integer, intent(in), optional :: line, column
         type(goto_node) :: node
 
+        node%uid = generate_uid()
         if (present(label)) node%label = label
         if (present(line)) node%line = line
         if (present(column)) node%column = column
@@ -421,6 +437,7 @@ contains
         integer, intent(in), optional :: line, column
         type(error_stop_node) :: node
 
+        node%uid = generate_uid()
         if (present(error_code_index)) node%error_code_index = error_code_index
         if (present(error_message)) node%error_message = error_message
         if (present(line)) node%line = line
@@ -432,6 +449,7 @@ contains
         integer, intent(in), optional :: line, column
         type(cycle_node) :: node
 
+        node%uid = generate_uid()
         if (present(loop_label)) node%label = loop_label
         if (present(line)) node%line = line
         if (present(column)) node%column = column
@@ -442,6 +460,7 @@ contains
         integer, intent(in), optional :: line, column
         type(exit_node) :: node
 
+        node%uid = generate_uid()
         if (present(loop_label)) node%label = loop_label
         if (present(line)) node%line = line
         if (present(column)) node%column = column
@@ -455,6 +474,7 @@ contains
         integer, intent(in), optional :: line, column
         type(where_node) :: node
 
+        node%uid = generate_uid()
         ! Initialize all fields to safe defaults
         node%mask_expr_index = mask_expr_index
         node%mask_is_simple = .false.
@@ -493,6 +513,7 @@ contains
         integer, intent(in), optional :: line, column
         type(comment_node) :: node
 
+        node%uid = generate_uid()
         node%text = text
         if (present(line)) node%line = line
         if (present(column)) node%column = column
@@ -502,6 +523,7 @@ contains
         integer, intent(in), optional :: line, column
         type(end_statement_node) :: node
 
+        node%uid = generate_uid()
         ! Input validation
         if (present(line)) then
             if (line < 1) then
@@ -537,6 +559,8 @@ contains
         integer, allocatable :: dim_indices(:)
         integer :: i
 
+        node%uid = generate_uid()
+        
         ! Convert initializer to index (assuming it would be in arena)
         initializer_index = 0
         
@@ -560,7 +584,8 @@ contains
         integer, intent(in) :: lower_index, upper_index
         integer, intent(in), optional :: stride_index
         type(array_bounds_node) :: node
-        
+
+        node%uid = generate_uid()
         node%lower_bound_index = lower_index
         node%upper_bound_index = upper_index
         if (present(stride_index)) then
@@ -576,7 +601,8 @@ contains
         integer, intent(in) :: num_dims
         type(array_slice_node) :: node
         integer :: i
-        
+
+        node%uid = generate_uid()
         node%array_index = array_index
         ! Validate non-negative dimensions
         if (num_dims < 0) then
@@ -598,7 +624,8 @@ contains
         integer, intent(in) :: start_index, end_index
         integer, intent(in), optional :: stride_index
         type(range_expression_node) :: node
-        
+
+        node%uid = generate_uid()
         node%start_index = start_index
         node%end_index = end_index
         if (present(stride_index)) then
@@ -614,7 +641,8 @@ contains
         integer, intent(in) :: left_index, right_index
         type(array_spec_t), intent(in), optional :: array_spec, result_spec
         type(array_operation_node) :: node
-        
+
+        node%uid = generate_uid()
         node%operation = operation
         node%left_operand_index = left_index
         node%right_operand_index = right_index
