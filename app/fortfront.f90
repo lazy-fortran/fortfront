@@ -1,41 +1,44 @@
 program fortfront_cli
     use iso_fortran_env, only: input_unit, output_unit, error_unit, iostat_end
+    use iso_c_binding, only: c_int
     use frontend, only: transform_lazy_fortran_string
     implicit none
     
-    character(len=:), allocatable :: input_text, output_text, error_msg
-    character(len=4096) :: line
-    integer :: iostat
+    interface
+        function getchar() bind(c, name="getchar")
+            import :: c_int
+            integer(c_int) :: getchar
+        end function getchar
+    end interface
     
-    ! Read all input from stdin - robust approach for both pipes and redirection
+    character(len=:), allocatable :: input_text, output_text, error_msg
+    integer(c_int) :: ch
+    
+    ! GCC 15.x compatibility: Use C interop approach for reliable stdin reading
+    ! This works around issues with Fortran I/O redirection in GCC 15.x
     allocate(character(len=0) :: input_text)
     
-    ! Read data line by line with comprehensive error handling
+    ! Use C getchar() approach for maximum GCC 15.x compatibility
     do
-        read(input_unit, '(A)', iostat=iostat) line
+        ch = getchar()
+        if (ch == -1) exit  ! EOF
+        input_text = input_text // achar(ch)
         
-        ! Handle EOF - this is the normal termination condition
-        if (iostat == iostat_end) exit
-        
-        ! Handle successful reads
-        if (iostat == 0) then
-            input_text = input_text // trim(line) // new_line('A')
-            cycle
-        end if
-        
-        ! Handle error conditions
-        ! Positive iostat values indicate system errors
-        ! Negative iostat values (other than iostat_end) indicate format errors
-        if (iostat > 0) then
-            ! System error - could be transient, but likely serious
-            write(error_unit, '(A,I0)') 'System error reading from stdin: ', iostat
-            stop 1
-        else
-            ! Format or other error - treat as fatal for consistency
-            write(error_unit, '(A,I0)') 'Format error reading from stdin: ', iostat
+        ! Safety limit to prevent infinite reads
+        if (len(input_text) > 1000000) then
+            write(error_unit, '(A)') 'Input too large (>1MB), stopping'
             stop 1
         end if
     end do
+    
+    ! GCC 15.2.1 compatibility note: If no input was read, check if this might be
+    ! a redirection issue and provide helpful error message
+    if (len(input_text) == 0) then
+        write(error_unit, '(A)') 'WARNING: No input received.'
+        write(error_unit, '(A)') 'If you used file redirection (< file.lf), this may be a GCC 15.2.1 compatibility issue.'
+        write(error_unit, '(A)') 'Please use pipes instead: cat file.lf | fortfront'
+        ! Continue processing - empty input should still generate a minimal program
+    end if
     
     ! Allow empty input - let the frontend handle it gracefully
     ! Empty input should generate a minimal valid program
