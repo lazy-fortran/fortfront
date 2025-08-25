@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #395: CST: Implement lexer trivia collection for comments and whitespace
 
 ## TODO (Ordered by Priority)
 
@@ -63,6 +62,7 @@ No remaining items - Phase 2 development continuing
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Completed)
+- [x] #395: CST: Implement lexer trivia collection for comments and whitespace (COMPLETED - PR #469 successfully implemented lexer trivia collection system with comprehensive error handling and full test coverage)
 - [x] #394: CST: Implement UID generation system for stable node identification (COMPLETED - PR #466 successfully implemented foundation UID system with 1012 tests passing and 0.008μs performance)
 - [x] #463: CRITICAL SYSTEM-WIDE REGRESSION: Arena modernization PRs (#455, #459) cause infinite timeout loops across entire test suite (RESOLVED - Test suite running successfully, all tests passing, regression resolved)
 - [x] #441: Subroutines and functions not handled properly (COMPLETED - PR #460 successfully fixed parsing regression, core issue resolved)
