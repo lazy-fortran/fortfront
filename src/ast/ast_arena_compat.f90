@@ -436,7 +436,7 @@ contains
         end if
     end function ast_entry_deep_copy
     
-    ! Compatibility AST entry assignment
+    ! Compatibility AST entry assignment - MEMORY SAFE VERSION
     subroutine ast_entry_assign(lhs, rhs)
         class(ast_entry_t), intent(inout) :: lhs
         class(ast_entry_t), intent(in) :: rhs
@@ -446,52 +446,75 @@ contains
         lhs%depth = rhs%depth
         lhs%child_count = rhs%child_count
         
-        ! Copy allocatable strings
+        ! MEMORY SAFETY: Clean up allocatable strings safely
+        if (allocated(lhs%node_type)) deallocate(lhs%node_type)
         if (allocated(rhs%node_type)) then
             lhs%node_type = rhs%node_type
-        else
-            if (allocated(lhs%node_type)) deallocate(lhs%node_type)
         end if
         
-        ! Copy child indices
+        ! MEMORY SAFETY: Clean up child indices safely
+        if (allocated(lhs%child_indices)) deallocate(lhs%child_indices)
         if (allocated(rhs%child_indices)) then
             lhs%child_indices = rhs%child_indices
-        else
-            if (allocated(lhs%child_indices)) deallocate(lhs%child_indices)
         end if
         
-        ! Copy polymorphic node
+        ! MEMORY SAFETY: Clean up polymorphic node safely
         if (allocated(lhs%node)) deallocate(lhs%node)
         if (allocated(rhs%node)) then
             allocate(lhs%node, source=rhs%node)
         end if
     end subroutine ast_entry_assign
     
-    ! Override reset to also reset compatibility layer fields
+    ! Override reset to also reset compatibility layer fields - MEMORY SAFE VERSION
     subroutine ast_arena_compat_reset(this)
         class(ast_arena_compat_t), intent(inout) :: this
+        integer :: i
         
         ! Call parent reset method to reset core arena
         call this%ast_arena_core_t%reset()
         
+        ! MEMORY SAFETY: Properly clean up all entry components
+        if (allocated(this%entries)) then
+            do i = 1, min(this%compat_size, size(this%entries))
+                ! Clean up polymorphic nodes
+                if (allocated(this%entries(i)%node)) then
+                    deallocate(this%entries(i)%node)
+                end if
+                ! Clean up allocatable strings
+                if (allocated(this%entries(i)%node_type)) then
+                    deallocate(this%entries(i)%node_type)
+                end if
+                ! Clean up child indices
+                if (allocated(this%entries(i)%child_indices)) then
+                    deallocate(this%entries(i)%child_indices)
+                end if
+                ! Reset scalar fields
+                this%entries(i)%parent_index = 0
+                this%entries(i)%depth = 0
+                this%entries(i)%child_count = 0
+            end do
+        end if
+        
         ! Reset compatibility layer state
         this%compat_size = 0
         this%max_depth = 0
-        
-        ! Clear entries if allocated (but keep the array allocated for reuse)
-        if (allocated(this%entries)) then
-            ! Deallocate individual entry components for clean slate
-            ! but keep the entries array allocated for efficiency
-        end if
     end subroutine ast_arena_compat_reset
     
-    ! Fast entry movement using move_alloc to avoid deep copying
+    ! Fast entry movement using move_alloc to avoid deep copying - MEMORY SAFE VERSION
     subroutine move_entries_fast(source, dest)
         type(ast_entry_t), intent(inout) :: source(:)
         type(ast_entry_t), intent(inout) :: dest(:)
-        integer :: i
+        integer :: i, max_entries
         
-        do i = 1, size(source)
+        ! MEMORY SAFETY: Ensure we don't exceed array bounds
+        max_entries = min(size(source), size(dest))
+        
+        do i = 1, max_entries
+            ! MEMORY SAFETY: Clean up destination first to avoid leaks
+            if (allocated(dest(i)%node)) deallocate(dest(i)%node)
+            if (allocated(dest(i)%node_type)) deallocate(dest(i)%node_type)
+            if (allocated(dest(i)%child_indices)) deallocate(dest(i)%child_indices)
+            
             ! Move scalar fields
             dest(i)%parent_index = source(i)%parent_index
             dest(i)%depth = source(i)%depth

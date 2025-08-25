@@ -1,11 +1,17 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #365: refactor: break down large functions >200 lines (9 functions)
+- [ ] #397: CST to AST converter with bidirectional UID linking (CRITICAL: CI failure in test_call_graph_comprehensive - HANDBACK TO SERGEI)
 
 ## TODO (Ordered by Priority)
 
+### CST/AST Converter Enhancements (ENHANCEMENT)
+- [ ] #483: feat: enable enhanced AST nodes with CST references
+- [ ] #484: feat: implement full syntax construct conversion in CST to AST converter
+- [ ] #485: test: add performance benchmarks for CST to AST conversion
+
 ### Code Quality and Refactoring (ENHANCEMENT)
+- [ ] #365: refactor: break down large functions >200 lines (9 functions)
 - [ ] #366: refactor: address remaining 24 functions exceeding 100-line limit
 - [ ] #367: refactor: address remaining large files >1000 lines
 
