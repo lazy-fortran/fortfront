@@ -43,9 +43,10 @@ contains
 
     ! Collect variable names from a multi-variable declaration
     ! Returns the variable names as a safely allocated array
-    subroutine collect_variable_names(parser, first_var_name, var_names, var_count, &
+    subroutine collect_variable_names(parser, arena, first_var_name, var_names, var_count, &
                                       initializer_index, collection_result)
         type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: first_var_name
         character(len=:), allocatable, intent(out) :: var_names(:)
         integer, intent(out) :: var_count
@@ -70,7 +71,9 @@ contains
         if (var_token%kind == TK_OPERATOR .and. var_token%text == "=") then
             ! Only single variables can have initializers
             var_token = parser%consume()  ! consume '='
-            ! Note: initializer parsing happens in caller
+            
+            ! Parse the initializer expression immediately to maintain parser state
+            initializer_index = parse_comparison(parser, arena)
         end if
         
         ! If there's no comma, this is a single declaration - return early
@@ -620,7 +623,7 @@ contains
             type(parse_result_t) :: collection_result
             
             ! Collect all variable names using safe helper function
-            call collect_variable_names(parser, var_name, collected_var_names, &
+            call collect_variable_names(parser, arena, var_name, collected_var_names, &
                                         var_count, initializer_index, collection_result)
             
             ! Check for collection errors
