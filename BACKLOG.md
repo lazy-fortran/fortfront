@@ -20,6 +20,13 @@
 - [ ] #403: Type System: Implement constraint solver with let-polymorphism support
 
 ### Testing and Documentation (SUPPORT)
+- [ ] #504: refactor: consolidate redundant AST arena test patterns
+- [ ] #505: refactor: eliminate test categories with overlapping functionality  
+- [ ] #503: refactor: analyze unused procedures and dead code in semantic analysis modules
+- [ ] #502: performance: investigate test execution bottlenecks causing 7m20s runtime
+- [ ] #501: cleanup: remove backup file src/frontend.f90.backup
+- [ ] #500: refactor: massive test consolidation opportunity - reduce 304 tests by ~85%
+- [ ] #499: refactor: consolidate 35 disabled test files - cleanup and re-enable analysis
 - [ ] #474: parser: nested internal procedures not fully tracked in call graph analysis (DUPLICATE of #475)
 - [ ] #475: parser: nested internal procedures not fully tracked in call graph analysis
 - [ ] #470: tooling: FPM module dependency resolution bug blocking CST tests
