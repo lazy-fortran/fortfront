@@ -1,6 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #395: CST: Implement lexer trivia collection for comments and whitespace
 
 ## TODO (Ordered by Priority)
 
@@ -14,7 +15,6 @@ No remaining items - Phase 1 complete
 No remaining items - Phase 2 development continuing
 
 ### Foundation Phase 3: CST/AST Infrastructure (BLOCKED until #442 complete)
-- [ ] #395: CST: Implement lexer trivia collection for comments and whitespace
 - [ ] #396: CST: Create CST builder for parallel construction alongside AST
 - [ ] #397: CST: Implement CST to AST converter with bidirectional linking
 
@@ -36,6 +36,7 @@ No remaining items - Phase 2 development continuing
 - [ ] #439: fix: rescue commits from main (repository hygiene - rescue branch cleanup)
 
 ### Testing and Documentation (SUPPORT)
+- [ ] #470: tooling: FMP module dependency resolution bug blocking CST tests
 - [ ] #467: fix: call graph test failures in main branch
 - [ ] #468: fix: AST transformation test failures in main branch
 - [ ] #464: test: call graph analysis tests failing due to known limitations

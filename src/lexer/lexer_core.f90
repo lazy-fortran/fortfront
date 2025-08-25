@@ -12,7 +12,21 @@ module lexer_core
     integer, parameter, public :: TK_KEYWORD = 5
     integer, parameter, public :: TK_NEWLINE = 6
     integer, parameter, public :: TK_COMMENT = 7
+    integer, parameter, public :: TK_WHITESPACE = 8    ! New: for CST trivia
     integer, parameter, public :: TK_UNKNOWN = 99
+    
+    ! Backward compatibility aliases
+    integer, parameter, public :: TOKEN_WHITESPACE = TK_WHITESPACE
+    integer, parameter, public :: TOKEN_COMMENT = TK_COMMENT
+    integer, parameter, public :: TOKEN_NEWLINE = TK_NEWLINE
+
+    ! Trivia token type (simpler, non-recursive)
+    type, public :: trivia_token_t
+        integer :: kind = TK_UNKNOWN
+        character(len=:), allocatable :: text
+        integer :: line = 1
+        integer :: column = 1
+    end type trivia_token_t
 
     ! Token structure
     type, public :: token_t
@@ -20,11 +34,25 @@ module lexer_core
         character(len=:), allocatable :: text
         integer :: line = 1
         integer :: column = 1
+        ! CST trivia storage (optional) - using separate type to avoid recursion
+        type(trivia_token_t), allocatable :: leading_trivia(:)
+        type(trivia_token_t), allocatable :: trailing_trivia(:)
     contains
         procedure :: deep_copy => token_deep_copy
         procedure :: assign => token_assign
         generic :: assignment(=) => assign
     end type token_t
+
+    ! Lexer options for configurable behavior
+    type, public :: lexer_options_t
+        logical :: collect_trivia = .false.        ! Default: no trivia collection
+        logical :: preserve_newlines = .false.     ! Preserve newlines as tokens
+        logical :: preserve_whitespace = .false.   ! Preserve whitespace as tokens
+        logical :: preserve_comments = .true.      ! Always preserve comments
+    contains
+        procedure :: with_trivia => options_with_trivia
+        procedure :: default => options_default
+    end type lexer_options_t
 
     ! Lexer result types
     type, public :: tokenize_result_t
@@ -35,7 +63,9 @@ module lexer_core
 
     ! Public interface
     public :: tokenize_core, tokenize_safe
+    public :: tokenize_with_options, tokenize_safe_with_options
     public :: token_type_name
+    public :: default_lexer_options, trivia_lexer_options
 
     ! Keywords list
     character(len=20), dimension(56) :: keywords = [ &
@@ -898,6 +928,31 @@ contains
         call move_alloc(temp, tokens)
     end subroutine resize_tokens
 
+    subroutine resize_trivia_buffer(trivia)
+        type(trivia_token_t), allocatable, intent(inout) :: trivia(:)
+        type(trivia_token_t), allocatable :: temp(:)
+        integer :: old_size, new_size
+
+        ! Input validation
+        if (.not. allocated(trivia)) then
+            allocate(trivia(20))  ! Default initial size
+            return
+        end if
+        
+        old_size = size(trivia)
+        new_size = old_size * 2
+        
+        ! Prevent excessive memory allocation
+        if (new_size > 10000) then
+            new_size = old_size + 1000  ! Linear growth for very large arrays
+        end if
+        
+        allocate (temp(new_size))
+        temp(1:old_size) = trivia
+        ! Use move_alloc for O(1) array transfer instead of O(n) copying
+        call move_alloc(temp, trivia)
+    end subroutine resize_trivia_buffer
+
     ! Convert token type to string name
     function token_type_name(kind) result(name)
         integer, intent(in) :: kind
@@ -920,6 +975,8 @@ contains
             name = "newline"
         case (TK_COMMENT)
             name = "comment"
+        case (TK_WHITESPACE)
+            name = "whitespace"
         case default
             name = "unknown"
         end select
@@ -937,6 +994,17 @@ contains
         if (allocated(this%text)) then
             copy%text = this%text
         end if
+        
+        ! Deep copy trivia arrays if present (simple copy for trivia_token_t)
+        if (allocated(this%leading_trivia)) then
+            allocate(copy%leading_trivia(size(this%leading_trivia)))
+            copy%leading_trivia = this%leading_trivia
+        end if
+        
+        if (allocated(this%trailing_trivia)) then
+            allocate(copy%trailing_trivia(size(this%trailing_trivia)))
+            copy%trailing_trivia = this%trailing_trivia
+        end if
     end function token_deep_copy
 
     subroutine token_assign(lhs, rhs)
@@ -950,6 +1018,439 @@ contains
         if (allocated(rhs%text)) then
             lhs%text = rhs%text
         end if
+        
+        ! Deep copy trivia arrays if present
+        if (allocated(rhs%leading_trivia)) then
+            allocate(lhs%leading_trivia(size(rhs%leading_trivia)))
+            lhs%leading_trivia = rhs%leading_trivia
+        end if
+        
+        if (allocated(rhs%trailing_trivia)) then
+            allocate(lhs%trailing_trivia(size(rhs%trailing_trivia)))
+            lhs%trailing_trivia = rhs%trailing_trivia
+        end if
     end subroutine token_assign
+
+    ! Lexer options methods
+    function options_with_trivia(this) result(opts)
+        class(lexer_options_t), intent(in) :: this
+        type(lexer_options_t) :: opts
+        
+        opts = this
+        opts%collect_trivia = .true.
+        opts%preserve_newlines = .true.
+        opts%preserve_whitespace = .true.
+        opts%preserve_comments = .true.
+    end function options_with_trivia
+    
+    function options_default(this) result(opts)
+        class(lexer_options_t), intent(in) :: this
+        type(lexer_options_t) :: opts
+        
+        opts%collect_trivia = .false.
+        opts%preserve_newlines = .false.
+        opts%preserve_whitespace = .false.
+        opts%preserve_comments = .true.
+    end function options_default
+    
+    ! Module-level convenience functions for lexer options
+    function default_lexer_options() result(opts)
+        type(lexer_options_t) :: opts
+        
+        opts%collect_trivia = .false.
+        opts%preserve_newlines = .false.
+        opts%preserve_whitespace = .false.
+        opts%preserve_comments = .true.
+    end function default_lexer_options
+    
+    function trivia_lexer_options() result(opts)
+        type(lexer_options_t) :: opts
+        
+        opts%collect_trivia = .true.
+        opts%preserve_newlines = .true.
+        opts%preserve_whitespace = .true.
+        opts%preserve_comments = .true.
+    end function trivia_lexer_options
+
+    ! Helper subroutine for tokenization with options initialization
+    subroutine tokenize_with_options_init(source_len, pos, line_num, col_num, &
+            token_count, trivia_count, temp_tokens, trivia_buffer)
+        integer, intent(in) :: source_len
+        integer, intent(out) :: pos, line_num, col_num, token_count, trivia_count
+        type(token_t), allocatable, intent(out) :: temp_tokens(:)
+        type(trivia_token_t), allocatable, intent(out) :: trivia_buffer(:)
+        
+        pos = 1
+        line_num = 1
+        col_num = 1
+        token_count = 0
+        trivia_count = 0
+        allocate (temp_tokens(100))
+        allocate (trivia_buffer(20))
+    end subroutine tokenize_with_options_init
+    
+    ! Helper subroutine for processing tokens in main tokenization loop
+    subroutine tokenize_process_significant_token(ch, source, pos, line_num, col_num, &
+            temp_tokens, token_count, trivia_buffer, trivia_count, options)
+        character(len=1), intent(in) :: ch
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
+        type(token_t), allocatable, intent(inout) :: temp_tokens(:)
+        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
+        type(lexer_options_t), intent(in) :: options
+        
+        ! Number literal
+        if (is_digit(ch)) then
+            call scan_number_with_trivia(source, pos, line_num, col_num, &
+                temp_tokens, token_count, trivia_buffer, trivia_count, options)
+        ! String literal
+        else if (ch == '"' .or. ch == "'") then
+            call scan_string_with_trivia(source, pos, line_num, col_num, &
+                temp_tokens, token_count, trivia_buffer, trivia_count, options)
+        ! Identifier or keyword
+        else if (is_letter(ch)) then
+            call scan_identifier_with_trivia(source, pos, line_num, col_num, &
+                temp_tokens, token_count, trivia_buffer, trivia_count, options)
+        ! Logical constants and operators (starting with '.')
+        else if (ch == '.') then
+            call scan_logical_token_with_trivia(source, pos, line_num, col_num, &
+                temp_tokens, token_count, trivia_buffer, trivia_count, options)
+        ! Operators
+        else if (is_operator(ch)) then
+            call scan_operator_with_trivia(source, pos, line_num, col_num, &
+                temp_tokens, token_count, trivia_buffer, trivia_count, options)
+        ! Unknown character
+        else
+            pos = pos + 1
+            col_num = col_num + 1
+        end if
+    end subroutine tokenize_process_significant_token
+    
+    ! Helper subroutine for finalizing tokenization
+    subroutine tokenize_finalize(temp_tokens, token_count, line_num, col_num, tokens)
+        type(token_t), allocatable, intent(inout) :: temp_tokens(:)
+        integer, intent(inout) :: token_count
+        integer, intent(in) :: line_num, col_num
+        type(token_t), allocatable, intent(out) :: tokens(:)
+        
+        ! Add EOF token
+        token_count = token_count + 1
+        if (token_count > size(temp_tokens)) then
+            call resize_tokens(temp_tokens)
+        end if
+        temp_tokens(token_count)%kind = TK_EOF
+        temp_tokens(token_count)%text = ""
+        temp_tokens(token_count)%line = line_num
+        temp_tokens(token_count)%column = col_num
+        
+        ! Copy to output array
+        allocate (tokens(token_count))
+        tokens = temp_tokens(1:token_count)
+    end subroutine tokenize_finalize
+
+    ! New tokenize functions with options (refactored for size compliance)
+    subroutine tokenize_with_options(source, tokens, options)
+        character(len=*), intent(in) :: source
+        type(token_t), allocatable, intent(out) :: tokens(:)
+        type(lexer_options_t), intent(in) :: options
+
+        type(token_t), allocatable :: temp_tokens(:)
+        type(trivia_token_t), allocatable :: trivia_buffer(:)
+        integer :: pos, line_num, col_num, token_count, trivia_count
+        integer :: source_len
+        character(len=1) :: ch
+
+        ! Initialize
+        source_len = len(source)
+        call tokenize_with_options_init(source_len, pos, line_num, col_num, &
+            token_count, trivia_count, temp_tokens, trivia_buffer)
+
+        ! Main tokenization loop
+        do while (pos <= source_len)
+            ch = source(pos:pos)
+
+            ! Handle whitespace based on options
+            if (is_whitespace(ch)) then
+                if (ch == new_line('a')) then
+                    if (options%preserve_newlines .and. options%collect_trivia) then
+                        call add_trivia_token(source, pos, line_num, col_num, &
+                            TK_NEWLINE, trivia_buffer, trivia_count)
+                    end if
+                    line_num = line_num + 1
+                    col_num = 1
+                    pos = pos + 1
+                else if (options%preserve_whitespace .and. options%collect_trivia) then
+                    call scan_whitespace(source, pos, line_num, col_num, &
+                        trivia_buffer, trivia_count)
+                else
+                    col_num = col_num + 1
+                    pos = pos + 1
+                end if
+                cycle
+            end if
+
+            ! Comments - handle based on options
+            if (ch == '!') then
+                if (options%collect_trivia) then
+                    call scan_comment_trivia(source, pos, line_num, col_num, &
+                        trivia_buffer, trivia_count)
+                else
+                    call scan_comment(source, pos, line_num, col_num, &
+                        temp_tokens, token_count)
+                end if
+                cycle
+            end if
+
+            ! Process significant tokens
+            call tokenize_process_significant_token(ch, source, pos, line_num, col_num, &
+                temp_tokens, token_count, trivia_buffer, trivia_count, options)
+        end do
+
+        ! Finalize tokenization
+        call tokenize_finalize(temp_tokens, token_count, line_num, col_num, tokens)
+    end subroutine tokenize_with_options
+
+    function tokenize_safe_with_options(source, options) result(tokenize_res)
+        character(len=*), intent(in) :: source
+        type(lexer_options_t), intent(in) :: options
+        type(tokenize_result_t) :: tokenize_res
+        
+        ! Input validation
+        if (len(source) == 0) then
+            tokenize_res%result = warning_result( &
+                "Empty source provided to tokenizer", &
+                ERROR_VALIDATION, &
+                component="lexer", &
+                context="tokenize_safe_with_options", &
+                suggestion="Provide non-empty source text")
+            tokenize_res%token_count = 0
+            return
+        end if
+        
+        ! Delegate to implementation
+        call tokenize_with_options(source, tokenize_res%tokens, options)
+        if (allocated(tokenize_res%tokens)) then
+            tokenize_res%token_count = size(tokenize_res%tokens)
+        else
+            tokenize_res%token_count = 0
+        end if
+        tokenize_res%result = success_result()
+    end function tokenize_safe_with_options
+
+    ! Helper function to scan whitespace as trivia
+    subroutine scan_whitespace(source, pos, line_num, col_num, trivia_buffer, trivia_count)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, col_num, trivia_count
+        integer, intent(in) :: line_num
+        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
+        
+        integer :: start_pos, start_col
+        character(len=:), allocatable :: ws_text
+        
+        ! Input validation
+        if (pos <= 0 .or. pos > len(source)) return
+        if (.not. allocated(trivia_buffer)) return
+        
+        start_pos = pos
+        start_col = col_num
+        ws_text = ""
+        
+        ! Collect consecutive whitespace (not newlines)
+        do while (pos <= len(source))
+            if (.not. is_whitespace(source(pos:pos))) exit
+            if (source(pos:pos) == new_line('a')) exit
+            ws_text = ws_text // source(pos:pos)
+            pos = pos + 1
+            col_num = col_num + 1
+        end do
+        
+        ! Only add if we collected some whitespace
+        if (len(ws_text) == 0) return
+        
+        ! Add whitespace token to trivia buffer with bounds checking
+        trivia_count = trivia_count + 1
+        if (trivia_count > size(trivia_buffer)) then
+            call resize_trivia_buffer(trivia_buffer)
+        end if
+        trivia_buffer(trivia_count)%kind = TK_WHITESPACE
+        trivia_buffer(trivia_count)%text = ws_text
+        trivia_buffer(trivia_count)%line = line_num
+        trivia_buffer(trivia_count)%column = start_col
+    end subroutine scan_whitespace
+
+    ! Helper to scan comment as trivia
+    subroutine scan_comment_trivia(source, pos, line_num, col_num, trivia_buffer, trivia_count)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, col_num, trivia_count
+        integer, intent(in) :: line_num
+        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
+        
+        integer :: start_pos, start_col
+        character(len=:), allocatable :: comment_text
+        
+        ! Input validation
+        if (pos <= 0 .or. pos > len(source)) return
+        if (.not. allocated(trivia_buffer)) return
+        if (pos > len(source) .or. source(pos:pos) /= '!') return
+        
+        start_pos = pos
+        start_col = col_num
+        
+        ! Skip the ! character
+        pos = pos + 1
+        col_num = col_num + 1
+        
+        ! Collect comment text until end of line
+        comment_text = "!"
+        do while (pos <= len(source))
+            if (source(pos:pos) == new_line('a')) exit
+            comment_text = comment_text // source(pos:pos)
+            pos = pos + 1
+            col_num = col_num + 1
+        end do
+        
+        ! Add comment token to trivia buffer with bounds checking
+        trivia_count = trivia_count + 1
+        if (trivia_count > size(trivia_buffer)) then
+            call resize_trivia_buffer(trivia_buffer)
+        end if
+        trivia_buffer(trivia_count)%kind = TK_COMMENT
+        trivia_buffer(trivia_count)%text = comment_text
+        trivia_buffer(trivia_count)%line = line_num
+        trivia_buffer(trivia_count)%column = start_col
+    end subroutine scan_comment_trivia
+
+    ! Helper to add a single character trivia token
+    subroutine add_trivia_token(source, pos, line_num, col_num, kind, trivia_buffer, trivia_count)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, col_num, trivia_count
+        integer, intent(in) :: line_num, kind
+        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
+        
+        ! Input validation
+        if (pos <= 0 .or. pos > len(source)) return
+        if (.not. allocated(trivia_buffer)) return
+        if (kind < TK_EOF .or. kind > TK_UNKNOWN) return
+        
+        trivia_count = trivia_count + 1
+        if (trivia_count > size(trivia_buffer)) then
+            call resize_trivia_buffer(trivia_buffer)
+            ! Verify resize succeeded
+            if (.not. allocated(trivia_buffer) .or. trivia_count > size(trivia_buffer)) then
+                trivia_count = trivia_count - 1  ! Rollback on failure
+                return
+            end if
+        end if
+        trivia_buffer(trivia_count)%kind = kind
+        trivia_buffer(trivia_count)%text = source(pos:pos)
+        trivia_buffer(trivia_count)%line = line_num
+        trivia_buffer(trivia_count)%column = col_num
+    end subroutine add_trivia_token
+
+    ! Wrapper functions that attach trivia to tokens
+    subroutine scan_number_with_trivia(source, pos, line_num, col_num, tokens, &
+            token_count, trivia_buffer, trivia_count, options)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
+        type(lexer_options_t), intent(in) :: options
+        
+        integer :: old_count
+        
+        old_count = token_count
+        call scan_number(source, pos, line_num, col_num, tokens, token_count)
+        
+        ! Attach leading trivia if any
+        if (trivia_count > 0 .and. options%collect_trivia .and. token_count > old_count) then
+            allocate(tokens(token_count)%leading_trivia(trivia_count))
+            tokens(token_count)%leading_trivia(1:trivia_count) = trivia_buffer(1:trivia_count)
+            trivia_count = 0
+        end if
+    end subroutine scan_number_with_trivia
+
+    subroutine scan_string_with_trivia(source, pos, line_num, col_num, tokens, &
+            token_count, trivia_buffer, trivia_count, options)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
+        type(lexer_options_t), intent(in) :: options
+        
+        integer :: old_count
+        
+        old_count = token_count
+        call scan_string(source, pos, line_num, col_num, tokens, token_count)
+        
+        ! Attach leading trivia if any
+        if (trivia_count > 0 .and. options%collect_trivia .and. token_count > old_count) then
+            allocate(tokens(token_count)%leading_trivia(trivia_count))
+            tokens(token_count)%leading_trivia(1:trivia_count) = trivia_buffer(1:trivia_count)
+            trivia_count = 0
+        end if
+    end subroutine scan_string_with_trivia
+
+    subroutine scan_identifier_with_trivia(source, pos, line_num, col_num, tokens, &
+            token_count, trivia_buffer, trivia_count, options)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
+        type(lexer_options_t), intent(in) :: options
+        
+        integer :: old_count
+        
+        old_count = token_count
+        call scan_identifier(source, pos, line_num, col_num, tokens, token_count)
+        
+        ! Attach leading trivia if any
+        if (trivia_count > 0 .and. options%collect_trivia .and. token_count > old_count) then
+            allocate(tokens(token_count)%leading_trivia(trivia_count))
+            tokens(token_count)%leading_trivia(1:trivia_count) = trivia_buffer(1:trivia_count)
+            trivia_count = 0
+        end if
+    end subroutine scan_identifier_with_trivia
+
+    subroutine scan_logical_token_with_trivia(source, pos, line_num, col_num, tokens, &
+            token_count, trivia_buffer, trivia_count, options)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
+        type(lexer_options_t), intent(in) :: options
+        
+        integer :: old_count
+        
+        old_count = token_count
+        call scan_logical_token(source, pos, line_num, col_num, tokens, token_count)
+        
+        ! Attach leading trivia if any
+        if (trivia_count > 0 .and. options%collect_trivia .and. token_count > old_count) then
+            allocate(tokens(token_count)%leading_trivia(trivia_count))
+            tokens(token_count)%leading_trivia(1:trivia_count) = trivia_buffer(1:trivia_count)
+            trivia_count = 0
+        end if
+    end subroutine scan_logical_token_with_trivia
+
+    subroutine scan_operator_with_trivia(source, pos, line_num, col_num, tokens, &
+            token_count, trivia_buffer, trivia_count, options)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
+        type(lexer_options_t), intent(in) :: options
+        
+        integer :: old_count
+        
+        old_count = token_count
+        call scan_operator(source, pos, line_num, col_num, tokens, token_count)
+        
+        ! Attach leading trivia if any
+        if (trivia_count > 0 .and. options%collect_trivia .and. token_count > old_count) then
+            allocate(tokens(token_count)%leading_trivia(trivia_count))
+            tokens(token_count)%leading_trivia(1:trivia_count) = trivia_buffer(1:trivia_count)
+            trivia_count = 0
+        end if
+    end subroutine scan_operator_with_trivia
 
 end module lexer_core
