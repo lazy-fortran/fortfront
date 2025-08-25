@@ -1,11 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #406: Refactor: Extract variable parsing and initialization logic from parse_declaration
 
 ## TODO (Ordered by Priority)
 
 ### Code Quality and Refactoring (ENHANCEMENT)
-- [ ] #406: Refactor: Extract variable parsing and initialization logic from parse_declaration
 - [ ] #364: refactor: break down parse_declaration function (519 lines -> <100 lines)
 - [ ] #365: refactor: break down large functions >200 lines (9 functions)
 - [ ] #366: refactor: address remaining 24 functions exceeding 100-line limit
