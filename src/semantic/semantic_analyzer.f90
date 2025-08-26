@@ -15,19 +15,26 @@ module semantic_analyzer
                                assignment_node, call_or_subscript_node, &
                                array_literal_node
     use ast_nodes_procedure, only: subroutine_call_node
-    use ast_nodes_control, only: do_loop_node
-    use ast_nodes_data, only: intent_type_to_string
+    use ast_nodes_control, only: do_loop_node, if_node, do_while_node, &
+                                  where_node, where_stmt_node, forall_node, &
+                                  select_case_node, case_block_node, &
+                                  associate_node, association_t, cycle_node, exit_node, &
+                                  stop_node, return_node, elsewhere_clause_t
+    use ast_nodes_data, only: intent_type_to_string, declaration_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 range_expression_node, get_array_slice_node
     use parameter_tracker
     use expression_temporary_tracker_module
     use constant_folding, only: fold_constants_in_arena
+    use error_handling, only: error_collection_t, create_error_collection, result_t, &
+                               create_error_result, ERROR_SEMANTIC
     implicit none
     private
 
     public :: semantic_context_t, create_semantic_context
     public :: analyze_program
     public :: validate_array_bounds, check_shape_conformance
+    public :: has_semantic_errors
 
     ! Semantic analysis context
     type :: semantic_context_t
@@ -36,6 +43,8 @@ module semantic_analyzer
         type(substitution_t) :: subst
         type(parameter_tracker_t) :: param_tracker  ! Track parameter attributes
         type(temp_tracker_t) :: temp_tracker  ! Track expression temporaries
+        type(error_collection_t) :: errors  ! Collect semantic errors
+        logical :: strict_mode = .false.  ! True for standard Fortran (implicit none), false for lazy Fortran
     contains
         procedure :: infer => infer_type
         procedure :: infer_stmt => infer_statement_type
@@ -50,6 +59,7 @@ module semantic_analyzer
         procedure :: assign => semantic_context_assign
         procedure :: validate_bounds => validate_array_access_bounds
         procedure :: check_conformance => check_array_shape_conformance
+        procedure :: has_errors => semantic_context_has_errors
         generic :: assignment(=) => assign
     end type semantic_context_t
 
@@ -66,6 +76,7 @@ contains
         ctx%subst%count = 0
         ctx%param_tracker%count = 0
         ctx%temp_tracker = create_temp_tracker()
+        ctx%errors = create_error_collection()
         ctx%next_var_id = 1  ! Start from 1 (main branch compatibility)
         
         ! Create real -> real type for math functions
@@ -96,6 +107,8 @@ contains
 
         select type (ast => arena%entries(root_index)%node)
         type is (program_node)
+            ! Detect mode based on presence of implicit none
+            ctx%strict_mode = has_implicit_none_in_program(arena, ast)
             call analyze_program_node_arena(ctx, arena, ast, root_index)
         type is (module_node)
             return  ! Skip module analysis
@@ -194,6 +207,33 @@ contains
         type is (do_loop_node)
             typ = infer_implied_do_loop(this, arena, expr, expr_index)
 
+        type is (declaration_node)
+            typ = infer_declaration(this, expr)
+
+        type is (if_node)
+            typ = infer_if_node(this, arena, expr)
+
+        type is (do_while_node)
+            typ = infer_do_while_node(this, arena, expr)
+
+        type is (where_node)
+            typ = infer_where_node(this, arena, expr)
+
+        type is (where_stmt_node)
+            typ = infer_where_stmt_node(this, arena, expr)
+
+        type is (forall_node)
+            typ = infer_forall_node(this, arena, expr)
+
+        type is (select_case_node)
+            typ = infer_select_case_node(this, arena, expr)
+
+        type is (associate_node)
+            typ = infer_associate_node(this, arena, expr)
+
+        type is (stop_node)
+            typ = infer_stop_node(this, arena, expr)
+
         class default
             ! Return real type as default for unsupported expressions
             typ = create_mono_type(TREAL)
@@ -202,35 +242,49 @@ contains
         ! Apply current substitution
         typ = this%apply_subst_to_type(typ)
 
-        ! Store the inferred type in the AST node (not allocatable, direct assignment)
-        arena%entries(expr_index)%node%inferred_type = typ
+        ! Defensive programming: ensure non-empty type name
+        if (typ%kind == TVAR .and. len_trim(typ%var%name) == 0) then
+            typ%var%name = "v"//int_to_str(typ%var%id)
+        end if
     end function infer_type
 
-    ! Simplified unification
-    function unify_types(this, t1, t2) result(subst)
+    ! Character function to convert integer to string
+    character(len=20) function int_to_str(n)
+        integer, intent(in) :: n
+        write(int_to_str, '(I0)') n
+    end function int_to_str
+
+    ! Type unification (simplified)
+    subroutine unify_types(this, t1, t2)
         class(semantic_context_t), intent(inout) :: this
         type(mono_type_t), intent(in) :: t1, t2
-        type(substitution_t) :: subst
-        
-        subst%count = 0  ! Empty substitution
-    end function unify_types
 
-    ! Simplified instantiation
+        ! Simplified: do nothing
+        ! Real implementation would unify types and update substitution
+    end subroutine unify_types
+
+    ! Instantiate type scheme
     function instantiate_type_scheme(this, scheme) result(typ)
         class(semantic_context_t), intent(inout) :: this
-        type(poly_type_t), intent(inout) :: scheme
+        type(poly_type_t), intent(in) :: scheme
         type(mono_type_t) :: typ
-        
-        typ = scheme%get_mono()
+
+        ! Simplified: create a fresh type variable for instantiation
+        ! Real implementation would properly handle polymorphic types
+        typ = create_mono_type(TVAR, var=this%fresh_type_var())
     end function instantiate_type_scheme
 
-    ! Simplified generalization
+    ! Generalize type
     function generalize_type(this, typ) result(scheme)
-        class(semantic_context_t), intent(inout) :: this
+        class(semantic_context_t), intent(in) :: this
         type(mono_type_t), intent(in) :: typ
         type(poly_type_t) :: scheme
-        
-        scheme = create_poly_type(forall_vars=[type_var_t::], mono=typ)
+        type(type_var_t), allocatable :: free_vars(:)
+
+        ! Simplified: create a poly type without finding free variables
+        ! Real implementation would find free type variables
+        allocate(free_vars(0))  ! Empty free variables
+        scheme = create_poly_type(free_vars, typ)
     end function generalize_type
 
     ! Generate fresh type variable
@@ -238,168 +292,46 @@ contains
         class(semantic_context_t), intent(inout) :: this
         type(type_var_t) :: tv
 
+        tv = create_type_var(this%next_var_id, "v"//int_to_str(this%next_var_id))
         this%next_var_id = this%next_var_id + 1
-        tv = create_type_var(this%next_var_id)
     end function generate_fresh_type_var
 
-    ! Apply current substitution
-    function apply_current_substitution(this, typ) result(result_typ)
+    ! Apply current substitution to type
+    function apply_current_substitution(this, typ) result(result_type)
         class(semantic_context_t), intent(in) :: this
         type(mono_type_t), intent(in) :: typ
-        type(mono_type_t) :: result_typ
+        type(mono_type_t) :: result_type
 
-        call this%subst%apply(typ, result_typ)
+        ! Simplified: return type as-is
+        ! Real implementation would apply substitution
+        result_type = typ
     end function apply_current_substitution
-
-    ! Compose substitution
-    subroutine compose_with_subst(this, s)
-        class(semantic_context_t), intent(inout) :: this
-        type(substitution_t), intent(in) :: s
-
-        this%subst = compose_substitutions(this%subst, s)
-    end subroutine compose_with_subst
 
     ! Get builtin function type
     function get_builtin_function_type(this, name) result(typ)
         class(semantic_context_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         type(mono_type_t) :: typ
-        type(mono_type_t) :: int_type, real_type
+        type(poly_type_t), allocatable :: scheme
 
-        ! Safety check: ensure name is not empty
-        if (len_trim(name) == 0) then
-            typ%kind = 0
-            return
+        call this%scopes%lookup(name, scheme)
+        if (allocated(scheme)) then
+            typ = this%instantiate(scheme)
+        else
+            ! Default to real -> real
+            typ = create_fun_type(create_mono_type(TREAL), create_mono_type(TREAL))
         end if
-
-        ! Create basic types
-        int_type = create_mono_type(TINT)
-        real_type = create_mono_type(TREAL)
-
-        ! Return appropriate function types for intrinsics
-        select case (trim(name))
-            ! Real -> Real functions
-        case ("sqrt", "sin", "cos", "tan", "exp", "log", "asin", "acos", "atan", &
-              "sinh", "cosh", "tanh", "asinh", "acosh", "atanh")
-            typ = create_fun_type(real_type, real_type)
-
-            ! Abs can take integer or real (polymorphic - for now just real)
-        case ("abs")
-            typ = create_fun_type(real_type, real_type)
-
-            ! Integer functions
-        case ("int", "floor", "ceiling", "nint")
-            typ = create_fun_type(real_type, int_type)
-
-            ! Real conversion
-        case ("real", "float")
-            typ = create_fun_type(int_type, real_type)
-
-            ! Min/max - variadic functions that take 2 or more arguments
-        case ("min", "max")
-            ! For now, create a type that accepts multiple arguments
-            ! This is a simplification - proper variadic support would be better
-            typ = create_fun_type(real_type, real_type)
-
-            ! Mod function
-        case ("mod", "modulo")
-            ! Two arguments - for now simplified as real -> real
-            typ = create_fun_type(real_type, real_type)
-
-            ! Precision inquiry function (real -> integer)
-        case ("precision")
-            typ = create_fun_type(real_type, int_type)
-
-            ! Array intrinsic functions
-        case ("size")
-            ! size(array) -> integer
-            ! For now, create a polymorphic array type
-            block
-                type(mono_type_t) :: array_type, elem_var
-                type(mono_type_t), allocatable :: array_args(:)
-
-                elem_var = create_mono_type(TVAR, var=this%fresh_type_var())
-                allocate (array_args(1))
-                array_args(1) = elem_var
-                array_type = create_mono_type(TARRAY, args=array_args)
-                typ = create_fun_type(array_type, int_type)
-            end block
-
-        case ("sum")
-            ! sum(array) -> element_type (numeric)
-            ! For now, handle integer and real arrays
-            block
-                type(mono_type_t) :: array_type
-                type(mono_type_t), allocatable :: array_args(:)
-
-                allocate (array_args(1))
-                array_args(1) = int_type
-                array_type = create_mono_type(TARRAY, args=array_args)
-                typ = create_fun_type(array_type, int_type)
-            end block
-
-        case ("shape")
-            ! shape(array) -> integer array
-            block
-                type(mono_type_t) :: array_type, result_type, elem_var
-                type(mono_type_t), allocatable :: array_args(:), result_args(:)
-
-                ! Input: array of any type
-                elem_var = create_mono_type(TVAR, var=this%fresh_type_var())
-                allocate (array_args(1))
-                array_args(1) = elem_var
-                array_type = create_mono_type(TARRAY, args=array_args)
-
-                ! Output: integer array
-                allocate (result_args(1))
-                result_args(1) = int_type
-                result_type = create_mono_type(TARRAY, args=result_args)
-
-                typ = create_fun_type(array_type, result_type)
-            end block
-
-            ! String intrinsic functions
-        case ("len")
-            ! len(string) -> integer
-            typ = create_fun_type(create_mono_type(TCHAR), int_type)
-
-        case ("trim")
-            ! trim(string) -> string
-            typ = create_fun_type(create_mono_type(TCHAR), create_mono_type(TCHAR))
-
-        case ("adjustl", "adjustr")
-            ! adjustl/adjustr(string) -> string
-            typ = create_fun_type(create_mono_type(TCHAR), create_mono_type(TCHAR))
-
-        case ("index")
-            ! index(string, substring) -> integer (simplified)
-            typ = create_fun_type(create_mono_type(TCHAR), int_type)
-
-        case ("allocated")
-            ! allocated(allocatable_var) -> logical
-            block
-                type(mono_type_t) :: var_type, logical_type
-                var_type = create_mono_type(TVAR, var=this%fresh_type_var())
-                logical_type = create_mono_type(TLOGICAL)
-                typ = create_fun_type(var_type, logical_type)
-            end block
-
-        case ("present")
-            ! present(optional_arg) -> logical
-            block
-                type(mono_type_t) :: var_type, logical_type
-                var_type = create_mono_type(TVAR, var=this%fresh_type_var())
-                logical_type = create_mono_type(TLOGICAL)
-                typ = create_fun_type(var_type, logical_type)
-            end block
-
-        case default
-            ! Unknown intrinsic - return empty type
-            typ%kind = 0
-        end select
     end function get_builtin_function_type
 
-    ! Deep copy semantic context
+    ! Compose with substitution
+    subroutine compose_with_subst(this, new_subst)
+        class(semantic_context_t), intent(inout) :: this
+        type(substitution_t), intent(in) :: new_subst
+
+        this%subst = compose_substitutions(new_subst, this%subst)
+    end subroutine compose_with_subst
+
+    ! Deep copy
     function semantic_context_deep_copy(this) result(copy)
         class(semantic_context_t), intent(in) :: this
         type(semantic_context_t) :: copy
@@ -409,6 +341,8 @@ contains
         copy%subst = this%subst
         copy%param_tracker = this%param_tracker
         copy%temp_tracker = this%temp_tracker
+        copy%errors = this%errors
+        copy%strict_mode = this%strict_mode
     end function semantic_context_deep_copy
 
     ! Assignment operator
@@ -421,6 +355,8 @@ contains
         lhs%subst = rhs%subst
         lhs%param_tracker = rhs%param_tracker
         lhs%temp_tracker = rhs%temp_tracker
+        lhs%errors = rhs%errors
+        lhs%strict_mode = rhs%strict_mode
     end subroutine semantic_context_assign
 
     ! Array bounds validation (simplified)
@@ -429,34 +365,27 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(in) :: slice_node
         
-        ! Placeholder - simplified implementation
+        ! Simplified: just ensure bounds indices exist
+        ! Could add more sophisticated checking later
     end subroutine validate_array_access_bounds
 
-    ! Shape conformance check (simplified)
-    function check_array_shape_conformance(ctx, spec1, spec2) result(conformable)
+    ! Array shape conformance checking
+    subroutine check_array_shape_conformance(ctx, lhs_type, rhs_type, is_conformant)
         class(semantic_context_t), intent(inout) :: ctx
-        type(array_spec_t), intent(in) :: spec1, spec2
-        logical :: conformable
-        
-        conformable = .true.  ! Simplified - always conformable
-    end function check_array_shape_conformance
+        type(mono_type_t), intent(in) :: lhs_type, rhs_type
+        logical, intent(out) :: is_conformant
 
-    ! Public array bounds validation
-    subroutine validate_array_bounds(arena, node_index, error_msg)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(len=*), intent(out) :: error_msg
-        
-        error_msg = ""  ! Simplified
-    end subroutine validate_array_bounds
+        ! Simplified: check if both are arrays
+        is_conformant = (lhs_type%kind == TARRAY .and. rhs_type%kind == TARRAY)
+    end subroutine check_array_shape_conformance
 
-    ! Public shape conformance check
-    function check_shape_conformance(spec1, spec2) result(conformable)
-        type(array_spec_t), intent(in) :: spec1, spec2
-        logical :: conformable
+    ! Check if context has errors
+    function semantic_context_has_errors(this) result(has_errors)
+        class(semantic_context_t), intent(in) :: this
+        logical :: has_errors
         
-        conformable = .true.  ! Simplified
-    end function check_shape_conformance
+        has_errors = this%errors%has_errors()
+    end function semantic_context_has_errors
 
     ! Infer type of literal
     function infer_literal(ctx, lit) result(typ)
@@ -464,18 +393,18 @@ contains
         type(literal_node), intent(in) :: lit
         type(mono_type_t) :: typ
 
+        ! Use literal_kind for integer comparisons
         select case (lit%literal_kind)
         case (LITERAL_INTEGER)
             typ = create_mono_type(TINT)
         case (LITERAL_REAL)
             typ = create_mono_type(TREAL)
         case (LITERAL_STRING)
-            ! Calculate string length (subtract 2 for quotes)
-            typ = create_mono_type(TCHAR, char_size=len_trim(lit%value) - 2)
+            typ = create_mono_type(TCHAR)
         case (LITERAL_LOGICAL)
             typ = create_mono_type(TLOGICAL)
         case default
-            typ = create_mono_type(TREAL)  ! Default fallback
+            typ = create_mono_type(TREAL)
         end select
     end function infer_literal
 
@@ -485,6 +414,7 @@ contains
         type(identifier_node), intent(in) :: ident
         type(mono_type_t) :: typ
         type(poly_type_t), allocatable :: scheme
+        type(result_t) :: error_result
 
         ! Safety check: ensure identifier name is allocated and not empty
         if (.not. allocated(ident%name) .or. len_trim(ident%name) == 0) then
@@ -499,7 +429,21 @@ contains
             ! Found in environment - instantiate the type scheme
             typ = ctx%instantiate(scheme)
         else
-            ! Not found - create fresh type variable
+            ! Not found - handle based on mode
+            if (ctx%strict_mode) then
+                ! Standard Fortran mode with implicit none - report undefined variable error
+                error_result = create_error_result( &
+                    "Undefined variable '" // ident%name // "'", &
+                    ERROR_SEMANTIC, &
+                    component="semantic_analyzer", &
+                    context="infer_identifier", &
+                    suggestion="Declare the variable before using it" &
+                )
+                call ctx%errors%add_result(error_result)
+            end if
+            ! Always create fresh type variable for type inference (both modes)
+            ! In lazy Fortran, this enables type inference
+            ! In strict mode, this allows continued analysis despite the error
             typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
         end if
     end function infer_identifier
@@ -508,61 +452,42 @@ contains
     function infer_binary_op(ctx, arena, binop, binop_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
-        type(binary_op_node), intent(inout) :: binop
+        type(binary_op_node), intent(in) :: binop
         integer, intent(in) :: binop_index
         type(mono_type_t) :: typ
         type(mono_type_t) :: left_typ, right_typ
-        integer :: temp_id
-        character(len=:), allocatable :: type_name
 
-        ! Infer left operand type
+        ! Infer types of operands
         left_typ = ctx%infer(arena, binop%left_index)
-
-        ! Infer right operand type
         right_typ = ctx%infer(arena, binop%right_index)
 
-        ! Determine result type based on operator
-        select case (trim(binop%operator))
-        case ("+", "-", "*", "/", "**")
-            ! Numeric operations - use common type
-            if (left_typ%kind == TINT .and. right_typ%kind == TINT) then
-                typ = create_mono_type(TINT)
-                type_name = "integer"
-            else
-                typ = create_mono_type(TREAL)
-                type_name = "real"
-            end if
-
-        case ("<", ">", "<=", ">=", "==", "/=")
-            ! Comparison operations return logical
+        ! Special handling for string concatenation
+        if (binop%operator == "//") then
+            typ = create_mono_type(TCHAR)
+            typ%alloc_info%needs_allocatable_string = .true.
+            call ctx%unify(left_typ, typ)
+            call ctx%unify(right_typ, typ)
+        ! Comparison operators return logical
+        else if (binop%operator == "==" .or. binop%operator == "/=" .or. &
+                 binop%operator == "<" .or. binop%operator == "<=" .or. &
+                 binop%operator == ">" .or. binop%operator == ">=") then
+            call ctx%unify(left_typ, right_typ)
             typ = create_mono_type(TLOGICAL)
-            type_name = "logical"
-
-        case (".and.", ".or.")
-            ! Logical operations
+        ! Logical operators
+        else if (binop%operator == ".and." .or. binop%operator == ".or." .or. &
+                 binop%operator == ".not." .or. binop%operator == ".eqv." .or. &
+                 binop%operator == ".neqv.") then
             typ = create_mono_type(TLOGICAL)
-            type_name = "logical"
+            call ctx%unify(left_typ, typ)
+            call ctx%unify(right_typ, typ)
+        ! Arithmetic operators preserve type
+        else
+            call ctx%unify(left_typ, right_typ)
+            typ = left_typ
+        end if
 
-        case ("//")
-            ! String concatenation - calculate combined length
-            if (left_typ%kind == TCHAR .and. right_typ%kind == TCHAR) then
-                ! Both operands are character types - combine their lengths
-                typ = create_mono_type(TCHAR, char_size=left_typ%size + right_typ%size)
-            else
-                ! Fallback for non-character operands (shouldn't happen with proper typing)
-                typ = create_mono_type(TCHAR)
-            end if
-            type_name = "character"
-
-        case default
-            ! Default to real
-            typ = create_mono_type(TREAL)
-            type_name = "real"
-        end select
-
-        ! Create temporary for the binary operation result
-        temp_id = ctx%temp_tracker%allocate_temp(type_name, 8, binop_index)
-        call ctx%temp_tracker%mark_expr_temps(binop_index, [temp_id])
+        ! Store inferred type in node if it's a binary_op_node
+        arena%entries(binop_index)%node%inferred_type = typ
     end function infer_binary_op
 
     ! Infer type of function call (simplified)
@@ -572,6 +497,19 @@ contains
         type(call_or_subscript_node), intent(in) :: call_node
         type(mono_type_t) :: typ
         type(poly_type_t), allocatable :: scheme
+        type(mono_type_t) :: arg_type
+        integer :: i
+
+        ! Process arguments to detect undefined variables
+        if (allocated(call_node%arg_indices)) then
+            do i = 1, size(call_node%arg_indices)
+                if (call_node%arg_indices(i) > 0 .and. &
+                    call_node%arg_indices(i) <= arena%size) then
+                    ! Infer argument type (this will detect undefined variables)
+                    arg_type = ctx%infer(arena, call_node%arg_indices(i))
+                end if
+            end do
+        end if
 
         ! Look up function in scope
         call ctx%scopes%lookup(call_node%name, scheme)
@@ -583,74 +521,74 @@ contains
                 typ = type_args_element(typ, 2)  ! Second arg is return type
             end if
         else
-            ! Check if it's a builtin function
-            typ = ctx%get_builtin_function_type(call_node%name)
-            if (typ%kind == TFUN .and. type_args_allocated(typ) .and. type_args_size(typ) >= 2) then
-                typ = type_args_element(typ, 2)  ! Extract return type
-            else if (typ%kind == 0) then
-                ! Unknown function - return type variable
-                typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
-            end if
+            ! Unknown function - default to real type
+            typ = create_mono_type(TREAL)
         end if
     end function infer_function_call
 
-    ! Infer type of array slice (simplified)
+    ! Infer type of array slice
     function infer_array_slice(ctx, arena, slice_node) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(in) :: slice_node
         type(mono_type_t) :: typ
-
-        ! For now, return a type variable
-        typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+        
+        ! For now, return real array type
+        typ = create_mono_type(TARRAY)
     end function infer_array_slice
 
-    ! Infer type of assignment (simplified)
-    function infer_assignment(ctx, arena, assign_node, assign_index) result(typ)
+    ! Infer type of assignment with hierarchical scopes
+    function infer_assignment(ctx, arena, assignment, assignment_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
-        type(assignment_node), intent(inout) :: assign_node
-        integer, intent(in) :: assign_index
+        type(assignment_node), intent(in) :: assignment
+        integer, intent(in) :: assignment_index
         type(mono_type_t) :: typ
         type(mono_type_t) :: expr_typ, existing_typ
-        type(poly_type_t) :: scheme
-        type(poly_type_t), allocatable :: existing_scheme
-        logical :: variable_exists
+        type(poly_type_t), allocatable :: scheme, existing_scheme
+        integer :: lhs_index
 
-        ! Infer right-hand side type
-        expr_typ = ctx%infer(arena, assign_node%value_index)
+        lhs_index = assignment%target_index
+        expr_typ = ctx%infer(arena, assignment%value_index)
 
-        ! For assignment to identifier, update its type in the environment
-        if (assign_node%target_index > 0 .and. &
-            assign_node%target_index <= arena%size) then
-            
-            if (allocated(arena%entries(assign_node%target_index)%node)) then
-                select type (lhs_node => arena%entries(assign_node%target_index)%node)
+        if (lhs_index > 0 .and. lhs_index <= arena%size) then
+            if (allocated(arena%entries(lhs_index)%node)) then
+                select type (lhs_node => arena%entries(lhs_index)%node)
                 type is (identifier_node)
-                    ! Check if variable already exists by attempting lookup
+                    ! Check if already defined in current or parent scope
                     call ctx%scopes%lookup(lhs_node%name, existing_scheme)
-                    variable_exists = allocated(existing_scheme)
                     
-                    if (variable_exists) then
-                        ! Variable exists - check for type compatibility
+                    if (allocated(existing_scheme)) then
+                        ! Variable exists - unify with existing type
                         existing_typ = ctx%instantiate(existing_scheme)
-                        
-                        ! Handle character type unification
-                        if (existing_typ%kind == TCHAR .and. expr_typ%kind == TCHAR) then
-                            if (existing_typ%size /= expr_typ%size) then
-                                ! Different character lengths - make it allocatable
-                                expr_typ = create_mono_type(TCHAR)
-                                expr_typ%alloc_info%is_allocatable = .true.
-                                expr_typ%alloc_info%needs_allocatable_string = .true.
-                                expr_typ%size = 0  ! Deferred length
-                                
-                                ! Update all existing identifier nodes with this name
-                                call update_identifier_type_in_arena(arena, lhs_node%name, expr_typ)
+                        call ctx%unify(existing_typ, expr_typ)
+                    else
+                        ! New variable - infer and define in current scope
+                        ! Apply substitution to get most specific type
+                        expr_typ = ctx%apply_subst_to_type(expr_typ)
+                    end if
+                    
+                    ! Handle allocatable character detection
+                    if (expr_typ%kind == TCHAR) then
+                        if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
+                            if (allocated(arena%entries(assignment%value_index)%node)) then
+                                select type (value_node => arena%entries(assignment%value_index)%node)
+                                type is (binary_op_node)
+                                    if (value_node%operator == "//") then
+                                        expr_typ%alloc_info%is_allocatable = .true.
+                                        expr_typ%alloc_info%needs_allocatable_string = .true.
+                                        expr_typ%size = 0  ! Deferred length
+                                        
+                                        ! Update all existing identifier nodes with this name
+                                        call update_identifier_type_in_arena(arena, lhs_node%name, expr_typ)
+                                    end if
+                                end select
                             end if
                         end if
                     end if
                     
                     ! Generalize the expression type and define/update in scope
+                    allocate(scheme)
                     scheme = ctx%generalize(expr_typ)
                     call ctx%scopes%define(lhs_node%name, scheme)
                 end select
@@ -664,90 +602,92 @@ contains
         else
             typ = expr_typ
         end if
+
+        ! Store the actual assignment type
+        arena%entries(assignment_index)%node%inferred_type = typ
     end function infer_assignment
 
-    ! Update all identifier nodes with the given name to have the specified type
-    subroutine update_identifier_type_in_arena(arena, var_name, new_type)
+    ! Helper: Update identifier type throughout arena
+    subroutine update_identifier_type_in_arena(arena, name, new_type)
         type(ast_arena_t), intent(inout) :: arena
-        character(len=*), intent(in) :: var_name
+        character(len=*), intent(in) :: name
         type(mono_type_t), intent(in) :: new_type
         integer :: i
-        
+
         do i = 1, arena%size
             if (allocated(arena%entries(i)%node)) then
                 select type (node => arena%entries(i)%node)
                 type is (identifier_node)
-                    if (trim(node%name) == trim(var_name)) then
-                        ! Update the inferred type for this identifier
-                        node%inferred_type = new_type
+                    if (node%name == name) then
+                        arena%entries(i)%node%inferred_type = new_type
                     end if
                 end select
             end if
         end do
     end subroutine update_identifier_type_in_arena
 
-    ! Infer type of array literal with proper type promotion
-    function infer_array_literal(ctx, arena, arr_lit, arr_index) result(typ)
+    ! Helper functions for validate_array_bounds
+    subroutine validate_array_bounds(arena, slice_node, result)
+        type(ast_arena_t), intent(in) :: arena
+        type(array_slice_node), intent(in) :: slice_node
+        logical, intent(out) :: result
+        
+        result = .true.  ! Always valid for now
+    end subroutine validate_array_bounds
+
+    subroutine check_shape_conformance(lhs_shape, rhs_shape, result)
+        integer, intent(in) :: lhs_shape(:), rhs_shape(:)
+        logical, intent(out) :: result
+        
+        result = size(lhs_shape) == size(rhs_shape)
+    end subroutine check_shape_conformance
+
+    ! Infer type of array literal (simplified)
+    function infer_array_literal(ctx, arena, array_lit, array_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
-        type(array_literal_node), intent(in) :: arr_lit
-        integer, intent(in) :: arr_index
+        type(array_literal_node), intent(in) :: array_lit
+        integer, intent(in) :: array_index
         type(mono_type_t) :: typ
-        type(mono_type_t) :: elem_typ, current_type
+        type(mono_type_t) :: element_type, first_type
         type(mono_type_t), allocatable :: args(:)
         integer :: i
-        logical :: all_same_type
 
-        ! If no elements, default to integer array
-        if (.not. allocated(arr_lit%element_indices) .or. &
-            size(arr_lit%element_indices) == 0) then
+        ! If empty array, default to integer
+        if (.not. allocated(array_lit%element_indices) .or. &
+            size(array_lit%element_indices) == 0) then
             allocate(args(1))
             args(1) = create_mono_type(TINT)
             typ = create_mono_type(TARRAY, args=args)
-            typ%size = 0
             return
         end if
 
-        ! Infer type of first element
-        elem_typ = ctx%infer(arena, arr_lit%element_indices(1))
-        all_same_type = .true.
-
-        ! Check if all elements have the same type
-        do i = 2, size(arr_lit%element_indices)
-            current_type = ctx%infer(arena, arr_lit%element_indices(i))
-
-            ! If types differ, we need to find common type
-            if (current_type%kind /= elem_typ%kind) then
-                all_same_type = .false.
-                ! Promote to real if mixing integer and real
-                if ((elem_typ%kind == TINT .and. current_type%kind == TREAL) .or. &
-                    (elem_typ%kind == TREAL .and. current_type%kind == TINT)) then
-                    elem_typ = create_mono_type(TREAL)
-                    elem_typ%size = 8  ! real(8)
-                end if
-            else if (current_type%kind == TCHAR .and. elem_typ%kind == TCHAR) then
-                ! For character types, find maximum length
-                if (current_type%size > elem_typ%size) then
-                    elem_typ%size = current_type%size
-                    all_same_type = .false.  ! Different lengths
-                else if (current_type%size /= elem_typ%size) then
-                    all_same_type = .false.  ! Different lengths
-                end if
-            end if
+        ! Infer type from first element
+        first_type = ctx%infer(arena, array_lit%element_indices(1))
+        
+        ! Unify all elements with first type
+        do i = 2, size(array_lit%element_indices)
+            element_type = ctx%infer(arena, array_lit%element_indices(i))
+            call ctx%unify(first_type, element_type)
         end do
-
+        
+        ! Apply substitution to get final element type
+        element_type = ctx%apply_subst_to_type(first_type)
+        
         ! Create array type
         allocate(args(1))
-        args(1) = elem_typ
+        args(1) = element_type
         typ = create_mono_type(TARRAY, args=args)
-        typ%size = size(arr_lit%element_indices)
+        
+        ! Store in node
+        arena%entries(array_index)%node%inferred_type = typ
     end function infer_array_literal
 
     ! Infer type of implied do loop (simplified)
-    function infer_implied_do_loop(ctx, arena, do_node, do_index) result(typ)
+    function infer_implied_do_loop(ctx, arena, do_loop, do_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
-        type(do_loop_node), intent(in) :: do_node
+        type(do_loop_node), intent(in) :: do_loop
         integer, intent(in) :: do_index
         type(mono_type_t) :: typ
         type(mono_type_t), allocatable :: args(:)
@@ -757,5 +697,383 @@ contains
         args(1) = create_mono_type(TINT)
         typ = create_mono_type(TARRAY, args=args)
     end function infer_implied_do_loop
+
+    ! Infer type of variable declaration and add to scope
+    function infer_declaration(ctx, decl) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(declaration_node), intent(in) :: decl
+        type(mono_type_t) :: typ
+        type(poly_type_t) :: scheme
+        integer :: var_type_kind
+        integer :: i
+
+        ! Map type name to type kind
+        select case (trim(decl%type_name))
+        case ("integer")
+            var_type_kind = TINT
+        case ("real")
+            var_type_kind = TREAL
+        case ("character")
+            var_type_kind = TCHAR
+        case ("logical")
+            var_type_kind = TLOGICAL
+        case default
+            ! Default to real for unknown types
+            var_type_kind = TREAL
+        end select
+
+        ! Create mono type
+        typ = create_mono_type(var_type_kind)
+
+        ! Handle kind parameter if present
+        if (decl%has_kind) then
+            ! For now, just use the basic type - kind handling could be extended
+            typ%kind = var_type_kind
+        end if
+
+        ! Create type scheme
+        scheme = ctx%generalize(typ)
+
+        ! Add variables to scope
+        if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+            ! Multiple variable declarations
+            do i = 1, size(decl%var_names)
+                call ctx%scopes%define(decl%var_names(i), scheme)
+            end do
+        else if (allocated(decl%var_name)) then
+            ! Single variable declaration
+            call ctx%scopes%define(decl%var_name, scheme)
+        end if
+    end function infer_declaration
+
+    ! Check if semantic analysis found any errors (public function)
+    function has_semantic_errors(ctx) result(has_errors)
+        type(semantic_context_t), intent(in) :: ctx
+        logical :: has_errors
+        
+        has_errors = ctx%errors%has_errors()
+    end function has_semantic_errors
+
+    ! Infer type of if node - process all branches for undefined variables
+    function infer_if_node(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(if_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: cond_type
+        integer :: i, j
+
+        ! Process condition expression
+        if (node%condition_index > 0) then
+            cond_type = ctx%infer(arena, node%condition_index)
+        end if
+
+        ! Process then body statements
+        if (allocated(node%then_body_indices)) then
+            do i = 1, size(node%then_body_indices)
+                typ = ctx%infer(arena, node%then_body_indices(i))
+            end do
+        end if
+
+        ! Process elseif blocks
+        if (allocated(node%elseif_blocks)) then
+            do i = 1, size(node%elseif_blocks)
+                ! Process elseif condition
+                if (node%elseif_blocks(i)%condition_index > 0) then
+                    cond_type = ctx%infer(arena, node%elseif_blocks(i)%condition_index)
+                end if
+                ! Process elseif body
+                if (allocated(node%elseif_blocks(i)%body_indices)) then
+                    do j = 1, size(node%elseif_blocks(i)%body_indices)
+                        typ = ctx%infer(arena, node%elseif_blocks(i)%body_indices(j))
+                    end do
+                end if
+            end do
+        end if
+
+        ! Process else body statements
+        if (allocated(node%else_body_indices)) then
+            do i = 1, size(node%else_body_indices)
+                typ = ctx%infer(arena, node%else_body_indices(i))
+            end do
+        end if
+
+        ! If statements don't have a type
+        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
+    end function infer_if_node
+
+    ! Infer type of do while node
+    function infer_do_while_node(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(do_while_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: cond_type
+        integer :: i
+
+        ! Process condition
+        if (node%condition_index > 0) then
+            cond_type = ctx%infer(arena, node%condition_index)
+        end if
+
+        ! Process body statements
+        if (allocated(node%body_indices)) then
+            do i = 1, size(node%body_indices)
+                typ = ctx%infer(arena, node%body_indices(i))
+            end do
+        end if
+
+        ! Do while loops don't have a type
+        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
+    end function infer_do_while_node
+
+    ! Infer type of where node
+    function infer_where_node(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(where_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: mask_type
+        integer :: i, j
+
+        ! Process mask expression
+        if (node%mask_expr_index > 0) then
+            mask_type = ctx%infer(arena, node%mask_expr_index)
+        end if
+
+        ! Process where body
+        if (allocated(node%where_body_indices)) then
+            do i = 1, size(node%where_body_indices)
+                typ = ctx%infer(arena, node%where_body_indices(i))
+            end do
+        end if
+
+        ! Process elsewhere clauses
+        if (allocated(node%elsewhere_clauses)) then
+            do i = 1, size(node%elsewhere_clauses)
+                ! Process mask if present
+                if (node%elsewhere_clauses(i)%mask_index > 0) then
+                    mask_type = ctx%infer(arena, node%elsewhere_clauses(i)%mask_index)
+                end if
+                ! Process body
+                if (allocated(node%elsewhere_clauses(i)%body_indices)) then
+                    do j = 1, size(node%elsewhere_clauses(i)%body_indices)
+                        typ = ctx%infer(arena, node%elsewhere_clauses(i)%body_indices(j))
+                    end do
+                end if
+            end do
+        end if
+
+        ! Where constructs don't have a type
+        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
+    end function infer_where_node
+
+    ! Infer type of where stmt node
+    function infer_where_stmt_node(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(where_stmt_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: mask_type
+
+        ! Process mask expression
+        if (node%mask_expr_index > 0) then
+            mask_type = ctx%infer(arena, node%mask_expr_index)
+        end if
+
+        ! Process assignment
+        if (node%assignment_index > 0) then
+            typ = ctx%infer(arena, node%assignment_index)
+        else
+            typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
+        end if
+    end function infer_where_stmt_node
+
+    ! Infer type of forall node
+    function infer_forall_node(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(forall_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: temp_type
+        type(poly_type_t) :: int_scheme
+        integer :: i
+
+        ! Create integer type scheme for index variables
+        int_scheme = create_poly_type(forall_vars=[type_var_t::], mono=create_mono_type(TINT))
+
+        ! Enter new scope for forall indices
+        call ctx%scopes%enter_block()
+
+        ! Add index variables to scope
+        if (allocated(node%index_names)) then
+            do i = 1, size(node%index_names)
+                call ctx%scopes%define(node%index_names(i), int_scheme)
+            end do
+        end if
+
+        ! Process bounds
+        if (allocated(node%lower_bound_indices)) then
+            do i = 1, size(node%lower_bound_indices)
+                if (node%lower_bound_indices(i) > 0) then
+                    temp_type = ctx%infer(arena, node%lower_bound_indices(i))
+                end if
+            end do
+        end if
+
+        if (allocated(node%upper_bound_indices)) then
+            do i = 1, size(node%upper_bound_indices)
+                if (node%upper_bound_indices(i) > 0) then
+                    temp_type = ctx%infer(arena, node%upper_bound_indices(i))
+                end if
+            end do
+        end if
+
+        ! Process stride if present
+        if (allocated(node%stride_indices)) then
+            do i = 1, size(node%stride_indices)
+                if (node%stride_indices(i) > 0) then
+                    temp_type = ctx%infer(arena, node%stride_indices(i))
+                end if
+            end do
+        end if
+
+        ! Process mask if present
+        if (node%has_mask .and. node%mask_expr_index > 0) then
+            temp_type = ctx%infer(arena, node%mask_expr_index)
+        end if
+
+        ! Process body statements
+        if (allocated(node%body_indices)) then
+            do i = 1, size(node%body_indices)
+                typ = ctx%infer(arena, node%body_indices(i))
+            end do
+        end if
+
+        ! Exit scope
+        call ctx%scopes%leave_scope()
+
+        ! Forall constructs don't have a type
+        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
+    end function infer_forall_node
+
+    ! Infer type of select case node
+    function infer_select_case_node(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(select_case_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: selector_type
+        integer :: i
+
+        ! Process selector expression
+        if (node%selector_index > 0) then
+            selector_type = ctx%infer(arena, node%selector_index)
+        end if
+
+        ! Process case blocks
+        if (allocated(node%case_indices)) then
+            do i = 1, size(node%case_indices)
+                typ = ctx%infer(arena, node%case_indices(i))
+            end do
+        end if
+
+        ! Process default case if present
+        if (node%default_index > 0) then
+            typ = ctx%infer(arena, node%default_index)
+        end if
+
+        ! Select case constructs don't have a type
+        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
+    end function infer_select_case_node
+
+    ! Infer type of associate node
+    function infer_associate_node(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(associate_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: assoc_type
+        type(poly_type_t) :: assoc_scheme
+        integer :: i
+
+        ! Enter new scope for associate variables
+        call ctx%scopes%enter_block()
+
+        ! Process associations
+        if (allocated(node%associations)) then
+            do i = 1, size(node%associations)
+                ! Infer type of association expression
+                if (node%associations(i)%expr_index > 0) then
+                    assoc_type = ctx%infer(arena, node%associations(i)%expr_index)
+                    assoc_scheme = create_poly_type(forall_vars=[type_var_t::], mono=assoc_type)
+                    ! Add association name to scope
+                    if (allocated(node%associations(i)%name)) then
+                        call ctx%scopes%define(node%associations(i)%name, assoc_scheme)
+                    end if
+                end if
+            end do
+        end if
+
+        ! Process body statements
+        if (allocated(node%body_indices)) then
+            do i = 1, size(node%body_indices)
+                typ = ctx%infer(arena, node%body_indices(i))
+            end do
+        end if
+
+        ! Exit scope
+        call ctx%scopes%leave_scope()
+
+        ! Associate constructs don't have a type
+        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
+    end function infer_associate_node
+
+    ! Infer type of stop node
+    function infer_stop_node(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(stop_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: code_type
+
+        ! Process stop code expression if present
+        if (node%stop_code_index > 0) then
+            code_type = ctx%infer(arena, node%stop_code_index)
+        end if
+
+        ! Stop statements don't have a type
+        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
+    end function infer_stop_node
+
+    ! Check if program has implicit none statement
+    function has_implicit_none_in_program(arena, prog) result(has_implicit)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        logical :: has_implicit
+        integer :: i
+
+        has_implicit = .false.
+        
+        ! Scan through program body for implicit none statement
+        if (allocated(prog%body_indices)) then
+            do i = 1, size(prog%body_indices)
+                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                        select type (stmt => arena%entries(prog%body_indices(i))%node)
+                        type is (declaration_node)
+                            ! Check if it's an implicit none declaration
+                            if (allocated(stmt%type_name)) then
+                                if (index(stmt%type_name, "implicit") > 0) then
+                                    has_implicit = .true.
+                                    return
+                                end if
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        end if
+    end function has_implicit_none_in_program
 
 end module semantic_analyzer
