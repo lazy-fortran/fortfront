@@ -589,6 +589,12 @@ contains
 
             i = stmt_end + 1
 
+            ! Skip semicolons after processed statements
+            do while (i <= size(tokens) .and. tokens(i)%kind == TK_OPERATOR .and. &
+                      tokens(i)%text == ";")
+                i = i + 1
+            end do
+
             ! Check bounds
             if (i > size(tokens)) then
                 exit
@@ -639,6 +645,12 @@ contains
         integer, intent(out) :: stmt_index
         integer, allocatable, intent(inout) :: body_indices(:)
         type(token_t), allocatable :: stmt_tokens(:)
+
+        ! Skip empty statements (can happen with consecutive semicolons)
+        if (stmt_end < stmt_start) then
+            stmt_index = 0
+            return
+        end if
 
         ! Extract statement tokens
         allocate (stmt_tokens(stmt_end - stmt_start + 2))
