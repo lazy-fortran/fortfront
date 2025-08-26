@@ -6,6 +6,8 @@
 ## SPRINT BACKLOG (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
+- [ ] #521: Preserve comments and blank lines (source fidelity - critical for CST)
+- [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
 
 ### EPIC: Architecture Foundation Fixes
 - [ ] #546: architectural drift: class(*) vtable linking issue #442 not resolved - blocking arena work
