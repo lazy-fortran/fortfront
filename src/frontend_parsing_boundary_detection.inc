@@ -17,10 +17,19 @@
         nesting_level = 0
 
         ! Check if starting token indicates a multi-line construct
+        ! First check if this is a comment that should be attached to a following construct
         if (start_pos <= size(tokens)) then
-            call detect_construct_start(tokens, start_pos, in_function, in_subroutine, &
-                                      in_module, in_do_loop, in_select_case, &
-                                      in_if_block, nesting_level)
+            if (tokens(start_pos)%kind == TK_COMMENT) then
+                ! Look ahead for a program construct and include leading comments
+                call handle_leading_comments(tokens, start_pos, unit_start, unit_end, &
+                                           in_function, in_subroutine, in_module, &
+                                           in_do_loop, in_select_case, in_if_block, &
+                                           nesting_level)
+            else
+                call detect_construct_start(tokens, start_pos, in_function, in_subroutine, &
+                                          in_module, in_do_loop, in_select_case, &
+                                          in_if_block, nesting_level)
+            end if
         end if
 
         ! If this is a multi-line construct, find the end
@@ -649,3 +658,68 @@
             end if
         end do
     end subroutine find_single_line_statement_end
+
+    ! Handle leading comments that should be attached to following constructs
+    subroutine handle_leading_comments(tokens, start_pos, unit_start, unit_end, &
+                                     in_function, in_subroutine, in_module, &
+                                     in_do_loop, in_select_case, in_if_block, &
+                                     nesting_level)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer, intent(inout) :: unit_start, unit_end
+        logical, intent(out) :: in_function, in_subroutine, in_module, in_do_loop, &
+                               in_select_case, in_if_block
+        integer, intent(out) :: nesting_level
+        integer :: i, construct_pos
+
+        ! Initialize construct flags
+        call initialize_construct_flags(in_function, in_subroutine, in_module, &
+                                      in_do_loop, in_select_case, in_if_block)
+        nesting_level = 0
+        construct_pos = 0
+
+        ! Look ahead through comments to find the next non-comment token
+        i = start_pos
+        do while (i <= size(tokens))
+            if (tokens(i)%kind == TK_COMMENT) then
+                ! Continue through comments
+                i = i + 1
+            else if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE) then
+                ! Skip EOF and newlines
+                i = i + 1
+            else
+                ! Found a non-comment, non-whitespace token
+                construct_pos = i
+                exit
+            end if
+        end do
+
+        ! Check if the following token starts a program construct
+        if (construct_pos > 0) then
+            ! Check if this is a program construct that should include leading comments
+            if (is_program_start(tokens, construct_pos) .or. &
+                is_module_start(tokens, construct_pos) .or. &
+                is_function_start(tokens, construct_pos) .or. &
+                is_subroutine_start(tokens, construct_pos)) then
+                
+                ! Include all leading comments in this construct
+                unit_start = start_pos
+                call detect_construct_start(tokens, construct_pos, in_function, &
+                                          in_subroutine, in_module, in_do_loop, &
+                                          in_select_case, in_if_block, nesting_level)
+                
+                ! If it's a multi-line construct, find the end from the construct position
+                if (nesting_level > 0) then
+                    call find_multiline_construct_end(tokens, construct_pos, unit_end, &
+                                                    in_function, in_subroutine, in_module, &
+                                                    in_do_loop, in_select_case, in_if_block, &
+                                                    nesting_level)
+                end if
+                return
+            end if
+        end if
+
+        ! No following construct found, treat as single comment line
+        unit_start = start_pos
+        unit_end = start_pos
+    end subroutine handle_leading_comments
