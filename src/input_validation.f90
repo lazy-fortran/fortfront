@@ -244,7 +244,8 @@ contains
                     tokens(i)%text == "character" .or. tokens(i)%text == "logical" .or. &
                     tokens(i)%text == "implicit" .or. tokens(i)%text == "none" .or. &
                     tokens(i)%text == "end" .or. tokens(i)%text == "if" .or. &
-                    tokens(i)%text == "do" .or. tokens(i)%text == "print") then
+                    tokens(i)%text == "do" .or. tokens(i)%text == "print" .or. &
+                    tokens(i)%text == "read" .or. tokens(i)%text == "write") then
                     has_fortran_keywords = .true.
                 end if
             end if
