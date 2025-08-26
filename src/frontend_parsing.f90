@@ -61,10 +61,11 @@ contains
         ! Parse program units, not individual lines
         i = 1
         do while (i <= size(tokens))
-            if (tokens(i)%kind == TK_EOF) exit
+            ! Don't exit on first EOF - there might be more content
+            if (i == size(tokens) .and. tokens(i)%kind == TK_EOF) exit
 
             ! Skip empty lines (just EOF tokens)
-            if (i < size(tokens) .and. tokens(i)%kind == TK_EOF) then
+            if (tokens(i)%kind == TK_EOF .and. i < size(tokens)) then
                 i = i + 1
                 cycle
             end if
@@ -73,6 +74,14 @@ contains
             call find_program_unit_boundary(tokens, i, unit_start, unit_end, &
                                            has_explicit_program_unit)
 
+            ! Check for valid boundary
+            if (unit_end < unit_start) then
+                ! No valid unit found (e.g., after parsing all content)
+                i = i + 1
+                if (i > size(tokens)) exit
+                cycle
+            end if
+            
             ! Check if this unit has any meaningful content
             if (.not. unit_has_meaningful_content(tokens, unit_start, unit_end)) then
                 i = unit_end + 1
@@ -93,11 +102,7 @@ contains
 
             i = unit_end + 1
 
-            ! For lazy fortran without explicit program units,
-            ! parse_all_statements has already processed everything
-            if (.not. has_explicit_program_unit .and. unit_end >= size(tokens) - 1) then
-                exit  ! We've processed all tokens
-            end if
+            ! Continue processing remaining tokens
         end do
 
         ! Create final program structure
@@ -113,27 +118,52 @@ contains
 
         has_explicit_program_unit = .false.
 
-        ! Check if file starts with explicit 'program', 'module', &
-        ! 'function', or 'subroutine' statement
+        ! Check if file has any explicit 'program' blocks (NOT modules)
+        ! Modules don't prevent implicit main program wrapping for lazy fortran
         do i = 1, size(tokens)
             if (tokens(i)%kind == TK_KEYWORD) then
-                if (tokens(i)%text == "program" .or. tokens(i)%text == "module") then
+                if (tokens(i)%text == "program") then
                     has_explicit_program_unit = .true.
                     exit  ! Found explicit program unit
                 else if (tokens(i)%text == "function" .or. tokens(i)%text == "subroutine") then
-                    if (is_program_unit_start(tokens, i)) then
+                    ! Check if this is a standalone function/subroutine at program level
+                    if (is_program_unit_start(tokens, i) .and. .not. is_inside_module(tokens, i)) then
                         has_explicit_program_unit = .true.
                         exit
                     end if
-                else
-                    ! Found other keyword, not a program unit
-                    exit
                 end if
-            else if (tokens(i)%kind /= TK_EOF) then
-                exit  ! Stop at first non-EOF token
             end if
         end do
     end function detect_explicit_program_unit
+
+    ! Check if position is inside a module construct
+    function is_inside_module(tokens, pos) result(inside_module)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        logical :: inside_module
+        integer :: i, module_depth
+
+        inside_module = .false.
+        module_depth = 0
+
+        ! Scan backwards to see if we're inside a module
+        do i = 1, pos - 1
+            if (tokens(i)%kind == TK_KEYWORD) then
+                if (tokens(i)%text == "module" .and. i + 1 <= size(tokens)) then
+                    ! Make sure not "end module"
+                    if (i == 1 .or. (tokens(i-1)%kind /= TK_KEYWORD .or. tokens(i-1)%text /= "end")) then
+                        module_depth = module_depth + 1
+                    end if
+                else if (tokens(i)%text == "end" .and. i + 1 <= size(tokens)) then
+                    if (tokens(i+1)%kind == TK_KEYWORD .and. tokens(i+1)%text == "module") then
+                        module_depth = module_depth - 1
+                    end if
+                end if
+            end if
+        end do
+
+        inside_module = (module_depth > 0)
+    end function is_inside_module
 
     ! Check if function/subroutine is at program unit start
     function is_program_unit_start(tokens, i) result(is_start)
@@ -372,13 +402,25 @@ contains
         else if (is_subroutine_start(tokens, 1)) then
             unit_index = parse_subroutine_unit(tokens, arena)
         else if (is_module_start(tokens, 1)) then
-            unit_index = parse_statement_dispatcher(tokens, arena)
+            ! Parse the entire module with its content
+            unit_index = parse_module_unit(tokens, arena)
         else if (is_program_start(tokens, 1)) then
             unit_index = parse_statement_dispatcher(tokens, arena)
         else
+            ! For mixed module/main program files, we always need to check for implicit main
             unit_index = parse_implicit_main_program(tokens, arena, has_explicit_program)
         end if
     end function parse_program_unit
+
+    ! Parse module unit with all its content
+    function parse_module_unit(tokens, arena) result(unit_index)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: unit_index
+
+        ! Parse the complete module including its content
+        unit_index = parse_statement_dispatcher(tokens, arena)
+    end function parse_module_unit
 
     ! Check if program unit has meaningful content
     function not_meaningful_program_unit(tokens) result(not_meaningful)
@@ -445,14 +487,31 @@ contains
         logical, intent(in) :: has_explicit_program
         integer :: unit_index
 
-        ! For mixed module/main program files, we need to parse implicit main programs
-        ! even when explicit program units exist elsewhere in the file.
-        if (has_executable_statements(tokens)) then
+        ! Always parse statements that are not part of explicit program units
+        ! This handles implicit main programs after modules
+        if (has_executable_statements(tokens) .or. has_any_non_comment_content(tokens)) then
             unit_index = parse_all_statements(tokens, arena)
         else
             unit_index = 0
         end if
     end function parse_implicit_main_program
+    
+    ! Check if tokens have any non-comment content
+    function has_any_non_comment_content(tokens) result(has_content)
+        type(token_t), intent(in) :: tokens(:)
+        logical :: has_content
+        integer :: i
+        
+        has_content = .false.
+        do i = 1, size(tokens)
+            if (tokens(i)%kind /= TK_EOF .and. &
+                tokens(i)%kind /= TK_NEWLINE .and. &
+                tokens(i)%kind /= TK_COMMENT) then
+                has_content = .true.
+                exit
+            end if
+        end do
+    end function has_any_non_comment_content
 
     ! Check if tokens have executable statements
     function has_executable_statements(tokens) result(has_executable_content)

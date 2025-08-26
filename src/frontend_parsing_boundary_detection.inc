@@ -31,6 +31,7 @@
                                             in_do_loop, in_select_case, in_if_block, &
                                             nesting_level)
         else
+            ! Not a module/function/subroutine/etc - handle as single line or implicit main
             call handle_single_line_construct(tokens, start_pos, unit_start, unit_end, &
                                             has_explicit_program, current_line)
         end if
@@ -227,17 +228,81 @@
         logical, intent(in) :: has_explicit_program
         integer, intent(out) :: current_line
 
-        ! For lazy fortran without explicit program units,
-        ! parse the entire remaining file as one unit
-        if (.not. has_explicit_program) then
+        ! Check if we're after a module end - if so, group as implicit main
+        if (is_after_module_end(tokens, start_pos)) then
+            call group_as_main_program(tokens, start_pos, unit_end)
+        else if (.not. has_explicit_program) then
+            ! For pure lazy fortran without any program blocks
             call handle_lazy_fortran_unit(tokens, start_pos, unit_end)
         else
-            call handle_explicit_program_unit(tokens, start_pos, unit_start, unit_end, &
-                                            current_line)
+            ! Explicit program units
+            call handle_explicit_program_unit(tokens, start_pos, unit_start, unit_end, current_line)
         end if
 
         call handle_unit_edge_cases(tokens, start_pos, unit_start, unit_end)
     end subroutine handle_single_line_construct
+    
+    ! Check if position is after module end
+    function is_after_module_end(tokens, pos) result(after_module)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        logical :: after_module
+        integer :: i
+        logical :: seen_module_end
+        
+        after_module = .false.
+        seen_module_end = .false.
+        
+        ! Scan from beginning to current position to check if we've passed a module
+        do i = 1, min(pos - 1, size(tokens) - 1)
+            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "end") then
+                if (i + 1 <= size(tokens) .and. tokens(i+1)%kind == TK_KEYWORD .and. &
+                    tokens(i+1)%text == "module") then
+                    seen_module_end = .true.
+                end if
+            end if
+        end do
+        
+        ! We're after module if we've seen "end module" and current position is not a module/program/etc
+        if (seen_module_end .and. pos <= size(tokens)) then
+            if (.not. is_module_start(tokens, pos) .and. &
+                .not. is_program_start(tokens, pos) .and. &
+                .not. is_function_start(tokens, pos) .and. &
+                .not. is_subroutine_start(tokens, pos)) then
+                after_module = .true.
+            end if
+        end if
+    end function is_after_module_end
+
+    ! Handle mixed module and implicit main constructs
+    subroutine handle_mixed_constructs(tokens, start_pos, unit_start, unit_end, current_line)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer, intent(inout) :: unit_start, unit_end
+        integer, intent(out) :: current_line
+        integer :: i
+        logical :: found_module_end_before
+
+        ! Check if we've seen "end module" before this position
+        ! This indicates we're after a module and should group as implicit main
+        found_module_end_before = .false.
+        do i = 1, start_pos - 1
+            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "end") then
+                if (i + 1 <= size(tokens) .and. tokens(i+1)%kind == TK_KEYWORD .and. &
+                    tokens(i+1)%text == "module") then
+                    found_module_end_before = .true.
+                    exit
+                end if
+            end if
+        end do
+
+        if (found_module_end_before) then
+            ! After a module, group all remaining statements as implicit main
+            call group_as_main_program(tokens, start_pos, unit_end)
+        else
+            call handle_explicit_program_unit(tokens, start_pos, unit_start, unit_end, current_line)
+        end if
+    end subroutine handle_mixed_constructs
 
     ! Handle lazy fortran unit
     subroutine handle_lazy_fortran_unit(tokens, start_pos, unit_end)
@@ -261,23 +326,17 @@
         integer, intent(out) :: current_line
         integer :: i
 
-        ! For mixed module/main program files, check if remaining tokens
-        ! should be grouped as one implicit main program
-        if (should_group_as_main_program(tokens, start_pos)) then
-            call group_as_main_program(tokens, start_pos, unit_end)
-        else
-            ! Single line construct - find end of current line
-            current_line = tokens(start_pos)%line
-            i = start_pos
-            do while (i <= size(tokens))
-                if (tokens(i)%line == current_line) then
-                    unit_end = i
-                    i = i + 1
-                else
-                    exit
-                end if
-            end do
-        end if
+        ! Single line construct - find end of current line
+        current_line = tokens(start_pos)%line
+        i = start_pos
+        do while (i <= size(tokens))
+            if (tokens(i)%line == current_line) then
+                unit_end = i
+                i = i + 1
+            else
+                exit
+            end if
+        end do
     end subroutine handle_explicit_program_unit
 
     ! Check if should group as main program
