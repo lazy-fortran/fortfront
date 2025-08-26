@@ -598,6 +598,12 @@ contains
                 cycle
             end if
             
+            ! Handle comments specially - skip them without disrupting module parsing
+            if (token%kind == TK_COMMENT) then
+                token = parser%consume()  ! Skip the comment token
+                cycle  ! Continue to next iteration
+            end if
+            
             ! Only advance if we haven't handled this token specifically
             ! (declarations and contains are handled above with cycle)
             if (in_contains_section) then
