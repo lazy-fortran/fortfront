@@ -1,12 +1,12 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs (CRITICAL - architectural flaw)
+- [ ] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
 
 ## SPRINT_BACKLOG (Current Sprint - Foundation & Code Generation)
 
 ### EPIC: Code Generation Foundation
-- [ ] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
+- [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs (CRITICAL - in PR review with sergei/patrick)
 - [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (related to #489)
 - [ ] #508: Comment line in module causes main program to be discarded (CRITICAL - parser core functionality)
 
