@@ -641,16 +641,17 @@ contains
         result = size(lhs_shape) == size(rhs_shape)
     end subroutine check_shape_conformance
 
-    ! Infer type of array literal (simplified)
+    ! Infer type of array literal with type promotion
     function infer_array_literal(ctx, arena, array_lit, array_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(array_literal_node), intent(in) :: array_lit
         integer, intent(in) :: array_index
         type(mono_type_t) :: typ
-        type(mono_type_t) :: element_type, first_type
+        type(mono_type_t) :: element_type, promoted_type
         type(mono_type_t), allocatable :: args(:)
         integer :: i
+        logical :: has_real
 
         ! If empty array, default to integer
         if (.not. allocated(array_lit%element_indices) .or. &
@@ -661,21 +662,29 @@ contains
             return
         end if
 
-        ! Infer type from first element
-        first_type = ctx%infer(arena, array_lit%element_indices(1))
+        ! Start with first element type
+        promoted_type = ctx%infer(arena, array_lit%element_indices(1))
+        has_real = (promoted_type%kind == TREAL)
         
-        ! Unify all elements with first type
+        ! Check all elements for type promotion
         do i = 2, size(array_lit%element_indices)
             element_type = ctx%infer(arena, array_lit%element_indices(i))
-            call ctx%unify(first_type, element_type)
+            
+            ! If we encounter a real type, promote the entire array to real
+            if (element_type%kind == TREAL) then
+                has_real = .true.
+                promoted_type = create_mono_type(TREAL)
+            end if
         end do
         
-        ! Apply substitution to get final element type
-        element_type = ctx%apply_subst_to_type(first_type)
+        ! If any element is real, promote to real
+        if (has_real .and. promoted_type%kind == TINT) then
+            promoted_type = create_mono_type(TREAL)
+        end if
         
         ! Create array type
         allocate(args(1))
-        args(1) = element_type
+        args(1) = promoted_type
         typ = create_mono_type(TARRAY, args=args)
         
         ! Store in node
