@@ -6,6 +6,8 @@
 ## SPRINT BACKLOG (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
+- [ ] #521: Preserve comments and blank lines (source fidelity - critical for CST)
+- [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
 
 ### HIGH PRIORITY - Core Parser Gaps
 - [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
