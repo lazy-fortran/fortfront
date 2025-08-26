@@ -262,22 +262,19 @@ contains
         ! Create program node with collected body indices
         ! Only wrap in implicit program if there's no explicit program unit
         ! (program/module/function/subroutine)
-        if (.not. has_explicit_program_unit) then
-            ! For lazy fortran, parse_all_statements already created the program node
-            if (stmt_count > 0) then
-                prog_index = body_indices(1)  ! This is the program node from &
-                                             ! parse_all_statements
-            else
-                error_msg = "No statements found in file"
-                prog_index = 0
-            end if
-        else if (stmt_count > 0) then
-            ! Handle multiple top-level program units (modules, programs, etc.)
-            call handle_multiple_program_units(arena, body_indices, prog_index, error_msg)
-        else
+        if (stmt_count == 0) then
             ! No program unit found
             error_msg = "No program unit found in file"
             prog_index = 0
+        else if (stmt_count == 1 .and. .not. has_explicit_program_unit) then
+            ! Single implicit main program - use directly
+            prog_index = body_indices(1)
+        else if (stmt_count > 1) then
+            ! Multiple units (modules + implicit main, multiple modules, etc.)
+            call handle_multiple_program_units(arena, body_indices, prog_index, error_msg)
+        else if (stmt_count == 1) then
+            ! Single explicit unit (module, function, etc.) - use directly
+            prog_index = body_indices(1)
         end if
     end subroutine create_final_program_structure
 
