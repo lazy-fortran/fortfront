@@ -414,8 +414,7 @@ contains
         ! Special handling for multiple top-level units (mixed constructs)
         ! Fix for Issue #489: Generate single program block instead of multiple
         if (node%name == "__MULTI_UNIT__") then
-            ! DEBUG: Add debug print to verify this path is taken
-            ! print *, "DEBUG: Processing __MULTI_UNIT__ node with", size(node%body_indices), "children"
+            ! Fix for Issue #489: Generate single program block instead of multiple
             block
                 character(len=:), allocatable :: executable_code, procedures_code
                 character(len=:), allocatable :: use_statements_mixed, declarations_mixed
@@ -438,24 +437,12 @@ contains
                             stmt_code = generate_code_from_arena(arena, node%body_indices(i))
                             if (len_trim(stmt_code) == 0) cycle
                             
-                            ! Check if this is a procedure (subroutine or function)
-                            if (allocated(arena%entries(node%body_indices(i))%node)) then
-                                select type (child_node => arena%entries(node%body_indices(i))%node)
-                                type is (subroutine_def_node)
-                                    has_procedures = .true.
-                                    if (len(procedures_code) > 0) then
-                                        procedures_code = procedures_code//new_line('A')
-                                    end if
-                                    procedures_code = procedures_code//stmt_code
-                                    cycle
-                                type is (function_def_node)
-                                    has_procedures = .true.
-                                    if (len(procedures_code) > 0) then
-                                        procedures_code = procedures_code//new_line('A')
-                                    end if
-                                    procedures_code = procedures_code//stmt_code
-                                    cycle
-                                end select
+                            ! Check if this program contains procedures or executable statements
+                            if (index(stmt_code, "contains") > 0) then
+                                ! This child contains procedures - extract them
+                                has_procedures = .true.
+                                call extract_contains_section(stmt_code, procedures_code)
+                                cycle
                             end if
                             
                             ! Check if this is an empty main program (extract contents)
@@ -496,14 +483,14 @@ contains
                     code = code//get_indent()//executable_code//new_line('A')
                 end if
                 
-                ! Add contains section with procedures
+                ! Add contains section with procedures  
                 if (has_procedures) then
-                    code = code//"contains"//new_line('A')
+                    code = code//get_indent()//"contains"//new_line('A')
                     code = code//indent_lines(procedures_code)//new_line('A')
                 end if
                 
                 call decrease_indent()
-                code = code//"end program main"
+                code = code//get_indent()//"end program main"
             end block
             return
         end if
@@ -3172,5 +3159,55 @@ contains
             pos = pos + next_pos
         end do
     end subroutine extract_program_contents
+
+    ! Helper subroutine to extract contains section from a program block
+    ! Used for mixed constructs handling (Issue #489)
+    subroutine extract_contains_section(program_code, procedures_code)
+        character(len=*), intent(in) :: program_code
+        character(len=:), allocatable, intent(inout) :: procedures_code
+        
+        character(len=len(program_code)) :: temp_line
+        integer :: pos, next_pos, line_end
+        logical :: in_contains_section
+        
+        in_contains_section = .false.
+        
+        ! Parse line by line
+        pos = 1
+        do while (pos <= len(program_code))
+            ! Find the end of current line
+            next_pos = index(program_code(pos:), new_line('A'))
+            if (next_pos == 0) then
+                line_end = len(program_code)
+            else
+                line_end = pos + next_pos - 2
+            end if
+            
+            if (line_end >= pos) then
+                temp_line = program_code(pos:line_end)
+                temp_line = trim(adjustl(temp_line))
+                
+                ! Skip empty lines
+                if (len_trim(temp_line) == 0) then
+                    ! Skip
+                else if (index(temp_line, "contains") > 0) then
+                    in_contains_section = .true.
+                else if (index(temp_line, "end program") > 0) then
+                    exit
+                else if (in_contains_section) then
+                    ! This is content inside the contains section
+                    if (len(procedures_code) > 0) then
+                        procedures_code = procedures_code//new_line('A')//temp_line
+                    else
+                        procedures_code = temp_line
+                    end if
+                end if
+            end if
+            
+            ! Move to next line
+            if (next_pos == 0) exit
+            pos = pos + next_pos
+        end do
+    end subroutine extract_contains_section
 
 end module codegen_core
