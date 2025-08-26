@@ -1,12 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
+- [ ] #508: Comment line in module causes main program to be discarded (CRITICAL - parser core functionality)
 
 ## CURRENT SPRINT (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
-- [ ] #508: Comment line in module causes main program to be discarded (CRITICAL - parser core functionality)
 
 ### HIGH PRIORITY - Core Parser Gaps
 - [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (related to #489)
@@ -99,5 +98,6 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Sprint Completed)
+- [x] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
 - [x] #488: Mixed constructs: Implicit main statements ignored when module present (CRITICAL - core lazy-fortran use case)
 - [x] #486: CLI: Input redirection fails while pipe works for lazy-fortran processing (CRITICAL SYSTEM FIX - GCC 15.2.1 compatibility)
