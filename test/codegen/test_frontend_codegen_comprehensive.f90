@@ -259,15 +259,15 @@ contains
     ! Helper functions
     function count_occurrences(text, pattern) result(count)
         character(len=*), intent(in) :: text, pattern
-        integer :: count, pos
+        integer :: count, pos, start
         
         count = 0
-        pos = 1
+        start = 1
         do
-            pos = index(text(pos:), pattern)
+            pos = index(text(start:), pattern)
             if (pos == 0) exit
             count = count + 1
-            pos = pos + len(pattern)
+            start = start + pos + len(pattern) - 1
         end do
     end function count_occurrences
 
