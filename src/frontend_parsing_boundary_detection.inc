@@ -626,7 +626,7 @@
         integer, intent(inout) :: stmt_start, stmt_end
         integer :: i, paren_depth
 
-        ! Single-line statement - find end of line or comment
+        ! Single-line statement - find end of line, comment, or semicolon
         ! Track parentheses to handle array literals (/ ... /)
         paren_depth = 0
         i = start_pos
@@ -637,6 +637,10 @@
                     paren_depth = paren_depth + 1
                 else if (tokens(i)%text == ")") then
                     paren_depth = paren_depth - 1
+                else if (tokens(i)%text == ";" .and. paren_depth == 0 .and. i > start_pos) then
+                    ! Stop before semicolon - let it be handled as statement separator
+                    stmt_end = i - 1
+                    exit
                 end if
             end if
 
