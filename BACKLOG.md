@@ -6,8 +6,10 @@
 ## CURRENT SPRINT (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
+- [ ] #508: Comment line in module causes main program to be discarded (CRITICAL - parser core functionality)
 
 ### HIGH PRIORITY - Core Parser Gaps
+- [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (related to #489)
 - [ ] #497: I/O parsing: Read statements generate 'Unknown node type' error (core Fortran support)
 - [ ] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
 - [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
@@ -28,6 +30,7 @@
 - [ ] #468: fix: AST transformation test failures in main branch
 
 ### DEFECT FIXES - String and Type Handling
+- [ ] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
 - [ ] #490: String parsing: Escaped single quotes not handled correctly (correctness)
 - [ ] #491: Type inference: Large integers not properly handled for overflow (type system)
 - [ ] #487: Array literal: Nested arrays incorrectly typed as 1D instead of 2D (type correctness)
@@ -74,6 +77,7 @@
 - [ ] #452: feature: restore debug output capabilities in frontend compilation pipeline
 
 ### Repository Maintenance (SUPPORT)
+- [ ] #506: fix: rescue documentation modifications from main branch (documentation hygiene)
 - [ ] #439: fix: rescue commits from main (repository hygiene - rescue branch cleanup)
 
 ### Documentation (SUPPORT) 
