@@ -1,21 +1,20 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (PR #514 failing tests - needs AST-level transformation approach)
+- [ ] #497: I/O parsing: Read statements generate 'Unknown node type' error (core Fortran support)
 
 ## CURRENT SPRINT (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
 
 ### HIGH PRIORITY - Core Parser Gaps
-- [ ] #497: I/O parsing: Read statements generate 'Unknown node type' error (core Fortran support)
 - [ ] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
 - [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
 - [ ] #495: Semantic analysis: Undefined variables not detected in expressions (type system gap)
 - [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
 
 ### MEDIUM PRIORITY - Enhancements
-- [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (related to #489) - PR #514 partial implementation, architectural decision needed
+- [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (PR #514 in draft - architectural analysis required per Issue #517)
 
 ### PERFORMANCE CRISIS - Development Velocity
 - [ ] #502: performance: investigate test execution bottlenecks causing 7m20s runtime (BLOCKING development)
