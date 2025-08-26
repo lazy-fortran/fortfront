@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs (CRITICAL - architectural flaw)
+- [ ] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
 
 ## CURRENT SPRINT (Ordered by Priority)
 
@@ -29,8 +29,8 @@
 - [ ] #467: fix: call graph test failures in main branch
 - [ ] #468: fix: AST transformation test failures in main branch
 
-### DEFECT FIXES - String and Type Handling
-- [ ] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
+### DEFECT FIXES - String and Type Handling  
+- [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs (CRITICAL - in PR review with sergei/patrick)
 - [ ] #490: String parsing: Escaped single quotes not handled correctly (correctness)
 - [ ] #491: Type inference: Large integers not properly handled for overflow (type system)
 - [ ] #487: Array literal: Nested arrays incorrectly typed as 1D instead of 2D (type correctness)
