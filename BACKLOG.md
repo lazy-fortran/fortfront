@@ -1,6 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (PR #514 failing tests - needs AST-level transformation approach)
 
 ## CURRENT SPRINT (Ordered by Priority)
 
