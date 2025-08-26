@@ -27,6 +27,150 @@ module frontend_parsing
 
 contains
 
+    ! Transform tokens for implicit module wrapping (Issue #511)
+    subroutine transform_for_implicit_module(tokens, transformed_tokens)
+        type(token_t), intent(in) :: tokens(:)
+        type(token_t), allocatable, intent(out) :: transformed_tokens(:)
+        integer :: decl_end, prog_start
+        type(token_t), allocatable :: module_tokens(:)
+        type(token_t), allocatable :: program_tokens(:)
+        integer :: i, idx
+        
+        ! print *, "DEBUG: transform_for_implicit_module called"
+        
+        ! Find the boundary between declarations and program
+        call find_declaration_program_boundary(tokens, decl_end, prog_start)
+        
+        ! print *, "DEBUG: decl_end =", decl_end, "prog_start =", prog_start
+        
+        if (decl_end > 0 .and. prog_start > 0 .and. prog_start <= size(tokens)) then
+            ! print *, "DEBUG: Creating module wrapper"
+            ! Create module wrapping the declarations
+            module_tokens = wrap_declarations_in_module(tokens, 1, decl_end)
+            ! print *, "DEBUG: Module tokens created, size =", size(module_tokens)
+            
+            ! Add use statement to program
+            program_tokens = add_use_statement_to_program(tokens(prog_start:), 1)
+            
+            ! Combine into transformed tokens
+            allocate(transformed_tokens(size(module_tokens) + size(program_tokens) + 2))
+            
+            idx = 1
+            ! Add module tokens
+            do i = 1, size(module_tokens)
+                transformed_tokens(idx) = module_tokens(i)
+                idx = idx + 1
+            end do
+            
+            ! Add separator newline
+            transformed_tokens(idx)%kind = TK_NEWLINE
+            transformed_tokens(idx)%text = ""
+            transformed_tokens(idx)%line = module_tokens(size(module_tokens))%line + 1
+            transformed_tokens(idx)%column = 1
+            idx = idx + 1
+            
+            ! Add program tokens with adjusted line numbers
+            do i = 1, size(program_tokens)
+                transformed_tokens(idx) = program_tokens(i)
+                transformed_tokens(idx)%line = transformed_tokens(idx)%line + &
+                                              module_tokens(size(module_tokens))%line + 1
+                idx = idx + 1
+            end do
+            
+            ! Add final EOF if needed
+            if (transformed_tokens(idx-1)%kind /= TK_EOF) then
+                transformed_tokens(idx)%kind = TK_EOF
+                transformed_tokens(idx)%text = ""
+                transformed_tokens(idx)%line = transformed_tokens(idx-1)%line
+                transformed_tokens(idx)%column = transformed_tokens(idx-1)%column + 1
+            else
+                idx = idx - 1  ! Don't include extra EOF
+            end if
+            
+            ! Resize to actual size
+            if (idx < size(transformed_tokens)) then
+                transformed_tokens = transformed_tokens(1:idx)
+            end if
+        else
+            ! Should not happen, but fallback to original tokens
+            allocate(transformed_tokens(size(tokens)))
+            transformed_tokens = tokens
+        end if
+    end subroutine transform_for_implicit_module
+    
+    ! Parse transformed tokens (simplified version of parse_tokens)
+    subroutine parse_transformed_tokens(tokens, arena, prog_index, error_msg)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: prog_index
+        character(len=*), intent(out) :: error_msg
+        
+        ! Local variables for arena-based parsing
+        integer, allocatable :: body_indices(:)
+        integer :: stmt_index
+        integer :: i, unit_start, unit_end, stmt_count
+        type(token_t), allocatable :: unit_tokens(:)
+        logical :: has_explicit_program_unit
+        
+        error_msg = ""
+        stmt_count = 0
+        allocate (body_indices(0))
+        
+        ! For transformed tokens, we know there's an explicit program
+        has_explicit_program_unit = .true.
+        
+        ! Parse program units, not individual lines
+        i = 1
+        do while (i <= size(tokens))
+            ! Don't exit on first EOF - there might be more content
+            if (i == size(tokens) .and. tokens(i)%kind == TK_EOF) exit
+            
+            ! Skip empty lines (just EOF tokens)
+            if (tokens(i)%kind == TK_EOF .and. i < size(tokens)) then
+                i = i + 1
+                cycle
+            end if
+            
+            ! Find program unit boundary
+            call find_program_unit_boundary(tokens, i, unit_start, unit_end, &
+                                           has_explicit_program_unit)
+            
+            ! Check for valid boundary
+            if (unit_end < unit_start) then
+                ! No valid unit found (e.g., after parsing all content)
+                i = i + 1
+                if (i > size(tokens)) exit
+                cycle
+            end if
+            
+            ! Check if this unit has any meaningful content
+            if (.not. unit_has_meaningful_content(tokens, unit_start, unit_end)) then
+                i = unit_end + 1
+                cycle
+            end if
+            
+            ! Process unit if it has meaningful content
+            if (should_process_unit(tokens, unit_start, unit_end)) then
+                call process_program_unit(tokens, unit_start, unit_end, arena, &
+                                        has_explicit_program_unit, stmt_index)
+                
+                if (stmt_index > 0) then
+                    ! Add to body indices
+                    body_indices = [body_indices, stmt_index]
+                    stmt_count = stmt_count + 1
+                end if
+            end if
+            
+            i = unit_end + 1
+            
+            ! Continue processing remaining tokens
+        end do
+        
+        ! Create final program structure
+        call create_final_program_structure(arena, body_indices, stmt_count, &
+                                          has_explicit_program_unit, prog_index, error_msg)
+    end subroutine parse_transformed_tokens
+
     ! Create a container for multiple top-level program units
     function create_multi_unit_container(arena, unit_indices) result(container_index)
         type(ast_arena_t), intent(inout) :: arena
@@ -50,11 +194,26 @@ contains
         integer :: stmt_index
         integer :: i, unit_start, unit_end, stmt_count
         type(token_t), allocatable :: unit_tokens(:)
+        type(token_t), allocatable :: transformed_tokens(:)
         logical :: has_explicit_program_unit
+        logical :: needs_implicit_module
+        integer :: decl_end, prog_start
 
         error_msg = ""
         stmt_count = 0
         allocate (body_indices(0))
+        
+        ! Check for Issue #511 scenario: declarations before explicit program
+        needs_implicit_module = has_declarations_before_program(tokens)
+        
+        if (needs_implicit_module) then
+            ! For now, disable the transformation due to parsing issues
+            ! The detection works but transformation needs refinement
+            ! print *, "DEBUG: Issue #511 scenario detected - transforming tokens"
+            ! call transform_for_implicit_module(tokens, transformed_tokens)
+            ! call parse_transformed_tokens(transformed_tokens, arena, prog_index, error_msg)
+            ! return
+        end if
         
         has_explicit_program_unit = detect_explicit_program_unit(tokens)
 
@@ -670,5 +829,6 @@ contains
 
     include 'frontend_parsing_unit_detection.inc'
     include 'frontend_parsing_boundary_detection.inc'
+    include 'frontend_parsing_implicit_module.inc'
 
 end module frontend_parsing
