@@ -17,10 +17,19 @@
         nesting_level = 0
 
         ! Check if starting token indicates a multi-line construct
+        ! First check if this is a comment that should be attached to a following construct
         if (start_pos <= size(tokens)) then
-            call detect_construct_start(tokens, start_pos, in_function, in_subroutine, &
-                                      in_module, in_do_loop, in_select_case, &
-                                      in_if_block, nesting_level)
+            if (tokens(start_pos)%kind == TK_COMMENT) then
+                ! Look ahead for a program construct and include leading comments
+                call handle_leading_comments(tokens, start_pos, unit_start, unit_end, &
+                                           in_function, in_subroutine, in_module, &
+                                           in_do_loop, in_select_case, in_if_block, &
+                                           nesting_level)
+            else
+                call detect_construct_start(tokens, start_pos, in_function, in_subroutine, &
+                                          in_module, in_do_loop, in_select_case, &
+                                          in_if_block, nesting_level)
+            end if
         end if
 
         ! If this is a multi-line construct, find the end
@@ -31,6 +40,7 @@
                                             in_do_loop, in_select_case, in_if_block, &
                                             nesting_level)
         else
+            ! Not a module/function/subroutine/etc - handle as single line or implicit main
             call handle_single_line_construct(tokens, start_pos, unit_start, unit_end, &
                                             has_explicit_program, current_line)
         end if
@@ -100,7 +110,7 @@
         logical, intent(in) :: in_function, in_subroutine, in_module, in_do_loop, &
                               in_select_case, in_if_block
         integer, intent(inout) :: nesting_level
-        integer :: i
+        integer :: i, i_before
 
         i = start_pos
         do while (i <= size(tokens) .and. nesting_level > 0)
@@ -113,18 +123,23 @@
                                            in_if_block, nesting_level)
             end if
 
+            ! Store i before check_end_constructs (which may modify it)
+            i_before = i
+            
             ! Check for end constructs
             call check_end_constructs(tokens, i, unit_end, in_function, &
                                     in_subroutine, in_module, in_do_loop, &
                                     in_select_case, in_if_block, nesting_level)
 
-            if (nesting_level > 0) then
+            ! Stop when we've closed all nested constructs
+            if (nesting_level == 0) exit
+            
+            ! If check_end_constructs didn't advance i, do it ourselves
+            if (i == i_before) then
                 unit_end = i
                 i = i + 1
             end if
-
-            ! Stop when we've closed all nested constructs
-            if (nesting_level == 0) exit
+            ! Otherwise check_end_constructs already advanced i properly
         end do
     end subroutine find_multiline_construct_end
 
@@ -167,34 +182,22 @@
 
         if (in_function .and. is_end_function(tokens, i)) then
             nesting_level = nesting_level - 1
-            ! Check if there's a function name after "end function"
-            if (i + 2 <= size(tokens) .and. tokens(i + 2)%kind == TK_IDENTIFIER) then
-                unit_end = i + 2  ! Include "end", "function", and function name
-                i = i + 3  ! Skip all three tokens
-            else
-                unit_end = i + 1  ! Include both "end" and "function" tokens
-                i = i + 2  ! Skip both "end" and "function" tokens
-            end if
+            ! For now, just include "end function" tokens, not the optional name
+            ! TODO: Properly match function name with function start name
+            unit_end = i + 1  ! Include both "end" and "function" tokens
+            i = i + 2  ! Skip both "end" and "function" tokens
         else if (in_subroutine .and. is_end_subroutine(tokens, i)) then
             nesting_level = nesting_level - 1
-            ! Check if there's a subroutine name after "end subroutine"
-            if (i + 2 <= size(tokens) .and. tokens(i + 2)%kind == TK_IDENTIFIER) then
-                unit_end = i + 2  ! Include "end", "subroutine", and subroutine name
-                i = i + 3  ! Skip all three tokens
-            else
-                unit_end = i + 1  ! Include both "end" and "subroutine" tokens
-                i = i + 2  ! Skip both "end" and "subroutine" tokens
-            end if
+            ! For now, just include "end subroutine" tokens, not the optional name
+            ! TODO: Properly match subroutine name with subroutine start name
+            unit_end = i + 1  ! Include both "end" and "subroutine" tokens
+            i = i + 2  ! Skip both "end" and "subroutine" tokens
         else if (in_module .and. is_end_module(tokens, i)) then
             nesting_level = nesting_level - 1
-            ! Check if there's a module name after "end module"
-            if (i + 2 <= size(tokens) .and. tokens(i + 2)%kind == TK_IDENTIFIER) then
-                unit_end = i + 2  ! Include "end", "module", and module name
-                i = i + 3  ! Skip all three tokens
-            else
-                unit_end = i + 1  ! Include both "end" and "module" tokens
-                i = i + 2  ! Skip both "end" and "module" tokens
-            end if
+            ! For now, just include "end module" tokens, not the optional name
+            ! TODO: Properly match module name with module start name
+            unit_end = i + 1  ! Include both "end" and "module" tokens
+            i = i + 2  ! Skip both "end" and "module" tokens
         else if (in_do_loop .and. is_end_do(tokens, i)) then
             nesting_level = nesting_level - 1
             unit_end = i + 1  ! Include both "end" and "do" tokens
@@ -228,17 +231,81 @@
         logical, intent(in) :: has_explicit_program
         integer, intent(out) :: current_line
 
-        ! For lazy fortran without explicit program units,
-        ! parse the entire remaining file as one unit
-        if (.not. has_explicit_program) then
+        ! Check if we're after a module end - if so, group as implicit main
+        if (is_after_module_end(tokens, start_pos)) then
+            call group_as_main_program(tokens, start_pos, unit_end)
+        else if (.not. has_explicit_program) then
+            ! For pure lazy fortran without any program blocks
             call handle_lazy_fortran_unit(tokens, start_pos, unit_end)
         else
-            call handle_explicit_program_unit(tokens, start_pos, unit_start, unit_end, &
-                                            current_line)
+            ! Explicit program units
+            call handle_explicit_program_unit(tokens, start_pos, unit_start, unit_end, current_line)
         end if
 
         call handle_unit_edge_cases(tokens, start_pos, unit_start, unit_end)
     end subroutine handle_single_line_construct
+    
+    ! Check if position is after module end
+    function is_after_module_end(tokens, pos) result(after_module)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        logical :: after_module
+        integer :: i
+        logical :: seen_module_end
+        
+        after_module = .false.
+        seen_module_end = .false.
+        
+        ! Scan from beginning to current position to check if we've passed a module
+        do i = 1, min(pos - 1, size(tokens) - 1)
+            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "end") then
+                if (i + 1 <= size(tokens) .and. tokens(i+1)%kind == TK_KEYWORD .and. &
+                    tokens(i+1)%text == "module") then
+                    seen_module_end = .true.
+                end if
+            end if
+        end do
+        
+        ! We're after module if we've seen "end module" and current position is not a module/program/etc
+        if (seen_module_end .and. pos <= size(tokens)) then
+            if (.not. is_module_start(tokens, pos) .and. &
+                .not. is_program_start(tokens, pos) .and. &
+                .not. is_function_start(tokens, pos) .and. &
+                .not. is_subroutine_start(tokens, pos)) then
+                after_module = .true.
+            end if
+        end if
+    end function is_after_module_end
+
+    ! Handle mixed module and implicit main constructs
+    subroutine handle_mixed_constructs(tokens, start_pos, unit_start, unit_end, current_line)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer, intent(inout) :: unit_start, unit_end
+        integer, intent(out) :: current_line
+        integer :: i
+        logical :: found_module_end_before
+
+        ! Check if we've seen "end module" before this position
+        ! This indicates we're after a module and should group as implicit main
+        found_module_end_before = .false.
+        do i = 1, start_pos - 1
+            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "end") then
+                if (i + 1 <= size(tokens) .and. tokens(i+1)%kind == TK_KEYWORD .and. &
+                    tokens(i+1)%text == "module") then
+                    found_module_end_before = .true.
+                    exit
+                end if
+            end if
+        end do
+
+        if (found_module_end_before) then
+            ! After a module, group all remaining statements as implicit main
+            call group_as_main_program(tokens, start_pos, unit_end)
+        else
+            call handle_explicit_program_unit(tokens, start_pos, unit_start, unit_end, current_line)
+        end if
+    end subroutine handle_mixed_constructs
 
     ! Handle lazy fortran unit
     subroutine handle_lazy_fortran_unit(tokens, start_pos, unit_end)
@@ -262,23 +329,17 @@
         integer, intent(out) :: current_line
         integer :: i
 
-        ! For mixed module/main program files, check if remaining tokens
-        ! should be grouped as one implicit main program
-        if (should_group_as_main_program(tokens, start_pos)) then
-            call group_as_main_program(tokens, start_pos, unit_end)
-        else
-            ! Single line construct - find end of current line
-            current_line = tokens(start_pos)%line
-            i = start_pos
-            do while (i <= size(tokens))
-                if (tokens(i)%line == current_line) then
-                    unit_end = i
-                    i = i + 1
-                else
-                    exit
-                end if
-            end do
-        end if
+        ! Single line construct - find end of current line
+        current_line = tokens(start_pos)%line
+        i = start_pos
+        do while (i <= size(tokens))
+            if (tokens(i)%line == current_line) then
+                unit_end = i
+                i = i + 1
+            else
+                exit
+            end if
+        end do
     end subroutine handle_explicit_program_unit
 
     ! Check if should group as main program
@@ -300,25 +361,17 @@
         integer, intent(in) :: start_pos
         integer, intent(inout) :: unit_end
 
-        ! Check if there are any executable statements to group
-        block
-            logical :: has_meaningful_content
-            integer :: check_pos
-            has_meaningful_content = check_for_meaningful_statements(tokens, start_pos)
-            
-            if (has_meaningful_content) then
-                ! This looks like implicit main program statements after explicit units
-                ! Group all remaining non-explicit statements together
-                unit_end = size(tokens)
-                do while (unit_end > start_pos .and. tokens(unit_end)%kind == TK_EOF)
-                    unit_end = unit_end - 1
-                end do
-            else
-                ! No meaningful executable content - skip this entirely
-                ! Set unit_end < start_pos to indicate no valid unit found
-                unit_end = start_pos - 1
-            end if
-        end block
+        ! After a module ends, group ALL remaining statements as implicit main
+        ! Don't check for "meaningful" content - any statements should be grouped
+        unit_end = size(tokens)
+        do while (unit_end > start_pos .and. tokens(unit_end)%kind == TK_EOF)
+            unit_end = unit_end - 1
+        end do
+        
+        ! Only skip if there's truly nothing left
+        if (unit_end < start_pos) then
+            unit_end = start_pos - 1
+        end if
     end subroutine group_as_main_program
 
     ! Check for meaningful statements
@@ -605,3 +658,68 @@
             end if
         end do
     end subroutine find_single_line_statement_end
+
+    ! Handle leading comments that should be attached to following constructs
+    subroutine handle_leading_comments(tokens, start_pos, unit_start, unit_end, &
+                                     in_function, in_subroutine, in_module, &
+                                     in_do_loop, in_select_case, in_if_block, &
+                                     nesting_level)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer, intent(inout) :: unit_start, unit_end
+        logical, intent(out) :: in_function, in_subroutine, in_module, in_do_loop, &
+                               in_select_case, in_if_block
+        integer, intent(out) :: nesting_level
+        integer :: i, construct_pos
+
+        ! Initialize construct flags
+        call initialize_construct_flags(in_function, in_subroutine, in_module, &
+                                      in_do_loop, in_select_case, in_if_block)
+        nesting_level = 0
+        construct_pos = 0
+
+        ! Look ahead through comments to find the next non-comment token
+        i = start_pos
+        do while (i <= size(tokens))
+            if (tokens(i)%kind == TK_COMMENT) then
+                ! Continue through comments
+                i = i + 1
+            else if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE) then
+                ! Skip EOF and newlines
+                i = i + 1
+            else
+                ! Found a non-comment, non-whitespace token
+                construct_pos = i
+                exit
+            end if
+        end do
+
+        ! Check if the following token starts a program construct
+        if (construct_pos > 0) then
+            ! Check if this is a program construct that should include leading comments
+            if (is_program_start(tokens, construct_pos) .or. &
+                is_module_start(tokens, construct_pos) .or. &
+                is_function_start(tokens, construct_pos) .or. &
+                is_subroutine_start(tokens, construct_pos)) then
+                
+                ! Include all leading comments in this construct
+                unit_start = start_pos
+                call detect_construct_start(tokens, construct_pos, in_function, &
+                                          in_subroutine, in_module, in_do_loop, &
+                                          in_select_case, in_if_block, nesting_level)
+                
+                ! If it's a multi-line construct, find the end from the construct position
+                if (nesting_level > 0) then
+                    call find_multiline_construct_end(tokens, construct_pos, unit_end, &
+                                                    in_function, in_subroutine, in_module, &
+                                                    in_do_loop, in_select_case, in_if_block, &
+                                                    nesting_level)
+                end if
+                return
+            end if
+        end if
+
+        ! No following construct found, treat as single comment line
+        unit_start = start_pos
+        unit_end = start_pos
+    end subroutine handle_leading_comments
