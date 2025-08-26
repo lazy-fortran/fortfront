@@ -3,7 +3,12 @@ module parser_import_statements_module
     use lexer_core
     use parser_state_module
     use ast_core
-    use ast_factory
+    use ast_factory, only: push_module_structured, push_use_statement, &
+                           push_implicit_statement, push_include_statement, &
+                           push_assignment, push_identifier, push_literal, &
+                           push_parameter_declaration, push_subroutine_def, &
+                           push_function_def, push_print_statement, push_subroutine_call, &
+                           push_binary_op
     use parser_declarations, only: parse_declaration
     ! Removed circular dependency to parser_definition_statements_module
     use ast_types, only: LITERAL_STRING
@@ -518,6 +523,60 @@ contains
                         end if
                         cycle  ! Continue to next iteration
                     end select
+                else if (token%kind == TK_IDENTIFIER) then
+                    ! Handle assignments and other statements in module body
+                    ! For now, parse as a simple assignment statement
+                    block
+                        type(token_t) :: id_token, eq_token
+                        integer :: target_index, assign_index
+                        
+                        id_token = parser%consume()  ! Get the identifier
+                        
+                        ! Check if it's an assignment
+                        eq_token = parser%peek()
+                        if (eq_token%kind == TK_OPERATOR .and. eq_token%text == "=") then
+                            eq_token = parser%consume()  ! Consume '='
+                            
+                            ! Create target identifier
+                            target_index = push_identifier(arena, id_token%text, &
+                                                         id_token%line, id_token%column)
+                            
+                            ! For simple module assignments, just consume the rest of the line
+                            ! We'll create a simple identifier node for the RHS
+                            block
+                                type(token_t) :: rhs_token
+                                integer :: rhs_index
+                                
+                                rhs_token = parser%peek()
+                                if (rhs_token%kind == TK_NUMBER .or. rhs_token%kind == TK_IDENTIFIER) then
+                                    rhs_token = parser%consume()
+                                    
+                                    ! Create identifier or literal node for RHS
+                                    if (rhs_token%kind == TK_IDENTIFIER) then
+                                        rhs_index = push_identifier(arena, rhs_token%text, &
+                                                                   rhs_token%line, rhs_token%column)
+                                    else
+                                        ! For numbers, create as literal
+                                        rhs_index = push_literal(arena, rhs_token%text, &
+                                                                rhs_token%line, rhs_token%column, LITERAL_STRING)
+                                    end if
+                                    
+                                    if (rhs_index > 0 .and. target_index > 0) then
+                                        ! Create assignment node
+                                        assign_index = push_assignment(arena, target_index, rhs_index, &
+                                                                     id_token%line, id_token%column)
+                                        if (assign_index > 0) then
+                                            declaration_indices = [declaration_indices, assign_index]
+                                        end if
+                                    end if
+                                end if
+                            end block
+                        else
+                            ! Not an assignment, just consume the identifier
+                            ! This handles other statement types that we don't parse fully yet
+                        end if
+                    end block
+                    cycle  ! Continue to next iteration
                 end if
             end if
 
@@ -633,8 +692,12 @@ contains
                     ! Create simple parameter node
                     block
                         integer :: param_index
-                        param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
-                                                               line=token%line, column=token%column)
+                        block
+                            integer, allocatable :: empty_dims(:)
+                            allocate(empty_dims(0))
+                            param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
+                                                                   empty_dims, token%line, token%column)
+                        end block
                         param_indices = [param_indices, param_index]
                     end block
                     token = parser%consume()
@@ -779,8 +842,12 @@ contains
                     ! Create simple parameter node
                     block
                         integer :: param_index
-                        param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
-                                                               line=token%line, column=token%column)
+                        block
+                            integer, allocatable :: empty_dims(:)
+                            allocate(empty_dims(0))
+                            param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
+                                                                   empty_dims, token%line, token%column)
+                        end block
                         param_indices = [param_indices, param_index]
                     end block
                     token = parser%consume()
