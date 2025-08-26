@@ -1,14 +1,13 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #497: I/O parsing: Read statements generate 'Unknown node type' error (core Fortran support)
+- [ ] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
 
-## CURRENT SPRINT (Ordered by Priority)
+## SPRINT BACKLOG (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
 
 ### HIGH PRIORITY - Core Parser Gaps
-- [ ] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
 - [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
 - [ ] #495: Semantic analysis: Undefined variables not detected in expressions (type system gap)
 - [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
@@ -37,7 +36,7 @@
 - [ ] #494: Array parsing: Array slice assignment with stride produces empty program (core functionality)
 - [ ] #496: Loop parsing: Array assignment in do loop generates unparsed comment (parser defect)
 
-## TODO (Lower Priority - Post Sprint)
+## PRODUCT BACKLOG
 
 ### CST/AST Converter Enhancements (ENHANCEMENT)
 - [ ] #483: feat: enable enhanced AST nodes with CST references
@@ -98,7 +97,8 @@
 - [ ] #381: doc: create comprehensive arena architecture documentation
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
-## DONE (Sprint Completed)
+## DONE 
+- [x] #497: I/O parsing: Read statements generate 'Unknown node type' error (core Fortran support)
 - [x] #508: Comment line in module causes main program to be discarded (CRITICAL - parser core functionality)
 - [x] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
 - [x] #488: Mixed constructs: Implicit main statements ignored when module present (CRITICAL - core lazy-fortran use case)
