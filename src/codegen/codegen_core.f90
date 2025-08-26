@@ -2695,7 +2695,7 @@ contains
                         stmt_code = generate_code_from_arena(arena, &
                                                               node%procedure_indices(i))
                         if (len_trim(stmt_code) > 0) then
-                            code = code//with_indent(stmt_code)//new_line('A')
+                            code = code//stmt_code//new_line('A')
                         end if
                     end if
                 end if
