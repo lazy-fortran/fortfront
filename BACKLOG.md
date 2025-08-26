@@ -1,12 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #488: Mixed constructs: Implicit main statements ignored when module present (CRITICAL - core lazy-fortran use case)
+- [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs (CRITICAL - architectural flaw)
 
 ## CURRENT SPRINT (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
-- [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs (CRITICAL - architectural flaw)
 
 ### HIGH PRIORITY - Core Parser Gaps
 - [ ] #497: I/O parsing: Read statements generate 'Unknown node type' error (core Fortran support)
@@ -96,4 +95,5 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE (Sprint Completed)
+- [x] #488: Mixed constructs: Implicit main statements ignored when module present (CRITICAL - core lazy-fortran use case)
 - [x] #486: CLI: Input redirection fails while pipe works for lazy-fortran processing (CRITICAL SYSTEM FIX - GCC 15.2.1 compatibility)
