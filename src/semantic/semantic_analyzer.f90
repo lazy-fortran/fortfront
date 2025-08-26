@@ -101,6 +101,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
 
+        print *, "DEBUG: analyze_program called with root_index=", root_index
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
 
@@ -585,6 +586,9 @@ contains
                             end if
                         end if
                     end if
+                    
+                    ! Update all identifier nodes in the arena with the inferred type
+                    call update_identifier_type_in_arena(arena, lhs_node%name, expr_typ)
                     
                     ! Generalize the expression type and define/update in scope
                     allocate(scheme)
