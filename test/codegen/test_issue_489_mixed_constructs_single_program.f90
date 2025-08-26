@@ -57,6 +57,7 @@ contains
             ! Should not contain multiple "program main" declarations
             if (count_occurrences(output_code, "program main") > 1) then
                 print *, "  FAIL: Found multiple 'program main' declarations"
+                print *, "  Count:", count_occurrences(output_code, "program main")
                 print *, "  Output:", output_code
                 test_passed = .false.
             end if
