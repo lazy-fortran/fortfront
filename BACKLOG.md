@@ -3,41 +3,43 @@
 ## DOING (Current Work)
 - [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs (CRITICAL - architectural flaw)
 
-## CURRENT SPRINT (Ordered by Priority)
+## SPRINT_BACKLOG (Current Sprint - Foundation & Code Generation)
 
-### CRITICAL - System Functionality Blockers
+### EPIC: Code Generation Foundation
+- [ ] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
+- [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (related to #489)
 - [ ] #508: Comment line in module causes main program to be discarded (CRITICAL - parser core functionality)
 
-### HIGH PRIORITY - Core Parser Gaps
-- [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (related to #489)
+### EPIC: Core Parser Infrastructure 
 - [ ] #497: I/O parsing: Read statements generate 'Unknown node type' error (core Fortran support)
 - [ ] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
 - [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
 - [ ] #495: Semantic analysis: Undefined variables not detected in expressions (type system gap)
 - [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
 
-### PERFORMANCE CRISIS - Development Velocity
+### EPIC: Performance Foundation
 - [ ] #502: performance: investigate test execution bottlenecks causing 7m20s runtime (BLOCKING development)
-- [ ] #500: refactor: massive test consolidation opportunity - reduce 304 tests by ~85% (architectural excellence)
 - [ ] #481: critical: CI/CD performance crisis - 314 tests causing excessive runtime with massive duplication
-- [ ] #504: refactor: consolidate redundant AST arena test patterns
-- [ ] #505: refactor: eliminate test categories with overlapping functionality
 
-### SYSTEM INTEGRITY - Regression Fixes
+## PRODUCT_BACKLOG (Future Sprints)
+
+### EPIC: System Integrity (Next Sprint Priority)
 - [ ] #479: regression: call graph analysis multiple failures - unused procedure detection broken
 - [ ] #480: regression: module parsing structure not preserved in test_module_parsing_bug_red
 - [ ] #467: fix: call graph test failures in main branch
 - [ ] #468: fix: AST transformation test failures in main branch
 
-### DEFECT FIXES - String and Type Handling
-- [ ] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
+### EPIC: Defect Fixes - String and Type Handling (Next Sprint Priority)
 - [ ] #490: String parsing: Escaped single quotes not handled correctly (correctness)
 - [ ] #491: Type inference: Large integers not properly handled for overflow (type system)
 - [ ] #487: Array literal: Nested arrays incorrectly typed as 1D instead of 2D (type correctness)
 - [ ] #494: Array parsing: Array slice assignment with stride produces empty program (core functionality)
 - [ ] #496: Loop parsing: Array assignment in do loop generates unparsed comment (parser defect)
 
-## TODO (Lower Priority - Post Sprint)
+### EPIC: Test Infrastructure Optimization (Future Sprint)
+- [ ] #500: refactor: massive test consolidation opportunity - reduce 304 tests by ~85% (architectural excellence)
+- [ ] #504: refactor: consolidate redundant AST arena test patterns
+- [ ] #505: refactor: eliminate test categories with overlapping functionality
 
 ### CST/AST Converter Enhancements (ENHANCEMENT)
 - [ ] #483: feat: enable enhanced AST nodes with CST references
