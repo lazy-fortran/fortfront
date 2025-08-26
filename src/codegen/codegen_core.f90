@@ -411,69 +411,100 @@ contains
         ! Reset indentation for top-level program
         call reset_indent()
         
-        ! Special handling for multiple top-level units
+        ! Special handling for multiple top-level units (mixed constructs)
+        ! Fix for Issue #489: Generate single program block instead of multiple
         if (node%name == "__MULTI_UNIT__") then
-            code = ""
-            if (allocated(node%body_indices)) then
-                do i = 1, size(node%body_indices)
-                    if (node%body_indices(i) > 0 .and. &
-                        node%body_indices(i) <= arena%size) then
-                        stmt_code = generate_code_from_arena(arena, &
-                                                             node%body_indices(i))
-                        if (len_trim(stmt_code) > 0) then
-                            ! Skip empty main programs that only contain implicit none
-                            ! This is a regression fix for Issue #321 mixed construct handling
-                            block
-                                logical :: is_empty_main_program
-                                is_empty_main_program = .false.
-                                
-                                ! Check if this is a main program with only implicit none
-                                if (index(stmt_code, "program main") > 0 .and. &
-                                    index(stmt_code, "implicit none") > 0 .and. &
-                                    index(stmt_code, "end program main") > 0) then
-                                    ! Debug: Found potential empty main program
-                                    ! print *, "DEBUG: Found potential empty main program"
-                                    ! Count non-whitespace, non-comment lines
-                                    block
-                                        character(len=:), allocatable :: lines(:)
-                                        integer :: line_count, meaningful_lines, j
-                                        character(len=1000) :: temp_line
-                                        
-                                        ! Simple check: if the code only has 3 non-empty lines
-                                        ! (program main, implicit none, end program main)
-                                        ! then it's likely an empty program
-                                        meaningful_lines = 0
-                                        line_count = 1
-                                        do j = 1, len_trim(stmt_code)
-                                            if (stmt_code(j:j) == new_line('A')) then
-                                                line_count = line_count + 1
-                                            end if
-                                        end do
-                                        
-                                        ! Check if this looks like an empty main program
-                                        ! by looking for the specific pattern
-                                        if (line_count <= 4 .and. &  ! Very few lines
-                                            index(stmt_code, "use ") == 0 .and. &  ! No use statements
-                                            index(stmt_code, "call ") == 0 .and. &  ! No calls
-                                            index(stmt_code, "=") == 0 .and. &  ! No assignments
-                                            index(stmt_code, "write") == 0 .and. &  ! No write statements
-                                            index(stmt_code, "print") == 0) then  ! No print statements
-                                            is_empty_main_program = .true.
-                                        end if
-                                    end block
-                                end if
-                                
-                                if (.not. is_empty_main_program) then
-                                    if (len(code) > 0) then
-                                        code = code//new_line('A')
+            ! DEBUG: Add debug print to verify this path is taken
+            ! print *, "DEBUG: Processing __MULTI_UNIT__ node with", size(node%body_indices), "children"
+            block
+                character(len=:), allocatable :: executable_code, procedures_code
+                character(len=:), allocatable :: use_statements_mixed, declarations_mixed
+                logical :: has_procedures, has_executable_mixed
+                
+                executable_code = ""
+                procedures_code = ""
+                use_statements_mixed = ""
+                declarations_mixed = ""
+                has_procedures = .false.
+                has_executable_mixed = .false.
+                
+                ! Process each child node and categorize
+                if (allocated(node%body_indices)) then
+                    do i = 1, size(node%body_indices)
+                        if (node%body_indices(i) > 0 .and. &
+                            node%body_indices(i) <= arena%size) then
+                            
+                            ! Generate code for this child
+                            stmt_code = generate_code_from_arena(arena, node%body_indices(i))
+                            if (len_trim(stmt_code) == 0) cycle
+                            
+                            ! Check if this is a procedure (subroutine or function)
+                            if (allocated(arena%entries(node%body_indices(i))%node)) then
+                                select type (child_node => arena%entries(node%body_indices(i))%node)
+                                type is (subroutine_def_node)
+                                    has_procedures = .true.
+                                    if (len(procedures_code) > 0) then
+                                        procedures_code = procedures_code//new_line('A')
                                     end if
-                                    code = code//stmt_code
+                                    procedures_code = procedures_code//stmt_code
+                                    cycle
+                                type is (function_def_node)
+                                    has_procedures = .true.
+                                    if (len(procedures_code) > 0) then
+                                        procedures_code = procedures_code//new_line('A')
+                                    end if
+                                    procedures_code = procedures_code//stmt_code
+                                    cycle
+                                end select
+                            end if
+                            
+                            ! Check if this is an empty main program (extract contents)
+                            if (index(stmt_code, "program main") > 0) then
+                                call extract_program_contents(stmt_code, &
+                                    use_statements_mixed, declarations_mixed, executable_code)
+                                has_executable_mixed = .true.
+                            else
+                                ! Regular executable statement
+                                has_executable_mixed = .true.
+                                if (len(executable_code) > 0) then
+                                    executable_code = executable_code//new_line('A')
                                 end if
-                            end block
+                                executable_code = executable_code//stmt_code
+                            end if
                         end if
-                    end if
-                end do
-            end if
+                    end do
+                end if
+                
+                ! Generate single program with proper structure
+                code = "program main"//new_line('A')
+                call increase_indent()
+                
+                ! Add use statements if any
+                if (len_trim(use_statements_mixed) > 0) then
+                    code = code//get_indent()//use_statements_mixed//new_line('A')
+                end if
+                
+                code = code//get_indent()//"implicit none"//new_line('A')
+                
+                ! Add declarations if any
+                if (len_trim(declarations_mixed) > 0) then
+                    code = code//get_indent()//declarations_mixed//new_line('A')
+                end if
+                
+                ! Add executable statements
+                if (has_executable_mixed .and. len_trim(executable_code) > 0) then
+                    code = code//get_indent()//executable_code//new_line('A')
+                end if
+                
+                ! Add contains section with procedures
+                if (has_procedures) then
+                    code = code//"contains"//new_line('A')
+                    code = code//indent_lines(procedures_code)//new_line('A')
+                end if
+                
+                call decrease_indent()
+                code = code//"end program main"
+            end block
             return
         end if
 
@@ -3063,5 +3094,83 @@ contains
         end block
         
     end subroutine safe_generate_code_from_arena
+
+    ! Helper subroutine to extract contents from a program block
+    ! Used for mixed constructs handling (Issue #489)
+    subroutine extract_program_contents(program_code, use_stmts, declarations, executable)
+        character(len=*), intent(in) :: program_code
+        character(len=:), allocatable, intent(inout) :: use_stmts
+        character(len=:), allocatable, intent(inout) :: declarations  
+        character(len=:), allocatable, intent(inout) :: executable
+        
+        character(len=len(program_code)) :: temp_line
+        integer :: pos, next_pos, line_end
+        logical :: in_program_body, found_implicit_none
+        
+        in_program_body = .false.
+        found_implicit_none = .false.
+        
+        ! Parse line by line
+        pos = 1
+        do while (pos <= len(program_code))
+            ! Find the end of current line
+            next_pos = index(program_code(pos:), new_line('A'))
+            if (next_pos == 0) then
+                line_end = len(program_code)
+            else
+                line_end = pos + next_pos - 2
+            end if
+            
+            if (line_end >= pos) then
+                temp_line = program_code(pos:line_end)
+                temp_line = trim(adjustl(temp_line))
+                
+                ! Skip empty lines and program structure lines
+                if (len_trim(temp_line) == 0) then
+                    ! Skip
+                else if (index(temp_line, "program main") > 0) then
+                    in_program_body = .true.
+                else if (index(temp_line, "end program") > 0) then
+                    exit
+                else if (index(temp_line, "contains") > 0) then
+                    exit
+                else if (index(temp_line, "implicit none") > 0) then
+                    found_implicit_none = .true.
+                else if (in_program_body) then
+                    ! This is content inside the program
+                    if (index(temp_line, "use ") == 1) then
+                        ! Use statement
+                        if (len(use_stmts) > 0) then
+                            use_stmts = use_stmts//new_line('A')//temp_line
+                        else
+                            use_stmts = temp_line
+                        end if
+                    else if (index(temp_line, "integer ") == 1 .or. &
+                             index(temp_line, "real ") == 1 .or. &
+                             index(temp_line, "logical ") == 1 .or. &
+                             index(temp_line, "character ") == 1 .or. &
+                             index(temp_line, "type(") == 1) then
+                        ! Variable declaration
+                        if (len(declarations) > 0) then
+                            declarations = declarations//new_line('A')//temp_line
+                        else
+                            declarations = temp_line
+                        end if
+                    else
+                        ! Executable statement
+                        if (len(executable) > 0) then
+                            executable = executable//new_line('A')//temp_line
+                        else
+                            executable = temp_line
+                        end if
+                    end if
+                end if
+            end if
+            
+            ! Move to next line
+            if (next_pos == 0) exit
+            pos = pos + next_pos
+        end do
+    end subroutine extract_program_contents
 
 end module codegen_core
