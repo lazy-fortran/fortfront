@@ -101,7 +101,7 @@
         logical, intent(in) :: in_function, in_subroutine, in_module, in_do_loop, &
                               in_select_case, in_if_block
         integer, intent(inout) :: nesting_level
-        integer :: i
+        integer :: i, i_before
 
         i = start_pos
         do while (i <= size(tokens) .and. nesting_level > 0)
@@ -114,17 +114,23 @@
                                            in_if_block, nesting_level)
             end if
 
+            ! Store i before check_end_constructs (which may modify it)
+            i_before = i
+            
             ! Check for end constructs
             call check_end_constructs(tokens, i, unit_end, in_function, &
                                     in_subroutine, in_module, in_do_loop, &
                                     in_select_case, in_if_block, nesting_level)
 
-            ! CRITICAL BUG FIX: Always increment i to prevent infinite loops
-            unit_end = i
-            i = i + 1
-
             ! Stop when we've closed all nested constructs
             if (nesting_level == 0) exit
+            
+            ! If check_end_constructs didn't advance i, do it ourselves
+            if (i == i_before) then
+                unit_end = i
+                i = i + 1
+            end if
+            ! Otherwise check_end_constructs already advanced i properly
         end do
     end subroutine find_multiline_construct_end
 
@@ -358,25 +364,17 @@
         integer, intent(in) :: start_pos
         integer, intent(inout) :: unit_end
 
-        ! Check if there are any executable statements to group
-        block
-            logical :: has_meaningful_content
-            integer :: check_pos
-            has_meaningful_content = check_for_meaningful_statements(tokens, start_pos)
-            
-            if (has_meaningful_content) then
-                ! This looks like implicit main program statements after explicit units
-                ! Group all remaining non-explicit statements together
-                unit_end = size(tokens)
-                do while (unit_end > start_pos .and. tokens(unit_end)%kind == TK_EOF)
-                    unit_end = unit_end - 1
-                end do
-            else
-                ! No meaningful executable content - skip this entirely
-                ! Set unit_end < start_pos to indicate no valid unit found
-                unit_end = start_pos - 1
-            end if
-        end block
+        ! After a module ends, group ALL remaining statements as implicit main
+        ! Don't check for "meaningful" content - any statements should be grouped
+        unit_end = size(tokens)
+        do while (unit_end > start_pos .and. tokens(unit_end)%kind == TK_EOF)
+            unit_end = unit_end - 1
+        end do
+        
+        ! Only skip if there's truly nothing left
+        if (unit_end < start_pos) then
+            unit_end = start_pos - 1
+        end if
     end subroutine group_as_main_program
 
     ! Check for meaningful statements

@@ -64,7 +64,7 @@ contains
             ! Don't exit on first EOF - there might be more content
             if (i == size(tokens) .and. tokens(i)%kind == TK_EOF) exit
 
-            ! Skip empty lines (just EOF tokens)
+            ! Skip empty lines (just EOF tokens)  
             if (tokens(i)%kind == TK_EOF .and. i < size(tokens)) then
                 i = i + 1
                 cycle
@@ -419,6 +419,7 @@ contains
         integer :: unit_index
 
         ! Parse the complete module including its content
+        ! Module should be parsed with all its statements
         unit_index = parse_statement_dispatcher(tokens, arena)
     end function parse_module_unit
 
@@ -487,9 +488,9 @@ contains
         logical, intent(in) :: has_explicit_program
         integer :: unit_index
 
-        ! Always parse statements that are not part of explicit program units
-        ! This handles implicit main programs after modules
-        if (has_executable_statements(tokens) .or. has_any_non_comment_content(tokens)) then
+        ! Parse any statements as implicit main program
+        ! This is especially important for statements after modules
+        if (size(tokens) > 0 .and. tokens(1)%kind /= TK_EOF) then
             unit_index = parse_all_statements(tokens, arena)
         else
             unit_index = 0
