@@ -414,15 +414,12 @@ contains
         
         ! Special handling for multiple top-level units
         if (node%name == "__MULTI_UNIT__") then
-            ! DEBUG: Issue #511 debugging
-            ! DEBUG: Multi-unit transformation for Issue #511
             
             ! Check for Issue #511 pattern: declarations before explicit program
-            if (allocated(node%body_indices) .and. size(node%body_indices) >= 2) then
-                code = handle_multi_unit_issue_511(arena, node)
+            if (allocated(node%body_indices)) then
+                code = handle_issue_511_multiunit(arena, node)
                 if (len_trim(code) > 0) then
-                    ! write(*,*) "DEBUG: Issue #511 transformation applied"
-                    return
+                    return  ! Issue #511 transformation was applied
                 end if
             end if
             
@@ -704,107 +701,359 @@ contains
         code = code//"end program "//node%name
     end function generate_code_program
 
-    ! Handle Issue #511: declarations before explicit program pattern
-    ! Generate module wrapper + program with use statements
-    function handle_multi_unit_issue_511(arena, node) result(code)
+    ! Handle Issue #511 transformation for multi-unit programs
+    ! Detects declarations before explicit program and wraps them in a module
+    function handle_issue_511_multiunit(arena, node) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         character(len=:), allocatable :: code
         
-        character(len=:), allocatable :: first_unit_code, second_unit_code
-        logical :: is_declarations_program_pattern, has_declarations
-        integer :: i
+        integer :: i, explicit_program_index
+        logical :: has_declarations_before_program, found_explicit_program
+        character(len=:), allocatable :: declarations_code, program_code, program_name
+        character(len=:), allocatable :: use_statement, module_code
+        character(len=:), allocatable :: stmt_code
         
         code = ""
+        has_declarations_before_program = .false.
+        found_explicit_program = .false.
+        explicit_program_index = 0
+        declarations_code = ""
+        program_name = "main"
         
-        ! Must have at least 2 units for this pattern, but can be more due to parsing granularity
-        if (.not. allocated(node%body_indices) .or. size(node%body_indices) < 2) then
+        ! DEBUG: Print that we are checking for Issue #511
+        ! write(*, *) "DEBUG: Checking Issue #511 for multi-unit with ", size(node%body_indices), " units"
+        
+        ! Analyze multi-unit structure to detect Issue #511 pattern
+        do i = 1, size(node%body_indices)
+            if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(node%body_indices(i))%node)) then
+                    select type (child_node => arena%entries(node%body_indices(i))%node)
+                    type is (program_node)
+                        ! write(*, *) "DEBUG: Found program node: ", child_node%name
+                        ! Found explicit program - check if it's not a default "main"
+                        if (child_node%name /= "main") then
+                            found_explicit_program = .true.
+                            explicit_program_index = i
+                            program_name = child_node%name
+                            ! Found explicit program
+                            exit  ! Stop at first explicit program
+                        else
+                            ! This is a "main" program containing declarations
+                            ! Extract the declaration content from inside it
+                            if (.not. found_explicit_program) then
+                                stmt_code = generate_code_from_arena(arena, node%body_indices(i))
+                                ! Extract declarations from main program wrapper
+                                ! Extract declarations from the main program
+                                call extract_declarations_from_main_program(stmt_code, declarations_code, has_declarations_before_program)
+                            end if
+                        end if
+                    type is (derived_type_node)
+                        ! Found derived_type_node
+                        ! Type declaration before explicit program
+                        if (.not. found_explicit_program) then
+                            has_declarations_before_program = .true.
+                            stmt_code = generate_code_from_arena(arena, node%body_indices(i))
+                            if (len(declarations_code) > 0) then
+                                declarations_code = declarations_code // new_line('A') // new_line('A')
+                            end if
+                            declarations_code = declarations_code // stmt_code
+                        end if
+                    class default
+                        ! Found other node type
+                        ! Other declarations (parameters, interfaces, etc.)
+                        if (.not. found_explicit_program) then
+                            stmt_code = generate_code_from_arena(arena, node%body_indices(i))
+                            ! Check if this is a meaningful declaration
+                            ! Only consider meaningful declarations
+                            if (len_trim(stmt_code) > 0 .and. &
+                                index(stmt_code, "implicit none") == 0 .and. &
+                                index(stmt_code, "program main") == 0) then
+                                has_declarations_before_program = .true.
+                                if (len(declarations_code) > 0) then
+                                    declarations_code = declarations_code // new_line('A')
+                                end if
+                                declarations_code = declarations_code // stmt_code
+                                ! Added meaningful declaration
+                            end if
+                        end if
+                    end select
+                else
+                    ! Node not allocated
+                end if
+            else
+                ! Invalid index
+            end if
+        end do
+        
+        ! If we have the Issue #511 pattern, apply transformation
+        if (has_declarations_before_program .and. found_explicit_program .and. &
+            explicit_program_index > 0) then
+            
+            ! Generate program code (from the explicit program node)
+            program_code = generate_code_from_arena(arena, node%body_indices(explicit_program_index))
+            
+            ! Generate use statement with specific imports
+            call generate_issue_511_use_statement(declarations_code, use_statement)
+            
+            ! Generate module wrapper
+            module_code = "module implicit_module" // new_line('A') // &
+                         "    implicit none" // new_line('A') // &
+                         new_line('A') // &
+                         add_module_level_indentation(declarations_code) // &
+                         "end module implicit_module"
+            
+            ! Modify program to include use statement
+            program_code = modify_program_with_use_statement(program_code, program_name, use_statement)
+            
+            ! Combine module + program
+            code = module_code // new_line('A') // new_line('A') // program_code
+        end if
+    end function handle_issue_511_multiunit
+    
+    ! Generate use statement with specific imports for Issue #511
+    subroutine generate_issue_511_use_statement(declarations_code, use_statement)
+        character(len=*), intent(in) :: declarations_code
+        character(len=:), allocatable, intent(out) :: use_statement
+        
+        character(len=:), allocatable :: imports
+        integer :: i, pos, name_start, name_end
+        character(len=:), allocatable :: type_name
+        logical :: found_imports
+        
+        use_statement = ""
+        imports = ""
+        found_imports = .false.
+        
+        ! Look for type definitions
+        i = 1
+        do while (i <= len(declarations_code))
+            pos = index(declarations_code(i:), "type :: ")
+            if (pos == 0) exit
+            
+            pos = pos + i - 1
+            name_start = pos + 8  ! After "type :: "
+            
+            ! Skip spaces
+            do while (name_start <= len(declarations_code) .and. &
+                      declarations_code(name_start:name_start) == ' ')
+                name_start = name_start + 1
+            end do
+            
+            if (name_start > len(declarations_code)) exit
+            
+            ! Find end of name
+            name_end = name_start
+            do while (name_end <= len(declarations_code))
+                if (declarations_code(name_end:name_end) == ' ' .or. &
+                    declarations_code(name_end:name_end) == new_line('A')) then
+                    exit
+                end if
+                name_end = name_end + 1
+            end do
+            name_end = name_end - 1
+            
+            if (name_end >= name_start) then
+                type_name = declarations_code(name_start:name_end)
+                if (found_imports) then
+                    imports = imports // ", " // type_name
+                else
+                    imports = type_name
+                    found_imports = .true.
+                end if
+            end if
+            
+            i = name_end + 1
+        end do
+        
+        ! Look for parameter declarations
+        i = 1
+        do while (i <= len(declarations_code))
+            pos = index(declarations_code(i:), "parameter :: ")
+            if (pos == 0) exit
+            
+            pos = pos + i - 1
+            name_start = pos + 13  ! After "parameter :: "
+            
+            ! Skip spaces
+            do while (name_start <= len(declarations_code) .and. &
+                      declarations_code(name_start:name_start) == ' ')
+                name_start = name_start + 1
+            end do
+            
+            if (name_start > len(declarations_code)) exit
+            
+            ! Find end of name
+            name_end = name_start
+            do while (name_end <= len(declarations_code))
+                if (declarations_code(name_end:name_end) == ' ' .or. &
+                    declarations_code(name_end:name_end) == '=' .or. &
+                    declarations_code(name_end:name_end) == new_line('A')) then
+                    exit
+                end if
+                name_end = name_end + 1
+            end do
+            name_end = name_end - 1
+            
+            if (name_end >= name_start) then
+                type_name = declarations_code(name_start:name_end)
+                if (found_imports) then
+                    imports = imports // ", " // type_name
+                else
+                    imports = type_name
+                    found_imports = .true.
+                end if
+            end if
+            
+            i = name_end + 1
+        end do
+        
+        if (found_imports) then
+            use_statement = ", only: " // imports
+        else
+            use_statement = ""  ! No specific imports, use all
+        end if
+    end subroutine generate_issue_511_use_statement
+    
+    ! Add module-level indentation to declarations
+    function add_module_level_indentation(declarations_code) result(indented_code)
+        character(len=*), intent(in) :: declarations_code
+        character(len=:), allocatable :: indented_code
+        
+        integer :: i, line_start
+        character(len=:), allocatable :: line
+        
+        indented_code = ""
+        line_start = 1
+        
+        do i = 1, len(declarations_code)
+            if (declarations_code(i:i) == new_line('A') .or. i == len(declarations_code)) then
+                if (i == len(declarations_code)) then
+                    line = declarations_code(line_start:i)
+                else
+                    line = declarations_code(line_start:i-1)
+                end if
+                
+                line = trim(adjustl(line))
+                if (len(line) > 0) then
+                    indented_code = indented_code // "    " // line
+                end if
+                
+                if (i < len(declarations_code)) then
+                    indented_code = indented_code // new_line('A')
+                end if
+                
+                line_start = i + 1
+            end if
+        end do
+        
+        ! Ensure we end with a newline
+        if (len_trim(indented_code) > 0) then
+            indented_code = indented_code // new_line('A')
+        end if
+    end function add_module_level_indentation
+    
+    ! Modify program code to include use statement
+    function modify_program_with_use_statement(program_code, program_name, use_statement) result(modified_code)
+        character(len=*), intent(in) :: program_code, program_name, use_statement
+        character(len=:), allocatable :: modified_code
+        
+        integer :: program_pos, implicit_pos, insert_pos
+        character(len=:), allocatable :: before_implicit, after_implicit
+        
+        ! Find the program declaration line
+        program_pos = index(program_code, "program " // trim(program_name))
+        if (program_pos == 0) then
+            modified_code = program_code  ! Fallback if program not found
             return
         end if
         
-        ! Look for Issue #511 pattern: multiple "program main" units followed by explicit program
-        ! Due to parsing granularity, declarations may be split across multiple main units
-        
-        ! Check if last unit is an explicit program (not "main")
-        if (node%body_indices(size(node%body_indices)) > 0) then
-            second_unit_code = generate_code_from_arena(arena, &
-                                 node%body_indices(size(node%body_indices)))
+        ! Find "implicit none" position
+        implicit_pos = index(program_code, "implicit none")
+        if (implicit_pos == 0) then
+            ! No implicit none found - insert use statement after program line
+            insert_pos = program_pos
+            ! Find end of program line
+            do while (insert_pos <= len(program_code) .and. &
+                      program_code(insert_pos:insert_pos) /= new_line('A'))
+                insert_pos = insert_pos + 1
+            end do
+            insert_pos = insert_pos + 1  ! After the newline
             
-            ! Check if this is an explicit named program 
-            if (index(second_unit_code, "program ") > 0 .and. &
-                index(second_unit_code, "program main") == 0) then
+            before_implicit = program_code(1:insert_pos-1)
+            after_implicit = program_code(insert_pos:)
+            
+            modified_code = before_implicit // &
+                           "    use implicit_module" // use_statement // new_line('A') // &
+                           "    implicit none" // new_line('A') // &
+                           after_implicit
+        else
+            ! Insert use statement before "implicit none"
+            before_implicit = program_code(1:implicit_pos-1)
+            after_implicit = program_code(implicit_pos:)
+            
+            modified_code = before_implicit // &
+                           "use implicit_module" // use_statement // new_line('A') // &
+                           "    " // after_implicit
+        end if
+    end function modify_program_with_use_statement
+    
+    ! Extract declarations from a "main" program wrapper
+    subroutine extract_declarations_from_main_program(program_code, declarations_code, has_declarations_before_program)
+        character(len=*), intent(in) :: program_code
+        character(len=:), allocatable, intent(inout) :: declarations_code
+        logical, intent(inout) :: has_declarations_before_program
+        
+        integer :: i, line_start
+        character(len=:), allocatable :: line
+        logical :: in_declarations, found_meaningful_declaration
+        
+        in_declarations = .false.
+        found_meaningful_declaration = .false.
+        line_start = 1
+        
+        ! Process each line of the program
+        do i = 1, len(program_code)
+            if (program_code(i:i) == new_line('A') .or. i == len(program_code)) then
+                if (i == len(program_code)) then
+                    line = program_code(line_start:i)
+                else
+                    line = program_code(line_start:i-1)
+                end if
                 
-                ! Check if we have declaration units before it
-                has_declarations = .false.
-                do i = 1, size(node%body_indices) - 1
-                    if (node%body_indices(i) > 0) then
-                        first_unit_code = generate_code_from_arena(arena, node%body_indices(i))
-                        if (index(first_unit_code, "type ::") > 0) then
-                            has_declarations = .true.
-                            exit
+                line = trim(adjustl(line))
+                
+                ! Check if this line is a meaningful declaration
+                if (len(line) > 0) then
+                    if (index(line, "program main") > 0) then
+                        in_declarations = .true.  ! Start extracting after program line
+                    else if (index(line, "end program") > 0) then
+                        exit  ! End of program, stop extracting
+                    else if (in_declarations .and. index(line, "implicit none") == 0) then
+                        ! This might be a declaration line
+                        if (index(line, "type ::") > 0 .or. &
+                            index(line, "end type") > 0 .or. &
+                            index(line, "integer ::") > 0 .or. &
+                            index(line, "real ::") > 0 .or. &
+                            index(line, "parameter ::") > 0) then
+                            
+                            found_meaningful_declaration = .true.
+                            if (len(declarations_code) > 0) then
+                                declarations_code = declarations_code // new_line('A')
+                            end if
+                            declarations_code = declarations_code // line
                         end if
                     end if
-                end do
-                
-                if (has_declarations) then
-                    code = generate_issue_511_transformation(first_unit_code, second_unit_code)
                 end if
+                
+                line_start = i + 1
             end if
+        end do
+        
+        if (found_meaningful_declaration) then
+            has_declarations_before_program = .true.
         end if
-    end function handle_multi_unit_issue_511
-    
-    ! Check if the two units match Issue #511 pattern
-    function is_issue_511_pattern(first_code, second_code) result(matches)
-        character(len=*), intent(in) :: first_code, second_code
-        logical :: matches
-        
-        matches = .false.
-        
-        ! Simple pattern detection for test cases:
-        ! 1. First unit is "program main" with type declarations
-        ! 2. Second unit is explicit named program
-        if (index(first_code, "program main") > 0 .and. &
-            index(second_code, "program ") > 0 .and. &
-            index(second_code, "program main") == 0) then
-            
-            ! Check that first unit has type declarations
-            if (index(first_code, "type ::") > 0) then
-                matches = .true.
-            end if
-        end if
-    end function is_issue_511_pattern
-    
-    ! Generate the transformed code for Issue #511
-    function generate_issue_511_transformation(first_code, second_code) result(code)
-        character(len=*), intent(in) :: first_code, second_code
-        character(len=:), allocatable :: code
-        
-        ! Simplified hardcoded transformation for the test cases
-        ! This handles the specific patterns in the test
-        
-        if (index(second_code, "program pro") > 0) then
-            ! Test case 1: Single type declaration
-            code = "module implicit_module"//new_line('A')// &
-                   "    implicit none"//new_line('A')// &
-                   new_line('A')// &
-                   "    type :: a"//new_line('A')// &
-                   "        integer :: t"//new_line('A')// &
-                   "    end type a"//new_line('A')// &
-                   "end module implicit_module"//new_line('A')// &
-                   new_line('A')// &
-                   "program pro"//new_line('A')// &
-                   "    use implicit_module, only: a"//new_line('A')// &
-                   "    implicit none"//new_line('A')// &
-                   new_line('A')// &
-                   "    type(a) :: testy"//new_line('A')// &
-                   new_line('A')// &
-                   "    testy%t = 3"//new_line('A')// &
-                   "end program pro"
-        else
-            ! Fallback - no transformation
-            code = ""
-        end if
-    end function generate_issue_511_transformation
+    end subroutine extract_declarations_from_main_program
 
     ! Generate code for call_or_subscript node
     ! (handles both function calls and array indexing)

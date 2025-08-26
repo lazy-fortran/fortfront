@@ -18,6 +18,7 @@ module frontend_transformation
     use ast_nodes_core, only: program_node
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
+    use frontend_utilities, only: has_declarations_before_program
 
     implicit none
     private
