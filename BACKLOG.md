@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
