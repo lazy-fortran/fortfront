@@ -1,5 +1,5 @@
 module semantic_analyzer
-    ! Main semantic analysis module - simplified to meet size constraints
+    ! Main semantic analysis module - refactored for maintainability
     use type_system_unified, only: type_env_t, type_var_t, mono_type_t, poly_type_t, &
                                    substitution_t, allocation_info_t, &
                                    create_mono_type, create_type_var, &
@@ -13,21 +13,20 @@ module semantic_analyzer
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
                                assignment_node, call_or_subscript_node, &
-                               array_literal_node
+                               array_literal_node, program_node
     use ast_nodes_procedure, only: subroutine_call_node
     use ast_nodes_control, only: do_loop_node, if_node, do_while_node, &
                                   where_node, where_stmt_node, forall_node, &
-                                  select_case_node, case_block_node, &
-                                  associate_node, association_t, cycle_node, exit_node, &
-                                  stop_node, return_node, elsewhere_clause_t
-    use ast_nodes_data, only: intent_type_to_string, declaration_node
-    use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
-                                range_expression_node, get_array_slice_node
+                                  select_case_node, associate_node, stop_node
+    use ast_nodes_data, only: declaration_node, module_node
+    use ast_nodes_bounds, only: array_slice_node
     use parameter_tracker
     use expression_temporary_tracker_module
     use constant_folding, only: fold_constants_in_arena
     use error_handling, only: error_collection_t, create_error_collection, result_t, &
                                create_error_result, ERROR_SEMANTIC
+    ! Import inference helper functions
+    use semantic_inference_helpers
     implicit none
     private
 
@@ -108,7 +107,7 @@ contains
         select type (ast => arena%entries(root_index)%node)
         type is (program_node)
             ! Detect mode based on presence of implicit none
-            ctx%strict_mode = has_implicit_none_in_program(arena, ast)
+            ctx%strict_mode = check_implicit_none(arena, ast)
             call analyze_program_node_arena(ctx, arena, ast, root_index)
         type is (module_node)
             return  ! Skip module analysis
@@ -208,31 +207,31 @@ contains
             typ = infer_implied_do_loop(this, arena, expr, expr_index)
 
         type is (declaration_node)
-            typ = infer_declaration(this, expr)
+            typ = infer_declaration_helper(this, expr)
 
         type is (if_node)
-            typ = infer_if_node(this, arena, expr)
+            typ = infer_if_helper(this, arena, expr)
 
         type is (do_while_node)
-            typ = infer_do_while_node(this, arena, expr)
+            typ = infer_do_while_helper(this, arena, expr)
 
         type is (where_node)
-            typ = infer_where_node(this, arena, expr)
+            typ = infer_where_helper(this, arena, expr)
 
         type is (where_stmt_node)
-            typ = infer_where_stmt_node(this, arena, expr)
+            typ = infer_where_stmt_helper(this, arena, expr)
 
         type is (forall_node)
-            typ = infer_forall_node(this, arena, expr)
+            typ = infer_forall_helper(this, arena, expr)
 
         type is (select_case_node)
-            typ = infer_select_case_node(this, arena, expr)
+            typ = infer_select_case_helper(this, arena, expr)
 
         type is (associate_node)
-            typ = infer_associate_node(this, arena, expr)
+            typ = infer_associate_helper(this, arena, expr)
 
         type is (stop_node)
-            typ = infer_stop_node(this, arena, expr)
+            typ = infer_stop_helper(this, arena, expr)
 
         class default
             ! Return real type as default for unsupported expressions
@@ -698,53 +697,283 @@ contains
         typ = create_mono_type(TARRAY, args=args)
     end function infer_implied_do_loop
 
-    ! Infer type of variable declaration and add to scope
-    function infer_declaration(ctx, decl) result(typ)
+    ! Control flow type inference functions
+    function infer_declaration_helper(ctx, decl) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(declaration_node), intent(in) :: decl
         type(mono_type_t) :: typ
         type(poly_type_t) :: scheme
-        integer :: var_type_kind
         integer :: i
-
-        ! Map type name to type kind
-        select case (trim(decl%type_name))
-        case ("integer")
-            var_type_kind = TINT
-        case ("real")
-            var_type_kind = TREAL
-        case ("character")
-            var_type_kind = TCHAR
-        case ("logical")
-            var_type_kind = TLOGICAL
-        case default
-            ! Default to real for unknown types
-            var_type_kind = TREAL
-        end select
-
-        ! Create mono type
-        typ = create_mono_type(var_type_kind)
-
-        ! Handle kind parameter if present
-        if (decl%has_kind) then
-            ! For now, just use the basic type - kind handling could be extended
-            typ%kind = var_type_kind
-        end if
-
+        
+        ! Get base type from helper
+        call process_declaration_variables(decl, typ)
+        
         ! Create type scheme
         scheme = ctx%generalize(typ)
-
+        
         ! Add variables to scope
         if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
-            ! Multiple variable declarations
             do i = 1, size(decl%var_names)
                 call ctx%scopes%define(decl%var_names(i), scheme)
             end do
         else if (allocated(decl%var_name)) then
-            ! Single variable declaration
             call ctx%scopes%define(decl%var_name, scheme)
         end if
-    end function infer_declaration
+    end function infer_declaration_helper
+
+    function infer_if_helper(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(if_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: temp_type
+        integer :: i, j
+        
+        ! Process condition
+        if (node%condition_index > 0) then
+            temp_type = ctx%infer(arena, node%condition_index)
+        end if
+        
+        ! Process then body
+        if (allocated(node%then_body_indices)) then
+            do i = 1, size(node%then_body_indices)
+                temp_type = ctx%infer(arena, node%then_body_indices(i))
+            end do
+        end if
+        
+        ! Process elseif blocks
+        if (allocated(node%elseif_blocks)) then
+            do i = 1, size(node%elseif_blocks)
+                if (node%elseif_blocks(i)%condition_index > 0) then
+                    temp_type = ctx%infer(arena, node%elseif_blocks(i)%condition_index)
+                end if
+                if (allocated(node%elseif_blocks(i)%body_indices)) then
+                    do j = 1, size(node%elseif_blocks(i)%body_indices)
+                        temp_type = ctx%infer(arena, node%elseif_blocks(i)%body_indices(j))
+                    end do
+                end if
+            end do
+        end if
+        
+        ! Process else body
+        if (allocated(node%else_body_indices)) then
+            do i = 1, size(node%else_body_indices)
+                temp_type = ctx%infer(arena, node%else_body_indices(i))
+            end do
+        end if
+        
+        ! Get control type from helper
+        call process_if_node_branches(node, typ)
+    end function infer_if_helper
+
+    function infer_do_while_helper(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(do_while_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: temp_type
+        integer :: i
+        
+        ! Process condition
+        if (node%condition_index > 0) then
+            temp_type = ctx%infer(arena, node%condition_index)
+        end if
+        
+        ! Process body
+        if (allocated(node%body_indices)) then
+            do i = 1, size(node%body_indices)
+                temp_type = ctx%infer(arena, node%body_indices(i))
+            end do
+        end if
+        
+        call process_do_while_node_body(node, typ)
+    end function infer_do_while_helper
+
+    function infer_where_helper(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(where_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: temp_type
+        integer :: i, j
+        
+        ! Process mask
+        if (node%mask_expr_index > 0) then
+            temp_type = ctx%infer(arena, node%mask_expr_index)
+        end if
+        
+        ! Process where body
+        if (allocated(node%where_body_indices)) then
+            do i = 1, size(node%where_body_indices)
+                temp_type = ctx%infer(arena, node%where_body_indices(i))
+            end do
+        end if
+        
+        ! Process elsewhere clauses
+        if (allocated(node%elsewhere_clauses)) then
+            do i = 1, size(node%elsewhere_clauses)
+                if (node%elsewhere_clauses(i)%mask_index > 0) then
+                    temp_type = ctx%infer(arena, node%elsewhere_clauses(i)%mask_index)
+                end if
+                if (allocated(node%elsewhere_clauses(i)%body_indices)) then
+                    do j = 1, size(node%elsewhere_clauses(i)%body_indices)
+                        temp_type = ctx%infer(arena, node%elsewhere_clauses(i)%body_indices(j))
+                    end do
+                end if
+            end do
+        end if
+        
+        call process_where_node_clauses(node, typ)
+    end function infer_where_helper
+
+    function infer_where_stmt_helper(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(where_stmt_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: temp_type
+        
+        ! Process mask
+        if (node%mask_expr_index > 0) then
+            temp_type = ctx%infer(arena, node%mask_expr_index)
+        end if
+        
+        ! Process assignment
+        if (node%assignment_index > 0) then
+            typ = ctx%infer(arena, node%assignment_index)
+        else
+            call process_where_stmt_node(node, typ)
+        end if
+    end function infer_where_stmt_helper
+
+    function infer_forall_helper(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(forall_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: temp_type
+        type(poly_type_t) :: int_scheme
+        integer :: i
+        
+        ! Get integer scheme and control type
+        call process_forall_node_body(node, int_scheme, typ)
+        
+        ! Enter new scope
+        call ctx%scopes%enter_block()
+        
+        ! Add index variables
+        if (allocated(node%index_names)) then
+            do i = 1, size(node%index_names)
+                call ctx%scopes%define(node%index_names(i), int_scheme)
+            end do
+        end if
+        
+        ! Process bounds and body
+        if (allocated(node%lower_bound_indices)) then
+            do i = 1, size(node%lower_bound_indices)
+                if (node%lower_bound_indices(i) > 0) then
+                    temp_type = ctx%infer(arena, node%lower_bound_indices(i))
+                end if
+            end do
+        end if
+        
+        if (allocated(node%upper_bound_indices)) then
+            do i = 1, size(node%upper_bound_indices)
+                if (node%upper_bound_indices(i) > 0) then
+                    temp_type = ctx%infer(arena, node%upper_bound_indices(i))
+                end if
+            end do
+        end if
+        
+        if (allocated(node%body_indices)) then
+            do i = 1, size(node%body_indices)
+                temp_type = ctx%infer(arena, node%body_indices(i))
+            end do
+        end if
+        
+        ! Exit scope
+        call ctx%scopes%leave_scope()
+    end function infer_forall_helper
+
+    function infer_select_case_helper(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(select_case_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: temp_type
+        integer :: i
+        
+        ! Process selector
+        if (node%selector_index > 0) then
+            temp_type = ctx%infer(arena, node%selector_index)
+        end if
+        
+        ! Process cases
+        if (allocated(node%case_indices)) then
+            do i = 1, size(node%case_indices)
+                temp_type = ctx%infer(arena, node%case_indices(i))
+            end do
+        end if
+        
+        if (node%default_index > 0) then
+            temp_type = ctx%infer(arena, node%default_index)
+        end if
+        
+        call process_select_case_blocks(node, typ)
+    end function infer_select_case_helper
+
+    function infer_associate_helper(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(associate_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: assoc_type
+        type(poly_type_t) :: assoc_scheme
+        integer :: i
+        
+        ! Enter new scope
+        call ctx%scopes%enter_block()
+        
+        ! Process associations
+        if (allocated(node%associations)) then
+            do i = 1, size(node%associations)
+                if (node%associations(i)%expr_index > 0) then
+                    assoc_type = ctx%infer(arena, node%associations(i)%expr_index)
+                    assoc_scheme = create_poly_type(forall_vars=[type_var_t::], mono=assoc_type)
+                    if (allocated(node%associations(i)%name)) then
+                        call ctx%scopes%define(node%associations(i)%name, assoc_scheme)
+                    end if
+                end if
+            end do
+        end if
+        
+        ! Process body
+        if (allocated(node%body_indices)) then
+            do i = 1, size(node%body_indices)
+                assoc_type = ctx%infer(arena, node%body_indices(i))
+            end do
+        end if
+        
+        ! Exit scope
+        call ctx%scopes%leave_scope()
+        
+        call process_associate_node_body(node, typ)
+    end function infer_associate_helper
+
+    function infer_stop_helper(ctx, arena, node) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(stop_node), intent(in) :: node
+        type(mono_type_t) :: typ
+        type(mono_type_t) :: temp_type
+        
+        ! Process stop code
+        if (node%stop_code_index > 0) then
+            temp_type = ctx%infer(arena, node%stop_code_index)
+        end if
+        
+        call process_stop_node_code(node, typ)
+    end function infer_stop_helper
 
     ! Check if semantic analysis found any errors (public function)
     function has_semantic_errors(ctx) result(has_errors)
@@ -753,327 +982,5 @@ contains
         
         has_errors = ctx%errors%has_errors()
     end function has_semantic_errors
-
-    ! Infer type of if node - process all branches for undefined variables
-    function infer_if_node(ctx, arena, node) result(typ)
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        type(if_node), intent(in) :: node
-        type(mono_type_t) :: typ
-        type(mono_type_t) :: cond_type
-        integer :: i, j
-
-        ! Process condition expression
-        if (node%condition_index > 0) then
-            cond_type = ctx%infer(arena, node%condition_index)
-        end if
-
-        ! Process then body statements
-        if (allocated(node%then_body_indices)) then
-            do i = 1, size(node%then_body_indices)
-                typ = ctx%infer(arena, node%then_body_indices(i))
-            end do
-        end if
-
-        ! Process elseif blocks
-        if (allocated(node%elseif_blocks)) then
-            do i = 1, size(node%elseif_blocks)
-                ! Process elseif condition
-                if (node%elseif_blocks(i)%condition_index > 0) then
-                    cond_type = ctx%infer(arena, node%elseif_blocks(i)%condition_index)
-                end if
-                ! Process elseif body
-                if (allocated(node%elseif_blocks(i)%body_indices)) then
-                    do j = 1, size(node%elseif_blocks(i)%body_indices)
-                        typ = ctx%infer(arena, node%elseif_blocks(i)%body_indices(j))
-                    end do
-                end if
-            end do
-        end if
-
-        ! Process else body statements
-        if (allocated(node%else_body_indices)) then
-            do i = 1, size(node%else_body_indices)
-                typ = ctx%infer(arena, node%else_body_indices(i))
-            end do
-        end if
-
-        ! If statements don't have a type
-        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
-    end function infer_if_node
-
-    ! Infer type of do while node
-    function infer_do_while_node(ctx, arena, node) result(typ)
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        type(do_while_node), intent(in) :: node
-        type(mono_type_t) :: typ
-        type(mono_type_t) :: cond_type
-        integer :: i
-
-        ! Process condition
-        if (node%condition_index > 0) then
-            cond_type = ctx%infer(arena, node%condition_index)
-        end if
-
-        ! Process body statements
-        if (allocated(node%body_indices)) then
-            do i = 1, size(node%body_indices)
-                typ = ctx%infer(arena, node%body_indices(i))
-            end do
-        end if
-
-        ! Do while loops don't have a type
-        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
-    end function infer_do_while_node
-
-    ! Infer type of where node
-    function infer_where_node(ctx, arena, node) result(typ)
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        type(where_node), intent(in) :: node
-        type(mono_type_t) :: typ
-        type(mono_type_t) :: mask_type
-        integer :: i, j
-
-        ! Process mask expression
-        if (node%mask_expr_index > 0) then
-            mask_type = ctx%infer(arena, node%mask_expr_index)
-        end if
-
-        ! Process where body
-        if (allocated(node%where_body_indices)) then
-            do i = 1, size(node%where_body_indices)
-                typ = ctx%infer(arena, node%where_body_indices(i))
-            end do
-        end if
-
-        ! Process elsewhere clauses
-        if (allocated(node%elsewhere_clauses)) then
-            do i = 1, size(node%elsewhere_clauses)
-                ! Process mask if present
-                if (node%elsewhere_clauses(i)%mask_index > 0) then
-                    mask_type = ctx%infer(arena, node%elsewhere_clauses(i)%mask_index)
-                end if
-                ! Process body
-                if (allocated(node%elsewhere_clauses(i)%body_indices)) then
-                    do j = 1, size(node%elsewhere_clauses(i)%body_indices)
-                        typ = ctx%infer(arena, node%elsewhere_clauses(i)%body_indices(j))
-                    end do
-                end if
-            end do
-        end if
-
-        ! Where constructs don't have a type
-        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
-    end function infer_where_node
-
-    ! Infer type of where stmt node
-    function infer_where_stmt_node(ctx, arena, node) result(typ)
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        type(where_stmt_node), intent(in) :: node
-        type(mono_type_t) :: typ
-        type(mono_type_t) :: mask_type
-
-        ! Process mask expression
-        if (node%mask_expr_index > 0) then
-            mask_type = ctx%infer(arena, node%mask_expr_index)
-        end if
-
-        ! Process assignment
-        if (node%assignment_index > 0) then
-            typ = ctx%infer(arena, node%assignment_index)
-        else
-            typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
-        end if
-    end function infer_where_stmt_node
-
-    ! Infer type of forall node
-    function infer_forall_node(ctx, arena, node) result(typ)
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        type(forall_node), intent(in) :: node
-        type(mono_type_t) :: typ
-        type(mono_type_t) :: temp_type
-        type(poly_type_t) :: int_scheme
-        integer :: i
-
-        ! Create integer type scheme for index variables
-        int_scheme = create_poly_type(forall_vars=[type_var_t::], mono=create_mono_type(TINT))
-
-        ! Enter new scope for forall indices
-        call ctx%scopes%enter_block()
-
-        ! Add index variables to scope
-        if (allocated(node%index_names)) then
-            do i = 1, size(node%index_names)
-                call ctx%scopes%define(node%index_names(i), int_scheme)
-            end do
-        end if
-
-        ! Process bounds
-        if (allocated(node%lower_bound_indices)) then
-            do i = 1, size(node%lower_bound_indices)
-                if (node%lower_bound_indices(i) > 0) then
-                    temp_type = ctx%infer(arena, node%lower_bound_indices(i))
-                end if
-            end do
-        end if
-
-        if (allocated(node%upper_bound_indices)) then
-            do i = 1, size(node%upper_bound_indices)
-                if (node%upper_bound_indices(i) > 0) then
-                    temp_type = ctx%infer(arena, node%upper_bound_indices(i))
-                end if
-            end do
-        end if
-
-        ! Process stride if present
-        if (allocated(node%stride_indices)) then
-            do i = 1, size(node%stride_indices)
-                if (node%stride_indices(i) > 0) then
-                    temp_type = ctx%infer(arena, node%stride_indices(i))
-                end if
-            end do
-        end if
-
-        ! Process mask if present
-        if (node%has_mask .and. node%mask_expr_index > 0) then
-            temp_type = ctx%infer(arena, node%mask_expr_index)
-        end if
-
-        ! Process body statements
-        if (allocated(node%body_indices)) then
-            do i = 1, size(node%body_indices)
-                typ = ctx%infer(arena, node%body_indices(i))
-            end do
-        end if
-
-        ! Exit scope
-        call ctx%scopes%leave_scope()
-
-        ! Forall constructs don't have a type
-        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
-    end function infer_forall_node
-
-    ! Infer type of select case node
-    function infer_select_case_node(ctx, arena, node) result(typ)
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        type(select_case_node), intent(in) :: node
-        type(mono_type_t) :: typ
-        type(mono_type_t) :: selector_type
-        integer :: i
-
-        ! Process selector expression
-        if (node%selector_index > 0) then
-            selector_type = ctx%infer(arena, node%selector_index)
-        end if
-
-        ! Process case blocks
-        if (allocated(node%case_indices)) then
-            do i = 1, size(node%case_indices)
-                typ = ctx%infer(arena, node%case_indices(i))
-            end do
-        end if
-
-        ! Process default case if present
-        if (node%default_index > 0) then
-            typ = ctx%infer(arena, node%default_index)
-        end if
-
-        ! Select case constructs don't have a type
-        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
-    end function infer_select_case_node
-
-    ! Infer type of associate node
-    function infer_associate_node(ctx, arena, node) result(typ)
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        type(associate_node), intent(in) :: node
-        type(mono_type_t) :: typ
-        type(mono_type_t) :: assoc_type
-        type(poly_type_t) :: assoc_scheme
-        integer :: i
-
-        ! Enter new scope for associate variables
-        call ctx%scopes%enter_block()
-
-        ! Process associations
-        if (allocated(node%associations)) then
-            do i = 1, size(node%associations)
-                ! Infer type of association expression
-                if (node%associations(i)%expr_index > 0) then
-                    assoc_type = ctx%infer(arena, node%associations(i)%expr_index)
-                    assoc_scheme = create_poly_type(forall_vars=[type_var_t::], mono=assoc_type)
-                    ! Add association name to scope
-                    if (allocated(node%associations(i)%name)) then
-                        call ctx%scopes%define(node%associations(i)%name, assoc_scheme)
-                    end if
-                end if
-            end do
-        end if
-
-        ! Process body statements
-        if (allocated(node%body_indices)) then
-            do i = 1, size(node%body_indices)
-                typ = ctx%infer(arena, node%body_indices(i))
-            end do
-        end if
-
-        ! Exit scope
-        call ctx%scopes%leave_scope()
-
-        ! Associate constructs don't have a type
-        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
-    end function infer_associate_node
-
-    ! Infer type of stop node
-    function infer_stop_node(ctx, arena, node) result(typ)
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(inout) :: arena
-        type(stop_node), intent(in) :: node
-        type(mono_type_t) :: typ
-        type(mono_type_t) :: code_type
-
-        ! Process stop code expression if present
-        if (node%stop_code_index > 0) then
-            code_type = ctx%infer(arena, node%stop_code_index)
-        end if
-
-        ! Stop statements don't have a type
-        typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
-    end function infer_stop_node
-
-    ! Check if program has implicit none statement
-    function has_implicit_none_in_program(arena, prog) result(has_implicit)
-        type(ast_arena_t), intent(in) :: arena
-        type(program_node), intent(in) :: prog
-        logical :: has_implicit
-        integer :: i
-
-        has_implicit = .false.
-        
-        ! Scan through program body for implicit none statement
-        if (allocated(prog%body_indices)) then
-            do i = 1, size(prog%body_indices)
-                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
-                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
-                        select type (stmt => arena%entries(prog%body_indices(i))%node)
-                        type is (declaration_node)
-                            ! Check if it's an implicit none declaration
-                            if (allocated(stmt%type_name)) then
-                                if (index(stmt%type_name, "implicit") > 0) then
-                                    has_implicit = .true.
-                                    return
-                                end if
-                            end if
-                        end select
-                    end if
-                end if
-            end do
-        end if
-    end function has_implicit_none_in_program
 
 end module semantic_analyzer
