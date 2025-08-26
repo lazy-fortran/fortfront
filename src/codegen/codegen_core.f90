@@ -4,6 +4,7 @@ module codegen_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
     use ast_nodes_control, only: associate_node
     use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, derived_type_node
+    use ast_nodes_io, only: write_statement_node, read_statement_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -65,6 +66,10 @@ contains
             code = generate_code_subroutine_def(arena, node, node_index)
         type is (print_statement_node)
             code = generate_code_print_statement(arena, node, node_index)
+        type is (write_statement_node)
+            code = generate_code_write_statement(arena, node, node_index)
+        type is (read_statement_node)
+            code = generate_code_read_statement(arena, node, node_index)
         type is (declaration_node)
             code = generate_code_declaration(arena, node, node_index)
         type is (parameter_declaration_node)
@@ -1023,6 +1028,76 @@ contains
             end do
         end if
     end function generate_code_print_statement
+
+    ! Generate code for write statement
+    function generate_code_write_statement(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(write_statement_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: arg_code
+        integer :: i
+
+        ! Start write statement with unit and format
+        code = "write("//node%unit_spec
+        
+        ! Add format specifier if present
+        if (allocated(node%format_spec) .and. len_trim(node%format_spec) > 0) then
+            code = code//", "//node%format_spec
+        else
+            code = code//", *"  ! Default list-directed format
+        end if
+        
+        code = code//")"
+
+        ! Generate arguments to write
+        if (allocated(node%arg_indices) .and. size(node%arg_indices) > 0) then
+            code = code//" "
+            do i = 1, size(node%arg_indices)
+                if (i > 1) code = code//", "
+                if (node%arg_indices(i) > 0 .and. &
+                    node%arg_indices(i) <= arena%size) then
+                    arg_code = generate_code_from_arena(arena, node%arg_indices(i))
+                    code = code//arg_code
+                end if
+            end do
+        end if
+    end function generate_code_write_statement
+
+    ! Generate code for read statement  
+    function generate_code_read_statement(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(read_statement_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: var_code
+        integer :: i
+
+        ! Start read statement with unit and format
+        code = "read("//node%unit_spec
+        
+        ! Add format specifier if present
+        if (allocated(node%format_spec) .and. len_trim(node%format_spec) > 0) then
+            code = code//", "//node%format_spec
+        else
+            code = code//", *"  ! Default list-directed format
+        end if
+        
+        code = code//")"
+
+        ! Generate variables to read into
+        if (allocated(node%var_indices) .and. size(node%var_indices) > 0) then
+            code = code//" "
+            do i = 1, size(node%var_indices)
+                if (i > 1) code = code//", "
+                if (node%var_indices(i) > 0 .and. &
+                    node%var_indices(i) <= arena%size) then
+                    var_code = generate_code_from_arena(arena, node%var_indices(i))
+                    code = code//var_code
+                end if
+            end do
+        end if
+    end function generate_code_read_statement
     
     ! Generate code for STOP statement
     function generate_code_stop(arena, node, node_index) result(code)
