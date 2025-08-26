@@ -1,13 +1,13 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
 
 ### HIGH PRIORITY - Core Parser Gaps
-- [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
 - [ ] #495: Semantic analysis: Undefined variables not detected in expressions (type system gap)
 - [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
 
