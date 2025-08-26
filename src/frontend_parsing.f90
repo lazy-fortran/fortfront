@@ -151,7 +151,9 @@ contains
             if (tokens(i)%kind == TK_KEYWORD) then
                 if (tokens(i)%text == "module" .and. i + 1 <= size(tokens)) then
                     ! Make sure not "end module"
-                    if (i == 1 .or. (tokens(i-1)%kind /= TK_KEYWORD .or. tokens(i-1)%text /= "end")) then
+                    if (i == 1) then
+                        module_depth = module_depth + 1
+                    else if (tokens(i-1)%kind /= TK_KEYWORD .or. tokens(i-1)%text /= "end") then
                         module_depth = module_depth + 1
                     end if
                 else if (tokens(i)%text == "end" .and. i + 1 <= size(tokens)) then
