@@ -20,7 +20,8 @@
 - [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
 
 ### EPIC: Code Quality & Size Constraints
-- [ ] #547: architectural violation: 12 files exceed 1000-line limit, violating size constraints
+- [ ] #555: improve: clarify temp_type variable usage in semantic analyzer helpers
+- [ ] #547: architectural violation: 12 files exceed 1000-line limit, violating size constraints  
 - [ ] #535: refactor: parser_expressions.f90 exceeds 1000 line limit (1162 lines)
 - [ ] #536: refactor: parser_declarations.f90 exceeds 1000 line limit (1460 lines)
 - [ ] #533: refactor: infer_type function exceeds 100 line limit (106 lines)
