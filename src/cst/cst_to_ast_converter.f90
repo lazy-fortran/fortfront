@@ -355,6 +355,7 @@ contains
             lit_node%constant_logical = logical_val
             lit_node%is_constant = .true.
             lit_node%constant_type = LITERAL_LOGICAL
+            lit_node%literal_kind = LITERAL_LOGICAL
             is_logical = .true.
         end if
     end function check_logical_literal
@@ -370,6 +371,7 @@ contains
             (trimmed_text(1:1) == "'" .and. trimmed_text(len_trim(trimmed_text):len_trim(trimmed_text)) == "'")) then
             lit_node%literal_type = "character"
             lit_node%constant_type = LITERAL_STRING
+            lit_node%literal_kind = LITERAL_STRING
             is_string = .true.
         end if
     end function check_string_literal
@@ -392,6 +394,7 @@ contains
                 lit_node%constant_real = real_val
                 lit_node%is_constant = .true.
                 lit_node%constant_type = LITERAL_REAL
+                lit_node%literal_kind = LITERAL_REAL
                 is_real = .true.
             end if
         end if
@@ -412,6 +415,7 @@ contains
             lit_node%constant_integer = int_val
             lit_node%is_constant = .true.
             lit_node%constant_type = LITERAL_INTEGER
+            lit_node%literal_kind = LITERAL_INTEGER
             is_integer = .true.
         end if
     end function check_integer_literal
@@ -434,6 +438,7 @@ contains
         ! Default to string if nothing else matches
         lit_node%literal_type = "character"
         lit_node%constant_type = LITERAL_STRING
+        lit_node%literal_kind = LITERAL_STRING
     end subroutine infer_literal_type
     
     ! Get converter statistics

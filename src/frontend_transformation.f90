@@ -83,7 +83,9 @@ contains
         if (error_msg /= "") return
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
+        print *, "DEBUG: About to call run_final_phases with prog_index=", prog_index
         call run_final_phases(compiler_arena, prog_index, output)
+        print *, "DEBUG: run_final_phases completed"
 
         ! Cleanup unified compiler arena
         call destroy_compiler_arena(compiler_arena)
@@ -302,11 +304,14 @@ contains
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(in) :: prog_index
 
+        print *, "DEBUG: run_semantic_analysis_phase called with prog_index=", prog_index
         call compiler_arena%next_phase("semantic")
         block
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
+            print *, "DEBUG: About to call analyze_program"
             call analyze_program(ctx, compiler_arena%ast, prog_index)
+            print *, "DEBUG: analyze_program completed"
         end block
     end subroutine run_semantic_analysis_phase
 
