@@ -1,6 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #556: critical: file size violation in standardizer.f90 exceeds 1000 line limit [EPIC: Architectural Constraint Compliance]
 
 ## SPRINT_BACKLOG - EMERGENCY RECOVERY SPRINT
 
@@ -30,7 +31,6 @@
 
 ### EPIC: Architectural Constraint Compliance (Issues #576, #556-560, #570)
 - [ ] #576: architectural debt: 13 files exceed 1000-line architectural constraint
-- [ ] #556: critical: file size violation in standardizer.f90 exceeds 1000 line limit
 - [ ] #557: critical: file size violation in fortfront.f90 exceeds 1000 line limit
 - [ ] #558: critical: file size violation in ast_factory.f90 exceeds 1000 line limit
 - [ ] #559: critical: file size violation in parser_control_flow.f90 exceeds 1000 line limit
