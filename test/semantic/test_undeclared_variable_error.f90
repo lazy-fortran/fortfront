@@ -2,7 +2,8 @@ program test_undeclared_variable_error
     use frontend
     use ast_core
     use lexer_core, only: token_t
-    use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program
+    use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program, &
+                                 has_semantic_errors
     implicit none
 
     logical :: all_passed
@@ -51,10 +52,13 @@ contains
         sem_ctx = create_semantic_context()
         call analyze_program(sem_ctx, arena, prog_index)
         
-        ! For now, we don't have error reporting in semantic analysis
-        ! Just check that it doesn't crash
-        print *, "  INFO: Semantic analysis completed (error detection not yet implemented)"
-        print *, "  PASS: Test completed without crash"
+        ! Check that undefined variable was detected
+        if (has_semantic_errors(sem_ctx)) then
+            print *, "  PASS: Undefined variable detected as expected"
+        else
+            print *, "  FAIL: Undefined variable not detected"
+            test_undeclared_in_implicit_none = .false.
+        end if
         
     end function test_undeclared_in_implicit_none
 
@@ -83,7 +87,13 @@ contains
         sem_ctx = create_semantic_context()
         call analyze_program(sem_ctx, arena, prog_index)
         
-        print *, "  PASS: Declared variable handled correctly"
+        ! Check that no errors were reported for declared variable
+        if (.not. has_semantic_errors(sem_ctx)) then
+            print *, "  PASS: Declared variable handled correctly (no errors)"
+        else
+            print *, "  FAIL: Declared variable incorrectly flagged as error"
+            test_declared_variable_ok = .false.
+        end if
         
     end function test_declared_variable_ok
 
@@ -112,8 +122,13 @@ contains
         sem_ctx = create_semantic_context()
         call analyze_program(sem_ctx, arena, prog_index)
         
-        print *, "  INFO: Semantic analysis completed (error detection not yet implemented)"
-        print *, "  PASS: Test completed without crash"
+        ! Check that undefined variable in expression was detected
+        if (has_semantic_errors(sem_ctx)) then
+            print *, "  PASS: Undefined variable in expression detected as expected"
+        else
+            print *, "  FAIL: Undefined variable in expression not detected"
+            test_undeclared_in_expression = .false.
+        end if
         
     end function test_undeclared_in_expression
 

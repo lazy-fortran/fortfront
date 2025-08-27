@@ -17,9 +17,12 @@ module semantic_analyzer
     use ast_nodes_procedure, only: subroutine_call_node
     use ast_nodes_control, only: do_loop_node, if_node, do_while_node, &
                                   where_node, where_stmt_node, forall_node, &
-                                  select_case_node, associate_node, stop_node
-    use ast_nodes_data, only: declaration_node, module_node
-    use ast_nodes_bounds, only: array_slice_node
+                                  select_case_node, case_block_node, &
+                                  associate_node, association_t, cycle_node, exit_node, &
+                                  stop_node, return_node, elsewhere_clause_t
+    use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
+    use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
+                                range_expression_node, get_array_slice_node
     use parameter_tracker
     use expression_temporary_tracker_module
     use constant_folding, only: fold_constants_in_arena
@@ -233,6 +236,18 @@ contains
 
         type is (stop_node)
             typ = infer_stop_helper(this, arena, expr)
+
+        type is (cycle_node)
+            ! Control flow statements don't have a type
+            typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
+
+        type is (exit_node)
+            ! Control flow statements don't have a type
+            typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
+
+        type is (return_node)
+            ! Return statements don't have a type
+            typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
 
         class default
             ! Return real type as default for unsupported expressions
