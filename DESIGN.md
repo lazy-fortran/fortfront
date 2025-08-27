@@ -1,63 +1,54 @@
 # fortfront Architecture Design
 
-## 🚨 EMERGENCY CRISIS INTERVENTION SPRINT: Complete Development Halt
+## 🎯 MINIMAL FUNCTIONALITY RESTORATION SPRINT
 
-**CATASTROPHIC SYSTEM FAILURE**: Emergency recovery sprint achieved 0% completion - total development halt required  
-**Crisis State**: 24 CRITICAL defects from PLAY audit, 47 open GitHub issues, foundation blocked for 3+ sprints  
-**Intervention Objective**: Foundation-first crisis intervention to restore system from complete collapse  
-**Critical Success Gates**:  
-- **FOUNDATION**: class(*) eliminated (Issue #442 - blocking arena work for 3+ sprints)
-- **STABILITY**: Test suite restored to <5 failures (from 150+ with exit code 13)
-- **ARCHITECTURE**: ALL 9 files under 1000-line limit (currently violating constraints)
-- **FUNCTIONALITY**: Codegen produces working Fortran (not TODO placeholders)
-- **ERROR HANDLING**: Complete elimination of ERROR_STOP usage
-- **INTEGRATION**: FPM validated with working external tool example
+**Sprint Focus**: Restore basic parse→generate→compile pipeline functionality ONLY  
+**Sprint Philosophy**: Fix only what blocks basic functionality - defer all other issues  
+**Sprint Goal**: Get "Hello World" and basic assignments working end-to-end  
 
-**🚨 EMERGENCY CRISIS INTERVENTION PROTOCOL** (Foundation-First Recovery):
+**Definition of Done**:
+- System produces valid Fortran output for basic programs (print statements, assignments)
+- Codegen circular dependency resolved (Issue #561)
+- Basic statement generation working (no TODO placeholders for core statements)
 
-### FOUNDATION PHASE (Week 1): Architecture Crisis Resolution
-**ABSOLUTE PRIORITY**: Issue #442 class(*) elimination - blocking ALL arena/CST work for 3+ sprints
-- **Complete class(*) Removal**: Eliminate vtable linking issues in 30+ files
-- **Container Architecture**: Replace abstract interfaces with type-safe containers
-- **Arena Foundation**: Unblock arena development blocked since Issue #369 
-- **FPM Validation**: Test external tool integration with working example
-- **Acceptance**: Zero class(*) usage, arena development unblocked, FPM validated
+**🎯 MINIMAL IMPLEMENTATION PLAN**:
 
-### STABILITY PHASE (Week 2): Test Infrastructure Recovery  
-**CRITICAL**: Restore test suite from complete collapse (150+ failures → <5)
-- **ERROR_STOP Elimination**: Replace all ERROR_STOP with result_t pattern in 17+ files
-- **Test Execution Fix**: Resolve hangs and resource exhaustion in test runner
-- **Error Handling Migration**: Complete library-safe error handling throughout codebase
-- **Test Framework Repair**: Fix exit code 13 crashes blocking all validation
-- **Acceptance**: Test suite functional, <5 failures, no ERROR_STOP usage
+### Phase 1: Fix Circular Dependency (Issue #561)
+**Problem**: codegen_utilities has stub generate_code_from_arena that returns empty for most nodes
+**Solution**: 
+- Remove the stub from codegen_utilities
+- Create proper forward interface declaration
+- Ensure codegen_core is the single dispatcher
 
-### ARCHITECTURE PHASE (Week 3): Size Constraint Emergency Compliance
-**URGENT**: 9 files violate 1000-line limits (INCREASED from previous sprint)
-- **fortfront.f90 (2,330 lines)**: Split into core + pipeline + integration modules  
-- **ast_factory.f90 (1,805 lines)**: Split into factory + builders + validators
-- **parser_control_flow.f90 (1,733 lines)**: Split into if/do/select specialized modules
-- **7 Additional Files**: Complete splitting of remaining oversized modules
-- **Acceptance**: ALL files under 1000 lines, modular architecture restored
+### Phase 2: Restore Print Statements (Issue #600)  
+**Problem**: print_statement_node generates code but it's not appearing in output
+**Solution**:
+- Fix generate_code_print_statement to produce actual print statement 
+- Ensure print statements are properly indented in program body
+- Test with simple "Hello World" program
 
-### FUNCTIONALITY PHASE (Week 4): Codegen System Restoration
-**RESTORE BASIC OPERATION**: System currently generates NO working Fortran code
-- **TODO Placeholder Elimination**: Replace all placeholder functions with working implementations
-- **Codegen Pipeline Repair**: Fix complete system failure in code generation
-- **Circular Dependency Resolution**: Fix duplicate stubs and module conflicts
-- **Output Validation**: Ensure generated Fortran compiles with standard gfortran
-- **Acceptance**: System produces working Fortran programs, not placeholders
+### Phase 3: Restore Assignments (Issue #608)
+**Problem**: assignment_node generates code but assignments missing from output
+**Solution**:
+- Fix generate_code_assignment to produce actual assignment statement
+- Ensure assignments properly formatted with spaces around =
+- Test with simple integer and real assignments
 
-### Crisis Intervention Quality Gates (All Must Pass)
-1. **FOUNDATION GATE**: class(*) completely eliminated, arena development unblocked
-2. **STABILITY GATE**: Test suite functional with <5 failures (from 150+)
-3. **ARCHITECTURE GATE**: ALL files under size constraints, zero violations
-4. **FUNCTIONALITY GATE**: Codegen produces working Fortran, not TODO placeholders  
-5. **ERROR HANDLING GATE**: Zero ERROR_STOP usage, complete result_t migration
-6. **INTEGRATION GATE**: FPM validated with working external tool example
-7. **SMOKE TEST GATE**: Basic "hello world" works end-to-end
-8. **BUILD GATE**: System produces working binary and passes full pipeline
+### Quality Gate
+**Simple Test**: The following program MUST work:
+```fortran
+! Input
+print *, "Hello World"
+integer :: x = 42
+print *, x
 
-**FAILURE CONSEQUENCES**: Any gate failure triggers immediate sprint restart with reduced scope
+! Expected Output  
+program main
+    print *, "Hello World"
+    integer :: x = 42
+    print *, x
+end program main
+```
 
 **🚨 EMERGENCY SYSTEM FAILURE ANALYSIS**
 

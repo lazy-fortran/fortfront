@@ -2,18 +2,23 @@
 
 ## DOING (Current Work)
 
-## SPRINT_BACKLOG - EMERGENCY CRISIS INTERVENTION SPRINT
+## SPRINT_BACKLOG - MINIMAL FUNCTIONALITY RESTORATION
 
-**🚨 CATASTROPHIC SYSTEM FAILURE**: Complete development halt required - emergency recovery sprint FAILED with 0% completion  
-**Crisis State**: 24 CRITICAL defects, 47 open issues, system completely non-functional  
-**Sprint Goal**: Foundation-first crisis intervention to restore system from total collapse  
+**Sprint Goal**: Restore basic parse→generate→compile pipeline functionality  
 **Definition of Done**: 
-- class(*) eliminated from all foundation code (Issue #442 - 3+ sprints blocking)
-- Test suite functional (reduce 150+ failures to <5)
-- ALL files under architectural limits (9 files currently violate 1000-line constraint) 
-- Codegen produces actual Fortran code (not TODO placeholders)
-- Error handling uses result_t pattern (eliminate all ERROR_STOP)
-- Foundation ready for arena development
+- System produces valid Fortran output for basic programs (print statements, assignments)
+- Codegen circular dependency resolved
+- Basic statement generation working (no TODO placeholders for core statements)
+
+### EPIC: Core Codegen Fix (3 Critical Issues Only)
+- [ ] #561: critical: duplicate generate_code_from_arena stubs causing circular dependency issues
+- [ ] #600: bug: critical code generation failure - print statements completely missing from output
+- [ ] #608: bug: documentation example failure - assignment statements missing from code generation
+
+### EPIC: Sprint Documentation
+- [ ] #613: docs: consolidate minimal functionality sprint fixes
+
+## DEFERRED TO FUTURE SPRINTS
 
 ### FOUNDATION PHASE: CRITICAL ARCHITECTURE BLOCKERS
 
@@ -49,17 +54,15 @@
 - [ ] #599: refactor: split remaining size violation modules
 - [ ] #605: bug: critical size constraint violations - 9 files exceed 1000 line architectural limit
 
-### FUNCTIONALITY PHASE: CODEGEN SYSTEM RESTORATION
+### FUNCTIONALITY PHASE: DEFERRED CODEGEN ISSUES
 
-### EPIC: Codegen Complete Failure Recovery (Issues #579, #600-603, #606)
+### EPIC: Codegen Complete Failure Recovery (Issues #579, #601-603, #606)
 **System generates NO working Fortran - only TODO placeholders**
 - [ ] #579: emergency: complete codegen system failure - all output contains TODO placeholders
-- [ ] #600: bug: critical code generation failure - print statements completely missing from output
 - [ ] #601: bug: critical code generation failure - all statements missing from program body
 - [ ] #602: bug: critical code generation failure - subroutines completely mangled and empty
 - [ ] #603: bug: code generation failure - module variable declarations missing
 - [ ] #606: bug: critical TODO placeholders still present throughout codegen system
-- [ ] #561: critical: duplicate generate_code_from_arena stubs causing circular dependency issues
 - [ ] #583: refactor: resolve circular dependency between codegen_core and specialized modules
 - [ ] #584: fix: implement proper code generation for complex nodes in codegen stub
 
@@ -72,7 +75,6 @@
 - [ ] #569: bug: no semantic error for undeclared variables in I/O statements
 - [ ] #585: bug: implicit none statements not preserved in program AST body
 - [ ] #607: bug: architectural violation - error_stop usage still present in 17 files
-- [ ] #608: bug: documentation example failure - assignment statements missing from code generation
 - [ ] #609: bug: character string example failure - incomplete type declarations and missing assignments
 
 ### EPIC: System Integrity & Foundation Issues (Issues #610-612, #578)
@@ -89,7 +91,7 @@
 ### EPIC: Crisis Documentation (Issue #581)
 - [ ] #581: docs: consolidate emergency recovery sprint documentation and crisis lessons learned
 
-## POST-RECOVERY WORK (After Emergency Sprint)
+## POST-RECOVERY WORK (After Minimal Functionality)
 
 ### EPIC: Size Constraint Compliance (Deferred)
 - [ ] #555: improve: clarify temp_type variable usage in semantic analyzer helpers
