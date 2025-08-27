@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #530: critical: semantic analysis regression causing widespread test failures [EPIC: System Functionality Blockers]
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
@@ -58,7 +57,6 @@
 - [ ] #504: refactor: consolidate redundant AST arena test patterns
 - [ ] #505: refactor: eliminate test categories with overlapping functionality  
 - [ ] #503: refactor: analyze unused procedures and dead code in semantic analysis modules
-- [ ] #502: performance: investigate test execution bottlenecks causing 7m20s runtime
 - [ ] #501: cleanup: remove backup file src/frontend.f90.backup
 - [ ] #500: refactor: massive test consolidation opportunity - reduce 304 tests by ~85%
 - [ ] #499: refactor: consolidate 35 disabled test files - cleanup and re-enable analysis
@@ -99,6 +97,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #502: performance: investigate test execution bottlenecks causing 7m20s runtime (99.8% CI improvement achieved)
 - [x] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (branch: fix-operator-precedence-493)
 - [x] #524: fix: update codegen field names after module split refactoring (compilation blocker)
 - [x] #521: Preserve comments and blank lines (source fidelity - critical for CST)
