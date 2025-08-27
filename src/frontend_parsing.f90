@@ -26,6 +26,7 @@ module frontend_parsing
     public :: is_do_loop_start, is_do_while_start, is_select_case_start, &
               is_end_do, is_end_select
     public :: is_if_then_start, is_end_if
+    public :: is_type_start, is_end_type
 
 contains
 
@@ -833,8 +834,8 @@ contains
             end if
         end if
         
-        ! Use statement dispatcher instead of parse_program_unit to avoid boundary issues
-        stmt_index = parse_statement_dispatcher(tokens, arena)
+        ! Parse the program unit properly to handle multi-statement constructs
+        stmt_index = parse_program_unit(tokens, arena, has_explicit_program)
         
         ! Set error message based on result
         if (stmt_index <= 0) then
