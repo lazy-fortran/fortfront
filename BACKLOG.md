@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #600: bug: critical code generation failure - print statements completely missing from output [EPIC: Core Codegen Fix]
+- [ ] #583: refactor: resolve circular dependency between codegen_core and specialized modules [EPIC: Core Codegen Fix] [CRITICAL - Single blocker for all codegen issues]
 
 ## SPRINT_BACKLOG - MINIMAL FUNCTIONALITY RESTORATION
 
@@ -11,7 +11,8 @@
 - Codegen circular dependency resolved
 - Basic statement generation working (no TODO placeholders for core statements)
 
-### EPIC: Core Codegen Fix (2 Remaining Critical Issues)
+### EPIC: Core Codegen Fix (Remaining Issues - Blocked by #583)
+- [ ] #600: bug: critical code generation failure - print statements completely missing from output [PARSER FIXED - Codegen circular dependency remains]
 - [ ] #608: bug: documentation example failure - assignment statements missing from code generation
 
 ### EPIC: Sprint Documentation
