@@ -1,14 +1,13 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
+- [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
 
 ### HIGH PRIORITY - Core Parser Gaps
-- [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
 - [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
 
 ### MEDIUM PRIORITY - Enhancements  
