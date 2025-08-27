@@ -53,10 +53,12 @@
 - [ ] #568: bug: no semantic error for duplicate variable declarations
 - [ ] #569: bug: no semantic error for undeclared variables in I/O statements
 
-### EPIC: Foundation Architecture Issues (Issues #546, #578, #550)
+### EPIC: Foundation Architecture Issues (Issues #546, #578, #550, #583, #584)
 - [ ] #546: architectural drift: class(*) vtable linking issue #442 not resolved - blocking arena work
 - [ ] #578: system integrity: foundation requirements vs implementation reality gap
 - [ ] #550: design misalignment: FPM-first architecture not validated - external tool integration untested
+- [ ] #583: refactor: resolve circular dependency between codegen_core and specialized modules
+- [ ] #584: fix: implement proper code generation for complex nodes in codegen stub
 
 ### EPIC: Code Quality Issues (Issues #549, #562)
 - [ ] #549: performance debt: test suite still has massive duplication - 230 tests despite consolidation claims
