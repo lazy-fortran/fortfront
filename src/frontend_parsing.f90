@@ -833,8 +833,8 @@ contains
             end if
         end if
         
-        ! Use existing program unit parser (this is a function, not subroutine)
-        stmt_index = parse_program_unit(tokens, arena, has_explicit_program)
+        ! Use statement dispatcher instead of parse_program_unit to avoid boundary issues
+        stmt_index = parse_statement_dispatcher(tokens, arena)
         
         ! Set error message based on result
         if (stmt_index <= 0) then
