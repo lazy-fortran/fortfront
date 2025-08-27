@@ -54,7 +54,9 @@ module ast_core
                                    get_procedure_return_type
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
                                module_node, derived_type_node, &
-                               create_declaration, create_derived_type
+                               mixed_construct_container_node, &
+                               create_declaration, create_derived_type, &
+                               create_mixed_construct_container
     use ast_nodes_io, only: print_statement_node, write_statement_node, &
                              read_statement_node, format_descriptor_node, &
                              create_print_statement
@@ -92,7 +94,7 @@ module ast_core
               goto_node, error_stop_node
     public :: function_def_node, subroutine_def_node, subroutine_call_node
     public :: declaration_node, parameter_declaration_node, module_node, &
-              derived_type_node
+              derived_type_node, mixed_construct_container_node
     public :: print_statement_node, write_statement_node, &
               read_statement_node, format_descriptor_node
     public :: complex_literal_node, allocate_statement_node, &
@@ -111,7 +113,8 @@ module ast_core
               create_function_def, create_subroutine_def, &
               create_print_statement, create_declaration, create_do_loop, &
               create_do_while, create_if, &
-              create_select_case, create_derived_type
+              create_select_case, create_derived_type, &
+              create_mixed_construct_container
     ! Procedure helper functions for consistent interface
     public :: is_procedure_node, get_procedure_name, get_procedure_params, &
               get_procedure_body, procedure_has_return_type, get_procedure_return_type
