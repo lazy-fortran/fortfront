@@ -5,7 +5,8 @@ module codegen_core
     use codegen_statements  
     use codegen_control_flow
     use codegen_declarations
-    use codegen_utilities
+    use codegen_utilities, only: set_type_standardization, get_type_standardization, &
+        add_line_continuations
     implicit none
     private
 

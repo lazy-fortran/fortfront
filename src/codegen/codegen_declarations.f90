@@ -8,7 +8,7 @@ module codegen_declarations
     use codegen_utilities, only: parameter_info_t, int_to_string, &
         generate_grouped_body, generate_grouped_body_with_params, &
         generate_grouped_body_context, get_type_standardization, &
-        find_parameter_info
+        find_parameter_info, generate_code_from_arena
     implicit none
     private
 
@@ -20,17 +20,7 @@ module codegen_declarations
     public :: generate_code_derived_type
     public :: generate_code_program
 
-    ! Stub implementation provided below to break circular dependencies
-
 contains
-
-    ! Simple stub implementation to break circular dependency
-    function generate_code_from_arena(arena, node_index) result(code)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(len=:), allocatable :: code
-        code = "! TODO: implement proper codegen call"
-    end function generate_code_from_arena
 
     ! Generate code for function definitions
     function generate_code_function_def(arena, node, node_index) result(code)
