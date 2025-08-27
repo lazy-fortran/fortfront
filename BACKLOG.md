@@ -1,10 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #524: fix: update codegen field names after module split refactoring (compilation blocker)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
-### CRITICAL - System Functionality Blockers
+### CRITICAL - System Functionality Blockers  
 - [ ] #521: Preserve comments and blank lines (source fidelity - critical for CST)
 - [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
 
