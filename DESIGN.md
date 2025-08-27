@@ -1,137 +1,141 @@
 # fortfront Architecture Design
 
-## 🎯 MINIMAL FUNCTIONALITY RESTORATION SPRINT
+## 🎯 CONTROL FLOW RESTORATION SPRINT
 
-**Sprint Focus**: Restore basic parse→generate→compile pipeline functionality ONLY  
-**Sprint Philosophy**: Fix only what blocks basic functionality - defer all other issues  
-**Sprint Goal**: Get "Hello World" and basic assignments working end-to-end  
+**Sprint Focus**: Expand on SHORT sprint success - add control flow and function support  
+**Sprint Philosophy**: Progressive expansion - build on working foundation, don't break basics  
+**Sprint Goal**: Support programs with control flow constructs (if/else, loops, functions)  
+
+**Foundation Preserved**: SHORT sprint achieved 30% functionality (print, assignments, basic programs)  
+**Target Expansion**: Add control flow and functions to reach 70% functionality coverage
 
 **Definition of Done**:
-- System produces valid Fortran output for basic programs (print statements, assignments)
-- Codegen circular dependency resolved (Issue #561)
-- Basic statement generation working (no TODO placeholders for core statements)
+- Control flow constructs generate valid Fortran code (if/then/else, do loops)
+- Function definitions and calls work correctly 
+- Multi-variable and array declarations generate correct code
+- All generated code compiles successfully
+- Debug output separated from production code generation
 
-**🎯 MINIMAL IMPLEMENTATION PLAN**:
+**🎯 CONTROL FLOW IMPLEMENTATION PLAN**:
 
-### Phase 1: Fix Circular Dependency (Issue #561)
-**Problem**: codegen_utilities has stub generate_code_from_arena that returns empty for most nodes
+### Phase 1: Control Flow Code Generation (Issues #623, #620)
+**Problem**: if/else and do loop statements generate "TODO: implement proper codegen call" placeholders
 **Solution**: 
-- Remove the stub from codegen_utilities
-- Create proper forward interface declaration
-- Ensure codegen_core is the single dispatcher
+- Implement `generate_code_if_statement` to produce proper if/then/else/end if blocks
+- Implement `generate_code_do_loop` to produce proper do/end do constructs  
+- Ensure proper indentation and nesting for control flow blocks
+- Test with nested control structures
 
-### Phase 2: Restore Print Statements (Issue #600)  
-**Problem**: print_statement_node generates code but it's not appearing in output
+### Phase 2: Function Support (Issue #622)
+**Problem**: Function definitions and calls generate TODO placeholders
 **Solution**:
-- Fix generate_code_print_statement to produce actual print statement 
-- Ensure print statements are properly indented in program body
-- Test with simple "Hello World" program
+- Implement `generate_code_function_definition` for proper function/end function blocks
+- Implement `generate_code_function_call` for function invocation syntax
+- Handle function parameters and return values correctly
+- Test with simple arithmetic functions
 
-### Phase 3: Restore Assignments (Issue #608)
-**Problem**: assignment_node generates code but assignments missing from output
+### Phase 3: Variable Declaration Fixes (Issues #618, #621)
+**Problem**: Multi-variable declarations corrupted, array declarations broken  
 **Solution**:
-- Fix generate_code_assignment to produce actual assignment statement
-- Ensure assignments properly formatted with spaces around =
-- Test with simple integer and real assignments
+- Fix `generate_code_variable_declaration` for multiple variables in single statement
+- Fix array declaration syntax and bounds handling
+- Ensure proper type name and variable name generation
+- Test with complex declaration patterns
 
 ### Quality Gate
-**Simple Test**: The following program MUST work:
+**Control Flow Test**: The following program MUST work:
 ```fortran
-! Input
-print *, "Hello World"
-integer :: x = 42
-print *, x
+! Input - Progressive complexity test
+integer :: x, y
+x = 5
+
+if (x > 3) then
+  print *, "big number"
+  do i = 1, x
+    y = i * 2
+    print *, y
+  end do
+else
+  print *, "small number"  
+end if
+
+function double(n)
+  integer :: double, n
+  double = n * 2
+end function
+
+print *, double(x)
 
 ! Expected Output  
 program main
-    print *, "Hello World"
-    integer :: x = 42
-    print *, x
+    implicit none
+    integer :: x, y, i
+    
+    x = 5
+    
+    if (x > 3) then
+        print *, "big number"
+        do i = 1, x
+            y = i * 2
+            print *, y  
+        end do
+    else
+        print *, "small number"
+    end if
+    
+    print *, double(x)
 end program main
+
+function double(n)
+    implicit none
+    integer :: double, n
+    double = n * 2
+end function double
 ```
 
-**🚨 EMERGENCY SYSTEM FAILURE ANALYSIS**
+## 📊 SPRINT TRANSITION: SHORT → CONTROL FLOW
 
-**COMPLETE SYSTEM BREAKDOWN DISCOVERED**:
-- **Codegen Non-Functional**: All output contains TODO placeholders instead of Fortran code
-- **Test Suite Collapsed**: 100+ tests failing with exit code 13 (ERROR_STOP crashes)
-- **Build Claims vs Reality**: System "builds" but produces no working functionality
-- **Sprint Goal Complete Failure**: All claimed completed work actually broken
-- **Architectural Violations INCREASED**: 13 files now exceed constraints (not decreased)
+### SHORT Sprint Results Assessment (LIMITED SUCCESS)
+**Foundation Achieved**: 30% basic functionality working
+- ✅ **Working**: Print statements, assignments, simple variable declarations  
+- ✅ **Stable**: No crashes, basic pipeline functional
+- ✅ **Architecture**: Circular dependency resolved (#583)
 
-**ROOT CAUSES IDENTIFIED**:
-1. **Placeholder Implementation**: Core codegen functions replaced with TODO stubs
-2. **ERROR_STOP Usage**: Library code uses error_stop causing test crashes
-3. **Size Constraint Violations**: Critical modules exceed 1000-line limits breaking maintainability
-4. **Foundation Issues**: class(*) vtable problems (Issue #442) still unresolved
-5. **Integration Gaps**: FPM-first architecture never validated for external tools
+**Identified Gaps**: 70% advanced functionality broken
+- ❌ **Control Flow**: if/else, do loops generate TODO placeholders
+- ❌ **Functions**: Definitions and calls generate TODO placeholders  
+- ❌ **Complex Declarations**: Multi-variable and arrays corrupted
+- ❌ **Code Quality**: Debug output contaminating production code
 
-**CRITICAL FOUNDATION ISSUE (Issue #442)**
-- **STILL BLOCKING**: class(*) usage causes vtable linking failures after multiple "completed" sprints
-- **30+ Files Affected**: AST nodes, semantic pipeline, arena storage all use problematic class(*)
-- **Solution Required**: Complete elimination of class(*) before any arena/CST work
-- **Priority**: Issue #442 MUST be resolved before Issues #369, #370, CST/AST split, etc.
+### Progressive Expansion Strategy
+**Foundation-First Approach**: Build on working 30%, expand incrementally
+- **Phase 1**: Control flow constructs (if/else, loops)
+- **Phase 2**: Function definitions and calls
+- **Phase 3**: Complex variable declarations
+- **Quality**: Clean debug output separation
 
-## 🚨 EMERGENCY CRISIS INTERVENTION LESSONS LEARNED
+**Risk Mitigation**: Preserve working basic functionality during expansion
 
-### Complete Sprint Failure Analysis
-**EMERGENCY RECOVERY SPRINT ACHIEVED 0% OF OBJECTIVES** - Total system collapse discovered:
+## 📋 CONTROL FLOW SPRINT ROADMAP
 
-#### Critical Discovery: System Non-Functional
-1. **Codegen Complete Failure**: ALL output contains TODO placeholders - no actual Fortran generated
-2. **Test Suite Collapse**: 150+ tests failing with exit code 13 (ERROR_STOP crashes) 
-3. **Architecture Violations INCREASED**: 9 files now exceed 1000-line limits (was 7 before sprint)
-4. **Foundation Still Blocked**: class(*) issues (Issue #442) unresolved for 3+ sprints despite "completion"
-5. **Build System Deception**: Claims "success" while producing completely non-functional system
+### Implementation Priority Order
+1. **Control Flow Constructs** (Issues #623, #620) - Core programming constructs
+2. **Function Support** (Issue #622) - Essential for modular programming  
+3. **Variable Declarations** (Issues #618, #621) - Data structure foundation
+4. **Code Quality** (Issue #619) - Clean production output
+5. **Documentation** (Issue #613) - Sprint consolidation
 
-#### Root Cause: Foundation-First Architecture Ignored  
-**CRITICAL MISTAKE**: Attempted feature work while foundation remained broken
-- **Issue #442 (class(*))**: Blocking arena development for 3+ sprints, never actually resolved
-- **ERROR_STOP Usage**: Violates library integration, causes test crashes
-- **Size Constraint Drift**: Files growing larger, not smaller, despite refactoring claims
-- **TODO Placeholder Pattern**: Core functionality replaced with stubs, system non-functional
+### Success Metrics
+- **Functionality Coverage**: Expand from 30% to 70% working features
+- **Code Generation Quality**: Zero TODO placeholders in target constructs
+- **Compilation Success**: All generated code must compile with gfortran
+- **Progressive Testing**: Complex programs with mixed constructs work correctly
+- **Foundation Preservation**: Keep basic functionality (print, assignments) working
 
-### Crisis Intervention Protocol (Foundation-First Recovery)
-
-#### Phase-Gate Recovery Strategy
-**MANDATORY SEQUENCE** - Each phase MUST complete before next begins:
-1. **FOUNDATION PHASE**: class(*) elimination, FPM validation - BLOCKS ALL OTHER WORK
-2. **STABILITY PHASE**: Test suite recovery, ERROR_STOP elimination  
-3. **ARCHITECTURE PHASE**: Size constraint emergency compliance
-4. **FUNCTIONALITY PHASE**: Codegen system restoration
-
-#### New Crisis Prevention Rules
-1. **FOUNDATION-FIRST MANDATE**: Zero feature work until foundation stable
-2. **ABSOLUTE VERIFICATION**: Full test suite + end-to-end validation before any completion claim
-3. **SIZE CONSTRAINT ENFORCEMENT**: Automated checks, zero exceptions allowed
-4. **PLACEHOLDER PROHIBITION**: Never commit TODO stubs in production paths
-5. **ERROR HANDLING COMPLIANCE**: result_t pattern mandatory throughout codebase
-6. **EXTERNAL VALIDATION**: FPM integration tested with actual external tool
-
-#### Crisis Recovery Quality Gates
-**ALL GATES MUST PASS** - Any failure triggers sprint restart:
-- Foundation ready (class(*) eliminated, arena unblocked)
-- Test suite functional (<5 failures from 150+)  
-- Architecture compliant (ALL files under limits)
-- Functionality restored (working Fortran generation)
-- Error handling complete (zero ERROR_STOP)
-- Integration validated (FPM + external tool working)
-
-### Future Crisis Prevention
-
-#### Foundation Architecture Principles
-1. **class(*) PROHIBITION**: Never use abstract class(*) - use concrete containers  
-2. **Arena-First Design**: All memory management through type-safe arenas
-3. **Size Discipline**: Automated enforcement of 1000-line/100-line limits
-4. **Error Safety**: result_t pattern for all library interfaces
-5. **FMP-First Integration**: Validate external tool patterns continuously
-
-#### Development Workflow Changes
-1. **Foundation Gate**: Cannot start any feature work until foundation stable
-2. **Continuous Validation**: Full test suite must pass after every commit
-3. **Architecture Enforcement**: Automated size and dependency checking
-4. **Integration Testing**: External tool examples required for all API changes
-5. **No Shortcut Culture**: Proper implementation required, no TODO shortcuts allowed
+### Risk Assessment
+- **Low Risk**: Control flow and functions are isolated codegen additions
+- **Medium Risk**: Variable declaration fixes might affect existing working patterns
+- **Mitigation**: Test basic functionality after each implementation phase
 
 **FPM-FIRST ARCHITECTURE**
 - **Dependency Management**: FPM automatically handles all tool dependencies via fpm.toml

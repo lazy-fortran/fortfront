@@ -2,19 +2,35 @@
 
 ## DOING (Current Work)
 
-## SPRINT_BACKLOG - MINIMAL FUNCTIONALITY RESTORATION
+## SPRINT_BACKLOG - CONTROL FLOW RESTORATION
 
-**Sprint Goal**: Restore basic parse→generate→compile pipeline functionality  
+**Sprint Goal**: Expand working functionality to include control flow constructs  
 **Definition of Done**: 
-- ✅ System produces valid Fortran output for basic programs (print statements, assignments)
-- ✅ Codegen circular dependency resolved
-- ✅ Basic statement generation working (no TODO placeholders for core statements)
+- Basic control flow works: if/then/else, do loops generate valid Fortran (not TODO placeholders)
+- Function definitions and calls generate valid Fortran code
+- Multi-variable declarations work correctly  
+- All generated code compiles without syntax errors
+- System supports programs with mixed basic + control flow constructs
 
-**SHORT SPRINT STATUS**: COMPLETED ✅  
-All critical codegen issues resolved by PR #617 architecture fix.
+**Sprint Strategy**: Progressive expansion - build on SHORT sprint's 30% success  
+**Foundation**: Keep working basic functionality (print, assignments) intact
+
+### EPIC: Control Flow Code Generation
+- [ ] #623: bug: if/else statements generate TODO placeholders instead of code
+- [ ] #620: bug: do loop statements generate TODO placeholders instead of code
+
+### EPIC: Function Support Restoration  
+- [ ] #622: bug: function definitions generate TODO placeholders instead of code
+
+### EPIC: Variable Declaration Fixes
+- [ ] #618: bug: multi-variable declarations corrupted in code generation
+- [ ] #621: bug: array declarations completely corrupted in code generation
+
+### EPIC: Code Quality Fixes
+- [ ] #619: bug: debug output contaminating generated code output
 
 ### EPIC: Sprint Documentation
-- [ ] #613: docs: consolidate minimal functionality sprint fixes
+- [ ] #613: docs: consolidate control flow restoration sprint fixes
 
 ## DEFERRED TO FUTURE SPRINTS
 
