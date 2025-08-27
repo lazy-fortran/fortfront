@@ -7,7 +7,7 @@ module frontend_parsing
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
-                                           get_additional_indices, clear_additional_indices
+                                        get_additional_indices, clear_additional_indices
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: comment_node
@@ -795,30 +795,53 @@ contains
         end if
     end subroutine parse_mixed_constructs
 
-    ! Parse a declaration range (stub for now)
+    ! Parse a declaration range
     subroutine parse_declaration_range(tokens, arena, stmt_index, error_msg)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
         character(len=*), intent(out) :: error_msg
         
-        ! For now, use existing parser infrastructure
-        ! This is a placeholder - would need proper declaration parsing
-        stmt_index = 0
-        error_msg = "Declaration range parsing not yet implemented"
+        ! Use the existing statement dispatcher to parse the declaration
+        stmt_index = parse_statement_dispatcher(tokens, arena)
+        
+        ! Set error message based on result
+        if (stmt_index <= 0) then
+            error_msg = "Failed to parse declaration statement"
+        else
+            error_msg = ""
+        end if
     end subroutine parse_declaration_range
 
-    ! Parse a program unit range (stub for now)
+    ! Parse a program unit range
     subroutine parse_program_range(tokens, arena, stmt_index, error_msg)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
         character(len=*), intent(out) :: error_msg
         
-        ! For now, use existing parser infrastructure
-        ! This is a placeholder - would need proper program unit parsing
-        stmt_index = 0
-        error_msg = "Program range parsing not yet implemented"
+        logical :: has_explicit_program
+        
+        ! Determine if this is an explicit program unit
+        has_explicit_program = .false.
+        if (size(tokens) > 0) then
+            if (tokens(1)%kind == TK_KEYWORD) then
+                select case (trim(tokens(1)%text))
+                case ("program", "module", "subroutine", "function")
+                    has_explicit_program = .true.
+                end select
+            end if
+        end if
+        
+        ! Use existing program unit parser (this is a function, not subroutine)
+        stmt_index = parse_program_unit(tokens, arena, has_explicit_program)
+        
+        ! Set error message based on result
+        if (stmt_index <= 0) then
+            error_msg = "Failed to parse program unit"
+        else
+            error_msg = ""
+        end if
     end subroutine parse_program_range
 
     include 'frontend_parsing_unit_detection.inc'
