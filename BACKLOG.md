@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
@@ -11,7 +10,6 @@
 
 ### HIGH PRIORITY - Core Parser Gaps
 - [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
-- [ ] #495: Semantic analysis: Undefined variables not detected in expressions (type system gap)
 - [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
 
 ### MEDIUM PRIORITY - Enhancements  
@@ -100,6 +98,8 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
+- [x] #495: Semantic analysis: Undefined variables not detected in expressions (type system gap)
 - [x] #497: I/O parsing: Read statements generate 'Unknown node type' error (core Fortran support)
 - [x] #508: Comment line in module causes main program to be discarded (CRITICAL - parser core functionality)
 - [x] #509: subroutine and end subroutine, function and end function should be indented the same (code generation formatting)
