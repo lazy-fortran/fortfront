@@ -2,6 +2,10 @@
 
 ## DOING (Current Work)
 
+### Control Flow Code Generation - if/else statement restoration 
+**EPIC: Control Flow Code Generation**
+- [ ] #623: bug: if/else statements generate TODO placeholders instead of code - **IN PROGRESS**
+
 ## SPRINT_BACKLOG - CONTROL FLOW RESTORATION
 
 **Sprint Goal**: Expand working functionality to include control flow constructs  
@@ -16,7 +20,7 @@
 **Foundation**: Keep working basic functionality (print, assignments) intact
 
 ### EPIC: Control Flow Code Generation
-- [ ] #623: bug: if/else statements generate TODO placeholders instead of code
+- [x] #623: bug: if/else statements generate TODO placeholders instead of code - **MOVED TO DOING**
 - [ ] #620: bug: do loop statements generate TODO placeholders instead of code
 
 ### EPIC: Function Support Restoration  
