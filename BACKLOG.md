@@ -1,12 +1,11 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #540: Build system completely non-functional due to git commit error (BLOCKER - prevents all work)
+- [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
-- [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
 
 ### EPIC: Architecture Foundation Fixes
 - [ ] #546: architectural drift: class(*) vtable linking issue #442 not resolved - blocking arena work

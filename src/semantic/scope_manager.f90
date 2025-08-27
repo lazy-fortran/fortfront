@@ -1,6 +1,8 @@
 module scope_manager
     ! Hierarchical scope management for semantic analysis
+    use iso_fortran_env, only: error_unit
     use type_system_unified
+    use error_handling, only: result_t, create_error_result, success_result, ERROR_MEMORY
     implicit none
     private
 
@@ -133,9 +135,12 @@ contains
         ! Direct implementation to avoid type-bound procedure issues
         ! Check capacity (fixed arrays)
         if (this%env%count >= this%env%capacity) then
-            print *, "ERROR: Scope environment capacity exceeded"
-            print *, "Consider increasing MAX_ENV_SIZE in type_system_unified"
-            error stop 1
+            ! Log error and return gracefully instead of stopping
+            write(error_unit, *) "ERROR: Scope environment capacity exceeded (", this%env%count, &
+                " >= ", this%env%capacity, ")"
+            write(error_unit, *) "Consider increasing MAX_ENV_SIZE in type_system_unified"
+            ! Skip adding this binding rather than crashing
+            return
         end if
 
         ! Add new binding

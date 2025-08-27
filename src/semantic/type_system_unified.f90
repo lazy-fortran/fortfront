@@ -2,7 +2,9 @@ module type_system_unified
     ! Unified type system using arena-based storage
     ! Provides compatibility layer for legacy API while using efficient arena storage
     
+    use iso_fortran_env, only: error_unit
     use type_system_arena
+    use error_handling, only: result_t, create_error_result, success_result, ERROR_MEMORY
     implicit none
     private
 
@@ -485,9 +487,10 @@ contains
 
         ! Check capacity
         if (this%count >= this%capacity) then
-            print *, "ERROR: Substitution capacity exceeded (", this%capacity, ")"
-            print *, "Consider increasing MAX_SUBST_SIZE parameter"
-            error stop 1
+            write(error_unit, *) "ERROR: Substitution capacity exceeded (", this%capacity, ")"
+            write(error_unit, *) "Consider increasing MAX_SUBST_SIZE parameter"
+            ! Return gracefully instead of stopping - skip this substitution
+            return
         end if
 
         this%count = this%count + 1
@@ -500,9 +503,10 @@ contains
         integer, intent(in) :: required
         
         if (required > this%capacity) then
-            print *, "ERROR: Required substitution capacity (", required, &
+            write(error_unit, *) "ERROR: Required substitution capacity (", required, &
                     ") exceeds maximum (", this%capacity, ")"
-            error stop 1
+            ! Skip capacity expansion rather than stopping
+            return
         end if
     end subroutine substitution_ensure_capacity
 
@@ -524,19 +528,24 @@ contains
 
         ! Check capacity
         if (this%count >= this%capacity) then
-            print *, "ERROR: Type environment capacity exceeded (", this%capacity, ")"
-            print *, "Consider increasing MAX_ENV_SIZE parameter"
-            error stop 1
+            write(error_unit, *) "ERROR: Type environment capacity exceeded (", this%capacity, ")"
+            write(error_unit, *) "Consider increasing MAX_ENV_SIZE parameter"
+            ! Skip adding binding rather than stopping
+            return
         end if
         
-        ! Check name length
-        if (len(name) > MAX_NAME_LEN) then
-            print *, "ERROR: Name too long (", len(name), " > ", MAX_NAME_LEN, ")"
-            error stop 1
-        end if
-
+        ! Add binding
         this%count = this%count + 1
-        this%names(this%count) = name
+        
+        ! Check name length and handle appropriately
+        if (len(name) > MAX_NAME_LEN) then
+            write(error_unit, *) "ERROR: Name too long (", len(name), " > ", MAX_NAME_LEN, ")"
+            ! Truncate name and continue rather than stopping
+            this%names(this%count) = name(1:MAX_NAME_LEN)
+        else
+            this%names(this%count) = name
+        end if
+        
         this%schemes(this%count) = scheme
     end subroutine type_env_extend
     
@@ -545,9 +554,10 @@ contains
         integer, intent(in) :: required
         
         if (required > this%capacity) then
-            print *, "ERROR: Required environment capacity (", required, &
+            write(error_unit, *) "ERROR: Required environment capacity (", required, &
                     ") exceeds maximum (", this%capacity, ")"
-            error stop 1
+            ! Skip capacity expansion rather than stopping
+            return
         end if
     end subroutine type_env_ensure_capacity
 
