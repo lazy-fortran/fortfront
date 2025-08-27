@@ -1,10 +1,12 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #530: critical: semantic analysis regression causing widespread test failures [EPIC: System Functionality Blockers]
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
+- [ ] #530: critical: semantic analysis regression causing widespread test failures (BLOCKING all development) - PR #529 ready to merge once fixed
 
 ### HIGH PRIORITY - Core Parser Gaps
 
@@ -12,7 +14,6 @@
 - [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (related to #489) - PR #514 partial implementation
 
 ### PERFORMANCE CRISIS - Development Velocity
-- [ ] #502: performance: investigate test execution bottlenecks causing 7m20s runtime (BLOCKING development)
 - [ ] #500: refactor: massive test consolidation opportunity - reduce 304 tests by ~85% (architectural excellence)
 - [ ] #481: critical: CI/CD performance crisis - 314 tests causing excessive runtime with massive duplication
 - [ ] #504: refactor: consolidate redundant AST arena test patterns
