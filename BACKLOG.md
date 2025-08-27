@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (branch: fix-operator-precedence-493)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
@@ -32,6 +31,10 @@
 - [ ] #487: Array literal: Nested arrays incorrectly typed as 1D instead of 2D (type correctness)
 - [ ] #494: Array parsing: Array slice assignment with stride produces empty program (core functionality)
 - [ ] #496: Loop parsing: Array assignment in do loop generates unparsed comment (parser defect)
+
+### QUALITY IMPROVEMENTS - Testing and Code Robustness
+- [ ] #527: test: add dedicated test for issue #493 logical operator precedence
+- [ ] #528: refactor: improve error handling in parse_unary function
 
 ## PRODUCT BACKLOG
 
@@ -95,6 +98,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (branch: fix-operator-precedence-493)
 - [x] #524: fix: update codegen field names after module split refactoring (compilation blocker)
 - [x] #521: Preserve comments and blank lines (source fidelity - critical for CST)
 - [x] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
