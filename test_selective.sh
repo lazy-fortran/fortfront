@@ -73,6 +73,7 @@ end_time=$(date +%s)
 duration=$((end_time - start_time))
 
 echo "✅ Tests completed in ${duration}s"
+# Updated test completion message
 
 if [ $duration -gt 180 ]; then  # 3 minutes
     echo "⚠️  WARNING: Tests took longer than 3 minutes"
