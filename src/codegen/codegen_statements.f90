@@ -252,9 +252,13 @@ contains
     function generate_code_blank_line(node) result(code)
         type(blank_line_node), intent(in) :: node
         character(len=:), allocatable :: code
+        integer :: i
 
-        ! Blank lines are represented as empty strings
+        ! Generate the appropriate number of blank lines
         code = ""
+        do i = 1, node%count
+            code = code // new_line('A')
+        end do
     end function generate_code_blank_line
 
     ! generate_code_from_arena is provided as an interface at the module level

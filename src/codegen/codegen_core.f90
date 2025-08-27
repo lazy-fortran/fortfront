@@ -36,10 +36,6 @@ contains
             code = generate_code_identifier(node)
         type is (binary_op_node)
             code = generate_code_binary_op(arena, node, node_index)
-        ! type is (component_access_node)
-        !     code = generate_code_component_access(arena, node, node_index)
-        ! type is (range_subscript_node)
-        !     code = generate_code_range_subscript(arena, node, node_index)
         type is (call_or_subscript_node)
             code = generate_code_call_or_subscript(arena, node, node_index)
         type is (array_literal_node)
@@ -98,8 +94,6 @@ contains
             code = generate_code_where(arena, node, node_index)
         type is (forall_node)
             code = generate_code_forall(arena, node, node_index)
-        ! type is (associate_node)
-        !     code = generate_code_associate(arena, node, node_index)
             
         ! Declaration and definition nodes
         type is (declaration_node)
