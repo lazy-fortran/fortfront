@@ -4,7 +4,7 @@
 
 ### CRITICAL PARSER FAILURE - ROOT CAUSE
 **EPIC: Emergency Parser Crisis Resolution**
-- [ ] #637: bug: parser fails to parse do loops with expressions - **EMERGENCY PRIORITY - BLOCKS ALL CONTROL FLOW**
+- [ ] #637: bug: parser fails to parse do loops with expressions - **ROUTED TO SERGEI ON BRANCH fix-parser-expressions-637**
 
 ### CATASTROPHIC ARCHITECTURAL VIOLATIONS  
 **EPIC: Emergency Architectural Compliance**
