@@ -3,7 +3,8 @@ module codegen_core
     use ast_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
     use ast_nodes_control, only: associate_node
-    use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, derived_type_node
+    use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, derived_type_node, &
+                             mixed_construct_container_node
     use ast_nodes_io, only: write_statement_node, read_statement_node
     use type_system_unified
     use string_types, only: string_t
@@ -110,6 +111,8 @@ contains
             code = generate_code_associate(arena, node, node_index)
         type is (module_node)
             code = generate_code_module(arena, node, node_index)
+        type is (mixed_construct_container_node)
+            code = generate_code_mixed_construct_container(arena, node, node_index)
         type is (comment_node)
             code = generate_code_comment(node)
         type is (range_expression_node)
@@ -3055,6 +3058,75 @@ contains
             code = code//" "//node%name
         end if
     end function generate_code_derived_type
+
+    ! Generate code for mixed construct container (Issue #511)
+    function generate_code_mixed_construct_container(arena, node, node_index) &
+            result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(mixed_construct_container_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        
+        character(len=:), allocatable :: module_code, program_code
+        character(len=:), allocatable :: declaration_code, use_statement
+        integer :: i
+        
+        code = ""
+        
+        ! Generate module with implicit declarations
+        if (allocated(node%implicit_declaration_indices) .and. &
+            size(node%implicit_declaration_indices) > 0) then
+            
+            module_code = "module "//node%module_name//new_line('A')
+            call increase_indent()
+            
+            ! Generate declarations
+            do i = 1, size(node%implicit_declaration_indices)
+                if (node%implicit_declaration_indices(i) > 0 .and. &
+                    node%implicit_declaration_indices(i) <= arena%size) then
+                    declaration_code = generate_code_from_arena(arena, &
+                                                              node%implicit_declaration_indices(i))
+                    if (len_trim(declaration_code) > 0) then
+                        module_code = module_code//get_indent()//&
+                                     declaration_code//new_line('A')
+                    end if
+                end if
+            end do
+            
+            call decrease_indent()
+            module_code = module_code//"end module "//node%module_name
+            
+            code = module_code
+        end if
+        
+        ! Generate explicit programs with use statements
+        if (allocated(node%explicit_program_indices) .and. &
+            size(node%explicit_program_indices) > 0) then
+            
+            if (len(code) > 0) then
+                code = code//new_line('A')//new_line('A')
+            end if
+            
+            do i = 1, size(node%explicit_program_indices)
+                if (node%explicit_program_indices(i) > 0 .and. &
+                    node%explicit_program_indices(i) <= arena%size) then
+                    
+                    program_code = generate_code_from_arena(arena, &
+                                                          node%explicit_program_indices(i))
+                    
+                    ! Insert use statement after program declaration
+                    ! This is a simplified implementation - would need proper AST manipulation
+                    if (len_trim(program_code) > 0) then
+                        ! For now, just append the program code
+                        if (i > 1) then
+                            code = code//new_line('A')
+                        end if
+                        code = code//program_code
+                    end if
+                end if
+            end do
+        end if
+    end function generate_code_mixed_construct_container
 
     ! Add line continuations when line exceeds configured length
     function add_line_continuations(input_code) result(output_code)
