@@ -8,6 +8,7 @@ module frontend_parsing
     use parser_core, only: parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_additional_indices, clear_additional_indices
+    use parser_declarations, only: parse_derived_type_def
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: comment_node
@@ -26,7 +27,7 @@ module frontend_parsing
     public :: is_do_loop_start, is_do_while_start, is_select_case_start, &
               is_end_do, is_end_select
     public :: is_if_then_start, is_end_if
-    public :: is_type_start, is_end_type
+    public :: is_type_start, is_end_type, find_statement_boundary
 
 contains
 
@@ -446,6 +447,9 @@ contains
             unit_index = parse_module_unit(tokens, arena)
         else if (is_program_start(tokens, 1)) then
             unit_index = parse_statement_dispatcher(tokens, arena)
+        else if (is_type_start(tokens, 1)) then
+            ! Type definitions should be parsed as structured constructs
+            unit_index = parse_statement_dispatcher(tokens, arena)
         else
             ! For mixed module/main program files, we always need to check for implicit main
             unit_index = parse_implicit_main_program(tokens, arena, has_explicit_program)
@@ -519,6 +523,20 @@ contains
             end if
         end block
     end function parse_subroutine_unit
+
+    ! Parse type unit
+    function parse_type_unit(tokens, arena) result(unit_index)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: unit_index
+
+        ! Parse type definition using the dedicated type parser
+        block
+            type(parser_state_t) :: parser
+            parser = create_parser_state(tokens)
+            unit_index = parse_derived_type_def(parser, arena)
+        end block
+    end function parse_type_unit
 
     ! Parse implicit main program
     function parse_implicit_main_program(tokens, arena, has_explicit_program) &
