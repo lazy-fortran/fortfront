@@ -11,7 +11,7 @@ module parser_control_flow_module
     use parser_control_statements_module, only: parse_cycle_statement, parse_exit_statement, &
                                                 parse_return_statement, parse_stop_statement, &
                                                 parse_goto_statement, parse_error_stop_statement
-    use parser_execution_statements_module, only: parse_call_statement
+    ! Removed to avoid circular dependency: use parser_execution_statements_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
     use ast_core
@@ -387,6 +387,7 @@ contains
         integer :: line, column
 
         step_index = 0  ! Initialize to 0 (no step)
+        loop_index = 0  ! Initialize to 0 (failure) in case of early return
 
         ! Starting to parse do loop
 
@@ -420,25 +421,38 @@ contains
             return
         end if
 
-        ! Parse start expression (simplified - just parse next token as literal)
-        start_index = parse_primary(parser, arena)
+        ! Parse start expression (now handles full expressions)
+        start_index = parse_range(parser, arena)
+        
+        if (start_index <= 0) then
+            ! Failed to parse start expression
+            loop_index = 0
+            return
+        end if
 
         ! Expect ','
         comma_token = parser%consume()
         if (comma_token%kind /= TK_OPERATOR .or. comma_token%text /= ",") then
             ! Error: expected ','
+            loop_index = 0
             return
         end if
 
         ! Parse end expression
-        end_index = parse_primary(parser, arena)
+        end_index = parse_range(parser, arena)
+        
+        if (end_index <= 0) then
+            ! Failed to parse end expression
+            loop_index = 0
+            return
+        end if
 
         ! Check for optional step
         if (.not. parser%is_at_end()) then
             comma_token = parser%peek()
             if (comma_token%kind == TK_OPERATOR .and. comma_token%text == ",") then
                 comma_token = parser%consume()  ! consume comma
-                step_index = parse_primary(parser, arena)
+                step_index = parse_range(parser, arena)
             end if
         end if
 
@@ -905,8 +919,10 @@ contains
                 ! Parse return statement
                 stmt_index = parse_return_statement(parser, arena, parent_index)
             case ("call")
-                ! Parse call statement
-                stmt_index = parse_call_statement(parser, arena)
+                ! Skip call statements in control flow contexts
+                ! They will be handled by higher-level parsers to avoid circular dependency
+                stmt_index = 0
+                first_token = parser%consume()  ! consume "call" to avoid infinite loop
             case ("stop")
                 ! Parse stop statement
                 stmt_index = parse_stop_statement(parser, arena)

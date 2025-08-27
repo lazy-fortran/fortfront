@@ -10,6 +10,7 @@ module parser_execution_statements_module
     use parser_control_statements_module, only: parse_stop_statement, parse_goto_statement, &
                                                parse_error_stop_statement, parse_return_statement, &
                                                parse_cycle_statement, parse_exit_statement
+    use parser_control_flow_module, only: parse_do_loop
     use parser_definition_statements_module, only: parse_function_definition, parse_subroutine_definition
     use ast_core
     use ast_factory
@@ -219,6 +220,9 @@ contains
                     stmt_index = parse_exit_statement(parser, arena)
                 case ("call")
                     stmt_index = parse_call_statement(parser, arena)
+                case ("do")
+                    ! Parse do loop using control flow module
+                    stmt_index = parse_do_loop(parser, arena)
                 case ("contains")
                     ! Consume 'contains' keyword and continue parsing definitions
                     token = parser%consume()
