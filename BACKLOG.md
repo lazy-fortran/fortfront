@@ -2,13 +2,6 @@
 
 ## DOING (Current Work)
 
-### CRITICAL SPRINT ASSESSMENT REQUIRED
-**EPIC: System State Analysis** 
-- [x] #634: architectural: foundation-first development protocol implementation required - ASSESSMENT COMPLETE
-- [x] #633: architectural: systemic development process improvements required - ASSESSMENT COMPLETE  
-- [x] #632: CRITICAL: SHORT sprint success assessment reveals mixed system state - ASSESSMENT COMPLETE
-- [x] #631: CRITICAL: SHORT sprint structural audit reveals systematic development process failure - ASSESSMENT COMPLETE
-
 ## SPRINT_BACKLOG - CONTROL FLOW RESTORATION
 
 **Sprint Goal**: Expand working functionality to include control flow constructs  
@@ -173,6 +166,10 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #634: architectural: foundation-first development protocol implementation required - ASSESSMENT COMPLETE
+- [x] #633: architectural: systemic development process improvements required - ASSESSMENT COMPLETE  
+- [x] #632: CRITICAL: SHORT sprint success assessment reveals mixed system state - ASSESSMENT COMPLETE
+- [x] #631: CRITICAL: SHORT sprint structural audit reveals systematic development process failure - ASSESSMENT COMPLETE
 - [x] #583: refactor: resolve circular dependency between codegen_core and specialized modules (SHORT SPRINT - architecture fix)
 - [x] #600: bug: critical code generation failure - print statements completely missing from output (SHORT SPRINT - fixed by #583)
 - [x] #608: bug: documentation example failure - assignment statements missing from code generation (SHORT SPRINT - fixed by #583)
