@@ -676,8 +676,41 @@ contains
             end if
             
         type is (declaration_node)
-            ! Generate: type_name :: var_name [= init]
-            code = trim(node%type_name) // " :: " // trim(node%var_name)
+            ! Generate declaration with proper multi-variable support
+            code = trim(node%type_name)
+            
+            ! Add kind if present (but not for character which uses len)
+            if (node%has_kind .and. node%type_name /= "character") then
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+            else if (node%type_name == "character" .and. node%has_kind) then
+                ! For character, kind_value is actually the length
+                code = "character(len=" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+            end if
+            
+            ! Add attributes
+            if (node%is_allocatable) code = code // ", allocatable"
+            if (node%is_pointer) code = code // ", pointer"
+            if (node%is_target) code = code // ", target"
+            if (node%is_parameter) code = code // ", parameter"
+            if (node%has_intent .and. allocated(node%intent)) then
+                code = code // ", intent(" // node%intent // ")"
+            end if
+            if (node%is_optional) code = code // ", optional"
+            
+            ! Add variable names - handle both single and multi declarations
+            code = code // " :: "
+            if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                ! Multi-variable declaration
+                do i = 1, size(node%var_names)
+                    if (i > 1) code = code // ", "
+                    code = code // trim(node%var_names(i))
+                end do
+            else
+                ! Single variable declaration
+                code = code // trim(node%var_name)
+            end if
+            
+            ! Add initialization if present
             if (node%initializer_index > 0) then
                 code = code // " = " // generate_code_from_arena(arena, node%initializer_index)
             end if

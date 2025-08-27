@@ -163,7 +163,6 @@ contains
                     
                     call analyze_declaration_structure(parser, has_initializer, has_comma)
                     
-                    
                     if (has_initializer .and. .not. has_comma) then
                         ! Single variable with initializer - use parse_declaration
                         stmt_index = parse_declaration(parser, arena)
