@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #521: Preserve comments and blank lines (source fidelity - critical for CST)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
@@ -99,6 +98,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #521: Preserve comments and blank lines (source fidelity - critical for CST)
 - [x] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
 - [x] #495: Semantic analysis: Undefined variables not detected in expressions (type system gap)
 - [x] #497: I/O parsing: Read statements generate 'Unknown node type' error (core Fortran support)
