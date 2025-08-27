@@ -1,11 +1,9 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [ ] #540: Build system completely non-functional due to git commit error (BLOCKER - prevents all work)
 
 ## SPRINT BACKLOG (Ordered by Priority)
-
-### CRITICAL - Build System Recovery
-- [ ] #540: Build system completely non-functional due to git commit error (BLOCKER - prevents all work)
 
 ### CRITICAL - System Functionality Blockers
 - [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
