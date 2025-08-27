@@ -233,9 +233,8 @@ contains
         node%name = name
         node%uid = generate_uid()
         if (present(body_indices)) then
-            if (size(body_indices) > 0) then
-                node%body_indices = body_indices
-            end if
+            ! Always allocate body_indices to maintain consistency (Issue #600)
+            node%body_indices = body_indices
         end if
         if (present(line)) node%line = line
         if (present(column)) node%column = column

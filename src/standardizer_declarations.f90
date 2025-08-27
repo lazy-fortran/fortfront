@@ -99,10 +99,15 @@ contains
         end do
 
         ! Copy remaining statements
-        do i = insert_pos, size(prog%body_indices)
-            new_body_indices(j) = prog%body_indices(i)
-            j = j + 1
-        end do
+        ! Fix for Issue #600: Ensure we preserve existing body when prog%body_indices is not empty
+        if (allocated(prog%body_indices)) then
+            do i = insert_pos, size(prog%body_indices)
+                if (i <= size(prog%body_indices)) then
+                    new_body_indices(j) = prog%body_indices(i)
+                    j = j + 1
+                end if
+            end do
+        end if
 
         ! Update program body
         prog%body_indices = new_body_indices
