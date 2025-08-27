@@ -1,27 +1,92 @@
 # fortfront Architecture Design
 
-## 🎯 CURRENT SPRINT GOAL: Defect Resolution & Architectural Debt
+## 🚨 EMERGENCY RECOVERY SPRINT: Complete System Failure
 
-**Sprint Objective**: Resolve critical defects from PLAY audit while addressing architectural debt
+**CRITICAL SYSTEM STATE**: Total functional collapse requiring immediate stabilization  
+**Sprint Objective**: Restore basic system functionality from complete failure state  
 **Definition of Done**: 
-- Build system functional (#540 resolved)
-- All files comply with size constraints (<1000 lines)
-- Error handling uses result_t pattern (no error_stop)
-- Test suite optimized (remove duplication)
-- Documentation consolidated for all fixes
+- Codegen produces actual Fortran code (not TODO placeholders)
+- Test suite functional (not 100+ failures with exit code 13)
+- All files comply with architectural constraints (<1000 lines)
+- System builds and runs without critical failures
+- Foundation architecture issues resolved to enable future work
 
-**Sprint Priorities**:
-1. **CRITICAL**: Fix build system blocking all work (#540)
-2. **FOUNDATION**: Address class(*) vtable issues (#546)
-3. **QUALITY**: Enforce size constraints on 12 violating files
-4. **SAFETY**: Replace error_stop with proper error handling
-5. **PERFORMANCE**: Consolidate test suite duplication
+**🚨 EMERGENCY RECOVERY PROTOCOL**:
 
-**🚨 CRITICAL FOUNDATION ISSUE (Issue #442)**
-- **BLOCKING ALL WORK**: Current class(*) usage causes vtable linking failures
-- **30+ Files Affected**: AST nodes, semantic pipeline, arena storage all use class(*)
-- **Solution Required**: Move to abstract types with standard containers BEFORE any arena work
-- **Priority**: Issue #442 must be resolved before Issues #369, #370, CST/AST split, etc.
+### Priority 1: CRITICAL BLOCKERS (System Non-Functional)
+- **Issue #580**: Complete codegen failure - ALL output is TODO placeholders
+- **Issue #561**: Duplicate generate_code_from_arena stubs causing circular dependencies
+- **Issue #563**: Write statement codegen produces TODO placeholders
+- **Acceptance**: fortfront outputs valid Fortran, not placeholders
+
+### Priority 2: CRITICAL STABILITY (Test Suite Recovery)
+- **Issue #571**: 100+ tests failing with exit code 13 (ERROR_STOP crashes)
+- **Issue #575**: Sprint goal failure - fundamental integrity compromised  
+- **Issue #577**: ERROR_STOP usage violates library integration
+- **Acceptance**: Tests run without crashes, proper error handling
+
+### Priority 3: CRITICAL ARCHITECTURE (Size Compliance)
+- **Issue #576**: 13 files exceed 1000-line constraint (INCREASED not decreased)
+- **Issues #556-560, #570**: Specific file violations identified
+- **Acceptance**: ALL files under 1000 lines, functions under 100 lines
+
+### Priority 4: CRITICAL FUNCTIONALITY (Core Features)
+- **Issues #572-574**: Codegen produces empty output for basic constructs
+- **Issues #564-569**: Parser/semantic failures on valid Fortran
+- **Issues #546, #578, #550**: Foundation architecture issues blocking progress
+- **Acceptance**: Basic Fortran constructs compile correctly
+
+### Emergency Quality Gates
+1. **BUILD GATE**: System must produce working binary (not just compile)
+2. **SMOKE TEST GATE**: Basic "hello world" must work end-to-end
+3. **TEST STABILITY GATE**: No test crashes with exit code 13
+4. **ARCHITECTURE GATE**: No files exceed size constraints
+5. **FOUNDATION GATE**: class(*) vtable issues resolved
+
+**🚨 EMERGENCY SYSTEM FAILURE ANALYSIS**
+
+**COMPLETE SYSTEM BREAKDOWN DISCOVERED**:
+- **Codegen Non-Functional**: All output contains TODO placeholders instead of Fortran code
+- **Test Suite Collapsed**: 100+ tests failing with exit code 13 (ERROR_STOP crashes)
+- **Build Claims vs Reality**: System "builds" but produces no working functionality
+- **Sprint Goal Complete Failure**: All claimed completed work actually broken
+- **Architectural Violations INCREASED**: 13 files now exceed constraints (not decreased)
+
+**ROOT CAUSES IDENTIFIED**:
+1. **Placeholder Implementation**: Core codegen functions replaced with TODO stubs
+2. **ERROR_STOP Usage**: Library code uses error_stop causing test crashes
+3. **Size Constraint Violations**: Critical modules exceed 1000-line limits breaking maintainability
+4. **Foundation Issues**: class(*) vtable problems (Issue #442) still unresolved
+5. **Integration Gaps**: FPM-first architecture never validated for external tools
+
+**CRITICAL FOUNDATION ISSUE (Issue #442)**
+- **STILL BLOCKING**: class(*) usage causes vtable linking failures after multiple "completed" sprints
+- **30+ Files Affected**: AST nodes, semantic pipeline, arena storage all use problematic class(*)
+- **Solution Required**: Complete elimination of class(*) before any arena/CST work
+- **Priority**: Issue #442 MUST be resolved before Issues #369, #370, CST/AST split, etc.
+
+## 🚨 EMERGENCY RECOVERY LESSONS LEARNED
+
+### Sprint Failure Root Causes
+1. **False Completion Claims**: Issues marked "done" without verification
+2. **Placeholder Implementation**: Core functionality replaced with TODOs
+3. **Test Suite Blindness**: 100+ failures masked by claims of "success"
+4. **Architectural Drift**: Size constraints violated, not enforced
+5. **Foundation Ignored**: class(*) issues persisted through multiple sprints
+
+### New Quality Enforcement Rules
+1. **NO PLACEHOLDERS**: Never commit TODO stubs in production code
+2. **TEST VERIFICATION**: Run full test suite before claiming completion
+3. **SIZE ENFORCEMENT**: Check file sizes with every commit
+4. **ERROR HANDLING**: Never use error_stop in library code
+5. **FOUNDATION FIRST**: Resolve blockers before new features
+
+### Recovery Sprint Protocols
+1. **Triage First**: Identify complete failures vs partial issues
+2. **Smoke Tests**: Basic functionality must work before anything else
+3. **Incremental Recovery**: Fix one system at a time, verify each
+4. **No Shortcuts**: Proper implementation, not quick patches
+5. **Continuous Validation**: Test after every change
 
 **FPM-FIRST ARCHITECTURE**
 - **Dependency Management**: FPM automatically handles all tool dependencies via fpm.toml
@@ -1163,6 +1228,79 @@ Each phase must:
 
 ---
 
+# EMERGENCY RECOVERY QUALITY GATES
+
+## System Functionality Gates
+
+### Gate 1: Codegen Recovery (IMMEDIATE)
+**Current State**: Complete failure - only TODO placeholders generated  
+**Success Criteria**: 
+- All codegen functions produce actual Fortran syntax
+- No TODO or placeholder text in generated output
+- Generated code compiles with standard gfortran
+- Round-trip test: source → parse → codegen → compile
+
+### Gate 2: Test Suite Recovery (IMMEDIATE)
+**Current State**: 100+ tests failing with ERROR_STOP crashes  
+**Success Criteria**:
+- Less than 5 test failures total
+- No ERROR_STOP usage in any library code
+- All errors use result_t pattern
+- Test execution completes without crashes
+
+### Gate 3: Architecture Compliance (IMMEDIATE)
+**Current State**: 13 files exceed 1000-line constraint  
+**Success Criteria**:
+- All source files under 1000 lines (zero exceptions)
+- All functions under 100 lines (zero exceptions)
+- Modular architecture with clear separation of concerns
+- No circular dependencies
+
+### Gate 4: Foundation Stability (FOUNDATION)
+**Current State**: class(*) vtable issues blocking arena work  
+**Success Criteria**:
+- Zero class(*) usage in AST nodes and semantic pipeline
+- Standard container types for all polymorphic storage
+- FPM integration validated with working external tool example
+- No vtable linking failures
+
+## Recovery Protocol Implementation
+
+### Phase 1: Emergency Stabilization (Week 1)
+1. **Fix codegen stubs**: Replace all TODO placeholders with working implementations
+2. **Eliminate ERROR_STOP**: Convert all error_stop calls to result_t returns
+3. **Split oversized files**: Break down 13 files exceeding 1000-line limit
+4. **Validate basic functionality**: Ensure system can parse and generate working Fortran
+
+### Phase 2: Foundation Repair (Week 2)
+1. **Complete class(*) elimination**: Replace all polymorphic class(*) with containers
+2. **Validate FPM integration**: Create and test external tool using fortfront as dependency
+3. **Test suite consolidation**: Remove duplication while maintaining coverage
+4. **Architecture documentation**: Update design docs to reflect actual implementation
+
+### Phase 3: Quality Assurance (Week 3)
+1. **Full system validation**: End-to-end testing of complete pipeline
+2. **Performance baseline**: Establish benchmarks for future work
+3. **External tool integration**: Verify fluff/ffc patterns work correctly
+4. **Documentation update**: Reflect actual working system architecture
+
+## Success Metrics
+
+**ABSOLUTE REQUIREMENTS** (All Must Pass):
+- ✅ System generates actual Fortran code (not TODO placeholders)
+- ✅ Test suite passes with <5 failures (from 100+)
+- ✅ All files comply with size constraints (<1000 lines)
+- ✅ No error_stop in library code (result_t pattern throughout)
+- ✅ class(*) eliminated (containers for all polymorphism)
+- ✅ FPM integration validated (working external tool example)
+
+**QUALITY METRICS**:
+- Build time: <30 seconds for full rebuild
+- Test time: <2 minutes for full suite
+- Memory usage: <100MB for typical compilation
+- File organization: Max 10 files per directory
+- Documentation coverage: 100% of public API
+
 # GCC 15.2.1 Compatibility Solution (Issue #354)
 
 ## Problem Statement
@@ -1242,43 +1380,98 @@ This solution is temporary until arena architecture (Phase 1) provides:
 - Memory managed by arena allocator
 - Complete compiler independence
 
-## Sprint Retrospective: PLAY Audit Findings
+## EMERGENCY RECOVERY SPRINT RETROSPECTIVE: Total System Failure
 
-### Critical Defects Identified
-The PLAY workflow audit revealed significant architectural drift and quality issues:
+### CATASTROPHIC SYSTEM STATE DISCOVERED
+The PLAY workflow audit revealed complete system failure masquerading as working software:
 
-1. **Build System Failure (#540)**: Git commit error preventing all compilation - requires immediate recovery
-2. **Architectural Violations**: 12 files exceed 1000-line limit, breaking fundamental size constraints
-3. **Foundation Blockers**: class(*) vtable issues still unresolved, blocking arena migration
-4. **Test Suite Bloat**: Despite claims of consolidation, massive duplication remains (230+ tests)
-5. **Error Handling Gaps**: error_stop usage throughout violates library integration principles
+**IMMEDIATE CRISIS** (System Non-Functional):
+1. **Complete Codegen Failure**: All output contains TODO placeholders - no actual Fortran generation
+2. **Test Suite Collapse**: 100+ tests failing with ERROR_STOP crashes (exit code 13)
+3. **Build System Lies**: Claims "Project is up to date" but produces non-functional system
+4. **Sprint Goal Failure**: All "completed" work from previous sprint actually broken
+5. **Architectural Constraint Violations INCREASED**: 13 files exceed 1000-line limit (up from 12)
 
-### Architectural Decisions
-Based on PLAY findings, the following architectural decisions are made:
+**FOUNDATION ARCHITECTURE FAILURES**:
+1. **class(*) Vtable Issues (#442)**: Still unresolved after multiple sprints claiming completion
+2. **Error Handling Violations**: error_stop throughout codebase breaking library integration
+3. **FPM Integration Unvalidated**: Architecture claims never tested with actual external tools
+4. **Test Infrastructure Crisis**: Massive duplication despite consolidation claims
 
-1. **Enforce Size Constraints**: Split large modules immediately - no exceptions
-   - semantic_analyzer.f90 → semantic_core.f90 + semantic_infer.f90 + semantic_validate.f90
-   - parser_expressions.f90 → parser_expr_core.f90 + parser_expr_binary.f90 + parser_expr_unary.f90
-   - parser_declarations.f90 → parser_decl_core.f90 + parser_decl_types.f90 + parser_decl_attrs.f90
+### EMERGENCY ARCHITECTURAL DECISIONS
 
-2. **Error Handling Migration**: Complete transition to result_t pattern
-   - No error_stop in library code
-   - All errors return structured results
-   - Enable graceful degradation
+**IMMEDIATE RECOVERY PROTOCOL**:
 
-3. **Test Consolidation Strategy**: 
-   - Group by functionality, not implementation detail
-   - One test per distinct behavior
-   - Remove redundant coverage
+1. **Codegen Emergency Fix**: 
+   - Identify and fix placeholder stub functions causing TODO output
+   - Restore actual Fortran code generation functionality
+   - Validate output produces compilable Fortran
 
-4. **Foundation Fix Priority**:
-   - Build system recovery (#540) - IMMEDIATE
-   - class(*) removal (#546) - BEFORE arena work
-   - FPM validation (#550) - BEFORE external tools
+2. **Test Suite Emergency Recovery**:
+   - Eliminate all ERROR_STOP usage causing exit code 13 failures
+   - Replace with proper result_t error handling
+   - Get test suite functional before addressing content
 
-# Implementation Roadmap (FPM-FIRST APPROACH)
+3. **File Size Constraint Emergency Compliance**:
+   - Immediately split 13 files exceeding 1000-line limit:
+     - semantic_analyzer.f90 → semantic_core.f90 + semantic_infer.f90 + semantic_validate.f90
+     - parser_expressions.f90 → parser_expr_core.f90 + parser_expr_binary.f90 + parser_expr_unary.f90  
+     - parser_declarations.f90 → parser_decl_core.f90 + parser_decl_types.f90 + parser_decl_attrs.f90
+     - lexer_core.f90 → lexer_tokenize.f90 + lexer_keywords.f90 + lexer_literals.f90
+     - standardizer.f90 → standardizer_core.f90 + standardizer_transform.f90
+     - And 8 additional files needing splits
 
-## Phase 0: FPM Integration Verification (HIGHEST PRIORITY)
+4. **Foundation Architecture Emergency Protocol**:
+   - **ABSOLUTE PRIORITY**: Complete elimination of class(*) usage (Issue #442)
+   - **IMMEDIATE**: Replace all error_stop with result_t pattern
+   - **VALIDATION**: Test FPM integration with actual external tool example
+
+**POST-RECOVERY FOUNDATION WORK** (Only After System Functional):
+- Arena architecture (blocked until class(*) resolved)
+- CST/AST split (blocked until foundation stable)
+- External tool integration (blocked until FPM validated)
+- Performance optimization (blocked until correctness achieved)
+
+**SPRINT SUCCESS CRITERIA** (Must ALL Pass):
+1. **Codegen Functional**: Produces actual Fortran code (no TODO placeholders)
+2. **Tests Pass**: Less than 5 failing tests (from 100+)
+3. **Size Compliant**: All files under 1000 lines (zero exceptions)
+4. **Error Handling**: No error_stop in library code
+5. **Foundation Ready**: class(*) eliminated, FPM validated
+
+# EMERGENCY RECOVERY IMPLEMENTATION ROADMAP
+
+## CRITICAL: Emergency Recovery Sprint (Current)
+**Duration**: 3 weeks maximum  
+**Goal**: Restore system from complete failure to basic functionality
+
+### Week 1: Emergency Stabilization
+**PRIORITY 1: System Recovery**
+- [ ] **Day 1-2**: Fix complete codegen failure - eliminate all TODO placeholders
+- [ ] **Day 2-3**: Resolve test suite collapse - eliminate ERROR_STOP crashes
+- [ ] **Day 3-5**: Emergency file splitting - fix 13 files exceeding 1000-line limits
+
+### Week 2: Foundation Repair  
+**PRIORITY 2: Architecture Stability**
+- [ ] **Day 6-8**: Complete class(*) elimination (Issue #442) - unblock arena work
+- [ ] **Day 8-10**: Validate FPM integration - create working external tool example
+- [ ] **Day 10-12**: Test infrastructure cleanup - remove duplication while maintaining coverage
+
+### Week 3: Quality Assurance
+**PRIORITY 3: System Validation**
+- [ ] **Day 13-15**: End-to-end system validation - full pipeline testing
+- [ ] **Day 15-17**: Performance baseline establishment - benchmarks for future work
+- [ ] **Day 17-21**: Documentation synchronization - reflect actual working system
+
+**Deliverable**: Functional fortfront system ready for development work
+
+## POST-RECOVERY: Standard Development Workflow
+
+# Standard Implementation Roadmap (FPM-FIRST APPROACH)
+
+**NOTE**: The following roadmap is BLOCKED until Emergency Recovery Sprint completes successfully
+
+## Phase 0: FPM Integration Verification (POST-RECOVERY)
 **Goal**: Verify FPM handles all dependency management correctly
 
 ### Week 1: FPM Integration Testing
