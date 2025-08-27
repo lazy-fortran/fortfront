@@ -2,6 +2,13 @@
 
 ## DOING (Current Work)
 
+### CRITICAL SPRINT ASSESSMENT REQUIRED
+**EPIC: System State Analysis** 
+- [ ] #634: architectural: foundation-first development protocol implementation required
+- [ ] #633: architectural: systemic development process improvements required  
+- [ ] #632: CRITICAL: SHORT sprint success assessment reveals mixed system state
+- [ ] #631: CRITICAL: SHORT sprint structural audit reveals systematic development process failure
+
 ## SPRINT_BACKLOG - CONTROL FLOW RESTORATION
 
 **Sprint Goal**: Expand working functionality to include control flow constructs  
@@ -26,8 +33,34 @@
 - [ ] #618: bug: multi-variable declarations corrupted in code generation
 - [ ] #621: bug: array declarations completely corrupted in code generation
 
+### EPIC: Critical Architecture Violations  
+- [ ] #630: architectural violation: 12 files still exceed 1000-line limit after claimed resolution
+- [ ] #629: architectural defect: TODO placeholders throughout entire codegen system
+- [ ] #607: bug: architectural violation - error_stop usage still present in 17 files
+- [ ] #605: bug: critical size constraint violations - 9 files exceed 1000 line architectural limit
+
 ### EPIC: Code Quality Fixes
 - [ ] #619: bug: debug output contaminating generated code output
+
+### EPIC: Test Suite Critical Issues
+- [ ] #628: CRITICAL: SHORT sprint false success claims - basic functionality completely broken
+- [ ] #627: CRITICAL: test suite false positives mask major functionality failures  
+- [ ] #625: bug: test suite false positives - tests pass despite generating TODO placeholders
+- [ ] #624: CRITICAL: SHORT sprint claims false - major functionality completely broken
+- [ ] #604: bug: test suite hangs indefinitely during full execution
+
+### EPIC: Critical Code Generation Failures
+- [ ] #626: CRITICAL: core codegen body generation returns TODO placeholders
+- [ ] #606: bug: critical TODO placeholders still present throughout codegen system
+- [ ] #603: bug: code generation failure - module variable declarations missing  
+- [ ] #602: bug: critical code generation failure - subroutines completely mangled and empty
+- [ ] #601: bug: critical code generation failure - all statements missing from program body
+- [ ] #609: bug: character string example failure - incomplete type declarations and missing assignments
+
+### EPIC: System Crisis Issues
+- [ ] #612: system integrity failure: emergency recovery sprint achieved 0% of goals - complete development halt required
+- [ ] #611: architectural crisis: foundation architecture completely unstable - requires emergency intervention
+- [ ] #610: critical: emergency recovery sprint FAILED - system remains completely non-functional
 
 ### EPIC: Sprint Documentation
 - [ ] #613: docs: consolidate control flow restoration sprint fixes
