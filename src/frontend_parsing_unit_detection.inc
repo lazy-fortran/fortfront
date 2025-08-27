@@ -296,3 +296,41 @@
             end if
         end if
     end function is_end_if
+
+    ! Check if position is start of derived type definition
+    logical function is_type_start(tokens, pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+
+        is_type_start = .false.
+        if (pos < 1 .or. pos > size(tokens)) return
+
+        ! Check for "type :: name" pattern
+        if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "type") then
+            if (pos + 1 <= size(tokens) .and. &
+                tokens(pos + 1)%kind == TK_OPERATOR .and. &
+                tokens(pos + 1)%text == "::") then
+                if (pos + 2 <= size(tokens) .and. &
+                    tokens(pos + 2)%kind == TK_IDENTIFIER) then
+                    is_type_start = .true.
+                end if
+            end if
+        end if
+    end function is_type_start
+
+    ! Check if position is end of derived type definition
+    logical function is_end_type(tokens, pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+
+        is_end_type = .false.
+        if (pos > size(tokens)) return
+
+        ! Check for "end type" (two keywords)
+        if (pos + 1 <= size(tokens)) then
+            if (tokens(pos)%kind == TK_KEYWORD .and. tokens(pos)%text == "end" .and. &
+             tokens(pos + 1)%kind == TK_KEYWORD .and. tokens(pos + 1)%text == "type") then
+                is_end_type = .true.
+            end if
+        end if
+    end function is_end_type
