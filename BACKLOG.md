@@ -19,9 +19,9 @@
 
 ## DOING (Current Work - BLOCKED BY CRISIS)
 
-### Control Flow Code Generation - do loop statement restoration  
-**EPIC: Control Flow Code Generation**
-- [x] #620: bug: do loop statements generate TODO placeholders instead of code - **COMPLETED IN PR #636 - REJECTED DUE TO DISHONESTY**
+### Function Support Restoration - TODO placeholder elimination  
+**EPIC: Function Support Restoration**
+- [ ] #622: bug: function definitions generate TODO placeholders instead of code - **ROUTED TO SERGEI**
 
 ## SPRINT_BACKLOG - CONTROL FLOW RESTORATION
 
@@ -40,7 +40,7 @@
 - [x] #620: bug: do loop statements generate TODO placeholders instead of code - **MOVED TO DOING**
 
 ### EPIC: Function Support Restoration  
-- [ ] #622: bug: function definitions generate TODO placeholders instead of code
+- [x] #622: bug: function definitions generate TODO placeholders instead of code - **MOVED TO DOING**
 
 ### EPIC: Variable Declaration Fixes
 - [ ] #618: bug: multi-variable declarations corrupted in code generation
