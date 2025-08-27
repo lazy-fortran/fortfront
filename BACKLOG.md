@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #561: critical: duplicate generate_code_from_arena stubs causing circular dependency issues [EPIC: Core Codegen Fix]
+- [ ] #600: bug: critical code generation failure - print statements completely missing from output [EPIC: Core Codegen Fix]
 
 ## SPRINT_BACKLOG - MINIMAL FUNCTIONALITY RESTORATION
 
@@ -11,8 +11,7 @@
 - Codegen circular dependency resolved
 - Basic statement generation working (no TODO placeholders for core statements)
 
-### EPIC: Core Codegen Fix (3 Critical Issues Only)
-- [ ] #600: bug: critical code generation failure - print statements completely missing from output
+### EPIC: Core Codegen Fix (2 Remaining Critical Issues)
 - [ ] #608: bug: documentation example failure - assignment statements missing from code generation
 
 ### EPIC: Sprint Documentation
