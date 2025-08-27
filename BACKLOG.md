@@ -19,82 +19,14 @@
 
 ## DEFERRED TO FUTURE SPRINTS
 
-### FOUNDATION PHASE: CRITICAL ARCHITECTURE BLOCKERS
+### HIGH PRIORITY - Core Parser Gaps
+- [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
+- [ ] #495: Semantic analysis: Undefined variables not detected in expressions (type system gap)
+- [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
 
-### EPIC: Foundation Crisis Resolution (class(*) Elimination - Issue #442)
-**BLOCKS ALL OTHER WORK** - Unresolved for 3+ sprints despite multiple "completions"
-- [ ] #442: critical: eliminate class(*) vtable linking issues blocking arena development for 3+ sprints
-- [ ] Create concrete container types for all polymorphic AST storage
-- [ ] Replace abstract interfaces with type-safe container patterns
-- [ ] Validate arena development can proceed without vtable failures
-- [ ] Test FPM integration with external tool example
-
-### TEST SUITE PHASE: CRITICAL STABILITY RESTORATION
-
-### EPIC: Test Infrastructure Crisis Recovery (Issues #571, #604, #586)
-- [ ] #571: critical: massive test suite failure - 150+ tests failing with exit code 13
-- [ ] #604: bug: test suite hangs indefinitely during full execution  
-- [ ] #586: performance: test suite timeout - resource exhaustion running all tests
-- [ ] #577: architectural drift: error_stop usage violates library integration principles
-- [ ] Replace all ERROR_STOP with result_t error handling pattern
-- [ ] Restore test suite to <5 failing tests from 150+ failures
-
-### SIZE COMPLIANCE PHASE: ARCHITECTURAL CONSTRAINT RESTORATION
-
-### EPIC: Emergency File Splitting (Issues #588-599, #605)
-**9 files violate 1000-line constraint (INCREASED from previous sprint)**
-- [ ] #588: refactor: split fortfront.f90 module (2,330 lines) - MOST CRITICAL
-- [ ] #589: refactor: split ast_factory.f90 module (1,805 lines)
-- [ ] #590: refactor: split parser_control_flow.f90 module (1,733 lines) 
-- [ ] #598: refactor: split parser_definition_statements.f90 module (1,229 lines)
-- [ ] #593: refactor: split variable_usage_tracker.f90 module (1,238 lines)
-- [ ] #592: refactor: split parser_import_statements.f90 module (1,294 lines)
-- [ ] #591: refactor: split lexer_core.f90 module (1,486 lines)
-- [ ] #599: refactor: split remaining size violation modules
-- [ ] #605: bug: critical size constraint violations - 9 files exceed 1000 line architectural limit
-
-### FUNCTIONALITY PHASE: DEFERRED CODEGEN ISSUES
-
-### EPIC: Codegen Complete Failure Recovery (Issues #579, #601-603, #606)
-**System generates NO working Fortran - only TODO placeholders**
-- [ ] #579: emergency: complete codegen system failure - all output contains TODO placeholders
-- [ ] #601: bug: critical code generation failure - all statements missing from program body
-- [ ] #602: bug: critical code generation failure - subroutines completely mangled and empty
-- [ ] #603: bug: code generation failure - module variable declarations missing
-- [ ] #606: bug: critical TODO placeholders still present throughout codegen system
-- [ ] #583: refactor: resolve circular dependency between codegen_core and specialized modules
-- [ ] #584: fix: implement proper code generation for complex nodes in codegen stub
-
-### EPIC: Core Parser & Semantic Failures (Issues #564-569, #585, #607-609)
-- [ ] #564: bug: complex write statements with format specifiers fail to parse
-- [ ] #565: bug: confusing error messages claim 'Parsing succeeded' when parsing fails
-- [ ] #566: bug: multi-unit parsing generates incomplete output for module+program constructs
-- [ ] #567: bug: malformed I/O statements parsed as valid but produce incorrect output
-- [ ] #568: bug: no semantic error for duplicate variable declarations
-- [ ] #569: bug: no semantic error for undeclared variables in I/O statements
-- [ ] #585: bug: implicit none statements not preserved in program AST body
-- [ ] #607: bug: architectural violation - error_stop usage still present in 17 files
-- [ ] #609: bug: character string example failure - incomplete type declarations and missing assignments
-
-### EPIC: System Integrity & Foundation Issues (Issues #610-612, #578)
-- [ ] #610: critical: emergency recovery sprint FAILED - system remains completely non-functional
-- [ ] #611: architectural crisis: foundation architecture completely unstable - requires emergency intervention
-- [ ] #612: system integrity failure: emergency recovery sprint achieved 0% of goals - complete development halt required
-- [ ] #578: system integrity: foundation requirements vs implementation reality gap
-- [ ] #562: dead code: unused parameters in codegen placeholder functions
-- [ ] #594: fix: remove duplicate use standardizer_types statement
-- [ ] #595: fix: complete codegen TODO placeholders from emergency fixes
-- [ ] #596: fix: replace error stop with structured error handling
-- [ ] #597: test: add test coverage for refactored standardizer modules
-
-### EPIC: Crisis Documentation (Issue #581)
-- [ ] #581: docs: consolidate emergency recovery sprint documentation and crisis lessons learned
-
-## POST-RECOVERY WORK (After Minimal Functionality)
-
-### EPIC: Size Constraint Compliance (Deferred)
-- [ ] #555: improve: clarify temp_type variable usage in semantic analyzer helpers
-- [ ] #547: architectural violation: 12 files exceed 1000-line limit, violating size constraints  
+### EPIC: Code Quality & Size Constraints
+- [ ] #547: architectural violation: 12 files exceed 1000-line limit, violating size constraints
+- [ ] #532: refactor: semantic_analyzer.f90 exceeds 1000 line limit (1036 lines)
 - [ ] #535: refactor: parser_expressions.f90 exceeds 1000 line limit (1162 lines)
 - [ ] #536: refactor: parser_declarations.f90 exceeds 1000 line limit (1460 lines)
 - [ ] #533: refactor: infer_type function exceeds 100 line limit (106 lines)

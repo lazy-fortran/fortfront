@@ -132,8 +132,15 @@ contains
         integer :: line, column
         character(len=:), allocatable :: unit_spec, format_spec
 
-        ! Consume 'write' keyword
-        token = parser%consume()
+        ! Check if we're at write keyword
+        token = parser%peek()
+        if (token%kind == TK_KEYWORD .and. token%text == "write") then
+            ! Consume 'write' keyword
+            token = parser%consume()
+        else
+            write_index = 0
+            return
+        end if
         line = token%line
         column = token%column
 
@@ -177,7 +184,7 @@ contains
         ! Parse all write arguments
         call parse_argument_list(parser, arena, arg_indices)
 
-        ! Create write statement node with parsed arguments
+        ! Create write statement node with parsed arguments        
         write_index = push_write_statement(arena, unit_spec, arg_indices, &
                                            format_spec, line, column)
     end function parse_write_statement

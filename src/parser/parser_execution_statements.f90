@@ -5,7 +5,7 @@ module parser_execution_statements_module
     use parser_expressions_module, only: parse_range
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
-    use parser_io_statements_module, only: parse_print_statement
+    use parser_io_statements_module, only: parse_print_statement, parse_write_statement
     use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
     use parser_control_statements_module, only: parse_stop_statement, parse_goto_statement, &
                                                parse_error_stop_statement, parse_return_statement, &
@@ -119,8 +119,17 @@ contains
         prog_index = 0
         allocate (body_indices(0))
 
-        ! Consume 'program' keyword
-        token = parser%consume()
+        ! Check if we're already at 'program' keyword
+        token = parser%peek()
+        if (token%kind == TK_KEYWORD .and. token%text == "program") then
+            ! Consume 'program' keyword
+            token = parser%consume()
+        else
+            ! Not at program keyword, return 0
+            prog_index = 0
+            return
+        end if
+        
         line = token%line
         column = token%column
 
@@ -186,6 +195,9 @@ contains
                     call handle_variable_declaration(parser, arena, stmt_index)
                 case ("print")
                     stmt_index = parse_print_statement(parser, arena)
+                case ("write")
+                    ! Parse write statement using the IO module (already in use at module level)
+                    stmt_index = parse_write_statement(parser, arena)
                 case ("allocate")
                     stmt_index = parse_allocate_statement(parser, arena)
                 case ("deallocate")
