@@ -5,7 +5,7 @@ module codegen_control_flow
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
-    use codegen_utilities, only: generate_code_from_arena
+    use codegen_utilities, only: generate_code_from_arena, generate_grouped_body
     implicit none
     private
 
@@ -19,14 +19,6 @@ module codegen_control_flow
 
 contains
 
-    ! Simple stub implementation for generate_grouped_body
-    function generate_grouped_body(arena, body_indices, indent) result(code)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: body_indices(:)
-        integer, intent(in) :: indent
-        character(len=:), allocatable :: code
-        code = "! TODO: implement grouped body"
-    end function generate_grouped_body
 
     ! Generate code for if statements
     function generate_code_if(arena, node, node_index) result(code)

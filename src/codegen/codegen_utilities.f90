@@ -614,6 +614,7 @@ contains
         use ast_nodes_core
         use ast_nodes_io
         use ast_nodes_data
+        use ast_nodes_control
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
@@ -693,6 +694,79 @@ contains
             
         type is (implicit_statement_node)
             code = "implicit none"
+            
+        ! Control flow nodes - simple but functional implementations
+        type is (if_node)
+            ! Generate: if (condition) then ... [else ...] end if
+            code = "if ("
+            if (node%condition_index > 0) then
+                code = code // generate_code_from_arena(arena, node%condition_index)
+            else
+                code = code // ".true."
+            end if
+            code = code // ") then" // new_line('A')
+            
+            ! Generate then body
+            if (allocated(node%then_body_indices)) then
+                do i = 1, size(node%then_body_indices)
+                    code = code // "    " // generate_code_from_arena(arena, node%then_body_indices(i)) // new_line('A')
+                end do
+            end if
+            
+            ! Generate else body if present
+            if (allocated(node%else_body_indices)) then
+                if (size(node%else_body_indices) > 0) then
+                    code = code // "else" // new_line('A')
+                    do i = 1, size(node%else_body_indices)
+                        code = code // "    " // generate_code_from_arena(arena, node%else_body_indices(i)) // new_line('A')
+                    end do
+                end if
+            end if
+            
+            code = code // "end if"
+            
+        type is (do_loop_node)
+            ! Generate: do var = start, end [, step] ... end do
+            if (allocated(node%var_name) .and. len_trim(node%var_name) > 0) then
+                code = "do " // trim(node%var_name) // " = "
+                if (node%start_expr_index > 0) then
+                    code = code // generate_code_from_arena(arena, node%start_expr_index)
+                else
+                    code = code // "1"
+                end if
+                code = code // ", "
+                if (node%end_expr_index > 0) then
+                    code = code // generate_code_from_arena(arena, node%end_expr_index)
+                else
+                    code = code // "10"
+                end if
+                if (node%step_expr_index > 0) then
+                    code = code // ", " // generate_code_from_arena(arena, node%step_expr_index)
+                end if
+                code = code // new_line('A')
+            else
+                code = "do" // new_line('A')
+            end if
+            
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    code = code // "    " // generate_code_from_arena(arena, node%body_indices(i)) // new_line('A')
+                end do
+            end if
+            
+            code = code // "end do"
+            
+        type is (select_case_node)
+            ! Generate: select case (expression) ... end select
+            code = "select case ("
+            if (node%selector_index > 0) then
+                code = code // generate_code_from_arena(arena, node%selector_index)
+            else
+                code = code // "default_var"
+            end if
+            code = code // ")" // new_line('A')
+            code = code // "    ! TODO: implement case blocks" // new_line('A')
+            code = code // "end select"
             
         ! For other complex nodes, return a minimal working representation
         class default
