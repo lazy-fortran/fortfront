@@ -8,8 +8,6 @@ module codegen_utilities
     implicit none
     private
     
-    ! Simple stub to avoid circular dependencies
-
     ! Type standardization configuration
     logical, save :: standardize_types_enabled = .true.
 
@@ -45,8 +43,8 @@ module codegen_utilities
 
 contains
 
-    ! Minimal stub to break circular dependency
-    ! Returns basic representation instead of "TODO"
+    ! Forward declaration stub - actual implementation in codegen_core
+    ! This breaks the circular dependency while allowing utilities to call core
     function generate_code_from_arena(arena, node_index) result(code)
         use ast_nodes_core
         use ast_nodes_data
@@ -59,15 +57,14 @@ contains
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
         
-        ! Provide basic code generation for simple nodes
-        ! Complex nodes will be handled by codegen_core's top-level dispatcher
+        ! Handle simple nodes directly to avoid recursion
         select type (node => arena%entries(node_index)%node)
         type is (literal_node)
             code = trim(node%value)
         type is (identifier_node)
             code = trim(node%name)
         class default
-            ! Return empty instead of TODO for unhandled types
+            ! For complex nodes, return empty - codegen_core handles these
             code = ""
         end select
     end function generate_code_from_arena
