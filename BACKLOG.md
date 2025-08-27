@@ -40,18 +40,14 @@
 - [ ] #641: security: unsafe memory allocations without error checking - **SECURITY VULNERABILITY**
 - [ ] #642: test coverage: inadequate parser test coverage - **MASKS CRITICAL FAILURES**
 - [ ] #638: bug: parser generates 'Unparsed' comments for array operations in loops - **PARSER REGRESSION**
-- [ ] #637: bug: parser fails to parse do loops with expressions - **EMERGENCY PRIORITY - BLOCKS ALL CONTROL FLOW**
 
 ## DOING (Current Work - EMERGENCY STABILIZATION ONLY)
 
-### Function Support Restoration - TODO placeholder elimination  
-**EPIC: Function Support Restoration**
-- [ ] #622: bug: function definitions generate TODO placeholders instead of code - **ROUTED TO SERGEI ON BRANCH fix-function-definitions-622**
+**EMERGENCY PROTOCOL: FOUNDATION STABILIZATION**
+- [ ] #653: CRITICAL: if/else parsing completely broken with false error messages - **ROUTED TO SERGEI**
 
-**BLOCKED WORK** (Previous sprint claims - ALL PROVEN FALSE):
-- [x] #620: bug: do loop statements generate TODO placeholders instead of code - **CLAIMED COMPLETED BUT PARSING STILL BROKEN**
-- [x] #618: bug: multi-variable declarations corrupted in code generation - **PARTIALLY FIXED IN PR #645 MERGED** 
-- [ ] #622: bug: function definitions generate TODO placeholders instead of code - **UNKNOWN STATUS - LIKELY STILL BROKEN**
+**ABANDONED WORK** (Inconsistent state - branch exists but issue closed):
+- [x] #622: bug: function definitions generate TODO placeholders instead of code - **ISSUE CLOSED, BRANCH EXISTS, NO PR** - Work must be PR'd or abandoned
 
 ## SPRINT_BACKLOG - EMERGENCY STABILIZATION
 
@@ -193,6 +189,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #637: bug: parser fails to parse do loops with expressions - FIXED IN PR #643 (parser now handles expressions using parse_range)
 - [x] #623: bug: if/else statements generate TODO placeholders instead of code - PR #635 READY FOR REVIEW
 - [x] #634: architectural: foundation-first development protocol implementation required - ASSESSMENT COMPLETE
 - [x] #633: architectural: systemic development process improvements required - ASSESSMENT COMPLETE  
