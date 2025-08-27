@@ -14,7 +14,7 @@ module ast_nodes_data
     integer, parameter :: INTENT_INOUT = 3
 
     ! Public factory functions
-    public :: create_declaration, create_derived_type
+    public :: create_declaration, create_derived_type, create_mixed_construct_container
     
     ! Public utility functions
     public :: intent_type_to_string
@@ -105,6 +105,18 @@ module ast_nodes_data
         procedure :: assign => derived_type_assign
         generic :: assignment(=) => assign
     end type derived_type_node
+
+    ! Mixed construct container node (for Issue #511 mixed construct support)
+    type, extends(ast_node), public :: mixed_construct_container_node
+        character(len=:), allocatable :: module_name           ! Generated module name
+        integer, allocatable :: implicit_declaration_indices(:)  ! Declarations for module
+        integer, allocatable :: explicit_program_indices(:)    ! Explicit program units
+    contains
+        procedure :: accept => mixed_construct_container_accept
+        procedure :: to_json => mixed_construct_container_to_json
+        procedure :: assign => mixed_construct_container_assign
+        generic :: assignment(=) => assign
+    end type mixed_construct_container_node
 
 contains
 
@@ -405,5 +417,71 @@ contains
             intent_str = ""
         end select
     end function intent_type_to_string
+
+    ! Stub implementations for mixed_construct_container_node
+    subroutine mixed_construct_container_accept(this, visitor)
+        class(mixed_construct_container_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+        ! Stub implementation
+    end subroutine mixed_construct_container_accept
+
+    subroutine mixed_construct_container_to_json(this, json, parent)
+        class(mixed_construct_container_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        ! Stub implementation
+    end subroutine mixed_construct_container_to_json
+
+    subroutine mixed_construct_container_assign(lhs, rhs)
+        class(mixed_construct_container_node), intent(inout) :: lhs
+        class(mixed_construct_container_node), intent(in) :: rhs
+        ! Copy base class fields
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        ! Copy derived class fields
+        if (allocated(rhs%module_name)) lhs%module_name = rhs%module_name
+        if (allocated(rhs%implicit_declaration_indices)) then
+            lhs%implicit_declaration_indices = rhs%implicit_declaration_indices
+        end if
+        if (allocated(rhs%explicit_program_indices)) then
+            lhs%explicit_program_indices = rhs%explicit_program_indices
+        end if
+    end subroutine mixed_construct_container_assign
+
+    ! Factory function for mixed construct container
+    function create_mixed_construct_container(module_name, implicit_indices, &
+                                            explicit_indices, line, column) &
+                                            result(node)
+        character(len=*), intent(in) :: module_name
+        integer, intent(in), optional :: implicit_indices(:)
+        integer, intent(in), optional :: explicit_indices(:)
+        integer, intent(in), optional :: line, column
+        type(mixed_construct_container_node) :: node
+
+        node%uid = generate_uid()
+        node%module_name = module_name
+        
+        if (present(implicit_indices)) then
+            if (size(implicit_indices) > 0) then
+                node%implicit_declaration_indices = implicit_indices
+            end if
+        end if
+        
+        if (present(explicit_indices)) then
+            if (size(explicit_indices) > 0) then
+                node%explicit_program_indices = explicit_indices
+            end if
+        end if
+        
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_mixed_construct_container
 
 end module ast_nodes_data
