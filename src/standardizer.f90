@@ -1170,6 +1170,34 @@ contains
         if (.not. allocated(arena%entries(expr_index)%node)) return
         
         select type (node => arena%entries(expr_index)%node)
+        type is (literal_node)
+            ! Handle literal nodes by checking their inferred type or literal kind
+            if (node%inferred_type%kind > 0) then
+                expr_type => node%inferred_type
+            else
+                ! Fallback to determining type from literal_kind
+                allocate(expr_type)
+                select case (node%literal_kind)
+                case (LITERAL_INTEGER)
+                    expr_type = create_mono_type(TINT)
+                case (LITERAL_REAL)
+                    expr_type = create_mono_type(TREAL)
+                case (LITERAL_STRING)
+                    expr_type = create_mono_type(TCHAR)
+                    ! Set the size based on the string literal length (excluding quotes)
+                    if (allocated(node%value)) then
+                        if (len(node%value) >= 2) then
+                            expr_type%size = len(node%value) - 2  ! Remove surrounding quotes
+                        else
+                            expr_type%size = 0  ! Empty string
+                        end if
+                    end if
+                case (LITERAL_LOGICAL)
+                    expr_type = create_mono_type(TLOGICAL)
+                case default
+                    expr_type = create_mono_type(TREAL)  ! Default fallback
+                end select
+            end if
         type is (identifier_node)
             if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
@@ -1195,10 +1223,6 @@ contains
                 end if
             end if
         type is (binary_op_node)
-            if (node%inferred_type%kind > 0) then
-                expr_type => node%inferred_type
-            end if
-        type is (literal_node)
             if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
             end if
