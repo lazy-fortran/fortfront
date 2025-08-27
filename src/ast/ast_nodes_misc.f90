@@ -17,6 +17,16 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type comment_node
 
+    ! Blank line node (for preserving source formatting)
+    type, extends(ast_node), public :: blank_line_node
+        integer :: count = 1  ! Number of consecutive blank lines
+    contains
+        procedure :: accept => blank_line_accept
+        procedure :: to_json => blank_line_to_json
+        procedure :: assign => blank_line_assign
+        generic :: assignment(=) => assign
+    end type blank_line_node
+
     ! Complex literal node
     type, extends(ast_node), public :: complex_literal_node
         integer :: real_index = 0     ! Index to real part expression in arena
@@ -529,6 +539,44 @@ contains
         ! Copy comment text
         if (allocated(rhs%text)) lhs%text = rhs%text
     end subroutine comment_assign
+
+    ! Blank line node methods
+    subroutine blank_line_accept(this, visitor)
+        class(blank_line_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+        ! For now, do nothing since we don't have a visitor framework in place
+    end subroutine blank_line_accept
+
+    subroutine blank_line_to_json(this, json, parent)
+        class(blank_line_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+        
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'blank_line')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'count', this%count)
+        call json%add(parent, obj)
+    end subroutine blank_line_to_json
+
+    subroutine blank_line_assign(lhs, rhs)
+        class(blank_line_node), intent(inout) :: lhs
+        class(blank_line_node), intent(in) :: rhs
+        ! Copy base class components
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+        ! Copy blank line count
+        lhs%count = rhs%count
+    end subroutine blank_line_assign
 
     ! Implicit statement implementations
     subroutine implicit_statement_accept(this, visitor)

@@ -200,47 +200,33 @@ contains
         type is (subroutine_call_node)
             ! Subroutine calls don't return a value
             typ = create_mono_type(TVAR, var=create_type_var(0, "error"))
-
         type is (assignment_node)
             typ = infer_assignment(this, arena, expr, expr_index)
-
         type is (array_literal_node)
             typ = infer_array_literal(this, arena, expr, expr_index)
-
         type is (do_loop_node)
             typ = infer_implied_do_loop(this, arena, expr, expr_index)
-
         type is (declaration_node)
             typ = infer_declaration_helper(this, expr)
-
         type is (if_node)
             typ = infer_if_helper(this, arena, expr)
-
         type is (do_while_node)
             typ = infer_do_while_helper(this, arena, expr)
-
         type is (where_node)
             typ = infer_where_helper(this, arena, expr)
-
         type is (where_stmt_node)
             typ = infer_where_stmt_helper(this, arena, expr)
-
         type is (forall_node)
             typ = infer_forall_helper(this, arena, expr)
-
         type is (select_case_node)
             typ = infer_select_case_helper(this, arena, expr)
-
         type is (associate_node)
             typ = infer_associate_helper(this, arena, expr)
-
         type is (stop_node)
             typ = infer_stop_helper(this, arena, expr)
-
         type is (cycle_node)
             ! Control flow statements don't have a type
             typ = create_mono_type(TVAR, var=create_type_var(0, "control"))
-
         type is (exit_node)
             ! Control flow statements don't have a type
             typ = create_mono_type(TVAR, var=create_type_var(0, "control"))

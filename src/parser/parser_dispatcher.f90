@@ -113,6 +113,9 @@ contains
         case (TK_COMMENT)
             ! Parse comment
             stmt_index = parse_comment(parser, arena)
+        case (TK_NEWLINE)
+            ! Parse blank line (newline token)
+            stmt_index = parse_blank_line(parser, arena)
         case default
             ! Parse as expression
             stmt_index = parse_as_expression(tokens, arena)
@@ -303,6 +306,30 @@ contains
         call arena%push(comment, "comment")
         comment_index = arena%size
     end function parse_comment
+
+    ! Parse a blank line (newline token)
+    function parse_blank_line(parser, arena) result(blank_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: blank_index
+        type(token_t) :: token
+        type(blank_line_node) :: blank_line
+        integer :: count
+
+        ! Count consecutive newlines
+        count = 0
+        do while (parser%current_token <= size(parser%tokens))
+            token = parser%peek()
+            if (token%kind /= TK_NEWLINE) exit
+            count = count + 1
+            token = parser%consume()
+        end do
+
+        ! Create blank line node with count of consecutive lines
+        blank_line = create_blank_line(count, token%line, token%column)
+        call arena%push(blank_line, "blank_line")
+        blank_index = arena%size
+    end function parse_blank_line
 
     ! Get additional indices from multi-declaration parsing
     function get_additional_indices() result(indices)

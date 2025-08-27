@@ -7,6 +7,9 @@
 ### CRITICAL - Build System Recovery
 - [ ] #540: Build system completely non-functional due to git commit error (BLOCKER - prevents all work)
 
+### CRITICAL - System Functionality Blockers
+- [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
+
 ### EPIC: Architecture Foundation Fixes
 - [ ] #546: architectural drift: class(*) vtable linking issue #442 not resolved - blocking arena work
 - [ ] #550: design misalignment: FPM-first architecture not validated - external tool integration untested
