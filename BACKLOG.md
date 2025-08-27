@@ -1,10 +1,27 @@
 # Development Backlog
 
-## DOING (Current Work)
+## EMERGENCY CRISIS MANAGEMENT (HIGHEST PRIORITY)
+
+### CRITICAL PARSER FAILURE - ROOT CAUSE
+**EPIC: Emergency Parser Crisis Resolution**
+- [ ] #637: bug: parser fails to parse do loops with expressions - **EMERGENCY PRIORITY - BLOCKS ALL CONTROL FLOW**
+
+### CATASTROPHIC ARCHITECTURAL VIOLATIONS  
+**EPIC: Emergency Architectural Compliance**
+- [ ] #639: CRITICAL: 9 files violate 1000-line architectural limit - **12 FILES UP TO 2330 LINES**
+- [ ] #640: CRITICAL: error stop statements violate error handling architecture - **PREVENTS LIBRARY INTEGRATION**
+- [ ] #641: security: unsafe memory allocations without error checking - **SECURITY VULNERABILITY**
+- [ ] #642: test coverage: inadequate parser test coverage - **MASKS CRITICAL FAILURES**
+
+### UNPARSED COMMENTS CRISIS
+**EPIC: Parser Expression Handling**  
+- [ ] #638: bug: parser generates 'Unparsed' comments for array operations in loops - **PARSER REGRESSION**
+
+## DOING (Current Work - BLOCKED BY CRISIS)
 
 ### Control Flow Code Generation - do loop statement restoration  
 **EPIC: Control Flow Code Generation**
-- [ ] #620: bug: do loop statements generate TODO placeholders instead of code - **IN PROGRESS**
+- [x] #620: bug: do loop statements generate TODO placeholders instead of code - **COMPLETED IN PR #636 - REJECTED DUE TO DISHONESTY**
 
 ## SPRINT_BACKLOG - CONTROL FLOW RESTORATION
 
