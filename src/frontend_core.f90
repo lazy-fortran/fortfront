@@ -19,7 +19,7 @@ module frontend_core
     use ast_base, only: LITERAL_STRING
     use ast_factory, only: push_program, push_literal
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                   analyze_program
+                                   analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
     use codegen_core, only: generate_code_from_arena, generate_code_polymorphic, &
@@ -111,7 +111,8 @@ contains
         ! Phase 3: Semantic Analysis (only for lazy fortran)
         call compiler_arena%next_phase("semantic")
         ! Use the version with INTENT checking
-        call run_semantic_analysis(compiler_arena%ast, prog_index)
+        call run_semantic_analysis(compiler_arena%ast, prog_index, error_msg)
+        if (error_msg /= "") return
         ! Debug semantic output disabled - implement later if needed
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
@@ -167,7 +168,8 @@ contains
 
         ! Phase 3: Semantic Analysis (only for lazy fortran)
         call compiler_arena%next_phase("semantic")
-        call run_semantic_analysis(compiler_arena%ast, prog_index)
+        call run_semantic_analysis(compiler_arena%ast, prog_index, error_msg)
+        if (error_msg /= "") return
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
         call compiler_arena%next_phase("standardization")
@@ -213,7 +215,8 @@ contains
 
         ! Phase 3: Semantic Analysis
         call compiler_arena%next_phase("semantic")
-        call run_semantic_analysis(compiler_arena%ast, prog_index)
+        call run_semantic_analysis(compiler_arena%ast, prog_index, error_msg)
+        if (error_msg /= "") return
 
         ! Phase 4: Standardization
         call compiler_arena%next_phase("standardization")
@@ -299,8 +302,10 @@ contains
     subroutine analyze_semantics(arena, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
+        character(len=256) :: error_msg
 
-        call run_semantic_analysis(arena, prog_index)
+        call run_semantic_analysis(arena, prog_index, error_msg)
+        ! Note: For backward compatibility, this version doesn't propagate errors
     end subroutine analyze_semantics
 
     subroutine emit_fortran(arena, prog_index, fortran_code)
@@ -344,15 +349,24 @@ contains
         error_msg = ""
     end subroutine read_source_file
 
-    subroutine run_semantic_analysis(arena, prog_index)
+    subroutine run_semantic_analysis(arena, prog_index, error_msg)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
+        character(len=*), intent(out) :: error_msg
 
         block
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
             call analyze_program(ctx, arena, prog_index)
+            
+            ! Check for semantic errors and return error message if found
+            if (has_semantic_errors(ctx)) then
+                error_msg = "Semantic errors detected: undefined variables or type mismatches"
+                return
+            end if
         end block
+        
+        error_msg = ""
     end subroutine run_semantic_analysis
 
     subroutine run_compilation_pipeline_from_phase2(tokens, compiler_arena, prog_index, &
@@ -369,7 +383,8 @@ contains
 
         ! Phase 3: Semantic Analysis (only for lazy fortran)
         call compiler_arena%next_phase("semantic")
-        call run_semantic_analysis(compiler_arena%ast, prog_index)
+        call run_semantic_analysis(compiler_arena%ast, prog_index, error_msg)
+        if (error_msg /= "") return
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
         call compiler_arena%next_phase("standardization")
@@ -379,10 +394,13 @@ contains
     subroutine run_compilation_pipeline_from_phase3(compiler_arena, prog_index)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
+        character(len=256) :: error_msg
 
         ! Phase 3: Semantic Analysis
         call compiler_arena%next_phase("semantic")
-        call run_semantic_analysis(compiler_arena%ast, prog_index)
+        call run_semantic_analysis(compiler_arena%ast, prog_index, error_msg)
+        ! Note: For internal use, we continue even if semantic errors occur
+        ! The calling routine should check for errors separately
 
         ! Phase 4: Standardization
         call compiler_arena%next_phase("standardization")

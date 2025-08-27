@@ -7,7 +7,7 @@ module frontend_transformation
                            TK_NUMBER, TK_STRING, TK_UNKNOWN
     use compiler_arena, only: compiler_arena_t, create_compiler_arena, destroy_compiler_arena
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
-                                   analyze_program
+                                   analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
     use codegen_core, only: generate_code_from_arena, set_type_standardization, &
@@ -84,7 +84,12 @@ contains
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         print *, "DEBUG: About to call run_final_phases with prog_index=", prog_index
-        call run_final_phases(compiler_arena, prog_index, output)
+        call run_final_phases(compiler_arena, prog_index, output, error_msg)
+        if (error_msg /= "") then
+            ! Return error message but don't generate output for semantic errors
+            output = "! Semantic error: " // error_msg
+            return
+        end if
         print *, "DEBUG: run_final_phases completed"
 
         ! Cleanup unified compiler arena
@@ -284,13 +289,15 @@ contains
     end subroutine handle_invalid_program_index
 
     ! Run final phases (semantic, standardization, codegen)
-    subroutine run_final_phases(compiler_arena, prog_index, output)
+    subroutine run_final_phases(compiler_arena, prog_index, output, error_msg)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
         character(len=:), allocatable, intent(out) :: output
+        character(len=:), allocatable, intent(out) :: error_msg
 
         ! Phase 3: Semantic Analysis
-        call run_semantic_analysis_phase(compiler_arena, prog_index)
+        call run_semantic_analysis_phase(compiler_arena, prog_index, error_msg)
+        if (error_msg /= "") return
 
         ! Phase 4: Standardization
         call run_standardization_phase(compiler_arena, prog_index)
@@ -300,9 +307,10 @@ contains
     end subroutine run_final_phases
 
     ! Run semantic analysis phase
-    subroutine run_semantic_analysis_phase(compiler_arena, prog_index)
+    subroutine run_semantic_analysis_phase(compiler_arena, prog_index, error_msg)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(in) :: prog_index
+        character(len=:), allocatable, intent(out) :: error_msg
 
         print *, "DEBUG: run_semantic_analysis_phase called with prog_index=", prog_index
         call compiler_arena%next_phase("semantic")
@@ -312,7 +320,15 @@ contains
             print *, "DEBUG: About to call analyze_program"
             call analyze_program(ctx, compiler_arena%ast, prog_index)
             print *, "DEBUG: analyze_program completed"
+            
+            ! Check for semantic errors
+            if (has_semantic_errors(ctx)) then
+                error_msg = "Undefined variables detected in the program"
+                return
+            end if
         end block
+        
+        error_msg = ""
     end subroutine run_semantic_analysis_phase
 
     ! Run standardization phase
