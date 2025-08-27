@@ -320,7 +320,10 @@ contains
         character(len=:), allocatable :: left_code, right_code
 
         ! Generate code for operands with parentheses when needed
-        if (node%left_index > 0 .and. node%left_index <= arena%size) then
+        if (node%left_index == 0) then
+            ! Unary operation - no left operand
+            left_code = ""
+        else if (node%left_index > 0 .and. node%left_index <= arena%size) then
             left_code = generate_code_from_arena(arena, node%left_index)
             ! Add parentheses if left operand has lower precedence
             if (needs_parentheses(arena, node%left_index, node%operator, .true.)) then
@@ -341,7 +344,10 @@ contains
         end if
 
         ! Combine with operator - precedence-aware spacing
-        if (trim(node%operator) == ':') then
+        if (node%left_index == 0) then
+            ! Unary operation (no left operand) - for .not., unary +, unary -
+            code = trim(node%operator)//" "//right_code
+        else if (trim(node%operator) == ':') then
             ! Array slicing operator
             if (len(left_code) == 0) then
                 ! Empty lower bound: :upper
