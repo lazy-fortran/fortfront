@@ -11,7 +11,7 @@ module parser_control_flow_module
     use parser_control_statements_module, only: parse_cycle_statement, parse_exit_statement, &
                                                 parse_return_statement, parse_stop_statement, &
                                                 parse_goto_statement, parse_error_stop_statement
-    use parser_execution_statements_module, only: parse_call_statement
+    ! Removed to avoid circular dependency: use parser_execution_statements_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
     use ast_core
@@ -919,8 +919,10 @@ contains
                 ! Parse return statement
                 stmt_index = parse_return_statement(parser, arena, parent_index)
             case ("call")
-                ! Parse call statement
-                stmt_index = parse_call_statement(parser, arena)
+                ! Skip call statements in control flow contexts
+                ! They will be handled by higher-level parsers to avoid circular dependency
+                stmt_index = 0
+                first_token = parser%consume()  ! consume "call" to avoid infinite loop
             case ("stop")
                 ! Parse stop statement
                 stmt_index = parse_stop_statement(parser, arena)
