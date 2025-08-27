@@ -615,6 +615,7 @@ contains
         use ast_nodes_io
         use ast_nodes_data
         use ast_nodes_control
+        use ast_nodes_procedure
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
@@ -657,6 +658,23 @@ contains
                 code = "! invalid binary_op"
             end if
             
+        type is (call_or_subscript_node)
+            ! Generate: name(args) for function calls or array access
+            if (allocated(node%name)) then
+                code = trim(node%name)
+                
+                if (allocated(node%arg_indices)) then
+                    code = code // "("
+                    do i = 1, size(node%arg_indices)
+                        if (i > 1) code = code // ", "
+                        code = code // generate_code_from_arena(arena, node%arg_indices(i))
+                    end do
+                    code = code // ")"
+                end if
+            else
+                code = "! invalid call_or_subscript"
+            end if
+            
         type is (print_statement_node)
             ! Generate: print *, args or print format, args
             if (allocated(node%format_spec) .and. len_trim(node%format_spec) > 0) then
@@ -694,6 +712,24 @@ contains
             
         type is (implicit_statement_node)
             code = "implicit none"
+            
+        type is (subroutine_call_node)
+            ! Generate: call subroutine(args)
+            code = "call "
+            if (allocated(node%name)) then
+                code = code // trim(node%name)
+            end if
+            
+            if (allocated(node%arg_indices)) then
+                if (size(node%arg_indices) > 0) then
+                    code = code // "("
+                    do i = 1, size(node%arg_indices)
+                        if (i > 1) code = code // ", "
+                        code = code // generate_code_from_arena(arena, node%arg_indices(i))
+                    end do
+                    code = code // ")"
+                end if
+            end if
             
         ! Control flow nodes - simple but functional implementations
         type is (if_node)
@@ -747,6 +783,24 @@ contains
             else
                 code = "do" // new_line('A')
             end if
+            
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    code = code // "    " // generate_code_from_arena(arena, node%body_indices(i)) // new_line('A')
+                end do
+            end if
+            
+            code = code // "end do"
+            
+        type is (do_while_node)
+            ! Generate: do while (condition) ... end do
+            code = "do while ("
+            if (node%condition_index > 0) then
+                code = code // generate_code_from_arena(arena, node%condition_index)
+            else
+                code = code // ".true."
+            end if
+            code = code // ")" // new_line('A')
             
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
