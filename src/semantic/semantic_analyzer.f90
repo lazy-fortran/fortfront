@@ -763,43 +763,10 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(if_node), intent(in) :: node
         type(mono_type_t) :: typ
-        type(mono_type_t) :: temp_type
-        integer :: i, j
         
-        ! Process condition
-        if (node%condition_index > 0) then
-            temp_type = ctx%infer(arena, node%condition_index)
-        end if
-        
-        ! Process then body
-        if (allocated(node%then_body_indices)) then
-            do i = 1, size(node%then_body_indices)
-                temp_type = ctx%infer(arena, node%then_body_indices(i))
-            end do
-        end if
-        
-        ! Process elseif blocks
-        if (allocated(node%elseif_blocks)) then
-            do i = 1, size(node%elseif_blocks)
-                if (node%elseif_blocks(i)%condition_index > 0) then
-                    temp_type = ctx%infer(arena, node%elseif_blocks(i)%condition_index)
-                end if
-                if (allocated(node%elseif_blocks(i)%body_indices)) then
-                    do j = 1, size(node%elseif_blocks(i)%body_indices)
-                        temp_type = ctx%infer(arena, node%elseif_blocks(i)%body_indices(j))
-                    end do
-                end if
-            end do
-        end if
-        
-        ! Process else body
-        if (allocated(node%else_body_indices)) then
-            do i = 1, size(node%else_body_indices)
-                temp_type = ctx%infer(arena, node%else_body_indices(i))
-            end do
-        end if
-        
-        ! Get control type from helper
+        call process_control_flow_node(ctx, arena, node%condition_index, &
+                                      node%then_body_indices, node%elseif_blocks, &
+                                      node%else_body_indices)
         call process_if_node_branches(node, typ)
     end function infer_if_helper
 
@@ -808,21 +775,8 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(do_while_node), intent(in) :: node
         type(mono_type_t) :: typ
-        type(mono_type_t) :: temp_type
-        integer :: i
         
-        ! Process condition
-        if (node%condition_index > 0) then
-            temp_type = ctx%infer(arena, node%condition_index)
-        end if
-        
-        ! Process body
-        if (allocated(node%body_indices)) then
-            do i = 1, size(node%body_indices)
-                temp_type = ctx%infer(arena, node%body_indices(i))
-            end do
-        end if
-        
+        call process_simple_control_node(ctx, arena, node%condition_index, node%body_indices)
         call process_do_while_node_body(node, typ)
     end function infer_do_while_helper
 
@@ -831,35 +785,9 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(where_node), intent(in) :: node
         type(mono_type_t) :: typ
-        type(mono_type_t) :: temp_type
-        integer :: i, j
         
-        ! Process mask
-        if (node%mask_expr_index > 0) then
-            temp_type = ctx%infer(arena, node%mask_expr_index)
-        end if
-        
-        ! Process where body
-        if (allocated(node%where_body_indices)) then
-            do i = 1, size(node%where_body_indices)
-                temp_type = ctx%infer(arena, node%where_body_indices(i))
-            end do
-        end if
-        
-        ! Process elsewhere clauses
-        if (allocated(node%elsewhere_clauses)) then
-            do i = 1, size(node%elsewhere_clauses)
-                if (node%elsewhere_clauses(i)%mask_index > 0) then
-                    temp_type = ctx%infer(arena, node%elsewhere_clauses(i)%mask_index)
-                end if
-                if (allocated(node%elsewhere_clauses(i)%body_indices)) then
-                    do j = 1, size(node%elsewhere_clauses(i)%body_indices)
-                        temp_type = ctx%infer(arena, node%elsewhere_clauses(i)%body_indices(j))
-                    end do
-                end if
-            end do
-        end if
-        
+        call process_simple_control_node(ctx, arena, node%mask_expr_index, node%where_body_indices)
+        call process_elsewhere_clauses(ctx, arena, node%elsewhere_clauses)
         call process_where_node_clauses(node, typ)
     end function infer_where_helper
 
@@ -868,14 +796,8 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(where_stmt_node), intent(in) :: node
         type(mono_type_t) :: typ
-        type(mono_type_t) :: temp_type
         
-        ! Process mask
-        if (node%mask_expr_index > 0) then
-            temp_type = ctx%infer(arena, node%mask_expr_index)
-        end if
-        
-        ! Process assignment
+        if (node%mask_expr_index > 0) typ = ctx%infer(arena, node%mask_expr_index)
         if (node%assignment_index > 0) then
             typ = ctx%infer(arena, node%assignment_index)
         else
@@ -937,25 +859,10 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(select_case_node), intent(in) :: node
         type(mono_type_t) :: typ
-        type(mono_type_t) :: temp_type
-        integer :: i
         
-        ! Process selector
-        if (node%selector_index > 0) then
-            temp_type = ctx%infer(arena, node%selector_index)
-        end if
-        
-        ! Process cases
-        if (allocated(node%case_indices)) then
-            do i = 1, size(node%case_indices)
-                temp_type = ctx%infer(arena, node%case_indices(i))
-            end do
-        end if
-        
-        if (node%default_index > 0) then
-            temp_type = ctx%infer(arena, node%default_index)
-        end if
-        
+        if (node%selector_index > 0) typ = ctx%infer(arena, node%selector_index)
+        call process_indices_array(ctx, arena, node%case_indices)
+        if (node%default_index > 0) typ = ctx%infer(arena, node%default_index)
         call process_select_case_blocks(node, typ)
     end function infer_select_case_helper
 
@@ -1002,13 +909,8 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(stop_node), intent(in) :: node
         type(mono_type_t) :: typ
-        type(mono_type_t) :: temp_type
         
-        ! Process stop code
-        if (node%stop_code_index > 0) then
-            temp_type = ctx%infer(arena, node%stop_code_index)
-        end if
-        
+        if (node%stop_code_index > 0) typ = ctx%infer(arena, node%stop_code_index)
         call process_stop_node_code(node, typ)
     end function infer_stop_helper
 
@@ -1019,5 +921,84 @@ contains
         
         has_errors = ctx%errors%has_errors()
     end function has_semantic_errors
+
+    ! Helper: Process control flow node with condition and body
+    subroutine process_simple_control_node(ctx, arena, condition_index, body_indices)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: condition_index
+        integer, intent(in), optional :: body_indices(:)
+        type(mono_type_t) :: temp_type
+        integer :: i
+        
+        if (condition_index > 0) temp_type = ctx%infer(arena, condition_index)
+        if (present(body_indices)) then
+            do i = 1, size(body_indices)
+                temp_type = ctx%infer(arena, body_indices(i))
+            end do
+        end if
+    end subroutine process_simple_control_node
+
+    ! Helper: Process indices array
+    subroutine process_indices_array(ctx, arena, indices)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: indices(:)
+        type(mono_type_t) :: temp_type
+        integer :: i
+        
+        if (present(indices)) then
+            do i = 1, size(indices)
+                temp_type = ctx%infer(arena, indices(i))
+            end do
+        end if
+    end subroutine process_indices_array
+
+    ! Helper: Process elsewhere clauses
+    subroutine process_elsewhere_clauses(ctx, arena, elsewhere_clauses)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(elsewhere_clause_t), intent(in), optional :: elsewhere_clauses(:)
+        type(mono_type_t) :: temp_type
+        integer :: i, j
+        
+        if (present(elsewhere_clauses)) then
+            do i = 1, size(elsewhere_clauses)
+                if (elsewhere_clauses(i)%mask_index > 0) then
+                    temp_type = ctx%infer(arena, elsewhere_clauses(i)%mask_index)
+                end if
+                if (allocated(elsewhere_clauses(i)%body_indices)) then
+                    do j = 1, size(elsewhere_clauses(i)%body_indices)
+                        temp_type = ctx%infer(arena, elsewhere_clauses(i)%body_indices(j))
+                    end do
+                end if
+            end do
+        end if
+    end subroutine process_elsewhere_clauses
+
+    ! Helper: Process complex control flow (if with elseif blocks)  
+    subroutine process_control_flow_node(ctx, arena, condition_index, then_indices, elseif_blocks, else_indices)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: condition_index
+        integer, intent(in), optional :: then_indices(:), else_indices(:)
+        type(elseif_wrapper), intent(in), optional :: elseif_blocks(:)
+        type(mono_type_t) :: temp_type
+        integer :: i, j
+        
+        if (condition_index > 0) temp_type = ctx%infer(arena, condition_index)
+        call process_indices_array(ctx, arena, then_indices)
+        
+        if (present(elseif_blocks)) then
+            do i = 1, size(elseif_blocks)
+                if (elseif_blocks(i)%condition_index > 0) then
+                    temp_type = ctx%infer(arena, elseif_blocks(i)%condition_index)
+                end if
+                call process_indices_array(ctx, arena, elseif_blocks(i)%body_indices)
+            end do
+        end if
+        
+        call process_indices_array(ctx, arena, else_indices)
+    end subroutine process_control_flow_node
 
 end module semantic_analyzer
