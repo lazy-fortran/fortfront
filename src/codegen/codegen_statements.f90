@@ -24,6 +24,16 @@ module codegen_statements
     public :: generate_code_comment
     public :: generate_code_blank_line
 
+    ! Interface for calling back to main code generator
+    interface
+        function generate_code_from_arena(arena, node_index) result(code)
+            import :: ast_arena_t
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: node_index
+            character(len=:), allocatable :: code
+        end function generate_code_from_arena
+    end interface
+
 contains
 
     ! Generate code for assignment statements
@@ -36,14 +46,14 @@ contains
 
         ! Generate left-hand side
         if (node%left > 0 .and. node%left <= arena%size) then
-            left_code = generate_code_polymorphic_internal(arena, node%left)
+            left_code = generate_code_from_arena(arena, node%left)
         else
             left_code = ""
         end if
 
         ! Generate right-hand side
         if (node%right > 0 .and. node%right <= arena%size) then
-            right_code = generate_code_polymorphic_internal(arena, node%right)
+            right_code = generate_code_from_arena(arena, node%right)
         else
             right_code = ""
         end if
@@ -73,7 +83,7 @@ contains
             do i = 1, size(node%args)
                 if (i > 1) args_code = args_code // ", "
                 if (node%args(i) > 0 .and. node%args(i) <= arena%size) then
-                    args_code = args_code // generate_code_polymorphic_internal(arena, node%args(i))
+                    args_code = args_code // generate_code_from_arena(arena, node%args(i))
                 end if
             end do
             code = code // "(" // args_code // ")"
@@ -93,7 +103,7 @@ contains
 
         ! Generate format specifier
         if (node%format_expr > 0 .and. node%format_expr <= arena%size) then
-            format_code = generate_code_polymorphic_internal(arena, node%format_expr)
+            format_code = generate_code_from_arena(arena, node%format_expr)
         else
             format_code = "*"
         end if
@@ -104,7 +114,7 @@ contains
             do i = 1, size(node%args)
                 if (i > 1) args_code = args_code // ", "
                 if (node%args(i) > 0 .and. node%args(i) <= arena%size) then
-                    args_code = args_code // generate_code_polymorphic_internal(arena, node%args(i))
+                    args_code = args_code // generate_code_from_arena(arena, node%args(i))
                 end if
             end do
         end if
@@ -126,14 +136,14 @@ contains
 
         ! Generate unit specifier
         if (node%unit_expr > 0) then
-            unit_code = generate_code_polymorphic_internal(arena, node%unit_expr)
+            unit_code = generate_code_from_arena(arena, node%unit_expr)
         else
             unit_code = "*"
         end if
 
         ! Generate format specifier
         if (node%format_expr > 0) then
-            format_code = generate_code_polymorphic_internal(arena, node%format_expr)
+            format_code = generate_code_from_arena(arena, node%format_expr)
         else
             format_code = "*"
         end if
@@ -144,7 +154,7 @@ contains
             do i = 1, size(node%output_items)
                 if (i > 1) args_code = args_code // ", "
                 if (node%output_items(i) > 0) then
-                    args_code = args_code // generate_code_polymorphic_internal(arena, node%output_items(i))
+                    args_code = args_code // generate_code_from_arena(arena, node%output_items(i))
                 end if
             end do
         end if
@@ -166,14 +176,14 @@ contains
 
         ! Generate unit specifier
         if (node%unit_expr > 0) then
-            unit_code = generate_code_polymorphic_internal(arena, node%unit_expr)
+            unit_code = generate_code_from_arena(arena, node%unit_expr)
         else
             unit_code = "*"
         end if
 
         ! Generate format specifier
         if (node%format_expr > 0) then
-            format_code = generate_code_polymorphic_internal(arena, node%format_expr)
+            format_code = generate_code_from_arena(arena, node%format_expr)
         else
             format_code = "*"
         end if
@@ -184,7 +194,7 @@ contains
             do i = 1, size(node%input_items)
                 if (i > 1) args_code = args_code // ", "
                 if (node%input_items(i) > 0) then
-                    args_code = args_code // generate_code_polymorphic_internal(arena, node%input_items(i))
+                    args_code = args_code // generate_code_from_arena(arena, node%input_items(i))
                 end if
             end do
         end if
@@ -207,7 +217,7 @@ contains
 
         ! Add stop code if present
         if (node%stop_code > 0 .and. node%stop_code <= arena%size) then
-            stop_code = generate_code_polymorphic_internal(arena, node%stop_code)
+            stop_code = generate_code_from_arena(arena, node%stop_code)
             code = code // " " // stop_code
         else if (allocated(node%message)) then
             code = code // ' "' // node%message // '"'
@@ -254,7 +264,7 @@ contains
 
         ! Add stop code or message
         if (node%stop_code > 0 .and. node%stop_code <= arena%size) then
-            stop_code = generate_code_polymorphic_internal(arena, node%stop_code)
+            stop_code = generate_code_from_arena(arena, node%stop_code)
             code = code // " " // stop_code
         else if (allocated(node%message)) then
             code = code // ' "' // node%message // '"'
@@ -376,7 +386,7 @@ contains
     end function generate_code_blank_line
 
     ! Internal polymorphic code generator
-    function generate_code_polymorphic_internal(arena, node_index) result(code)
+    function generate_code_from_arena(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
@@ -392,6 +402,6 @@ contains
         end interface
         
         code = generate_code_polymorphic(arena, node_index)
-    end function generate_code_polymorphic_internal
+    end function generate_code_from_arena
 
 end module codegen_statements

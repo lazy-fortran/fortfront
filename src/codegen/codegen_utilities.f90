@@ -32,6 +32,16 @@ module codegen_utilities
     public :: add_line_continuations
     public :: add_line_with_continuation
     
+    ! Interface for calling back to main code generator
+    interface
+        function generate_code_from_arena(arena, node_index) result(code)
+            import :: ast_arena_t
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: node_index
+            character(len=:), allocatable :: code
+        end function generate_code_from_arena
+    end interface
+    
     ! Type for storing parameter information during codegen
     type, public :: parameter_info_t
         character(len=:), allocatable :: name
@@ -270,7 +280,7 @@ contains
                         if (in_contains_section .and. i > 1) then
                             code = code // new_line('A')  ! Extra blank line between procedures
                         end if
-                        stmt_code = generate_code_polymorphic_internal(arena, body_indices(i))
+                        stmt_code = generate_code_from_arena(arena, body_indices(i))
                         code = code // indent_str // stmt_code // new_line('A')
                         i = i + 1
                         
@@ -278,7 +288,7 @@ contains
                         if (in_contains_section .and. i > 1) then
                             code = code // new_line('A')  ! Extra blank line between procedures
                         end if
-                        stmt_code = generate_code_polymorphic_internal(arena, body_indices(i))
+                        stmt_code = generate_code_from_arena(arena, body_indices(i))
                         code = code // indent_str // stmt_code // new_line('A')
                         i = i + 1
                         
@@ -287,7 +297,7 @@ contains
                         if (.not. in_contains_section .and. node%initializer_index == 0) then
                             call process_grouped_declarations(arena, body_indices, i, indent_str, code)
                         else
-                            stmt_code = generate_code_polymorphic_internal(arena, body_indices(i))
+                            stmt_code = generate_code_from_arena(arena, body_indices(i))
                             code = code // indent_str // stmt_code // new_line('A')
                             i = i + 1
                         end if
@@ -297,7 +307,7 @@ contains
                         call process_grouped_parameters(arena, body_indices, i, indent_str, code)
                         
                     type is (comment_node)
-                        stmt_code = generate_code_polymorphic_internal(arena, body_indices(i))
+                        stmt_code = generate_code_from_arena(arena, body_indices(i))
                         ! Comments preserve their own indentation
                         code = code // stmt_code // new_line('A')
                         i = i + 1
@@ -307,7 +317,7 @@ contains
                         i = i + 1
                         
                     class default
-                        stmt_code = generate_code_polymorphic_internal(arena, body_indices(i))
+                        stmt_code = generate_code_from_arena(arena, body_indices(i))
                         code = code // indent_str // stmt_code // new_line('A')
                         i = i + 1
                     end select
@@ -589,24 +599,5 @@ contains
             pos = last_break + 1
         end do
     end subroutine add_line_with_continuation
-
-    ! Internal polymorphic code generator
-    function generate_code_polymorphic_internal(arena, node_index) result(code)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(len=:), allocatable :: code
-        
-        ! Import the main dispatcher from codegen_core
-        interface
-            function generate_code_polymorphic(arena, node_index) result(code)
-                import :: ast_arena_t
-                type(ast_arena_t), intent(in) :: arena
-                integer, intent(in) :: node_index
-                character(len=:), allocatable :: code
-            end function generate_code_polymorphic
-        end interface
-        
-        code = generate_code_polymorphic(arena, node_index)
-    end function generate_code_polymorphic_internal
 
 end module codegen_utilities

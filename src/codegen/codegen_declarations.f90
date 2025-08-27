@@ -20,6 +20,16 @@ module codegen_declarations
     public :: generate_code_derived_type
     public :: generate_code_program
 
+    ! Interface for calling back to main code generator
+    interface
+        function generate_code_from_arena(arena, node_index) result(code)
+            import :: ast_arena_t
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: node_index
+            character(len=:), allocatable :: code
+        end function generate_code_from_arena
+    end interface
+
 contains
 
     ! Generate code for function definitions
@@ -44,7 +54,7 @@ contains
             do i = 1, size(node%param_indices)
                 if (i > 1) code = code // ", "
                 if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
-                    params_code = generate_code_polymorphic_internal(arena, node%param_indices(i))
+                    params_code = generate_code_from_arena(arena, node%param_indices(i))
                     code = code // params_code
                 end if
             end do
@@ -155,7 +165,7 @@ contains
             do i = 1, size(node%param_indices)
                 if (i > 1) code = code // ", "
                 if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
-                    params_code = generate_code_polymorphic_internal(arena, node%param_indices(i))
+                    params_code = generate_code_from_arena(arena, node%param_indices(i))
                     code = code // params_code
                 end if
             end do
@@ -346,7 +356,7 @@ contains
                         if (j > 1) code = code // ","
                         if (node%dimension_indices(j) > 0 .and. &
                             node%dimension_indices(j) <= arena%size) then
-                            code = code // generate_code_polymorphic_internal(arena, &
+                            code = code // generate_code_from_arena(arena, &
                                                                  node%dimension_indices(j))
                         else
                             code = code // ":"  ! Default for unspecified dimensions
@@ -367,7 +377,7 @@ contains
                     if (i > 1) code = code // ","
                     if (node%dimension_indices(i) > 0 .and. &
                         node%dimension_indices(i) <= arena%size) then
-                        code = code // generate_code_polymorphic_internal(arena, node%dimension_indices(i))
+                        code = code // generate_code_from_arena(arena, node%dimension_indices(i))
                     else
                         code = code // ":"  ! Default for unspecified dimensions
                     end if
@@ -378,7 +388,7 @@ contains
 
         ! Add initializer if present
         if (node%initializer_index > 0 .and. node%initializer_index <= arena%size) then
-            init_code = generate_code_polymorphic_internal(arena, node%initializer_index)
+            init_code = generate_code_from_arena(arena, node%initializer_index)
             code = code // " = " // init_code
         end if
     end function generate_code_declaration
@@ -434,7 +444,7 @@ contains
             do i = 1, size(node%procedure_indices)
                 if (node%procedure_indices(i) > 0 .and. &
                     node%procedure_indices(i) <= arena%size) then
-                    body_code = generate_code_polymorphic_internal(arena, node%procedure_indices(i))
+                    body_code = generate_code_from_arena(arena, node%procedure_indices(i))
                     if (len(body_code) > 0) then
                         ! Add proper indentation for contained procedures
                         code = code // "    " // body_code
@@ -469,7 +479,7 @@ contains
             do i = 1, size(node%component_indices)
                 if (node%component_indices(i) > 0 .and. &
                     node%component_indices(i) <= arena%size) then
-                    component_code = generate_code_polymorphic_internal(arena, node%component_indices(i))
+                    component_code = generate_code_from_arena(arena, node%component_indices(i))
                     code = code // "    " // component_code // new_line('A')
                 end if
             end do
@@ -535,24 +545,6 @@ contains
         code = code // "end program " // node%name
     end function generate_code_program
 
-    ! Internal polymorphic code generator
-    function generate_code_polymorphic_internal(arena, node_index) result(code)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(len=:), allocatable :: code
-        
-        ! Import the main dispatcher from codegen_core
-        interface
-            function generate_code_polymorphic(arena, node_index) result(code)
-                import :: ast_arena_t
-                type(ast_arena_t), intent(in) :: arena
-                integer, intent(in) :: node_index
-                character(len=:), allocatable :: code
-            end function generate_code_polymorphic
-        end interface
-        
-        code = generate_code_polymorphic(arena, node_index)
-    end function generate_code_polymorphic_internal
 
     ! Generate grouped body with context
     function generate_grouped_body_with_context(arena, body_indices, indent, has_exec_before_contains) result(code)

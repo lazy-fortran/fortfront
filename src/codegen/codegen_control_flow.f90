@@ -16,6 +16,16 @@ module codegen_control_flow
     public :: generate_code_forall
     public :: generate_code_associate
 
+    ! Interface for calling back to main code generator
+    interface
+        function generate_code_from_arena(arena, node_index) result(code)
+            import :: ast_arena_t
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: node_index
+            character(len=:), allocatable :: code
+        end function generate_code_from_arena
+    end interface
+
 contains
 
     ! Generate code for if statements
@@ -30,62 +40,49 @@ contains
         indent_level = 0
 
         ! Generate condition
-        if (node%condition > 0 .and. node%condition <= arena%size) then
-            cond_code = generate_code_polymorphic_internal(arena, node%condition)
+        if (node%condition_index > 0 .and. node%condition_index <= arena%size) then
+            cond_code = generate_code_from_arena(arena, node%condition_index)
         else
             cond_code = ""
         end if
 
         ! Generate if statement
-        if (allocated(node%construct_name)) then
-            code = node%construct_name // ": if (" // cond_code // ") then"
-        else
-            code = "if (" // cond_code // ") then"
-        end if
+        code = "if (" // cond_code // ") then"
 
         ! Generate then body
-        if (allocated(node%then_body)) then
-            body_code = generate_grouped_body_internal(arena, node%then_body, indent_level + 1)
+        if (allocated(node%then_body_indices)) then
+            body_code = generate_grouped_body_internal(arena, node%then_body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code // new_line('A') // body_code
             end if
         end if
 
         ! Generate else if blocks
-        if (allocated(node%elseif_conditions)) then
-            do i = 1, size(node%elseif_conditions)
-                cond_code = generate_code_polymorphic_internal(arena, node%elseif_conditions(i))
+        if (allocated(node%elseif_blocks)) then
+            do i = 1, size(node%elseif_blocks)
+                cond_code = generate_code_from_arena(arena, node%elseif_blocks(i)%condition_index)
                 code = code // new_line('A') // repeat("    ", indent_level) // "else if (" // cond_code // ") then"
                 
-                if (allocated(node%elseif_bodies)) then
-                    if (i <= size(node%elseif_bodies)) then
-                        if (allocated(node%elseif_bodies(i)%body)) then
-                            body_code = generate_grouped_body_internal(arena, node%elseif_bodies(i)%body, indent_level + 1)
-                            if (len(body_code) > 0) then
-                                code = code // new_line('A') // body_code
-                            end if
-                        end if
+                if (allocated(node%elseif_blocks(i)%body_indices)) then
+                    body_code = generate_grouped_body_internal(arena, node%elseif_blocks(i)%body_indices, indent_level + 1)
+                    if (len(body_code) > 0) then
+                        code = code // new_line('A') // body_code
                     end if
                 end if
             end do
         end if
 
         ! Generate else block
-        if (allocated(node%else_body)) then
+        if (allocated(node%else_body_indices)) then
             code = code // new_line('A') // repeat("    ", indent_level) // "else"
-            body_code = generate_grouped_body_internal(arena, node%else_body, indent_level + 1)
+            body_code = generate_grouped_body_internal(arena, node%else_body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code // new_line('A') // body_code
             end if
         end if
 
         ! Generate end if
-        code = code // new_line('A') // repeat("    ", indent_level) 
-        if (allocated(node%construct_name)) then
-            code = code // "end if " // node%construct_name
-        else
-            code = code // "end if"
-        end if
+        code = code // new_line('A') // repeat("    ", indent_level) // "end if"
     end function generate_code_if
 
     ! Generate code for do loops
@@ -108,50 +105,41 @@ contains
         end if
 
         ! Generate loop bounds
-        if (node%start_expr > 0) then
-            start_code = generate_code_polymorphic_internal(arena, node%start_expr)
+        if (node%start_expr_index > 0) then
+            start_code = generate_code_from_arena(arena, node%start_expr_index)
         else
             start_code = ""
         end if
 
-        if (node%end_expr > 0) then
-            end_code = generate_code_polymorphic_internal(arena, node%end_expr)
+        if (node%end_expr_index > 0) then
+            end_code = generate_code_from_arena(arena, node%end_expr_index)
         else
             end_code = ""
         end if
 
-        if (node%step_expr > 0) then
-            step_code = generate_code_polymorphic_internal(arena, node%step_expr)
+        if (node%step_expr_index > 0) then
+            step_code = generate_code_from_arena(arena, node%step_expr_index)
         else
             step_code = ""
         end if
 
         ! Generate do statement
-        if (allocated(node%construct_name)) then
-            code = node%construct_name // ": do " // var_code // " = " // start_code // ", " // end_code
-        else
-            code = "do " // var_code // " = " // start_code // ", " // end_code
-        end if
+        code = "do " // var_code // " = " // start_code // ", " // end_code
 
         if (len(step_code) > 0) then
             code = code // ", " // step_code
         end if
 
         ! Generate body
-        if (allocated(node%body)) then
-            body_code = generate_grouped_body_internal(arena, node%body, indent_level + 1)
+        if (allocated(node%body_indices)) then
+            body_code = generate_grouped_body_internal(arena, node%body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code // new_line('A') // body_code
             end if
         end if
 
         ! Generate end do
-        code = code // new_line('A') // repeat("    ", indent_level)
-        if (allocated(node%construct_name)) then
-            code = code // "end do " // node%construct_name
-        else
-            code = code // "end do"
-        end if
+        code = code // new_line('A') // repeat("    ", indent_level) // "end do"
     end function generate_code_do_loop
 
     ! Generate code for do while loops
@@ -167,7 +155,7 @@ contains
 
         ! Generate condition
         if (node%condition > 0) then
-            cond_code = generate_code_polymorphic_internal(arena, node%condition)
+            cond_code = generate_code_from_arena(arena, node%condition)
         else
             cond_code = ""
         end if
@@ -180,8 +168,8 @@ contains
         end if
 
         ! Generate body
-        if (allocated(node%body)) then
-            body_code = generate_grouped_body_internal(arena, node%body, indent_level + 1)
+        if (allocated(node%body_indices)) then
+            body_code = generate_grouped_body_internal(arena, node%body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code // new_line('A') // body_code
             end if
@@ -209,7 +197,7 @@ contains
 
         ! Generate case expression
         if (node%case_expr > 0) then
-            expr_code = generate_code_polymorphic_internal(arena, node%case_expr)
+            expr_code = generate_code_from_arena(arena, node%case_expr)
         else
             expr_code = ""
         end if
@@ -242,7 +230,7 @@ contains
                                     
                                     ! Check for range
                                     if (case_node%case_values(j) > 0) then
-                                        case_code = generate_code_polymorphic_internal(arena, case_node%case_values(j))
+                                        case_code = generate_code_from_arena(arena, case_node%case_values(j))
                                         code = code // case_code
                                     end if
                                 end do
@@ -294,7 +282,7 @@ contains
 
         ! Generate mask expression
         if (node%mask_expr > 0) then
-            mask_code = generate_code_polymorphic_internal(arena, node%mask_expr)
+            mask_code = generate_code_from_arena(arena, node%mask_expr)
         else
             mask_code = ""
         end if
@@ -302,7 +290,7 @@ contains
         ! Check if single statement or construct
         if (node%is_single_statement .and. allocated(node%where_body)) then
             if (size(node%where_body) == 1) then
-                body_code = generate_code_polymorphic_internal(arena, node%where_body(1))
+                body_code = generate_code_from_arena(arena, node%where_body(1))
                 code = "where (" // mask_code // ") " // body_code
                 return
             end if
@@ -326,7 +314,7 @@ contains
         ! Generate elsewhere blocks
         if (allocated(node%elsewhere_masks)) then
             do i = 1, size(node%elsewhere_masks)
-                mask_code = generate_code_polymorphic_internal(arena, node%elsewhere_masks(i))
+                mask_code = generate_code_from_arena(arena, node%elsewhere_masks(i))
                 code = code // new_line('A') // repeat("    ", indent_level) // "elsewhere (" // mask_code // ")"
                 
                 if (allocated(node%elsewhere_bodies)) then
@@ -395,19 +383,19 @@ contains
                 
                 ! Range
                 if (node%triplets(i)%start_expr > 0) then
-                    start_code = generate_code_polymorphic_internal(arena, node%triplets(i)%start_expr)
+                    start_code = generate_code_from_arena(arena, node%triplets(i)%start_expr)
                 else
                     start_code = ""
                 end if
                 
                 if (node%triplets(i)%end_expr > 0) then
-                    end_code = generate_code_polymorphic_internal(arena, node%triplets(i)%end_expr)
+                    end_code = generate_code_from_arena(arena, node%triplets(i)%end_expr)
                 else
                     end_code = ""
                 end if
                 
                 if (node%triplets(i)%stride_expr > 0) then
-                    stride_code = generate_code_polymorphic_internal(arena, node%triplets(i)%stride_expr)
+                    stride_code = generate_code_from_arena(arena, node%triplets(i)%stride_expr)
                     code = code // var_code // " = " // start_code // ":" // end_code // ":" // stride_code
                 else
                     code = code // var_code // " = " // start_code // ":" // end_code
@@ -417,7 +405,7 @@ contains
 
         ! Generate mask if present
         if (node%mask_expr > 0) then
-            mask_code = generate_code_polymorphic_internal(arena, node%mask_expr)
+            mask_code = generate_code_from_arena(arena, node%mask_expr)
             code = code // ", " // mask_code
         end if
 
@@ -426,15 +414,15 @@ contains
         ! Check if single statement or construct
         if (node%is_single_statement .and. allocated(node%body)) then
             if (size(node%body) == 1) then
-                body_code = generate_code_polymorphic_internal(arena, node%body(1))
+                body_code = generate_code_from_arena(arena, node%body(1))
                 code = code // " " // body_code
                 return
             end if
         end if
 
         ! Generate body for construct form
-        if (allocated(node%body)) then
-            body_code = generate_grouped_body_internal(arena, node%body, indent_level + 1)
+        if (allocated(node%body_indices)) then
+            body_code = generate_grouped_body_internal(arena, node%body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code // new_line('A') // body_code
             end if
@@ -474,7 +462,7 @@ contains
                     code = code // node%associations(i)%name // " => "
                     
                     if (node%associations(i)%expr_index > 0) then
-                        assoc_code = generate_code_polymorphic_internal(arena, node%associations(i)%expr_index)
+                        assoc_code = generate_code_from_arena(arena, node%associations(i)%expr_index)
                         code = code // assoc_code
                     end if
                 end if
@@ -516,24 +504,5 @@ contains
         
         code = generate_grouped_body(arena, body_indices, indent)
     end function generate_grouped_body_internal
-
-    ! Internal polymorphic code generator
-    function generate_code_polymorphic_internal(arena, node_index) result(code)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(len=:), allocatable :: code
-        
-        ! Import the main dispatcher from codegen_core
-        interface
-            function generate_code_polymorphic(arena, node_index) result(code)
-                import :: ast_arena_t
-                type(ast_arena_t), intent(in) :: arena
-                integer, intent(in) :: node_index
-                character(len=:), allocatable :: code
-            end function generate_code_polymorphic
-        end interface
-        
-        code = generate_code_polymorphic(arena, node_index)
-    end function generate_code_polymorphic_internal
 
 end module codegen_control_flow

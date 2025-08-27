@@ -25,6 +25,16 @@ module codegen_expressions
     public :: needs_parentheses
     public :: int_to_string
 
+    ! Interface for calling back to main code generator
+    interface
+        function generate_code_from_arena(arena, node_index) result(code)
+            import :: ast_arena_t
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: node_index
+            character(len=:), allocatable :: code
+        end function generate_code_from_arena
+    end interface
+
 contains
 
     ! Generate code for literal nodes
@@ -180,7 +190,7 @@ contains
 
         ! Generate left operand
         if (node%left > 0 .and. node%left <= arena%size) then
-            left_code = generate_code_polymorphic_internal(arena, node%left)
+            left_code = generate_code_from_arena(arena, node%left)
             if (needs_parentheses(arena, node%left, node%op, .true.)) then
                 left_code = "(" // left_code // ")"
             end if
@@ -190,7 +200,7 @@ contains
 
         ! Generate right operand
         if (node%right > 0 .and. node%right <= arena%size) then
-            right_code = generate_code_polymorphic_internal(arena, node%right)
+            right_code = generate_code_from_arena(arena, node%right)
             if (needs_parentheses(arena, node%right, node%op, .false.)) then
                 right_code = "(" // right_code // ")"
             end if
@@ -238,7 +248,7 @@ contains
 
         ! Generate object code
         if (node%object > 0 .and. node%object <= arena%size) then
-            obj_code = generate_code_polymorphic_internal(arena, node%object)
+            obj_code = generate_code_from_arena(arena, node%object)
         else
             obj_code = ""
         end if
@@ -261,21 +271,21 @@ contains
 
         ! Generate start index
         if (node%start_idx > 0 .and. node%start_idx <= arena%size) then
-            start_code = generate_code_polymorphic_internal(arena, node%start_idx)
+            start_code = generate_code_from_arena(arena, node%start_idx)
         else
             start_code = ""
         end if
 
         ! Generate end index  
         if (node%end_idx > 0 .and. node%end_idx <= arena%size) then
-            end_code = generate_code_polymorphic_internal(arena, node%end_idx)
+            end_code = generate_code_from_arena(arena, node%end_idx)
         else
             end_code = ""
         end if
 
         ! Generate stride
         if (node%stride > 0 .and. node%stride <= arena%size) then
-            stride_code = generate_code_polymorphic_internal(arena, node%stride)
+            stride_code = generate_code_from_arena(arena, node%stride)
         else
             stride_code = ""
         end if
@@ -298,7 +308,7 @@ contains
 
         ! Generate target (function name or array name)
         if (node%target > 0 .and. node%target <= arena%size) then
-            target_code = generate_code_polymorphic_internal(arena, node%target)
+            target_code = generate_code_from_arena(arena, node%target)
         else if (allocated(node%name)) then
             target_code = node%name
         else
@@ -311,7 +321,7 @@ contains
             do i = 1, size(node%args)
                 if (i > 1) args_code = args_code // ", "
                 if (node%args(i) > 0 .and. node%args(i) <= arena%size) then
-                    args_code = args_code // generate_code_polymorphic_internal(arena, node%args(i))
+                    args_code = args_code // generate_code_from_arena(arena, node%args(i))
                 end if
             end do
         end if
@@ -351,7 +361,7 @@ contains
                             exit
                         class default
                             ! Other expressions might be complex
-                            elem_code = generate_code_polymorphic_internal(arena, node%elements(i))
+                            elem_code = generate_code_from_arena(arena, node%elements(i))
                             if (len(elem_code) > 20) then
                                 is_multiline = .true.
                                 exit
@@ -390,7 +400,7 @@ contains
                             elem_code = generate_code_implied_do(arena, elem, node%elements(i))
                             code = code // elem_code
                         class default
-                            elem_code = generate_code_polymorphic_internal(arena, node%elements(i))
+                            elem_code = generate_code_from_arena(arena, node%elements(i))
                             code = code // elem_code
                         end select
                     end if
@@ -407,7 +417,7 @@ contains
                             elem_code = generate_code_implied_do(arena, elem, node%elements(i))
                             code = code // elem_code
                         class default
-                            elem_code = generate_code_polymorphic_internal(arena, node%elements(i))
+                            elem_code = generate_code_from_arena(arena, node%elements(i))
                             code = code // elem_code
                         end select
                     end if
@@ -440,7 +450,7 @@ contains
             do i = 1, size(node%body)
                 if (i > 1) body_code = body_code // ", "
                 if (node%body(i) > 0) then
-                    body_code = body_code // generate_code_polymorphic_internal(arena, node%body(i))
+                    body_code = body_code // generate_code_from_arena(arena, node%body(i))
                 end if
             end do
         end if
@@ -453,10 +463,10 @@ contains
         end if
 
         ! Generate range
-        start_code = generate_code_polymorphic_internal(arena, node%start_expr)
-        end_code = generate_code_polymorphic_internal(arena, node%end_expr)
+        start_code = generate_code_from_arena(arena, node%start_expr)
+        end_code = generate_code_from_arena(arena, node%end_expr)
         if (node%step_expr > 0) then
-            step_code = generate_code_polymorphic_internal(arena, node%step_expr)
+            step_code = generate_code_from_arena(arena, node%step_expr)
             code = "(" // body_code // ", " // var_code // " = " // &
                    start_code // ", " // end_code // ", " // step_code // ")"
         else
@@ -475,21 +485,21 @@ contains
 
         ! Generate start
         if (node%start_expr > 0) then
-            start_code = generate_code_polymorphic_internal(arena, node%start_expr)
+            start_code = generate_code_from_arena(arena, node%start_expr)
         else
             start_code = ""
         end if
 
         ! Generate end
         if (node%end_expr > 0) then
-            end_code = generate_code_polymorphic_internal(arena, node%end_expr)
+            end_code = generate_code_from_arena(arena, node%end_expr)
         else
             end_code = ""
         end if
 
         ! Generate stride
         if (node%stride_expr > 0) then
-            stride_code = generate_code_polymorphic_internal(arena, node%stride_expr)
+            stride_code = generate_code_from_arena(arena, node%stride_expr)
         else
             stride_code = ""
         end if
@@ -517,7 +527,7 @@ contains
                 
                 ! Generate dimension bounds
                 if (node%dims(i) > 0) then
-                    dim_code = generate_code_polymorphic_internal(arena, node%dims(i))
+                    dim_code = generate_code_from_arena(arena, node%dims(i))
                     code = code // dim_code
                 else
                     ! Assumed size/shape
@@ -547,7 +557,7 @@ contains
 
         ! Generate array reference
         if (node%array_ref > 0) then
-            array_code = generate_code_polymorphic_internal(arena, node%array_ref)
+            array_code = generate_code_from_arena(arena, node%array_ref)
         else
             array_code = ""
         end if
@@ -558,7 +568,7 @@ contains
             do i = 1, size(node%indices)
                 if (i > 1) indices_code = indices_code // ", "
                 if (node%indices(i) > 0) then
-                    indices_code = indices_code // generate_code_polymorphic_internal(arena, node%indices(i))
+                    indices_code = indices_code // generate_code_from_arena(arena, node%indices(i))
                 else
                     indices_code = indices_code // ":"
                 end if
@@ -631,7 +641,7 @@ contains
             do i = 1, size(node%operands)
                 if (i > 1) args_code = args_code // ", "
                 if (node%operands(i) > 0) then
-                    args_code = args_code // generate_code_polymorphic_internal(arena, node%operands(i))
+                    args_code = args_code // generate_code_from_arena(arena, node%operands(i))
                 end if
             end do
         end if
@@ -639,13 +649,13 @@ contains
         ! Add dimension if specified
         if (node%dim_arg > 0) then
             if (len(args_code) > 0) args_code = args_code // ", "
-            args_code = args_code // "dim=" // generate_code_polymorphic_internal(arena, node%dim_arg)
+            args_code = args_code // "dim=" // generate_code_from_arena(arena, node%dim_arg)
         end if
 
         ! Add mask if specified
         if (node%mask_arg > 0) then
             if (len(args_code) > 0) args_code = args_code // ", "
-            args_code = args_code // "mask=" // generate_code_polymorphic_internal(arena, node%mask_arg)
+            args_code = args_code // "mask=" // generate_code_from_arena(arena, node%mask_arg)
         end if
 
         code = op_name // "(" // args_code // ")"
@@ -661,7 +671,7 @@ contains
     end function int_to_string
 
     ! Internal polymorphic code generator (to avoid circular dependency)
-    function generate_code_polymorphic_internal(arena, node_index) result(code)
+    function generate_code_from_arena(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
@@ -677,6 +687,6 @@ contains
         end interface
         
         code = generate_code_polymorphic(arena, node_index)
-    end function generate_code_polymorphic_internal
+    end function generate_code_from_arena
 
 end module codegen_expressions
