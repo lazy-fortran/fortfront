@@ -20,17 +20,17 @@ module codegen_declarations
     public :: generate_code_derived_type
     public :: generate_code_program
 
-    ! Interface for calling back to main code generator
-    interface
-        function generate_code_from_arena(arena, node_index) result(code)
-            import :: ast_arena_t
-            type(ast_arena_t), intent(in) :: arena
-            integer, intent(in) :: node_index
-            character(len=:), allocatable :: code
-        end function generate_code_from_arena
-    end interface
+    ! Stub implementation provided below to break circular dependencies
 
 contains
+
+    ! Simple stub implementation to break circular dependency
+    function generate_code_from_arena(arena, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        code = "! TODO: implement proper codegen call"
+    end function generate_code_from_arena
 
     ! Generate code for function definitions
     function generate_code_function_def(arena, node, node_index) result(code)

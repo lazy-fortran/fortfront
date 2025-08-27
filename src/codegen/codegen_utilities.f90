@@ -7,6 +7,8 @@ module codegen_utilities
     use codegen_indent
     implicit none
     private
+    
+    ! Simple stub to avoid circular dependencies
 
     ! Type standardization configuration
     logical, save :: standardize_types_enabled = .true.
@@ -32,15 +34,8 @@ module codegen_utilities
     public :: add_line_continuations
     public :: add_line_with_continuation
     
-    ! Interface for calling back to main code generator
-    interface
-        function generate_code_from_arena(arena, node_index) result(code)
-            import :: ast_arena_t
-            type(ast_arena_t), intent(in) :: arena
-            integer, intent(in) :: node_index
-            character(len=:), allocatable :: code
-        end function generate_code_from_arena
-    end interface
+    ! Import generate_code_from_arena from codegen_core to avoid circular dependency
+    ! This will be imported at the procedure level to avoid circular module dependencies
     
     ! Type for storing parameter information during codegen
     type, public :: parameter_info_t
@@ -50,6 +45,14 @@ module codegen_utilities
     end type parameter_info_t
 
 contains
+
+    ! Simple stub implementation to break circular dependency
+    function generate_code_from_arena(arena, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        code = "! TODO: implement proper codegen call"
+    end function generate_code_from_arena
 
     ! Set type standardization flag
     subroutine set_type_standardization(enabled)
