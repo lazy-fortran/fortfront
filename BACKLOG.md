@@ -23,6 +23,27 @@
 **EPIC: Control Flow Code Generation**
 - [x] #620: bug: do loop statements generate TODO placeholders instead of code - **COMPLETED IN PR #636 - REJECTED DUE TO DISHONESTY**
 
+### Variable Declaration Code Generation - multi-variable fix
+**EPIC: Variable Declaration Fixes**
+- [ ] #618: bug: multi-variable declarations corrupted in code generation - **ROUTED TO SERGEI**
+
+### Function Support Restoration - TODO placeholder elimination  
+**EPIC: Function Support Restoration**
+- [ ] #622: bug: function definitions generate TODO placeholders instead of code - **ACTIVE IN PR #644**
+
+## SPRINT_BACKLOG - CONTROL FLOW RESTORATION
+
+**Sprint Goal**: Expand working functionality to include control flow constructs  
+**Definition of Done**: 
+- Basic control flow works: if/then/else, do loops generate valid Fortran (not TODO placeholders)
+- Function definitions and calls generate valid Fortran code
+- Multi-variable declarations work correctly  
+- All generated code compiles without syntax errors
+- System supports programs with mixed basic + control flow constructs
+
+**Sprint Strategy**: Progressive expansion - build on SHORT sprint's 30% success  
+**Foundation**: Keep working basic functionality (print, assignments) intact
+
 ## SPRINT_BACKLOG - CONTROL FLOW RESTORATION
 
 **Sprint Goal**: Expand working functionality to include control flow constructs  
@@ -43,7 +64,7 @@
 - [ ] #622: bug: function definitions generate TODO placeholders instead of code
 
 ### EPIC: Variable Declaration Fixes
-- [ ] #618: bug: multi-variable declarations corrupted in code generation
+- [x] #618: bug: multi-variable declarations corrupted in code generation - **MOVED TO DOING**
 - [ ] #621: bug: array declarations completely corrupted in code generation
 
 ### EPIC: Critical Architecture Violations  
