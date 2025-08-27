@@ -4,36 +4,65 @@
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
+### CRITICAL - Build System Recovery
+- [ ] #540: Build system completely non-functional due to git commit error (BLOCKER - prevents all work)
+
 ### CRITICAL - System Functionality Blockers
 - [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
 
-### HIGH PRIORITY - Core Parser Gaps
-- [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
-- [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
+### EPIC: Architecture Foundation Fixes
+- [ ] #546: architectural drift: class(*) vtable linking issue #442 not resolved - blocking arena work
+- [ ] #550: design misalignment: FPM-first architecture not validated - external tool integration untested
+- [ ] #548: architectural gap: CST implementation incomplete - missing trivia preservation
 
-### MEDIUM PRIORITY - Enhancements  
-- [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (related to #489) - PR #514 partial implementation
+### EPIC: Code Quality & Size Constraints
+- [ ] #547: architectural violation: 12 files exceed 1000-line limit, violating size constraints
+- [ ] #532: refactor: semantic_analyzer.f90 exceeds 1000 line limit (1036 lines)
+- [ ] #535: refactor: parser_expressions.f90 exceeds 1000 line limit (1162 lines)
+- [ ] #536: refactor: parser_declarations.f90 exceeds 1000 line limit (1460 lines)
+- [ ] #533: refactor: infer_type function exceeds 100 line limit (106 lines)
 
-### PERFORMANCE CRISIS - Development Velocity
-- [ ] #502: performance: investigate test execution bottlenecks causing 7m20s runtime (BLOCKING development)
-- [ ] #500: refactor: massive test consolidation opportunity - reduce 304 tests by ~85% (architectural excellence)
-- [ ] #481: critical: CI/CD performance crisis - 314 tests causing excessive runtime with massive duplication
+### EPIC: Error Handling & Safety
+- [ ] #539: refactor: replace error_stop with proper error handling
+- [ ] #528: refactor: improve error handling in parse_unary function
+- [ ] #541: I/O parsing edge case: unit_spec returns empty string for invalid unit specifiers
+- [ ] #542: Undefined variable detection edge case: auto-declaration in strict mode leak
+
+### EPIC: Parser & Type System Defects
+- [ ] #543: CST to AST converter strips trivia by default breaking comment preservation
+- [ ] #544: Multi-unit parsing: fixed array size limit causes silent failures for large files
+- [ ] #545: Logical operator precedence: left-associative parsing may cause incorrect evaluation order
+- [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs
+- [ ] #490: String parsing: Escaped single quotes not handled correctly
+- [ ] #491: Type inference: Large integers not properly handled for overflow
+- [ ] #487: Array literal: Nested arrays incorrectly typed as 1D instead of 2D
+- [ ] #494: Array parsing: Array slice assignment with stride produces empty program
+- [ ] #496: Loop parsing: Array assignment in do loop generates unparsed comment
+
+### EPIC: Test Suite Optimization
+- [ ] #549: performance debt: test suite still has massive duplication - 230 tests despite consolidation claims
+- [ ] #500: refactor: massive test consolidation opportunity - reduce tests by ~85%
+- [ ] #481: critical: CI/CD performance crisis - tests causing excessive runtime with massive duplication
 - [ ] #504: refactor: consolidate redundant AST arena test patterns
 - [ ] #505: refactor: eliminate test categories with overlapping functionality
+- [ ] #527: test: add dedicated test for issue #493 logical operator precedence
 
-### SYSTEM INTEGRITY - Regression Fixes
+### EPIC: Dead Code & Cleanup
+- [ ] #534: cleanup: remove unused imports in semantic_analyzer.f90
+- [ ] #537: cleanup: remove placeholder types in compiler_arena.f90
+- [ ] #538: cleanup: remove commented-out code in memory modules
+
+### EPIC: System Integrity
 - [ ] #479: regression: call graph analysis multiple failures - unused procedure detection broken
 - [ ] #480: regression: module parsing structure not preserved in test_module_parsing_bug_red
 - [ ] #467: fix: call graph test failures in main branch
 - [ ] #468: fix: AST transformation test failures in main branch
 
-### DEFECT FIXES - String and Type Handling  
-- [ ] #489: Code generation: Multiple program main blocks generated for mixed constructs (CRITICAL - in PR review with sergei/patrick)
-- [ ] #490: String parsing: Escaped single quotes not handled correctly (correctness)
-- [ ] #491: Type inference: Large integers not properly handled for overflow (type system)
-- [ ] #487: Array literal: Nested arrays incorrectly typed as 1D instead of 2D (type correctness)
-- [ ] #494: Array parsing: Array slice assignment with stride produces empty program (core functionality)
-- [ ] #496: Loop parsing: Array assignment in do loop generates unparsed comment (parser defect)
+### EPIC: Enhancement Backlog
+- [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program
+
+### EPIC: Documentation Consolidation
+- [ ] #551: docs: consolidate sprint defect fixes and architectural improvements
 
 ## PRODUCT BACKLOG
 
@@ -56,7 +85,6 @@
 - [ ] #504: refactor: consolidate redundant AST arena test patterns
 - [ ] #505: refactor: eliminate test categories with overlapping functionality  
 - [ ] #503: refactor: analyze unused procedures and dead code in semantic analysis modules
-- [ ] #502: performance: investigate test execution bottlenecks causing 7m20s runtime
 - [ ] #501: cleanup: remove backup file src/frontend.f90.backup
 - [ ] #500: refactor: massive test consolidation opportunity - reduce 304 tests by ~85%
 - [ ] #499: refactor: consolidate 35 disabled test files - cleanup and re-enable analysis
@@ -97,6 +125,9 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #530: critical: semantic analysis regression causing widespread test failures (restored Lazy Fortran functionality)
+- [x] #502: performance: investigate test execution bottlenecks causing 7m20s runtime (99.8% CI improvement achieved)
+- [x] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (branch: fix-operator-precedence-493)
 - [x] #524: fix: update codegen field names after module split refactoring (compilation blocker)
 - [x] #521: Preserve comments and blank lines (source fidelity - critical for CST)
 - [x] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)

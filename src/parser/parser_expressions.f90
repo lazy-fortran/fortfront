@@ -340,7 +340,7 @@ contains
         type(token_t) :: op_token
         integer :: loop_count  ! Safety counter
 
-        expr_index = parse_unary(parser, arena)
+        expr_index = parse_power(parser, arena)
         loop_count = 0
 
         do while (.not. parser%is_at_end() .and. loop_count < 1000)
@@ -349,7 +349,7 @@ contains
             if (op_token%kind == TK_OPERATOR .and. &
                 (op_token%text == "*" .or. op_token%text == "/")) then
                 op_token = parser%consume()
-                right_index = parse_unary(parser, arena)
+                right_index = parse_power(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
                                              op_token%text, op_token%line, &
                                              op_token%column)
@@ -367,7 +367,7 @@ contains
         integer :: right_index
         type(token_t) :: op_token
 
-        expr_index = parse_primary(parser, arena)
+        expr_index = parse_unary(parser, arena)
 
         ! Right-associative: a ** b ** c = a ** (b ** c)
         if (.not. parser%is_at_end()) then
@@ -412,20 +412,15 @@ contains
                     ! Unary plus - just return the operand
                     ! expr_index already contains the operand
                 else if (op_token%text == ".not.") then
-                    ! Create logical NOT as .false. .not. operand
-                    block
-                        integer :: false_index
-                        false_index = push_literal(arena, ".false.", LITERAL_LOGICAL, &
-                                                   op_token%line, op_token%column)
-                        expr_index = push_binary_op(arena, false_index, expr_index, ".not.")
-                    end block
+                    ! Create logical NOT as unary operation (0 indicates unary)
+                    expr_index = push_binary_op(arena, 0, expr_index, ".not.")
                 end if
             else
                 expr_index = 0
             end if
         else
-            ! No unary operator, parse power expression  
-            expr_index = parse_power(parser, arena)
+            ! No unary operator, parse primary expression  
+            expr_index = parse_primary(parser, arena)
         end if
     end function parse_unary
     ! Parse primary expressions (literals, identifiers, parentheses)

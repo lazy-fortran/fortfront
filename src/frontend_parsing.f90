@@ -7,12 +7,14 @@ module frontend_parsing
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
-                                           get_additional_indices, clear_additional_indices
+                                        get_additional_indices, clear_additional_indices
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_misc, only: comment_node
     use ast_factory, only: push_program
     use frontend_utilities, only: int_to_str
+    use mixed_construct_detector, only: detect_mixed_constructs, mixed_construct_result_t
+    use ast_nodes_data, only: mixed_construct_container_node, create_mixed_construct_container
 
     implicit none
     private
@@ -38,6 +40,34 @@ contains
         container_index = push_program(arena, "__MULTI_UNIT__", unit_indices, 1, 1)
     end function create_multi_unit_container
 
+    ! Create a mixed construct container (for Issue #511)
+    function create_mixed_construct_container_arena(arena, module_name, &
+                                                    implicit_indices, &
+                                                    explicit_indices) result(container_index)
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: module_name
+        integer, intent(in) :: implicit_indices(:)
+        integer, intent(in) :: explicit_indices(:)
+        integer :: container_index
+        
+        type(mixed_construct_container_node) :: container_node
+        
+        container_node = create_mixed_construct_container(module_name, &
+                                                        implicit_indices, &
+                                                        explicit_indices, 1, 1)
+        
+        ! Add to arena
+        if (arena%size >= arena%capacity) then
+            ! Need to grow arena - this should not happen with modern arena
+            container_index = -1
+            return
+        end if
+        
+        arena%size = arena%size + 1
+        container_index = arena%size
+        allocate(arena%entries(container_index)%node, source=container_node)
+    end function create_mixed_construct_container_arena
+
     ! Phase 2: Parsing
     subroutine parse_tokens(tokens, arena, prog_index, error_msg)
         type(token_t), intent(in) :: tokens(:)
@@ -51,10 +81,20 @@ contains
         integer :: i, unit_start, unit_end, stmt_count
         type(token_t), allocatable :: unit_tokens(:)
         logical :: has_explicit_program_unit
+        type(mixed_construct_result_t) :: mixed_result
 
         error_msg = ""
         stmt_count = 0
         allocate (body_indices(0))
+        
+        ! Check for mixed constructs first (Issue #511)
+        call detect_mixed_constructs(tokens, mixed_result)
+        
+        if (mixed_result%has_mixed_constructs) then
+            ! Handle mixed constructs with specialized parser path
+            call parse_mixed_constructs(tokens, arena, mixed_result, prog_index, error_msg)
+            return
+        end if
         
         has_explicit_program_unit = detect_explicit_program_unit(tokens)
 
@@ -679,6 +719,130 @@ contains
 
         deallocate (stmt_tokens)
     end subroutine process_regular_statement
+
+    ! Parse mixed constructs (Issue #511 support)
+    subroutine parse_mixed_constructs(tokens, arena, mixed_result, prog_index, error_msg)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        type(mixed_construct_result_t), intent(in) :: mixed_result
+        integer, intent(out) :: prog_index
+        character(len=*), intent(out) :: error_msg
+        
+        integer, allocatable :: implicit_indices(:), explicit_indices(:)
+        integer :: i, stmt_index, range_start, range_end
+        type(token_t), allocatable :: range_tokens(:)
+        character(len=:), allocatable :: module_name
+        
+        error_msg = ""
+        allocate(implicit_indices(0))
+        allocate(explicit_indices(0))
+        
+        ! Generate module name (for now, use "implicit_module")
+        module_name = "implicit_module"
+        
+        ! Parse implicit declarations
+        do i = 1, mixed_result%num_implicit_ranges
+            range_start = mixed_result%implicit_ranges(i, 1)
+            range_end = mixed_result%implicit_ranges(i, 2)
+            
+            ! Extract tokens for this range
+            if (range_end >= range_start .and. range_end <= size(tokens)) then
+                range_tokens = tokens(range_start:range_end)
+                
+                ! Parse this declaration range
+                call parse_declaration_range(range_tokens, arena, stmt_index, error_msg)
+                
+                if (len_trim(error_msg) > 0) then
+                    return
+                end if
+                
+                if (stmt_index > 0) then
+                    implicit_indices = [implicit_indices, stmt_index]
+                end if
+            end if
+        end do
+        
+        ! Parse explicit programs
+        do i = 1, mixed_result%num_explicit_ranges
+            range_start = mixed_result%explicit_ranges(i, 1)
+            range_end = mixed_result%explicit_ranges(i, 2)
+            
+            ! Extract tokens for this range
+            if (range_end >= range_start .and. range_end <= size(tokens)) then
+                range_tokens = tokens(range_start:range_end)
+                
+                ! Parse this program unit range
+                call parse_program_range(range_tokens, arena, stmt_index, error_msg)
+                
+                if (len_trim(error_msg) > 0) then
+                    return
+                end if
+                
+                if (stmt_index > 0) then
+                    explicit_indices = [explicit_indices, stmt_index]
+                end if
+            end if
+        end do
+        
+        ! Create mixed construct container
+        prog_index = create_mixed_construct_container_arena(arena, module_name, &
+                                                          implicit_indices, &
+                                                          explicit_indices)
+        
+        if (prog_index < 0) then
+            error_msg = "Failed to create mixed construct container"
+            return
+        end if
+    end subroutine parse_mixed_constructs
+
+    ! Parse a declaration range
+    subroutine parse_declaration_range(tokens, arena, stmt_index, error_msg)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        character(len=*), intent(out) :: error_msg
+        
+        ! Use the existing statement dispatcher to parse the declaration
+        stmt_index = parse_statement_dispatcher(tokens, arena)
+        
+        ! Set error message based on result
+        if (stmt_index <= 0) then
+            error_msg = "Failed to parse declaration statement"
+        else
+            error_msg = ""
+        end if
+    end subroutine parse_declaration_range
+
+    ! Parse a program unit range
+    subroutine parse_program_range(tokens, arena, stmt_index, error_msg)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        character(len=*), intent(out) :: error_msg
+        
+        logical :: has_explicit_program
+        
+        ! Determine if this is an explicit program unit
+        has_explicit_program = .false.
+        if (size(tokens) > 0) then
+            if (tokens(1)%kind == TK_KEYWORD) then
+                select case (trim(tokens(1)%text))
+                case ("program", "module", "subroutine", "function")
+                    has_explicit_program = .true.
+                end select
+            end if
+        end if
+        
+        ! Use existing program unit parser (this is a function, not subroutine)
+        stmt_index = parse_program_unit(tokens, arena, has_explicit_program)
+        
+        ! Set error message based on result
+        if (stmt_index <= 0) then
+            error_msg = "Failed to parse program unit"
+        else
+            error_msg = ""
+        end if
+    end subroutine parse_program_range
 
     include 'frontend_parsing_unit_detection.inc'
     include 'frontend_parsing_boundary_detection.inc'

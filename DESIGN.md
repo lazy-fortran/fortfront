@@ -1,5 +1,22 @@
 # fortfront Architecture Design
 
+## 🎯 CURRENT SPRINT GOAL: Defect Resolution & Architectural Debt
+
+**Sprint Objective**: Resolve critical defects from PLAY audit while addressing architectural debt
+**Definition of Done**: 
+- Build system functional (#540 resolved)
+- All files comply with size constraints (<1000 lines)
+- Error handling uses result_t pattern (no error_stop)
+- Test suite optimized (remove duplication)
+- Documentation consolidated for all fixes
+
+**Sprint Priorities**:
+1. **CRITICAL**: Fix build system blocking all work (#540)
+2. **FOUNDATION**: Address class(*) vtable issues (#546)
+3. **QUALITY**: Enforce size constraints on 12 violating files
+4. **SAFETY**: Replace error_stop with proper error handling
+5. **PERFORMANCE**: Consolidate test suite duplication
+
 **🚨 CRITICAL FOUNDATION ISSUE (Issue #442)**
 - **BLOCKING ALL WORK**: Current class(*) usage causes vtable linking failures
 - **30+ Files Affected**: AST nodes, semantic pipeline, arena storage all use class(*)
@@ -1224,6 +1241,40 @@ This solution is temporary until arena architecture (Phase 1) provides:
 - No allocatable components needed
 - Memory managed by arena allocator
 - Complete compiler independence
+
+## Sprint Retrospective: PLAY Audit Findings
+
+### Critical Defects Identified
+The PLAY workflow audit revealed significant architectural drift and quality issues:
+
+1. **Build System Failure (#540)**: Git commit error preventing all compilation - requires immediate recovery
+2. **Architectural Violations**: 12 files exceed 1000-line limit, breaking fundamental size constraints
+3. **Foundation Blockers**: class(*) vtable issues still unresolved, blocking arena migration
+4. **Test Suite Bloat**: Despite claims of consolidation, massive duplication remains (230+ tests)
+5. **Error Handling Gaps**: error_stop usage throughout violates library integration principles
+
+### Architectural Decisions
+Based on PLAY findings, the following architectural decisions are made:
+
+1. **Enforce Size Constraints**: Split large modules immediately - no exceptions
+   - semantic_analyzer.f90 → semantic_core.f90 + semantic_infer.f90 + semantic_validate.f90
+   - parser_expressions.f90 → parser_expr_core.f90 + parser_expr_binary.f90 + parser_expr_unary.f90
+   - parser_declarations.f90 → parser_decl_core.f90 + parser_decl_types.f90 + parser_decl_attrs.f90
+
+2. **Error Handling Migration**: Complete transition to result_t pattern
+   - No error_stop in library code
+   - All errors return structured results
+   - Enable graceful degradation
+
+3. **Test Consolidation Strategy**: 
+   - Group by functionality, not implementation detail
+   - One test per distinct behavior
+   - Remove redundant coverage
+
+4. **Foundation Fix Priority**:
+   - Build system recovery (#540) - IMMEDIATE
+   - class(*) removal (#546) - BEFORE arena work
+   - FPM validation (#550) - BEFORE external tools
 
 # Implementation Roadmap (FPM-FIRST APPROACH)
 
