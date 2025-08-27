@@ -44,7 +44,7 @@
 ## DOING (Current Work - EMERGENCY STABILIZATION ONLY)
 
 **EMERGENCY PROTOCOL: FOUNDATION STABILIZATION**
-- [ ] #653: CRITICAL: if/else parsing completely broken with false error messages - **ROUTED TO SERGEI**
+- [ ] #653: CRITICAL: if/else parsing completely broken with false error messages - **ACTIVE ON BRANCH fix-if-else-parsing-653**
 
 **ABANDONED WORK** (Inconsistent state - branch exists but issue closed):
 - [x] #622: bug: function definitions generate TODO placeholders instead of code - **ISSUE CLOSED, BRANCH EXISTS, NO PR** - Work must be PR'd or abandoned
