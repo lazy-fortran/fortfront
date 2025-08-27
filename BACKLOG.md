@@ -2,7 +2,9 @@
 
 ## DOING (Current Work)
 
-*No active work - selecting next SPRINT_BACKLOG item*
+### Control Flow Code Generation - do loop statement restoration  
+**EPIC: Control Flow Code Generation**
+- [ ] #620: bug: do loop statements generate TODO placeholders instead of code - **IN PROGRESS**
 
 ## SPRINT_BACKLOG - CONTROL FLOW RESTORATION
 
@@ -18,7 +20,7 @@
 **Foundation**: Keep working basic functionality (print, assignments) intact
 
 ### EPIC: Control Flow Code Generation
-- [ ] #620: bug: do loop statements generate TODO placeholders instead of code
+- [x] #620: bug: do loop statements generate TODO placeholders instead of code - **MOVED TO DOING**
 
 ### EPIC: Function Support Restoration  
 - [ ] #622: bug: function definitions generate TODO placeholders instead of code
