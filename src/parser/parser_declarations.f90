@@ -1006,11 +1006,18 @@ contains
 
             ! Parse component declaration
             block
-                integer :: comp_index
+                integer :: comp_index, saved_position
+                saved_position = parser%current_token
                 comp_index = parse_derived_type_component(parser, arena)
                 if (comp_index > 0) then
                     component_indices = [component_indices, comp_index]
                     component_count = component_count + 1
+                else
+                    ! Ensure parser position advances even on failure
+                    if (parser%current_token == saved_position) then
+                        ! Skip the unrecognized token to prevent infinite loop
+                        token = parser%consume()
+                    end if
                 end if
             end block
         end do
