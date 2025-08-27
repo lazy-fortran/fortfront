@@ -138,7 +138,6 @@ contains
         code = generate_code_from_arena(arena, node_index)
     end function generate_code_polymorphic
 
-    ! Safe wrapper for code generation with error handling
     subroutine safe_generate_code_from_arena(arena, node_index, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
