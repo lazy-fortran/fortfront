@@ -330,6 +330,11 @@ contains
         decl%type_name = type_name
         decl%is_multi_declaration = .true.
         
+        ! Set primary variable name to first variable
+        if (size(var_names) > 0) then
+            decl%var_name = trim(var_names(1))
+        end if
+        
         ! Allocate and copy variable names
         allocate(character(len=100) :: decl%var_names(size(var_names)))
         do i = 1, size(var_names)
