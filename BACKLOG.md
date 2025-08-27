@@ -1,14 +1,13 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
+- [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
 
 ### HIGH PRIORITY - Core Parser Gaps
-- [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
 
 ### MEDIUM PRIORITY - Enhancements  
 - [ ] #511: enhancement: mixed constructs - allow also implicit module above explicit program (related to #489) - PR #514 partial implementation
