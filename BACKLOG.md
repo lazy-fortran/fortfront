@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
+- [ ] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
@@ -122,6 +122,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
 - [x] #530: critical: semantic analysis regression causing widespread test failures (restored Lazy Fortran functionality)
 - [x] #502: performance: investigate test execution bottlenecks causing 7m20s runtime (99.8% CI improvement achieved)
 - [x] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (branch: fix-operator-precedence-493)
