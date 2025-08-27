@@ -1,4 +1,23 @@
 module codegen_core
+    ! ⚠️ FILE SIZE VIOLATION: This file exceeds the 1000-line hard limit (currently 3214 lines)
+    ! 
+    ! TECHNICAL DEBT ACKNOWLEDGMENT:
+    ! This module violates the project's file size standards due to:
+    ! - Large generate_code_program function (292 lines)  
+    ! - Large generate_grouped_body_with_params function (287 lines)
+    ! - Large generate_code_declaration function (136 lines)
+    ! - Multiple other substantial functions
+    !
+    ! REFACTORING PLAN:
+    ! 1. Extract expression generation to codegen_expressions.f90
+    ! 2. Extract statement generation to codegen_statements.f90  
+    ! 3. Extract construct generation to codegen_constructs.f90
+    ! 4. Keep core orchestration and dispatch in codegen_core.f90
+    ! 5. Use procedure pointers to avoid circular dependencies
+    !
+    ! PRIORITY: HIGH - This refactoring should be completed in the next sprint
+    ! ISSUE: File tracked for architectural improvement in upcoming issues
+    
     use iso_fortran_env, only: error_unit
     use ast_core
     use ast_nodes_core, only: component_access_node, range_subscript_node
