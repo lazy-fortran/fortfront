@@ -2,68 +2,92 @@
 
 ## DOING (Current Work)
 
-## SPRINT_BACKLOG - EMERGENCY RECOVERY SPRINT
+## SPRINT_BACKLOG - EMERGENCY CRISIS INTERVENTION SPRINT
 
-**🚨 CRITICAL SYSTEM STATE**: Complete functional collapse - system outputs only TODO placeholders  
-**Sprint Goal**: Restore basic functionality: working codegen, passing tests, compliant architecture  
+**🚨 CATASTROPHIC SYSTEM FAILURE**: Complete development halt required - emergency recovery sprint FAILED with 0% completion  
+**Crisis State**: 24 CRITICAL defects, 47 open issues, system completely non-functional  
+**Sprint Goal**: Foundation-first crisis intervention to restore system from total collapse  
 **Definition of Done**: 
-- Build produces working fortfront binary
-- Codegen outputs actual Fortran code (not TODO placeholders)
-- Test suite runs without crashes (no exit code 13)
-- All files comply with <1000 line constraint
-- Foundation issues resolved for future work
+- class(*) eliminated from all foundation code (Issue #442 - 3+ sprints blocking)
+- Test suite functional (reduce 150+ failures to <5)
+- ALL files under architectural limits (9 files currently violate 1000-line constraint) 
+- Codegen produces actual Fortran code (not TODO placeholders)
+- Error handling uses result_t pattern (eliminate all ERROR_STOP)
+- Foundation ready for arena development
 
-### PRIORITY 1: CRITICAL BLOCKERS - System Non-Functional
+### FOUNDATION PHASE: CRITICAL ARCHITECTURE BLOCKERS
 
-### EPIC: Complete Codegen System Failure (Issues #561, #563)
-- [ ] #561: critical: duplicate generate_code_from_arena stubs causing circular dependency issues
-- [ ] #563: bug: write statement codegen produces TODO placeholders instead of actual code
+### EPIC: Foundation Crisis Resolution (class(*) Elimination - Issue #442)
+**BLOCKS ALL OTHER WORK** - Unresolved for 3+ sprints despite multiple "completions"
+- [ ] #442: critical: eliminate class(*) vtable linking issues blocking arena development for 3+ sprints
+- [ ] Create concrete container types for all polymorphic AST storage
+- [ ] Replace abstract interfaces with type-safe container patterns
+- [ ] Validate arena development can proceed without vtable failures
+- [ ] Test FPM integration with external tool example
 
-### PRIORITY 2: CRITICAL STABILITY - Test Suite Collapse  
+### TEST SUITE PHASE: CRITICAL STABILITY RESTORATION
 
-### EPIC: Test Suite Crash Recovery (Issues #571, #575)
-- [ ] #571: critical: massive test suite failure - 100+ tests failing with exit code 13
-- [ ] #575: critical: sprint goal failure - fundamental system integrity compromised
+### EPIC: Test Infrastructure Crisis Recovery (Issues #571, #604, #586)
+- [ ] #571: critical: massive test suite failure - 150+ tests failing with exit code 13
+- [ ] #604: bug: test suite hangs indefinitely during full execution  
+- [ ] #586: performance: test suite timeout - resource exhaustion running all tests
 - [ ] #577: architectural drift: error_stop usage violates library integration principles
+- [ ] Replace all ERROR_STOP with result_t error handling pattern
+- [ ] Restore test suite to <5 failing tests from 150+ failures
 
-### PRIORITY 3: CRITICAL ARCHITECTURE - Size Violations
+### SIZE COMPLIANCE PHASE: ARCHITECTURAL CONSTRAINT RESTORATION
 
-### EPIC: Architectural Constraint Compliance (Issues #576, #556-560, #570)
-- [ ] #576: architectural debt: 13 files exceed 1000-line architectural constraint
-- [ ] #557: critical: file size violation in fortfront.f90 exceeds 1000 line limit
-- [ ] #558: critical: file size violation in ast_factory.f90 exceeds 1000 line limit
-- [ ] #559: critical: file size violation in parser_control_flow.f90 exceeds 1000 line limit
-- [ ] #560: critical: file size violation in lexer_core.f90 exceeds 1000 line limit
-- [ ] #570: critical: semantic_analyzer.f90 still exceeds 1000 line limit after Issue #532 refactoring
+### EPIC: Emergency File Splitting (Issues #588-599, #605)
+**9 files violate 1000-line constraint (INCREASED from previous sprint)**
+- [ ] #588: refactor: split fortfront.f90 module (2,330 lines) - MOST CRITICAL
+- [ ] #589: refactor: split ast_factory.f90 module (1,805 lines)
+- [ ] #590: refactor: split parser_control_flow.f90 module (1,733 lines) 
+- [ ] #598: refactor: split parser_definition_statements.f90 module (1,229 lines)
+- [ ] #593: refactor: split variable_usage_tracker.f90 module (1,238 lines)
+- [ ] #592: refactor: split parser_import_statements.f90 module (1,294 lines)
+- [ ] #591: refactor: split lexer_core.f90 module (1,486 lines)
+- [ ] #599: refactor: split remaining size violation modules
+- [ ] #605: bug: critical size constraint violations - 9 files exceed 1000 line architectural limit
 
-### PRIORITY 4: CRITICAL FUNCTIONALITY - Core Feature Failures
+### FUNCTIONALITY PHASE: CODEGEN SYSTEM RESTORATION
 
-### EPIC: Codegen Functionality Restoration (Issues #572-574)
-- [ ] #574: critical: complex multi-unit programs completely fail codegen - entire program structures lost
-- [ ] #573: bug: subroutine with I/O statements generates empty output with TODO placeholders
-- [ ] #572: bug: variable initialization and I/O statements generate only TODO placeholders in codegen
+### EPIC: Codegen Complete Failure Recovery (Issues #579, #600-603, #606)
+**System generates NO working Fortran - only TODO placeholders**
+- [ ] #579: emergency: complete codegen system failure - all output contains TODO placeholders
+- [ ] #600: bug: critical code generation failure - print statements completely missing from output
+- [ ] #601: bug: critical code generation failure - all statements missing from program body
+- [ ] #602: bug: critical code generation failure - subroutines completely mangled and empty
+- [ ] #603: bug: code generation failure - module variable declarations missing
+- [ ] #606: bug: critical TODO placeholders still present throughout codegen system
+- [ ] #561: critical: duplicate generate_code_from_arena stubs causing circular dependency issues
+- [ ] #583: refactor: resolve circular dependency between codegen_core and specialized modules
+- [ ] #584: fix: implement proper code generation for complex nodes in codegen stub
 
-### EPIC: Parser & Semantic Core Functions (Issues #564-569)
+### EPIC: Core Parser & Semantic Failures (Issues #564-569, #585, #607-609)
 - [ ] #564: bug: complex write statements with format specifiers fail to parse
 - [ ] #565: bug: confusing error messages claim 'Parsing succeeded' when parsing fails
 - [ ] #566: bug: multi-unit parsing generates incomplete output for module+program constructs
 - [ ] #567: bug: malformed I/O statements parsed as valid but produce incorrect output
 - [ ] #568: bug: no semantic error for duplicate variable declarations
 - [ ] #569: bug: no semantic error for undeclared variables in I/O statements
+- [ ] #585: bug: implicit none statements not preserved in program AST body
+- [ ] #607: bug: architectural violation - error_stop usage still present in 17 files
+- [ ] #608: bug: documentation example failure - assignment statements missing from code generation
+- [ ] #609: bug: character string example failure - incomplete type declarations and missing assignments
 
-### EPIC: Foundation Architecture Issues (Issues #546, #578, #550, #583, #584)
-- [ ] #546: architectural drift: class(*) vtable linking issue #442 not resolved - blocking arena work
+### EPIC: System Integrity & Foundation Issues (Issues #610-612, #578)
+- [ ] #610: critical: emergency recovery sprint FAILED - system remains completely non-functional
+- [ ] #611: architectural crisis: foundation architecture completely unstable - requires emergency intervention
+- [ ] #612: system integrity failure: emergency recovery sprint achieved 0% of goals - complete development halt required
 - [ ] #578: system integrity: foundation requirements vs implementation reality gap
-- [ ] #550: design misalignment: FPM-first architecture not validated - external tool integration untested
-- [ ] #583: refactor: resolve circular dependency between codegen_core and specialized modules
-- [ ] #584: fix: implement proper code generation for complex nodes in codegen stub
-
-### EPIC: Code Quality Issues (Issues #549, #562)
-- [ ] #549: performance debt: test suite still has massive duplication - 230 tests despite consolidation claims
 - [ ] #562: dead code: unused parameters in codegen placeholder functions
+- [ ] #594: fix: remove duplicate use standardizer_types statement
+- [ ] #595: fix: complete codegen TODO placeholders from emergency fixes
+- [ ] #596: fix: replace error stop with structured error handling
+- [ ] #597: test: add test coverage for refactored standardizer modules
 
-### EPIC: Sprint Documentation (Issue #581)
-- [ ] #581: docs: consolidate emergency recovery sprint documentation
+### EPIC: Crisis Documentation (Issue #581)
+- [ ] #581: docs: consolidate emergency recovery sprint documentation and crisis lessons learned
 
 ## POST-RECOVERY WORK (After Emergency Sprint)
 
