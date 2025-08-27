@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #532: refactor: semantic_analyzer.f90 exceeds 1000 line limit (1036 lines)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
