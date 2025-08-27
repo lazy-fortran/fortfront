@@ -444,21 +444,20 @@ contains
             ! Found in environment - instantiate the type scheme
             typ = ctx%instantiate(scheme)
         else
-            ! Not found - handle based on mode
-            if (ctx%strict_mode) then
-                ! Standard Fortran mode with implicit none - report undefined variable error
-                error_result = create_error_result( &
-                    "Undefined variable '" // ident%name // "'", &
-                    ERROR_SEMANTIC, &
-                    component="semantic_analyzer", &
-                    context="infer_identifier", &
-                    suggestion="Declare the variable before using it" &
-                )
-                call ctx%errors%add_result(error_result)
-            end if
-            ! Always create fresh type variable for type inference (both modes)
-            ! In lazy Fortran, this enables type inference
-            ! In strict mode, this allows continued analysis despite the error
+            ! Not found - undefined variable error (Issue #495)
+            ! Report undefined variable error in BOTH modes
+            ! The difference is that lazy Fortran continues analysis, strict mode may stop
+            error_result = create_error_result( &
+                "Undefined variable '" // ident%name // "'", &
+                ERROR_SEMANTIC, &
+                component="semantic_analyzer", &
+                context="infer_identifier", &
+                suggestion="Declare the variable before using it" &
+            )
+            call ctx%errors%add_result(error_result)
+            
+            ! Always create fresh type variable for continued analysis (both modes)
+            ! This enables type inference and allows analysis to continue
             typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
         end if
     end function infer_identifier
@@ -562,6 +561,7 @@ contains
         type(mono_type_t) :: expr_typ, existing_typ
         type(poly_type_t), allocatable :: scheme, existing_scheme
         integer :: lhs_index
+        type(result_t) :: error_result
 
         lhs_index = assignment%target_index
         expr_typ = ctx%infer(arena, assignment%value_index)
@@ -578,8 +578,18 @@ contains
                         existing_typ = ctx%instantiate(existing_scheme)
                         call ctx%unify(existing_typ, expr_typ)
                     else
-                        ! New variable - infer and define in current scope
-                        ! Apply substitution to get most specific type
+                        ! Assignment to undefined variable - Issue #495
+                        ! Report undefined variable error
+                        error_result = create_error_result( &
+                            "Undefined variable '" // lhs_node%name // "' in assignment", &
+                            ERROR_SEMANTIC, &
+                            component="semantic_analyzer", &
+                            context="infer_assignment", &
+                            suggestion="Declare the variable before assigning to it" &
+                        )
+                        call ctx%errors%add_result(error_result)
+                        
+                        ! Continue analysis with inferred type for recovery
                         expr_typ = ctx%apply_subst_to_type(expr_typ)
                     end if
                     
