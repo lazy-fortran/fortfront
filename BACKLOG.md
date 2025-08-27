@@ -1,19 +1,17 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #583: refactor: resolve circular dependency between codegen_core and specialized modules [EPIC: Core Codegen Fix] [CRITICAL - Single blocker for all codegen issues]
 
 ## SPRINT_BACKLOG - MINIMAL FUNCTIONALITY RESTORATION
 
 **Sprint Goal**: Restore basic parse→generate→compile pipeline functionality  
 **Definition of Done**: 
-- System produces valid Fortran output for basic programs (print statements, assignments)
-- Codegen circular dependency resolved
-- Basic statement generation working (no TODO placeholders for core statements)
+- ✅ System produces valid Fortran output for basic programs (print statements, assignments)
+- ✅ Codegen circular dependency resolved
+- ✅ Basic statement generation working (no TODO placeholders for core statements)
 
-### EPIC: Core Codegen Fix (Remaining Issues - Blocked by #583)
-- [ ] #600: bug: critical code generation failure - print statements completely missing from output [PARSER FIXED - Codegen circular dependency remains]
-- [ ] #608: bug: documentation example failure - assignment statements missing from code generation
+**SHORT SPRINT STATUS**: COMPLETED ✅  
+All critical codegen issues resolved by PR #617 architecture fix.
 
 ### EPIC: Sprint Documentation
 - [ ] #613: docs: consolidate minimal functionality sprint fixes
@@ -126,6 +124,9 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #583: refactor: resolve circular dependency between codegen_core and specialized modules (SHORT SPRINT - architecture fix)
+- [x] #600: bug: critical code generation failure - print statements completely missing from output (SHORT SPRINT - fixed by #583)
+- [x] #608: bug: documentation example failure - assignment statements missing from code generation (SHORT SPRINT - fixed by #583)
 - [x] #556: critical: file size violation in standardizer.f90 exceeds 1000 line limit (split into 7 focused modules - architectural compliance)
 - [x] #498: I/O parsing: Write statements not recognized as valid Fortran (core Fortran support)
 - [x] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
