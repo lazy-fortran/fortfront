@@ -6,6 +6,7 @@ module codegen_expressions
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
+    use codegen_utilities, only: generate_code_from_arena
     implicit none
     private
 
@@ -25,17 +26,7 @@ module codegen_expressions
     public :: needs_parentheses
     public :: int_to_string
 
-    ! Stub implementation provided below to break circular dependencies
-
 contains
-
-    ! Simple stub implementation to break circular dependency
-    function generate_code_from_arena(arena, node_index) result(code)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(len=:), allocatable :: code
-        code = "! TODO: implement proper codegen call"
-    end function generate_code_from_arena
 
     ! Generate code for literal nodes
     function generate_code_literal(node) result(code)
