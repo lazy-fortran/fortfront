@@ -1,7 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
+- [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (branch: fix-operator-precedence-493)
 
 ## SPRINT BACKLOG (Ordered by Priority)
 
