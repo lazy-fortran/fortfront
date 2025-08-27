@@ -1,6 +1,7 @@
 # Development Backlog
 
 ## DOING (Current Work)
+- [x] #580: emergency: complete codegen system failure - all output contains TODO placeholders [EPIC: Complete Codegen System Failure]
 
 ## SPRINT_BACKLOG - EMERGENCY RECOVERY SPRINT
 
@@ -15,8 +16,7 @@
 
 ### PRIORITY 1: CRITICAL BLOCKERS - System Non-Functional
 
-### EPIC: Complete Codegen System Failure (Issues #580, #561, #563)
-- [ ] #580: emergency: complete codegen system failure - all output contains TODO placeholders
+### EPIC: Complete Codegen System Failure (Issues #561, #563)
 - [ ] #561: critical: duplicate generate_code_from_arena stubs causing circular dependency issues
 - [ ] #563: bug: write statement codegen produces TODO placeholders instead of actual code
 
