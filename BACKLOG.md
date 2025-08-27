@@ -6,6 +6,7 @@
 ## SPRINT BACKLOG (Ordered by Priority)
 
 ### CRITICAL - System Functionality Blockers
+- [ ] #524: fix: update codegen field names after module split refactoring (compilation blocker)
 - [ ] #517: fix: Issue #511 requires architectural analysis of multi-unit parsing (parser architecture)
 
 ### HIGH PRIORITY - Core Parser Gaps
