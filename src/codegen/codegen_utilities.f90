@@ -639,12 +639,21 @@ contains
         ! Key statement nodes that were broken - simple but correct implementations
         type is (assignment_node)
             ! Generate: target = value  
-            code = "! DEBUG: Found assignment_node"
             if (node%target_index > 0 .and. node%value_index > 0) then
                 code = generate_code_from_arena(arena, node%target_index) // " = " // &
                        generate_code_from_arena(arena, node%value_index)
             else
                 code = "! invalid assignment"
+            end if
+            
+        type is (binary_op_node)
+            ! Generate: left op right
+            if (node%left_index > 0 .and. node%right_index > 0) then
+                code = generate_code_from_arena(arena, node%left_index) // " " // &
+                       node%operator // " " // &
+                       generate_code_from_arena(arena, node%right_index)
+            else
+                code = "! invalid binary_op"
             end if
             
         type is (print_statement_node)
@@ -664,6 +673,26 @@ contains
                     end do
                 end if
             end if
+            
+        type is (declaration_node)
+            ! Generate: type_name :: var_name [= init]
+            code = trim(node%type_name) // " :: " // trim(node%var_name)
+            if (node%initializer_index > 0) then
+                code = code // " = " // generate_code_from_arena(arena, node%initializer_index)
+            end if
+            
+        type is (program_node)
+            ! Generate: program name ... end program name
+            code = "program " // trim(node%name) // new_line('A')
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    code = code // "    " // generate_code_from_arena(arena, node%body_indices(i)) // new_line('A')
+                end do
+            end if
+            code = code // "end program " // trim(node%name)
+            
+        type is (implicit_statement_node)
+            code = "implicit none"
             
         ! For other complex nodes, return a minimal working representation
         class default
