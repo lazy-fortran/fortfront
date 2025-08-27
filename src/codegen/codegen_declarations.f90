@@ -529,6 +529,23 @@ contains
 
         context_has_executable_before_contains = has_non_trivial_body .and. found_contains
 
+        ! Handle special multi-unit container
+        if (node%name == "__MULTI_UNIT__") then
+            ! Generate code for each unit as siblings without program wrapper
+            code = ""
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
+                        if (i > 1) then
+                            code = code // new_line('A') // new_line('A')
+                        end if
+                        code = code // generate_code_from_arena(arena, node%body_indices(i))
+                    end if
+                end do
+            end if
+            return
+        end if
+
         ! Program header
         code = "program " // node%name // new_line('A')
 
