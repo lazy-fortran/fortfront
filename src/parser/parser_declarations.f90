@@ -139,7 +139,7 @@ contains
             token = parser%consume()
         end if
 
-        ! Get variable name
+        ! Get variable name(s) - handle both single and multiple variables
         if (parser%is_at_end()) then
             return
         end if
@@ -149,28 +149,33 @@ contains
             return
         end if
 
-        ! Check for initialization
-        if (.not. parser%is_at_end()) then
-            token = parser%peek()
-            if (token%text == "=" .or. token%text == "=>") then
-                token = parser%consume()
-                initializer_index = parse_comparison(parser, arena)
+        block
+            character(len=:), allocatable :: var_name
+            var_name = token%text
+            
+            ! Check for initialization
+            if (.not. parser%is_at_end()) then
+                token = parser%peek()
+                if (token%text == "=" .or. token%text == "=>") then
+                    token = parser%consume()
+                    initializer_index = parse_comparison(parser, arena)
+                end if
             end if
-        end if
 
-        ! Convert intent to code (simplified)
-        intent_code = 0
+            ! Convert intent to code (simplified)
+            intent_code = 0
 
-        ! Create declaration node
-        decl_index = push_declaration( &
-            arena, &
-            type_spec%type_name, &
-            token%text, &
-            initializer_index=initializer_index, &
-            is_allocatable=attr_info%is_allocatable, &
-            is_pointer=attr_info%is_pointer, &
-            is_parameter=attr_info%is_parameter &
-        )
+            ! Create declaration node
+            decl_index = push_declaration( &
+                arena, &
+                type_spec%type_name, &
+                var_name, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_parameter=attr_info%is_parameter &
+            )
+        end block
     end function parse_declaration
 
     ! Result-based declaration parser with structured error handling
@@ -242,15 +247,107 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable :: decl_indices(:)
+        
+        type(token_t) :: token, next_token
+        type(type_specifier_t) :: type_spec
+        type(declaration_attributes_t) :: attr_info
+        character(len=64), allocatable :: var_names(:)
+        integer :: var_count, initializer_index, decl_index
+        
+        ! Parse type specifier
+        type_spec = parse_type_specifier(parser)
+        if (.not. allocated(type_spec%type_name)) then
+            allocate(decl_indices(0))
+            return
+        end if
 
-        integer :: first_decl_index
+        ! Parse declaration attributes
+        call parse_declaration_attributes(parser, arena, attr_info)
 
-        ! For simplicity, just parse as single declaration
-        first_decl_index = parse_declaration(parser, arena)
+        ! Check for :: separator
+        token = parser%peek()
+        if (token%text == "::") then
+            token = parser%consume()
+        end if
 
-        if (first_decl_index > 0) then
+        ! Collect all variable names
+        allocate(var_names(10))  ! Start with reasonable size
+        var_count = 0
+        initializer_index = 0
+        
+        do while (.not. parser%is_at_end())
+            ! Get variable name
+            token = parser%consume()
+            if (token%kind /= TK_IDENTIFIER) exit
+            
+            var_count = var_count + 1
+            if (var_count > size(var_names)) then
+                ! Extend array if needed
+                block
+                    character(len=64), allocatable :: temp_names(:)
+                    integer :: old_size
+                    old_size = size(var_names)
+                    allocate(temp_names(old_size * 2))
+                    temp_names(1:old_size) = var_names(1:old_size)
+                    deallocate(var_names)
+                    call move_alloc(temp_names, var_names)
+                end block
+            end if
+            var_names(var_count) = token%text
+            
+            ! Check for comma or end of variables
+            if (.not. parser%is_at_end()) then
+                next_token = parser%peek()
+                if (next_token%text == ",") then
+                    ! Consume comma and continue
+                    next_token = parser%consume()
+                    cycle
+                else if (next_token%text == "=" .or. next_token%text == "=>") then
+                    ! Initialization found - consume and parse
+                    next_token = parser%consume()
+                    initializer_index = parse_comparison(parser, arena)
+                    exit
+                else
+                    ! End of variable list
+                    exit
+                end if
+            else
+                exit
+            end if
+        end do
+        
+        if (var_count == 0) then
+            allocate(decl_indices(0))
+            return
+        end if
+        
+        ! Create multi-variable declaration node
+        if (type_spec%has_kind) then
+            decl_index = push_multi_declaration( &
+                arena, &
+                type_spec%type_name, &
+                var_names(1:var_count), &
+                kind_value=type_spec%kind_value, &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_parameter=attr_info%is_parameter &
+            )
+        else
+            decl_index = push_multi_declaration( &
+                arena, &
+                type_spec%type_name, &
+                var_names(1:var_count), &
+                initializer_index=initializer_index, &
+                is_allocatable=attr_info%is_allocatable, &
+                is_pointer=attr_info%is_pointer, &
+                is_parameter=attr_info%is_parameter &
+            )
+        end if
+        
+        if (decl_index > 0) then
             allocate(decl_indices(1))
-            decl_indices(1) = first_decl_index
+            decl_indices(1) = decl_index
         else
             allocate(decl_indices(0))
         end if
