@@ -53,22 +53,14 @@ if [[ "$TEST_MODE" == "fast" ]]; then
     # For PRs, run core tests only to save time
     echo "Running essential test subset for PR validation"
     
-    # Validate each test exists before execution  
+    # Run specific essential tests (let fpm handle if they don't exist)
     FAST_TESTS="test_frontend_lexer_api test_semantic_simple test_codegen_core_direct"
-    EXISTING_TESTS=""
     
-    for test in $FAST_TESTS; do
-        if fpm test --list 2>/dev/null | grep -q "$test"; then
-            EXISTING_TESTS="$EXISTING_TESTS $test"
-        else
-            echo "⚠️  Test $test not found, skipping"
-        fi
-    done
-    
-    if [ -n "$EXISTING_TESTS" ]; then
-        fpm test $EXISTING_TESTS --flag "$FLAGS"
+    # Try to run fast tests, fall back to full suite if any fail
+    if fpm test $FAST_TESTS --flag "$FLAGS"; then
+        echo "✅ Fast tests completed successfully"
     else
-        echo "⚠️  No fast tests found, running full test suite"
+        echo "⚠️  Fast tests failed or not found, running full test suite"
         fpm test --flag "$FLAGS"
     fi
 else
