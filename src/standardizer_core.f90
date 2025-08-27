@@ -12,6 +12,7 @@ module standardizer_core
     use standardizer_program
     use standardizer_module  
     use standardizer_types, only: string_result_t
+    use standardizer_subprograms, only: wrap_function_in_program, wrap_subroutine_in_program
     implicit none
     private
     
@@ -26,20 +27,6 @@ module standardizer_core
     public :: set_standardizer_type_standardization, &
               get_standardizer_type_standardization
     
-    ! Forward declarations for procedures in submodules
-    interface
-        subroutine wrap_function_in_program(arena, func_index)
-            import :: ast_arena_t
-            type(ast_arena_t), intent(inout) :: arena
-            integer, intent(inout) :: func_index
-        end subroutine wrap_function_in_program
-        
-        subroutine wrap_subroutine_in_program(arena, sub_index)
-            import :: ast_arena_t
-            type(ast_arena_t), intent(inout) :: arena
-            integer, intent(inout) :: sub_index
-        end subroutine wrap_subroutine_in_program
-    end interface
 
 contains
 

@@ -8,6 +8,7 @@ module standardizer_program
     use error_handling
     use standardizer_declarations
     use standardizer_allocatable
+    use standardizer_subprograms, only: standardize_subprograms
     implicit none
     private
 
@@ -16,14 +17,6 @@ module standardizer_program
     public :: find_contains_insertion_point
     public :: insert_contains_statement
     
-    ! Forward declaration for standardize_subprograms
-    interface
-        subroutine standardize_subprograms(arena, prog)
-            import :: ast_arena_t, program_node
-            type(ast_arena_t), intent(inout) :: arena
-            type(program_node), intent(in) :: prog
-        end subroutine standardize_subprograms
-    end interface
 
 contains
 

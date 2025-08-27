@@ -11,12 +11,8 @@ module standardizer_declarations
     implicit none
     private
 
-    ! Interface for global flag procedure
-    interface
-        subroutine get_standardizer_type_standardization(enabled)
-            logical, intent(out) :: enabled
-        end subroutine get_standardizer_type_standardization
-    end interface
+    ! Type standardization configuration (local copy)
+    logical, save :: standardizer_type_standardization_enabled = .true.
 
     public :: insert_variable_declarations
     public :: has_implicit_none
@@ -33,6 +29,12 @@ module standardizer_declarations
     public :: standardize_declarations
 
 contains
+
+    ! Local implementation of get_standardizer_type_standardization
+    subroutine get_standardizer_type_standardization(enabled)
+        logical, intent(out) :: enabled
+        enabled = standardizer_type_standardization_enabled
+    end subroutine get_standardizer_type_standardization
 
     ! Insert variable declarations and implicit none for a program
     subroutine insert_variable_declarations(arena, prog, prog_index)

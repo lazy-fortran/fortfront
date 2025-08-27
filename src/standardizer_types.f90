@@ -12,12 +12,8 @@ module standardizer_types
     ! Constants
     integer, parameter :: INVALID_INTEGER = -999999
 
-    ! Interface for global flag procedure
-    interface
-        subroutine get_standardizer_type_standardization(enabled)
-            logical, intent(out) :: enabled
-        end subroutine get_standardizer_type_standardization
-    end interface
+    ! Type standardization configuration (local copy)
+    logical, save :: standardizer_type_standardization_enabled = .true.
 
     ! Result type for string operations
     type, public :: string_result_t
@@ -43,6 +39,12 @@ module standardizer_types
     public :: INVALID_INTEGER
 
 contains
+
+    ! Local implementation of get_standardizer_type_standardization
+    subroutine get_standardizer_type_standardization(enabled)
+        logical, intent(out) :: enabled
+        enabled = standardizer_type_standardization_enabled
+    end subroutine get_standardizer_type_standardization
 
     ! Check if a mono_type is an array type
     function is_array_type(mono_type) result(is_array)

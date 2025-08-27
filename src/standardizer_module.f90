@@ -8,18 +8,33 @@ module standardizer_module
 
     public :: standardize_module
     
-    ! Forward declaration - this will be resolved by compiler
-    ! when standardizer_core is compiled
-    interface
-        recursive subroutine standardize_ast(arena, root_index, in_module)
-            import :: ast_arena_t
-            type(ast_arena_t), intent(inout) :: arena
-            integer, intent(inout) :: root_index
-            logical, intent(in), optional :: in_module
-        end subroutine standardize_ast
-    end interface
 
 contains
+
+    ! Local implementation of standardize_ast for module context
+    ! This handles AST nodes within a module - simplified version that
+    ! doesn't need to handle top-level programs or module wrapping
+    recursive subroutine standardize_ast(arena, root_index, in_module)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(inout) :: root_index
+        logical, intent(in), optional :: in_module
+        
+        if (root_index <= 0 .or. root_index > arena%size) return
+        if (.not. allocated(arena%entries(root_index)%node)) return
+        
+        ! For module contents, we only need to handle function/subroutine definitions
+        ! All other declarations are left as-is
+        select type (node => arena%entries(root_index)%node)
+        type is (function_def_node)
+            ! Inside a module - don't wrap in program, just leave as-is
+            ! Functions inside modules are already properly structured
+        type is (subroutine_def_node)
+            ! Inside a module - don't wrap in program, just leave as-is  
+            ! Subroutines inside modules are already properly structured
+        class default
+            ! For declarations and other node types inside modules, no action needed
+        end select
+    end subroutine standardize_ast
 
     ! Standardize a module node
     subroutine standardize_module(arena, mod, mod_index)
