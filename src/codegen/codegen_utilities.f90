@@ -334,6 +334,21 @@ contains
                         code = code // new_line('A')
                         i = i + 1
                         
+                    type is (write_statement_node)
+                        stmt_code = generate_code_from_arena(arena, body_indices(i))
+                        code = code // indent_str // stmt_code // new_line('A')
+                        i = i + 1
+                        
+                    type is (print_statement_node)
+                        stmt_code = generate_code_from_arena(arena, body_indices(i))
+                        code = code // indent_str // stmt_code // new_line('A')
+                        i = i + 1
+                        
+                    type is (read_statement_node)
+                        stmt_code = generate_code_from_arena(arena, body_indices(i))
+                        code = code // indent_str // stmt_code // new_line('A')
+                        i = i + 1
+                        
                     class default
                         stmt_code = generate_code_from_arena(arena, body_indices(i))
                         code = code // indent_str // stmt_code // new_line('A')
