@@ -387,6 +387,7 @@ contains
         integer :: line, column
 
         step_index = 0  ! Initialize to 0 (no step)
+        loop_index = 0  ! Initialize to 0 (failure) in case of early return
 
         ! Starting to parse do loop
 
@@ -420,25 +421,38 @@ contains
             return
         end if
 
-        ! Parse start expression (simplified - just parse next token as literal)
-        start_index = parse_primary(parser, arena)
+        ! Parse start expression (now handles full expressions)
+        start_index = parse_range(parser, arena)
+        
+        if (start_index <= 0) then
+            ! Failed to parse start expression
+            loop_index = 0
+            return
+        end if
 
         ! Expect ','
         comma_token = parser%consume()
         if (comma_token%kind /= TK_OPERATOR .or. comma_token%text /= ",") then
             ! Error: expected ','
+            loop_index = 0
             return
         end if
 
         ! Parse end expression
-        end_index = parse_primary(parser, arena)
+        end_index = parse_range(parser, arena)
+        
+        if (end_index <= 0) then
+            ! Failed to parse end expression
+            loop_index = 0
+            return
+        end if
 
         ! Check for optional step
         if (.not. parser%is_at_end()) then
             comma_token = parser%peek()
             if (comma_token%kind == TK_OPERATOR .and. comma_token%text == ",") then
                 comma_token = parser%consume()  ! consume comma
-                step_index = parse_primary(parser, arena)
+                step_index = parse_range(parser, arena)
             end if
         end if
 
