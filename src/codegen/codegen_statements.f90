@@ -131,10 +131,39 @@ contains
         type(write_statement_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: unit_code, format_code, args_code
+        integer :: i
 
-        ! Simplified placeholder implementation
-        ! TODO: Implement proper write statement code generation
-        code = "write(*, *) ! TODO: implement write statement"
+        ! Generate unit specifier
+        if (allocated(node%unit_spec)) then
+            unit_code = node%unit_spec
+        else
+            unit_code = "*"
+        end if
+
+        ! Generate format specifier
+        if (allocated(node%format_spec)) then
+            format_code = node%format_spec
+        else
+            format_code = "*"
+        end if
+
+        ! Generate argument list
+        args_code = ""
+        if (allocated(node%arg_indices)) then
+            do i = 1, size(node%arg_indices)
+                if (i > 1) args_code = args_code // ", "
+                if (node%arg_indices(i) > 0 .and. node%arg_indices(i) <= arena%size) then
+                    args_code = args_code // generate_code_from_arena(arena, node%arg_indices(i))
+                end if
+            end do
+        end if
+
+        ! Assemble write statement: write(unit, format) args
+        code = "write(" // unit_code // ", " // format_code // ")"
+        if (len(args_code) > 0) then
+            code = code // " " // args_code
+        end if
     end function generate_code_write_statement
 
     ! Generate code for read statements
