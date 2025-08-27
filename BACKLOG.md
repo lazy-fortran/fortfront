@@ -1,7 +1,6 @@
 # Development Backlog
 
 ## DOING (Current Work)
-- [x] #580: emergency: complete codegen system failure - all output contains TODO placeholders [EPIC: Complete Codegen System Failure]
 
 ## SPRINT_BACKLOG - EMERGENCY RECOVERY SPRINT
 
