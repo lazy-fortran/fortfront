@@ -519,10 +519,12 @@
         if (is_if_then_start(tokens, start_pos)) then
             in_if_block = .true.
             nesting_level = 1
-        else if (is_do_loop_start(tokens, start_pos) .or. &
-                 is_do_while_start(tokens, start_pos)) then
-            in_do_loop = .true.
-            nesting_level = 1
+        ! REMOVED: Do loops should NOT be treated as multiline constructs
+        ! The parser (parse_do_loop) handles the body parsing itself
+        ! else if (is_do_loop_start(tokens, start_pos) .or. &
+        !          is_do_while_start(tokens, start_pos)) then
+        !     in_do_loop = .true.
+        !     nesting_level = 1
         else if (is_select_case_start(tokens, start_pos)) then
             in_select_case = .true.
             nesting_level = 1
@@ -668,6 +670,36 @@
             end if
         end do
     end subroutine find_single_line_statement_end
+    
+    ! Find just the do loop header (do i = start, end[, step])
+    subroutine find_do_loop_header_end(tokens, start_pos, stmt_start, stmt_end)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer, intent(out) :: stmt_start, stmt_end
+        integer :: i
+        
+        stmt_start = start_pos
+        stmt_end = start_pos
+        
+        ! Start from the do keyword
+        i = start_pos
+        
+        ! For do loops, just find the header line up to newline
+        ! Parser will handle the body
+        do while (i <= size(tokens))
+            if (tokens(i)%kind == TK_EOF .or. &
+                tokens(i)%kind == TK_NEWLINE .or. &
+                tokens(i)%kind == TK_COMMENT) then
+                stmt_end = i - 1
+                exit
+            end if
+            i = i + 1
+        end do
+        
+        if (stmt_end < stmt_start) then
+            stmt_end = min(size(tokens), stmt_start + 10)  ! Fallback
+        end if
+    end subroutine find_do_loop_header_end
 
     ! Handle leading comments that should be attached to following constructs
     subroutine handle_leading_comments(tokens, start_pos, unit_start, unit_end, &
