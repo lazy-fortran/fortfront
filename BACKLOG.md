@@ -2,9 +2,7 @@
 
 ## DOING (Current Work)
 
-### Control Flow Code Generation - if/else statement restoration 
-**EPIC: Control Flow Code Generation**
-- [ ] #623: bug: if/else statements generate TODO placeholders instead of code - **IN PROGRESS**
+*No active work - selecting next SPRINT_BACKLOG item*
 
 ## SPRINT_BACKLOG - CONTROL FLOW RESTORATION
 
@@ -20,7 +18,6 @@
 **Foundation**: Keep working basic functionality (print, assignments) intact
 
 ### EPIC: Control Flow Code Generation
-- [x] #623: bug: if/else statements generate TODO placeholders instead of code - **MOVED TO DOING**
 - [ ] #620: bug: do loop statements generate TODO placeholders instead of code
 
 ### EPIC: Function Support Restoration  
@@ -170,6 +167,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #623: bug: if/else statements generate TODO placeholders instead of code - PR #635 READY FOR REVIEW
 - [x] #634: architectural: foundation-first development protocol implementation required - ASSESSMENT COMPLETE
 - [x] #633: architectural: systemic development process improvements required - ASSESSMENT COMPLETE  
 - [x] #632: CRITICAL: SHORT sprint success assessment reveals mixed system state - ASSESSMENT COMPLETE
