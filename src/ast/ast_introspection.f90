@@ -9,6 +9,8 @@ module ast_introspection
     use ast_nodes_data
     use ast_nodes_io
     use ast_nodes_misc
+    use ast_nodes_bounds
+    use ast_error_nodes
     use type_system_unified, only: mono_type_t
     implicit none
     private
@@ -168,6 +170,30 @@ contains
             type_id = 42  ! NODE_COMMENT
         type is (implicit_statement_node)
             type_id = 43  ! NODE_IMPLICIT_STATEMENT
+        type is (array_bounds_node)
+            type_id = 44  ! NODE_ARRAY_BOUNDS
+        type is (array_slice_node)
+            type_id = 45  ! NODE_ARRAY_SLICE
+        type is (range_expression_node)
+            type_id = 46  ! NODE_RANGE_EXPRESSION
+        type is (array_operation_node)
+            type_id = 47  ! NODE_ARRAY_OPERATION
+        type is (where_stmt_node)
+            type_id = 48  ! NODE_WHERE_STMT
+        type is (associate_node)
+            type_id = 49  ! NODE_ASSOCIATE
+        type is (mixed_construct_container_node)
+            type_id = 50  ! NODE_MIXED_CONSTRUCT_CONTAINER
+        type is (component_access_node)
+            type_id = 51  ! NODE_COMPONENT_ACCESS
+        type is (range_subscript_node)
+            type_id = 52  ! NODE_RANGE_SUBSCRIPT
+        type is (error_node_t)
+            type_id = 53  ! NODE_ERROR
+        type is (blank_line_node)
+            type_id = 54  ! NODE_BLANK_LINE
+        type is (end_statement_node)
+            type_id = 55  ! NODE_END_STATEMENT
         class default
             ! Log warning for debugging purposes
             write(error_unit, '(A)') "Warning: Unknown node type encountered in get_node_type_id"
