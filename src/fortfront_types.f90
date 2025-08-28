@@ -21,6 +21,9 @@ module fortfront_types
         integer :: definition_column = 0
         logical :: is_used = .false.
         logical :: is_parameter = .false.
+        logical :: is_defined = .false.
+        integer :: scope_level = 0
+        character(len=:), allocatable :: intent
     end type symbol_info_t
     
     ! Symbol reference information for cross-reference analysis
