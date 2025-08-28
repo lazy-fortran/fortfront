@@ -14,19 +14,13 @@
 
 ## DOING (Active Work)
 
-### EPIC: BUILD SYSTEM RELIABILITY - CRITICAL
-
-- [ ] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests
-  - **SEVERITY**: CRITICAL - CMAKE only discovers 64 of 243 test files
-  - **ASSIGNED**: sergei 
-  - **TARGET**: Replace shallow glob with recursive pattern for complete test coverage
-  - **STATUS**: Starting implementation - build system blocker
+*No active work - awaiting PR #772 review completion*
 
 ## SPRINT_BACKLOG - ARCHITECTURAL INTEGRITY (4 CRITICAL ISSUES)
 
 ### EPIC: BUILD SYSTEM RELIABILITY - CRITICAL
 
-- [x] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests - **MOVED TO DOING**
+- [x] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests - **PR #772 READY FOR REVIEW**
 
 ### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY
 
