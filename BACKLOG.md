@@ -1,6 +1,6 @@
 # Development Backlog - USER EXPERIENCE RECOVERY SPRINT
 
-## 🚨 SPRINT 8: USER EXPERIENCE RECOVERY - 2025-08-28
+## 🚨 SPRINT 8: USER EXPERIENCE RECOVERY - 2025-08-28 [Epic #817]
 
 **GOAL**: Transform working CMAKE build into professional user experience
 **BUILD STATUS**: CMAKE system working, FMP system broken
