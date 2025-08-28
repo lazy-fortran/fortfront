@@ -15,16 +15,16 @@
 
 ## DOING (Active Work)
 
-*Emergency recovery mode - focus on critical blockers only*
+- [ ] #775: CMAKE build failure - compiler_arena.mod missing  
+  - **ROOT CAUSE**: Missing module dependency ordering in CMakeLists.txt  
+  - **TECHNICAL EVIDENCE**: CMAKE fails with duplicate target errors  
+  - **PRIORITY**: CRITICAL - blocks all CMAKE development
 
 ## SPRINT_BACKLOG - EMERGENCY RECOVERY
 
 ### EPIC: CRITICAL COMPILATION BLOCKERS
 
-- [ ] #775: CMAKE build failure - compiler_arena.mod missing
-  - **ROOT CAUSE**: Missing module dependency ordering in CMakeLists.txt
-  - **TECHNICAL EVIDENCE**: CMAKE fails on src/frontend_core.f90 compilation
-  - **PRIORITY**: CRITICAL - blocks all CMAKE development
+- [ ] **MOVED TO DOING** #775: CMAKE build failure - compiler_arena.mod missing
 
 - [ ] #778: Duplicate symbol_info_t definitions cause compilation failure
   - **ROOT CAUSE**: Two incompatible symbol_info_t types in different files
