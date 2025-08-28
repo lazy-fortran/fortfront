@@ -14,20 +14,23 @@
 
 ## DOING (Active Work)
 
-*No active work - awaiting PR #772 review completion*
-
-## SPRINT_BACKLOG - ARCHITECTURAL INTEGRITY (4 CRITICAL ISSUES)
-
-### EPIC: BUILD SYSTEM RELIABILITY - CRITICAL
-
-- [x] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests - **PR #772 READY FOR REVIEW**
-
 ### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY
 
 - [ ] #769: SPRINT: ast_factory.f90 emergency refactoring - 1911 lines
   - **SEVERITY**: CRITICAL - 91% over hard limit (worst violation in codebase)
   - **ASSIGNED**: sergei
   - **TARGET**: Extract logical factory modules, target <500 lines each
+  - **STATUS**: Starting implementation - highest priority violation
+
+## SPRINT_BACKLOG - ARCHITECTURAL INTEGRITY (3 REMAINING ISSUES)
+
+### EPIC: BUILD SYSTEM RELIABILITY - CRITICAL
+
+- [x] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests - **COMPLETED IN PR #772**
+
+### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY
+
+- [x] #769: SPRINT: ast_factory.f90 emergency refactoring - 1911 lines - **MOVED TO DOING**
 
 - [ ] #770: SPRINT: systematic file size compliance - 10 violations
   - **SEVERITY**: CRITICAL - 10 files violating hard limits
