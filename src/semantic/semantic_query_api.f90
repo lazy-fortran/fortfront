@@ -10,6 +10,7 @@ module semantic_query_api
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
     use parameter_tracker, only: parameter_tracker_t
+    use fortfront_types, only: symbol_info_t, symbol_reference_t
     use ast_core
     use ast_nodes_core, only: identifier_node
     use ast_nodes_data, only: declaration_node
@@ -71,18 +72,6 @@ module semantic_query_api
         integer :: depth
     end type scope_info_t
 
-    ! Symbol information type (as specified in issues #189, #190)
-    type :: symbol_info_t
-        character(len=:), allocatable :: name
-        type(mono_type_t) :: type_info
-        integer :: definition_line = 0      ! Line where symbol is declared
-        integer :: definition_column = 0    ! Column where symbol is declared  
-        logical :: is_used = .false.        ! Whether symbol is used - populated by usage_tracker_analyzer
-        logical :: is_parameter = .false.   ! Whether symbol is a parameter
-        ! NOTE: definition_line/definition_column population requires connecting
-        !       symbol declarations to AST node source locations during semantic 
-        !       analysis. Currently these fields are exported but not populated.
-    end type symbol_info_t
 
     ! Main query interface - WARNING: Assignment causes deep copies (issue #196)
     ! For production use, prefer direct query functions to avoid memory issues
