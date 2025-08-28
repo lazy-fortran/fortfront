@@ -1,153 +1,93 @@
 # fortfront Architecture Design
 
-## 🎯 ESSENTIALS-FIRST DEVELOPMENT - SIMPLIFIED APPROACH
+## 🚨 EMERGENCY STATUS: BUILD SYSTEM FAILURE BLOCKS ALL WORK
 
-**NEW STRATEGIC CONTEXT**: CLAUDE.md simplified from 275 lines to 35 lines of essentials  
-**APPROACH SHIFT**: "GET BASICS WORKING FIRST" vs architectural dreams  
-**TEAM FOCUS**: Essential functionality with achievable goals  
+**CRITICAL DISCOVERY**: FPM git integration bug makes ALL development impossible  
+**ROOT CAUSE**: FPM 0.12.0 incorrectly detects "no commits" in valid git repository  
+**IMPACT**: 100% of development work is theater - nothing can be built or tested  
+**PROJECT STATUS**: Dead until build system fixed or replaced  
 
-**CURRENT GOAL**: Build working foundation with simplified guidance
+**EMERGENCY SPRINT GOAL**: Fix Build System or Terminate Project
 
-### REPOSITORY REALITY CHECK 
-
-**DOCUMENTATION BLOAT**: 40+ obsolete files polluting repository (Issue #722)
-**DEBUG TRASH**: 80+ scattered debug/test files making repository unprofessional (Issue #723)
-**BUILD COMPLEXITY**: Multiple broken build scripts overwhelming team (Issue #724)
-**ARCHITECTURE OVERENGINEERING**: DESIGN.md too complex for team capability (Issue #725)
-**GUIDANCE OVERWHELM**: 275-line CLAUDE.md paralyzing development
-
-**ESSENTIALS DEFINITION OF DONE** (Simplified Success):
-1. Repository is clean and professional
-2. Build system is simple with one command that works
-3. Documentation matches actual functionality
-4. Core functionality works for basic cases
-5. Team can develop without complexity overwhelm
-6. Realistic architecture that team can implement
-
-**🎯 ESSENTIALS-FIRST PLAN** (Simplified Priorities):
-
-### Priority 1: REPOSITORY CLEANUP (Issues #722-723)
-**IMMEDIATE IMPACT**: Clean professional repository
-**ESSENTIAL FIX**:
-- Remove 40+ obsolete documentation files causing confusion
-- Clean up 80+ scattered debug/test files
-- Organize repository to professional standards
-- Remove documentation fraud and outdated information
-
-### Priority 2: SIMPLIFY BUILD SYSTEM (Issue #724)
-**DEVELOPER EXPERIENCE**: Simple, working build process
-**ESSENTIAL FIX**:
-- One working build command only
-- One working test command only
-- Remove broken coverage setup
-- Eliminate multiple broken build scripts
-
-### Priority 3: REALISTIC ARCHITECTURE (Issue #725)
-**TEAM EFFECTIVENESS**: Architecture team can actually implement
-**ESSENTIAL FIX**:
-- Reduce DESIGN.md to working essentials only
-- Remove unimplementable architecture dreams
-- Focus on basic functionality that works
-- Set achievable goals matching team capability
-
-### Priority 4: CORE FUNCTIONALITY VALIDATION
-**WORKING SOFTWARE**: Verify basics work with simplified approach
-**ESSENTIAL FIX**:
-- Test basic parsing works without complex requirements
-- Verify codegen produces working output for simple cases
-- Document what actually works vs architectural claims
-- Establish realistic baseline for development
-
-### ESSENTIAL VALIDATION TESTS
-
-**TEST 1: Basic Build**
-```bash
-fmp build --flag "-cpp -fmax-stack-var-size=131072"
-```
-**SHOULD WORK**: System compiles without errors
-
-**TEST 2: Simple Parsing**
-```fortran
-program hello
-  print *, "Hello, World!"
-end program
-```
-**SHOULD WORK**: Parses and generates working Fortran
-
-**TEST 3: Core Test Suite**
-```bash
-fmp test test_lexer_basic --flag "-cpp -fmax-stack-var-size=131072"
-```
-**SHOULD WORK**: Basic tests execute successfully
-
-**ESSENTIAL SUCCESS CRITERIA**: Basic functionality works with simplified approach
-
-## ✅ ESSENTIALS-FIRST DEVELOPMENT APPROACH
-
-### Simplified Development Strategy
-**FOCUS ON WORKING BASICS**: Build foundation that team can manage
-- **Phase 1**: Clean repository - remove confusion and complexity
-- **Phase 2**: Simplify build system - one command builds, one command tests
-- **Phase 3**: Essential functionality - basic parsing and codegen working
-- **Phase 4**: Realistic architecture - design team can actually implement
-
-**New Process**: Achievable goals with simplified guidance
-
-**FPM-FIRST ARCHITECTURE**
-- **Dependency Management**: FPM automatically handles all tool dependencies via fpm.toml
-- **Pure Fortran Interface**: External tools integrate through standard Fortran modules
-- **Simple Integration**: Tools add `fortfront` as dependency - FPM handles the rest
-- **No Build Complexity**: FPM manages module compilation and linking automatically
-
-## What We Have Now
-
-**WORKING**: Basic lexer, parser, and codegen that handles simple Fortran programs  
-**TESTED**: Core functionality with test suite  
-**BUILDABLE**: System compiles and runs with FPM
-
-## What We Need
-
-**CLEAN**: Remove repository bloat and complexity  
-**SIMPLE**: Streamlined build process  
-**REALISTIC**: Architecture that team can implement  
-**FUNCTIONAL**: Focus on working basics first
-
----
-
-# Essential Architecture (KEEP IT SIMPLE)
-
-## Core Mission
-
-fortfront is a **simple Fortran frontend library** that provides basic parsing and code generation functionality.
-
-## Build Requirements (SIMPLE)
+### THE BUG THAT KILLED EVERYTHING (Issue #736/540)
 
 ```bash
-# Build fortfront
-fmp build
-
-# Run tests  
-fmp test
-
-# Use in other projects
-# Add fortfront as dependency in fmp.toml
+fatal: your current branch 'main' does not have any commits yet
+<ERROR> *cmd_build* Model error: Error while retrieving commit information
+STOP 1
 ```
 
-## Simple Architecture
+**FACTS**:
+- Repository has hundreds of commits (verified)
+- FPM fails to detect them (tooling bug)
+- This blocks ALL compilation and testing
+- Previous "fixes" were displacement theater
+- Issue #540 reported this but was WRONGLY CLOSED
 
-```
-Source Code → Lexer → Parser → AST → Codegen → Fortran
-```
+### EMERGENCY DEFINITION OF DONE (Build or Die)
 
-**FOCUS**: Basic parsing and code generation that works. No complex architecture until basics are solid.
+1. **BUILD WORKS**: `fpm build` completes without errors
+2. **TESTS RUN**: `fpm test` executes successfully
+3. **CI PASSES**: GitHub Actions complete green
+4. **OR SHUTDOWN**: If unfixable, recommend project termination
 
-## Essential Components
+### EMERGENCY OPTIONS (In Priority Order)
 
-### What Actually Works
-1. **Lexer**: Tokenizes Fortran source code
-2. **Parser**: Builds basic AST from tokens  
-3. **Codegen**: Generates Fortran output
-4. **Tests**: Basic test suite for validation
+**Option 1: Fix FPM Git Detection**
+- Debug FPM source to find git detection bug
+- Submit patch to FPM project
+- Risk: Team may lack FPM internals expertise
+
+**Option 2: Downgrade FPM Version**
+- Find last working FPM version
+- Pin project to that version
+- Risk: May lose newer FPM features
+
+**Option 3: Bypass FPM Git Check**
+- Find workaround to skip git detection
+- Modify build scripts to avoid trigger
+- Risk: Fragile hack solution
+
+**Option 4: Replace FPM Entirely**
+- Migrate to CMake or Meson
+- Complete build system rewrite
+- Risk: Major effort, team learning curve
+
+### SHUTDOWN CRITERIA (Project Termination Triggers)
+
+- Build unfixable after 2 sprints → TERMINATE
+- Team lacks capability to fix → TERMINATE  
+- FPM fundamentally broken → TERMINATE
+- External help too expensive → TERMINATE
+
+### TEAM ASSIGNMENTS (Emergency Mode)
+
+**sergei**: Research FPM bug and attempt fix
+- Debug FPM source code  
+- Find git detection failure point
+- Attempt patch or workaround
+- If incapable: ADMIT IT IMMEDIATELY
+
+**max**: Evaluate alternative build tools
+- Research CMake for Fortran
+- Research Meson for Fortran
+- Test simple proof-of-concept
+- Report viability assessment
+
+**Others**: COMPLETELY BLOCKED
+- No code work possible
+- No documentation work needed
+- Wait for build fix
+
+### PREVIOUS ARCHITECTURE (NOW IRRELEVANT)
+
+All previous architectural plans, component designs, and development strategies are SUSPENDED until build system works. The elaborate plans below are theater until we can compile:
+
+- Component architecture: BLOCKED
+- CST/AST design: BLOCKED  
+- Type system: BLOCKED
+- Error handling: BLOCKED
+- Everything: BLOCKED
 
 ### Current Status
 

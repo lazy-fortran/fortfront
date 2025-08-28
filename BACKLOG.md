@@ -1,81 +1,96 @@
 # Development Backlog
 
-## 🚨 ESSENTIALS-FIRST RECOVERY SPRINT - GET BASICS WORKING
+## 🚨 EMERGENCY BUILD SYSTEM FIX SPRINT - PROJECT LIFE OR DEATH
 
-**NEW STRATEGIC CONTEXT**: CLAUDE.md simplified from 275 lines to 35 lines of brutal essentials  
-**APPROACH CHANGE**: Focus on "GET BASICS WORKING FIRST" vs architectural dreams  
-**DOCUMENTATION REALITY**: Repository cleanup needed - honest assessment of broken status  
+**CRITICAL DISCOVERY**: FPM git integration bug blocks ALL development (Issue #736/540)  
+**BRUTAL TRUTH**: 100% of previous sprint work was theater - build system never worked  
+**PROJECT STATUS**: Dead in water until build system fixed  
+**TEAM COMPETENCE**: Questionable - may need external help  
 
-**SPRINT GOAL**: Make basic functionality work with simplified guidance
+**SPRINT GOAL**: Fix Build System or Shut Down Project
 
-**SPRINT DEFINITION OF DONE** (Simplified Essentials):
-1. **System Builds**: Basic compilation works
-2. **Core Functionality**: Can parse simple Fortran and generate output
-3. **Repository Clean**: Remove documentation fraud and debug trash
-4. **Build System Simple**: One command builds, one command tests
-5. **Honest Assessment**: Document what actually works vs claims
+**SPRINT DEFINITION OF DONE** (Single Focus):
+1. **BUILD WORKS**: `fpm build` completes without errors
+2. **TESTS RUN**: `fpm test` executes successfully  
+3. **CI PASSES**: GitHub Actions complete green
+4. **OR PROJECT DIES**: If unfixable, recommend project termination
 
-### REALITY CHECK - SIMPLIFIED PRIORITIES
+### ROOT CAUSE ANALYSIS
 
-**REPOSITORY CLEANUP NEEDED** (Issues #722-725):
-- 40+ obsolete documentation files polluting repository
-- 80+ trash debug/test files scattered everywhere
-- Overcomplicated build system with multiple broken scripts
-- DESIGN.md contains unrealistic architecture dreams beyond team capability
+**THE BUG THAT KILLED EVERYTHING** (Issue #736):
+```bash
+fatal: your current branch 'main' does not have any commits yet
+<ERROR> *cmd_build* Model error: Error while retrieving commit information
+```
 
-**BASIC FUNCTIONALITY STATUS**:
-- System partially works but with complex guidance overwhelming team
-- Core parsing and codegen functional for simple cases
-- Need to focus on essentials that work vs architectural perfection
+**FACTS**:
+- Repository HAS commits (hundreds verified)
+- FPM 0.12.0 incorrectly detects 'no commits'
+- This blocks ALL compilation and testing
+- Issue #540 reported this but was WRONGLY CLOSED
+
+**EVERYTHING ELSE IS THEATER** until this is fixed
 
 ## DOING (Active Work)
 
-- [ ] #724: SIMPLIFICATION: Reduce complexity in build system to bare essentials
-  - ASSIGNED TO: sergei-perfectionist-coder
-  - EPIC: SIMPLIFY BUILD SYSTEM
-  - One working build command only
-  - One working test command only
-  - Remove broken coverage setup
-  - PRIORITY 1: Enable basic development workflow
+**NOTHING** - All work blocked by build system failure
 
-## SPRINT_BACKLOG - ESSENTIALS-FIRST CLEANUP (5 ISSUES MAX)
+## SPRINT_BACKLOG - BUILD FIX ONLY (3 ISSUES)
 
-**SIMPLIFIED GOAL**: Clean up repository and get basics working with streamlined guidance  
-**STRATEGY**: Remove complexity, focus on working functionality
+### EPIC: FIX FPM OR FIND ALTERNATIVE
 
-### EPIC 1: REPOSITORY CLEANUP (IMMEDIATE IMPACT)
+- [ ] #747: EMERGENCY: Research and fix FPM git detection bug blocking all development
+  - PRIMARY: Debug FPM source and develop fix
+  - ASSIGNED: sergei (if capable)
+  - SUCCESS: Build and test commands work
+  - FAILURE: Move to backup plan
 
+- [ ] #748: BACKUP PLAN: Evaluate CMake/Meson as FPM replacement if unfixable
+  - CONTINGENCY: Alternative build system ready
+  - ASSIGNED: max  
+  - TRIGGER: Only if #747 fails
+  - SUCCESS: Migration path identified
 
-### EPIC 2: SIMPLIFY BUILD SYSTEM
+- [ ] #749: EXTERNAL HELP: Contact FPM maintainers or hire consultant if team lacks capability
+  - ESCALATION: Get expert assistance
+  - TRIGGER: If team cannot solve internally
+  - SUCCESS: Expert provides solution
+  - FAILURE: Project termination
 
-**NOTE**: Issue #724 moved to DOING
+**CONSOLIDATED**: Issue #736 documents root cause, closed other assessment issues
 
-### EPIC 3: REALISTIC ARCHITECTURE
-- [ ] #725: ARCHITECTURE REALITY CHECK: Fix gap between DESIGN.md complexity and team capability
-  - Reduce DESIGN.md to working essentials only
-  - Remove unimplementable architecture dreams
-  - Focus on basic functionality that works
-  - Set achievable goals team can actually deliver
+**NO OTHER WORK PERMITTED** until build system functions
 
-### EPIC 4: CORE FUNCTIONALITY VALIDATION
-- [ ] #726: VALIDATION: Verify basic parsing and codegen works with simplified guidance
-  - Test essential functionality without complex architectural requirements
-  - Document what actually works vs what is claimed
-  - Establish realistic baseline for future development
+### SPRINT NOTES (Not Issues)
 
-**ESSENTIALS SUCCESS CRITERIA** (Realistic Goals):
-- Repository is clean and professional
-- Build system is simple and works
-- Documentation matches actual functionality
-- Core parsing/codegen works for basic cases
-- Team can focus on essentials without complexity overwhelm
+**Team Assignments**:
+- sergei: Research FPM bug and attempt fix (if capable)
+- max: Alternative build tools evaluation  
+- Others: BLOCKED - no work possible
+
+**External Help Options**:
+- Contact FPM maintainers directly
+- Hire FPM expert consultant
+- Use community support channels
+
+**Shutdown Criteria**:
+- If build unfixable in 2 sprints: project termination
+- If team lacks capability: project termination
+- If FPM fundamentally broken: migrate or terminate
 
 ## DEFERRED TO FUTURE SPRINTS
 
-### HIGH PRIORITY - Core Parser Gaps
-- [ ] #492: Statement parsing: Semicolon-separated statements only process first statement (parser completeness)
-- [ ] #495: Semantic analysis: Undefined variables not detected in expressions (type system gap)
-- [ ] #493: Operator precedence: Incorrect logical operator precedence and parenthesization (correctness)
+**ALL WORK BLOCKED** - Nothing can proceed until build system fixed
+
+### PREVIOUS SPRINT ITEMS (Now Blocked)
+- [ ] #724: Build system simplification (BLOCKED - can't simplify what doesn't work)
+- [ ] #725: Architecture reality check (BLOCKED - no point until build works)  
+- [ ] #726: Core functionality validation (BLOCKED - can't validate broken system)
+
+### HIGH PRIORITY - Core Parser Gaps (BLOCKED)
+- [ ] #492: Statement parsing: Semicolon-separated statements only process first statement
+- [ ] #495: Semantic analysis: Undefined variables not detected in expressions
+- [ ] #493: Operator precedence: Incorrect logical operator precedence
 
 ### EPIC: Code Quality & Size Constraints
 - [ ] #547: architectural violation: 12 files exceed 1000-line limit, violating size constraints
