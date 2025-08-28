@@ -214,7 +214,8 @@ contains
         if (this%depth > 1) then
             this%depth = this%depth - 1
         else
-            error stop "Cannot pop global scope"
+            write(error_unit, '(A)') "ERROR [scope_manager]: Cannot pop global scope - ignoring pop request"
+            ! Don't modify depth - keep the global scope intact
         end if
 
     end subroutine stack_pop_scope
@@ -249,7 +250,8 @@ contains
             ! Use direct scope_define to avoid type-bound procedure issues with arrays
             call scope_define(this%scopes(this%depth), name, scheme)
         else
-            error stop "No current scope"
+            write(error_unit, '(A)') "ERROR [scope_manager]: No current scope for define operation - ignoring definition"
+            ! Don't perform the definition if there's no current scope
         end if
 
     end subroutine stack_define

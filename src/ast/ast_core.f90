@@ -22,6 +22,7 @@ module ast_core
     use type_system_unified, only: mono_type_t
     use intrinsic_registry, only: get_intrinsic_info
     use uid_generator, only: generate_uid
+    use error_handling, only: result_t, success_result, create_error_result, ERROR_VALIDATION
     
     ! Re-export base types and interfaces
     use ast_base, only: ast_node, visit_interface, to_json_interface, string_t, &
@@ -483,9 +484,13 @@ contains
         node%mask_is_simple = .false.
         node%can_vectorize = .false.
         
-        ! Validate mask index
+        ! Validate mask index - return default node on failure to avoid crash
         if (mask_expr_index <= 0) then
-            error stop "Invalid mask expression index in create_where"
+            write(*, '(A)') "ERROR [ast_core]: Invalid mask expression index in create_where - returning default node"
+            ! Continue with default initialization - node already has UID and safe defaults
+            if (present(line)) node%line = line
+            if (present(column)) node%column = column
+            return
         end if
         
         if (present(where_body_indices)) then
