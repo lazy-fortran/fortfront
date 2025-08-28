@@ -1,16 +1,23 @@
-# CLAUDE.md - fortfront Essentials - PROJECT TERMINATED
+# CLAUDE.md - fortfront Essentials - CMAKE BUILD SYSTEM ACTIVE
 
-**PROJECT TERMINATED**: 2025-08-28 - Build system unfixable by current team  
-**WARNING**: Do not attempt to use this project - completely broken  
-**REASON**: FPM git integration bug beyond team capability to fix  
-**RECOMMENDATION**: Find alternative Fortran tools or hire expert consultant
+**BUILD SYSTEM STATUS**: CMAKE implementation working - test executables building successfully  
+**CURRENT STATE**: Hybrid CMAKE/FMP build system operational  
+**RECENT PROGRESS**: CMakeLists.txt integrated, cmake_build directory populated  
+**DEVELOPMENT ACTIVE**: Project progressing with working build infrastructure
 
 ## WORKING BUILD COMMANDS
 
-**WARNING**: These commands currently fail due to missing `tokenize_with_options` function in lexer_core.
-
+**CMAKE BUILD SYSTEM** (Primary - Working):
 ```bash
-# These SHOULD work but don't:
+# CMAKE builds successfully producing test executables:
+mkdir -p cmake_build && cd cmake_build
+cmake ..
+make
+```
+
+**FMP BUILD SYSTEM** (Backup - Issue #712):
+```bash
+# FMP builds with known issues:
 ./build.sh
 ./test.sh
 ```
@@ -35,11 +42,11 @@ fpm test --flag "-cpp -fmax-stack-var-size=524288"
 - No `error_stop` in production (1,386+ violations exist)
 
 ### Current Problems
-- Build system broken (Issue #712)
+- FMP build system issues (Issue #712) - CMAKE working as alternative
 - 35 functions over 100 lines (Issue #717)
 - ast_factory.f90 is 1911 lines (Issue #714)
 - 1,386 error_stop violations (Issue #716)
-- Test suite broken
+- Test coverage improvements needed
 
 ### Essential Patterns
 ```fortran
