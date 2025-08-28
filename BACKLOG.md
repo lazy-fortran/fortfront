@@ -14,13 +14,13 @@
 
 ## DOING (Active Work)
 
-### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY
+### EPIC: BUILD SYSTEM EMERGENCY - CRITICAL BLOCKER
 
-- [ ] #769: SPRINT: ast_factory.f90 emergency refactoring - 1911 lines
-  - **SEVERITY**: CRITICAL - 91% over hard limit (worst violation in codebase)
+- [ ] #773: CRITICAL: semantic_query_api.f90 compilation failure - mono_type_t missing args field
+  - **SEVERITY**: CRITICAL - Complete build system failure blocks all work
   - **ASSIGNED**: sergei
-  - **TARGET**: Extract logical factory modules, target <500 lines each
-  - **STATUS**: Starting implementation - highest priority violation
+  - **TARGET**: Fix mono_type_t structure mismatch causing compilation errors
+  - **STATUS**: Emergency fix required - all sprint work BLOCKED
 
 ## SPRINT_BACKLOG - ARCHITECTURAL INTEGRITY (3 REMAINING ISSUES)
 
@@ -28,9 +28,9 @@
 
 - [x] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests - **COMPLETED IN PR #772**
 
-### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY
+### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY  
 
-- [x] #769: SPRINT: ast_factory.f90 emergency refactoring - 1911 lines - **MOVED TO DOING**
+- [ ] #769: SPRINT: ast_factory.f90 emergency refactoring - 1911 lines - **BLOCKED BY #773**
 
 - [ ] #770: SPRINT: systematic file size compliance - 10 violations
   - **SEVERITY**: CRITICAL - 10 files violating hard limits
