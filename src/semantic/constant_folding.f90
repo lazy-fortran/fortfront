@@ -19,7 +19,7 @@ contains
         end do
     end subroutine fold_constants_in_arena
     
-    subroutine fold_node_constants(arena, node_index)
+    recursive subroutine fold_node_constants(arena, node_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
         
