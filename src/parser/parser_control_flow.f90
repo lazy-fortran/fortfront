@@ -63,10 +63,14 @@ contains
             elseif_count = 0
             allocate (elseif_indices(0))
 
-            do while (.not. parser%is_at_end())
-                then_token = parser%peek()
+            block
+                integer :: safety_counter
+                safety_counter = 0
+                do while (.not. parser%is_at_end() .and. safety_counter < 10000)
+                    safety_counter = safety_counter + 1
+                    then_token = parser%peek()
 
-                if (then_token%kind == TK_KEYWORD) then
+                    if (then_token%kind == TK_KEYWORD) then
                  if (then_token%text == "elseif" .or. then_token%text == "else if") then
                         ! Parse elseif block
                         block
@@ -106,7 +110,8 @@ contains
                     ! Not a keyword, continue parsing body
                     exit
                 end if
-            end do
+                end do
+            end block
 
             ! Update the if node with the actual body indices
             if (allocated(arena%entries(if_index)%node)) then
@@ -250,8 +255,13 @@ contains
         stmt_count = 0
 
         ! Use parse_basic_statement instead of parse_statement
-
-        do while (.not. parser%is_at_end())
+        
+        block
+            integer :: safety_counter
+            safety_counter = 0
+            
+            do while (.not. parser%is_at_end() .and. safety_counter < 10000)
+                safety_counter = safety_counter + 1
             token = parser%peek()
 
             ! Check for end of body
@@ -357,7 +367,8 @@ contains
                     parser%current_token = stmt_end + 1
                 end if
             end block
-        end do
+            end do
+        end block
 
     end function parse_if_body
 
@@ -1063,8 +1074,12 @@ contains
         allocate (body_indices(0))
         stmt_count = 0
 
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
+        block
+            integer :: safety_counter
+            safety_counter = 0
+            do while (.not. parser%is_at_end() .and. safety_counter < 10000)
+                safety_counter = safety_counter + 1
+                token = parser%peek()
 
             ! Check for end keywords
             found_end = .false.
@@ -1123,7 +1138,8 @@ contains
             end if
 
             parser%current_token = stmt_end + 1
-        end do
+            end do
+        end block
     end function parse_statement_body
 
     ! Helper function for parsing do while from do token
