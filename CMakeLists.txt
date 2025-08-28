@@ -51,6 +51,14 @@ set(LEXER_SOURCES
     src/lexer/lexer_core.f90
 )
 
+set(CST_SOURCES
+    src/cst/cst_nodes.f90
+    src/cst/cst_arena.f90
+    src/cst/cst_core.f90
+    src/cst/cst_builder.f90
+    src/cst/cst_to_ast_converter.f90
+)
+
 set(AST_SOURCES
     src/ast/ast_base.f90
     src/ast/ast_error_nodes.f90
@@ -84,6 +92,22 @@ set(TYPE_SYSTEM_SOURCES
     src/semantic/types/type_constants.f90
     src/semantic/types/type_system_arena.f90
     src/semantic/types/type_system_unified.f90
+    src/semantic/types/semantic_result_types.f90
+)
+
+set(MEMORY_SOURCES
+    src/memory/compiler_arena.f90
+)
+
+set(STANDARDIZER_SOURCES
+    src/standardizers/standardizer_types.f90
+    src/standardizers/standardizer_allocatable.f90
+    src/standardizers/standardizer_declarations.f90
+    src/standardizers/standardizer_subprograms.f90
+    src/standardizers/standardizer_module.f90
+    src/standardizers/standardizer_program.f90
+    src/standardizers/standardizer_core.f90
+    src/standardizers/standardizer.f90
 )
 
 set(PARSER_SOURCES
@@ -114,12 +138,20 @@ set(SEMANTIC_SOURCES
     src/semantic/types/semantic_context_types.f90
     src/semantic/scope_manager.f90
     src/semantic/types/type_checker.f90
+    src/semantic/analyzers/analyzer_results.f90
+    src/semantic/analyzers/base_analyzer.f90
     src/semantic/analyzers/parameter_tracker.f90
     src/semantic/analyzers/expression_temporary_tracker.f90
+    src/semantic/analyzers/control_flow_analyzer.f90
+    src/semantic/analyzers/control_flow_analyzer_plugin.f90
+    src/semantic/analyzers/call_graph_analyzer.f90
+    src/semantic/analyzers/usage_tracker_analyzer.f90
+    src/semantic/analyzers/semantic_analyzer_base.f90
+    src/semantic/analyzers/semantic_analyzer_with_checks.f90
+    src/semantic/analyzers/semantic_analyzer.f90
     src/semantic/constant_transformation.f90
     src/semantic/semantic_inference_helpers.f90
     src/semantic/semantic_query_api.f90
-    src/semantic/analyzers/semantic_analyzer.f90
 )
 
 set(ANALYSIS_SOURCES
@@ -127,6 +159,10 @@ set(ANALYSIS_SOURCES
     src/analysis/conditional_evaluation.f90
     src/analysis/cfg_builder.f90
     src/analysis/control_flow_analysis.f90
+    src/analysis/call_graph.f90
+    src/analysis/call_graph_builder.f90
+    src/analysis/call_graph_analysis.f90
+    src/analysis/variable_usage_tracker.f90
 )
 
 set(CODEGEN_SOURCES
@@ -139,11 +175,24 @@ set(CODEGEN_SOURCES
     src/codegen/codegen_core.f90
 )
 
+set(PERFORMANCE_SOURCES
+    src/performance/ast_performance.f90
+)
+
 set(FRONTEND_SOURCES
     src/utilities/json_reader.f90
     src/frontend_core.f90
     src/frontend_parsing.f90
+    src/frontend_transformation.f90
     src/frontend.f90
+)
+
+set(INTERFACE_SOURCES
+    src/interfaces/fortfront_c_interface.f90
+    src/interfaces/fortfront_external_interface.f90
+)
+
+set(MAIN_SOURCES
     src/fortfront.f90
 )
 
@@ -151,13 +200,19 @@ set(FRONTEND_SOURCES
 set(ALL_SOURCES
     ${CORE_SOURCES}
     ${LEXER_SOURCES}
+    ${CST_SOURCES}
     ${AST_SOURCES}
     ${TYPE_SYSTEM_SOURCES}
+    ${MEMORY_SOURCES}
+    ${STANDARDIZER_SOURCES}
     ${PARSER_SOURCES}
     ${SEMANTIC_SOURCES}
     ${ANALYSIS_SOURCES}
     ${CODEGEN_SOURCES}
+    ${PERFORMANCE_SOURCES}
     ${FRONTEND_SOURCES}
+    ${INTERFACE_SOURCES}
+    ${MAIN_SOURCES}
 )
 
 # Create main executable

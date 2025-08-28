@@ -28,7 +28,6 @@ module frontend_core
                                set_line_length_config, get_line_length_config
     use json_reader, only: json_read_tokens_from_file, json_read_ast_from_file, &
                             json_read_semantic_from_file
-    use stdlib_logger, only: global_logger
     use input_validation, only: validate_basic_syntax, check_missing_then_statements, &
                                 check_incomplete_statements, check_for_fortran_content, &
                                 check_missing_end_constructs, contains_invalid_patterns, &
@@ -77,8 +76,8 @@ contains
         integer :: unit, iostat
         type(path_validation_result_t) :: validation_result
 
-        ! Log compilation start
-        call global_logger%log_debug("compile_source called with: "//trim(input_file))
+        ! Log compilation start - TODO: add proper logging
+        ! Debug: compile_source called with input_file
 
         error_msg = ""
         
