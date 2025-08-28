@@ -1,57 +1,66 @@
 # fortfront Architecture Design
 
-## 🚨 SYSTEM RECOVERY SPRINT - TOTAL SYSTEM FAILURE RESPONSE
+## 🚨 EMERGENCY RECOVERY SPRINT - SYSTEM COLLAPSE RESPONSE
 
-**CATASTROPHIC DISCOVERY**: Previous sprint claimed 100% success while delivering 0% functionality  
-**ACTUAL SYSTEM STATE**: Segfaults immediately, generates invalid/placeholder code, test suite broken  
-**TEAM PROCESS FAILURE**: Systematic dishonesty about completion status exposed by independent audit  
+**CATASTROPHIC STATE**: Foundation Stabilization Sprint was COMPLETE FAILURE  
+**CURRENT SYSTEM**: Build broken, 1,386 error_stop violations, architecture collapsed  
+**TEAM ACCOUNTABILITY**: Systematic dishonesty exposed - claimed fixes are lies  
 
-**EMERGENCY GOAL**: Stabilize system from complete collapse to minimal functionality
+**EMERGENCY GOAL**: Restore basic system functionality from total collapse
 
-**FRAUD EXPOSURE**: Independent audit reveals systematic false claims:
-- **SEGFAULTS**: Parser crashes on basic do loops (Issue #678)
-- **CODEGEN BROKEN**: Multi-variable declarations generate invalid Fortran (Issues #680, #684, #696)
-- **TESTS BROKEN**: Suite hangs indefinitely, 150+ failures (Issues #671, #694)
-- **BUILD BROKEN**: External tools cannot compile due to missing modules (Issue #698)
-- **ARCHITECTURE WORSE**: 11 files STILL violate limits after "compliance" sprint (Issue #693)
-- **SIZE VIOLATIONS**: Functions up to 596% over limits (Issues #668, #669, #670)
+**SYSTEM COLLAPSE EVIDENCE**: 
+- **BUILD DESTROYED**: Missing tokenize_with_options function breaks compilation (Issue #712)
+- **ERROR_STOP PLAGUE**: 1,386 violations across 160 files - complete lie about fixes (Issue #716)
+- **CODEGEN BROKEN**: TODO placeholders instead of Fortran code (Issues #626, #684)
+- **ARCHITECTURE DISASTER**: ast_factory.f90 at 1911 lines, 35 functions over limits (Issues #714, #717)
+- **DOCUMENTATION FRAUD**: README claims broken features work (Issues #718, #719, #720)
+- **TESTS BROKEN**: Cannot even run basic system validation
 
-**EMERGENCY DEFINITION OF DONE** (System Stabilization):
-1. Parser processes basic programs without crashing
-2. Multi-variable declarations generate compilable Fortran
-3. Test suite executes without hanging indefinitely
-4. Build system generates required module files for external tools
-5. Architectural compliance plan for 11 oversized files
-6. Honest status reporting - no false completion claims
+**EMERGENCY DEFINITION OF DONE** (System Recovery):
+1. System compiles without missing function errors
+2. Basic tests execute without error_stop crashes
+3. Code generation produces actual Fortran, not TODO placeholders
+4. All files under 1000 lines, functions under 100 lines
+5. No error_stop in production code - proper error handling only
+6. Honest assessment of what actually works
 
 **🚨 EMERGENCY RECOVERY PLAN** (5 Issues Maximum):
 
-### Priority 1: STOP SYSTEM CRASHES (Issue #678)
-**EMERGENCY**: Parser segfaults immediately on basic do loops
-**ROOT CAUSE**: Memory corruption in control flow parsing
-**TACTICAL FIX**:
-- Add defensive null pointer checks in do loop parsing
-- Validate memory bounds before accessing arrays
-- Test with minimal do loop: `do i=1,3; print*,i; end do`
-- Ensure parser doesn't crash on basic control structures
+### Priority 1: RESTORE BUILD SYSTEM (Issue #712)
+**CATASTROPHIC**: System cannot compile at all - missing tokenize_with_options
+**ROOT CAUSE**: Team destroyed lexer interface during "fixes"
+**EMERGENCY FIX**:
+- Restore missing tokenize_with_options function in lexer_core.f90
+- Fix lexer_options_t structure field mismatches
+- Restore broken frontend_core.f90 compilation
+- System must build before any other work possible
 
-### Priority 2: FIX CODE GENERATION (Issues #680, #684, #696)
-**EMERGENCY**: Multi-variable declarations generate invalid/uncompilable code
-**FRAUD EXPOSED**: Previous sprint claimed fix but issue persists
-**REQUIRED FIX**:
-- Fix multi-variable declaration processing completely
-- Eliminate ALL TODO placeholders from codegen output
-- Ensure generated code compiles with gfortran
-- Test: `integer :: x, y, z` → valid Fortran output
+### Priority 2: ELIMINATE ERROR_STOP PLAGUE (Issue #716)
+**CATASTROPHIC**: 1,386 error_stop violations cause system crashes
+**FRAUD EXPOSED**: Team claimed fix complete while violations increased
+**EMERGENCY FIX**:
+- Convert all error_stop calls to result_t pattern
+- Enable proper error handling throughout system
+- Prevent library crashes in external tool integration
+- Test that system handles errors gracefully
 
-### Priority 3: ENABLE TESTING & BUILD (Issues #671, #698, #694)
-**EMERGENCY**: Test suite hangs, build system broken, external tools fail
-**IMPACT**: No validation possible, library unusable for external integration
-**REQUIRED FIX**:
-- Fix test suite hanging - identify infinite loops or resource issues
-- Generate proper module files during build
-- Enable external tool compilation with fortfront dependency
-- Validate basic FPM integration works
+### Priority 3: RESTORE CODE GENERATION (Issues #626, #684)
+**CATASTROPHIC**: System generates TODO placeholders, not Fortran code
+**FRAUD EXPOSED**: Codegen completely non-functional despite claims
+**EMERGENCY FIX**:
+- Fix core codegen body generation functions
+- Eliminate ALL TODO placeholders from output
+- Ensure multi-variable declarations work properly
+- Generated code must compile with gfortran
+
+### Priority 4: ARCHITECTURAL COMPLIANCE (Issues #714, #717)
+**CATASTROPHIC**: Architecture collapsed - files/functions massively oversized
+**FRAUD EXPOSED**: Size compliance claims while violations increased
+**EMERGENCY FIX**:
+- Split ast_factory.f90 (1911 lines) into compliant modules
+- Split 35 functions violating 100-line limits
+- Restore architectural discipline
+- All components must meet size constraints
 
 ### EMERGENCY VALIDATION TESTS
 
