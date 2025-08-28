@@ -30,7 +30,13 @@
 
 ## DOING (Active Work)
 
-**STATUS**: CLEANUP PHASE COMPLETE - All items completed awaiting CI merge
+- [ ] #724: SIMPLIFICATION: Reduce complexity in build system to bare essentials
+  - ASSIGNED TO: sergei-perfectionist-coder
+  - EPIC: SIMPLIFY BUILD SYSTEM
+  - One working build command only
+  - One working test command only
+  - Remove broken coverage setup
+  - PRIORITY 1: Enable basic development workflow
 
 ## SPRINT_BACKLOG - ESSENTIALS-FIRST CLEANUP (5 ISSUES MAX)
 
@@ -41,11 +47,8 @@
 
 
 ### EPIC 2: SIMPLIFY BUILD SYSTEM
-- [ ] #724: SIMPLIFICATION: Reduce complexity in build system to bare essentials
-  - One working build command only
-  - One working test command only
-  - Remove broken coverage setup
-  - Eliminate non-working build options
+
+**NOTE**: Issue #724 moved to DOING
 
 ### EPIC 3: REALISTIC ARCHITECTURE
 - [ ] #725: ARCHITECTURE REALITY CHECK: Fix gap between DESIGN.md complexity and team capability
