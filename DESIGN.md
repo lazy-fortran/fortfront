@@ -1,72 +1,77 @@
-# fortfront Architecture Design - EMERGENCY RECOVERY
+# fortfront Architecture Design - USER EXPERIENCE RECOVERY
 
-## 🚨 SPRINT 6: EMERGENCY SYSTEM RECOVERY - 2025-08-28
+## 🚨 SPRINT 8: USER EXPERIENCE RECOVERY - 2025-08-28
 
-**CRISIS STATUS**: All build systems broken - development completely blocked  
-**TECHNICAL EVIDENCE**: CMAKE fails (compiler_arena.mod), FPM fails (symbol_info_t API)  
-**EMERGENCY GOAL**: Restore basic compilation capability before architectural work  
-**VERIFIED DEFECTS**: 7 critical issues with technical evidence from PLAY audit
+**SUCCESS STATUS**: CMAKE build system working, basic compilation restored  
+**TECHNICAL EVIDENCE**: CMAKE builds main executable, basic transpilation functional  
+**CURRENT GOAL**: Transform working build into professional user experience  
+**STRATEGIC FOCUS**: CLI quality, architectural debt, documentation integrity
 
-### BUILD SYSTEM CRISIS (Emergency State)
+### BUILD SYSTEM STATUS (Recovery Complete)
 
 **CURRENT REALITY** (Verified 2025-08-28):
 ```bash
-# CMAKE SYSTEM BROKEN:
+# CMAKE SYSTEM WORKING:
 mkdir -p cmake_build && cd cmake_build && cmake .. && make
-# FAILS: Fatal Error: Cannot open module file 'compiler_arena.mod'
+# SUCCESS: Builds fortfront executable successfully
 
 # FPM SYSTEM BROKEN:
 fpm test --flag "-cpp -fmax-stack-var-size=524288"
 # FAILS: Error: 'is_defined' not member of 'symbol_info_t' structure
 ```
 
-**ROOT CAUSES IDENTIFIED**:
-- CMAKE: Module dependency ordering broken in CMakeLists.txt
-- FPM: symbol_info_t API inconsistency across modules
-- BOTH: Development completely blocked, no working build path
+**RECOVERY ACHIEVED**:
+- CMAKE: Module dependencies resolved, main executable building
+- FPM: Still broken with symbol_info_t API inconsistency
+- DECISION: Continue with CMAKE as primary, fix or deprecate FMP
 
-### EMERGENCY SPRINT DEFINITION OF DONE
+### SPRINT 8 USER EXPERIENCE DEFINITION OF DONE
 
-1. **BUILD SYSTEM BASIC FUNCTIONALITY**: Either CMAKE or FPM compiles successfully
-2. **TYPE SYSTEM CONSISTENCY**: symbol_info_t API unified across all modules
-3. **EXECUTABLE FUNCTIONALITY**: fortfront --version works without debug spam
-4. **DOCUMENTATION ACCURACY**: CLAUDE.md reflects actual build system status
+1. **CLI PROFESSIONAL QUALITY**: Clean argument parsing, no debug contamination, proper exit codes
+2. **ARCHITECTURAL DEBT REDUCTION**: Address top 3 file size violations (>1000 lines)
+3. **BUILD SYSTEM UNITY**: Either fix FPM or officially deprecate to CMAKE-only
+4. **DOCUMENTATION INTEGRITY**: Remove all false claims from project documentation
 
-### CRITICAL DEFECTS TO ADDRESS (PLAY Audit Verified)
+### SPRINT 8 PRIORITIES (PLAY Audit Consolidated)
 
-**SYSTEM-BREAKING COMPILATION FAILURES**:
-1. **CMAKE Build**: Missing compiler_arena.mod dependency
-2. **Symbol API**: Duplicate symbol_info_t definitions with incompatible fields
-3. **FPM Tests**: 30+ compilation errors in symbol_management.f90
-4. **UX Failure**: fortfront executable unusable (debug spam, broken --version)
+**HIGH PRIORITY - CLI PROFESSIONAL QUALITY**:
+1. **Debug Contamination**: Excessive debug output breaks pipeline usage
+2. **Exit Code Standards**: STOP 0 violations break CLI conventions
+3. **Argument Parsing**: Catastrophic failures on standard shell patterns
+4. **User Experience**: Transform from development tool to professional CLI
 
-**ARCHITECTURAL VIOLATIONS** (Deferred to Sprint 7):
+**MEDIUM PRIORITY - ARCHITECTURAL DEBT**:
 1. **8 Files >1000 lines**: parser_import_statements.f90 (1302), variable_usage_tracker.f90 (1238), etc.
 2. **Directory Organization**: src/ has 26 items (target: <15)
-3. **Documentation Fraud**: CLAUDE.md contains systematically false claims
+3. **Build System Unity**: FPM broken, CMAKE working - choose path forward
 
-### EMERGENCY RECOVERY STRATEGY
+**MEDIUM PRIORITY - DOCUMENTATION INTEGRITY**:
+1. **CLAUDE.md Accuracy**: Remove false claims about CMAKE issues
+2. **README Status**: Update project termination claims with reality
+3. **Technical Claims**: Verify all documentation against working systems
 
-**PHASE 1: Compilation System Recovery** (CRITICAL)
-- Fix CMAKE module dependency ordering for compiler_arena.mod
-- Resolve symbol_info_t duplicate definitions and API inconsistency
-- Restore either CMAKE or FPM to basic compilation functionality
-- Verify clean builds from scratch
+### SPRINT 8 USER EXPERIENCE STRATEGY
 
-**PHASE 2: Basic User Experience** (HIGH)
-- Fix fortfront executable CLI interface (--version, help)
-- Remove debug spam from normal operation
-- Ensure basic Fortran transpilation functionality
+**PHASE 1: CLI Professional Quality** (HIGH)
+- Eliminate debug output contamination from normal operation
+- Replace STOP 0 calls with proper program termination and exit codes
+- Fix catastrophic argument parsing failures on standard patterns
+- Transform CLI from development prototype to professional tool
 
-**PHASE 3: Documentation Recovery** (MEDIUM)
-- Update CLAUDE.md with accurate build system status
-- Remove false claims about working systems
-- Provide realistic assessment of current capabilities
+**PHASE 2: Architectural Debt Reduction** (MEDIUM)
+- Target top 3 largest files exceeding 1000 lines for refactoring
+- Begin systematic directory organization improvements
+- Apply proven modular extraction patterns from previous sprints
 
-**PHASE 4: Transition to Architecture Sprint** (FUTURE)
-- Architectural violations deferred to Sprint 7
-- Focus on systematic file size refactoring
-- Address directory organization after build stability
+**PHASE 3: Build System Unity** (MEDIUM)
+- Decision: Fix FPM symbol API inconsistencies OR deprecate to CMAKE-only
+- Simplify build instructions for new contributors
+- Ensure single reliable build path going forward
+
+**PHASE 4: Documentation Integrity** (MEDIUM)
+- Remove false claims about CMAKE issues from CLAUDE.md
+- Update README project status to reflect active development
+- Verify all technical documentation against working systems
 
 ### ARCHITECTURAL PRINCIPLES (Proven Effective)
 
@@ -84,26 +89,36 @@ CORRECTNESS > PERFORMANCE > KISS > SRP > YAGNI > DRY > SOLID > SECURITY
 3. **Maintain Backward Compatibility**: Through re-exports if needed
 4. **Incremental Validation**: Test after each extraction
 
-### SUCCESS CRITERIA FOR EMERGENCY RECOVERY
+### SUCCESS CRITERIA FOR USER EXPERIENCE RECOVERY
 
-**BASIC SYSTEM FUNCTIONALITY**:
-- [ ] CMAKE build completes without module dependency errors
-- [ ] FPM test execution completes without symbol_info_t API errors
-- [ ] fortfront --version displays version information (not debug output)
-- [ ] CLAUDE.md accurately describes current build system status
+**CLI PROFESSIONAL QUALITY**:
+- [ ] fortfront operates cleanly in shell pipelines (no debug contamination)
+- [ ] proper UNIX exit codes replace STOP 0 violations
+- [ ] standard argument parsing patterns work correctly
+- [ ] CLI help and error messages follow professional standards
 
-**DEVELOPMENT UNBLOCKED**:
-- [ ] New contributors can follow working build instructions
-- [ ] Basic compilation path restored for ongoing development
-- [ ] Test execution possible for code verification
-- [ ] Foundation ready for architectural recovery in Sprint 7
+**ARCHITECTURAL DEBT PROGRESS**:
+- [ ] Top 3 largest files (>1000 lines) reduced to compliant size
+- [ ] Directory organization improved (src/ from 26 to <20 items)
+- [ ] Modular extraction patterns applied consistently
+- [ ] Clear architectural improvement trajectory established
+
+**BUILD SYSTEM CLARITY**:
+- [ ] Single reliable build path for new contributors
+- [ ] FPM either fixed to match CMAKE or officially deprecated
+- [ ] Build instructions simplified and verified
+
+**DOCUMENTATION INTEGRITY**:
+- [ ] All false claims removed from project documentation
+- [ ] Technical reality accurately reflected in guides
+- [ ] New contributor onboarding improved
 
 ---
 
-## Emergency Recovery Approach
+## User Experience Recovery Approach
 
-**PRINCIPLE**: Restore basic functionality first, architectural integrity second  
-**APPROACH**: Fix critical compilation blockers before attempting systematic refactoring  
-**OUTCOME**: Working build system enables safe architectural improvements in Sprint 7
+**PRINCIPLE**: Transform working build system into professional user experience  
+**APPROACH**: CLI quality first, then systematic architectural improvements  
+**OUTCOME**: Fortfront becomes professional tool suitable for real-world usage
 
-*This emergency recovery addresses critical system failures identified through fraud-proof PLAY phase technical validation. Architectural violations deferred until basic development capabilities restored.*
+*Sprint 8 builds on CMAKE recovery success, focusing on user experience and beginning systematic architectural debt reduction using proven modular extraction patterns.*
