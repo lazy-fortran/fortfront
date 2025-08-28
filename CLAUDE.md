@@ -35,7 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Build
 ```bash
 # Standard build
-fpm build --flag "-cpp -fmax-stack-var-size=131072"
+fpm build --flag "-cpp -fmax-stack-var-size=524288"
 
 # Or use the convenience script (recommended)
 ./build.sh
@@ -44,7 +44,7 @@ fpm build --flag "-cpp -fmax-stack-var-size=131072"
 ### Run all tests
 ```bash
 # Standard test
-fpm test --flag "-cpp -fmax-stack-var-size=131072"
+fpm test --flag "-cpp -fmax-stack-var-size=524288"
 
 # Or use the convenience script (recommended)
 ./test.sh
@@ -53,7 +53,7 @@ fpm test --flag "-cpp -fmax-stack-var-size=131072"
 ### Run tests with coverage (Linux only)
 ```bash
 fpm clean --all
-fpm test --profile debug --flag '-cpp -fmax-stack-var-size=131072 -fprofile-arcs -ftest-coverage -g'
+fpm test --profile debug --flag '-cpp -fmax-stack-var-size=524288 -fprofile-arcs -ftest-coverage -g'
 lcov --capture --directory build/ --output-file coverage.info \
   --rc branch_coverage=1 \
   --ignore-errors inconsistent
@@ -69,25 +69,25 @@ genhtml coverage_filtered.info --output-directory coverage_html \
 
 ### Run a specific test
 ```bash
-fpm test <test_name> --flag "-cpp -fmax-stack-var-size=131072"
-# Example: fpm test test_frontend_lexer_api --flag "-cpp -fmax-stack-var-size=131072"
+fpm test <test_name> --flag "-cpp -fmax-stack-var-size=524288"
+# Example: fpm test test_frontend_lexer_api --flag "-cpp -fmax-stack-var-size=524288"
 
 # Or use the convenience script (recommended):
 ./test.sh <test_name>
 ```
 
 ### Important build flags
-- **CRITICAL**: Always use `-cpp -fmax-stack-var-size=131072` flags when building/testing
+- **CRITICAL**: Always use `-cpp -fmax-stack-var-size=524288` flags when building/testing
 - `-cpp`: Required for preprocessing
-- `-fmax-stack-var-size=131072`: **MANDATORY for GCC 15.x compatibility** - prevents module reading failures, increased from 65536 for coverage builds
+- `-fmax-stack-var-size=524288`: **MANDATORY for GCC 15.2.1 compatibility** - prevents compilation hangs, increased from 131072 due to test suite hanging indefinitely
 - Use `--profile debug` for debugging and coverage
 
 ## Development Tips
 
 - Do not always use `fpm clean all`. Only use clean in cases where all other fixes fail
-- **GCC 15.1.1 Compatibility**: Always use `-fmax-stack-var-size=65536` flag when building or testing
-  - This resolves compilation issues with large module files (specifically `parser_expressions_module.mod`)
-  - The issue manifests as: "Reading module '*.mod' at line X column Y: Expected right parenthesis"
+- **GCC 15.2.1 Compatibility**: Always use `-fmax-stack-var-size=524288` flag when building or testing
+  - This resolves compilation hangs with complex module dependencies during test compilation
+  - The issue manifests as: Compilation process hangs indefinitely during module processing
   - Use provided build scripts (./build.sh, ./test.sh) which include this flag automatically
 - **Avoid Using Shell Redirection Tricks**
   - Never use `2>&1` or similar shell redirection techniques blindly
