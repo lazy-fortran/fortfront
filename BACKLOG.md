@@ -34,7 +34,7 @@
 ## DOING (Active Work)
 
 **⚠️ CRITICAL**: Clear these before starting SPRINT_BACKLOG**
-- [ ] #683: TEST FIX: Resolve test suite hanging indefinitely (PRIORITY 1 - ACTIVE)
+- [ ] #684: CODEGEN FIX: Multi-variable declarations generate invalid Fortran (ACTIVE)
 
 ## SPRINT_BACKLOG - CRISIS RECOVERY (3 EPICS, 5 ISSUES MAX)
 
@@ -44,8 +44,7 @@
 
 ### EPIC 1: CRASH PREVENTION (Stop Segfaults)
 
-### EPIC 2: CODE VALIDITY (Generate Compilable Code)  
-- [ ] #684: CODEGEN FIX: Multi-variable declarations generate invalid Fortran
+### EPIC 2: CODE VALIDITY (Generate Compilable Code)
 
 ### EPIC 3: ARCHITECTURAL COMPLIANCE (Worst Offenders)
 - [ ] #685: ARCHITECTURE: Split fortfront.f90 (2330 lines) into compliant modules
@@ -165,6 +164,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #683: TEST FIX: Resolve test suite hanging indefinitely - FIXED IN PR #689 (infinite loop prevention and build system timeouts)
 - [x] #682: CRASH FIX: Resolve do loop parsing segmentation faults - FIXED IN PR #688 (defensive pointer checks and bounds validation)
 - [x] #652: CRITICAL: multi-variable declarations broken - only processes first variable - FIXED IN PR #687 (comprehensive tests added)  
 - [x] #653: CRITICAL: if/else parsing completely broken with false error messages - EMERGENCY FIX IN PR #656 (semicolon statement separation)
