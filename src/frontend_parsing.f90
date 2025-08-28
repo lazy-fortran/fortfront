@@ -446,7 +446,7 @@ contains
             ! Parse the entire module with its content
             unit_index = parse_module_unit(tokens, arena)
         else if (is_program_start(tokens, 1)) then
-            unit_index = parse_statement_dispatcher(tokens, arena)
+            unit_index = parse_explicit_program_unit(tokens, arena)
         else if (is_type_start(tokens, 1)) then
             ! Type definitions should be parsed as structured constructs
             unit_index = parse_statement_dispatcher(tokens, arena)
@@ -668,6 +668,71 @@ contains
             prog_index = 0
         end if
     end function parse_all_statements
+
+    ! Parse explicit program unit (extract body between program/end program)
+    function parse_explicit_program_unit(tokens, arena) result(prog_index)
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: prog_index
+        integer, allocatable :: body_indices(:)
+        integer :: program_start, program_end, i, stmt_start, stmt_end, stmt_index
+        type(token_t), allocatable :: body_tokens(:)
+        character(len=100) :: program_name
+
+        ! Find program boundaries
+        program_start = 0
+        program_end = 0
+        program_name = "main"
+
+        ! Find 'program' keyword and extract program name
+        do i = 1, size(tokens)
+            if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "program") then
+                program_start = i + 1
+                ! Get program name if available
+                if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == TK_IDENTIFIER) then
+                    program_name = tokens(i + 1)%text
+                    program_start = i + 2  ! Skip program name
+                end if
+                exit
+            end if
+        end do
+
+        ! Find 'end program' or 'end' keyword
+        do i = size(tokens), 1, -1
+            if (tokens(i)%kind == TK_KEYWORD) then
+                if (tokens(i)%text == "end") then
+                    program_end = i - 1
+                    exit
+                else if (i > 1 .and. tokens(i)%text == "program" .and. &
+                        tokens(i-1)%kind == TK_KEYWORD .and. tokens(i-1)%text == "end") then
+                    program_end = i - 2
+                    exit
+                end if
+            end if
+        end do
+
+        ! Extract program body tokens
+        if (program_start > 0 .and. program_end >= program_start) then
+            allocate(body_tokens(program_end - program_start + 2))
+            body_tokens(1:program_end-program_start+1) = tokens(program_start:program_end)
+            body_tokens(program_end-program_start+2)%kind = TK_EOF
+            body_tokens(program_end-program_start+2)%text = ""
+            body_tokens(program_end-program_start+2)%line = tokens(program_end)%line
+            body_tokens(program_end-program_start+2)%column = tokens(program_end)%column + 1
+        else
+            ! No program body - create empty program
+            allocate(body_tokens(1))
+            body_tokens(1)%kind = TK_EOF
+            body_tokens(1)%text = ""
+            body_tokens(1)%line = 1
+            body_tokens(1)%column = 1
+        end if
+
+        ! Parse all statements in the program body
+        prog_index = parse_all_statements(body_tokens, arena)
+
+        deallocate(body_tokens)
+    end function parse_explicit_program_unit
 
     ! Process comment statement
     subroutine process_comment_statement(tokens, i, arena, stmt_index, body_indices)
