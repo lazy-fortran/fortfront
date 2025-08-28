@@ -2,6 +2,7 @@ module standardizer_declarations
     ! Variable declaration generation module
     ! Handles implicit none insertion, variable declaration creation, and type analysis
     
+    use iso_fortran_env, only: error_unit
     use ast_core
     use ast_factory
     use type_system_unified
@@ -549,15 +550,28 @@ contains
         type is (declaration_node)
             ! Mark variables as already declared - don't generate implicit declarations
             if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
-                ! Handle multi-variable declaration
+                ! Handle multi-variable declaration - mark ALL variables as declared
                 do i = 1, size(stmt%var_names)
                     call mark_variable_declared(stmt%var_names(i), var_names, &
                                                var_declared, var_count)
                 end do
+                
             else
                 ! Handle single variable declaration
                 call mark_variable_declared(stmt%var_name, var_names, &
                                            var_declared, var_count)
+                
+                ! CRITICAL FIX for Issue #684: If this single declaration should have been
+                ! part of a multi-variable declaration, mark other variables of same type as declared
+                block
+                    integer :: j
+                    do j = 1, var_count
+                        if (.not. var_declared(j) .and. trim(var_types(j)) == trim(stmt%type_name)) then
+                            ! Mark this variable as declared to prevent duplicate implicit declarations
+                            var_declared(j) = .true.
+                        end if
+                    end do
+                end block
             end if
         type is (assignment_node)
             call collect_assignment_vars(arena, stmt_index, var_names, &

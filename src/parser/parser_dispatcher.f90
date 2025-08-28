@@ -1,6 +1,7 @@
 module parser_dispatcher_module
     ! Statement dispatcher that delegates to appropriate parsing modules
     ! This implements the SRP by separating the switch logic from the implementations
+    use iso_fortran_env, only: error_unit
     use lexer_core
     use parser_state_module
     use parser_expressions_module
