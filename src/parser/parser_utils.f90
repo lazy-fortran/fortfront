@@ -10,6 +10,7 @@ contains
 
     ! Analyze declaration structure to determine if single or multi-variable
     subroutine analyze_declaration_structure(parser, has_initializer, has_comma)
+        use iso_fortran_env, only: error_unit
         type(parser_state_t), intent(inout) :: parser
         logical, intent(out) :: has_initializer, has_comma
         integer :: lookahead_pos
