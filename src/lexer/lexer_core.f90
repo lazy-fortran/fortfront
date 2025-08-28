@@ -1,1486 +1,268 @@
 module lexer_core
+    ! Main lexer module that re-exports functionality from split modules
+    use lexer_token_types
+    use lexer_scanners
     use error_handling
     implicit none
     private
 
-    ! Token types
-    integer, parameter, public :: TK_EOF = 0
-    integer, parameter, public :: TK_IDENTIFIER = 1
-    integer, parameter, public :: TK_NUMBER = 2
-    integer, parameter, public :: TK_STRING = 3
-    integer, parameter, public :: TK_OPERATOR = 4
-    integer, parameter, public :: TK_KEYWORD = 5
-    integer, parameter, public :: TK_NEWLINE = 6
-    integer, parameter, public :: TK_COMMENT = 7
-    integer, parameter, public :: TK_WHITESPACE = 8    ! New: for CST trivia
-    integer, parameter, public :: TK_UNKNOWN = 99
+    ! Re-export all token types and constants
+    public :: TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_OPERATOR, TK_KEYWORD
+    public :: TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, TK_UNKNOWN
+    public :: TOKEN_WHITESPACE, TOKEN_COMMENT, TOKEN_NEWLINE
     
-    ! Backward compatibility aliases
-    integer, parameter, public :: TOKEN_WHITESPACE = TK_WHITESPACE
-    integer, parameter, public :: TOKEN_COMMENT = TK_COMMENT
-    integer, parameter, public :: TOKEN_NEWLINE = TK_NEWLINE
-
-    ! Trivia token type (simpler, non-recursive)
-    type, public :: trivia_token_t
-        integer :: kind = TK_UNKNOWN
-        character(len=:), allocatable :: text
-        integer :: line = 1
-        integer :: column = 1
-    contains
-        procedure :: assign => trivia_token_assign
-        generic :: assignment(=) => assign
-    end type trivia_token_t
-
-    ! Token structure
-    type, public :: token_t
-        integer :: kind = TK_UNKNOWN
-        character(len=:), allocatable :: text
-        integer :: line = 1
-        integer :: column = 1
-        ! CST trivia storage (optional) - using separate type to avoid recursion
-        type(trivia_token_t), allocatable :: leading_trivia(:)
-        type(trivia_token_t), allocatable :: trailing_trivia(:)
-    contains
-        procedure :: assign => token_assign
-        procedure :: deep_copy => token_deep_copy
-        generic :: assignment(=) => assign
-    end type token_t
-
-    ! Lexer options for configurable behavior
-    type, public :: lexer_options_t
-        logical :: collect_trivia = .false.        ! Default: no trivia collection
-        logical :: preserve_newlines = .false.     ! Preserve newlines as tokens
-        logical :: preserve_whitespace = .false.   ! Preserve whitespace as tokens
-        logical :: preserve_comments = .true.      ! Always preserve comments
-    contains
-        procedure :: default => options_default
-        procedure :: with_trivia => options_with_trivia
-    end type lexer_options_t
-
-    ! Lexer result types
-    type, public :: tokenize_result_t
-        type(result_t) :: result
-        type(token_t), allocatable :: tokens(:)
-        integer :: token_count = 0
-    end type
-
-    ! Public interface
-    public :: tokenize_core, tokenize_safe
-    public :: tokenize_with_options, tokenize_safe_with_options
+    ! Re-export types
+    public :: trivia_token_t, token_t, lexer_options_t, tokenize_result_t, scan_result_t
+    
+    ! Re-export main functions
+    public :: tokenize_safe, tokenize_core, tokenize_core_safe
     public :: token_type_name
-    public :: default_lexer_options, trivia_lexer_options
-
-    ! Keywords list
-    character(len=20), dimension(56) :: keywords = [ &
-                       "program     ", "end         ", "function    ", "subroutine  ", &
-                       "if          ", "then        ", "else        ", "endif       ", &
-                       "do          ", "while       ", "implicit    ", "none        ", &
-                       "integer     ", "real        ", "logical     ", "character   ", &
-                       "complex     ", "print       ", "read        ", "write       ", &
-                       "call        ", "use         ", "select      ", "case        ", &
-                                       "default     ", "type        ", "interface   ", &
-                                       "operator    ", "module      ", "contains    ", &
-                                       "only        ", "include     ", "elseif      ", &
-                                        "assignment  ", "intent      ", &
-                                        "in          ", &
-                                        "out         ", "inout       ", &
-                                        "stop        ", "go          ", "to          ", "error       ", &
-                                        "return      ", "cycle       ", &
-                                        "exit        ", &
-                                        "where       ", "elsewhere   ", &
-                                        "optional    ", &
-                                        "present     ", "open        ", &
-                                        "close       ", &
-                                        "parameter   ", "allocate    ", &
-                                        "deallocate  ", &
-                                        "forall      ", "associate   " &
-                                        ]
+    
+    ! Re-export scanning functions
+    public :: scan_number, scan_comment, scan_string, scan_identifier, scan_operator, scan_logical_token
+    public :: scan_number_safe, scan_comment_safe, scan_string_safe, scan_identifier_safe
+    public :: scan_operator_safe, scan_logical_token_safe
+    
+    ! Re-export utilities
+    public :: to_lower, resize_tokens, resize_trivia_buffer
 
 contains
 
+    ! Main tokenization function with error handling
     function tokenize_safe(source) result(tokenize_res)
         character(len=*), intent(in) :: source
         type(tokenize_result_t) :: tokenize_res
         
-        ! Input validation
-        if (len(source) == 0) then
-            tokenize_res%result = warning_result( &
-                "Empty source provided to tokenizer", &
-                ERROR_VALIDATION, &
-                component="lexer", &
-                context="tokenize_safe", &
-                suggestion="Provide non-empty source text")
-            tokenize_res%token_count = 0
-            return
-        end if
+        ! Initialize result
+        tokenize_res%success = .true.
+        tokenize_res%result = success_result()
+        tokenize_res%token_count = 0
         
-        ! Delegate to core implementation with error handling
+        ! Allocate initial token array
+        allocate(tokenize_res%tokens(1000))
+        
+        ! Call core tokenization
         call tokenize_core_safe(source, tokenize_res)
+        
+        ! Resize to actual count
+        if (tokenize_res%success .and. tokenize_res%token_count > 0) then
+            call resize_tokens_to_count(tokenize_res%tokens, tokenize_res%token_count)
+        end if
     end function tokenize_safe
 
+    ! Core tokenization logic
     subroutine tokenize_core(source, tokens)
         character(len=*), intent(in) :: source
         type(token_t), allocatable, intent(out) :: tokens(:)
-
-        type(token_t), allocatable :: temp_tokens(:)
-        integer :: pos, line_num, col_num, token_count
-        integer :: source_len
-        character(len=1) :: ch
-
-        ! Initialize
-        source_len = len(source)
-        pos = 1
-        line_num = 1
-        col_num = 1
-        token_count = 0
-        allocate (temp_tokens(100))  ! Initial allocation
-
-        ! Main tokenization loop
-        do while (pos <= source_len)
-            ch = source(pos:pos)
-
-            ! Skip whitespace
-            if (is_whitespace(ch)) then
-                if (ch == new_line('a')) then
-                    line_num = line_num + 1
-                    col_num = 1
-                else
-                    col_num = col_num + 1
-                end if
-                pos = pos + 1
-                cycle
-            end if
-
-            ! Number literal
-            if (is_digit(ch)) then
-              call scan_number(source, pos, line_num, col_num, temp_tokens, token_count)
-
-                ! String literal
-            else if (ch == '"' .or. ch == "'") then
-              call scan_string(source, pos, line_num, col_num, temp_tokens, token_count)
-
-                ! Identifier or keyword
-            else if (is_letter(ch)) then
-          call scan_identifier(source, pos, line_num, col_num, temp_tokens, token_count)
-
-                ! Comments - capture and emit as tokens
-            else if (ch == '!') then
-                call scan_comment(source, pos, line_num, col_num, &
-                    temp_tokens, token_count)
-
-                ! Logical constants and operators (starting with '.')
-            else if (ch == '.') then
-       call scan_logical_token(source, pos, line_num, col_num, temp_tokens, token_count)
-
-                ! Operators
-            else if (is_operator(ch)) then
-            call scan_operator(source, pos, line_num, col_num, temp_tokens, token_count)
-
-                ! Unknown character
-            else
-                pos = pos + 1
-                col_num = col_num + 1
-            end if
-        end do
-
-        ! Add EOF token
-        token_count = token_count + 1
-        if (token_count > size(temp_tokens)) then
-            call resize_tokens(temp_tokens)
+        type(tokenize_result_t) :: tokenize_res
+        
+        tokenize_res = tokenize_safe(source)
+        
+        if (tokenize_res%success) then
+            allocate(tokens(tokenize_res%token_count))
+            tokens = tokenize_res%tokens(1:tokenize_res%token_count)
+        else
+            allocate(tokens(0))
         end if
-        temp_tokens(token_count)%kind = TK_EOF
-        temp_tokens(token_count)%text = ""
-        temp_tokens(token_count)%line = line_num
-        temp_tokens(token_count)%column = col_num
-
-        ! Copy to output array
-        allocate (tokens(token_count))
-        tokens = temp_tokens(1:token_count)
-
     end subroutine tokenize_core
 
+    ! Safe tokenization with detailed error handling
     subroutine tokenize_core_safe(source, tokenize_res)
         character(len=*), intent(in) :: source
-        type(tokenize_result_t), intent(out) :: tokenize_res
-
-        type(token_t), allocatable :: temp_tokens(:)
-        integer :: pos, line_num, col_num, token_count
-        integer :: source_len
-        character(len=1) :: ch
-        type(result_t) :: scan_result
-
-        ! Initialize success result
-        tokenize_res%result = success_result()
+        type(tokenize_result_t), intent(inout) :: tokenize_res
+        integer :: pos, line_num, col_num, source_len
+        character :: c
         
-        ! Initialize
-        source_len = len(source)
         pos = 1
         line_num = 1
         col_num = 1
-        token_count = 0
-        allocate (temp_tokens(100))  ! Initial allocation
-
-        ! Main tokenization loop
+        source_len = len(source)
+        tokenize_res%token_count = 0
+        
         do while (pos <= source_len)
-            ch = source(pos:pos)
-
-            ! Skip whitespace
-            if (is_whitespace(ch)) then
-                if (ch == new_line('a')) then
-                    line_num = line_num + 1
-                    col_num = 1
+            c = source(pos:pos)
+            
+            select case (c)
+            case (' ', char(9))  ! Space, tab
+                call skip_whitespace(source, pos, line_num, col_num)
+                
+            case (char(10), char(13))  ! Newline
+                call handle_newline(source, pos, line_num, col_num, &
+                                   tokenize_res%tokens, tokenize_res%token_count)
+                
+            case ('!')  ! Comment
+                call scan_comment(source, pos, line_num, col_num, &
+                                 tokenize_res%tokens, tokenize_res%token_count)
+                
+            case ('''', '"')  ! String
+                call scan_string(source, pos, line_num, col_num, &
+                                tokenize_res%tokens, tokenize_res%token_count)
+                
+            case ('0':'9')  ! Number
+                call scan_number(source, pos, line_num, col_num, &
+                                tokenize_res%tokens, tokenize_res%token_count)
+                
+            case ('a':'z', 'A':'Z', '_')  ! Identifier
+                call scan_identifier(source, pos, line_num, col_num, &
+                                    tokenize_res%tokens, tokenize_res%token_count)
+                
+            case ('.')  ! Logical operator or number
+                if (pos < source_len .and. source(pos+1:pos+1) >= '0' .and. source(pos+1:pos+1) <= '9') then
+                    call scan_number(source, pos, line_num, col_num, &
+                                    tokenize_res%tokens, tokenize_res%token_count)
                 else
+                    call scan_logical_token(source, pos, line_num, col_num, &
+                                          tokenize_res%tokens, tokenize_res%token_count)
+                end if
+                
+            case default  ! Operator or unknown
+                if (is_operator_char(c)) then
+                    call scan_operator(source, pos, line_num, col_num, &
+                                      tokenize_res%tokens, tokenize_res%token_count)
+                else
+                    ! Unknown character - skip
+                    pos = pos + 1
                     col_num = col_num + 1
                 end if
-                pos = pos + 1
-                cycle
-            end if
-
-            ! Number literal
-            if (is_digit(ch)) then
-                call scan_number_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
-                if (scan_result%is_failure()) then
-                    tokenize_res%result = scan_result
-                    return
-                end if
-
-            ! String literal
-            else if (ch == '"' .or. ch == "'") then
-                call scan_string_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
-                if (scan_result%is_failure()) then
-                    tokenize_res%result = scan_result
-                    return
-                end if
-
-            ! Identifier or keyword
-            else if (is_letter(ch)) then
-                call scan_identifier_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
-                if (scan_result%is_failure()) then
-                    tokenize_res%result = scan_result
-                    return
-                end if
-
-            ! Comments - capture and emit as tokens
-            else if (ch == '!') then
-                call scan_comment_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
-                if (scan_result%is_failure()) then
-                    tokenize_res%result = scan_result
-                    return
-                end if
-
-            ! Logical constants and operators (starting with '.')
-            else if (ch == '.') then
-                call scan_logical_token_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
-                if (scan_result%is_failure()) then
-                    tokenize_res%result = scan_result
-                    return
-                end if
-
-            ! Operators
-            else if (is_operator(ch)) then
-                call scan_operator_safe(source, pos, line_num, col_num, temp_tokens, token_count, scan_result)
-                if (scan_result%is_failure()) then
-                    tokenize_res%result = scan_result
-                    return
-                end if
-
-            ! Unknown character - now properly handled as error
-            else
-                tokenize_res%result = create_error_result( &
-                    "Invalid character '" // ch // "' in source", &
-                    ERROR_VALIDATION, &
-                    component="lexer", &
-                    context="tokenize", &
-                    suggestion="Remove or replace invalid character")
-                return
+            end select
+            
+            ! Check for buffer overflow
+            if (tokenize_res%token_count >= size(tokenize_res%tokens)) then
+                call resize_tokens(tokenize_res%tokens)
             end if
         end do
-
+        
         ! Add EOF token
-        token_count = token_count + 1
-        if (token_count > size(temp_tokens)) then
-            call resize_tokens(temp_tokens)
+        if (tokenize_res%token_count < size(tokenize_res%tokens)) then
+            tokenize_res%token_count = tokenize_res%token_count + 1
+            tokenize_res%tokens(tokenize_res%token_count)%kind = TK_EOF
+            tokenize_res%tokens(tokenize_res%token_count)%text = ""
+            tokenize_res%tokens(tokenize_res%token_count)%line = line_num
+            tokenize_res%tokens(tokenize_res%token_count)%column = col_num
         end if
-        temp_tokens(token_count)%kind = TK_EOF
-        temp_tokens(token_count)%text = ""
-        temp_tokens(token_count)%line = line_num
-        temp_tokens(token_count)%column = col_num
-
-        ! Copy to output
-        tokenize_res%token_count = token_count
-        allocate(tokenize_res%tokens(token_count))
-        tokenize_res%tokens = temp_tokens(1:token_count)
-
+        
+        tokenize_res%success = .true.
     end subroutine tokenize_core_safe
 
-    subroutine scan_number(source, pos, line_num, col_num, tokens, token_count)
+    ! Skip whitespace characters
+    subroutine skip_whitespace(source, pos, line_num, col_num)
         character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-
-        integer :: start_pos, start_col
-        logical :: has_dot
-
-        start_pos = pos
-        start_col = col_num
-        has_dot = .false.
-
-        ! Scan integer part
+        integer, intent(inout) :: pos, line_num, col_num
+        character :: c
+        
         do while (pos <= len(source))
-            if (.not. is_digit(source(pos:pos))) exit
-            pos = pos + 1
-            col_num = col_num + 1
+            c = source(pos:pos)
+            if (c == ' ' .or. c == char(9)) then
+                pos = pos + 1
+                col_num = col_num + 1
+            else
+                exit
+            end if
         end do
+    end subroutine skip_whitespace
 
-        ! Check for decimal point
-        if (pos <= len(source)) then
-            if (source(pos:pos) == '.') then
-                has_dot = .true.
-                pos = pos + 1
-                col_num = col_num + 1
-
-                ! Scan fractional part
-                do while (pos <= len(source))
-                    if (.not. is_digit(source(pos:pos))) exit
-                    pos = pos + 1
-                    col_num = col_num + 1
-                end do
-            end if
-        end if
-
-        ! Check for exponent
-        if (pos <= len(source)) then
-            if (source(pos:pos) == 'e' .or. source(pos:pos) == 'E' .or. &
-                source(pos:pos) == 'd' .or. source(pos:pos) == 'D') then
-                pos = pos + 1
-                col_num = col_num + 1
-
-                ! Optional sign
-                if (pos <= len(source)) then
-                    if (source(pos:pos) == '+' .or. source(pos:pos) == '-') then
-                        pos = pos + 1
-                        col_num = col_num + 1
-                    end if
-                end if
-
-                ! Exponent digits
-                do while (pos <= len(source))
-                    if (.not. is_digit(source(pos:pos))) exit
-                    pos = pos + 1
-                    col_num = col_num + 1
-                end do
-            end if
-        end if
-
-        ! Add token
-        token_count = token_count + 1
-        if (token_count > size(tokens)) then
-            call resize_tokens(tokens)
-        end if
-        tokens(token_count)%kind = TK_NUMBER
-        tokens(token_count)%text = source(start_pos:pos - 1)
-        tokens(token_count)%line = line_num
-        tokens(token_count)%column = start_col
-
-    end subroutine scan_number
-
-    subroutine scan_comment(source, pos, line_num, col_num, tokens, token_count)
+    ! Handle newline characters
+    subroutine handle_newline(source, pos, line_num, col_num, tokens, token_count)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
+        type(token_t), intent(inout) :: tokens(:)
         integer :: start_pos, start_col
-        character(len=:), allocatable :: comment_text
-
+        
         start_pos = pos
         start_col = col_num
         
-        ! Skip the ! character
-        pos = pos + 1
-        col_num = col_num + 1
-
-        ! Collect comment text until end of line or end of source
-        comment_text = "!"
-        do while (pos <= len(source))
-            if (source(pos:pos) == new_line('a')) exit
-            comment_text = comment_text // source(pos:pos)
-            pos = pos + 1
-            col_num = col_num + 1
-        end do
-
-        ! Create comment token
-        token_count = token_count + 1
-        if (token_count > size(tokens)) then
-            call resize_tokens(tokens)
-        end if
-        tokens(token_count)%kind = TK_COMMENT
-        tokens(token_count)%text = comment_text
-        tokens(token_count)%line = line_num
-        tokens(token_count)%column = start_col
-    end subroutine scan_comment
-
-    subroutine scan_string(source, pos, line_num, col_num, tokens, token_count)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-
-        integer :: start_pos, start_col
-        character(len=1) :: quote_char
-
-        start_pos = pos
-        start_col = col_num
-        quote_char = source(pos:pos)
-
-        pos = pos + 1
-        col_num = col_num + 1
-
-        ! Scan until closing quote
-        do while (pos <= len(source))
-            if (source(pos:pos) == quote_char) then
-                ! Check if it's an escaped quote (doubled)
-                if (pos + 1 <= len(source)) then
-                    if (source(pos + 1:pos + 1) == quote_char) then
-                        ! Escaped quote - skip both characters
-                        pos = pos + 2
-                        col_num = col_num + 2
-                    else
-                        ! End of string
-                        pos = pos + 1
-                        col_num = col_num + 1
-                        exit
-                    end if
-                else
-                    ! End of string
-                    pos = pos + 1
-                    col_num = col_num + 1
-                    exit
-                end if
-            else if (source(pos:pos) == new_line('a')) then
-                ! Error: unterminated string
-                exit
-            else
-                pos = pos + 1
-                col_num = col_num + 1
-            end if
-        end do
-
-        ! Add token
-        token_count = token_count + 1
-        if (token_count > size(tokens)) then
-            call resize_tokens(tokens)
-        end if
-        tokens(token_count)%kind = TK_STRING
-        tokens(token_count)%text = source(start_pos:pos - 1)
-        tokens(token_count)%line = line_num
-        tokens(token_count)%column = start_col
-
-    end subroutine scan_string
-
-    subroutine scan_string_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(result_t), intent(out) :: scan_result
-
-        integer :: start_pos, start_col
-        character(len=1) :: quote_char
-        logical :: found_end
-
-        scan_result = success_result()
-        start_pos = pos
-        start_col = col_num
-        quote_char = source(pos:pos)
-        found_end = .false.
-
-        pos = pos + 1
-        col_num = col_num + 1
-
-        ! Scan until closing quote
-        do while (pos <= len(source))
-            if (source(pos:pos) == quote_char) then
-                ! Check if it's an escaped quote (doubled)
-                if (pos + 1 <= len(source)) then
-                    if (source(pos + 1:pos + 1) == quote_char) then
-                        ! Escaped quote - skip both characters
-                        pos = pos + 2
-                        col_num = col_num + 2
-                    else
-                        ! End of string
-                        pos = pos + 1
-                        col_num = col_num + 1
-                        found_end = .true.
-                        exit
-                    end if
-                else
-                    ! End of string
-                    pos = pos + 1
-                    col_num = col_num + 1
-                    found_end = .true.
-                    exit
-                end if
-            else if (source(pos:pos) == new_line('a')) then
-                ! Error: unterminated string
-                scan_result = create_error_result( &
-                    "Unterminated string literal", &
-                    ERROR_PARSER, &
-                    component="lexer", &
-                    context="scan_string", &
-                    suggestion="Add closing " // quote_char // " to complete string")
-                return
-            else
-                pos = pos + 1
-                col_num = col_num + 1
-            end if
-        end do
-
-        ! Check if we reached end without finding closing quote
-        if (.not. found_end) then
-            scan_result = create_error_result( &
-                "Unterminated string literal at end of source", &
-                ERROR_PARSER, &
-                component="lexer", &
-                context="scan_string", &
-                suggestion="Add closing " // quote_char // " to complete string")
-            return
-        end if
-
-        ! Add token
-        token_count = token_count + 1
-        if (token_count > size(tokens)) then
-            call resize_tokens(tokens)
-        end if
-        tokens(token_count)%kind = TK_STRING
-        tokens(token_count)%text = source(start_pos:pos - 1)
-        tokens(token_count)%line = line_num
-        tokens(token_count)%column = start_col
-
-    end subroutine scan_string_safe
-
-    subroutine scan_identifier(source, pos, line_num, col_num, tokens, token_count)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-
-        integer :: start_pos, start_col
-        character(len=:), allocatable :: word
-
-        start_pos = pos
-        start_col = col_num
-
-        ! Scan identifier
-        do while (pos <= len(source))
-            if (.not. (is_letter(source(pos:pos)) .or. &
-                       is_digit(source(pos:pos)) .or. &
-                       source(pos:pos) == '_')) exit
-            pos = pos + 1
-            col_num = col_num + 1
-        end do
-
-        word = source(start_pos:pos - 1)
-
-        ! Add token
-        token_count = token_count + 1
-        if (token_count > size(tokens)) then
-            call resize_tokens(tokens)
-        end if
-
-        ! Check if it's a keyword
-        if (is_keyword(word)) then
-            tokens(token_count)%kind = TK_KEYWORD
+        ! Handle CRLF or LF
+        if (source(pos:pos) == char(13) .and. pos < len(source) .and. source(pos+1:pos+1) == char(10)) then
+            pos = pos + 2
         else
-            tokens(token_count)%kind = TK_IDENTIFIER
+            pos = pos + 1
         end if
-
-        tokens(token_count)%text = word
-        tokens(token_count)%line = line_num
-        tokens(token_count)%column = start_col
-
-    end subroutine scan_identifier
-
-    subroutine scan_operator(source, pos, line_num, col_num, tokens, token_count)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-
-        integer :: start_col
-        character(len=2) :: two_char
-
-        start_col = col_num
-
-        ! Check for two-character operators
-        if (pos < len(source)) then
-            two_char = source(pos:pos + 1)
-            if (two_char == "==" .or. two_char == "/=" .or. &
-                two_char == "<=" .or. two_char == ">=" .or. &
-                two_char == "::" .or. two_char == "**" .or. &
-                two_char == "//" .or. two_char == "=>") then
-
-                token_count = token_count + 1
-                if (token_count > size(tokens)) then
-                    call resize_tokens(tokens)
-                end if
-                tokens(token_count)%kind = TK_OPERATOR
-                tokens(token_count)%text = two_char
-                tokens(token_count)%line = line_num
-                tokens(token_count)%column = start_col
-
-                pos = pos + 2
-                col_num = col_num + 2
-                return
-            end if
+        
+        line_num = line_num + 1
+        col_num = 1
+        
+        ! Create newline token
+        if (token_count < size(tokens)) then
+            token_count = token_count + 1
+            tokens(token_count)%kind = TK_NEWLINE
+            tokens(token_count)%text = source(start_pos:pos-1)
+            tokens(token_count)%line = line_num - 1
+            tokens(token_count)%column = start_col
         end if
+    end subroutine handle_newline
 
-        ! Single character operator
-        token_count = token_count + 1
-        if (token_count > size(tokens)) then
-            call resize_tokens(tokens)
-        end if
-        tokens(token_count)%kind = TK_OPERATOR
-        tokens(token_count)%text = source(pos:pos)
-        tokens(token_count)%line = line_num
-        tokens(token_count)%column = start_col
+    ! Check if character is an operator
+    function is_operator_char(c) result(is_op)
+        character, intent(in) :: c
+        logical :: is_op
+        
+        select case (c)
+        case ('+', '-', '*', '/', '=', '<', '>', '(', ')', '[', ']', &
+              '{', '}', ',', ';', ':', '%', '&')
+            is_op = .true.
+        case default
+            is_op = .false.
+        end select
+    end function is_operator_char
 
-        pos = pos + 1
-        col_num = col_num + 1
-
-    end subroutine scan_operator
-
-    subroutine scan_logical_token(source, pos, line_num, col_num, tokens, token_count)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-
-        integer :: start_pos, start_col, remaining
-        character(len=:), allocatable :: word
-
-        start_pos = pos
-        start_col = col_num
-
-        ! Check for logical constants and operators that start with '.'
-        if (pos <= len(source)) then
-            ! Calculate remaining characters
-            remaining = len(source) - pos + 1
-
-            ! Check for .true. (6 characters)
-            if (remaining >= 6) then
-                if (source(pos:pos + 5) == ".true.") then
-                    ! Found .true.
-                    pos = pos + 6
-                    col_num = col_num + 6
-                    word = ".true."
-
-                    token_count = token_count + 1
-                    if (token_count > size(tokens)) then
-                        call resize_tokens(tokens)
-                    end if
-                    tokens(token_count)%kind = TK_KEYWORD
-                    tokens(token_count)%text = word
-                    tokens(token_count)%line = line_num
-                    tokens(token_count)%column = start_col
-                    return
-                end if
-            end if
-
-            ! Check for .false. (7 characters)
-            if (remaining >= 7) then
-                if (source(pos:pos + 6) == ".false.") then
-                    ! Found .false.
-                    pos = pos + 7
-                    col_num = col_num + 7
-                    word = ".false."
-
-                    token_count = token_count + 1
-                    if (token_count > size(tokens)) then
-                        call resize_tokens(tokens)
-                    end if
-                    tokens(token_count)%kind = TK_KEYWORD
-                    tokens(token_count)%text = word
-                    tokens(token_count)%line = line_num
-                    tokens(token_count)%column = start_col
-                    return
-                end if
-            end if
-
-            ! Check for .and. and .not. (5 characters)
-            if (remaining >= 5) then
-                if (source(pos:pos + 4) == ".and.") then
-                    ! Found .and.
-                    pos = pos + 5
-                    col_num = col_num + 5
-                    word = ".and."
-
-                    token_count = token_count + 1
-                    if (token_count > size(tokens)) then
-                        call resize_tokens(tokens)
-                    end if
-                    tokens(token_count)%kind = TK_OPERATOR
-                    tokens(token_count)%text = word
-                    tokens(token_count)%line = line_num
-                    tokens(token_count)%column = start_col
-                    return
-                else if (source(pos:pos + 4) == ".not.") then
-                    ! Found .not.
-                    pos = pos + 5
-                    col_num = col_num + 5
-                    word = ".not."
-
-                    token_count = token_count + 1
-                    if (token_count > size(tokens)) then
-                        call resize_tokens(tokens)
-                    end if
-                    tokens(token_count)%kind = TK_OPERATOR
-                    tokens(token_count)%text = word
-                    tokens(token_count)%line = line_num
-                    tokens(token_count)%column = start_col
-                    return
-                end if
-            end if
-
-            ! Check for .eqv. and .neqv. (5 and 6 characters)
-            if (remaining >= 6) then
-                if (source(pos:pos + 5) == ".neqv.") then
-                    ! Found .neqv.
-                    pos = pos + 6
-                    col_num = col_num + 6
-                    word = ".neqv."
-
-                    token_count = token_count + 1
-                    if (token_count > size(tokens)) then
-                        call resize_tokens(tokens)
-                    end if
-                    tokens(token_count)%kind = TK_OPERATOR
-                    tokens(token_count)%text = word
-                    tokens(token_count)%line = line_num
-                    tokens(token_count)%column = start_col
-                    return
-                end if
-            end if
-
-            if (remaining >= 5) then
-                if (source(pos:pos + 4) == ".eqv.") then
-                    ! Found .eqv.
-                    pos = pos + 5
-                    col_num = col_num + 5
-                    word = ".eqv."
-
-                    token_count = token_count + 1
-                    if (token_count > size(tokens)) then
-                        call resize_tokens(tokens)
-                    end if
-                    tokens(token_count)%kind = TK_OPERATOR
-                    tokens(token_count)%text = word
-                    tokens(token_count)%line = line_num
-                    tokens(token_count)%column = start_col
-                    return
-                end if
-            end if
-
-            ! Check for .or. (4 characters)
-            if (remaining >= 4) then
-                if (source(pos:pos + 3) == ".or.") then
-                    ! Found .or.
-                    pos = pos + 4
-                    col_num = col_num + 4
-                    word = ".or."
-
-                    token_count = token_count + 1
-                    if (token_count > size(tokens)) then
-                        call resize_tokens(tokens)
-                    end if
-                    tokens(token_count)%kind = TK_OPERATOR
-                    tokens(token_count)%text = word
-                    tokens(token_count)%line = line_num
-                    tokens(token_count)%column = start_col
-                    return
-                end if
-            end if
-        end if
-
-        ! If we get here, it's just a regular '.' operator
-        token_count = token_count + 1
-        if (token_count > size(tokens)) then
-            call resize_tokens(tokens)
-        end if
-        tokens(token_count)%kind = TK_OPERATOR
-        tokens(token_count)%text = "."
-        tokens(token_count)%line = line_num
-        tokens(token_count)%column = start_col
-
-        pos = pos + 1
-        col_num = col_num + 1
-
-    end subroutine scan_logical_token
-
-    ! Safe scanning functions with proper error handling
-
-    subroutine scan_number_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(result_t), intent(out) :: scan_result
-
-        ! Numbers are generally robust, delegate to existing implementation
-        scan_result = success_result()
-        call scan_number(source, pos, line_num, col_num, tokens, token_count)
-    end subroutine scan_number_safe
-
-    subroutine scan_identifier_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(result_t), intent(out) :: scan_result
-
-        ! Identifiers are generally robust, delegate to existing implementation
-        scan_result = success_result()
-        call scan_identifier(source, pos, line_num, col_num, tokens, token_count)
-    end subroutine scan_identifier_safe
-
-    subroutine scan_comment_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(result_t), intent(out) :: scan_result
-
-        ! Comments are generally robust, delegate to existing implementation
-        scan_result = success_result()
-        call scan_comment(source, pos, line_num, col_num, tokens, token_count)
-    end subroutine scan_comment_safe
-
-    subroutine scan_operator_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(result_t), intent(out) :: scan_result
-
-        ! Operators are generally robust, delegate to existing implementation
-        scan_result = success_result()
-        call scan_operator(source, pos, line_num, col_num, tokens, token_count)
-    end subroutine scan_operator_safe
-
-    subroutine scan_logical_token_safe(source, pos, line_num, col_num, tokens, token_count, scan_result)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(result_t), intent(out) :: scan_result
-
-        ! Logical tokens are generally robust, delegate to existing implementation
-        scan_result = success_result()
-        call scan_logical_token(source, pos, line_num, col_num, tokens, token_count)
-    end subroutine scan_logical_token_safe
-
-    ! Helper functions
-
-    logical function is_whitespace(ch)
-        character(len=1), intent(in) :: ch
-        is_whitespace = (ch == ' ' .or. ch == char(9) .or. ch == new_line('a'))
-    end function is_whitespace
-
-    logical function is_letter(ch)
-        character(len=1), intent(in) :: ch
-        is_letter = (ch >= 'A' .and. ch <= 'Z') .or. (ch >= 'a' .and. ch <= 'z')
-    end function is_letter
-
-    logical function is_digit(ch)
-        character(len=1), intent(in) :: ch
-        is_digit = (ch >= '0' .and. ch <= '9')
-    end function is_digit
-
-    logical function is_operator(ch)
-        character(len=1), intent(in) :: ch
-        is_operator = index("+-*/=<>()[]{},:;%", ch) > 0
-    end function is_operator
-
-    logical function is_keyword(word)
-        character(len=*), intent(in) :: word
-        integer :: i
-        character(len=20) :: lower_word
-
-        ! Convert to lowercase for comparison
-        lower_word = to_lower(word)
-
-        do i = 1, size(keywords)
-            if (trim(lower_word) == trim(keywords(i))) then
-                is_keyword = .true.
-                return
-            end if
-        end do
-
-        is_keyword = .false.
-    end function is_keyword
-
-    function to_lower(str) result(lower_str)
-        character(len=*), intent(in) :: str
-        character(len=len(str)) :: lower_str
-        integer :: i
-
-        do i = 1, len(str)
-            if (str(i:i) >= 'A' .and. str(i:i) <= 'Z') then
-                lower_str(i:i) = char(ichar(str(i:i)) + 32)
-            else
-                lower_str(i:i) = str(i:i)
-            end if
-        end do
-    end function to_lower
-
+    ! Resize tokens array
     subroutine resize_tokens(tokens)
         type(token_t), allocatable, intent(inout) :: tokens(:)
         type(token_t), allocatable :: temp(:)
-
-        allocate (temp(size(tokens)*2))
-        temp(1:size(tokens)) = tokens
-        ! Use move_alloc for O(1) array transfer instead of O(n) copying
+        integer :: old_size, new_size
+        
+        old_size = size(tokens)
+        new_size = old_size * 2
+        
+        allocate(temp(new_size))
+        temp(1:old_size) = tokens
         call move_alloc(temp, tokens)
     end subroutine resize_tokens
 
+    ! Resize tokens array to specific count
+    subroutine resize_tokens_to_count(tokens, count)
+        type(token_t), allocatable, intent(inout) :: tokens(:)
+        integer, intent(in) :: count
+        type(token_t), allocatable :: temp(:)
+        
+        if (count <= 0) then
+            deallocate(tokens)
+            allocate(tokens(0))
+            return
+        end if
+        
+        allocate(temp(count))
+        temp(1:min(count, size(tokens))) = tokens(1:min(count, size(tokens)))
+        call move_alloc(temp, tokens)
+    end subroutine resize_tokens_to_count
+
+    ! Resize trivia buffer
     subroutine resize_trivia_buffer(trivia)
         type(trivia_token_t), allocatable, intent(inout) :: trivia(:)
         type(trivia_token_t), allocatable :: temp(:)
         integer :: old_size, new_size
-
-        ! Input validation
-        if (.not. allocated(trivia)) then
-            allocate(trivia(20))  ! Default initial size
-            return
-        end if
         
         old_size = size(trivia)
         new_size = old_size * 2
         
-        ! Prevent excessive memory allocation
-        if (new_size > 10000) then
-            new_size = old_size + 1000  ! Linear growth for very large arrays
-        end if
-        
-        allocate (temp(new_size))
+        allocate(temp(new_size))
         temp(1:old_size) = trivia
-        ! Use move_alloc for O(1) array transfer instead of O(n) copying
         call move_alloc(temp, trivia)
     end subroutine resize_trivia_buffer
 
-    ! Convert token type to string name
-    function token_type_name(kind) result(name)
-        integer, intent(in) :: kind
-        character(len=:), allocatable :: name
-
-        select case (kind)
-        case (TK_EOF)
-            name = "eof"
-        case (TK_IDENTIFIER)
-            name = "identifier"
-        case (TK_NUMBER)
-            name = "number"
-        case (TK_STRING)
-            name = "string"
-        case (TK_OPERATOR)
-            name = "operator"
-        case (TK_KEYWORD)
-            name = "keyword"
-        case (TK_NEWLINE)
-            name = "newline"
-        case (TK_COMMENT)
-            name = "comment"
-        case (TK_WHITESPACE)
-            name = "whitespace"
-        case default
-            name = "unknown"
-        end select
-    end function token_type_name
-
-    ! Deep copy procedures for token_t
-    function token_deep_copy(this) result(copy)
-        class(token_t), intent(in) :: this
-        type(token_t) :: copy
+    ! Re-export to_lower from scanners module
+    function to_lower(str) result(lower_str)
+        character(len=*), intent(in) :: str
+        character(len=len(str)) :: lower_str
+        integer :: i, ascii_val
         
-        copy%kind = this%kind
-        copy%line = this%line
-        copy%column = this%column
-        
-        if (allocated(this%text)) then
-            copy%text = this%text
-        end if
-        
-        ! Deep copy trivia arrays if present (simple copy for trivia_token_t)
-        if (allocated(this%leading_trivia)) then
-            allocate(copy%leading_trivia(size(this%leading_trivia)))
-            copy%leading_trivia = this%leading_trivia
-        end if
-        
-        if (allocated(this%trailing_trivia)) then
-            allocate(copy%trailing_trivia(size(this%trailing_trivia)))
-            copy%trailing_trivia = this%trailing_trivia
-        end if
-    end function token_deep_copy
-
-    ! MEMORY SAFE token assignment operator
-    subroutine token_assign(lhs, rhs)
-        class(token_t), intent(inout) :: lhs  ! Changed to inout for safe cleanup
-        type(token_t), intent(in) :: rhs
-
-        ! MEMORY SAFETY: Clean up existing allocatables first
-        if (allocated(lhs%text)) deallocate(lhs%text)
-        if (allocated(lhs%leading_trivia)) deallocate(lhs%leading_trivia)
-        if (allocated(lhs%trailing_trivia)) deallocate(lhs%trailing_trivia)
-
-        ! Copy scalar fields
-        lhs%kind = rhs%kind
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-
-        ! Copy allocatable text
-        if (allocated(rhs%text)) then
-            lhs%text = rhs%text
-        end if
-        
-        ! Deep copy trivia arrays if present
-        if (allocated(rhs%leading_trivia)) then
-            allocate(lhs%leading_trivia(size(rhs%leading_trivia)))
-            lhs%leading_trivia = rhs%leading_trivia
-        end if
-        
-        if (allocated(rhs%trailing_trivia)) then
-            allocate(lhs%trailing_trivia(size(rhs%trailing_trivia)))
-            lhs%trailing_trivia = rhs%trailing_trivia
-        end if
-    end subroutine token_assign
-
-    ! Lexer options methods
-    function options_with_trivia(this) result(opts)
-        class(lexer_options_t), intent(in) :: this
-        type(lexer_options_t) :: opts
-        
-        opts = this
-        opts%collect_trivia = .true.
-        opts%preserve_newlines = .true.
-        opts%preserve_whitespace = .true.
-        opts%preserve_comments = .true.
-    end function options_with_trivia
-    
-    function options_default(this) result(opts)
-        class(lexer_options_t), intent(in) :: this
-        type(lexer_options_t) :: opts
-        
-        opts%collect_trivia = .false.
-        opts%preserve_newlines = .false.
-        opts%preserve_whitespace = .false.
-        opts%preserve_comments = .true.
-    end function options_default
-    
-    ! Module-level convenience functions for lexer options
-    function default_lexer_options() result(opts)
-        type(lexer_options_t) :: opts
-        
-        opts%collect_trivia = .false.
-        opts%preserve_newlines = .false.
-        opts%preserve_whitespace = .false.
-        opts%preserve_comments = .true.
-    end function default_lexer_options
-    
-    function trivia_lexer_options() result(opts)
-        type(lexer_options_t) :: opts
-        
-        opts%collect_trivia = .true.
-        opts%preserve_newlines = .true.
-        opts%preserve_whitespace = .true.
-        opts%preserve_comments = .true.
-    end function trivia_lexer_options
-
-    ! Helper subroutine for tokenization with options initialization
-    subroutine tokenize_with_options_init(source_len, pos, line_num, col_num, &
-            token_count, trivia_count, temp_tokens, trivia_buffer)
-        integer, intent(in) :: source_len
-        integer, intent(out) :: pos, line_num, col_num, token_count, trivia_count
-        type(token_t), allocatable, intent(out) :: temp_tokens(:)
-        type(trivia_token_t), allocatable, intent(out) :: trivia_buffer(:)
-        
-        pos = 1
-        line_num = 1
-        col_num = 1
-        token_count = 0
-        trivia_count = 0
-        allocate (temp_tokens(100))
-        allocate (trivia_buffer(20))
-    end subroutine tokenize_with_options_init
-    
-    ! Helper subroutine for processing tokens in main tokenization loop
-    subroutine tokenize_process_significant_token(ch, source, pos, line_num, col_num, &
-            temp_tokens, token_count, trivia_buffer, trivia_count, options)
-        character(len=1), intent(in) :: ch
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
-        type(token_t), allocatable, intent(inout) :: temp_tokens(:)
-        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
-        type(lexer_options_t), intent(in) :: options
-        
-        ! Number literal
-        if (is_digit(ch)) then
-            call scan_number_with_trivia(source, pos, line_num, col_num, &
-                temp_tokens, token_count, trivia_buffer, trivia_count, options)
-        ! String literal
-        else if (ch == '"' .or. ch == "'") then
-            call scan_string_with_trivia(source, pos, line_num, col_num, &
-                temp_tokens, token_count, trivia_buffer, trivia_count, options)
-        ! Identifier or keyword
-        else if (is_letter(ch)) then
-            call scan_identifier_with_trivia(source, pos, line_num, col_num, &
-                temp_tokens, token_count, trivia_buffer, trivia_count, options)
-        ! Logical constants and operators (starting with '.')
-        else if (ch == '.') then
-            call scan_logical_token_with_trivia(source, pos, line_num, col_num, &
-                temp_tokens, token_count, trivia_buffer, trivia_count, options)
-        ! Operators
-        else if (is_operator(ch)) then
-            call scan_operator_with_trivia(source, pos, line_num, col_num, &
-                temp_tokens, token_count, trivia_buffer, trivia_count, options)
-        ! Unknown character
-        else
-            pos = pos + 1
-            col_num = col_num + 1
-        end if
-    end subroutine tokenize_process_significant_token
-    
-    ! Helper subroutine for finalizing tokenization
-    subroutine tokenize_finalize(temp_tokens, token_count, line_num, col_num, tokens)
-        type(token_t), allocatable, intent(inout) :: temp_tokens(:)
-        integer, intent(inout) :: token_count
-        integer, intent(in) :: line_num, col_num
-        type(token_t), allocatable, intent(out) :: tokens(:)
-        
-        ! Add EOF token
-        token_count = token_count + 1
-        if (token_count > size(temp_tokens)) then
-            call resize_tokens(temp_tokens)
-        end if
-        temp_tokens(token_count)%kind = TK_EOF
-        temp_tokens(token_count)%text = ""
-        temp_tokens(token_count)%line = line_num
-        temp_tokens(token_count)%column = col_num
-        
-        ! Copy to output array
-        allocate (tokens(token_count))
-        tokens = temp_tokens(1:token_count)
-    end subroutine tokenize_finalize
-
-    ! New tokenize functions with options (refactored for size compliance)
-    subroutine tokenize_with_options(source, tokens, options)
-        character(len=*), intent(in) :: source
-        type(token_t), allocatable, intent(out) :: tokens(:)
-        type(lexer_options_t), intent(in) :: options
-
-        type(token_t), allocatable :: temp_tokens(:)
-        type(trivia_token_t), allocatable :: trivia_buffer(:)
-        integer :: pos, line_num, col_num, token_count, trivia_count
-        integer :: source_len
-        character(len=1) :: ch
-
-        ! Initialize
-        source_len = len(source)
-        call tokenize_with_options_init(source_len, pos, line_num, col_num, &
-            token_count, trivia_count, temp_tokens, trivia_buffer)
-
-        ! Main tokenization loop
-        do while (pos <= source_len)
-            ch = source(pos:pos)
-
-            ! Handle whitespace based on options
-            if (is_whitespace(ch)) then
-                if (ch == new_line('a')) then
-                    if (options%preserve_newlines .and. options%collect_trivia) then
-                        call add_trivia_token(source, pos, line_num, col_num, &
-                            TK_NEWLINE, trivia_buffer, trivia_count)
-                    end if
-                    line_num = line_num + 1
-                    col_num = 1
-                    pos = pos + 1
-                else if (options%preserve_whitespace .and. options%collect_trivia) then
-                    call scan_whitespace(source, pos, line_num, col_num, &
-                        trivia_buffer, trivia_count)
-                else
-                    col_num = col_num + 1
-                    pos = pos + 1
-                end if
-                cycle
+        lower_str = str
+        do i = 1, len(str)
+            ascii_val = iachar(str(i:i))
+            if (ascii_val >= 65 .and. ascii_val <= 90) then
+                lower_str(i:i) = achar(ascii_val + 32)
             end if
-
-            ! Comments - handle based on options
-            if (ch == '!') then
-                if (options%collect_trivia) then
-                    call scan_comment_trivia(source, pos, line_num, col_num, &
-                        trivia_buffer, trivia_count)
-                else
-                    call scan_comment(source, pos, line_num, col_num, &
-                        temp_tokens, token_count)
-                end if
-                cycle
-            end if
-
-            ! Process significant tokens
-            call tokenize_process_significant_token(ch, source, pos, line_num, col_num, &
-                temp_tokens, token_count, trivia_buffer, trivia_count, options)
         end do
-
-        ! Finalize tokenization
-        call tokenize_finalize(temp_tokens, token_count, line_num, col_num, tokens)
-    end subroutine tokenize_with_options
-
-    function tokenize_safe_with_options(source, options) result(tokenize_res)
-        character(len=*), intent(in) :: source
-        type(lexer_options_t), intent(in) :: options
-        type(tokenize_result_t) :: tokenize_res
-        
-        ! Input validation
-        if (len(source) == 0) then
-            tokenize_res%result = warning_result( &
-                "Empty source provided to tokenizer", &
-                ERROR_VALIDATION, &
-                component="lexer", &
-                context="tokenize_safe_with_options", &
-                suggestion="Provide non-empty source text")
-            tokenize_res%token_count = 0
-            return
-        end if
-        
-        ! Delegate to implementation
-        call tokenize_with_options(source, tokenize_res%tokens, options)
-        if (allocated(tokenize_res%tokens)) then
-            tokenize_res%token_count = size(tokenize_res%tokens)
-        else
-            tokenize_res%token_count = 0
-        end if
-        tokenize_res%result = success_result()
-    end function tokenize_safe_with_options
-
-    ! Helper function to scan whitespace as trivia
-    subroutine scan_whitespace(source, pos, line_num, col_num, trivia_buffer, trivia_count)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, col_num, trivia_count
-        integer, intent(in) :: line_num
-        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
-        
-        integer :: start_pos, start_col
-        character(len=:), allocatable :: ws_text
-        
-        ! Input validation
-        if (pos <= 0 .or. pos > len(source)) return
-        if (.not. allocated(trivia_buffer)) return
-        
-        start_pos = pos
-        start_col = col_num
-        ws_text = ""
-        
-        ! Collect consecutive whitespace (not newlines)
-        do while (pos <= len(source))
-            if (.not. is_whitespace(source(pos:pos))) exit
-            if (source(pos:pos) == new_line('a')) exit
-            ws_text = ws_text // source(pos:pos)
-            pos = pos + 1
-            col_num = col_num + 1
-        end do
-        
-        ! Only add if we collected some whitespace
-        if (len(ws_text) == 0) return
-        
-        ! Add whitespace token to trivia buffer with bounds checking
-        trivia_count = trivia_count + 1
-        if (trivia_count > size(trivia_buffer)) then
-            call resize_trivia_buffer(trivia_buffer)
-        end if
-        trivia_buffer(trivia_count)%kind = TK_WHITESPACE
-        trivia_buffer(trivia_count)%text = ws_text
-        trivia_buffer(trivia_count)%line = line_num
-        trivia_buffer(trivia_count)%column = start_col
-    end subroutine scan_whitespace
-
-    ! Helper to scan comment as trivia
-    subroutine scan_comment_trivia(source, pos, line_num, col_num, trivia_buffer, trivia_count)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, col_num, trivia_count
-        integer, intent(in) :: line_num
-        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
-        
-        integer :: start_pos, start_col
-        character(len=:), allocatable :: comment_text
-        
-        ! Input validation
-        if (pos <= 0 .or. pos > len(source)) return
-        if (.not. allocated(trivia_buffer)) return
-        if (pos > len(source) .or. source(pos:pos) /= '!') return
-        
-        start_pos = pos
-        start_col = col_num
-        
-        ! Skip the ! character
-        pos = pos + 1
-        col_num = col_num + 1
-        
-        ! Collect comment text until end of line
-        comment_text = "!"
-        do while (pos <= len(source))
-            if (source(pos:pos) == new_line('a')) exit
-            comment_text = comment_text // source(pos:pos)
-            pos = pos + 1
-            col_num = col_num + 1
-        end do
-        
-        ! Add comment token to trivia buffer with bounds checking
-        trivia_count = trivia_count + 1
-        if (trivia_count > size(trivia_buffer)) then
-            call resize_trivia_buffer(trivia_buffer)
-        end if
-        trivia_buffer(trivia_count)%kind = TK_COMMENT
-        trivia_buffer(trivia_count)%text = comment_text
-        trivia_buffer(trivia_count)%line = line_num
-        trivia_buffer(trivia_count)%column = start_col
-    end subroutine scan_comment_trivia
-
-    ! Helper to add a single character trivia token
-    subroutine add_trivia_token(source, pos, line_num, col_num, kind, trivia_buffer, trivia_count)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, col_num, trivia_count
-        integer, intent(in) :: line_num, kind
-        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
-        
-        ! Input validation
-        if (pos <= 0 .or. pos > len(source)) return
-        if (.not. allocated(trivia_buffer)) return
-        if (kind < TK_EOF .or. kind > TK_UNKNOWN) return
-        
-        trivia_count = trivia_count + 1
-        if (trivia_count > size(trivia_buffer)) then
-            call resize_trivia_buffer(trivia_buffer)
-            ! Verify resize succeeded
-            if (.not. allocated(trivia_buffer) .or. trivia_count > size(trivia_buffer)) then
-                trivia_count = trivia_count - 1  ! Rollback on failure
-                return
-            end if
-        end if
-        trivia_buffer(trivia_count)%kind = kind
-        trivia_buffer(trivia_count)%text = source(pos:pos)
-        trivia_buffer(trivia_count)%line = line_num
-        trivia_buffer(trivia_count)%column = col_num
-    end subroutine add_trivia_token
-
-    ! Wrapper functions that attach trivia to tokens
-    subroutine scan_number_with_trivia(source, pos, line_num, col_num, tokens, &
-            token_count, trivia_buffer, trivia_count, options)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
-        type(lexer_options_t), intent(in) :: options
-        
-        integer :: old_count
-        
-        old_count = token_count
-        call scan_number(source, pos, line_num, col_num, tokens, token_count)
-        
-        ! Attach leading trivia if any
-        if (trivia_count > 0 .and. options%collect_trivia .and. token_count > old_count) then
-            allocate(tokens(token_count)%leading_trivia(trivia_count))
-            tokens(token_count)%leading_trivia(1:trivia_count) = trivia_buffer(1:trivia_count)
-            trivia_count = 0
-        end if
-    end subroutine scan_number_with_trivia
-
-    subroutine scan_string_with_trivia(source, pos, line_num, col_num, tokens, &
-            token_count, trivia_buffer, trivia_count, options)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
-        type(lexer_options_t), intent(in) :: options
-        
-        integer :: old_count
-        
-        old_count = token_count
-        call scan_string(source, pos, line_num, col_num, tokens, token_count)
-        
-        ! Attach leading trivia if any
-        if (trivia_count > 0 .and. options%collect_trivia .and. token_count > old_count) then
-            allocate(tokens(token_count)%leading_trivia(trivia_count))
-            tokens(token_count)%leading_trivia(1:trivia_count) = trivia_buffer(1:trivia_count)
-            trivia_count = 0
-        end if
-    end subroutine scan_string_with_trivia
-
-    subroutine scan_identifier_with_trivia(source, pos, line_num, col_num, tokens, &
-            token_count, trivia_buffer, trivia_count, options)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
-        type(lexer_options_t), intent(in) :: options
-        
-        integer :: old_count
-        
-        old_count = token_count
-        call scan_identifier(source, pos, line_num, col_num, tokens, token_count)
-        
-        ! Attach leading trivia if any
-        if (trivia_count > 0 .and. options%collect_trivia .and. token_count > old_count) then
-            allocate(tokens(token_count)%leading_trivia(trivia_count))
-            tokens(token_count)%leading_trivia(1:trivia_count) = trivia_buffer(1:trivia_count)
-            trivia_count = 0
-        end if
-    end subroutine scan_identifier_with_trivia
-
-    subroutine scan_logical_token_with_trivia(source, pos, line_num, col_num, tokens, &
-            token_count, trivia_buffer, trivia_count, options)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
-        type(lexer_options_t), intent(in) :: options
-        
-        integer :: old_count
-        
-        old_count = token_count
-        call scan_logical_token(source, pos, line_num, col_num, tokens, token_count)
-        
-        ! Attach leading trivia if any
-        if (trivia_count > 0 .and. options%collect_trivia .and. token_count > old_count) then
-            allocate(tokens(token_count)%leading_trivia(trivia_count))
-            tokens(token_count)%leading_trivia(1:trivia_count) = trivia_buffer(1:trivia_count)
-            trivia_count = 0
-        end if
-    end subroutine scan_logical_token_with_trivia
-
-    subroutine scan_operator_with_trivia(source, pos, line_num, col_num, tokens, &
-            token_count, trivia_buffer, trivia_count, options)
-        character(len=*), intent(in) :: source
-        integer, intent(inout) :: pos, line_num, col_num, token_count, trivia_count
-        type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(trivia_token_t), allocatable, intent(inout) :: trivia_buffer(:)
-        type(lexer_options_t), intent(in) :: options
-        
-        integer :: old_count
-        
-        old_count = token_count
-        call scan_operator(source, pos, line_num, col_num, tokens, token_count)
-        
-        ! Attach leading trivia if any
-        if (trivia_count > 0 .and. options%collect_trivia .and. token_count > old_count) then
-            allocate(tokens(token_count)%leading_trivia(trivia_count))
-            tokens(token_count)%leading_trivia(1:trivia_count) = trivia_buffer(1:trivia_count)
-            trivia_count = 0
-        end if
-    end subroutine scan_operator_with_trivia
-
-    ! MEMORY SAFE trivia token assignment operator
-    subroutine trivia_token_assign(lhs, rhs)
-        class(trivia_token_t), intent(inout) :: lhs
-        type(trivia_token_t), intent(in) :: rhs
-
-        ! MEMORY SAFETY: Clean up existing allocatables first
-        if (allocated(lhs%text)) deallocate(lhs%text)
-
-        ! Copy scalar fields
-        lhs%kind = rhs%kind
-        lhs%line = rhs%line
-        lhs%column = rhs%column
-
-        ! Copy allocatable text
-        if (allocated(rhs%text)) then
-            lhs%text = rhs%text
-        end if
-    end subroutine trivia_token_assign
+    end function to_lower
 
 end module lexer_core
