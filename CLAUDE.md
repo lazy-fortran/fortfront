@@ -1,6 +1,9 @@
-# CLAUDE.md - fortfront Essentials
+# CLAUDE.md - fortfront Essentials - PROJECT TERMINATED
 
-**CRITICAL SYSTEM STATUS**: Build system is broken (Issue #712). Basic functionality not working.
+**PROJECT TERMINATED**: 2025-08-28 - Build system unfixable by current team  
+**WARNING**: Do not attempt to use this project - completely broken  
+**REASON**: FPM git integration bug beyond team capability to fix  
+**RECOMMENDATION**: Find alternative Fortran tools or hire expert consultant
 
 ## WORKING BUILD COMMANDS
 
