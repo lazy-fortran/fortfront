@@ -211,18 +211,31 @@ contains
 
     ! Generate grouped declaration statement
     function generate_grouped_declaration(type_name, kind_value, has_kind, &
-                                          intent, var_list, is_optional) result(stmt)
+                                          intent, var_list, is_optional, &
+                                          is_allocatable, is_pointer, is_parameter, is_target) result(stmt)
         character(len=*), intent(in) :: type_name
         integer, intent(in) :: kind_value
         logical, intent(in) :: has_kind
         character(len=*), intent(in) :: intent
         character(len=*), intent(in) :: var_list
         logical, intent(in), optional :: is_optional
+        logical, intent(in), optional :: is_allocatable
+        logical, intent(in), optional :: is_pointer
+        logical, intent(in), optional :: is_parameter
+        logical, intent(in), optional :: is_target
         character(len=:), allocatable :: stmt
-        logical :: opt_flag
+        logical :: opt_flag, alloc_flag, ptr_flag, param_flag, tgt_flag
 
         opt_flag = .false.
         if (present(is_optional)) opt_flag = is_optional
+        alloc_flag = .false.
+        if (present(is_allocatable)) alloc_flag = is_allocatable
+        ptr_flag = .false.
+        if (present(is_pointer)) ptr_flag = is_pointer
+        param_flag = .false.
+        if (present(is_parameter)) param_flag = is_parameter
+        tgt_flag = .false.
+        if (present(is_target)) tgt_flag = is_target
 
         stmt = type_name
         if (has_kind) then
@@ -230,6 +243,18 @@ contains
         end if
         if (len_trim(intent) > 0) then
             stmt = stmt // ", intent(" // intent // ")"
+        end if
+        if (alloc_flag) then
+            stmt = stmt // ", allocatable"
+        end if
+        if (ptr_flag) then
+            stmt = stmt // ", pointer"
+        end if
+        if (tgt_flag) then
+            stmt = stmt // ", target"
+        end if
+        if (param_flag) then
+            stmt = stmt // ", parameter"
         end if
         if (opt_flag) then
             stmt = stmt // ", optional"
@@ -385,37 +410,52 @@ contains
         select type (node => arena%entries(body_indices(i))%node)
         type is (declaration_node)
             first_node = node
-            var_list = trim(node%var_name)
             
-            ! Look ahead for groupable declarations
-            j = i + 1
-            do while (j <= size(body_indices))
-                if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
-                    if (allocated(arena%entries(body_indices(j))%node)) then
-                        select type (next_node => arena%entries(body_indices(j))%node)
-                        type is (declaration_node)
-                            if (can_group_declarations(first_node, next_node)) then
-                                var_list = var_list // ", " // trim(next_node%var_name)
-                                j = j + 1
-                            else
+            ! Handle multi-variable declarations
+            if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                ! Build variable list from all names in multi-declaration
+                var_list = ""
+                do j = 1, size(node%var_names)
+                    if (j > 1) var_list = var_list // ", "
+                    var_list = var_list // trim(node%var_names(j))
+                end do
+                j = i + 1  ! Skip to next statement after multi-declaration
+            else
+                ! Single variable declaration
+                var_list = trim(node%var_name)
+                
+                ! Look ahead for groupable declarations
+                j = i + 1
+                do while (j <= size(body_indices))
+                    if (body_indices(j) > 0 .and. body_indices(j) <= arena%size) then
+                        if (allocated(arena%entries(body_indices(j))%node)) then
+                            select type (next_node => arena%entries(body_indices(j))%node)
+                            type is (declaration_node)
+                                if (can_group_declarations(first_node, next_node)) then
+                                    var_list = var_list // ", " // trim(next_node%var_name)
+                                    j = j + 1
+                                else
+                                    exit
+                                end if
+                            class default
                                 exit
-                            end if
-                        class default
+                            end select
+                        else
                             exit
-                        end select
+                        end if
                     else
                         exit
                     end if
-                else
-                    exit
-                end if
-            end do
+                end do
+            end if
             
             ! Generate grouped declaration
             stmt_code = generate_grouped_declaration(first_node%type_name, &
                 first_node%kind_value, first_node%has_kind, &
                 merge(first_node%intent, "", first_node%has_intent), &
-                var_list, first_node%is_optional)
+                var_list, first_node%is_optional, &
+                first_node%is_allocatable, first_node%is_pointer, &
+                first_node%is_parameter, first_node%is_target)
             code = code // indent_str // stmt_code // new_line('A')
             i = j
         end select
