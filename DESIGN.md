@@ -25,7 +25,7 @@ ctest  # Full test suite execution
 
 ### CURRENT SPRINT DEFINITION OF DONE
 
-1. **CMAKE TEST DISCOVERY FIXED**: All 243 test files discovered and executable
+1. **FMP TEST EXECUTION RESTORED**: All tests runnable via FMP with proper flags
 2. **ast_factory.f90 REFACTORED**: Below 1000-line limit via logical module extraction  
 3. **SIZE COMPLIANCE RESTORED**: All 10 files violating 1000-line limit addressed
 4. **DIRECTORY REORGANIZATION**: All directories under architectural limits (<30 files)
@@ -36,14 +36,14 @@ ctest  # Full test suite execution
 1. **ast_factory.f90**: 1911 lines (91% over hard limit) - WORST VIOLATION
 2. **10 Additional Files**: All exceed 1000-line hard limit
 3. **Directory Pollution**: 4 directories exceed organizational limits
-4. **Test System Defect**: Only 64 of 243 tests being discovered by CMAKE
+4. **Test System Defect**: FMP test execution reliability issues with build flags
 
 ### SPRINT 5 STRATEGY
 
 **PHASE 1: Build System Reliability**
-- Fix CMAKE test discovery to run all 243 tests
-- Validate full test suite execution
-- Ensure CI reliability with complete coverage
+- Fix FMP test execution with proper compiler flags
+- Validate full test suite execution via `fmp test --flag "-cpp -fmax-stack-var-size=524288"`
+- Ensure CI reliability with FMP-based testing
 
 **PHASE 2: Emergency Size Refactoring**  
 - ast_factory.f90 module extraction (highest priority)
@@ -80,7 +80,7 @@ CORRECTNESS > PERFORMANCE > KISS > SRP > YAGNI > DRY > SOLID > SECURITY
 **ARCHITECTURAL COMPLIANCE**:
 - [ ] All files <1000 lines (0 violations)
 - [ ] All directories <30 files (0 violations)  
-- [ ] CMAKE discovers 243/243 tests (100% coverage)
+- [ ] FMP test execution works reliably (100% test discovery via FMP)
 - [ ] Build system reliability maintained
 
 **DEVELOPMENT READINESS**:

@@ -7,7 +7,7 @@
 **STATUS**: Active sprint with prioritized architectural fixes
 
 **SPRINT DEFINITION OF DONE**:
-1. **CMAKE TEST DISCOVERY FIXED**: All 243 test files discovered and runnable
+1. **FMP TEST EXECUTION RESTORED**: All tests runnable via FMP with proper flags
 2. **ast_factory.f90 REFACTORED**: Below 1000-line hard limit through module extraction
 3. **SIZE COMPLIANCE RESTORED**: All critical size violations addressed
 4. **DIRECTORY REORGANIZATION**: All directories comply with architectural limits
@@ -20,10 +20,10 @@
 
 ### EPIC: BUILD SYSTEM RELIABILITY - CRITICAL
 
-- [ ] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests
-  - **SEVERITY**: CRITICAL - Only 64 of 243 tests running (74% coverage loss)
+- [ ] #768: SPRINT: FMP test execution fix - restore full test coverage
+  - **SEVERITY**: CRITICAL - Test execution reliability issues with FMP flags
   - **ASSIGNED**: sergei
-  - **TARGET**: Fix CMAKE GLOB_RECURSE pattern for complete test discovery
+  - **TARGET**: Fix FMP test execution with proper -cpp and stack flags
 
 ### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY
 
