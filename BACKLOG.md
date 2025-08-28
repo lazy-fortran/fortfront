@@ -30,12 +30,7 @@
 
 ## DOING (Active Work)
 
-- [ ] #723: CLEANUP: Remove 80+ trash debug/test files from repository root
-  - ASSIGNED TO: sergei-perfectionist-coder
-  - Clean up scattered debug_*.f90 files
-  - Remove backup and output files
-  - Organize repository professionally
-  - PRIORITY 2: Professional repository appearance
+**PENDING MERGE**: Both #722 and #723 completed, waiting CI completion for merge
 
 ## SPRINT_BACKLOG - ESSENTIALS-FIRST CLEANUP (5 ISSUES MAX)
 
@@ -179,7 +174,8 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
-- [x] #722: CLEANUP: Remove 40+ obsolete documentation files polluting repository - FIXED IN PR #727 (documentation cleanup by winny-technical-writer)
+- [x] #723: CLEANUP: Remove 80+ trash debug/test files from repository root - COMPLETED IN PR #728 (repository cleanup by sergei-perfectionist-coder)
+- [x] #722: CLEANUP: Remove 40+ obsolete documentation files polluting repository - COMPLETED IN PR #727 (documentation cleanup by winny-technical-writer)
 - [x] #686: ARCHITECTURE: Split parser_control_flow.f90 (1791 lines) into compliant modules - FIXED IN PR #692 (modular control flow components with specialized parsers)
 - [x] #685: ARCHITECTURE: Split fortfront.f90 (2330 lines) into compliant modules - FIXED IN PR #691 (facade pattern with 4-module split maintaining API compatibility)
 - [x] #684: CODEGEN FIX: Multi-variable declarations generate invalid Fortran - FIXED IN PR #690 (comprehensive investigation and diagnostics - architectural fix needed)
