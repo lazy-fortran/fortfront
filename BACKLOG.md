@@ -30,13 +30,14 @@
 
 ## DOING (Active Work)
 
-- [ ] #724: SIMPLIFICATION: Reduce complexity in build system to bare essentials
-  - ASSIGNED TO: sergei-perfectionist-coder
-  - EPIC: SIMPLIFY BUILD SYSTEM
-  - One working build command only
-  - One working test command only
-  - Remove broken coverage setup
-  - PRIORITY 1: Enable basic development workflow
+- [ ] #725: ARCHITECTURE REALITY CHECK: Fix gap between DESIGN.md complexity and team capability
+  - ASSIGNED TO: chris-excellence-architect
+  - EPIC: REALISTIC ARCHITECTURE
+  - Reduce DESIGN.md to working essentials only
+  - Remove unimplementable architecture dreams
+  - Focus on basic functionality that works
+  - Set achievable goals team can actually deliver
+  - PRIORITY 1: Unblock team from complexity paralysis
 
 ## SPRINT_BACKLOG - ESSENTIALS-FIRST CLEANUP (5 ISSUES MAX)
 
@@ -48,14 +49,11 @@
 
 ### EPIC 2: SIMPLIFY BUILD SYSTEM
 
-**NOTE**: Issue #724 moved to DOING
+**NOTE**: Issue #724 has PR #729 - awaiting merge
 
 ### EPIC 3: REALISTIC ARCHITECTURE
-- [ ] #725: ARCHITECTURE REALITY CHECK: Fix gap between DESIGN.md complexity and team capability
-  - Reduce DESIGN.md to working essentials only
-  - Remove unimplementable architecture dreams
-  - Focus on basic functionality that works
-  - Set achievable goals team can actually deliver
+
+**NOTE**: Issue #725 moved to DOING
 
 ### EPIC 4: CORE FUNCTIONALITY VALIDATION
 - [ ] #726: VALIDATION: Verify basic parsing and codegen works with simplified guidance
