@@ -14,16 +14,13 @@
 
 ## DOING (Active Work)
 
-**NONE** - Ready to begin SPRINT_BACKLOG items
+*No active work - awaiting PR #772 review completion*
 
 ## SPRINT_BACKLOG - ARCHITECTURAL INTEGRITY (4 CRITICAL ISSUES)
 
 ### EPIC: BUILD SYSTEM RELIABILITY - CRITICAL
 
-- [ ] #768: SPRINT: FPM test execution fix - restore full test coverage
-  - **SEVERITY**: CRITICAL - Test execution reliability issues with FPM flags
-  - **ASSIGNED**: sergei
-  - **TARGET**: Fix FPM test execution with proper -cpp and stack flags
+- [x] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests - **PR #772 READY FOR REVIEW**
 
 ### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY
 

@@ -79,6 +79,19 @@ set(PARSER_SOURCES
     src/parser/parser_expressions.f90
     src/parser/parser_declarations.f90
     src/parser/parser_control_statements.f90
+    src/parser/parser_array_constructs.f90
+    src/parser/parser_basic_statement_module.f90
+    src/parser/parser_control_flow.f90
+    src/parser/parser_definition_statements.f90
+    src/parser/parser_do_constructs.f90
+    src/parser/parser_execution_statements.f90
+    src/parser/parser_if_constructs.f90
+    src/parser/parser_memory_statements.f90
+    src/parser/parser_select_constructs.f90
+    src/parser/mixed_construct_detector.f90
+    src/parser/url_utilities.f90
+    src/parser/parser_io_statements.f90
+    src/parser/parser_import_statements.f90
     src/parser/parser_dispatcher.f90
 )
 
@@ -86,6 +99,11 @@ set(SEMANTIC_SOURCES
     src/semantic/semantic_context_types.f90
     src/semantic/scope_manager.f90
     src/semantic/type_checker.f90
+    src/semantic/parameter_tracker.f90
+    src/semantic/expression_temporary_tracker.f90
+    src/semantic/constant_folding.f90
+    src/semantic/semantic_inference_helpers.f90
+    src/semantic/semantic_query_api.f90
     src/semantic/semantic_analyzer.f90
 )
 
@@ -103,6 +121,7 @@ set(FRONTEND_SOURCES
     src/json_reader.f90
     src/frontend_core.f90
     src/frontend_parsing.f90
+    src/frontend.f90
     src/fortfront.f90
 )
 
@@ -137,7 +156,7 @@ install(TARGETS fortfront RUNTIME DESTINATION bin)
 enable_testing()
 
 # Add test discovery (simplified version)
-file(GLOB TEST_SOURCES "test/*.f90")
+file(GLOB_RECURSE TEST_SOURCES "test/*.f90")
 foreach(test_file ${TEST_SOURCES})
     get_filename_component(test_name ${test_file} NAME_WE)
     add_executable(${test_name} ${test_file} ${ALL_SOURCES})
