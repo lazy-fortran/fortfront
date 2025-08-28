@@ -1,25 +1,23 @@
-# CLAUDE.md - fortfront Essentials - CMAKE BUILD SYSTEM ACTIVE
+# CLAUDE.md - fortfront Essentials - BUILD SYSTEM STATUS UPDATE
 
-**BUILD SYSTEM STATUS**: CMAKE implementation working - test executables building successfully  
-**CURRENT STATE**: Hybrid CMAKE/FMP build system operational  
-**RECENT PROGRESS**: CMakeLists.txt integrated, cmake_build directory populated  
-**DEVELOPMENT ACTIVE**: Project progressing with working build infrastructure
+**BUILD SYSTEM STATUS**: CMAKE has module compilation issues, FMP is primary working system
+**CURRENT STATE**: FMP build system working, CMAKE needs module path fixes
+**RECENT PROGRESS**: Major architecture refactoring completed, duplicate cleanup successful
+**DEVELOPMENT ACTIVE**: Post-Sprint-6 system stabilization with accurate metrics
 
 ## WORKING BUILD COMMANDS
 
-**CMAKE BUILD SYSTEM** (Primary - Working):
+**FMP BUILD SYSTEM** (Primary - Working):
 ```bash
-# CMAKE builds successfully producing test executables:
-mkdir -p cmake_build && cd cmake_build
-cmake ..
-make
+# FMP builds and executes tests successfully:
+./build.sh  # Clean build completes
+./test.sh   # Test suite runs (many failures but executes, times out after 30s)
 ```
 
-**FMP BUILD SYSTEM** (Restored - Issue #776 RESOLVED):
+**CMAKE BUILD SYSTEM** (Secondary - Module Issues):
 ```bash
-# FMP builds successfully after PR #789 merge:
-./build.sh
-./test.sh  # (runs with many test failures but executes)
+# CMAKE has Fortran module path compilation errors:
+make  # Error: Cannot copy Fortran module "arena_memory.mod"
 ```
 
 ## ESSENTIAL INFORMATION ONLY
@@ -37,16 +35,16 @@ fpm test --flag "-cpp -fmax-stack-var-size=524288"
 4. **Codegen** (`src/codegen/`) - Emits Fortran
 
 ### Key Constraints
-- Files: <1000 lines (many violations exist)
-- Functions: <100 lines (many violations exist)
-- No `error_stop` in production (1,386+ violations exist)
+- Files: <1000 lines (8 violations: largest is parser_import_statements.f90 at 1302 lines)
+- Functions: <100 lines (violations still being assessed)
+- No `error_stop` in production (81 violations: 69 in src/, 12 in test/)
 
 ### Current Problems
-- Test suite stability - many failures but executes (tests timeout after 2min)
-- 35 functions over 100 lines (Issue #717)  
-- ast_factory.f90 is 1911 lines (Issue #714)
-- 1,386 error_stop violations (Issue #716)
-- Some compilation issues remain in analysis/test files (non-blocking)
+- CMAKE module compilation errors - needs path fixes
+- Large files: 8 files over 1000 lines, largest is 1302 lines
+- Test suite has many logical failures but executes (timeout after 30s)
+- 81 error_stop violations (down from previous 1,386+)
+- ast_factory.f90 successfully split into modular components (Issue #714 RESOLVED)
 
 ### Essential Patterns
 ```fortran
