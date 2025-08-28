@@ -25,7 +25,7 @@ ctest  # Full test suite execution
 
 ### CURRENT SPRINT DEFINITION OF DONE
 
-1. **FMP TEST EXECUTION RESTORED**: All tests runnable via FMP with proper flags
+1. **FPM TEST EXECUTION RESTORED**: All tests runnable via FPM with proper flags
 2. **ast_factory.f90 REFACTORED**: Below 1000-line limit via logical module extraction  
 3. **SIZE COMPLIANCE RESTORED**: All 10 files violating 1000-line limit addressed
 4. **DIRECTORY REORGANIZATION**: All directories under architectural limits (<30 files)
@@ -36,14 +36,14 @@ ctest  # Full test suite execution
 1. **ast_factory.f90**: 1911 lines (91% over hard limit) - WORST VIOLATION
 2. **10 Additional Files**: All exceed 1000-line hard limit
 3. **Directory Pollution**: 4 directories exceed organizational limits
-4. **Test System Defect**: FMP test execution reliability issues with build flags
+4. **Test System Defect**: FPM test execution reliability issues with build flags
 
 ### SPRINT 5 STRATEGY
 
 **PHASE 1: Build System Reliability**
-- Fix FMP test execution with proper compiler flags
-- Validate full test suite execution via `fmp test --flag "-cpp -fmax-stack-var-size=524288"`
-- Ensure CI reliability with FMP-based testing
+- Fix FPM test execution with proper compiler flags
+- Validate full test suite execution via `fpm test --flag "-cpp -fmax-stack-var-size=524288"`
+- Ensure CI reliability with FPM-based testing
 
 **PHASE 2: Emergency Size Refactoring**  
 - ast_factory.f90 module extraction (highest priority)
@@ -80,7 +80,7 @@ CORRECTNESS > PERFORMANCE > KISS > SRP > YAGNI > DRY > SOLID > SECURITY
 **ARCHITECTURAL COMPLIANCE**:
 - [ ] All files <1000 lines (0 violations)
 - [ ] All directories <30 files (0 violations)  
-- [ ] FMP test execution works reliably (100% test discovery via FMP)
+- [ ] FPM test execution works reliably (100% test discovery via FPM)
 - [ ] Build system reliability maintained
 
 **DEVELOPMENT READINESS**:
