@@ -17,7 +17,6 @@
 
 ### NEW CRITICAL FAILURES (PLAY AUDIT FINDINGS)
 **EPIC: EMERGENCY PARSER RECOVERY**
-- [ ] #653: CRITICAL: if/else parsing completely broken with false error messages - **BLOCKS BASIC CONTROL FLOW** 
 - [ ] #651: CRITICAL: do loop parsing completely broken - only processes first iteration - **CORE FUNCTIONALITY DESTROYED**
 - [ ] #652: CRITICAL: multi-variable declarations broken - only processes first variable - **BASIC DECLARATIONS UNUSABLE**
 
@@ -44,7 +43,7 @@
 ## DOING (Current Work - EMERGENCY STABILIZATION ONLY)
 
 **EMERGENCY PROTOCOL: FOUNDATION STABILIZATION**
-- [ ] #653: CRITICAL: if/else parsing completely broken with false error messages - **ACTIVE ON BRANCH fix-if-else-parsing-653**
+*No active work - preparing next priority item*
 
 **ABANDONED WORK** (Inconsistent state - branch exists but issue closed):
 - [x] #622: bug: function definitions generate TODO placeholders instead of code - **ISSUE CLOSED, BRANCH EXISTS, NO PR** - Work must be PR'd or abandoned
@@ -65,7 +64,6 @@
 **FAILURE CONSEQUENCES**: Any unmet criteria triggers another emergency stabilization sprint
 
 ### EPIC: EMERGENCY PARSER FIXES (CRITICAL PRIORITY)
-- [ ] #653: CRITICAL: if/else parsing completely broken with false error messages
 - [ ] #651: CRITICAL: do loop parsing completely broken - only processes first iteration  
 - [ ] #652: CRITICAL: multi-variable declarations broken - only processes first variable
 - [ ] #637: bug: parser fails to parse do loops with expressions
@@ -189,6 +187,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #653: CRITICAL: if/else parsing completely broken with false error messages - EMERGENCY FIX IN PR #656 (semicolon statement separation)
 - [x] #637: bug: parser fails to parse do loops with expressions - FIXED IN PR #643 (parser now handles expressions using parse_range)
 - [x] #623: bug: if/else statements generate TODO placeholders instead of code - PR #635 READY FOR REVIEW
 - [x] #634: architectural: foundation-first development protocol implementation required - ASSESSMENT COMPLETE
