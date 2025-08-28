@@ -40,10 +40,7 @@
 
 ### EPIC: USER EXPERIENCE RECOVERY
 
-- [ ] #779: fortfront executable UX failure - debug spam and --version broken
-  - **ROOT CAUSE**: CLI interface produces debug output instead of user output
-  - **TECHNICAL EVIDENCE**: fortfront --version outputs test program, not version
-  - **PRIORITY**: HIGH - affects basic usability
+- [x] #779: fortfront executable UX failure - **COMPLETED IN PR #790** (CLI argument parsing implementation)
 
 ### EPIC: DOCUMENTATION ACCURACY RECOVERY
 
@@ -187,6 +184,9 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+
+### SPRINT 6 COMPLETIONS - CLI UX RECOVERY (2025-08-28)
+- [x] #779: CRITICAL UX BUG: fortfront executable UX failure - **COMPLETED IN PR #790** (CLI argument parsing with --version, --help, file input support)
 
 ### SPRINT 5 COMPLETIONS - ARCHITECTURAL INTEGRITY RECOVERY (2025-08-28)
 - [x] #773: CRITICAL: semantic_query_api.f90 compilation failure - **COMPLETED IN PR #774** (mono_type_t API emergency fix)
