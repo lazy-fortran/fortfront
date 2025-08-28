@@ -1,43 +1,38 @@
 # Development Backlog
 
-## 🚨 ESSENTIALS-FIRST RECOVERY SPRINT - GET BASICS WORKING
+## REALISTIC SPRINT - BASIC FUNCTIONALITY ONLY
 
-**NEW STRATEGIC CONTEXT**: CLAUDE.md simplified from 275 lines to 35 lines of brutal essentials  
-**APPROACH CHANGE**: Focus on "GET BASICS WORKING FIRST" vs architectural dreams  
-**DOCUMENTATION REALITY**: Repository cleanup needed - honest assessment of broken status  
+**REALITY CHECK COMPLETE**: Architecture simplified to match team capability  
+**FOCUS**: Get basic lexer-parser-codegen pipeline working  
+**NO COMPLEXITY**: Removed CST, arenas, type theory - team cannot implement  
 
-**SPRINT GOAL**: Make basic functionality work with simplified guidance
+**SPRINT GOAL**: Fix build system and get basic parsing working
 
-**SPRINT DEFINITION OF DONE** (Simplified Essentials):
-1. **System Builds**: Basic compilation works
-2. **Core Functionality**: Can parse simple Fortran and generate output
-3. **Repository Clean**: Remove documentation fraud and debug trash
-4. **Build System Simple**: One command builds, one command tests
-5. **Honest Assessment**: Document what actually works vs claims
+**ACHIEVABLE DEFINITION OF DONE**:
+1. **Build Works**: `./build.sh` executes without errors
+2. **Tests Pass**: Basic test suite runs without hanging
+3. **Simple Parsing**: Can parse basic Fortran programs
+4. **Code Generation**: Produces valid Fortran output
+5. **Size Compliance**: Start refactoring oversized files
 
-### REALITY CHECK - SIMPLIFIED PRIORITIES
+### CURRENT STATUS - HONEST ASSESSMENT
 
-**REPOSITORY CLEANUP NEEDED** (Issues #722-725):
-- 40+ obsolete documentation files polluting repository
-- 80+ trash debug/test files scattered everywhere
-- Overcomplicated build system with multiple broken scripts
-- DESIGN.md contains unrealistic architecture dreams beyond team capability
+**COMPLETED SIMPLIFICATION**:
+- ✅ DESIGN.md reduced to 95 lines of achievable reality
+- ✅ Removed ALL CST/arena/type theory complexity
+- ✅ Moved 20+ unimplementable issues to FAR FUTURE
+- ✅ Established realistic goals team can achieve
 
-**BASIC FUNCTIONALITY STATUS**:
-- System partially works but with complex guidance overwhelming team
-- Core parsing and codegen functional for simple cases
-- Need to focus on essentials that work vs architectural perfection
+**REMAINING WORK**:
+- Build system broken (Issue #712)
+- 35+ functions over 100 lines need refactoring  
+- 12+ files over 1000 lines need splitting
+- Test suite has various failures
 
 ## DOING (Active Work)
 
-- [ ] #725: ARCHITECTURE REALITY CHECK: Fix gap between DESIGN.md complexity and team capability
-  - ASSIGNED TO: chris-excellence-architect
-  - EPIC: REALISTIC ARCHITECTURE
-  - Reduce DESIGN.md to working essentials only
-  - Remove unimplementable architecture dreams
-  - Focus on basic functionality that works
-  - Set achievable goals team can actually deliver
-  - PRIORITY 1: Unblock team from complexity paralysis
+*Currently empty - select next item from SPRINT_BACKLOG*
+
 
 ## SPRINT_BACKLOG - ESSENTIALS-FIRST CLEANUP (5 ISSUES MAX)
 
@@ -51,9 +46,10 @@
 
 **NOTE**: Issue #724 has PR #729 - awaiting merge
 
-### EPIC 3: REALISTIC ARCHITECTURE
-
-**NOTE**: Issue #725 moved to DOING
+### EPIC 3: BUILD SYSTEM FIX
+- [ ] #712: FIX BUILD: Resolve `tokenize_with_options` missing function
+  - Build system completely broken - highest priority
+  - Basic compilation must work before any other development
 
 ### EPIC 4: CORE FUNCTIONALITY VALIDATION
 - [ ] #726: VALIDATION: Verify basic parsing and codegen works with simplified guidance
@@ -117,20 +113,12 @@
 
 ## PRODUCT BACKLOG
 
-### CST/AST Converter Enhancements (ENHANCEMENT)
-- [ ] #483: feat: enable enhanced AST nodes with CST references
-- [ ] #484: feat: implement full syntax construct conversion in CST to AST converter
-- [ ] #485: test: add performance benchmarks for CST to AST conversion
 
 ### Code Quality and Refactoring (ENHANCEMENT)
 - [ ] #365: refactor: break down large functions >200 lines (9 functions)
 - [ ] #366: refactor: address remaining 24 functions exceeding 100-line limit
 - [ ] #367: refactor: address remaining large files >1000 lines
 
-### Type System Improvements (ENHANCEMENT)
-- [ ] #401: Type System: Implement constraint generation for Hindley-Milner type inference
-- [ ] #402: Type System: Implement unification algorithm with occurs check for constraint solving
-- [ ] #403: Type System: Implement constraint solver with let-polymorphism support
 
 ### Testing and Documentation (SUPPORT)
 - [ ] #504: refactor: consolidate redundant AST arena test patterns
@@ -160,22 +148,39 @@
 ### Documentation (SUPPORT) 
 - [ ] #381: doc: create comprehensive arena architecture documentation
 
-### Epic Planning and Architecture (FUTURE WORK)
-- [ ] #392: epic: CST/AST Split Implementation - Complete Migration Plan
-- [ ] #391: feat: CST Phase 5 - Implement advanced CST/AST features and external tool integration  
-- [ ] #390: feat: CST Phase 4 - Remove legacy code and optimize CST/AST system
-- [ ] #389: feat: CST Phase 3 - Migrate parser modules to CST-first construction
-- [ ] #388: feat: CST Phase 2 - Implement CST to AST converter with bidirectional links
-- [ ] #387: feat: CST Phase 1 - Implement parallel CST construction alongside existing AST
-- [ ] #386: feat: CST Phase 0 - Create foundation infrastructure for CST/AST split
+
+## FAR FUTURE (Team Cannot Implement)
+
+**WARNING**: These items require expertise beyond current team capability.
+Moved here to prevent development paralysis. Focus on basics first.
+
+### Advanced Type Theory (UNIMPLEMENTABLE)
+- [ ] #401: Type System: Implement constraint generation for Hindley-Milner type inference
+- [ ] #402: Type System: Implement unification algorithm with occurs check 
+- [ ] #403: Type System: Implement constraint solver with let-polymorphism
 - [ ] #385: feat: complete Hindley-Milner type inference with constraint solving
-- [ ] #384: feat: implement concrete syntax tree (CST) with trivia preservation
-- [ ] #383: epic: unified arena architecture implementation roadmap
+
+### CST Architecture (UNIMPLEMENTABLE) 
+- [ ] #392: epic: CST/AST Split Implementation - Complete Migration Plan
+- [ ] #391: feat: CST Phase 5 - Advanced CST/AST features
+- [ ] #390: feat: CST Phase 4 - Remove legacy code and optimize
+- [ ] #389: feat: CST Phase 3 - Migrate parser to CST-first
+- [ ] #388: feat: CST Phase 2 - CST to AST converter
+- [ ] #387: feat: CST Phase 1 - Parallel CST construction
+- [ ] #386: feat: CST Phase 0 - Foundation infrastructure
+- [ ] #384: feat: implement concrete syntax tree with trivia
+- [ ] #483: feat: enable enhanced AST nodes with CST references
+- [ ] #484: feat: implement full syntax construct conversion
+- [ ] #485: test: add performance benchmarks for CST conversion
+
+### Arena Memory Management (UNIMPLEMENTABLE)
+- [ ] #383: epic: unified arena architecture implementation
 - [ ] #382: test: comprehensive arena testing suite
-- [ ] #381: doc: create comprehensive arena architecture documentation
-- [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
+- [ ] #381: doc: create arena architecture documentation
+- [ ] #380: feat: create unified arena API for external tools
 
 ## DONE
+- [x] #725: ARCHITECTURE REALITY CHECK: Simplified to achievable basics - FIXED (removed CST/arena/type theory complexity)
 - [x] #723: CLEANUP: Remove 80+ trash debug/test files from repository root - FIXED IN PR #728 (repository organization cleanup by sergei-perfectionist-coder)
 - [x] #722: CLEANUP: Remove 40+ obsolete documentation files polluting repository - FIXED IN PR #727 (documentation cleanup by winny-technical-writer)
 - [x] #686: ARCHITECTURE: Split parser_control_flow.f90 (1791 lines) into compliant modules - FIXED IN PR #692 (modular control flow components with specialized parsers)
