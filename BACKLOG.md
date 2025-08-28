@@ -30,13 +30,13 @@
 
 ## DOING (Active Work)
 
-- [ ] #724: SIMPLIFICATION: Reduce complexity in build system to bare essentials
-  - ASSIGNED TO: sergei-perfectionist-coder
-  - EPIC: SIMPLIFY BUILD SYSTEM
-  - One working build command only
-  - One working test command only
-  - Remove broken coverage setup
-  - PRIORITY 1: Enable basic development workflow
+- [ ] #726: VALIDATION: Verify basic parsing and codegen works with simplified guidance
+  - ASSIGNED TO: vicky-acceptance-tester
+  - EPIC 4: CORE FUNCTIONALITY VALIDATION
+  - Test essential functionality without complex architectural requirements
+  - Document what actually works vs what is claimed
+  - Establish realistic baseline for future development
+  - PRIORITY: Final sprint validation
 
 ## SPRINT_BACKLOG - ESSENTIALS-FIRST CLEANUP (5 ISSUES MAX)
 
@@ -47,8 +47,11 @@
 
 
 ### EPIC 2: SIMPLIFY BUILD SYSTEM
-
-**NOTE**: Issue #724 moved to DOING
+- [ ] #724: SIMPLIFICATION: Reduce complexity in build system to bare essentials
+  - One working build command only
+  - One working test command only
+  - Remove broken coverage setup
+  - PRIORITY 1: Enable basic development workflow
 
 ### EPIC 3: REALISTIC ARCHITECTURE
 - [ ] #725: ARCHITECTURE REALITY CHECK: Fix gap between DESIGN.md complexity and team capability
@@ -58,10 +61,8 @@
   - Set achievable goals team can actually deliver
 
 ### EPIC 4: CORE FUNCTIONALITY VALIDATION
-- [ ] #726: VALIDATION: Verify basic parsing and codegen works with simplified guidance
-  - Test essential functionality without complex architectural requirements
-  - Document what actually works vs what is claimed
-  - Establish realistic baseline for future development
+
+**NOTE**: Issue #726 moved to DOING
 
 **ESSENTIALS SUCCESS CRITERIA** (Realistic Goals):
 - Repository is clean and professional
