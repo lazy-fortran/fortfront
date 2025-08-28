@@ -34,7 +34,6 @@
 ## DOING (Active Work)
 
 **⚠️ CRITICAL**: Clear these before starting SPRINT_BACKLOG**
-- [ ] #686: ARCHITECTURE: Split parser_control_flow.f90 (1791 lines) into compliant modules (EPIC 3 - FINAL architectural split)
 
 ## SPRINT_BACKLOG - CRISIS RECOVERY (3 EPICS, 5 ISSUES MAX)
 
@@ -162,6 +161,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #686: ARCHITECTURE: Split parser_control_flow.f90 (1791 lines) into compliant modules - FIXED IN PR #692 (modular control flow components with specialized parsers)
 - [x] #685: ARCHITECTURE: Split fortfront.f90 (2330 lines) into compliant modules - FIXED IN PR #691 (facade pattern with 4-module split maintaining API compatibility)
 - [x] #684: CODEGEN FIX: Multi-variable declarations generate invalid Fortran - FIXED IN PR #690 (comprehensive investigation and diagnostics - architectural fix needed)
 - [x] #683: TEST FIX: Resolve test suite hanging indefinitely - FIXED IN PR #689 (infinite loop prevention and build system timeouts)
