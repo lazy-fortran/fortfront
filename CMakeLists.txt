@@ -28,14 +28,14 @@ include_directories(${CMAKE_Fortran_MODULE_DIRECTORY})
 # Source files - organized by dependency order
 set(CORE_SOURCES
     src/error_handling.f90
-    src/string_types.f90
-    src/path_validation.f90
-    src/intrinsic_registry.f90
+    src/utilities/string_types.f90
+    src/utilities/path_validation.f90
+    src/utilities/intrinsic_registry.f90
     src/error_reporting.f90
-    src/input_validation.f90
+    src/utilities/input_validation.f90
     src/common/uid_generator.f90
     src/memory/arena_memory.f90
-    src/frontend_utilities.f90
+    src/utilities/frontend_utilities.f90
 )
 
 set(LEXER_SOURCES
@@ -47,28 +47,36 @@ set(LEXER_SOURCES
 set(AST_SOURCES
     src/ast/ast_base.f90
     src/ast/ast_error_nodes.f90
-    src/ast/ast_visitor.f90
-    src/ast/ast_traversal.f90
-    src/ast/ast_nodes_core.f90
-    src/ast/ast_nodes_procedure.f90
-    src/ast/ast_nodes_control.f90
-    src/ast/ast_nodes_data.f90
-    src/ast/ast_nodes_io.f90
-    src/ast/ast_nodes_misc.f90
-    src/ast/ast_nodes_bounds.f90
-    src/ast/ast_arena_core.f90
-    src/ast/ast_arena_compat.f90
-    src/ast/ast_arena_modern.f90
+    src/ast/traversal/ast_visitor.f90
+    src/ast/traversal/ast_traversal.f90
+    src/ast/nodes/ast_nodes_core.f90
+    src/ast/nodes/ast_nodes_procedure.f90
+    src/ast/nodes/ast_nodes_control.f90
+    src/ast/nodes/ast_nodes_data.f90
+    src/ast/nodes/ast_nodes_io.f90
+    src/ast/nodes/ast_nodes_misc.f90
+    src/ast/nodes/ast_nodes_bounds.f90
+    src/ast/arena/ast_arena_core.f90
+    src/ast/arena/ast_arena_compat.f90
+    src/ast/arena/ast_arena_modern.f90
     src/ast/ast_core.f90
     src/ast/ast_types.f90
-    src/ast/ast_factory.f90
+    src/ast/factory/ast_factory_core.f90
+    src/ast/factory/ast_factory_expressions.f90
+    src/ast/factory/ast_factory_declarations.f90
+    src/ast/factory/ast_factory_control.f90
+    src/ast/factory/ast_factory_io.f90
+    src/ast/factory/ast_factory_procedures.f90
+    src/ast/factory/ast_factory_arrays.f90
+    src/ast/factory/ast_factory_statements.f90
+    src/ast/factory/ast_factory.f90
     src/ast/ast_introspection.f90
 )
 
 set(TYPE_SYSTEM_SOURCES
-    src/semantic/type_constants.f90
-    src/semantic/type_system_arena.f90
-    src/semantic/type_system_unified.f90
+    src/semantic/types/type_constants.f90
+    src/semantic/types/type_system_arena.f90
+    src/semantic/types/type_system_unified.f90
 )
 
 set(PARSER_SOURCES
@@ -96,15 +104,22 @@ set(PARSER_SOURCES
 )
 
 set(SEMANTIC_SOURCES
-    src/semantic/semantic_context_types.f90
+    src/semantic/types/semantic_context_types.f90
     src/semantic/scope_manager.f90
-    src/semantic/type_checker.f90
-    src/semantic/parameter_tracker.f90
-    src/semantic/expression_temporary_tracker.f90
-    src/semantic/constant_folding.f90
+    src/semantic/types/type_checker.f90
+    src/semantic/analyzers/parameter_tracker.f90
+    src/semantic/analyzers/expression_temporary_tracker.f90
+    src/semantic/constant_transformation.f90
     src/semantic/semantic_inference_helpers.f90
     src/semantic/semantic_query_api.f90
-    src/semantic/semantic_analyzer.f90
+    src/semantic/analyzers/semantic_analyzer.f90
+)
+
+set(ANALYSIS_SOURCES
+    src/analysis/control_flow_graph.f90
+    src/analysis/conditional_evaluation.f90
+    src/analysis/cfg_builder.f90
+    src/analysis/control_flow_analysis.f90
 )
 
 set(CODEGEN_SOURCES
@@ -118,7 +133,7 @@ set(CODEGEN_SOURCES
 )
 
 set(FRONTEND_SOURCES
-    src/json_reader.f90
+    src/utilities/json_reader.f90
     src/frontend_core.f90
     src/frontend_parsing.f90
     src/frontend.f90
@@ -133,6 +148,7 @@ set(ALL_SOURCES
     ${TYPE_SYSTEM_SOURCES}
     ${PARSER_SOURCES}
     ${SEMANTIC_SOURCES}
+    ${ANALYSIS_SOURCES}
     ${CODEGEN_SOURCES}
     ${FRONTEND_SOURCES}
 )

@@ -1,4 +1,4 @@
-module constant_folding_module
+module conditional_evaluation_module
     use iso_fortran_env, only: error_unit
     use ast_core
     use ast_arena_modern
@@ -175,4 +175,4 @@ contains
         end if
     end function is_integer_string
 
-end module constant_folding_module
+end module conditional_evaluation_module
