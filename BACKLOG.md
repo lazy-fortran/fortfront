@@ -43,7 +43,7 @@
 ## DOING (Current Work - EMERGENCY STABILIZATION ONLY)
 
 **EMERGENCY PROTOCOL: FOUNDATION STABILIZATION**
-*No active work - preparing next priority item*
+- [ ] #652: CRITICAL: multi-variable declarations broken - only processes first variable - **ROUTING TO SERGEI FOR IMMEDIATE IMPLEMENTATION**
 
 **ABANDONED WORK** (Inconsistent state - branch exists but issue closed):
 - [x] #622: bug: function definitions generate TODO placeholders instead of code - **ISSUE CLOSED, BRANCH EXISTS, NO PR** - Work must be PR'd or abandoned
@@ -64,9 +64,9 @@
 **FAILURE CONSEQUENCES**: Any unmet criteria triggers another emergency stabilization sprint
 
 ### EPIC: EMERGENCY PARSER FIXES (CRITICAL PRIORITY)
-- [ ] #651: CRITICAL: do loop parsing completely broken - only processes first iteration  
+- [x] #651: CRITICAL: do loop parsing completely broken - only processes first iteration - **FIXED IN PR #657**
 - [ ] #652: CRITICAL: multi-variable declarations broken - only processes first variable
-- [ ] #637: bug: parser fails to parse do loops with expressions
+- [x] #637: bug: parser fails to parse do loops with expressions - **FIXED IN PR #643**
 
 ### EPIC: ARCHITECTURAL VIOLATIONS (IMMEDIATE COMPLIANCE)
 - [ ] #650: ARCHITECTURAL: fortfront.f90 at 2330 lines violates 1000-line limit by 133%
