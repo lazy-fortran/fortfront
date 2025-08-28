@@ -43,7 +43,7 @@
 ## DOING (Current Work - EMERGENCY STABILIZATION ONLY)
 
 **EMERGENCY PROTOCOL: FOUNDATION STABILIZATION**
-*No active work - preparing next priority item*
+- [ ] #651: CRITICAL: do loop parsing completely broken - only processes first iteration - **ROUTING TO SERGEI FOR IMMEDIATE IMPLEMENTATION**
 
 **ABANDONED WORK** (Inconsistent state - branch exists but issue closed):
 - [x] #622: bug: function definitions generate TODO placeholders instead of code - **ISSUE CLOSED, BRANCH EXISTS, NO PR** - Work must be PR'd or abandoned

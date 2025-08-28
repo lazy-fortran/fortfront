@@ -517,17 +517,31 @@ contains
                     end if
                 end block
 
-                ! Parse statement until end of line
+                ! Parse statement until end of line or semicolon
                 stmt_start = parser%current_token
+                
+                ! Skip leading semicolons to get to actual statement
+                do while (stmt_start <= size(parser%tokens) .and. &
+                         parser%tokens(stmt_start)%kind == TK_OPERATOR .and. &
+                         parser%tokens(stmt_start)%text == ";")
+                    stmt_start = stmt_start + 1
+                end do
+                
                 stmt_end = stmt_start
 
-                ! Find end of current statement (same line)
+                ! Find end of current statement (same line or semicolon boundary)
                 do j = stmt_start, size(parser%tokens)
                     if (parser%tokens(j)%kind == TK_EOF) then
                         stmt_end = j
                         exit
                     end if
    if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
+                        stmt_end = j - 1
+                        exit
+                    end if
+                    ! Check for semicolon as statement separator
+                    if (j > stmt_start .and. parser%tokens(j)%kind == TK_OPERATOR .and. &
+                        parser%tokens(j)%text == ";") then
                         stmt_end = j - 1
                         exit
                     end if
@@ -564,7 +578,14 @@ contains
                 end if
 
                 ! Move to next statement
-                parser%current_token = stmt_end + 1
+                ! If we stopped at a semicolon, skip over it
+                if (stmt_end + 1 <= size(parser%tokens) .and. &
+                    parser%tokens(stmt_end + 1)%kind == TK_OPERATOR .and. &
+                    parser%tokens(stmt_end + 1)%text == ";") then
+                    parser%current_token = stmt_end + 2
+                else
+                    parser%current_token = stmt_end + 1
+                end if
             end do
 
             ! Update the do loop node with the actual body indices
