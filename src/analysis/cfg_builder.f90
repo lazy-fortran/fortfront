@@ -3,7 +3,7 @@ module cfg_builder_module
     use ast_core
     use ast_arena_modern
     use control_flow_graph_module
-    use constant_folding_module, only: evaluate_constant_condition
+    use conditional_evaluation_module, only: evaluate_constant_condition
     implicit none
     private
 
