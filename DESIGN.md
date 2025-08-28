@@ -1,82 +1,87 @@
 # fortfront Architecture Design
 
-## 🚨 EMERGENCY STABILIZATION SPRINT - SYSTEM RECOVERY
+## 🚨 CRISIS RECOVERY SPRINT - ARCHITECTURAL RESTORATION
 
-**CRISIS STATUS**: CONTROL FLOW sprint COMPLETE FAILURE - team delivered 0% functional features  
-**SYSTEM STATE**: UNSUITABLE FOR ANY REAL USE - basic parsing completely broken  
-**EMERGENCY RESPONSE**: 46 fixes in 7 days indicates total development process breakdown
+**CRISIS DISCOVERY**: PLAY phase audit uncovered 22 critical defects proving system is non-functional  
+**SYSTEM REALITY**: Segfaults on basic code, generates invalid Fortran, test suite hangs indefinitely  
+**RECOVERY IMPERATIVE**: Fix crashes first, then validity, then compliance - in that order
 
-**SPRINT GOAL**: Emergency system stabilization - restore basic parsing functionality
+**SPRINT GOAL**: Minimal viable functionality - no crashes, valid output, working tests
 
-**BRUTAL REALITY CHECK**: Previous sprint claims were FALSE - basic control flow is completely broken:
-- if/else statements: Parser fails with false error messages
-- do loops: Only processes first iteration, destroys loop structure 
-- Multi-variable declarations: Only processes first variable
-- Architecture: 12 files violate 1000-line limits (worst violation 2330 lines)
+**DEFECT REALITY**: 22 issues filed documenting catastrophic failures:
+- **SEGFAULTS**: Do loops crash immediately (Issues #678, #679)
+- **INVALID CODE**: Multi-variable declarations produce uncompilable Fortran (Issue #680)
+- **TEST HANG**: Test suite hangs indefinitely, blocking all validation (Issue #671)
+- **ARCHITECTURE**: 15+ files violate limits, worst is 2330 lines (Issues #650, #658, #662-667)
+- **FUNCTIONS**: Multiple functions exceed 100 lines by up to 596% (Issues #668, #669, #670)
 
-**EMERGENCY DEFINITION OF DONE** (ALL MUST PASS):
-- Parser handles basic if/else without crashing or false errors
-- Parser processes complete do loop structures (not just first iteration)
-- Multi-variable declarations process ALL variables correctly
-- All files comply with 1000-line architectural constraint (zero exceptions)
-- Development exits emergency mode (no more crisis management)
+**RECOVERY DEFINITION OF DONE** (Minimum Viable System):
+1. No segmentation faults on basic control flow
+2. Generated code compiles with gfortran
+3. Test suite executes without hanging
+4. Two worst architectural violations resolved (<1000 lines)
+5. Honest assessment of what actually works
 
-**🚨 EMERGENCY RECOVERY PLAN**:
+**🚨 CRISIS RECOVERY PLAN** (5 Issues Maximum):
 
-### Phase 1: CRITICAL PARSER FIXES (Issues #653, #651, #652)
-**CRISIS**: Basic parsing completely broken - system unusable
-**ROOT CAUSE**: Parser logic failures destroying basic language constructs
-**IMMEDIATE ACTION**:
-- Fix if/else parsing: Eliminate false "missing then" errors for valid syntax
-- Fix do loop parsing: Parse complete loop structures (not just first iteration)
-- Fix multi-variable declarations: Process ALL variables in declaration statements
-- Test with basic control flow examples to verify parsing works
+### Priority 1: STOP CRASHES (Issues #678, #679, #671)
+**CRISIS**: System segfaults on basic code, tests hang indefinitely
+**ROOT CAUSE**: Memory corruption in do loop parsing, infinite loops in tests
+**IMMEDIATE FIX**:
+- Debug do loop segmentation faults - find invalid memory access
+- Identify test hanging cause - likely infinite loop or deadlock
+- Ensure basic control flow doesn't crash the system
+- Verify with simple do loop test cases
 
-### Phase 2: ARCHITECTURAL COMPLIANCE (Issues #650, #639)
-**CRISIS**: 12 files violate architectural limits, worst violation 2330 lines (133% over limit)
-**SYSTEMIC IMPACT**: Code unmaintainable, reviews impossible, violates core principles
-**EMERGENCY ACTION**:
-- Split fortfront.f90 (2330 lines) into focused modules <500 lines each
-- Split ast_factory.f90, parser_control_flow.f90, lexer_core.f90
-- Maintain clean APIs, ensure no functionality loss
-- ALL files must be under 1000 lines (zero exceptions)
+### Priority 2: GENERATE VALID CODE (Issue #680)
+**CRISIS**: Multi-variable declarations produce uncompilable Fortran
+**IMPACT**: Generated code fails gfortran compilation
+**REQUIRED FIX**:
+- Process ALL variables in declaration statements
+- Generate proper declaration syntax for each variable
+- Test output compiles with standard gfortran
+- Verify with `integer :: x, y, z` test case
 
-### Phase 3: PROCESS STABILIZATION (Issues #655, #654, #649)
-**CRISIS**: Development in emergency mode, quality gates failing
-**TEAM ACCOUNTABILITY**: False claims, broken review process, PR gridlock
-**PROCESS RECOVERY**:
-- Clear 3 READY PRs blocking development
-- Fix test suite false positives enabling broken code merges
-- Implement mandatory functional verification before PR approval
-- Restore honest status reporting with working code verification
+### Priority 3: ARCHITECTURAL COMPLIANCE (Issues #650, #658)
+**CRISIS**: fortfront.f90 at 2330 lines, parser_control_flow.f90 at 1791 lines
+**APPROACH**: Split only the two worst offenders this sprint
+**TACTICAL SPLIT**:
+- fortfront.f90 → fortfront_core.f90 + fortfront_api.f90 + fortfront_pipeline.f90
+- parser_control_flow.f90 → parser_loops.f90 + parser_conditionals.f90 + parser_blocks.f90
+- Maintain interfaces, just move code to new modules
+- Target <800 lines per resulting module
 
-### EMERGENCY QUALITY GATE
-**BASIC PARSING TEST**: The following simple programs MUST parse without errors:
+### CRISIS RECOVERY VALIDATION TESTS
 
+**TEST 1: Do Loop (CURRENTLY SEGFAULTS)**
 ```fortran
-! Test 1: Simple if/else (CURRENTLY FAILS)
-if (x > 0) then
-  print *, "positive"
-else
-  print *, "not positive"  
-end if
-
-! Test 2: Basic do loop (CURRENTLY FAILS - only processes first iteration)
-do i = 1, 3
-  print *, i
-end do
-
-! Test 3: Multi-variable declaration (CURRENTLY FAILS - only processes first variable)
-integer :: x, y, z
-
-! EXPECTED BEHAVIOR:
-! - No false error messages
-! - Complete parsing of all language constructs
-! - No lost information (full loop structure, all variables)
-! - Parser recognizes valid Fortran syntax correctly
+program test_loop
+  integer :: i
+  do i = 1, 3
+    print *, i
+  end do
+end program
 ```
+**PASS**: Parses without segmentation fault
 
-**SUCCESS CRITERIA**: All three tests parse completely without errors or false messages
+**TEST 2: Multi-Variable (CURRENTLY GENERATES INVALID CODE)**
+```fortran
+program test_vars
+  integer :: x, y, z
+  x = 1
+  y = 2
+  z = 3
+end program
+```
+**PASS**: Generated code compiles with gfortran
+
+**TEST 3: Test Suite (CURRENTLY HANGS)**
+```bash
+fpm test test_lexer_basic --flag "-cpp -fmax-stack-var-size=131072"
+```
+**PASS**: Completes in <30 seconds
+
+**SUCCESS CRITERIA**: All three tests pass without crashes, invalid code, or hanging
 
 ## 🚨 SPRINT FAILURE ANALYSIS: CONTROL FLOW → EMERGENCY STABILIZATION
 

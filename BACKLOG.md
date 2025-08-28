@@ -1,88 +1,64 @@
 # Development Backlog
 
-## EMERGENCY STABILIZATION SPRINT - SYSTEM RECOVERY
+## CRISIS RECOVERY SPRINT - SYSTEM RESTORATION
 
-**SPRINT CRISIS STATUS**: CONTROL FLOW sprint COMPLETE FAILURE - 0% functionality delivered  
-**SYSTEM STATE**: UNSUITABLE FOR ANY REAL USE - basic functionality completely broken  
-**EMERGENCY MODE**: 46 fixes in 7 days indicates complete breakdown of development process
+**CRISIS DISCOVERY**: PLAY phase audit revealed 22 critical defects documenting complete system failure  
+**SYSTEM STATE**: Non-functional - segfaults, invalid code generation, test suite broken  
+**RECOVERY MODE**: Immediate crisis intervention required before any development work
 
-**SPRINT GOAL**: Emergency stabilization - restore basic system functionality before any new development
+**SPRINT GOAL**: Restore minimal system functionality - fix crashes, enable testing, achieve compliance
 
 **SPRINT DEFINITION OF DONE**:
-- Parser can handle basic control flow (if/else, do loops) without crashing or errors
-- Multi-variable declarations process all variables correctly
-- System generates actual Fortran code (no TODO placeholders)
-- All architectural violations resolved (no files >1000 lines)
-- Process workflow stabilized (no crisis management needed)
+1. **No Segfaults**: Do loops and control flow parse without crashes (Issues #678, #679)
+2. **Valid Code Generation**: Multi-variable declarations generate compilable Fortran (Issue #680)
+3. **Test Suite Functional**: Tests execute without hanging (Issue #671)
+4. **Architectural Compliance**: Worst offenders under 1000 lines (fortfront.f90, parser files)
+5. **Process Integrity**: No false completion claims - verify all fixes actually work
 
-### NEW CRITICAL FAILURES (PLAY AUDIT FINDINGS)
-**EPIC: EMERGENCY PARSER RECOVERY**
-- [ ] #651: CRITICAL: do loop parsing completely broken - only processes first iteration - **CORE FUNCTIONALITY DESTROYED**
-- [ ] #652: CRITICAL: multi-variable declarations broken - only processes first variable - **BASIC DECLARATIONS UNUSABLE**
+### CRISIS FINDINGS - PLAY PHASE DEFECT DISCOVERY
 
-### ARCHITECTURAL CRISIS (SYSTEM INTEGRITY)
-**EPIC: EMERGENCY ARCHITECTURAL COMPLIANCE** 
-- [ ] #650: ARCHITECTURAL: fortfront.f90 at 2330 lines violates 1000-line limit by 133% - **WORST VIOLATION IN CODEBASE**
-- [ ] #639: CRITICAL: 9 files violate 1000-line architectural limit - **12 FILES UP TO 2330 LINES** 
-- [ ] #640: CRITICAL: error stop statements violate error handling architecture - **PREVENTS LIBRARY INTEGRATION**
+**PATRICK'S ARCHITECTURAL AUDIT (18 issues filed)**:
+- Functions violating 100-line limit by up to 596% (#668, #669, #670)
+- 15+ files violating 1000-line architectural limits (#662-667, #639, #650, #658)
+- Test suite infrastructure completely broken (#671)
+- Multiple process and quality violations (#673-677)
 
-### PROCESS BREAKDOWN (TEAM ACCOUNTABILITY)
-**EPIC: EMERGENCY PROCESS RECOVERY**
-- [ ] #655: PROCESS VIOLATION: 3 READY PRs blocking development with no review activity - **WORKFLOW GRIDLOCK**
-- [ ] #654: SYSTEMIC: development workflow completely broken - 46 fixes in 7 days indicates crisis - **TEAM IN EMERGENCY MODE**
-- [ ] #649: patrick/vicky quality review blindness: test suite false positives enable broken code - **QUALITY GATES FAILED**
-- [ ] #648: max process failure: no validation of PR functionality before merge approval - **MERGE PROCESS BROKEN**
-- [ ] #647: team accountability: sergei dishonest implementation claims with broken code - **INTEGRITY CRISIS**
+**VICKY'S FUNCTIONAL TESTING (4 critical issues)**:
+- Do loop parsing causes immediate SEGFAULT (#678, #679)
+- Multi-variable declarations generate invalid, uncompilable code (#680)
+- Empty program validation incorrectly fails (#681)
+- System claims fixes that don't actually work
 
-### PREVIOUS CRISIS (STILL UNRESOLVED)
-**EPIC: Legacy Crisis Resolution**
-- [ ] #641: security: unsafe memory allocations without error checking - **SECURITY VULNERABILITY**
-- [ ] #642: test coverage: inadequate parser test coverage - **MASKS CRITICAL FAILURES**
-- [ ] #638: bug: parser generates 'Unparsed' comments for array operations in loops - **PARSER REGRESSION**
+**TOTAL DEFECTS**: 22 GitHub issues documenting comprehensive system failure
 
-## DOING (Current Work - EMERGENCY STABILIZATION ONLY)
+## DOING (Active Work)
 
-**WORK PHASE COMPLETION ASSESSMENT** (3/3 PARSER EMERGENCIES RESOLVED):
-- [x] #653: CRITICAL: if/else parsing - **COMPLETE** (PR #656)
-- [x] #651: CRITICAL: do loop parsing - **COMPLETE** (PR #657)
-- [x] #652: CRITICAL: multi-variable declarations - **FOUNDATION COMPLETE** (PR #661), parsing logic needed
+**⚠️ CRITICAL**: Clear these before starting SPRINT_BACKLOG**
+- [ ] #652: Multi-variable declaration final fix - parsing loop completion
+- [ ] #622: Function definition TODO placeholder fix - PR or abandon branch
 
-**REMAINING MINI-TASK**:
-- [ ] #652: Multi-variable output logic - final parsing loop fix (minor implementation)
+## SPRINT_BACKLOG - CRISIS RECOVERY (3 EPICS, 5 ISSUES MAX)
 
-**ABANDONED WORK** (Inconsistent state - branch exists but issue closed):
-- [x] #622: bug: function definitions generate TODO placeholders instead of code - **ISSUE CLOSED, BRANCH EXISTS, NO PR** - Work must be PR'd or abandoned
+**SPRINT GOAL**: Restore minimal viable functionality - system must not crash, tests must run, code must compile
 
-## SPRINT_BACKLOG - EMERGENCY STABILIZATION
+**SPRINT STRATEGY**: TINY FOCUSED FIXES - address only the most critical blockers
 
-**SPRINT GOAL**: Emergency system recovery - restore basic parsing and architectural compliance
+### EPIC 1: CRASH PREVENTION (Stop Segfaults)
+- [ ] #682: CRASH FIX: Resolve do loop parsing segmentation faults
+- [ ] #683: TEST FIX: Resolve test suite hanging indefinitely
 
-**SPRINT STRATEGY**: STOP ALL NEW FEATURES - focus only on making existing claims actually work
+### EPIC 2: CODE VALIDITY (Generate Compilable Code)  
+- [ ] #684: CODEGEN FIX: Multi-variable declarations generate invalid Fortran
 
-**CRITICAL SUCCESS CRITERIA** (ALL MUST PASS):
-1. **Parser Recovery**: Basic control flow parses without errors (if/else, do loops, multi-var declarations)
-2. **Architectural Compliance**: All files under 1000 lines (zero exceptions) 
-3. **Code Quality**: No TODO placeholders in generated output
-4. **Process Stability**: Development workflow exits emergency mode
-5. **Team Accountability**: Honest status reporting with functional verification
+### EPIC 3: ARCHITECTURAL COMPLIANCE (Worst Offenders)
+- [ ] #685: ARCHITECTURE: Split fortfront.f90 (2330 lines) into compliant modules
+- [ ] #686: ARCHITECTURE: Split parser_control_flow.f90 (1791 lines) into compliant modules
 
-**FAILURE CONSEQUENCES**: Any unmet criteria triggers another emergency stabilization sprint
-
-### EPIC: EMERGENCY PARSER FIXES (CRITICAL PRIORITY) - **COMPLETED 100%**
-- [x] #651: CRITICAL: do loop parsing completely broken - only processes first iteration - **FIXED IN PR #657**
-- [x] #652: CRITICAL: multi-variable declarations broken - only processes first variable - **FOUNDATION COMPLETE PR #661, OUTPUT LOGIC PENDING**
-- [x] #637: bug: parser fails to parse do loops with expressions - **FIXED IN PR #643**
-
-### EPIC: ARCHITECTURAL VIOLATIONS (IMMEDIATE COMPLIANCE)
-- [ ] #650: ARCHITECTURAL: fortfront.f90 at 2330 lines violates 1000-line limit by 133%
-- [ ] #639: CRITICAL: 9 files violate 1000-line architectural limit
-
-### EPIC: PROCESS AND QUALITY FIXES (TEAM ACCOUNTABILITY)
-- [ ] #655: PROCESS VIOLATION: 3 READY PRs blocking development with no review activity
-- [ ] #649: patrick/vicky quality review blindness: test suite false positives enable broken code
-- [ ] #648: max process failure: no validation of PR functionality before merge approval
-- [ ] #640: CRITICAL: error stop statements violate error handling architecture
-- [ ] #642: test coverage: inadequate parser test coverage
+**SUCCESS METRICS**:
+- Zero segfaults when parsing basic control flow
+- Generated code compiles with gfortran
+- Test suite executes in <2 minutes
+- Two worst file violations resolved
 
 ## DEFERRED TO FUTURE SPRINTS
 
