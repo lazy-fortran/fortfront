@@ -30,7 +30,12 @@
 
 ## DOING (Active Work)
 
-✅ GitHub Issue Audit Complete: 71 issues analyzed, 4 duplicates closed, SPRINT_BACKLOG fully synchronized
+- [ ] #722: CLEANUP: Remove 40+ obsolete documentation files polluting repository
+  - ASSIGNED TO: winny-technical-writer
+  - Delete outdated/incorrect documentation causing confusion
+  - Remove duplicated analysis files
+  - Keep only working documentation
+  - PRIORITY 1: Clear development confusion
 
 ## SPRINT_BACKLOG - ESSENTIALS-FIRST CLEANUP (5 ISSUES MAX)
 
@@ -38,11 +43,6 @@
 **STRATEGY**: Remove complexity, focus on working functionality
 
 ### EPIC 1: REPOSITORY CLEANUP (IMMEDIATE IMPACT)
-- [ ] #722: CLEANUP: Remove 40+ obsolete documentation files polluting repository
-  - Delete outdated/incorrect documentation causing confusion
-  - Remove duplicated analysis files
-  - Keep only working documentation
-  - PRIORITY 1: Clear development confusion
 
 - [ ] #723: CLEANUP: Remove 80+ trash debug/test files from repository root
   - Clean up scattered debug_*.f90 files
