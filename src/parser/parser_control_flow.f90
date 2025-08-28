@@ -346,10 +346,13 @@ contains
 
                 ! Move to next statement
                 ! If we stopped at a semicolon, skip over it
-                if (stmt_end + 1 <= size(parser%tokens) .and. &
-                    parser%tokens(stmt_end + 1)%kind == TK_OPERATOR .and. &
-                    parser%tokens(stmt_end + 1)%text == ";") then
-                    parser%current_token = stmt_end + 2
+                if (stmt_end + 1 <= size(parser%tokens)) then
+                    if (parser%tokens(stmt_end + 1)%kind == TK_OPERATOR .and. &
+                        parser%tokens(stmt_end + 1)%text == ";") then
+                        parser%current_token = stmt_end + 2
+                    else
+                        parser%current_token = stmt_end + 1
+                    end if
                 else
                     parser%current_token = stmt_end + 1
                 end if
@@ -579,10 +582,13 @@ contains
 
                 ! Move to next statement
                 ! If we stopped at a semicolon, skip over it
-                if (stmt_end + 1 <= size(parser%tokens) .and. &
-                    parser%tokens(stmt_end + 1)%kind == TK_OPERATOR .and. &
-                    parser%tokens(stmt_end + 1)%text == ";") then
-                    parser%current_token = stmt_end + 2
+                if (stmt_end + 1 <= size(parser%tokens)) then
+                    if (parser%tokens(stmt_end + 1)%kind == TK_OPERATOR .and. &
+                        parser%tokens(stmt_end + 1)%text == ";") then
+                        parser%current_token = stmt_end + 2
+                    else
+                        parser%current_token = stmt_end + 1
+                    end if
                 else
                     parser%current_token = stmt_end + 1
                 end if
