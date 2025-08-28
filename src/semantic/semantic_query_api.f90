@@ -148,7 +148,7 @@ contains
         var_info%is_allocatable = mono_type%alloc_info%is_allocatable
         var_info%is_pointer = mono_type%alloc_info%is_pointer
         
-        if (var_info%is_array .and. allocated(mono_type%args)) then
+        if (var_info%is_array .and. mono_type%has_args()) then
             var_info%array_rank = get_array_rank(mono_type)
         end if
         
@@ -341,8 +341,8 @@ contains
         case (TLOGICAL)
             name = "logical"
         case (TARRAY)
-            if (allocated(mono_type%args) .and. size(mono_type%args) > 0) then
-                name = get_type_name(mono_type%args(1))
+            if (mono_type%has_args() .and. mono_type%get_args_count() > 0) then
+                name = get_type_name(mono_type%get_arg(1))
             else
                 name = "unknown_array"
             end if
@@ -417,27 +417,27 @@ contains
         type(mono_type_t), intent(in) :: func_type
         type(function_info_t), intent(inout) :: func_info
         
-        if (func_type%kind /= TFUN .or. .not. allocated(func_type%args)) return
+        if (func_type%kind /= TFUN .or. .not. func_type%has_args()) return
         
         ! Simple case: single argument function
-        if (size(func_type%args) == 2) then
+        if (func_type%get_args_count() == 2) then
             allocate(character(len=16) :: func_info%parameter_names(1))
             allocate(character(len=16) :: func_info%parameter_types(1))
             allocate(character(len=16) :: func_info%parameter_intents(1))
             
             func_info%parameter_names(1) = "param1"
-            func_info%parameter_types(1) = get_type_name(func_type%args(1))
+            func_info%parameter_types(1) = get_type_name(func_type%get_arg(1))
             func_info%parameter_intents(1) = ""
-            func_info%return_type = get_type_name(func_type%args(2))
+            func_info%return_type = get_type_name(func_type%get_arg(2))
         else
             ! No parameters or complex curried function
             allocate(character(len=16) :: func_info%parameter_names(0))
             allocate(character(len=16) :: func_info%parameter_types(0))
             allocate(character(len=16) :: func_info%parameter_intents(0))
             
-            if (allocated(func_type%args) .and. size(func_type%args) > 0) then
+            if (func_type%has_args() .and. func_type%get_args_count() > 0) then
                 func_info%return_type = &
-                    get_type_name(func_type%args(size(func_type%args)))
+                    get_type_name(func_type%get_arg(func_type%get_args_count()))
             else
                 func_info%return_type = "unknown"
             end if
@@ -457,9 +457,9 @@ contains
             type_info%character_length = mono_type%size
         end if
         
-        if (type_info%is_array .and. allocated(mono_type%args) .and. &
-            size(mono_type%args) > 0) then
-            type_info%array_element_type = get_type_name(mono_type%args(1))
+        if (type_info%is_array .and. mono_type%has_args() .and. &
+            mono_type%get_args_count() > 0) then
+            type_info%array_element_type = get_type_name(mono_type%get_arg(1))
             type_info%array_rank = get_array_rank(mono_type)
         end if
     end subroutine extract_type_info
