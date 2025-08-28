@@ -34,7 +34,7 @@
 ## DOING (Active Work)
 
 **⚠️ CRITICAL**: Clear these before starting SPRINT_BACKLOG**
-- [ ] #684: CODEGEN FIX: Multi-variable declarations generate invalid Fortran (ACTIVE)
+- [ ] #684: CODEGEN FIX: Multi-variable declarations generate invalid Fortran (EPIC 2 - ACTIVE on branch fix-multi-variable-codegen-684)
 
 ## SPRINT_BACKLOG - CRISIS RECOVERY (3 EPICS, 5 ISSUES MAX)
 
