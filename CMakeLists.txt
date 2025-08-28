@@ -1,4 +1,11 @@
 cmake_minimum_required(VERSION 3.18)
+
+# Set policy version to handle json-fortran compatibility
+if(POLICY CMP0002)
+    cmake_policy(SET CMP0002 NEW)
+endif()
+set(CMAKE_POLICY_VERSION_MINIMUM "3.5")
+
 project(fortfront VERSION 0.1.0 LANGUAGES Fortran)
 
 # Enable Fortran preprocessing
@@ -171,9 +178,53 @@ install(TARGETS fortfront RUNTIME DESTINATION bin)
 # Enable testing
 enable_testing()
 
-# Add test discovery (simplified version)
-file(GLOB_RECURSE TEST_SOURCES "test/*.f90")
-foreach(test_file ${TEST_SOURCES})
+# Add test discovery - use specific patterns to avoid duplicates
+# Instead of using GLOB_RECURSE which finds duplicates, use specific subdirectories
+set(TEST_DIRECTORIES
+    "test/analysis"
+    "test/api"
+    "test/ast"
+    "test/benchmark"
+    "test/build"
+    "test/codegen"
+    "test/common"
+    "test/cst"
+    "test/debug"
+    "test/error_handling"
+    "test/error_reporting"
+    "test/frontend"
+    "test/integration/array_tests"
+    "test/integration/core_features"
+    "test/integration/issue_tests"
+    "test/integration/type_tests"
+    "test/intrinsic"
+    "test/json"
+    "test/lexer"
+    "test/memory"
+    "test/parser"
+    "test/performance"
+    "test/semantic"
+    "test/standardizer"
+    "test/system"
+    "test/utils"
+    "test/validation"
+)
+
+set(FILTERED_TEST_SOURCES)
+foreach(test_dir ${TEST_DIRECTORIES})
+    if(EXISTS "${CMAKE_SOURCE_DIR}/${test_dir}")
+        file(GLOB test_files "${test_dir}/test_*.f90")
+        foreach(test_file ${test_files})
+            get_filename_component(test_name ${test_file} NAME_WE)
+            # Skip utility files that aren't actual tests
+            if(NOT test_name STREQUAL "readme_file_utils")
+                list(APPEND FILTERED_TEST_SOURCES ${test_file})
+            endif()
+        endforeach()
+    endif()
+endforeach()
+
+foreach(test_file ${FILTERED_TEST_SOURCES})
     get_filename_component(test_name ${test_file} NAME_WE)
     add_executable(${test_name} ${test_file} ${ALL_SOURCES})
     target_link_libraries(${test_name} jsonfortran)
