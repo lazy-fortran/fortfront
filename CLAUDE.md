@@ -15,11 +15,11 @@ cmake ..
 make
 ```
 
-**FMP BUILD SYSTEM** (Backup - Issue #712):
+**FMP BUILD SYSTEM** (Restored - Issue #776 RESOLVED):
 ```bash
-# FMP builds with known issues:
+# FMP builds successfully after PR #789 merge:
 ./build.sh
-./test.sh
+./test.sh  # (runs with many test failures but executes)
 ```
 
 ## ESSENTIAL INFORMATION ONLY
@@ -42,11 +42,11 @@ fpm test --flag "-cpp -fmax-stack-var-size=524288"
 - No `error_stop` in production (1,386+ violations exist)
 
 ### Current Problems
-- FMP build system issues (Issue #712) - CMAKE working as alternative
-- 35 functions over 100 lines (Issue #717)
+- Test suite stability - many failures but executes (tests timeout after 2min)
+- 35 functions over 100 lines (Issue #717)  
 - ast_factory.f90 is 1911 lines (Issue #714)
 - 1,386 error_stop violations (Issue #716)
-- Test coverage improvements needed
+- Some compilation issues remain in analysis/test files (non-blocking)
 
 ### Essential Patterns
 ```fortran
