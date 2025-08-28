@@ -20,24 +20,24 @@
 
 ### EPIC: BUILD SYSTEM RELIABILITY - CRITICAL
 
-- [ ] #766: CRITICAL BUILD DEFECT: CMAKE test discovery ignores 90% of test files
-  - **SEVERITY**: CRITICAL - Only 64 of 243 tests running
+- [ ] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests
+  - **SEVERITY**: CRITICAL - Only 64 of 243 tests running (74% coverage loss)
   - **ASSIGNED**: sergei
-  - **TARGET**: Fix CMAKE GLOB_RECURSE pattern for full test discovery
+  - **TARGET**: Fix CMAKE GLOB_RECURSE pattern for complete test discovery
 
 ### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY
 
-- [ ] #763: CRITICAL SIZE VIOLATION: ast_factory.f90 at 1911 lines exceeds architectural limits
+- [ ] #769: SPRINT: ast_factory.f90 emergency refactoring - 1911 lines
   - **SEVERITY**: CRITICAL - 91% over hard limit (worst violation in codebase)
   - **ASSIGNED**: sergei
   - **TARGET**: Extract logical factory modules, target <500 lines each
 
-- [ ] #765: CRITICAL: 10 additional files exceed 1000-line architectural limit
+- [ ] #770: SPRINT: systematic file size compliance - 10 violations
   - **SEVERITY**: CRITICAL - 10 files violating hard limits
   - **ASSIGNED**: sergei
   - **TARGET**: Systematic refactoring of all violating files
 
-- [ ] #764: CRITICAL: Directory organization violations - multiple folders exceed architectural limits
+- [ ] #771: SPRINT: directory organization compliance - 4 violations
   - **SEVERITY**: CRITICAL - 4 directories over limits, src/ at 40 files
   - **ASSIGNED**: sergei
   - **TARGET**: Reorganize to <30 files per directory (hard limit)
