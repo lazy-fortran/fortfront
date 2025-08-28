@@ -10,6 +10,7 @@ module control_flow_analyzer
         EDGE_UNCONDITIONAL, EDGE_TRUE_BRANCH, EDGE_FALSE_BRANCH, &
         EDGE_LOOP_BACK, EDGE_BREAK, EDGE_CONTINUE, EDGE_RETURN
     use cfg_builder_module, only: build_control_flow_graph
+    use iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -80,7 +81,8 @@ contains
             lhs%cfg = rhs%cfg
             lhs%analysis_complete = rhs%analysis_complete
         class default
-            error stop "Type mismatch in control_flow_analyzer assignment"
+            write(error_unit, '(A)') "ERROR [control_flow_analyzer]: Type mismatch in control_flow_analyzer assignment - assignment ignored"
+            ! Don't perform assignment on type mismatch
         end select
     end subroutine
 

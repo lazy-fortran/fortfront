@@ -4,6 +4,7 @@ module pass_manager
     use analysis_cache, only: analysis_cache_t
     use ast_core, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t
+    use iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -188,7 +189,8 @@ contains
             integer :: k, dep_analyzer_idx
 
             if (in_stack(analyzer_idx)) then
-                error stop "Circular dependency detected in analyzers"
+                write(error_unit, '(A)') "ERROR [pass_manager]: Circular dependency detected in analyzers - skipping analysis"
+                return  ! Break out of circular dependency
             end if
 
             if (visited(analyzer_idx)) return

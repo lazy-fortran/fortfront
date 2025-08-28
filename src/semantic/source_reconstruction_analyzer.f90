@@ -5,6 +5,7 @@ module source_reconstruction_analyzer
     use ast_core, only: ast_arena_t, ast_entry_t, identifier_node, literal_node, &
                         program_node, assignment_node, if_node, do_loop_node, &
                         function_def_node, declaration_node
+    use iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -198,7 +199,8 @@ contains
             lhs%result = rhs%result
             lhs%analysis_complete = rhs%analysis_complete
         class default
-            error stop "Type mismatch in source_reconstruction_analyzer assignment"
+            write(error_unit, '(A)') "ERROR [source_reconstruction_analyzer]: Type mismatch in source_reconstruction_analyzer assignment - assignment ignored"
+            ! Don't perform assignment on type mismatch
         end select
     end subroutine
 

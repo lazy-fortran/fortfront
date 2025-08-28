@@ -1,5 +1,6 @@
 module analyzer_factory
     use base_analyzer, only: base_analyzer_t
+    use iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -52,7 +53,8 @@ contains
         if (associated(this%creator)) then
             analyzer = this%creator()
         else
-            error stop "Factory creator function not set"
+            write(error_unit, '(A)') "ERROR [analyzer_factory]: Factory creator function not set - returning null"
+            ! Don't allocate analyzer on error - leave unallocated
         end if
     end function factory_create_analyzer
 
@@ -71,7 +73,8 @@ contains
         
         ! Check if already registered
         if (this%is_registered(name)) then
-            error stop "Analyzer factory already registered: " // name
+            write(error_unit, '(A)') "ERROR [analyzer_factory]: Analyzer factory already registered: " // name // " - ignoring registration"
+            return  ! Skip registration
         end if
         
         ! Expand capacity if needed
@@ -99,7 +102,8 @@ contains
             end if
         end do
         
-        error stop "Unknown analyzer type: " // name
+        write(error_unit, '(A)') "ERROR [analyzer_factory]: Unknown analyzer type: " // name // " - returning null"
+        ! Don't allocate analyzer on error - leave unallocated
     end function create_analyzer
 
     function is_registered(this, name) result(registered)

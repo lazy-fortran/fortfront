@@ -1,4 +1,5 @@
 module intrinsic_registry
+    use iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -239,7 +240,8 @@ contains
 
         ! Validate we used all allocated slots
         if (i /= NUM_INTRINSICS) then
-            error stop "Intrinsic function count mismatch in initialization"
+            write(error_unit, '(A)') "ERROR [intrinsic_registry]: Intrinsic function count mismatch in initialization - registry may be incomplete"
+            ! Continue with partial registry rather than crashing
         end if
 
         registry_initialized = .true.

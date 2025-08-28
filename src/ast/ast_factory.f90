@@ -1,6 +1,8 @@
 module ast_factory
     use ast_core
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
+    use error_handling, only: result_t, success_result, create_error_result, critical_result, &
+                              ERROR_VALIDATION, ERROR_MEMORY, ERROR_INTERNAL
     implicit none
     private
 
@@ -32,6 +34,90 @@ module ast_factory
     public :: build_ast_from_nodes
 
 contains
+
+    ! Arena validation utility
+    function validate_arena(arena, context) result(validation_result)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: context
+        type(result_t) :: validation_result
+        
+        if (.not. allocated(arena%entries)) then
+            validation_result = critical_result( &
+                "Arena entries not allocated", &
+                ERROR_MEMORY, &
+                component="ast_factory", &
+                context=context, &
+                suggestion="Initialize arena with create_ast_arena() before use" &
+            )
+            return
+        end if
+        
+        if (arena%size < 0 .or. arena%size > arena%capacity) then
+            validation_result = critical_result( &
+                "Arena size inconsistent with capacity", &
+                ERROR_INTERNAL, &
+                component="ast_factory", &
+                context=context, &
+                suggestion="Check for memory corruption or incorrect initialization" &
+            )
+            return
+        end if
+        
+        validation_result = success_result()
+    end function validate_arena
+
+    ! Node index validation utility  
+    function validate_node_index(arena, node_index, context, allow_zero) result(validation_result)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: context
+        logical, intent(in), optional :: allow_zero
+        type(result_t) :: validation_result
+        logical :: zero_ok
+        
+        zero_ok = .false.
+        if (present(allow_zero)) zero_ok = allow_zero
+        
+        if (node_index == 0 .and. zero_ok) then
+            validation_result = success_result()
+            return
+        end if
+        
+        if (node_index <= 0) then
+            validation_result = create_error_result( &
+                "Invalid node index: must be positive", &
+                ERROR_VALIDATION, &
+                component="ast_factory", &
+                context=context, &
+                suggestion="Ensure node index comes from valid push_* operation" &
+            )
+            return
+        end if
+        
+        if (node_index > arena%size) then
+            validation_result = create_error_result( &
+                "Node index out of bounds", &
+                ERROR_VALIDATION, &
+                component="ast_factory", &
+                context=context, &
+                suggestion="Check that referenced node was created in this arena" &
+            )
+            return
+        end if
+        
+        if (.not. allocated(arena%entries(node_index)%node)) then
+            validation_result = create_error_result( &
+                "Node index references unallocated node", &
+                ERROR_VALIDATION, &
+                component="ast_factory", &
+                context=context, &
+                suggestion="Ensure referenced node is still valid and not deallocated" &
+            )
+            return
+        end if
+        
+        validation_result = success_result()
+    end function validate_node_index
 
     ! Create program node and add to stack
     function push_program(arena, name, body_indices, line, column) result(prog_index)
@@ -649,49 +735,64 @@ contains
         type(forall_node) :: forall_stmt
         integer :: i, index_var_len
 
+        type(result_t) :: validation
+
         ! Validate arena is initialized
-        if (.not. allocated(arena%entries)) then
-            error stop "Arena not properly initialized in push_forall"
+        validation = validate_arena(arena, "push_forall")
+        if (validation%is_failure()) then
+            write(*, '(A)') "ERROR [ast_factory]: " // validation%get_full_message()
+            forall_index = 0
+            return
         end if
 
         ! Validate index variable name
         index_var_len = len_trim(index_var)
         if (index_var_len == 0) then
-            error stop "Empty index variable name in push_forall"
+            write(*, '(A)') "ERROR [ast_factory]: FORALL index variable name cannot be empty"
+            forall_index = 0
+            return
         end if
         if (index_var_len > MAX_INDEX_NAME_LENGTH) then
-            error stop "Index variable name too long in push_forall"
+            write(*, '(A)') "ERROR [ast_factory]: FORALL index variable name exceeds maximum length"
+            forall_index = 0
+            return
         end if
 
         ! Validate required indices
-        if (start_index <= 0 .or. start_index > arena%size) then
-            error stop "Invalid start index in push_forall"
+        validation = validate_node_index(arena, start_index, "push_forall start")
+        if (validation%is_failure()) then
+            write(*, '(A)') "ERROR [ast_factory]: " // validation%get_full_message()
+            forall_index = 0
+            return
         end if
-        if (.not. allocated(arena%entries(start_index)%node)) then
-            error stop "Start index references unallocated node in push_forall"
-        end if
-        if (end_index <= 0 .or. end_index > arena%size) then
-            error stop "Invalid end index in push_forall"
-        end if
-        if (.not. allocated(arena%entries(end_index)%node)) then
-            error stop "End index references unallocated node in push_forall"
+
+        validation = validate_node_index(arena, end_index, "push_forall end")
+        if (validation%is_failure()) then
+            write(*, '(A)') "ERROR [ast_factory]: " // validation%get_full_message()
+            forall_index = 0
+            return
         end if
 
         ! Validate optional step index
         if (present(step_index)) then
-            if (step_index > 0 .and. step_index > arena%size) then
-                error stop "Invalid step index in push_forall"
+            if (step_index > 0) then
+                validation = validate_node_index(arena, step_index, "push_forall step")
+                if (validation%is_failure()) then
+                    write(*, '(A)') "ERROR [ast_factory]: " // validation%get_full_message()
+                    forall_index = 0
+                    return
+                end if
             end if
         end if
 
         ! Validate optional mask index
         if (present(mask_index)) then
             if (mask_index > 0) then
-                if (mask_index > arena%size) then
-                    error stop "Invalid mask index in push_forall"
-                end if
-                if (.not. allocated(arena%entries(mask_index)%node)) then
-                    error stop "Mask index references unallocated node in push_forall"
+                validation = validate_node_index(arena, mask_index, "push_forall mask")
+                if (validation%is_failure()) then
+                    write(*, '(A)') "ERROR [ast_factory]: " // validation%get_full_message()
+                    forall_index = 0
+                    return
                 end if
             end if
         end if
@@ -699,11 +800,11 @@ contains
         ! Validate body indices
         if (present(body_indices)) then
             do i = 1, size(body_indices)
-                if (body_indices(i) <= 0 .or. body_indices(i) > arena%size) then
-                    error stop "Invalid body index in push_forall"
-                end if
-                if (.not. allocated(arena%entries(body_indices(i))%node)) then
-                    error stop "Body index references unallocated node in push_forall"
+                validation = validate_node_index(arena, body_indices(i), "push_forall body")
+                if (validation%is_failure()) then
+                    write(*, '(A)') "ERROR [ast_factory]: " // validation%get_full_message()
+                    forall_index = 0
+                    return
                 end if
             end do
         end if
@@ -1347,30 +1448,32 @@ contains
         integer :: where_index
         type(where_node) :: where_stmt
         integer :: i
+        type(result_t) :: validation
 
         ! Validate arena is initialized
-        if (.not. allocated(arena%entries)) then
-            error stop "Arena not properly initialized in push_where"
+        validation = validate_arena(arena, "push_where")
+        if (validation%is_failure()) then
+            write(*, '(A)') "ERROR [ast_factory]: " // validation%get_full_message()
+            where_index = 0
+            return
         end if
 
         ! Validate mask expression index
-        if (mask_expr_index <= 0 .or. mask_expr_index > arena%size) then
-            error stop "Invalid mask expression index in push_where"
-        end if
-        if (.not. allocated(arena%entries(mask_expr_index)%node)) then
-            error stop "Mask expression index references unallocated node in push_where"
+        validation = validate_node_index(arena, mask_expr_index, "push_where mask")
+        if (validation%is_failure()) then
+            write(*, '(A)') "ERROR [ast_factory]: " // validation%get_full_message()
+            where_index = 0
+            return
         end if
 
         ! Validate where body indices
         if (present(where_body_indices)) then
             do i = 1, size(where_body_indices)
-                if (where_body_indices(i) <= 0 .or. &
-                    where_body_indices(i) > arena%size) then
-                    error stop "Invalid where body index in push_where"
-                end if
-                if (.not. allocated(arena%entries(where_body_indices(i))%node)) then
-                    error stop "Where body index references unallocated node " // &
-                        "in push_where"
+                validation = validate_node_index(arena, where_body_indices(i), "push_where body")
+                if (validation%is_failure()) then
+                    write(*, '(A)') "ERROR [ast_factory]: " // validation%get_full_message()
+                    where_index = 0
+                    return
                 end if
             end do
         end if
@@ -1378,13 +1481,11 @@ contains
         ! Validate elsewhere body indices
         if (present(elsewhere_body_indices)) then
             do i = 1, size(elsewhere_body_indices)
-                if (elsewhere_body_indices(i) <= 0 .or. &
-                    elsewhere_body_indices(i) > arena%size) then
-                    error stop "Invalid elsewhere body index in push_where"
-                end if
-                if (.not. allocated(arena%entries(elsewhere_body_indices(i))%node)) then
-                    error stop "Elsewhere body index references unallocated " // &
-                        "node in push_where"
+                validation = validate_node_index(arena, elsewhere_body_indices(i), "push_where elsewhere")
+                if (validation%is_failure()) then
+                    write(*, '(A)') "ERROR [ast_factory]: " // validation%get_full_message()
+                    where_index = 0
+                    return
                 end if
             end do
         end if

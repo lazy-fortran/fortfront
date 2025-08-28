@@ -14,6 +14,8 @@ module builtin_analyzers
     use usage_tracker_analyzer, only: usage_tracker_analyzer_t
     use source_reconstruction_analyzer, only: source_reconstruction_analyzer_t
     use interface_analyzer, only: interface_analyzer_t
+    use error_handling, only: result_t
+    use iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -186,7 +188,8 @@ contains
         type is (symbol_analyzer_t)
             lhs%context = rhs%context
         class default
-            error stop "Type mismatch in symbol_analyzer assignment"
+            write(error_unit, '(A)') "ERROR [builtin_analyzers]: Type mismatch in symbol_analyzer assignment - assignment ignored"
+            ! Don't perform assignment on type mismatch
         end select
     end subroutine
 
@@ -198,7 +201,8 @@ contains
         type is (type_analyzer_t)
             lhs%context = rhs%context
         class default
-            error stop "Type mismatch in type_analyzer assignment"
+            write(error_unit, '(A)') "ERROR [builtin_analyzers]: Type mismatch in type_analyzer assignment - assignment ignored"
+            ! Don't perform assignment on type mismatch
         end select
     end subroutine
 
@@ -210,7 +214,8 @@ contains
         type is (scope_analyzer_t)
             lhs%context = rhs%context
         class default
-            error stop "Type mismatch in scope_analyzer assignment"
+            write(error_unit, '(A)') "ERROR [builtin_analyzers]: Type mismatch in scope_analyzer assignment - assignment ignored"
+            ! Don't perform assignment on type mismatch
         end select
     end subroutine
 

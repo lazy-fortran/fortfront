@@ -5,6 +5,7 @@ module interface_analyzer
     use ast_core, only: ast_arena_t
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_data, only: declaration_node
+    use iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -114,7 +115,8 @@ contains
             lhs%result = rhs%result
             lhs%analysis_complete = rhs%analysis_complete
         class default
-            error stop "Type mismatch in interface_analyzer assignment"
+            write(error_unit, '(A)') "ERROR [interface_analyzer]: Type mismatch in interface_analyzer assignment - assignment ignored"
+            ! Don't perform assignment on type mismatch
         end select
     end subroutine
 

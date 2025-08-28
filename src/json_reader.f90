@@ -9,6 +9,7 @@ module json_reader
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     use string_types, only: string_t
     use path_validation, only: validate_input_path, path_validation_result_t
+    use iso_fortran_env, only: error_unit
     ! Note: Using core AST nodes only - no dialect-specific imports
     implicit none
     private
@@ -32,7 +33,9 @@ contains
         ! Validate file path for security
         validation_result = validate_input_path(filename)
         if (.not. validation_result%is_valid()) then
-            error stop "Path validation failed: " // validation_result%get_message()
+            write(error_unit, '(A)') "ERROR [json_reader]: Path validation failed: " // validation_result%get_message() // " - returning empty array"
+            allocate(tokens(0))
+            return
         end if
 
         ! Load JSON file
@@ -64,7 +67,9 @@ contains
             end block
 
             if (.not. json_valid) then
-                error stop "Invalid JSON format: expected tokens JSON structure"
+                write(error_unit, '(A)') "ERROR [json_reader]: Invalid JSON format: expected tokens JSON structure - returning empty array"
+                allocate(tokens(0))
+                return
             end if
         end block
 
@@ -150,7 +155,9 @@ contains
         ! Validate file path for security
         validation_result = validate_input_path(filename)
         if (.not. validation_result%is_valid()) then
-            error stop "Path validation failed: " // validation_result%get_message()
+            write(error_unit, '(A)') "ERROR [json_reader]: Path validation failed: " // validation_result%get_message() // " - returning invalid index"
+            root_index = 0
+            return
         end if
 
         ! Load JSON file
@@ -700,7 +707,10 @@ contains
         ! Validate file path for security
         validation_result = validate_input_path(filename)
         if (.not. validation_result%is_valid()) then
-            error stop "Path validation failed: " // validation_result%get_message()
+            write(error_unit, '(A)') "ERROR [json_reader]: Path validation failed: " // validation_result%get_message() // " - setting defaults"
+            root_index = 0
+            sem_ctx = create_semantic_context()
+            return
         end if
 
         ! Load JSON file

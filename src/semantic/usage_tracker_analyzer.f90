@@ -7,6 +7,7 @@ module usage_tracker_analyzer
                                              create_variable_usage_info, &
                                              get_identifiers_in_subtree, &
                                              is_variable_used_in_expression
+    use iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -100,7 +101,8 @@ contains
             lhs%result = rhs%result
             lhs%analysis_complete = rhs%analysis_complete
         class default
-            error stop "Type mismatch in usage_tracker_analyzer assignment"
+            write(error_unit, '(A)') "ERROR [usage_tracker_analyzer]: Type mismatch in usage_tracker_analyzer assignment - assignment ignored"
+            ! Don't perform assignment on type mismatch
         end select
     end subroutine
 

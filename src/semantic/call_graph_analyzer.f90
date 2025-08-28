@@ -6,6 +6,7 @@ module call_graph_analyzer
     use call_graph_module, only: call_graph_t, create_call_graph, &
                                  procedure_info_t, call_edge_t
     use call_graph_builder_module, only: build_call_graph
+    use iso_fortran_env, only: error_unit
     implicit none
     private
 
@@ -75,7 +76,8 @@ contains
             lhs%call_graph = rhs%call_graph
             lhs%analysis_complete = rhs%analysis_complete
         class default
-            error stop "Type mismatch in call_graph_analyzer assignment"
+            write(error_unit, '(A)') "ERROR [call_graph_analyzer]: Type mismatch in call_graph_analyzer assignment - assignment ignored"
+            ! Don't perform assignment on type mismatch
         end select
     end subroutine
 
