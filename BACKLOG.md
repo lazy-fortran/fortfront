@@ -1,77 +1,65 @@
 # Development Backlog
 
-## 🚨 FOUNDATION STABILIZATION SPRINT - POST AUDIT CLEANUP
+## 🚨 FOUNDATION STABILIZATION SPRINT - CRITICAL INFRASTRUCTURE REPAIR
 
-**ISSUE AUDIT COMPLETE**: Brutal consolidation from 108+ issues to 30 actionable defects  
-**CLEANUP SUMMARY**: Closed 78 duplicate/non-actionable issues following gh_rules  
-**FOCUS ACHIEVED**: Only ACTIONABLE DEFECTS remain - no process discussions or workflow issues  
+**ISSUE CLEANUP COMPLETE**: Consolidated to 30 actionable defects from 108+ issues  
+**SPRINT START**: December 28, 2024  
+**TARGET COMPLETION**: January 3, 2025 (1 week focused sprint)  
+**TEAM STATUS**: All resources focused on critical infrastructure blockers  
 
-**SPRINT GOAL**: Fix critical infrastructure blocking all development
+**SPRINT GOAL**: Make basic development workflow functional again
 
 **SPRINT DEFINITION OF DONE** (All Must Pass):
-1. **Stop System Crashes**: Fix segfaults in do loop parsing (Issue #678)
-2. **Generate Valid Code**: Fix multi-variable declarations generating uncompilable Fortran (Issue #684)
-3. **Enable Testing**: Fix test suite hanging indefinitely (Issue #671)
-4. **Eliminate Error Stops**: Replace all error_stop with result_t pattern (Issue #673)
-5. **Architectural Compliance**: Split 11 files violating 1000-line limits (Issue #708)
+1. **CODEGEN WORKS**: Multi-variable declarations generate valid Fortran (Issue #684) - ACTIVE
+2. **TESTS RUN**: Test suite completes without hanging (Issue #671)
+3. **NO CRASHES**: Eliminate all error_stop usage (Issue #673)
+4. **SIZE COMPLIANCE**: All files under 1000 lines (Issue #708)
 
-### ISSUE CLEANUP SUMMARY
-
-**CLOSED 78 ISSUES** following gh_rules strict consolidation:
-- Process discussions moved to BACKLOG.md (not actionable defects)
-- Workflow reminders moved to BACKLOG.md (not GitHub issues)
-- Duplicates consolidated into single actionable issues
-- Enhancement requests moved to PRODUCT_BACKLOG
-- Non-specific improvement requests closed as non-actionable
-
-**REMAINING 30 ACTIONABLE DEFECTS** - all specific, reproducible issues with clear fix criteria
+### ARCHITECTURAL CONSTRAINTS ENFORCED
+- **CORRECTNESS > PERFORMANCE**: Fix functionality first
+- **Files < 1000 lines**: ZERO exceptions allowed
+- **Functions < 100 lines**: ZERO exceptions allowed  
+- **No error_stop**: Use result_t pattern throughout
+- **Test everything**: Every fix must include tests
 
 ## DOING (Active Work)
 
-**CRITICAL**: Fix multi-variable declaration codegen failures (Issue #684)
-- Generated code is uncompilable - only processes first variable
-- Input: `integer :: x, y, z` → Output: `integer :: x` (missing y, z)
-- Must achieve: All variables in declaration list generate valid Fortran
-- Status: ACTIVE BRANCH - fix-multi-variable-codegen-706
-
-## SPRINT_BACKLOG - FOUNDATION STABILIZATION (5 CRITICAL ISSUES MAX)
-
-**STRATEGIC FOCUS**: Fix infrastructure blocking all development work  
-**APPROACH**: Address only the most critical system-breaking defects first
-
-### EPIC 1: STOP SYSTEM CRASHES ✅ COMPLETED  
-- [x] #705: EMERGENCY: Fix parser segfaults on do loop parsing - FIXED IN PR #710
-  - Enhanced undefined variable detection in usage_tracker_analyzer.f90
-  - Added defensive ERROR STOP prevention in test scenarios
-  - Test: `do i=1,3; print*,i; end do` processes without crashes
-
 ### EPIC 2: GENERATE VALID FORTRAN CODE  
-- [ ] #684: CODEGEN FIX: Multi-variable declarations generate invalid Fortran
-  - Root cause: Only processes first variable in declaration list
-  - Impact: Generated code fails gfortran compilation
-  - Fix: Complete processing of all variables in multi-var declarations
-  - Test: `integer :: x, y, z` → all three variables declared
+**CRITICAL**: Fix multi-variable declaration codegen failures (Issue #684)
+- **Problem**: Only first variable processed in multi-variable declarations
+- **Example**: `integer :: x, y, z` → Output: `integer :: x` (BROKEN: missing y, z)
+- **Fix Required**: Process ALL variables in declaration list
+- **Status**: ACTIVE BRANCH - fix-multi-variable-codegen-706
+- **Verification**: Generated code must compile with gfortran
 
-### EPIC 3: ENABLE SYSTEM VALIDATION
-- [ ] #671: DEFECT: Test suite hangs indefinitely, blocking all development
-  - Root cause: Infinite loops or resource exhaustion in test execution
-  - Impact: Cannot validate any code changes or system functionality
-  - Fix: Identify and resolve hanging tests, add timeout protection
-  - Test: `./test.sh` completes successfully in <2 minutes
+## SPRINT_BACKLOG - FOUNDATION STABILIZATION (4 CRITICAL ISSUES)
 
-### EPIC 4: ELIMINATE LIBRARY VIOLATIONS  
-- [ ] #673: DEFECT: Multiple error_stop usage violations in production code
-  - Root cause: error_stop calls throughout src/ violating library architecture
-  - Impact: Host applications crash instead of handling errors gracefully
-  - Fix: Replace ALL error_stop with result_t pattern for proper error handling
-  - Test: Library integration works without crashes
+**SPRINT FOCUS**: Fix only the most critical blockers preventing development  
+**PRIORITY ORDER**: Complete in sequence - each enables the next
 
-### EPIC 5: ARCHITECTURAL COMPLIANCE
-- [ ] #708: EMERGENCY: Split 11 files violating architectural limits
-  - Root cause: Files ranging from 1003-1810 lines violating 1000-line limit
-  - Impact: Unmaintainable code violating established architectural constraints
-  - Fix: Split oversized files into focused, compliant modules
-  - Test: All files <1000 lines, functionality preserved
+### Priority 1: FIX CODEGEN (MOVED TO DOING - Issue #684)
+**Status**: ACTIVE WORK IN PROGRESS
+
+### Priority 2: ENABLE TESTING  
+- [ ] #671: Test suite hangs indefinitely - blocking all validation
+  - **Symptom**: `./test.sh` never completes, hangs forever
+  - **Impact**: Cannot verify any fixes or development work
+  - **Fix Strategy**: Add timeout protection, identify hanging tests
+  - **Success Criteria**: Test suite completes in <2 minutes
+
+### Priority 3: ELIMINATE CRASHES
+- [ ] #673: error_stop usage violates library architecture
+  - **Symptom**: Library crashes host applications on errors
+  - **Impact**: Cannot integrate fortfront as library dependency
+  - **Fix Strategy**: Replace ALL error_stop with result_t pattern
+  - **Success Criteria**: Errors propagate gracefully to callers
+
+### Priority 4: ARCHITECTURE COMPLIANCE
+- [ ] #708: 11 files violate 1000-line limit (1003-1810 lines)
+  - **Worst Offenders**: parser_control_flow.f90 (1791), parser_declarations.f90 (1460)
+  - **Impact**: Unmaintainable, violates core architecture
+  - **Fix Strategy**: Split into focused modules <500 lines each
+  - **Success Criteria**: ZERO files over 1000 lines
 
 **FOUNDATION SUCCESS CRITERIA** (ALL Must Pass):
 - Multi-variable declarations generate compilable Fortran code

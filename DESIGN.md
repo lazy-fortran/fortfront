@@ -1,100 +1,102 @@
 # fortfront Architecture Design
 
-## 🚨 FOUNDATION STABILIZATION SPRINT - POST AUDIT FOCUS
+## 🚨 FOUNDATION STABILIZATION SPRINT - CRITICAL INFRASTRUCTURE REPAIR
 
-**ISSUE AUDIT COMPLETE**: Brutal consolidation from 108+ issues to 30 actionable defects  
-**SYSTEMATIC CLEANUP**: Closed 78 duplicate/non-actionable issues following gh_rules  
-**FOCUS ACHIEVED**: Sprint targeting only critical infrastructure defects  
+**SPRINT DURATION**: December 28, 2024 - January 3, 2025 (1 week focused sprint)  
+**SPRINT TYPE**: Emergency infrastructure repair - NO feature work allowed  
+**TEAM DIRECTIVE**: ALL work focused on 4 critical blockers only  
 
-**SPRINT GOAL**: Fix critical system-breaking defects blocking all development
+**SPRINT GOAL**: Restore basic development workflow functionality
 
-**PRIORITY DEFECTS** (After comprehensive audit):
-- **CODEGEN BROKEN**: Multi-variable declarations generate invalid Fortran (Issue #684)
-- **TESTS BROKEN**: Suite hangs indefinitely blocking validation (Issue #671)
-- **LIBRARY VIOLATIONS**: error_stop usage prevents library integration (Issue #673)
-- **ARCHITECTURE VIOLATIONS**: 11 files exceed 1000-line limits (Issue #708)
-- **SEGFAULTS FIXED**: Parser crashes resolved in PR #710 (Issue #705 complete)
+**THE 4 CRITICAL BLOCKERS** (In Priority Order):
+1. **CODEGEN BROKEN** (Issue #684): Multi-variable declarations generate uncompilable code - ACTIVE FIX
+2. **TESTS BROKEN** (Issue #671): Test suite hangs indefinitely - blocks all validation
+3. **LIBRARY BROKEN** (Issue #673): error_stop crashes prevent library integration
+4. **ARCHITECTURE BROKEN** (Issue #708): 11 files violate 1000-line limits
 
-**FOUNDATION DEFINITION OF DONE** (Infrastructure Ready):
-1. Multi-variable declarations generate compilable Fortran code
-2. Test suite executes without hanging (enables validation)
-3. No error_stop in library code (enables integration)
-4. All files comply with 1000-line architectural limits
-5. Basic development workflow functional
+**SUCCESS CRITERIA** (ALL Must Pass by January 3):
+✅ Multi-variable declarations produce valid, compilable Fortran
+✅ Test suite completes in <2 minutes without hanging
+✅ Zero error_stop usage - all errors use result_t pattern
+✅ All source files <1000 lines with no exceptions
+✅ Basic workflow: edit → test → verify is functional
 
-**🚨 FOUNDATION STABILIZATION PLAN** (4 Critical Issues):
+**🚨 IMPLEMENTATION STRATEGY** (Sequential Fixes):
 
-### Priority 1: FIX CODE GENERATION ✅ ACTIVE (Issue #684)
-**CRITICAL**: Multi-variable declarations generate invalid/uncompilable code
-**ROOT CAUSE**: Codegen only processes first variable in declaration list
-**ACTIVE FIX** (Branch: fix-multi-variable-codegen-706):
-- Complete multi-variable declaration processing in codegen
-- Ensure all variables in list are properly declared
-- Test: `integer :: x, y, z` → all three variables generate valid Fortran
-- Verify generated code compiles with gfortran
+### Day 1-2: CODEGEN REPAIR (Issue #684) - ACTIVE NOW
+**Problem**: `integer :: x, y, z` generates only `integer :: x`
+**Root Cause Analysis**:
+- codegen_declarations.f90 only processes first variable
+- Multi-variable loop terminates early
+- Missing variable list iteration
+**Fix Implementation**:
+- Fix loop in generate_variable_declaration to process all vars
+- Ensure proper comma separation in output
+- Test with multiple declaration patterns
+**Verification**: All generated code compiles with gfortran
 
-### Priority 2: ENABLE SYSTEM VALIDATION (Issue #671)
-**CRITICAL**: Test suite hangs indefinitely blocking all validation
-**ROOT CAUSE**: Infinite loops or resource exhaustion during test execution
-**REQUIRED FIX**:
-- Identify and resolve hanging tests
-- Add timeout protection to prevent infinite hangs
-- Ensure test suite completes in reasonable time (<2 minutes)
-- Enable development validation workflow
+### Day 3: TEST SUITE RECOVERY (Issue #671)
+**Problem**: Test suite hangs forever, cannot validate fixes
+**Investigation Plan**:
+- Run tests individually to identify hanging test
+- Add timeout wrapper to test execution
+- Fix or disable problematic tests temporarily
+**Success Metric**: `./test.sh` completes in <2 minutes
 
-### Priority 3: ELIMINATE LIBRARY VIOLATIONS (Issue #673)
-**CRITICAL**: error_stop usage violates library integration architecture
-**ROOT CAUSE**: error_stop calls throughout src/ crash host applications
-**REQUIRED FIX**:
-- Replace ALL error_stop with structured result_t error handling
-- Enable graceful error propagation to host applications
-- Test: Library can be integrated without causing crashes
-- Follow error handling patterns established in CLAUDE.md
+### Day 4-5: ERROR HANDLING MIGRATION (Issue #673)
+**Problem**: error_stop crashes prevent library usage
+**Migration Strategy**:
+- Grep all error_stop locations
+- Replace with result_t pattern systematically
+- Add error propagation through call stack
+**Success Metric**: No error_stop in src/ directory
 
-### Priority 4: ARCHITECTURAL COMPLIANCE (Issue #708)
-**CRITICAL**: 11 files exceed 1000-line architectural limits
-**ROOT CAUSE**: File size violations ranging from 1003-1810 lines
-**REQUIRED FIX**:
-- Split oversized files into focused, compliant modules
-- Maintain functionality while enforcing size constraints
-- Ensure all files <1000 lines with no exceptions
-- Preserve interfaces and prevent circular dependencies
+### Day 6-7: FILE SIZE COMPLIANCE (Issue #708)
+**Problem**: 11 files exceed 1000 lines (worst: 1810 lines)
+**Split Strategy**:
+- parser_control_flow.f90 → 3 modules (if/do/select)
+- parser_declarations.f90 → 3 modules (types/vars/attrs)
+- Other files → 2 modules each (core/helpers)
+**Success Metric**: `find src -name '*.f90' -exec wc -l {} + | awk '$1>1000'` returns nothing
 
-### EMERGENCY VALIDATION TESTS
+### SPRINT VALIDATION TESTS
 
-**TEST 1: Parser Crash Fix (Issue #678)**
+**TEST 1: Multi-Variable Codegen (Issue #684)**
 ```fortran
-program test_crash
-  integer :: i
-  do i = 1, 3
-    print *, i
-  end do
-end program
-```
-**MUST PASS**: Parses without segmentation fault
-
-**TEST 2: Codegen Fix (Issues #680, #684, #696)**
-```fortran
-program test_codegen
+program test_multi_var
   integer :: x, y, z
-  x = 1
+  real :: a, b, c, d
+  character(len=10) :: name1, name2
+  x = 1; y = 2; z = 3
 end program
 ```
-**MUST PASS**: Generated code compiles with gfortran (no TODO placeholders)
+**PASS CRITERIA**: Generated code has ALL variables declared and compiles cleanly
 
-**TEST 3: Test Suite & Build (Issues #671, #698)**
+**TEST 2: Test Suite Completion (Issue #671)**
 ```bash
-fmp build && fmp test test_lexer_basic --flag "-cpp -fmax-stack-var-size=131072"
+timeout 120 ./test.sh
 ```
-**MUST PASS**: Builds successfully and test completes without hanging
+**PASS CRITERIA**: Completes within 2 minutes, exit code 0 or small failure count
 
-**TEST 4: External Tool Integration (Issue #698)**
+**TEST 3: Library Integration (Issue #673)**
+```fortran
+! External tool using fortfront as library
+program test_lib
+  use fortfront_core
+  type(fortfront_result_t) :: result
+  result = fortfront_compile_source("x = 1", handle)
+  if (.not. result%success) print *, result%message
+end program
+```
+**PASS CRITERIA**: Errors handled gracefully, no crashes
+
+**TEST 4: Size Compliance Check (Issue #708)**
 ```bash
-cd test_external_tool && fmp build
+find src -name '*.f90' -exec wc -l {} + | awk '$1>1000 {print $2, $1}'
 ```
-**MUST PASS**: External tool compiles successfully using fortfront modules
+**PASS CRITERIA**: Command returns no output (all files <1000 lines)
 
-**EMERGENCY SUCCESS CRITERIA**: All tests pass - system minimally functional
+**SPRINT SUCCESS**: All 4 tests pass → Development workflow restored
 
 ## 🚨 SPRINT FAILURE ANALYSIS: CRISIS RECOVERY → SYSTEM COLLAPSE
 
