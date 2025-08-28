@@ -1,36 +1,59 @@
 ![fortfront](media/logo.svg)
 
-Core analysis frontend for lazy fortran - transforms lazy Fortran to standard Fortran via CLI.
+# 🚨 PROJECT TERMINATED - DO NOT USE
 
-## Overview
+**TERMINATION DATE**: 2025-08-28  
+**REASON**: Build system unfixable by current team - all development permanently suspended  
+**STATUS**: Completely broken - no functional build, test, or runtime capabilities  
+**WARNING**: All build instructions below are false - nothing works
 
-fortfront transforms lazy Fortran code to standard Fortran:
-- **Input**: Reads lazy fortran from stdin  
-- **Output**: Writes standard fortran to stdout
-- **Pipeline**: 4-phase transformation (lexer → parser → analysis → codegen)
-- **Type Inference**: Automatic variable type detection 
-- **Integration**: Designed for use with [fortrun](https://github.com/lazy-fortran/fortrun) build orchestrator
+See [TERMINATION.md](TERMINATION.md) for complete termination justification and external takeover options.
 
-## Features
+---
 
-- **Pure CLI Interface**: No API dependencies, works as standalone command
-- **Static Library**: `libfortfront.a` for integration into external projects
-- **Multi-Language Support**: C, C++, Fortran, and Rust interfaces
-- **High Performance**: <0.05ms average transformation time  
-- **Enhanced Error Reporting**: Clear error messages with line/column info
-- **Mixed Construct Support**: Handles modules with implicit main programs
-- **Standard Compliant**: Generates clean, standard Fortran code
-- **Type Inference**: Automatic variable typing algorithm with enhanced character type handling
+## ~~Core analysis frontend for lazy fortran~~ - TERMINATED PROJECT
 
-## Building
+~~transforms lazy Fortran to standard Fortran via CLI~~ - **BUILD SYSTEM BROKEN**
+
+## ~~Overview~~ - PROJECT TERMINATED
+
+**ALL FUNCTIONALITY BELOW IS NON-FUNCTIONAL** - Build system completely broken
+
+~~fortfront transforms lazy Fortran code to standard Fortran~~:
+- **Input**: ~~Reads lazy fortran from stdin~~ - **BROKEN: Build fails**  
+- **Output**: ~~Writes standard fortran to stdout~~ - **BROKEN: Executable doesn't exist**
+- **Pipeline**: ~~4-phase transformation (lexer → parser → analysis → codegen)~~ - **BROKEN: Missing tokenize_with_options function**
+- **Type Inference**: ~~Automatic variable type detection~~ - **BROKEN: 1,386 error_stop violations**
+- **Integration**: ~~Designed for use with fortrun~~ - **BROKEN: Cannot build static library**
+
+## ~~Features~~ - ALL BROKEN
+
+**NONE OF THE CLAIMED FEATURES WORK** - Complete technical fraud
+
+- **~~Pure CLI Interface~~**: **BROKEN** - Build system fails, no executable exists
+- **~~Static Library~~**: **BROKEN** - `libfortfront.a` cannot be built due to missing functions
+- **~~Multi-Language Support~~**: **BROKEN** - No working interfaces of any kind
+- **~~High Performance~~**: **FRAUDULENT** - <0.05ms claims are fake benchmark placeholders  
+- **~~Enhanced Error Reporting~~**: **BROKEN** - 1,386 error_stop violations cause crashes
+- **~~Mixed Construct Support~~**: **BROKEN** - Parser segfaults on basic constructs
+- **~~Standard Compliant~~**: **BROKEN** - Codegen produces invalid Fortran
+- **~~Type Inference~~**: **BROKEN** - Test suite hangs indefinitely
+
+## ~~Building~~ - COMPLETELY BROKEN
+
+**WARNING: ALL BUILD INSTRUCTIONS ARE FALSE** - Nothing works
 
 ```bash
-# Build CLI tool
-fpm build && fpm test
-
-# Build static library
-make libfortfront.a
+# These commands FAIL with FPM git detection bug
+fpm build && fpm test  # ERROR: "No commits found" (repository has hundreds)
+make libfortfront.a    # ERROR: Missing tokenize_with_options function
+./build.sh             # ERROR: Same FPM git bug
+./test.sh              # ERROR: Test suite hangs indefinitely
 ```
+
+**ROOT CAUSE**: FPM 0.12.0 git integration bug unfixable by current team  
+**TEAM VERDICT**: Lacks expertise to fix basic build tooling  
+**EXTERNAL HELP**: Required for any functionality restoration
 
 ## Usage
 
