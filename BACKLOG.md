@@ -34,7 +34,7 @@
 ## DOING (Active Work)
 
 **⚠️ CRITICAL**: Clear these before starting SPRINT_BACKLOG**
-- [ ] #652: Multi-variable declaration final fix - parsing loop completion (READY FOR HANDOFF TO SERGEI)
+- [ ] #682: CRASH FIX: Resolve do loop parsing segmentation faults (INVESTIGATING - PRIORITY 1)
 
 ## SPRINT_BACKLOG - CRISIS RECOVERY (3 EPICS, 5 ISSUES MAX)
 
@@ -43,7 +43,6 @@
 **SPRINT STRATEGY**: TINY FOCUSED FIXES - address only the most critical blockers
 
 ### EPIC 1: CRASH PREVENTION (Stop Segfaults)
-- [ ] #682: CRASH FIX: Resolve do loop parsing segmentation faults
 - [ ] #683: TEST FIX: Resolve test suite hanging indefinitely
 
 ### EPIC 2: CODE VALIDITY (Generate Compilable Code)  
@@ -167,6 +166,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #652: CRITICAL: multi-variable declarations broken - only processes first variable - FIXED IN PR #687 (comprehensive tests added)  
 - [x] #653: CRITICAL: if/else parsing completely broken with false error messages - EMERGENCY FIX IN PR #656 (semicolon statement separation)
 - [x] #637: bug: parser fails to parse do loops with expressions - FIXED IN PR #643 (parser now handles expressions using parse_range)
 - [x] #623: bug: if/else statements generate TODO placeholders instead of code - PR #635 READY FOR REVIEW
