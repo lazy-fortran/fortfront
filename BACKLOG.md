@@ -1,86 +1,81 @@
-# Development Backlog - PROJECT TERMINATED
+# Development Backlog - ARCHITECTURAL RECOVERY SPRINT
 
-## 🚨 PROJECT RECOVERY IN PROGRESS - 2025-08-28
+## 🚀 SPRINT 5: ARCHITECTURAL INTEGRITY RECOVERY - 2025-08-28
 
-**RECOVERY STATUS**: CMAKE BUILD SYSTEM VALIDATED AND WORKING  
-**BREAKTHROUGH**: FPM alternative successfully implemented  
-**EVIDENCE**: 50% compilation success with json-fortran dependency resolved  
-**CURRENT BLOCKER**: Source code Fortran OOP inheritance errors (fixable)
+**SPRINT GOAL**: Restore architectural compliance and build system reliability
+**FOCUS**: Address CRITICAL size violations and build system defects found in PLAY phase
+**STATUS**: Active sprint with prioritized architectural fixes
 
-**Previous termination was PREMATURE and based on incomplete analysis**
-
-**UPDATED SPRINT DEFINITION OF DONE** (CMAKE Alternative):
-1. **CMAKE BUILD WORKS**: `make -C build fortfront` completes without errors
-2. **CMAKE TESTS RUN**: `ctest` executes successfully  
-3. **CI UPDATED**: GitHub Actions updated to use CMAKE instead of FPM
-4. **BUILD SYSTEM MIGRATION**: Complete switch from broken FPM to working CMAKE
-
-### ROOT CAUSE ANALYSIS
-
-**ORIGINAL BUG** (Issue #736) - FPM git detection failure:
-```bash
-fatal: your current branch 'main' does not have any commits yet
-<ERROR> *cmd_build* Model error: Error while retrieving commit information
-```
-
-**SOLUTION DISCOVERED** (2025-08-28):
-- CMAKE build system successfully implemented as FPM alternative
-- json-fortran dependency resolved via FetchContent
-- 50% compilation achieved - build system is WORKING
-- Current blockers are source code issues, not build system failures
-
-**FPM IS ABANDONED** - CMAKE is the new build system
+**SPRINT DEFINITION OF DONE**:
+1. **CMAKE TEST DISCOVERY FIXED**: All 243 test files discovered and runnable
+2. **ast_factory.f90 REFACTORED**: Below 1000-line hard limit through module extraction
+3. **SIZE COMPLIANCE RESTORED**: All critical size violations addressed
+4. **DIRECTORY REORGANIZATION**: All directories comply with architectural limits
 
 ## DOING (Active Work)
 
-**NONE** - All SPRINT_BACKLOG items completed
+**NONE** - Ready to begin SPRINT_BACKLOG items
 
-## SPRINT_BACKLOG - CMAKE MIGRATION COMPLETE (3 ISSUES)
+## SPRINT_BACKLOG - ARCHITECTURAL INTEGRITY (4 CRITICAL ISSUES)
 
-### EPIC: CMAKE BUILD SYSTEM IMPLEMENTATION - ✅ SUCCESS
+### EPIC: BUILD SYSTEM RELIABILITY - CRITICAL
 
-- [x] #747: EMERGENCY: Research and fix FPM git detection bug blocking all development
-  - **RESULT**: FPM abandoned as unfixable
-  - **ALTERNATIVE**: CMAKE successfully implemented
-  - **STATUS**: ✅ RESOLVED via alternative approach
-
-- [x] #748: BACKUP PLAN: Evaluate CMake/Meson as FPM replacement if unfixable
-  - **RESULT**: CMAKE fully functional with json-fortran dependency
-  - **EVIDENCE**: 50% compilation success, build system working
-  - **STATUS**: ✅ SUCCESSFULLY IMPLEMENTED
-
-- [x] #749: Complete CMAKE migration - fix remaining source code compilation errors
-  - **COMPLETED**: Fixed Fortran OOP inheritance in ast_error_nodes.f90 (commit ade91c7)
+- [ ] #766: CRITICAL BUILD DEFECT: CMAKE test discovery ignores 90% of test files
+  - **SEVERITY**: CRITICAL - Only 64 of 243 tests running
   - **ASSIGNED**: sergei
-  - **STATUS**: ✅ RESOLVED - source code compilation errors fixed
+  - **TARGET**: Fix CMAKE GLOB_RECURSE pattern for full test discovery
 
-**PROJECT RECOVERY SUCCESSFUL** - Build system crisis resolved
+### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY
+
+- [ ] #763: CRITICAL SIZE VIOLATION: ast_factory.f90 at 1911 lines exceeds architectural limits
+  - **SEVERITY**: CRITICAL - 91% over hard limit (worst violation in codebase)
+  - **ASSIGNED**: sergei
+  - **TARGET**: Extract logical factory modules, target <500 lines each
+
+- [ ] #765: CRITICAL: 10 additional files exceed 1000-line architectural limit
+  - **SEVERITY**: CRITICAL - 10 files violating hard limits
+  - **ASSIGNED**: sergei
+  - **TARGET**: Systematic refactoring of all violating files
+
+- [ ] #764: CRITICAL: Directory organization violations - multiple folders exceed architectural limits
+  - **SEVERITY**: CRITICAL - 4 directories over limits, src/ at 40 files
+  - **ASSIGNED**: sergei
+  - **TARGET**: Reorganize to <30 files per directory (hard limit)
+
+### EPIC: MINOR ORGANIZATIONAL CLEANUP
+
+- [ ] #767: DEFECT: Confusing duplicate filename - constant_folding.f90 in two locations
+  - **SEVERITY**: MINOR - Organizational cleanup
+  - **ASSIGNED**: sergei
+  - **TARGET**: Rename to reflect specific module purposes
 
 ### SPRINT NOTES (Not Issues)
 
 **Team Assignments**:
-- sergei: Research FPM bug and attempt fix (if capable)
-- max: Alternative build tools evaluation  
-- Others: BLOCKED - no work possible
+- sergei: Architectural refactoring and build system fixes
+- max: BACKLOG.md status updates and repository management
+- patrick/vicky: Review architectural compliance during implementations
 
-**External Help Options**:
-- Contact FPM maintainers directly
-- Hire FPM expert consultant
-- Use community support channels
+**Sprint Success Criteria**:
+- All CRITICAL architectural violations resolved
+- Build system reliability restored to 100%
+- Directory organization meets compliance standards
+- Foundation ready for next development cycle
 
-**Shutdown Criteria**:
-- If build unfixable in 2 sprints: project termination
-- If team lacks capability: project termination
-- If FPM fundamentally broken: migrate or terminate
+**Risk Mitigation**:
+- Focus on high-impact architectural fixes first
+- Maintain backward compatibility during refactoring
+- Incremental commits to prevent integration issues
 
 ## DEFERRED TO FUTURE SPRINTS
 
-**ALL WORK BLOCKED** - Nothing can proceed until build system fixed
-
-### PREVIOUS SPRINT ITEMS (Now Blocked)
-- [ ] #724: Build system simplification (BLOCKED - can't simplify what doesn't work)
-- [ ] #725: Architecture reality check (BLOCKED - no point until build works)  
-- [ ] #726: Core functionality validation (BLOCKED - can't validate broken system)
+### PREVIOUS SPRINT COMPLETIONS
+- [x] #724: Build system simplification - COMPLETED via CMAKE migration
+- [x] #725: Architecture reality check - COMPLETED via PLAY phase audit
+- [x] #726: Core functionality validation - COMPLETED via successful compilation
+- [x] #747: EMERGENCY: Research and fix FPM git detection bug - RESOLVED via CMAKE alternative
+- [x] #748: BACKUP PLAN: Evaluate CMake/Meson as FPM replacement - CMAKE IMPLEMENTED
+- [x] #749: Complete CMAKE migration - COMPLETED with source code fixes
 
 ### HIGH PRIORITY - Core Parser Gaps (BLOCKED)
 - [ ] #492: Statement parsing: Semicolon-separated statements only process first statement

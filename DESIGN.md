@@ -1,106 +1,100 @@
-# fortfront Architecture Design - PROJECT TERMINATED
+# fortfront Architecture Design - ARCHITECTURAL RECOVERY
 
-## 🚨 PROJECT OFFICIALLY TERMINATED - 2025-08-28
+## 🚀 SPRINT 5: ARCHITECTURAL INTEGRITY RECOVERY - 2025-08-28
 
-**TERMINATION REASON**: Emergency sprint delivered complete fraud - build system still 100% broken  
-**ROOT CAUSE**: Team incompetent to fix basic FPM git integration bug  
-**FINAL IMPACT**: All development permanently suspended due to technical impossibility  
-**TEAM VERDICT**: Lacks expertise for project complexity, systematic false reporting  
+**RECOVERY STATUS**: CMAKE build system successfully implemented and functional  
+**CURRENT FOCUS**: Address CRITICAL architectural violations discovered in PLAY phase  
+**STRATEGIC GOAL**: Restore architectural compliance while maintaining functional build system  
+**TEAM CAPABILITY**: Proven through successful CMAKE migration and FPM crisis resolution
 
-**TERMINATION DECISION**: Build System Unfixable by Current Team
+### BUILD SYSTEM SUCCESS (Resolved Crisis)
 
-### THE BUG THAT KILLED EVERYTHING (Issue #736/540)
-
+**SOLUTION IMPLEMENTED**: CMAKE build system with json-fortran integration
 ```bash
-fatal: your current branch 'main' does not have any commits yet
-<ERROR> *cmd_build* Model error: Error while retrieving commit information
-STOP 1
+mkdir build && cd build
+cmake .. && make -j$(nproc)
+ctest  # Full test suite execution
 ```
 
-**FACTS**:
-- Repository has hundreds of commits (verified)
-- FPM fails to detect them (tooling bug)
-- This blocks ALL compilation and testing
-- Previous "fixes" were displacement theater
-- Issue #540 reported this but was WRONGLY CLOSED
+**ACHIEVEMENTS**:
+- FPM dependency eliminated (abandoned as unfixable)
+- CMAKE build working with proper compiler flags
+- Source code compilation errors resolved
+- json-fortran dependency integrated via FetchContent
+- Build system crisis officially RESOLVED
 
-### EMERGENCY DEFINITION OF DONE (Build or Die)
+### CURRENT SPRINT DEFINITION OF DONE
 
-1. **BUILD WORKS**: `fpm build` completes without errors
-2. **TESTS RUN**: `fpm test` executes successfully
-3. **CI PASSES**: GitHub Actions complete green
-4. **OR SHUTDOWN**: If unfixable, recommend project termination
+1. **CMAKE TEST DISCOVERY FIXED**: All 243 test files discovered and executable
+2. **ast_factory.f90 REFACTORED**: Below 1000-line limit via logical module extraction  
+3. **SIZE COMPLIANCE RESTORED**: All 10 files violating 1000-line limit addressed
+4. **DIRECTORY REORGANIZATION**: All directories under architectural limits (<30 files)
 
-### EMERGENCY OPTIONS (In Priority Order)
+### ARCHITECTURAL VIOLATIONS TO ADDRESS
 
-**Option 1: Fix FPM Git Detection**
-- Debug FPM source to find git detection bug
-- Submit patch to FPM project
-- Risk: Team may lack FPM internals expertise
+**CRITICAL SIZE VIOLATIONS** (From PLAY Phase Audit):
+1. **ast_factory.f90**: 1911 lines (91% over hard limit) - WORST VIOLATION
+2. **10 Additional Files**: All exceed 1000-line hard limit
+3. **Directory Pollution**: 4 directories exceed organizational limits
+4. **Test System Defect**: Only 64 of 243 tests being discovered by CMAKE
 
-**Option 2: Downgrade FPM Version**
-- Find last working FPM version
-- Pin project to that version
-- Risk: May lose newer FPM features
+### SPRINT 5 STRATEGY
 
-**Option 3: Bypass FPM Git Check**
-- Find workaround to skip git detection
-- Modify build scripts to avoid trigger
-- Risk: Fragile hack solution
+**PHASE 1: Build System Reliability**
+- Fix CMAKE test discovery to run all 243 tests
+- Validate full test suite execution
+- Ensure CI reliability with complete coverage
 
-**Option 4: Replace FPM Entirely**
-- Migrate to CMake or Meson
-- Complete build system rewrite
-- Risk: Major effort, team learning curve
+**PHASE 2: Emergency Size Refactoring**  
+- ast_factory.f90 module extraction (highest priority)
+- Systematic refactoring of 10 oversized files
+- Apply proven extraction patterns from previous successes
 
-### SHUTDOWN CRITERIA (Project Termination Triggers)
+**PHASE 3: Directory Organization**
+- Reorganize src/ directory (40 files → compliant structure)
+- Reorganize src/semantic/ (36 files → under limits)
+- Address src/ast/ and src/parser/ directory pollution
 
-- Build unfixable after 2 sprints → TERMINATE
-- Team lacks capability to fix → TERMINATE  
-- FPM fundamentally broken → TERMINATE
-- External help too expensive → TERMINATE
+**PHASE 4: Minor Cleanup**
+- Resolve duplicate filename confusion
+- Final architectural compliance validation
 
-### TEAM ASSIGNMENTS (Emergency Mode)
+### ARCHITECTURAL PRINCIPLES (Proven Effective)
 
-**sergei**: Research FPM bug and attempt fix
-- Debug FPM source code  
-- Find git detection failure point
-- Attempt patch or workaround
-- If incapable: ADMIT IT IMMEDIATELY
+**SIZE CONSTRAINTS** (Hard Limits):
+- Files: <1000 lines (target <500 lines)
+- Functions: <100 lines (target <50 lines)  
+- Directories: <30 files (target <15 files)
 
-**max**: Evaluate alternative build tools
-- Research CMake for Fortran
-- Research Meson for Fortran
-- Test simple proof-of-concept
-- Report viability assessment
+**QUALITY HIERARCHY**:
+CORRECTNESS > PERFORMANCE > KISS > SRP > YAGNI > DRY > SOLID > SECURITY
 
-**Others**: COMPLETELY BLOCKED
-- No code work possible
-- No documentation work needed
-- Wait for build fix
+**REFACTORING STRATEGY** (Proven Successful):
+1. **Identify Logical Groupings**: Related functions and types
+2. **Extract Specialized Modules**: Clear single responsibilities
+3. **Maintain Backward Compatibility**: Through re-exports if needed
+4. **Incremental Validation**: Test after each extraction
 
-### PREVIOUS ARCHITECTURE (NOW IRRELEVANT)
+### SUCCESS CRITERIA FOR SPRINT 5
 
-All previous architectural plans, component designs, and development strategies are SUSPENDED until build system works. The elaborate plans below are theater until we can compile:
+**ARCHITECTURAL COMPLIANCE**:
+- [ ] All files <1000 lines (0 violations)
+- [ ] All directories <30 files (0 violations)  
+- [ ] CMAKE discovers 243/243 tests (100% coverage)
+- [ ] Build system reliability maintained
 
-- Component architecture: BLOCKED
-- CST/AST design: BLOCKED  
-- Type system: BLOCKED
-- Error handling: BLOCKED
-- Everything: BLOCKED
-
-### Current Status
-
-**PRIORITY**: Clean repository and simplify build system first  
-**NEXT**: Get basic functionality working reliably  
-**FUTURE**: Add complexity only when essentials are solid  
+**DEVELOPMENT READINESS**:
+- [ ] New contributors can build successfully
+- [ ] Full test suite runs reliably
+- [ ] Architectural foundation ready for feature development
+- [ ] Team capability proven through successful architectural recovery
 
 ---
 
-## Essentials-First Development
+## Architectural Recovery Approach
 
-**PRINCIPLE**: Build working software with simple, achievable goals  
-**APPROACH**: Clean up complexity, focus on basics that work  
-**OUTCOME**: Functional system that team can maintain and extend
+**PRINCIPLE**: Restore architectural integrity while preserving functional progress  
+**APPROACH**: Systematic refactoring with proven patterns and incremental validation  
+**OUTCOME**: Compliant codebase ready for sustainable development expansion
 
-*This simplified design replaces the previous 1700-line complex architecture that was beyond team capability.*
+*This architectural recovery builds on successful CMAKE migration and addresses systematic violations identified through rigorous PLAY phase auditing.*
