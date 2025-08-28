@@ -34,8 +34,7 @@
 ## DOING (Active Work)
 
 **⚠️ CRITICAL**: Clear these before starting SPRINT_BACKLOG**
-- [ ] #652: Multi-variable declaration final fix - parsing loop completion
-- [ ] #622: Function definition TODO placeholder fix - PR or abandon branch
+- [ ] #652: Multi-variable declaration final fix - parsing loop completion (READY FOR HANDOFF TO SERGEI)
 
 ## SPRINT_BACKLOG - CRISIS RECOVERY (3 EPICS, 5 ISSUES MAX)
 
