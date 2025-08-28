@@ -36,7 +36,11 @@
 
 ## DOING (Active Work)
 
-**⚠️ EMERGENCY**: System completely non-functional - all work suspended until stabilized**
+**EPIC 1 - CRITICAL**: Parser segfaults on basic do loop parsing (Issue #705)
+- System crashes immediately on simple programs: `do i=1,3; print*,i; end do`
+- Blocking ALL development and testing work
+- Must achieve: Basic do loop processing without segfaults
+- Status: EMERGENCY BRANCH CREATED - READY FOR SERGEI IMPLEMENTATION
 
 ## SPRINT_BACKLOG - SYSTEM RECOVERY (3 EPICS, 5 ISSUES MAX)
 
@@ -44,7 +48,7 @@
 **CRISIS STRATEGY**: Fix only the most critical blockers preventing any development work
 
 ### EPIC 1: STOP SYSTEM CRASHES
-- [ ] #705: EMERGENCY: Fix parser segfaults on do loop parsing
+- [IN PROGRESS] #705: EMERGENCY: Fix parser segfaults on do loop parsing
   - Add defensive null pointer checks
   - Validate memory bounds in control flow parsing
   - Test: `do i=1,3; print*,i; end do` must not segfault
