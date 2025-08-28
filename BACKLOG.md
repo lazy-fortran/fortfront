@@ -14,16 +14,19 @@
 
 ## DOING (Active Work)
 
-**NONE** - Ready to begin SPRINT_BACKLOG items
+### EPIC: BUILD SYSTEM RELIABILITY - CRITICAL
+
+- [ ] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests
+  - **SEVERITY**: CRITICAL - CMAKE only discovers 64 of 243 test files
+  - **ASSIGNED**: sergei 
+  - **TARGET**: Replace shallow glob with recursive pattern for complete test coverage
+  - **STATUS**: Starting implementation - build system blocker
 
 ## SPRINT_BACKLOG - ARCHITECTURAL INTEGRITY (4 CRITICAL ISSUES)
 
 ### EPIC: BUILD SYSTEM RELIABILITY - CRITICAL
 
-- [ ] #768: SPRINT: FPM test execution fix - restore full test coverage
-  - **SEVERITY**: CRITICAL - Test execution reliability issues with FPM flags
-  - **ASSIGNED**: sergei
-  - **TARGET**: Fix FPM test execution with proper -cpp and stack flags
+- [x] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests - **MOVED TO DOING**
 
 ### EPIC: ARCHITECTURAL SIZE VIOLATIONS - EMERGENCY
 
