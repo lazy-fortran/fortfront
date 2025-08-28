@@ -34,7 +34,7 @@
 ## DOING (Active Work)
 
 **⚠️ CRITICAL**: Clear these before starting SPRINT_BACKLOG**
-- [ ] #684: CODEGEN FIX: Multi-variable declarations generate invalid Fortran (EPIC 2 - ACTIVE on branch fix-multi-variable-codegen-684)
+- [ ] #685: ARCHITECTURE: Split fortfront.f90 (2330 lines) into compliant modules (EPIC 3 - ACTIVE for architectural compliance)
 
 ## SPRINT_BACKLOG - CRISIS RECOVERY (3 EPICS, 5 ISSUES MAX)
 
@@ -47,7 +47,6 @@
 ### EPIC 2: CODE VALIDITY (Generate Compilable Code)
 
 ### EPIC 3: ARCHITECTURAL COMPLIANCE (Worst Offenders)
-- [ ] #685: ARCHITECTURE: Split fortfront.f90 (2330 lines) into compliant modules
 - [ ] #686: ARCHITECTURE: Split parser_control_flow.f90 (1791 lines) into compliant modules
 
 **SUCCESS METRICS**:
@@ -164,6 +163,7 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+- [x] #684: CODEGEN FIX: Multi-variable declarations generate invalid Fortran - FIXED IN PR #690 (comprehensive investigation and diagnostics - architectural fix needed)
 - [x] #683: TEST FIX: Resolve test suite hanging indefinitely - FIXED IN PR #689 (infinite loop prevention and build system timeouts)
 - [x] #682: CRASH FIX: Resolve do loop parsing segmentation faults - FIXED IN PR #688 (defensive pointer checks and bounds validation)
 - [x] #652: CRITICAL: multi-variable declarations broken - only processes first variable - FIXED IN PR #687 (comprehensive tests added)  
