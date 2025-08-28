@@ -506,39 +506,18 @@ contains
         end if
     end subroutine parse_simple_implicit
 
-    ! Handle single vs multi-variable declarations (duplicate of dispatcher logic)
+    ! Handle single vs multi-variable declarations
+    ! Now uses unified parse_declaration which handles all cases
     subroutine handle_variable_declaration(parser, arena, stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
-        logical :: has_initializer, has_comma
-        integer, allocatable :: decl_indices(:)
         
+        ! Always use parse_declaration which now handles both single and multi-variable cases
+        ! The parser now creates a single multi-declaration node even for arrays
+        stmt_index = parse_declaration(parser, arena)
         
-        ! Analyze the declaration structure
-        call analyze_declaration_structure(parser, has_initializer, has_comma)
-        
-        if (has_initializer .and. .not. has_comma) then
-            ! Single variable with initializer - use parse_declaration
-            stmt_index = parse_declaration(parser, arena)
-        else if (has_comma) then
-            ! Multi-variable declaration - use parse_multi_declaration  
-            decl_indices = parse_multi_declaration(parser, arena)
-            if (allocated(decl_indices) .and. size(decl_indices) > 0) then
-                stmt_index = decl_indices(1)  ! Return first declaration index
-                
-                ! Store additional indices if any
-                if (size(decl_indices) > 1) then
-                    allocate(additional_execution_indices(size(decl_indices) - 1))
-                    additional_execution_indices = decl_indices(2:)
-                end if
-            else
-                stmt_index = parse_declaration(parser, arena)  ! Fallback
-            end if
-        else
-            ! Single variable without initializer - use parse_declaration
-            stmt_index = parse_declaration(parser, arena)
-        end if
+        ! No longer need additional indices since we're not splitting declarations
     end subroutine handle_variable_declaration
 
 end module parser_execution_statements_module

@@ -111,6 +111,7 @@ contains
     end subroutine parse_declaration_attributes
 
     ! Parse single-variable declaration (e.g., real :: x)
+    ! Also handles multi-variable declarations by creating separate nodes when needed
     function parse_declaration(parser, arena) result(decl_index)
         use ast_factory, only: push_declaration
         type(parser_state_t), intent(inout) :: parser
@@ -151,28 +152,45 @@ contains
             return
         end if
         
-        ! Check if this is a multi-variable declaration by looking ahead for commas
+        ! Parse potentially multi-variable declaration
+        ! For variables with array dimensions, we create separate declaration nodes
+        ! since the AST can't handle per-variable dimensions in multi-declarations
         block
-            character(len=64), allocatable :: var_names(:)
+            type :: var_info
+                character(len=64) :: name
+                integer, allocatable :: dimension_indices(:)
+            end type var_info
+            
+            type(var_info), allocatable :: variables(:)
             integer :: var_count, i, temp_index
             character(len=64) :: first_var_name
             type(token_t) :: next_token
-            logical :: is_multi_var
+            logical :: has_arrays, needs_separate_decls
+            integer, allocatable :: first_dims(:)
             
-            first_var_name = trim(token%text)
+            ! Allocate initial variables array
+            allocate(variables(10))
             var_count = 1
-            is_multi_var = .false.
+            first_var_name = trim(token%text)
+            variables(1)%name = first_var_name
+            has_arrays = .false.
+            needs_separate_decls = .false.
             
-            ! Look ahead for commas to detect multi-variable declaration
+            ! Check for array dimensions after first variable
+            if (.not. parser%is_at_end()) then
+                next_token = parser%peek()
+                if (next_token%text == "(") then
+                    has_arrays = .true.
+                    next_token = parser%consume()  ! consume '('
+                    call parse_array_dimensions(parser, arena, variables(1)%dimension_indices)
+                end if
+            end if
+            
+            ! Check for comma to detect multi-variable declaration
             if (.not. parser%is_at_end()) then
                 next_token = parser%peek()
                 if (next_token%text == ",") then
-                    is_multi_var = .true.
-                    
-                    ! Collect all variable names
-                    allocate(var_names(10))  ! Start with reasonable size
-                    var_names(1) = first_var_name
-                    
+                    ! This is a multi-variable declaration
                     do while (.not. parser%is_at_end())
                         next_token = parser%peek()
                         if (next_token%text == ",") then
@@ -184,19 +202,38 @@ contains
                                 next_token = parser%consume()
                                 if (next_token%kind == TK_IDENTIFIER) then
                                     var_count = var_count + 1
-                                    if (var_count > size(var_names)) then
+                                    if (var_count > size(variables)) then
                                         ! Extend array if needed
                                         block
-                                            character(len=64), allocatable :: temp_names(:)
+                                            type(var_info), allocatable :: temp_vars(:)
                                             integer :: old_size
-                                            old_size = size(var_names)
-                                            allocate(temp_names(old_size * 2))
-                                            temp_names(1:old_size) = var_names(1:old_size)
-                                            deallocate(var_names)
-                                            call move_alloc(temp_names, var_names)
+                                            old_size = size(variables)
+                                            allocate(temp_vars(old_size * 2))
+                                            temp_vars(1:old_size) = variables(1:old_size)
+                                            deallocate(variables)
+                                            call move_alloc(temp_vars, variables)
                                         end block
                                     end if
-                                    var_names(var_count) = trim(next_token%text)
+                                    variables(var_count)%name = trim(next_token%text)
+                                    
+                                    ! Check for array dimensions after this variable
+                                    if (.not. parser%is_at_end()) then
+                                        next_token = parser%peek()
+                                        if (next_token%text == "(") then
+                                            has_arrays = .true.
+                                            next_token = parser%consume()  ! consume '('
+                                            call parse_array_dimensions(parser, arena, variables(var_count)%dimension_indices)
+                                            ! If dimensions are different, we need separate declarations
+                                            if (allocated(variables(1)%dimension_indices)) then
+                                                if (.not. allocated(variables(var_count)%dimension_indices) .or. &
+                                                    size(variables(1)%dimension_indices) /= size(variables(var_count)%dimension_indices)) then
+                                                    needs_separate_decls = .true.
+                                                end if
+                                            else if (allocated(variables(var_count)%dimension_indices)) then
+                                                needs_separate_decls = .true.
+                                            end if
+                                        end if
+                                    end if
                                 else
                                     exit
                                 end if
@@ -210,46 +247,85 @@ contains
                 end if
             end if
             
-            if (is_multi_var) then
-                ! Create multi-variable declaration
-                
-                temp_index = push_multi_declaration( &
-                    arena, &
-                    type_spec%type_name, &
-                    var_names(1:var_count) &
-                )
-                
-                decl_index = temp_index
-                return
-            end if
-        end block
-
-        block
-            character(len=:), allocatable :: var_name
-            var_name = token%text
-            
             ! Check for initialization
+            initializer_index = 0
             if (.not. parser%is_at_end()) then
-                token = parser%peek()
-                if (token%text == "=" .or. token%text == "=>") then
-                    token = parser%consume()
+                next_token = parser%peek()
+                if (next_token%text == "=" .or. next_token%text == "=>") then
+                    next_token = parser%consume()
                     initializer_index = parse_comparison(parser, arena)
                 end if
             end if
-
-            ! Convert intent to code (simplified)
-            intent_code = 0
-
-            ! Create declaration node
-            decl_index = push_declaration( &
-                arena, &
-                type_spec%type_name, &
-                var_name, &
-                initializer_index=initializer_index, &
-                is_allocatable=attr_info%is_allocatable, &
-                is_pointer=attr_info%is_pointer, &
-                is_parameter=attr_info%is_parameter &
-            )
+            
+            if (var_count == 1) then
+                ! Single variable declaration
+                decl_index = push_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    variables(1)%name, &
+                    dimension_indices=variables(1)%dimension_indices, &
+                    initializer_index=initializer_index, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            else if (has_arrays .or. needs_separate_decls) then
+                ! Multi-variable with arrays - create single multi-declaration with shared dimensions
+                ! KNOWN LIMITATION: The current AST structure doesn't support per-variable dimensions
+                ! For declarations like "real :: arr1(10), arr2(20)", we preserve variable names
+                ! but can only store one set of dimensions (from the first variable).
+                ! This is a fundamental AST limitation that requires restructuring to fix properly.
+                ! See issue #706 for tracking this enhancement.
+                block
+                    character(len=64), allocatable :: all_names(:)
+                    allocate(all_names(var_count))
+                    do i = 1, var_count
+                        all_names(i) = variables(i)%name
+                    end do
+                    
+                    ! Create multi-declaration with dimensions from first variable
+                    if (allocated(variables(1)%dimension_indices)) then
+                        decl_index = push_multi_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            all_names, &
+                            dimension_indices=variables(1)%dimension_indices, &
+                            initializer_index=initializer_index, &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    else
+                        decl_index = push_multi_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            all_names, &
+                            initializer_index=initializer_index, &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    end if
+                end block
+            else
+                ! Multi-variable without arrays - can use multi-declaration
+                block
+                    character(len=64), allocatable :: simple_names(:)
+                    allocate(simple_names(var_count))
+                    do i = 1, var_count
+                        simple_names(i) = variables(i)%name
+                    end do
+                    decl_index = push_multi_declaration( &
+                        arena, &
+                        type_spec%type_name, &
+                        simple_names, &
+                        initializer_index=initializer_index, &
+                        is_allocatable=attr_info%is_allocatable, &
+                        is_pointer=attr_info%is_pointer, &
+                        is_parameter=attr_info%is_parameter &
+                    )
+                end block
+            end if
         end block
     end function parse_declaration
 
@@ -317,6 +393,8 @@ contains
     end subroutine parse_array_dimensions
 
     ! Parse multi-variable declaration (e.g., real :: x, y, z = 1.0)
+    ! Note: This function is called when the type and attributes have been consumed
+    ! and we need to parse the variable list after ::
     function parse_multi_declaration(parser, arena) result(decl_indices)
         use iso_fortran_env, only: error_unit
         use ast_factory, only: push_multi_declaration
@@ -372,6 +450,27 @@ contains
             end if
             var_names(var_count) = token%text
             
+            ! Check for array dimensions after variable name
+            if (.not. parser%is_at_end()) then
+                next_token = parser%peek()
+                if (next_token%text == "(") then
+                    ! Skip array dimensions for this variable
+                    ! Note: We currently don't store per-variable dimensions
+                    next_token = parser%consume()  ! consume '('
+                    block
+                        integer, allocatable :: temp_dims(:)
+                        call parse_array_dimensions(parser, arena, temp_dims)
+                        ! If this is the first variable with dimensions, save them
+                        if (var_count == 1 .and. allocated(temp_dims)) then
+                            if (.not. allocated(attr_info%global_dimension_indices)) then
+                                attr_info%global_dimension_indices = temp_dims
+                                attr_info%has_global_dimensions = .true.
+                            end if
+                        end if
+                    end block
+                end if
+            end if
+            
             ! Check for comma or end of variables
             if (.not. parser%is_at_end()) then
                 next_token = parser%peek()
@@ -399,27 +498,55 @@ contains
         end if
         
         ! Create multi-variable declaration node
+        ! Include array dimensions if present
         if (type_spec%has_kind) then
-            decl_index = push_multi_declaration( &
-                arena, &
-                type_spec%type_name, &
-                var_names(1:var_count), &
-                kind_value=type_spec%kind_value, &
-                initializer_index=initializer_index, &
-                is_allocatable=attr_info%is_allocatable, &
-                is_pointer=attr_info%is_pointer, &
-                is_parameter=attr_info%is_parameter &
-            )
+            if (attr_info%has_global_dimensions .and. allocated(attr_info%global_dimension_indices)) then
+                decl_index = push_multi_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_names(1:var_count), &
+                    kind_value=type_spec%kind_value, &
+                    initializer_index=initializer_index, &
+                    dimension_indices=attr_info%global_dimension_indices, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            else
+                decl_index = push_multi_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_names(1:var_count), &
+                    kind_value=type_spec%kind_value, &
+                    initializer_index=initializer_index, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            end if
         else
-            decl_index = push_multi_declaration( &
-                arena, &
-                type_spec%type_name, &
-                var_names(1:var_count), &
-                initializer_index=initializer_index, &
-                is_allocatable=attr_info%is_allocatable, &
-                is_pointer=attr_info%is_pointer, &
-                is_parameter=attr_info%is_parameter &
-            )
+            if (attr_info%has_global_dimensions .and. allocated(attr_info%global_dimension_indices)) then
+                decl_index = push_multi_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_names(1:var_count), &
+                    initializer_index=initializer_index, &
+                    dimension_indices=attr_info%global_dimension_indices, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            else
+                decl_index = push_multi_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_names(1:var_count), &
+                    initializer_index=initializer_index, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            end if
         end if
         
         if (decl_index > 0) then

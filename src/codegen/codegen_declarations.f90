@@ -339,7 +339,9 @@ contains
             do i = 1, size(node%var_names)
                 if (i > 1) code = code // ", "
                 code = code // trim(node%var_names(i))
-                ! Add dimensions per variable if needed
+                ! Note: With current parser changes, multi-variable arrays with different
+                ! dimensions are split into separate declaration nodes, so this case
+                ! should only occur for variables with identical or no dimensions
                 if (node%is_array .and. allocated(node%dimension_indices)) then
                     code = code // "("
                     do j = 1, size(node%dimension_indices)

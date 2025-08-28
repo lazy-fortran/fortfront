@@ -28,7 +28,8 @@ module parser_dispatcher_module
     implicit none
     private
 
-    public :: parse_statement_dispatcher, get_additional_indices, clear_additional_indices
+    public :: parse_statement_dispatcher, get_additional_indices, clear_additional_indices, &
+              set_additional_indices
     
     ! Module variable to store additional indices from multi-declaration parsing
     integer, allocatable :: additional_indices(:)
@@ -157,35 +158,9 @@ contains
         else
             ! Other type keywords - check if it's a declaration
             if (has_double_colon(parser)) then
-                ! Check if this is single or multi-variable declaration
-                block
-                    logical :: has_initializer, has_comma
-                    integer, allocatable :: decl_indices(:)
-                    
-                    call analyze_declaration_structure(parser, has_initializer, has_comma)
-                    
-                    if (has_initializer .and. .not. has_comma) then
-                        ! Single variable with initializer - use parse_declaration
-                        stmt_index = parse_declaration(parser, arena)
-                    else if (has_comma) then
-                        ! Multi-variable declaration - use parse_multi_declaration  
-                        decl_indices = parse_multi_declaration(parser, arena)
-                        if (allocated(decl_indices) .and. size(decl_indices) > 0) then
-                            stmt_index = decl_indices(1)  ! Return first declaration index
-                            
-                            ! Store additional indices if any
-                            if (size(decl_indices) > 1) then
-                                allocate(additional_indices(size(decl_indices) - 1))
-                                additional_indices = decl_indices(2:)
-                            end if
-                        else
-                            stmt_index = parse_declaration(parser, arena)  ! Fallback
-                        end if
-                    else
-                        ! Single variable without initializer - use parse_declaration
-                        stmt_index = parse_declaration(parser, arena)
-                    end if
-                end block
+                ! Always use parse_declaration which now handles both single and multi-variable cases
+                ! including proper handling of array dimensions for each variable
+                stmt_index = parse_declaration(parser, arena)
             else
                 ! Could be function definition like "real function foo()"
                 stmt_index = parse_function_or_expression(parser, arena)
@@ -349,5 +324,19 @@ contains
             deallocate(additional_indices)
         end if
     end subroutine clear_additional_indices
+    
+    ! Set additional indices from multi-declaration parsing
+    subroutine set_additional_indices(indices)
+        integer, intent(in) :: indices(:)
+        
+        if (allocated(additional_indices)) then
+            deallocate(additional_indices)
+        end if
+        
+        if (size(indices) > 0) then
+            allocate(additional_indices(size(indices)))
+            additional_indices = indices
+        end if
+    end subroutine set_additional_indices
 
 end module parser_dispatcher_module
