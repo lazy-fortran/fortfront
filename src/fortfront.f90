@@ -161,14 +161,14 @@ module fortfront
                                  intrinsic_signature_t
     
     ! NEW: Extensible Semantic Pipeline (issue #202)
-    use semantic_pipeline, only: semantic_pipeline_t, analyzer_ptr, create_pipeline
+    ! use semantic_pipeline, only: semantic_pipeline_t, analyzer_ptr, create_pipeline
     use semantic_analyzer_base, only: semantic_analyzer_t
-    use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t, &
-                                 call_graph_analyzer_t, control_flow_analyzer_t, &
-                                 usage_tracker_analyzer_t, source_reconstruction_analyzer_t, &
-                                 interface_analyzer_t
-    use semantic_pipeline_integration, only: analyze_semantics_with_pipeline, &
-                                             create_default_semantic_pipeline
+    ! use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t, &
+    !                              call_graph_analyzer_t, control_flow_analyzer_t, &
+    !                              usage_tracker_analyzer_t, source_reconstruction_analyzer_t, &
+    !                              interface_analyzer_t
+    ! use semantic_pipeline_integration, only: analyze_semantics_with_pipeline, &
+    !                                          create_default_semantic_pipeline
                                              
     ! Re-export utility functions from fortfront_utils
     use fortfront_utils, only: node_exists, get_node_type_at, get_node_location, &
