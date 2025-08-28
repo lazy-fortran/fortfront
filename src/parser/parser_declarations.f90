@@ -8,6 +8,7 @@ module parser_declarations
     use parser_expressions_module, only: parse_comparison, parse_range
     use parser_result_types, only: parse_result_t, success_parse_result, error_parse_result
     use error_handling, only: ERROR_PARSER
+    use ast_factory, only: push_multi_declaration
     implicit none
     private
 
@@ -115,12 +116,13 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: decl_index
-
+        
         type(token_t) :: token
         type(type_specifier_t) :: type_spec
         type(declaration_attributes_t) :: attr_info
         integer :: initializer_index, intent_code
 
+        
         decl_index = 0
         initializer_index = 0
 
@@ -148,6 +150,79 @@ contains
         if (token%kind /= TK_IDENTIFIER) then
             return
         end if
+        
+        ! Check if this is a multi-variable declaration by looking ahead for commas
+        block
+            character(len=64), allocatable :: var_names(:)
+            integer :: var_count, i, temp_index
+            character(len=64) :: first_var_name
+            type(token_t) :: next_token
+            logical :: is_multi_var
+            
+            first_var_name = trim(token%text)
+            var_count = 1
+            is_multi_var = .false.
+            
+            ! Look ahead for commas to detect multi-variable declaration
+            if (.not. parser%is_at_end()) then
+                next_token = parser%peek()
+                if (next_token%text == ",") then
+                    is_multi_var = .true.
+                    
+                    ! Collect all variable names
+                    allocate(var_names(10))  ! Start with reasonable size
+                    var_names(1) = first_var_name
+                    
+                    do while (.not. parser%is_at_end())
+                        next_token = parser%peek()
+                        if (next_token%text == ",") then
+                            ! Consume comma
+                            next_token = parser%consume()
+                            
+                            ! Get next variable name
+                            if (.not. parser%is_at_end()) then
+                                next_token = parser%consume()
+                                if (next_token%kind == TK_IDENTIFIER) then
+                                    var_count = var_count + 1
+                                    if (var_count > size(var_names)) then
+                                        ! Extend array if needed
+                                        block
+                                            character(len=64), allocatable :: temp_names(:)
+                                            integer :: old_size
+                                            old_size = size(var_names)
+                                            allocate(temp_names(old_size * 2))
+                                            temp_names(1:old_size) = var_names(1:old_size)
+                                            deallocate(var_names)
+                                            call move_alloc(temp_names, var_names)
+                                        end block
+                                    end if
+                                    var_names(var_count) = trim(next_token%text)
+                                else
+                                    exit
+                                end if
+                            else
+                                exit
+                            end if
+                        else
+                            exit
+                        end if
+                    end do
+                end if
+            end if
+            
+            if (is_multi_var) then
+                ! Create multi-variable declaration
+                
+                temp_index = push_multi_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_names(1:var_count) &
+                )
+                
+                decl_index = temp_index
+                return
+            end if
+        end block
 
         block
             character(len=:), allocatable :: var_name
@@ -243,6 +318,7 @@ contains
 
     ! Parse multi-variable declaration (e.g., real :: x, y, z = 1.0)
     function parse_multi_declaration(parser, arena) result(decl_indices)
+        use iso_fortran_env, only: error_unit
         use ast_factory, only: push_multi_declaration
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -253,6 +329,7 @@ contains
         type(declaration_attributes_t) :: attr_info
         character(len=64), allocatable :: var_names(:)
         integer :: var_count, initializer_index, decl_index
+        
         
         ! Parse type specifier
         type_spec = parse_type_specifier(parser)
