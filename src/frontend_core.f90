@@ -4,9 +4,7 @@ module frontend_core
 
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                            TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
-                           TK_NUMBER, TK_STRING, TK_UNKNOWN, &
-                           lexer_options_t, tokenize_with_options, &
-                           trivia_lexer_options
+                           TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
@@ -280,16 +278,9 @@ contains
         character(len=*), intent(in) :: source
         type(token_t), allocatable, intent(out) :: tokens(:)
         character(len=*), intent(out) :: error_msg
-        type(lexer_options_t) :: options
         
         error_msg = ""
-        ! Configure lexer to preserve comments but not collect trivia
-        ! This ensures comments come through as regular tokens
-        options%collect_trivia = .false.
-        options%preserve_newlines = .true.    ! Emit newline tokens
-        options%preserve_whitespace = .false. ! Don't preserve all whitespace
-        options%preserve_comments = .true.    ! Preserve comments as tokens
-        call tokenize_with_options(source, tokens, options)
+        call tokenize_core(source, tokens)
     end subroutine lex_file
 
     ! Simple interface functions for clean pipeline usage
@@ -297,14 +288,8 @@ contains
         character(len=*), intent(in) :: source_code
         type(token_t), allocatable, intent(out) :: tokens(:)
         character(len=:), allocatable, intent(out) :: error_msg
-        type(lexer_options_t) :: options
         
-        ! Configure lexer to preserve comments but not collect trivia
-        options%collect_trivia = .false.
-        options%preserve_newlines = .true.    ! Emit newline tokens
-        options%preserve_whitespace = .false. ! Don't preserve all whitespace
-        options%preserve_comments = .true.    ! Preserve comments as tokens
-        call tokenize_with_options(source_code, tokens, options)
+        call tokenize_core(source_code, tokens)
         if (.not. allocated(tokens)) then
             allocate(character(len=22) :: error_msg)
             error_msg = "Failed to tokenize source"
