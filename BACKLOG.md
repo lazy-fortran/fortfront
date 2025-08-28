@@ -36,34 +36,36 @@
 
 ## DOING (Active Work)
 
-**EPIC 1 - CRITICAL**: Parser segfaults on basic do loop parsing (Issue #705)
-- System crashes immediately on simple programs: `do i=1,3; print*,i; end do`
-- Blocking ALL development and testing work
-- Must achieve: Basic do loop processing without segfaults
-- Status: EMERGENCY BRANCH CREATED - READY FOR SERGEI IMPLEMENTATION
+**EPIC 3 - CRITICAL**: Test suite hangs indefinitely, blocking all development (Issue #671)
+- Test suite hangs indefinitely when running ./test.sh
+- Individual tests also hang (e.g., test_lexer_direct) 
+- Cannot verify any code changes - development completely blocked
+- Must achieve: Test suite executes without hanging - all tests can run
+- Status: CLEAN REPOSITORY - READY FOR SERGEI IMPLEMENTATION
 
 ## SPRINT_BACKLOG - SYSTEM RECOVERY (3 EPICS, 5 ISSUES MAX)
 
 **EMERGENCY GOAL**: Restore system from complete failure to basic functionality  
 **CRISIS STRATEGY**: Fix only the most critical blockers preventing any development work
 
-### EPIC 1: STOP SYSTEM CRASHES
-- [IN PROGRESS] #705: EMERGENCY: Fix parser segfaults on do loop parsing
+### EPIC 1: ENABLE VALIDATION & INTEGRATION (CURRENT PRIORITY)
+- [IN PROGRESS] #671: EMERGENCY: Fix test suite hanging and build system failures
+  - Test suite executes without hanging
+  - Build generates required module files  
+  - External tool compilation works
+  - PRIORITY 1: Root cause analysis of infinite loops/deadlocks
+
+### EPIC 2: STOP SYSTEM CRASHES
+- [ ] #705: EMERGENCY: Fix parser segfaults on do loop parsing
   - Add defensive null pointer checks
   - Validate memory bounds in control flow parsing
   - Test: `do i=1,3; print*,i; end do` must not segfault
 
-### EPIC 2: GENERATE VALID CODE  
-- [ ] #706: EMERGENCY: Fix multi-variable declaration codegen failures
-  - Complete multi-variable declaration processing
+### EPIC 3: GENERATE VALID CODE  
+- [ ] #684: EMERGENCY: Fix multi-variable declaration codegen failures
+  - Multi-variable declarations generate compilable code
   - Eliminate ALL TODO placeholders from output
   - Test: `integer :: x, y, z` → valid compilable Fortran
-
-### EPIC 3: ENABLE VALIDATION & INTEGRATION
-- [ ] #707: EMERGENCY: Fix test suite hanging and build system failures
-  - Test suite executes without hanging
-  - Build generates required module files
-  - External tool compilation works
 
 ### EPIC 4: ARCHITECTURAL EMERGENCY
 - [ ] #708: EMERGENCY: Split 11 files violating architectural limits
