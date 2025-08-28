@@ -47,6 +47,8 @@ set(LEXER_SOURCES
 set(AST_SOURCES
     src/ast/ast_base.f90
     src/ast/ast_error_nodes.f90
+    src/ast/ast_visitor.f90
+    src/ast/ast_traversal.f90
     src/ast/ast_nodes_core.f90
     src/ast/ast_nodes_procedure.f90
     src/ast/ast_nodes_control.f90
