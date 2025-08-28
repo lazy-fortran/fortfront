@@ -1,63 +1,72 @@
-# fortfront Architecture Design - ARCHITECTURAL RECOVERY
+# fortfront Architecture Design - EMERGENCY RECOVERY
 
-## 🚀 SPRINT 5: ARCHITECTURAL INTEGRITY RECOVERY - 2025-08-28
+## 🚨 SPRINT 6: EMERGENCY SYSTEM RECOVERY - 2025-08-28
 
-**RECOVERY STATUS**: CMAKE build system successfully implemented and functional  
-**CURRENT FOCUS**: Address CRITICAL architectural violations discovered in PLAY phase  
-**STRATEGIC GOAL**: Restore architectural compliance while maintaining functional build system  
-**TEAM CAPABILITY**: Proven through successful CMAKE migration and FPM crisis resolution
+**CRISIS STATUS**: All build systems broken - development completely blocked  
+**TECHNICAL EVIDENCE**: CMAKE fails (compiler_arena.mod), FPM fails (symbol_info_t API)  
+**EMERGENCY GOAL**: Restore basic compilation capability before architectural work  
+**VERIFIED DEFECTS**: 7 critical issues with technical evidence from PLAY audit
 
-### BUILD SYSTEM SUCCESS (Resolved Crisis)
+### BUILD SYSTEM CRISIS (Emergency State)
 
-**SOLUTION IMPLEMENTED**: CMAKE build system with json-fortran integration
+**CURRENT REALITY** (Verified 2025-08-28):
 ```bash
-mkdir build && cd build
-cmake .. && make -j$(nproc)
-ctest  # Full test suite execution
+# CMAKE SYSTEM BROKEN:
+mkdir -p cmake_build && cd cmake_build && cmake .. && make
+# FAILS: Fatal Error: Cannot open module file 'compiler_arena.mod'
+
+# FPM SYSTEM BROKEN:
+fpm test --flag "-cpp -fmax-stack-var-size=524288"
+# FAILS: Error: 'is_defined' not member of 'symbol_info_t' structure
 ```
 
-**ACHIEVEMENTS**:
-- FPM dependency eliminated (abandoned as unfixable)
-- CMAKE build working with proper compiler flags
-- Source code compilation errors resolved
-- json-fortran dependency integrated via FetchContent
-- Build system crisis officially RESOLVED
+**ROOT CAUSES IDENTIFIED**:
+- CMAKE: Module dependency ordering broken in CMakeLists.txt
+- FPM: symbol_info_t API inconsistency across modules
+- BOTH: Development completely blocked, no working build path
 
-### CURRENT SPRINT DEFINITION OF DONE
+### EMERGENCY SPRINT DEFINITION OF DONE
 
-1. **FPM TEST EXECUTION RESTORED**: All tests runnable via FPM with proper flags
-2. **ast_factory.f90 REFACTORED**: Below 1000-line limit via logical module extraction  
-3. **SIZE COMPLIANCE RESTORED**: All 10 files violating 1000-line limit addressed
-4. **DIRECTORY REORGANIZATION**: All directories under architectural limits (<30 files)
+1. **BUILD SYSTEM BASIC FUNCTIONALITY**: Either CMAKE or FPM compiles successfully
+2. **TYPE SYSTEM CONSISTENCY**: symbol_info_t API unified across all modules
+3. **EXECUTABLE FUNCTIONALITY**: fortfront --version works without debug spam
+4. **DOCUMENTATION ACCURACY**: CLAUDE.md reflects actual build system status
 
-### ARCHITECTURAL VIOLATIONS TO ADDRESS
+### CRITICAL DEFECTS TO ADDRESS (PLAY Audit Verified)
 
-**CRITICAL SIZE VIOLATIONS** (From PLAY Phase Audit):
-1. **ast_factory.f90**: 1911 lines (91% over hard limit) - WORST VIOLATION
-2. **10 Additional Files**: All exceed 1000-line hard limit
-3. **Directory Pollution**: 4 directories exceed organizational limits
-4. **Test System Defect**: FPM test execution reliability issues with build flags
+**SYSTEM-BREAKING COMPILATION FAILURES**:
+1. **CMAKE Build**: Missing compiler_arena.mod dependency
+2. **Symbol API**: Duplicate symbol_info_t definitions with incompatible fields
+3. **FPM Tests**: 30+ compilation errors in symbol_management.f90
+4. **UX Failure**: fortfront executable unusable (debug spam, broken --version)
 
-### SPRINT 5 STRATEGY
+**ARCHITECTURAL VIOLATIONS** (Deferred to Sprint 7):
+1. **8 Files >1000 lines**: parser_import_statements.f90 (1302), variable_usage_tracker.f90 (1238), etc.
+2. **Directory Organization**: src/ has 26 items (target: <15)
+3. **Documentation Fraud**: CLAUDE.md contains systematically false claims
 
-**PHASE 1: Build System Reliability**
-- Fix FPM test execution with proper compiler flags
-- Validate full test suite execution via `fpm test --flag "-cpp -fmax-stack-var-size=524288"`
-- Ensure CI reliability with FPM-based testing
+### EMERGENCY RECOVERY STRATEGY
 
-**PHASE 2: Emergency Size Refactoring**  
-- ast_factory.f90 module extraction (highest priority)
-- Systematic refactoring of 10 oversized files
-- Apply proven extraction patterns from previous successes
+**PHASE 1: Compilation System Recovery** (CRITICAL)
+- Fix CMAKE module dependency ordering for compiler_arena.mod
+- Resolve symbol_info_t duplicate definitions and API inconsistency
+- Restore either CMAKE or FPM to basic compilation functionality
+- Verify clean builds from scratch
 
-**PHASE 3: Directory Organization**
-- Reorganize src/ directory (40 files → compliant structure)
-- Reorganize src/semantic/ (36 files → under limits)
-- Address src/ast/ and src/parser/ directory pollution
+**PHASE 2: Basic User Experience** (HIGH)
+- Fix fortfront executable CLI interface (--version, help)
+- Remove debug spam from normal operation
+- Ensure basic Fortran transpilation functionality
 
-**PHASE 4: Minor Cleanup**
-- Resolve duplicate filename confusion
-- Final architectural compliance validation
+**PHASE 3: Documentation Recovery** (MEDIUM)
+- Update CLAUDE.md with accurate build system status
+- Remove false claims about working systems
+- Provide realistic assessment of current capabilities
+
+**PHASE 4: Transition to Architecture Sprint** (FUTURE)
+- Architectural violations deferred to Sprint 7
+- Focus on systematic file size refactoring
+- Address directory organization after build stability
 
 ### ARCHITECTURAL PRINCIPLES (Proven Effective)
 
@@ -75,26 +84,26 @@ CORRECTNESS > PERFORMANCE > KISS > SRP > YAGNI > DRY > SOLID > SECURITY
 3. **Maintain Backward Compatibility**: Through re-exports if needed
 4. **Incremental Validation**: Test after each extraction
 
-### SUCCESS CRITERIA FOR SPRINT 5
+### SUCCESS CRITERIA FOR EMERGENCY RECOVERY
 
-**ARCHITECTURAL COMPLIANCE**:
-- [ ] All files <1000 lines (0 violations)
-- [ ] All directories <30 files (0 violations)  
-- [ ] FPM test execution works reliably (100% test discovery via FPM)
-- [ ] Build system reliability maintained
+**BASIC SYSTEM FUNCTIONALITY**:
+- [ ] CMAKE build completes without module dependency errors
+- [ ] FPM test execution completes without symbol_info_t API errors
+- [ ] fortfront --version displays version information (not debug output)
+- [ ] CLAUDE.md accurately describes current build system status
 
-**DEVELOPMENT READINESS**:
-- [ ] New contributors can build successfully
-- [ ] Full test suite runs reliably
-- [ ] Architectural foundation ready for feature development
-- [ ] Team capability proven through successful architectural recovery
+**DEVELOPMENT UNBLOCKED**:
+- [ ] New contributors can follow working build instructions
+- [ ] Basic compilation path restored for ongoing development
+- [ ] Test execution possible for code verification
+- [ ] Foundation ready for architectural recovery in Sprint 7
 
 ---
 
-## Architectural Recovery Approach
+## Emergency Recovery Approach
 
-**PRINCIPLE**: Restore architectural integrity while preserving functional progress  
-**APPROACH**: Systematic refactoring with proven patterns and incremental validation  
-**OUTCOME**: Compliant codebase ready for sustainable development expansion
+**PRINCIPLE**: Restore basic functionality first, architectural integrity second  
+**APPROACH**: Fix critical compilation blockers before attempting systematic refactoring  
+**OUTCOME**: Working build system enables safe architectural improvements in Sprint 7
 
-*This architectural recovery builds on successful CMAKE migration and addresses systematic violations identified through rigorous PLAY phase auditing.*
+*This emergency recovery addresses critical system failures identified through fraud-proof PLAY phase technical validation. Architectural violations deferred until basic development capabilities restored.*

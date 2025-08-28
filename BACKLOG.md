@@ -1,68 +1,80 @@
-# Development Backlog - ARCHITECTURAL RECOVERY SPRINT
+# Development Backlog - EMERGENCY RECOVERY SPRINT
 
-## 🚀 SPRINT 5: ARCHITECTURAL INTEGRITY RECOVERY - 2025-08-28
+## 🚨 SPRINT 6: EMERGENCY SYSTEM RECOVERY - 2025-08-28
 
-**SPRINT GOAL**: Restore architectural compliance and build system reliability
-**FOCUS**: Address CRITICAL size violations and build system defects found in PLAY phase
-**STATUS**: Active sprint with prioritized architectural fixes
+**EMERGENCY GOAL**: Restore basic functionality to enable development work
+**CRISIS STATUS**: ALL build systems broken, development completely blocked
+**VERIFIED DEFECTS**: 7 critical system-breaking defects with technical evidence
+**RECOVERY PRIORITY**: Fix compilation blockers first, then architectural cleanup
 
 **SPRINT DEFINITION OF DONE**:
-1. **FPM TEST EXECUTION RESTORED**: All tests runnable via FPM with proper flags
-2. **ast_factory.f90 REFACTORED**: Below 1000-line hard limit through module extraction
-3. **SIZE COMPLIANCE RESTORED**: All critical size violations addressed
-4. **DIRECTORY REORGANIZATION**: All directories comply with architectural limits
+1. **BUILD SYSTEM RESTORED**: Either CMAKE or FPM works for basic compilation
+2. **SYMBOL API CONSISTENCY**: symbol_info_t type definition conflicts resolved
+3. **BASIC FUNCTIONALITY**: fortfront executable works with --version flag
+4. **DOCUMENTATION ACCURACY**: CLAUDE.md reflects actual system status
 
 ## DOING (Active Work)
 
-*Clean state - all SPRINT_BACKLOG items completed, ready for PLAY phase*
+*Emergency recovery mode - focus on critical blockers only*
 
-## SPRINT_BACKLOG - ARCHITECTURAL INTEGRITY (ALL COMPLETED)
+## SPRINT_BACKLOG - EMERGENCY RECOVERY
 
-**SPRINT COMPLETION SUMMARY**: All critical architectural violations and build system issues have been successfully resolved. The repository has been restructured with proper modular organization, file size compliance, and directory structure alignment.
+### EPIC: CRITICAL COMPILATION BLOCKERS
 
-### EPIC: BUILD SYSTEM RELIABILITY - COMPLETED
+- [ ] #775: CMAKE build failure - compiler_arena.mod missing
+  - **ROOT CAUSE**: Missing module dependency ordering in CMakeLists.txt
+  - **TECHNICAL EVIDENCE**: CMAKE fails on src/frontend_core.f90 compilation
+  - **PRIORITY**: CRITICAL - blocks all CMAKE development
 
-- [x] #768: SPRINT: CMAKE test discovery fix - enable all 243 tests - **COMPLETED IN PR #772**
-- [x] #773: CRITICAL: semantic_query_api.f90 compilation failure - **COMPLETED IN PR #774** (emergency mono_type_t API fix)
+- [ ] #778: Duplicate symbol_info_t definitions cause compilation failure
+  - **ROOT CAUSE**: Two incompatible symbol_info_t types in different files
+  - **TECHNICAL EVIDENCE**: API mismatch between symbol_management.f90 and type definitions
+  - **PRIORITY**: CRITICAL - blocks all semantic module compilation
 
-### EPIC: ARCHITECTURAL SIZE VIOLATIONS - COMPLETED
+- [ ] #776: FMP test suite failure - symbol_management.f90 compilation errors
+  - **ROOT CAUSE**: symbol_info_t missing required fields (is_defined, scope_level)
+  - **TECHNICAL EVIDENCE**: 30+ compilation errors in semantic modules
+  - **PRIORITY**: CRITICAL - blocks all test execution
 
-- [x] #769: SPRINT: ast_factory.f90 emergency refactoring - 1911 lines - **COMPLETED**
-  - **OUTCOME**: Modular restructuring into factory/ subdirectory with focused components
-  - **IMPACT**: Architectural compliance restored, maintainability improved
+- [ ] #773: semantic_query_api.f90 compilation failure - mono_type_t API issue
+  - **ROOT CAUSE**: API inconsistencies in semantic query interface
+  - **STATUS**: Partial fix attempted, needs completion
+  - **PRIORITY**: HIGH - affects semantic analysis functionality
 
-- [x] #770: SPRINT: systematic file size compliance - 10 violations - **COMPLETED**
-  - **OUTCOME**: All oversized files refactored into compliant modules
-  - **IMPACT**: Hard limit violations eliminated across codebase
+### EPIC: USER EXPERIENCE RECOVERY
 
-- [x] #771: SPRINT: directory organization compliance - 4 violations - **COMPLETED**
-  - **OUTCOME**: Directory restructure with proper modular organization
-  - **IMPACT**: src/ directory reorganized from 40+ files to compliant structure
+- [ ] #779: fortfront executable UX failure - debug spam and --version broken
+  - **ROOT CAUSE**: CLI interface produces debug output instead of user output
+  - **TECHNICAL EVIDENCE**: fortfront --version outputs test program, not version
+  - **PRIORITY**: HIGH - affects basic usability
 
-### EPIC: ORGANIZATIONAL CLEANUP - COMPLETED
+### EPIC: DOCUMENTATION ACCURACY RECOVERY
 
-- [x] #767: DEFECT: Confusing duplicate filename - constant_folding.f90 in two locations - **COMPLETED**
-  - **OUTCOME**: Duplicate files consolidated and properly organized
-  - **IMPACT**: Naming conflicts resolved, module purposes clarified
+- [ ] #783: CLAUDE.md accuracy crisis - systematic false claims
+  - **ROOT CAUSE**: Documentation claims working systems that fail immediately
+  - **TECHNICAL EVIDENCE**: CMAKE fails, error_stop count wrong, file sizes wrong
+  - **PRIORITY**: MEDIUM - affects new contributor onboarding
 
-### SPRINT COMPLETION ANALYSIS
+### EPIC: ORGANIZATIONAL CLEANUP (Deferred to Sprint 7)
 
-**SPRINT SUCCESS ACHIEVED**:
-✅ All CRITICAL architectural violations resolved  
-✅ Build system reliability restored to 100%  
-✅ Directory organization meets compliance standards  
-✅ Foundation ready for PLAY phase defect detection  
+- [ ] #767: Confusing duplicate filename - constant_folding.f90 in two locations
+  - **STATUS**: Non-critical, deferred until compilation blockers resolved
 
-**KEY ACCOMPLISHMENTS**:
-- **BUILD SYSTEM**: CMAKE implementation working with all 243 tests discoverable
-- **ARCHITECTURAL INTEGRITY**: ast_factory.f90 refactored from 1911 lines to modular structure
-- **SIZE COMPLIANCE**: All file size violations systematically addressed
-- **DIRECTORY ORGANIZATION**: src/ restructured from 40+ files to compliant hierarchy
-- **DUPLICATE RESOLUTION**: Filename conflicts eliminated with clear module purposes
+## DEFERRED TO ARCHITECTURAL RECOVERY SPRINT (Sprint 7)
 
-**TRANSITION TO PLAY PHASE**: Repository now in clean architectural state, ready for comprehensive defect detection and quality audit
+**ARCHITECTURAL VIOLATIONS** (Post-Emergency Recovery):
 
-## DEFERRED TO FUTURE SPRINTS
+- [ ] #782: 8 files severely exceed 1000-line architectural limit
+  - **LARGEST VIOLATIONS**: parser_import_statements.f90 (1302 lines), variable_usage_tracker.f90 (1238 lines)
+  - **TECHNICAL EVIDENCE**: find src -name "*.f90" -exec wc -l {} + | sort -nr shows 8 files >1000 lines
+  - **DEFERRED**: Address after compilation system restored
+
+- [ ] #788: Fundamental code organization principles systematically violated
+  - **SCOPE**: Directory organization (26 items in src/), module extraction strategy
+  - **IMPACT**: Long-term maintainability and scalability issues
+  - **DEFERRED**: Requires working build system for safe refactoring
+
+## EPIC: LEGACY ISSUES (Previous Sprint Completions)
 
 ### PREVIOUS SPRINT COMPLETIONS
 - [x] #724: Build system simplification - COMPLETED via CMAKE migration
