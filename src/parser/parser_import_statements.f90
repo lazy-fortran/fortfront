@@ -604,6 +604,12 @@ contains
                 cycle  ! Continue to next iteration
             end if
             
+            ! Handle newlines to avoid getting stuck
+            if (token%kind == TK_NEWLINE) then
+                token = parser%consume()  ! Skip newline
+                cycle  ! Continue to next iteration
+            end if
+            
             ! Only advance if we haven't handled this token specifically
             ! (declarations and contains are handled above with cycle)
             if (in_contains_section) then
@@ -614,6 +620,8 @@ contains
                     token = parser%consume()  ! Advance for non-procedure tokens
                 end if
             else
+                ! For any unhandled token in module body, consume and continue
+                ! This prevents infinite loops with unexpected tokens
                 token = parser%consume()  ! Advance for unhandled tokens
             end if
         end do
