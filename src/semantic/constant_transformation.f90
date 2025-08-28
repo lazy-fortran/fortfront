@@ -1,4 +1,4 @@
-module constant_folding
+module constant_transformation
     ! Module for compile-time constant folding and evaluation
     use ast_core
     use ast_arena_modern
@@ -284,4 +284,4 @@ contains
         end do
     end subroutine fold_identifier_node
     
-end module constant_folding
+end module constant_transformation
