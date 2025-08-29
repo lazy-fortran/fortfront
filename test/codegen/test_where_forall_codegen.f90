@@ -42,7 +42,7 @@ contains
         where_idx = arena%size
         
         ! Generate code
-        code = generate_code_from_arena(arena, where_idx)
+        code = codegen_core_generate_arena(arena, where_idx)
         
         ! Verify output
         if (index(code, "where (mask)") == 0) then
@@ -85,7 +85,7 @@ contains
         where_idx = arena%size
         
         ! Generate code
-        code = generate_code_from_arena(arena, where_idx)
+        code = codegen_core_generate_arena(arena, where_idx)
         
         ! Verify single-line format
         if (index(code, "where (x > 0) y = sqrt(x)") == 0) then
@@ -137,7 +137,7 @@ contains
         where_idx = arena%size
         
         ! Generate code
-        code = generate_code_from_arena(arena, where_idx)
+        code = codegen_core_generate_arena(arena, where_idx)
         
         ! Verify all parts
         if (index(code, "where (temp > 100)") == 0) then
@@ -178,7 +178,7 @@ contains
                                  0, 0, [push_identifier(arena, "a(i) = 0")])
         
         ! Generate code
-        code = generate_code_from_arena(arena, forall_idx)
+        code = codegen_core_generate_arena(arena, forall_idx)
         
         ! Verify output
         if (index(code, "forall (i=1:n)") == 0) then
@@ -214,7 +214,7 @@ contains
                                  [push_identifier(arena, "even(j) = .true.")])
         
         ! Generate code
-        code = generate_code_from_arena(arena, forall_idx)
+        code = codegen_core_generate_arena(arena, forall_idx)
         
         ! Verify output includes stride
         if (index(code, "forall (j=2:10:2)") == 0) then
@@ -261,7 +261,7 @@ contains
         forall_idx = arena%size
         
         ! Generate code
-        code = generate_code_from_arena(arena, forall_idx)
+        code = codegen_core_generate_arena(arena, forall_idx)
         
         ! Check for proper FORALL generation with multiple indices
         if (index(code, "forall") == 0) then
@@ -308,7 +308,7 @@ contains
         forall_idx = arena%size
         
         ! Generate code
-        code = generate_code_from_arena(arena, forall_idx)
+        code = codegen_core_generate_arena(arena, forall_idx)
         
         ! Check for proper FORALL generation with mask
         if (index(code, "forall") == 0) then

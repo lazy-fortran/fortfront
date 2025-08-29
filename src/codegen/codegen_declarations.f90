@@ -7,8 +7,9 @@ module codegen_declarations
     use codegen_indent
     use codegen_utilities, only: parameter_info_t, int_to_string, &
         generate_grouped_body, generate_grouped_body_with_params, &
-        generate_grouped_body_context, get_type_standardization, &
-        find_parameter_info, generate_code_from_arena
+        generate_grouped_body_context, find_parameter_info
+    use codegen_arena_interface, only: generate_code_from_arena
+    use codegen_type_utils, only: get_type_standardization
     implicit none
     private
 

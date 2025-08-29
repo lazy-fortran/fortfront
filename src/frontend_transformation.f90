@@ -10,8 +10,9 @@ module frontend_transformation
                                    analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
-    use codegen_core, only: generate_code_from_arena, set_type_standardization, &
-                           get_type_standardization
+    use codegen_arena_interface, only: generate_code_from_arena
+    use codegen_core, only: initialize_codegen
+    use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_indent, only: set_indent_config, get_indent_config, &
                                set_line_length_config, get_line_length_config
     use input_validation, only: validate_basic_syntax, has_only_meaningless_tokens
@@ -49,6 +50,9 @@ contains
 
         allocate(character(len=0) :: error_msg)
         error_msg = ""
+
+        ! Initialize the codegen system
+        call initialize_codegen()
 
         ! Initialize unified compiler arena
         compiler_arena = create_compiler_arena()
