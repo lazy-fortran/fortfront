@@ -16,7 +16,10 @@
 
 ## DOING (Active Work)
 
-<!-- Issue #806 COMPLETED in PR #819 -->
+- [ ] #807: Catastrophic argument parsing breaks shell integration
+  - **ANALYSIS**: No argument validation, shell redirection broken  
+  - **APPROACH**: Implement proper CLI argument validation and error handling
+  - **STATUS**: Analyzing current argument parsing logic and failure modes
 
 ## SPRINT_BACKLOG - USER EXPERIENCE RECOVERY
 
