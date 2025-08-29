@@ -35,6 +35,7 @@ include_directories(${CMAKE_Fortran_MODULE_DIRECTORY})
 # Source files - organized by dependency order
 set(CORE_SOURCES
     src/error_handling.f90
+    src/fortfront_types.f90
     src/utilities/string_types.f90
     src/utilities/path_validation.f90
     src/utilities/intrinsic_registry.f90
@@ -43,6 +44,7 @@ set(CORE_SOURCES
     src/common/uid_generator.f90
     src/memory/arena_memory.f90
     src/utilities/frontend_utilities.f90
+    src/utilities/fortfront_utils.f90
 )
 
 set(LEXER_SOURCES
@@ -76,6 +78,7 @@ set(AST_SOURCES
     src/ast/arena/ast_arena_modern.f90
     src/ast/ast_core.f90
     src/ast/ast_types.f90
+    src/ast/ast_json.f90
     src/ast/factory/ast_factory_core.f90
     src/ast/factory/ast_factory_expressions.f90
     src/ast/factory/ast_factory_declarations.f90
@@ -151,7 +154,6 @@ set(SEMANTIC_SOURCES
     src/semantic/analyzers/semantic_analyzer.f90
     src/semantic/constant_transformation.f90
     src/semantic/semantic_inference_helpers.f90
-    src/semantic/semantic_query_api.f90
 )
 
 set(ANALYSIS_SOURCES
@@ -193,7 +195,9 @@ set(INTERFACE_SOURCES
 )
 
 set(MAIN_SOURCES
+    src/fortfront_advanced.f90
     src/fortfront.f90
+    app/fortfront.f90
 )
 
 # Combine all sources

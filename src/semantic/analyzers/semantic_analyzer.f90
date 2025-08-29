@@ -104,7 +104,6 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
 
-        print *, "DEBUG: analyze_program called with root_index=", root_index
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
 
