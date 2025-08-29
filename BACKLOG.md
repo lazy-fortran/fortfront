@@ -16,11 +16,7 @@
 
 ## DOING (Active Work)
 
-- [ ] #805: Debug output contamination breaks pipeline usage
-  - **ROOT CAUSE**: Excessive debug prints in normal operation contaminate stdout
-  - **TECHNICAL EVIDENCE**: 6 print statements identified in src/frontend_transformation.f90 and src/semantic/analyzers/semantic_analyzer.f90
-  - **IMPACT**: Makes fortfront unusable in shell pipelines and automation  
-  - **PRIORITY**: HIGH - breaks core CLI usage patterns
+<!-- Sprint 8 work completed - Issue #805 resolved in PR #818 -->
 
 ## SPRINT_BACKLOG - USER EXPERIENCE RECOVERY
 
@@ -208,6 +204,12 @@
 - [ ] #380: feat: create unified arena API for external tools (fluff, ffc)
 
 ## DONE
+
+### SPRINT 8 COMPLETIONS - USER EXPERIENCE RECOVERY (2025-08-29)  
+- [x] #805: Debug output contamination - **COMPLETED IN PR #818** (CLI professional quality improvement)
+- [x] FMP test compilation - **COMPLETED** (test_semantic_integration.f90 API adaptation)
+- [x] Sprint 8 Technical Reconnaissance: **ACHIEVED** - All 8 claimed issues verified with technical evidence
+- [x] Sprint 8 Goal: **40% SUCCESS** - CMAKE confirmed working, CLI partially compliant, architectural debt identified
 
 ### SPRINT 7 COMPLETIONS - CMAKE BUILD SYSTEM RECOVERY (2025-08-28)
 - [x] #775: CMAKE build failure - **COMPLETED** (compiler_arena.mod dependency resolved)
