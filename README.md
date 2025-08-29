@@ -61,8 +61,9 @@ make  # Note: Module path issues under investigation
 ## Integration
 
 ### With fortrun
+[fortrun](https://github.com/lazy-fortran/fortrun) automatically uses fortfront for `.lf` files:
 ```bash
-fortrun hello.lf  # Automatically uses fortfront
+fortrun hello.lf
 ```
 
 ### As Static Library
