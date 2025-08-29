@@ -63,9 +63,9 @@ jobs:
         path: |
           ~/.local/share/fpm
           build/dependencies
-        key: ${{ runner.os }}-fpm-deps-${{ hashFiles('fpm.toml') }}
+        key: ${{ runner.os }}-fpm-deps-v2-${{ hashFiles('fpm.toml') }}
         restore-keys: |
-          ${{ runner.os }}-fpm-deps-
+          ${{ runner.os }}-fpm-deps-v2-
 
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -293,9 +293,9 @@ jobs:
         path: |
           ~\AppData\Local\fpm
           build\dependencies
-        key: ${{ runner.os }}-fpm-deps-${{ hashFiles('fpm.toml') }}
+        key: ${{ runner.os }}-fpm-deps-v2-${{ hashFiles('fpm.toml') }}
         restore-keys: |
-          ${{ runner.os }}-fpm-deps-
+          ${{ runner.os }}-fpm-deps-v2-
 
     - name: Cache build artifacts (Windows)
       uses: actions/cache@v4
