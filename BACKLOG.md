@@ -16,16 +16,17 @@
 
 ## DOING (Active Work)
 
-<!-- Sprint 8 work items will be moved here during execution -->
+- [ ] #805: Debug output contamination breaks pipeline usage
+  - **ROOT CAUSE**: Excessive debug prints in normal operation contaminate stdout
+  - **TECHNICAL EVIDENCE**: 6 print statements identified in src/frontend_transformation.f90 and src/semantic/analyzers/semantic_analyzer.f90
+  - **IMPACT**: Makes fortfront unusable in shell pipelines and automation  
+  - **PRIORITY**: HIGH - breaks core CLI usage patterns
 
 ## SPRINT_BACKLOG - USER EXPERIENCE RECOVERY
 
 ### EPIC: CLI PROFESSIONAL QUALITY
 
-- [ ] #805: Debug output contamination breaks pipeline usage
-  - **ROOT CAUSE**: Excessive debug prints in normal operation contaminate stdout
-  - **IMPACT**: Makes fortfront unusable in shell pipelines and automation
-  - **PRIORITY**: HIGH - breaks core CLI usage patterns
+<!-- Moved to DOING: #805 -->
 
 - [ ] #806: Improper STOP statements break CLI standards
   - **ROOT CAUSE**: STOP 0 calls instead of proper program termination
