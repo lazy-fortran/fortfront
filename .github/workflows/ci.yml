@@ -103,6 +103,12 @@ jobs:
         # Use selective test runner for optimal performance
         ./test_selective.sh
 
+    - name: Fraud Prevention Validation Gate
+      id: fraud_prevention
+      run: |
+        echo "🛡️ Running fraud prevention validation"
+        ./scripts/ci_fraud_prevention.sh
+
     - name: Generate coverage data (optimized)
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
