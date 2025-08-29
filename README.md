@@ -6,127 +6,79 @@ Modern Fortran compiler frontend with lazy syntax support and type inference.
 
 ## Overview
 
-fortfront is a functional Fortran compiler frontend that transforms lazy Fortran code to standard Fortran. The project provides a CLI tool and library for processing Fortran source code through a complete 4-phase compilation pipeline.
+fortfront transforms lazy Fortran code to standard Fortran through a 4-phase compilation pipeline: Lexer → Parser → Semantic Analysis → Code Generation.
 
 **Key Features**:
-- **CLI Interface**: Processes lazy Fortran from stdin to standard Fortran on stdout
-- **4-Phase Pipeline**: Lexer → Parser → Semantic Analysis → Code Generation
-- **Type Inference**: Automatic variable type detection for lazy Fortran syntax
-- **Standard Fortran Output**: Generates standard Fortran syntax (with some type inference limitations)
-- **Library Integration**: Available as static library for integration with other tools
+- CLI interface for stdin/stdout processing
+- Automatic variable type detection  
+- Standard Fortran output generation
+- Static library for integration
 
 ## Quick Start
 
-### Basic Usage
-
 ```bash
-# Transform lazy Fortran code
+# Transform lazy Fortran
 echo "x = 42" | ./build/gfortran_*/app/fortfront
-
-# Output:
-# program main
-#     implicit none
-#     integer :: x
-#     x = 42
-# end program main
-```
-
-### Boolean Handling
-
-```bash
-echo 'y = .true.' | ./build/gfortran_*/app/fortfront
-
-# Output:
-# program main
-#     implicit none
-#     logical :: y
-#     y = .true.
-# end program main
+# Outputs: integer :: x declaration with assignment
 ```
 
 ## Building
 
 ### FMP Build System (Primary)
-
 ```bash
-# Build the project
-./build.sh
-
-# Run tests (30s timeout)  
-./test.sh
-
-# Or use fpm directly with required flags
-fpm build --flag "-cpp -fmax-stack-var-size=524288"
-fpm test --flag "-cpp -fmax-stack-var-size=524288"
+./build.sh  # Build project
+./test.sh   # Run tests
 ```
 
-### CMake Build System (Secondary)
-
+### CMake Build System (Secondary)  
 ```bash
-make  # Note: Currently has Fortran module path issues
+make  # Note: Module path issues under investigation
 ```
 
 ## Project Status
 
-**Active Development**: The project is actively maintained and under continuous improvement.
+**Active Development**: Continuously maintained and improved.
 
-**Build Status**:
-- ✅ FMP build system: Fully operational
-- ⚠️ CMake system: Module path issues under investigation
-
-**Test Status**:
+**Current State**:
+- ✅ FMP build system operational
 - ✅ Test suite executes successfully
-- ⚠️ Some test failures being addressed in ongoing development sprints
+- ⚠️ Some test failures being addressed
+- ⚠️ CMake module path issues
 
 **Known Limitations**:
-- String concatenation type inference incomplete (generates missing type declarations)
-- Array type inference incomplete (generates scalar types for array literals)
-- Test suite has logical failures (but runs successfully)
-- Some large files exceed 1000-line target (5 files, largest: 1169 lines)
-- error_stop usage being migrated to proper error handling (81 remaining)
+- String/array type inference incomplete
+- Some large files exceed size targets
+- Error handling migration in progress
 
 ## Architecture
 
-### Core Components
+**Core Components**:
+1. **Lexer** - Tokenizes source code
+2. **Parser** - Builds AST
+3. **Semantic** - Type checking 
+4. **Codegen** - Emits standard Fortran
 
-1. **Lexer** (`src/lexer/`) - Tokenizes Fortran source code
-2. **Parser** (`src/parser/`) - Builds Abstract Syntax Tree (AST)  
-3. **Semantic** (`src/semantic/`) - Type checking and analysis
-4. **Codegen** (`src/codegen/`) - Emits standard Fortran code
+## Integration
 
-### Integration with fortrun
-
-fortrun automatically uses fortfront for `.lf` (lazy Fortran) files:
-
+### With fortrun
 ```bash
-fortrun hello.lf
+fortrun hello.lf  # Automatically uses fortfront
 ```
 
-### Static Library Integration
-
+### As Static Library
 ```bash
-# Install system-wide
-sudo make install
-
-# Use in C projects
-gcc -o myapp myapp.c $(pkg-config --cflags --libs fortfront)
-
-# Use in C++ projects
-g++ -o myapp myapp.cpp $(pkg-config --cflags --libs fortfront)
+sudo make install  # System-wide installation
+gcc myapp.c $(pkg-config --cflags --libs fortfront)
 ```
 
 ## Documentation
 
-- **[Static Library Integration](docs/STATIC_LIBRARY_INTEGRATION.md)** - Complete guide for using `libfortfront.a`
-- **API Reference** - See `docs/` folder for detailed guides and build instructions
+- [Static Library Integration](docs/STATIC_LIBRARY_INTEGRATION.md)
+- API Reference in `docs/` folder
 
 ## Contributing
 
-The project follows modern Fortran development practices with:
-- Comprehensive test suite
-- Continuous integration
-- Code review process  
-- Architectural sprint planning
+Modern Fortran development practices with comprehensive testing, CI, and code review.
 
 ## License
 
