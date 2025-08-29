@@ -16,7 +16,10 @@
 
 ## DOING (Active Work)
 
-<!-- Sprint 8 work completed - Issue #805 resolved in PR #818 -->
+- [ ] #806: Improper STOP statements break CLI standards
+  - **ANALYSIS**: STOP 0/1 visible to users violates CLI standards
+  - **APPROACH**: Replace STOP with proper program termination
+  - **STATUS**: Analyzing codebase for all STOP usage patterns
 
 ## SPRINT_BACKLOG - USER EXPERIENCE RECOVERY
 
