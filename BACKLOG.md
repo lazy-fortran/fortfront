@@ -16,10 +16,7 @@
 
 ## DOING (Active Work)
 
-- [ ] #807: Catastrophic argument parsing breaks shell integration
-  - **ANALYSIS**: No argument validation, shell redirection broken  
-  - **APPROACH**: Implement proper CLI argument validation and error handling
-  - **STATUS**: Analyzing current argument parsing logic and failure modes
+<!-- Issue #807 COMPLETED in PR #820 -->
 
 ## SPRINT_BACKLOG - USER EXPERIENCE RECOVERY
 
@@ -27,11 +24,7 @@
 
 <!-- Moved to DOING: #805 -->
 <!-- Moved to DOING: #806 --> 
-
-- [ ] #807: Catastrophic argument parsing breaks shell integration
-  - **ROOT CAUSE**: Argument parser fails on standard CLI patterns  
-  - **IMPACT**: Cannot use standard file input patterns
-  - **PRIORITY**: HIGH - basic usability failure
+<!-- Moved to DOING: #807 -->
 
 
 ### EPIC: ARCHITECTURAL DEBT REDUCTION
@@ -207,10 +200,11 @@
 
 ### SPRINT 8 COMPLETIONS - USER EXPERIENCE RECOVERY (2025-08-29)  
 - [x] #805: Debug output contamination - **COMPLETED IN PR #818** (CLI professional quality improvement)
-- [x] #806: STOP statements CLI standards violation - **COMPLETED IN PR #819** (Clean CLI termination with proper exit codes)
+- [x] #806: STOP statements CLI standards violation - **COMPLETED IN PR #819** (Clean CLI termination with proper exit codes)  
+- [x] #807: Argument parsing CLI integration - **COMPLETED IN PR #820** (Professional argument validation with helpful errors)
 - [x] FMP test compilation - **COMPLETED** (test_semantic_integration.f90 API adaptation)
 - [x] Sprint 8 Technical Reconnaissance: **ACHIEVED** - All 8 claimed issues verified with technical evidence
-- [x] Sprint 8 Goal: **60% SUCCESS** - CMAKE confirmed working, CLI standards improved, architectural debt identified
+- [x] Sprint 8 Goal: **80% SUCCESS** - CMAKE working, CLI professional quality achieved, next: architectural debt
 
 ### SPRINT 7 COMPLETIONS - CMAKE BUILD SYSTEM RECOVERY (2025-08-28)
 - [x] #775: CMAKE build failure - **COMPLETED** (compiler_arena.mod dependency resolved)
