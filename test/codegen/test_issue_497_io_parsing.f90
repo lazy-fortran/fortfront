@@ -45,7 +45,7 @@ contains
         end if
 
         ! Generate code
-        generated = generate_code_from_arena(arena, node_index)
+        generated = codegen_core_generate_arena(arena, node_index)
 
         ! Check that it doesn't generate "Unknown node type"
         if (index(generated, "Unknown node type") > 0) then
@@ -94,7 +94,7 @@ contains
         end if
 
         ! Generate code
-        generated = generate_code_from_arena(arena, node_index)
+        generated = codegen_core_generate_arena(arena, node_index)
 
         ! Check that it doesn't generate "Unknown node type"
         if (index(generated, "Unknown node type") > 0) then
@@ -145,7 +145,7 @@ contains
         end if
 
         ! Generate code
-        generated = generate_code_from_arena(arena, node_index)
+        generated = codegen_core_generate_arena(arena, node_index)
 
         ! Check that both statements are generated
         if (index(generated, "read") == 0) then
@@ -193,7 +193,7 @@ contains
         end if
 
         ! Generate code
-        generated = generate_code_from_arena(arena, node_index)
+        generated = codegen_core_generate_arena(arena, node_index)
 
         ! Check that it generates a proper read with multiple variables
         if (index(generated, "x") == 0 .or. &

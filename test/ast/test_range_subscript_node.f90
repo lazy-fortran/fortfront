@@ -3,7 +3,7 @@ program test_range_subscript_node
     use ast_nodes_core, only: range_subscript_node, create_range_subscript
     use ast_factory, only: push_range_subscript, push_identifier
     use json_module
-    use codegen_core, only: generate_code_from_arena
+    use codegen_core, only: codegen_core_generate_arena
     implicit none
     
     logical :: all_passed
@@ -154,7 +154,7 @@ contains
         node_idx = push_range_subscript(arena, base_idx, start_idx, end_idx, 1, 1)
         
         ! Generate code
-        code = generate_code_from_arena(arena, node_idx)
+        code = codegen_core_generate_arena(arena, node_idx)
         
         if (code /= "arr(i:j)") then
             print *, "FAIL: range_subscript codegen - expected 'arr(i:j)', got '", code, "'"
@@ -167,7 +167,7 @@ contains
         ! Test with missing start index
         node_idx = push_range_subscript(arena, base_idx, end_index=end_idx, &
                                        line=1, column=1)
-        code = generate_code_from_arena(arena, node_idx)
+        code = codegen_core_generate_arena(arena, node_idx)
         
         if (code /= "arr(:j)") then
             print *, "FAIL: range_subscript codegen - expected 'arr(:j)', got '", code, "'"
@@ -180,7 +180,7 @@ contains
         ! Test with missing end index
         node_idx = push_range_subscript(arena, base_idx, start_index=start_idx, &
                                        line=1, column=1)
-        code = generate_code_from_arena(arena, node_idx)
+        code = codegen_core_generate_arena(arena, node_idx)
         
         if (code /= "arr(i:)") then
             print *, "FAIL: range_subscript codegen - expected 'arr(i:)', got '", code, "'"

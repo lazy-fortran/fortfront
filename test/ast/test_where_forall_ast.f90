@@ -300,7 +300,7 @@ contains
         where_idx = arena%size
         
         ! Generate code
-        code = generate_code_from_arena(arena, where_idx)
+        code = codegen_core_generate_arena(arena, where_idx)
         
         if (index(code, "where") == 0) then
             print *, "Generated code missing 'where'"
@@ -350,7 +350,7 @@ contains
         forall_idx = arena%size
         
         ! Generate code
-        code = generate_code_from_arena(arena, forall_idx)
+        code = codegen_core_generate_arena(arena, forall_idx)
         
         if (index(code, "forall") == 0) then
             print *, "Generated code missing 'forall'"

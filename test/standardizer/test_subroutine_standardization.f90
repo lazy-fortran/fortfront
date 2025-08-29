@@ -86,7 +86,7 @@ contains
         call standardize_ast(arena, sub_index)
         
         ! Generate code
-        code_result = generate_code_from_arena(arena, sub_index)
+        code_result = codegen_core_generate_arena(arena, sub_index)
         
         ! Check that implicit none was added
         if (index(code_result, "implicit none") == 0) then
@@ -154,7 +154,7 @@ contains
         call standardize_ast(arena, sub_index)
         
         ! Generate code
-        code_result = generate_code_from_arena(arena, sub_index)
+        code_result = codegen_core_generate_arena(arena, sub_index)
         
         ! Check that implicit none was added as first statement in body
         if (index(code_result, "implicit none") == 0) then
@@ -226,7 +226,7 @@ contains
         call standardize_ast(arena, sub_index)
         
         ! Generate code
-        code_result = generate_code_from_arena(arena, sub_index)
+        code_result = codegen_core_generate_arena(arena, sub_index)
         
         ! Check that real was standardized to real(8)
         if (index(code_result, "real(8)") == 0) then
@@ -281,7 +281,7 @@ contains
         call standardize_ast(arena, sub_index)
         
         ! Generate code - should not crash
-        code_result = generate_code_from_arena(arena, sub_index)
+        code_result = codegen_core_generate_arena(arena, sub_index)
         
         ! Check that code was generated
         if (len_trim(code_result) == 0) then
@@ -337,7 +337,7 @@ contains
         call standardize_ast(arena, sub_index)
         
         ! Generate code
-        code_result = generate_code_from_arena(arena, sub_index)
+        code_result = codegen_core_generate_arena(arena, sub_index)
         
         ! Count occurrences of "implicit none" - should only be 2 (one added, one existing)
         implicit_count = 0

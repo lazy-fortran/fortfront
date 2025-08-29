@@ -48,7 +48,7 @@ contains
         arena = create_ast_arena()
         lit_idx = push_literal(arena, "42", LITERAL_INTEGER)
         
-        code = generate_code_from_arena(arena, lit_idx)
+        code = codegen_core_generate_arena(arena, lit_idx)
         
         if (allocated(code) .and. len(code) > 0) then
             if (index(code, "42") > 0) then
@@ -71,7 +71,7 @@ contains
         arena = create_ast_arena()
         id_idx = push_identifier(arena, "test_var")
         
-        code = generate_code_from_arena(arena, id_idx)
+        code = codegen_core_generate_arena(arena, id_idx)
         
         if (allocated(code) .and. len(code) > 0) then
             if (index(code, "test_var") > 0) then
@@ -96,7 +96,7 @@ contains
         lit_idx = push_literal(arena, "10", LITERAL_INTEGER)
         assign_idx = push_assignment(arena, id_idx, lit_idx)
         
-        code = generate_code_from_arena(arena, assign_idx)
+        code = codegen_core_generate_arena(arena, assign_idx)
         
         if (allocated(code) .and. len(code) > 0) then
             if (index(code, "x") > 0 .and. index(code, "10") > 0) then
@@ -121,7 +121,7 @@ contains
         right_idx = push_identifier(arena, "b")
         binop_idx = push_binary_op(arena, left_idx, right_idx, "+")
         
-        code = generate_code_from_arena(arena, binop_idx)
+        code = codegen_core_generate_arena(arena, binop_idx)
         
         if (allocated(code) .and. len(code) > 0) then
             if (index(code, "a") > 0 .and. index(code, "b") > 0 .and. &
@@ -167,7 +167,7 @@ contains
         arena = create_ast_arena()
         
         ! Test negative index
-        code = generate_code_from_arena(arena, -1)
+        code = codegen_core_generate_arena(arena, -1)
         if (.not. allocated(code) .or. len(code) == 0) then
             call test_pass()
         else
@@ -184,7 +184,7 @@ contains
         arena = create_ast_arena()
         
         ! Test index beyond arena size
-        code = generate_code_from_arena(arena, 1)
+        code = codegen_core_generate_arena(arena, 1)
         if (.not. allocated(code) .or. len(code) == 0) then
             call test_pass()
         else

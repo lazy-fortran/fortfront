@@ -45,12 +45,12 @@ contains
         
         ! Test with standardization enabled
         call set_type_standardization(.true.)
-        code_result = generate_code_from_arena(arena, node_index)
+        code_result = codegen_core_generate_arena(arena, node_index)
         passed = passed .and. (trim(code_result) == "1.5d0")
         
         ! Test with standardization disabled  
         call set_type_standardization(.false.)
-        code_result = generate_code_from_arena(arena, node_index)
+        code_result = codegen_core_generate_arena(arena, node_index)
         passed = passed .and. (trim(code_result) == "1.5")
         
         ! Restore original setting
