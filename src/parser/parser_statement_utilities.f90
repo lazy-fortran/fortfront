@@ -9,6 +9,7 @@ module parser_statement_utilities_module
                                                parse_goto_statement, parse_error_stop_statement, &
                                                parse_cycle_statement, parse_exit_statement
     use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
+    use parser_execution_statements_module, only: parse_assignment_statement
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -110,27 +111,8 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: assign_index
 
-        type(token_t) :: token
-        integer :: lhs_index, rhs_index
-
-        ! Parse left-hand side
-        lhs_index = parse_comparison(parser, arena)
-
-        ! Expect assignment operator
-        token = parser%peek()
-        if (token%kind == TK_OPERATOR .and. token%text == "=") then
-            token = parser%consume()  ! consume '='
-
-            ! Parse right-hand side
-            rhs_index = parse_comparison(parser, arena)
-
-            ! Create assignment node
-            assign_index = push_assignment(arena, lhs_index, rhs_index, &
-                                           token%line, token%column)
-        else
-            ! Not an assignment - return the expression
-            assign_index = lhs_index
-        end if
+        ! Use the full assignment parser which handles multi-variable assignments
+        call parse_assignment_statement(parser, arena, assign_index)
     end function parse_assignment_simple
 
     ! Skip unknown statement (utility function)
