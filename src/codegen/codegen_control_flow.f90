@@ -5,7 +5,8 @@ module codegen_control_flow
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
-    use codegen_utilities, only: generate_code_from_arena, generate_grouped_body
+    use codegen_utilities, only: generate_grouped_body
+    use codegen_arena_interface, only: generate_code_from_arena
     implicit none
     private
 
