@@ -14,10 +14,10 @@ module codegen_statements
     public :: generate_code_print_statement
     public :: generate_code_write_statement
     public :: generate_code_read_statement
-    public :: generate_code_stop
+    public :: generate_code_termination
     public :: generate_code_return
     public :: generate_code_goto
-    public :: generate_code_error_stop
+    public :: generate_code_error_termination
     public :: generate_code_cycle
     public :: generate_code_exit
     public :: generate_code_use_statement
@@ -198,16 +198,22 @@ contains
         code = "read(*, *) ! TODO: implement read statement"
     end function generate_code_read_statement
 
-    ! Generate code for stop statements
-    function generate_code_stop(arena, node, node_index) result(code)
+    ! Generate code for termination statements
+    function generate_code_termination(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(stop_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
-        ! Simplified placeholder implementation
-        code = "stop"
-    end function generate_code_stop
+        ! Generate proper termination with exit call
+        if (allocated(node%stop_message)) then
+            code = "call exit(1) ! " // node%stop_message
+        else if (node%stop_code_index > 0) then
+            code = "call exit(1) ! Termination with code"
+        else
+            code = "call exit(1) ! Program termination"
+        end if
+    end function generate_code_termination
 
     ! Generate code for return statements
     function generate_code_return(arena, node, node_index) result(code)
@@ -230,16 +236,22 @@ contains
         code = "go to 999 ! TODO: implement proper goto"
     end function generate_code_goto
 
-    ! Generate code for error stop statements
-    function generate_code_error_stop(arena, node, node_index) result(code)
+    ! Generate code for error termination statements
+    function generate_code_error_termination(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(error_stop_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
-        ! Simplified placeholder implementation
-        code = "error stop"
-    end function generate_code_error_stop
+        ! Generate proper error termination with exit call
+        if (allocated(node%error_message)) then
+            code = "call exit(2) ! " // node%error_message
+        else if (node%error_code_index > 0) then
+            code = "call exit(2) ! Error termination with code"
+        else
+            code = "call exit(2) ! Error termination"
+        end if
+    end function generate_code_error_termination
 
     ! Generate code for cycle statements
     function generate_code_cycle(arena, node, node_index) result(code)
