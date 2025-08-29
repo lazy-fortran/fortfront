@@ -10,6 +10,8 @@ program fortfront_cli
     integer :: num_args, arg_len, i
     integer, parameter :: MAX_INPUT_SIZE = 10485760  ! 10MB safety limit
     integer, parameter :: INITIAL_CAPACITY = 8192
+    integer, parameter :: EXIT_SUCCESS = 0
+    integer, parameter :: EXIT_FAILURE = 1
     logical :: from_file, show_help, show_version
     
     ! Process command line arguments
@@ -28,10 +30,25 @@ program fortfront_cli
             show_help = .true.
         else if (arg_str == "--version" .or. arg_str == "-v") then
             show_version = .true.
+        else if (arg_str(1:2) == "--" .or. arg_str(1:1) == "-") then
+            ! Unknown flag - provide helpful error
+            write(error_unit, '(A,A)') 'Error: Unknown option ', trim(arg_str)
+            write(error_unit, '(A)') ''
+            write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
+            call exit(EXIT_FAILURE)
         else
             ! Treat as filename
             from_file = .true.
             filename = arg_str
+        end if
+        
+        ! Check for multiple arguments (not supported)
+        if (num_args > 1 .and. .not. show_help .and. .not. show_version) then
+            write(error_unit, '(A)') 'Error: Multiple arguments not supported.'
+            write(error_unit, '(A)') 'fortfront processes one file at a time or reads from stdin.'
+            write(error_unit, '(A)') ''
+            write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
+            call exit(EXIT_FAILURE)
         end if
     end if
     
@@ -53,7 +70,7 @@ program fortfront_cli
         write(output_unit, '(A)') '    fortfront input.lf        # Transpile file'
         write(output_unit, '(A)') '    cat input.lf | fortfront  # Transpile from stdin'
         write(output_unit, '(A)') '    echo "x = 5" | fortfront  # Transpile string'
-        stop 0
+        call exit(EXIT_SUCCESS)
     end if
     
     ! Handle version option
@@ -61,7 +78,7 @@ program fortfront_cli
         write(output_unit, '(A)') 'fortfront 0.1.0'
         write(output_unit, '(A)') 'Lazy Fortran to Standard Fortran Transpiler'
         write(output_unit, '(A)') 'https://github.com/krystophny/fortfront'
-        stop 0
+        call exit(EXIT_SUCCESS)
     end if
     
     ! Read input (from file or stdin)
@@ -75,7 +92,7 @@ program fortfront_cli
              iostat=io_stat)
         if (io_stat /= 0) then
             write(error_unit, '(A,A)') 'Cannot open file: ', filename
-            stop 1
+            call exit(EXIT_FAILURE)
         end if
         
         do
@@ -84,7 +101,7 @@ program fortfront_cli
             if (io_stat > 0) then
                 write(error_unit, '(A,A)') 'Error reading file: ', filename
                 close(file_unit)
-                stop 1
+                call exit(EXIT_FAILURE)
             end if
             
             call append_line_to_input(buffer, input_text, total_size, capacity)
@@ -97,7 +114,7 @@ program fortfront_cli
             if (io_stat == iostat_end) exit
             if (io_stat > 0) then
                 write(error_unit, '(A)') 'Error reading input'
-                stop 1
+                call exit(EXIT_FAILURE)
             end if
             
             call append_line_to_input(buffer, input_text, total_size, capacity)
@@ -119,7 +136,7 @@ program fortfront_cli
     ! Handle errors
     if (error_msg /= "" .and. index(error_msg, "Cannot open") > 0) then
         write(error_unit, '(A)') trim(error_msg)
-        stop 1
+        call exit(EXIT_FAILURE)
     else if (error_msg /= "") then
         write(error_unit, '(A)') trim(error_msg)
     end if
@@ -129,7 +146,7 @@ program fortfront_cli
         write(output_unit, '(A)', advance='no') output_text
     else
         write(error_unit, '(A)') 'No output generated'
-        stop 1
+        call exit(EXIT_FAILURE)
     end if
 
 contains
@@ -147,7 +164,7 @@ contains
         if (total_size + line_len + 1 > MAX_INPUT_SIZE) then
             write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
                 MAX_INPUT_SIZE, ' bytes)'
-            stop 1
+            call exit(EXIT_FAILURE)
         end if
         
         ! Grow buffer if needed
@@ -160,7 +177,7 @@ contains
             if (capacity > MAX_INPUT_SIZE) then
                 write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
                     MAX_INPUT_SIZE, ' bytes)'
-                stop 1
+                call exit(EXIT_FAILURE)
             end if
             
             allocate(character(len=capacity) :: temp_text)
