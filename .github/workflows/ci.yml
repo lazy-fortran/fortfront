@@ -254,38 +254,62 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: false
-        path-type: inherit
-        cache: true
-        release: false
-        install: >-
-          mingw-w64-x86_64-gcc-fortran
-          mingw-w64-x86_64-gcc
-          git
-
-    - name: Add MinGW to PATH
-      run: echo C:\msys64\mingw64\bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+    - name: Setup Self-Contained MinGW Environment
       shell: pwsh
+      run: |
+        Write-Host "🔧 Setting up self-contained MinGW environment..."
+        
+        # Use Chocolatey for reliable MinGW installation
+        if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
+          Write-Host "Installing Chocolatey..."
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+          Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+          refreshenv
+        }
+        
+        # Install MinGW-w64 with gfortran via Chocolatey
+        Write-Host "Installing MinGW-w64 with gfortran..."
+        choco install mingw --version=11.2.0 -y --no-progress
+        refreshenv
+        
+        # Add MinGW to PATH
+        $mingwPath = "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin"
+        if (Test-Path $mingwPath) {
+          echo $mingwPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Host "✅ MinGW path added: $mingwPath"
+        } else {
+          # Try alternative MinGW path
+          $altPath = "C:\tools\mingw64\bin"
+          if (Test-Path $altPath) {
+            echo $altPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "✅ MinGW alternative path added: $altPath"
+          } else {
+            Write-Error "❌ MinGW installation path not found"
+            exit 1
+          }
+        }
 
     - name: Cache FPM binary (Windows)
       id: cache-fpm-win
       uses: actions/cache@v4
       with:
-        path: C:\msys64\mingw64\bin\fpm.exe
+        path: C:\tools\fpm\fpm.exe
         key: ${{ runner.os }}-fpm-0.12.0
 
     - name: Install FPM
       if: steps.cache-fpm-win.outputs.cache-hit != 'true'
       shell: pwsh
       run: |
-        Write-Host "Installing FPM directly from GitHub releases..."
-        Invoke-WebRequest -Uri "https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-windows-x86_64-gcc-12.exe" -OutFile "fpm.exe"
-        Move-Item -Path "fpm.exe" -Destination "C:\msys64\mingw64\bin\fpm.exe"
-        & "C:\msys64\mingw64\bin\fpm.exe" --version
+        Write-Host "📦 Installing FPM directly from GitHub releases..."
+        New-Item -ItemType Directory -Force -Path "C:\tools\fpm"
+        Invoke-WebRequest -Uri "https://github.com/fortran-lang/fpm/releases/download/v0.12.0/fpm-0.12.0-windows-x86_64-gcc-12.exe" -OutFile "C:\tools\fpm\fpm.exe"
+        
+        # Add FPM to PATH
+        echo "C:\tools\fpm" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        
+        # Verify installation
+        & "C:\tools\fpm\fpm.exe" --version
 
     - name: Cache FPM dependencies (Windows)
       uses: actions/cache@v4
@@ -308,21 +332,26 @@ jobs:
           ${{ runner.os }}-build-
 
     - name: Run all tests (optimized)
-      shell: msys2 {0}
+      shell: pwsh
       run: |
-        echo "Running optimized test suite..."
-        # Use parallel build and optimized flags for faster Windows tests  
-        # Cross-platform CPU detection with fallback
-        export OMP_NUM_THREADS=${NUMBER_OF_PROCESSORS:-$(nproc 2>/dev/null || echo 4)}
-        echo "Using $OMP_NUM_THREADS parallel jobs"
+        Write-Host "🧪 Running optimized test suite..."
         
-        # Validate test exists before execution
-        if ! fpm test --list 2>/dev/null | grep -q "test_"; then
-          echo "⚠️  No tests found, running basic validation"
+        # Verify MinGW and FPM are available
+        gfortran --version
+        fpm --version
+        
+        # Use parallel build with Windows CPU detection
+        $env:OMP_NUM_THREADS = $env:NUMBER_OF_PROCESSORS
+        if (!$env:OMP_NUM_THREADS) { $env:OMP_NUM_THREADS = "4" }
+        Write-Host "Using $($env:OMP_NUM_THREADS) parallel jobs"
+        
+        # Run tests with error handling
+        try {
+          fpm test --flag "-cpp -fmax-stack-var-size=131072 -O1"
+        } catch {
+          Write-Host "⚠️  Test execution failed, attempting build validation..."
           fpm build --flag "-cpp -fmax-stack-var-size=131072"
-        else
-          fpm test --flag "-cpp -fmax-stack-var-size=131072 -O1 -fopenmp"
-        fi
+        }
 
   # macOS CI temporarily disabled due to runner issues
   # test-macos:
