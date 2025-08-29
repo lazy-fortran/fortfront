@@ -16,7 +16,10 @@
 
 ## DOING (Active Work)
 
-<!-- Sprint 10 emergency recovery work -->
+- [ ] #844: CRITICAL: Emergency system recovery - fix circular dependency test failure (IN PROGRESS - sergei)
+  - **STATUS**: Active sprint work via max handoff  
+  - **ASSIGNEE**: sergei-perfectionist-coder
+  - **BLOCKER**: ./test.sh fails with STOP 1 - NO test verification possible
 
 ## SPRINT_BACKLOG - EMERGENCY SYSTEM RECOVERY
 
