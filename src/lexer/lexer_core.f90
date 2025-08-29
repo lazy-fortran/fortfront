@@ -171,9 +171,17 @@ contains
         start_pos = pos
         start_col = col_num
         
-        ! Handle CRLF or LF
-        if (source(pos:pos) == char(13) .and. pos < len(source) .and. source(pos+1:pos+1) == char(10)) then
-            pos = pos + 2
+        ! Handle CRLF or LF - with proper bounds checking
+        if (pos <= len(source)) then
+            if (source(pos:pos) == char(13) .and. pos + 1 <= len(source)) then
+                if (source(pos+1:pos+1) == char(10)) then
+                    pos = pos + 2
+                else
+                    pos = pos + 1
+                end if
+            else
+                pos = pos + 1
+            end if
         else
             pos = pos + 1
         end if
