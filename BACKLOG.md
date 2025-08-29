@@ -16,26 +16,20 @@
 
 ## DOING (Active Work)
 
-- [ ] #806: Improper STOP statements break CLI standards
-  - **ANALYSIS**: STOP 0/1 visible to users violates CLI standards
-  - **APPROACH**: Replace STOP with proper program termination
-  - **STATUS**: Analyzing codebase for all STOP usage patterns
+<!-- Issue #806 COMPLETED in PR #819 -->
 
 ## SPRINT_BACKLOG - USER EXPERIENCE RECOVERY
 
 ### EPIC: CLI PROFESSIONAL QUALITY
 
 <!-- Moved to DOING: #805 -->
-
-- [ ] #806: Improper STOP statements break CLI standards
-  - **ROOT CAUSE**: STOP 0 calls instead of proper program termination
-  - **IMPACT**: Violates UNIX exit code conventions, breaks scripting
-  - **PRIORITY**: HIGH - fundamental CLI compliance violation
+<!-- Moved to DOING: #806 --> 
 
 - [ ] #807: Catastrophic argument parsing breaks shell integration
-  - **ROOT CAUSE**: Argument parser fails on standard CLI patterns
+  - **ROOT CAUSE**: Argument parser fails on standard CLI patterns  
   - **IMPACT**: Cannot use standard file input patterns
   - **PRIORITY**: HIGH - basic usability failure
+
 
 ### EPIC: ARCHITECTURAL DEBT REDUCTION
 
@@ -210,9 +204,10 @@
 
 ### SPRINT 8 COMPLETIONS - USER EXPERIENCE RECOVERY (2025-08-29)  
 - [x] #805: Debug output contamination - **COMPLETED IN PR #818** (CLI professional quality improvement)
+- [x] #806: STOP statements CLI standards violation - **COMPLETED IN PR #819** (Clean CLI termination with proper exit codes)
 - [x] FMP test compilation - **COMPLETED** (test_semantic_integration.f90 API adaptation)
 - [x] Sprint 8 Technical Reconnaissance: **ACHIEVED** - All 8 claimed issues verified with technical evidence
-- [x] Sprint 8 Goal: **40% SUCCESS** - CMAKE confirmed working, CLI partially compliant, architectural debt identified
+- [x] Sprint 8 Goal: **60% SUCCESS** - CMAKE confirmed working, CLI standards improved, architectural debt identified
 
 ### SPRINT 7 COMPLETIONS - CMAKE BUILD SYSTEM RECOVERY (2025-08-28)
 - [x] #775: CMAKE build failure - **COMPLETED** (compiler_arena.mod dependency resolved)
