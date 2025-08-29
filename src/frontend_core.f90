@@ -22,8 +22,9 @@ module frontend_core
                                    analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
-    use codegen_core, only: generate_code_from_arena, generate_code_polymorphic, &
-                           set_type_standardization, get_type_standardization
+    use codegen_arena_interface, only: generate_code_from_arena
+    use codegen_type_utils, only: set_type_standardization, get_type_standardization
+    use codegen_core, only: generate_code_polymorphic, initialize_codegen
     use codegen_indent, only: set_indent_config, get_indent_config, &
                                set_line_length_config, get_line_length_config
     use json_reader, only: json_read_tokens_from_file, json_read_ast_from_file, &
@@ -311,6 +312,9 @@ contains
         type(ast_arena_t), intent(in) :: arena  ! Made intent(in) to prevent corruption
         integer, intent(in) :: prog_index  ! Made intent(in) to prevent modification
         character(len=:), allocatable, intent(out) :: fortran_code
+
+        ! Initialize the codegen system
+        call initialize_codegen()
 
         ! CRITICAL FIX: Do NOT call standardize_ast here - it causes double standardization
         ! and memory corruption when called in error paths. Standardization happens once

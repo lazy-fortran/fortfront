@@ -5,8 +5,10 @@ module codegen_utilities
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
+    use codegen_arena_interface, only: generate_code_from_arena
     implicit none
     private
+    
     
     ! Type standardization configuration
     logical, save :: standardize_types_enabled = .true.
@@ -15,7 +17,6 @@ module codegen_utilities
     logical, save :: context_has_executable_before_contains = .false.
     
 
-    public :: set_type_standardization, get_type_standardization
     public :: int_to_string
     public :: find_node_index_in_arena
     public :: same_node
@@ -30,9 +31,6 @@ module codegen_utilities
     public :: find_parameter_info
     public :: is_function_parameter
     public :: is_parameter_name
-    public :: add_line_continuations
-    public :: add_line_with_continuation
-    public :: generate_code_from_arena
     
     ! Type for storing parameter information during codegen
     type, public :: parameter_info_t
@@ -43,18 +41,6 @@ module codegen_utilities
 
 contains
 
-
-    ! Set type standardization flag
-    subroutine set_type_standardization(enabled)
-        logical, intent(in) :: enabled
-        standardize_types_enabled = enabled
-    end subroutine set_type_standardization
-
-    ! Get type standardization flag
-    subroutine get_type_standardization(enabled)
-        logical, intent(out) :: enabled
-        enabled = standardize_types_enabled
-    end subroutine get_type_standardization
 
     ! Convert integer to string
     function int_to_string(num) result(str)
@@ -563,61 +549,8 @@ contains
         end do
     end function is_parameter_name
 
-    ! Add line continuations to long lines
-    function add_line_continuations(input_code) result(output_code)
-        character(len=*), intent(in) :: input_code
-        character(len=:), allocatable :: output_code
-        integer, parameter :: MAX_LINE_LENGTH = 132
-        character(len=:), allocatable :: lines(:)
-        integer :: i
-        
-        ! For now, return input unchanged
-        ! Full implementation would split long lines with proper continuations
-        output_code = input_code
-    end function add_line_continuations
 
-    ! Add a line with continuation if needed
-    subroutine add_line_with_continuation(long_line, max_length, output_code)
-        character(len=*), intent(in) :: long_line
-        integer, intent(in) :: max_length
-        character(len=:), allocatable, intent(inout) :: output_code
-        integer :: pos, last_break
-        character(len=:), allocatable :: current_line
-        
-        if (len_trim(long_line) <= max_length) then
-            output_code = output_code // long_line // new_line('A')
-            return
-        end if
-        
-        ! Split at appropriate positions (commas, operators, etc.)
-        pos = 1
-        do while (pos <= len_trim(long_line))
-            last_break = min(pos + max_length - 2, len_trim(long_line))
-            
-            ! Find a good break point
-            ! For now, just break at max_length
-            current_line = long_line(pos:last_break)
-            
-            if (last_break < len_trim(long_line)) then
-                output_code = output_code // current_line // " &" // new_line('A')
-            else
-                output_code = output_code // current_line // new_line('A')
-            end if
-            
-            pos = last_break + 1
-        end do
-    end subroutine add_line_with_continuation
 
-    ! Wrapper function that delegates to the proper codegen_core implementation
-    ! This eliminates circular dependencies while preserving interface compatibility
-    function generate_code_from_arena(arena, node_index) result(code)
-        use codegen_core, only: core_generate_code_from_arena => generate_code_from_arena
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(len=:), allocatable :: code
-        
-        ! Simply delegate to the proper implementation in codegen_core
-        code = core_generate_code_from_arena(arena, node_index)
-    end function generate_code_from_arena
+
 
 end module codegen_utilities

@@ -5,20 +5,22 @@ module codegen_core
     use codegen_statements  
     use codegen_control_flow
     use codegen_declarations
-    use codegen_utilities, only: set_type_standardization, get_type_standardization, &
-        add_line_continuations
+    use codegen_type_utils, only: set_type_standardization, get_type_standardization
+    use codegen_basic_utils, only: add_line_continuations
+    use codegen_arena_interface, only: set_arena_generator
     implicit none
     private
 
-    public :: generate_code_from_arena
+    public :: codegen_core_generate_arena
     public :: generate_code_polymorphic
-    public :: safe_generate_code_from_arena
+    public :: safe_codegen_core_generate_arena
     public :: set_type_standardization, get_type_standardization
+    public :: initialize_codegen
 
 contains
 
     ! Main entry point for code generation from AST arena
-    function generate_code_from_arena(arena, node_index) result(code)
+    function codegen_core_generate_arena(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
@@ -122,18 +124,18 @@ contains
             ! Unknown node type
             code = "! Unknown node type"
         end select
-    end function generate_code_from_arena
+    end function codegen_core_generate_arena
 
-    ! Polymorphic code generator (same as generate_code_from_arena)
+    ! Polymorphic code generator (same as codegen_core_generate_arena)
     function generate_code_polymorphic(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
-        code = generate_code_from_arena(arena, node_index)
+        code = codegen_core_generate_arena(arena, node_index)
     end function generate_code_polymorphic
 
-    subroutine safe_generate_code_from_arena(arena, node_index, code)
+    subroutine safe_codegen_core_generate_arena(arena, node_index, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: code
@@ -148,10 +150,15 @@ contains
             return
         end if
 
-        code = generate_code_from_arena(arena, node_index)
+        code = codegen_core_generate_arena(arena, node_index)
 
         ! Add line continuations for overly long lines
         code = add_line_continuations(code)
-    end subroutine safe_generate_code_from_arena
+    end subroutine safe_codegen_core_generate_arena
+
+    ! Initialize the codegen system by setting up dependency injection
+    subroutine initialize_codegen()
+        call set_arena_generator(codegen_core_generate_arena)
+    end subroutine initialize_codegen
 
 end module codegen_core
