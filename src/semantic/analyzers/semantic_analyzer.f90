@@ -400,7 +400,12 @@ contains
         case (LITERAL_REAL)
             typ = create_mono_type(TREAL)
         case (LITERAL_STRING)
-            typ = create_mono_type(TCHAR)
+            ! Calculate character length from string literal (excluding quotes)
+            if (allocated(lit%value) .and. len(lit%value) >= 2) then
+                typ = create_mono_type(TCHAR, char_size=len(lit%value) - 2)
+            else
+                typ = create_mono_type(TCHAR, char_size=0)
+            end if
         case (LITERAL_LOGICAL)
             typ = create_mono_type(TLOGICAL)
         case default
@@ -473,10 +478,44 @@ contains
 
         ! Special handling for string concatenation
         if (binop%operator == "//") then
-            typ = create_mono_type(TCHAR)
-            typ%alloc_info%needs_allocatable_string = .true.
-            call ctx%unify(left_typ, typ)
-            call ctx%unify(right_typ, typ)
+            ! Calculate combined string length if both operands are known
+            block
+                integer :: left_size, right_size, total_size
+                logical :: can_calculate_size
+                
+                ! Try to get sizes of operands
+                left_size = 0
+                right_size = 0
+                can_calculate_size = .false.
+                
+                ! Get left operand size
+                if (left_typ%kind == TCHAR .and. left_typ%size > 0) then
+                    left_size = left_typ%size
+                end if
+                
+                ! Get right operand size
+                if (right_typ%kind == TCHAR .and. right_typ%size > 0) then
+                    right_size = right_typ%size
+                end if
+                
+                ! If we can determine both sizes, calculate total
+                if (left_size > 0 .and. right_size > 0) then
+                    total_size = left_size + right_size
+                    can_calculate_size = .true.
+                end if
+                
+                ! Create appropriate character type
+                if (can_calculate_size) then
+                    typ = create_mono_type(TCHAR, char_size=total_size)
+                    typ%alloc_info%needs_allocatable_string = .false.
+                else
+                    typ = create_mono_type(TCHAR)
+                    typ%alloc_info%needs_allocatable_string = .true.
+                end if
+            end block
+            
+            call ctx%unify(left_typ, create_mono_type(TCHAR))
+            call ctx%unify(right_typ, create_mono_type(TCHAR))
         ! Comparison operators return logical
         else if (binop%operator == "==" .or. binop%operator == "/=" .or. &
                  binop%operator == "<" .or. binop%operator == "<=" .or. &
