@@ -12,7 +12,7 @@ fortfront is a functional Fortran compiler frontend that transforms lazy Fortran
 - **CLI Interface**: Processes lazy Fortran from stdin to standard Fortran on stdout
 - **4-Phase Pipeline**: Lexer → Parser → Semantic Analysis → Code Generation
 - **Type Inference**: Automatic variable type detection for lazy Fortran syntax
-- **Standard Compliant**: Generates valid Fortran code compatible with standard compilers
+- **Standard Fortran Output**: Generates standard Fortran syntax (with some type inference limitations)
 - **Library Integration**: Available as static library for integration with other tools
 
 ## Quick Start
@@ -31,16 +31,16 @@ echo "x = 42" | ./build/gfortran_*/app/fortfront
 # end program main
 ```
 
-### Character Handling
+### Boolean Handling
 
 ```bash
-echo 'name = "hello" // " world"' | ./build/gfortran_*/app/fortfront
+echo 'y = .true.' | ./build/gfortran_*/app/fortfront
 
 # Output:
 # program main
 #     implicit none
-#     character(len=11) :: name
-#     name = "hello" // " world"
+#     logical :: y
+#     y = .true.
 # end program main
 ```
 
@@ -79,8 +79,10 @@ make  # Note: Currently has Fortran module path issues
 - ⚠️ Some test failures being addressed in ongoing development sprints
 
 **Known Limitations**:
+- String concatenation type inference incomplete (generates missing type declarations)
+- Array type inference incomplete (generates scalar types for array literals)
 - Test suite has logical failures (but runs successfully)
-- Some large files exceed 1000-line target (8 files, largest: 1302 lines)
+- Some large files exceed 1000-line target (5 files, largest: 1169 lines)
 - error_stop usage being migrated to proper error handling (81 remaining)
 
 ## Architecture
