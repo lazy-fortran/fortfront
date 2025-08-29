@@ -2,7 +2,6 @@ module variable_usage_tracker_module
     use ast_core
     use ast_arena_modern
     use variable_usage_core_module
-    use variable_usage_collector_module
     use variable_usage_dispatcher_module
     use ast_nodes_core, only: binary_op_node, call_or_subscript_node, &
                               identifier_node, component_access_node
