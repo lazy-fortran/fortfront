@@ -489,17 +489,18 @@ contains
                 can_calculate_size = .false.
                 
                 ! Get left operand size
-                if (left_typ%kind == TCHAR .and. left_typ%size > 0) then
+                if (left_typ%kind == TCHAR .and. left_typ%size >= 0) then
                     left_size = left_typ%size
                 end if
                 
                 ! Get right operand size
-                if (right_typ%kind == TCHAR .and. right_typ%size > 0) then
+                if (right_typ%kind == TCHAR .and. right_typ%size >= 0) then
                     right_size = right_typ%size
                 end if
                 
                 ! If we can determine both sizes, calculate total
-                if (left_size > 0 .and. right_size > 0) then
+                if (left_typ%kind == TCHAR .and. right_typ%kind == TCHAR .and. &
+                    left_typ%size >= 0 .and. right_typ%size >= 0) then
                     total_size = left_size + right_size
                     can_calculate_size = .true.
                 end if
@@ -638,7 +639,7 @@ contains
                                 type is (binary_op_node)
                                     if (value_node%operator == "//") then
                                         ! Only mark as allocatable if size was not calculated
-                                        if (expr_typ%size <= 0) then
+                                        if (expr_typ%size < 0) then
                                             expr_typ%alloc_info%is_allocatable = .true.
                                             expr_typ%alloc_info%needs_allocatable_string = .true.
                                             expr_typ%size = 0  ! Deferred length
