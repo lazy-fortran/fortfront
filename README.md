@@ -21,7 +21,7 @@ fortfront is a functional Fortran compiler frontend that transforms lazy Fortran
 
 ```bash
 # Transform lazy Fortran code
-echo "x = 42" | fortfront
+echo "x = 42" | ./build/gfortran_*/app/fortfront
 
 # Output:
 # program main
@@ -34,7 +34,7 @@ echo "x = 42" | fortfront
 ### Character Handling
 
 ```bash
-echo 'name = "hello" // " world"' | fortfront
+echo 'name = "hello" // " world"' | ./build/gfortran_*/app/fortfront
 
 # Output:
 # program main
@@ -57,7 +57,7 @@ echo 'name = "hello" // " world"' | fortfront
 
 # Or use fpm directly with required flags
 fpm build --flag "-cpp -fmax-stack-var-size=524288"
-fmp test --flag "-cpp -fmax-stack-var-size=524288"
+fpm test --flag "-cpp -fmax-stack-var-size=524288"
 ```
 
 ### CMake Build System (Secondary)
