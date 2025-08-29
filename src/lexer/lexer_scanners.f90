@@ -225,7 +225,20 @@ contains
                 pos = pos + 1
                 col_num = col_num + 1
             end if
-        case ('=', '/', '<', '>')
+        case ('/')
+            pos = pos + 1
+            col_num = col_num + 1
+            ! Check for // (concatenation) or /= (not equal)
+            if (pos <= len(source)) then
+                if (source(pos:pos) == '/') then
+                    pos = pos + 1
+                    col_num = col_num + 1
+                else if (source(pos:pos) == '=') then
+                    pos = pos + 1
+                    col_num = col_num + 1
+                end if
+            end if
+        case ('=', '<', '>')
             pos = pos + 1
             col_num = col_num + 1
             if (pos <= len(source) .and. source(pos:pos) == '=') then

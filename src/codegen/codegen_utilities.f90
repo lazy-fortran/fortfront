@@ -637,6 +637,35 @@ contains
         type is (blank_line_node)
             code = ""
             
+        type is (array_literal_node)
+            ! Generate array literal: [elem1, elem2, ...] or (/ elem1, elem2, ... /)
+            if (allocated(node%element_indices)) then
+                if (size(node%element_indices) > 0) then
+                    ! Use syntax_style if available, otherwise default to modern
+                    if (allocated(node%syntax_style) .and. node%syntax_style == "legacy") then
+                        code = "(/ "
+                        do i = 1, size(node%element_indices)
+                            if (i > 1) code = code // ", "
+                            code = code // generate_code_from_arena(arena, node%element_indices(i))
+                        end do
+                        code = code // " /)"
+                    else
+                        ! Modern syntax (default)
+                        code = "["
+                        do i = 1, size(node%element_indices)
+                            if (i > 1) code = code // ", "
+                            code = code // generate_code_from_arena(arena, node%element_indices(i))
+                        end do
+                        code = code // "]"
+                    end if
+                else
+                    ! Empty array
+                    code = "[]"
+                end if
+            else
+                code = "[]"
+            end if
+            
         ! Key statement nodes that were broken - simple but correct implementations
         type is (assignment_node)
             ! Generate: target = value  
