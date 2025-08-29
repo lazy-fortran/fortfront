@@ -858,43 +858,11 @@ contains
                                                          syntax_style="modern")
                     end if
                 end block
-            else if (current%text == ".") then
-                ! Check for logical literals (.true. or .false.)
-                block
-                    type(token_t) :: next_token, third_token
-                    if (parser%current_token + 2 <= size(parser%tokens)) then
-                        next_token = parser%tokens(parser%current_token + 1)
-                        third_token = parser%tokens(parser%current_token + 2)
-
-                        if (next_token%kind == TK_IDENTIFIER .and. &
-                     third_token%kind == TK_OPERATOR .and. third_token%text == ".") then
-                     if (next_token%text == "true" .or. next_token%text == "false") then
-                                ! It's a logical literal
-                                current = parser%consume()  ! consume first '.'
-                                current = parser%consume()  ! consume 'true'/'false'
-                                current = parser%consume()  ! consume second '.'
-                expr_index = push_literal(arena, &
-                    "."//trim(next_token%text)//".", LITERAL_LOGICAL, &
+            else if (current%text == ".true." .or. current%text == ".false.") then
+                ! Handle boolean literals as single tokens
+                current = parser%consume()
+                expr_index = push_literal(arena, current%text, LITERAL_LOGICAL, &
                     current%line, current%column)
-                            else
-                                ! Not a logical literal
-                                expr_index = push_literal(arena, "", &
-                                    LITERAL_STRING, current%line, current%column)
-                                current = parser%consume()
-                            end if
-                        else
-                            ! Not a logical literal pattern
-                                expr_index = push_literal(arena, "", &
-                                    LITERAL_STRING, current%line, current%column)
-                            current = parser%consume()
-                        end if
-                    else
-                        ! Not enough tokens
-                                expr_index = push_literal(arena, "", &
-                                    LITERAL_STRING, current%line, current%column)
-                        current = parser%consume()
-                    end if
-                end block
             else
                 ! Unrecognized operator - create error node
                 expr_index = push_literal(arena, &

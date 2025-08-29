@@ -28,6 +28,8 @@ module standardizer_declarations
     public :: add_variable
     public :: mark_variable_declared
     public :: standardize_declarations
+    public :: handle_string_concatenation
+    public :: get_string_length_from_node
 
 contains
 
@@ -657,6 +659,7 @@ contains
                                     var_type = &
                                         get_array_var_type(arena, assign%value_index)
                                 else
+                                    ! First try to get type from general expression type system
                                     value_type => &
                                         get_expression_type(arena, assign%value_index)
                                     if (associated(value_type)) then
@@ -667,6 +670,11 @@ contains
                                                 var_type = type_result%get_value()
                                             end if
                                         end block
+                                    end if
+                                    
+                                    ! If that failed, check for string concatenation as special case
+                                    if (len_trim(var_type) == 0) then
+                                        var_type = handle_string_concatenation(arena, assign%value_index)
                                     end if
                                 end if
                             end if
@@ -854,5 +862,86 @@ contains
             end if
         end do
     end subroutine mark_variable_declared
+
+    ! Handle string concatenation type inference
+    function handle_string_concatenation(arena, expr_index) result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        character(len=64) :: var_type
+        
+        
+        var_type = ""  ! Default empty
+        
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+        
+        select type (node => arena%entries(expr_index)%node)
+        type is (binary_op_node)
+            if (allocated(node%operator) .and. node%operator == "//") then
+                ! This is string concatenation
+                block
+                    integer :: left_length, right_length, total_length
+                    logical :: can_calculate
+                    
+                    can_calculate = .false.
+                    left_length = 0
+                    right_length = 0
+                    
+                    ! Try to get left operand length
+                    if (node%left_index > 0 .and. node%left_index <= arena%size) then
+                        if (allocated(arena%entries(node%left_index)%node)) then
+                            left_length = get_string_length_from_node(arena, node%left_index)
+                        end if
+                    end if
+                    
+                    ! Try to get right operand length
+                    if (node%right_index > 0 .and. node%right_index <= arena%size) then
+                        if (allocated(arena%entries(node%right_index)%node)) then
+                            right_length = get_string_length_from_node(arena, node%right_index)
+                        end if
+                    end if
+                    
+                    ! If both lengths are known, calculate total
+                    if (left_length > 0 .and. right_length > 0) then
+                        total_length = left_length + right_length
+                        can_calculate = .true.
+                    end if
+                    
+                    ! Generate appropriate type
+                    if (can_calculate) then
+                        write(var_type, '(a,i0,a)') "character(len=", total_length, ")"
+                    else
+                        var_type = "character(len=:), allocatable"
+                    end if
+                end block
+            end if
+        end select
+    end function handle_string_concatenation
+    
+    ! Get string length from a node (literal or identifier with inferred type)
+    function get_string_length_from_node(arena, node_index) result(length)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        integer :: length
+        
+        length = 0  ! Default unknown length
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (literal_node)
+            if (node%literal_kind == LITERAL_STRING .and. allocated(node%value)) then
+                if (len(node%value) >= 2) then
+                    length = len(node%value) - 2  ! Remove surrounding quotes
+                end if
+            end if
+        type is (identifier_node)
+            ! For identifiers, try to get length from inferred type
+            if (node%inferred_type%kind == TCHAR .and. node%inferred_type%size > 0) then
+                length = node%inferred_type%size
+            end if
+        end select
+    end function get_string_length_from_node
 
 end module standardizer_declarations
