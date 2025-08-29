@@ -59,7 +59,7 @@ contains
         end select
 
         ! Generate code
-        generated_code = generate_code_from_arena(arena, func_idx)
+        generated_code = codegen_core_generate_arena(arena, func_idx)
 
         print *, "Generated code:"
         print *, generated_code
@@ -112,7 +112,7 @@ contains
         end select
 
         ! Generate code
-        generated_code = generate_code_from_arena(arena, func_idx)
+        generated_code = codegen_core_generate_arena(arena, func_idx)
 
         ! Check grouping
         if (index(generated_code, "real(8), intent(in) :: x, y") > 0 .and. &
@@ -164,7 +164,7 @@ contains
         end select
 
         ! Generate code
-        generated_code = generate_code_from_arena(arena, func_idx)
+        generated_code = codegen_core_generate_arena(arena, func_idx)
 
         ! Check that different intents are NOT grouped
         if (index(generated_code, "real(8), intent(in) :: a") > 0 .and. &
@@ -222,7 +222,7 @@ contains
         end select
 
         ! Generate code
-        generated_code = generate_code_from_arena(arena, func_idx)
+        generated_code = codegen_core_generate_arena(arena, func_idx)
 
         ! Check that grouping is interrupted by non-declaration
         if (index(generated_code, "real(8), intent(in) :: a, b") > 0 .and. &

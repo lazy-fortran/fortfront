@@ -50,7 +50,7 @@ contains
 
         ! Test integer literal
         lit_index = push_literal(arena, "42", LITERAL_INTEGER, 1, 1)
-        code = generate_code_from_arena(arena, lit_index)
+        code = codegen_core_generate_arena(arena, lit_index)
         
         if (code /= "42") then
             call test_fail("Integer literal generation incorrect: expected '42', got '" // code // "'")
@@ -59,7 +59,7 @@ contains
 
         ! Test identifier
         id_index = push_identifier(arena, "test_var", 1, 1)
-        code = generate_code_from_arena(arena, id_index)
+        code = codegen_core_generate_arena(arena, id_index)
         
         if (code /= "test_var") then
             call test_fail("Identifier generation incorrect: expected 'test_var', got '" // code // "'")

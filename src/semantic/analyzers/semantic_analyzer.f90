@@ -630,16 +630,19 @@ contains
                         expr_typ = ctx%apply_subst_to_type(expr_typ)
                     end if
                     
-                    ! Handle allocatable character detection
+                    ! Handle allocatable character detection only when size cannot be determined
                     if (expr_typ%kind == TCHAR) then
                         if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
                             if (allocated(arena%entries(assignment%value_index)%node)) then
                                 select type (value_node => arena%entries(assignment%value_index)%node)
                                 type is (binary_op_node)
                                     if (value_node%operator == "//") then
-                                        expr_typ%alloc_info%is_allocatable = .true.
-                                        expr_typ%alloc_info%needs_allocatable_string = .true.
-                                        expr_typ%size = 0  ! Deferred length
+                                        ! Only mark as allocatable if size was not calculated
+                                        if (expr_typ%size <= 0) then
+                                            expr_typ%alloc_info%is_allocatable = .true.
+                                            expr_typ%alloc_info%needs_allocatable_string = .true.
+                                            expr_typ%size = 0  ! Deferred length
+                                        end if
                                         
                                         ! Update all existing identifier nodes with this name
                                         call update_identifier_type_in_arena(arena, lhs_node%name, expr_typ)
