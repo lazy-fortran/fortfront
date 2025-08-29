@@ -407,19 +407,20 @@ contains
     ! Parse multi-variable assignment like "a, b, c = 1, 2, 3" (dispatcher version)
     subroutine parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
         use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_KEYWORD, TK_NEWLINE
+        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
-        character(len=:), allocatable :: var_names(:)
-        character(len=:), allocatable :: value_exprs(:)
+        integer, allocatable :: var_indices(:)  ! Store identifier indices directly
+        integer, allocatable :: value_indices(:)  ! Store literal indices directly
         integer :: num_vars, num_values, i
         type(token_t) :: token
-        integer :: target_index, value_index
+        integer :: target_index, value_index, literal_type
         integer, allocatable :: assignment_indices(:)
         
         stmt_index = 0
-        allocate(character(len=64) :: var_names(0))
-        allocate(character(len=64) :: value_exprs(0))
+        allocate(var_indices(0))
+        allocate(value_indices(0))
         allocate(assignment_indices(0))
         
         ! Parse left-hand side variables (a, b, c)
@@ -427,7 +428,9 @@ contains
             token = parser%peek()
             if (token%kind == TK_IDENTIFIER) then
                 token = parser%consume()
-                var_names = [var_names, token%text]
+                ! Create identifier node immediately
+                target_index = push_identifier(arena, token%text, token%line, token%column)
+                var_indices = [var_indices, target_index]
                 
                 ! Check for comma or equals
                 token = parser%peek()
@@ -446,7 +449,7 @@ contains
             end if
         end do
         
-        num_vars = size(var_names)
+        num_vars = size(var_indices)
         if (num_vars == 0) return
         
         ! Parse right-hand side values (1, 2, 3)
@@ -456,7 +459,11 @@ contains
             if (token%kind == TK_NUMBER .or. token%kind == TK_STRING .or. token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD .or. &
                 (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. token%text == '.false.'))) then
                 token = parser%consume()
-                value_exprs = [value_exprs, token%text]
+                ! Determine literal type based on token kind
+                literal_type = get_literal_type_from_token_kind_dispatcher(token%kind, token%text)
+                ! Create literal node immediately
+                value_index = push_literal(arena, token%text, literal_type, token%line, token%column)
+                value_indices = [value_indices, value_index]
                 
                 ! Check for comma or end
                 token = parser%peek()
@@ -476,25 +483,19 @@ contains
             end if
         end do
         
-        num_values = size(value_exprs)
+        num_values = size(value_indices)
         
         ! Create individual assignment statements
         ! For each variable, assign corresponding value (or last value if fewer values)
         do i = 1, num_vars
-            target_index = push_identifier(arena, var_names(i), &
-                                         parser%tokens(parser%current_token-1)%line, &
-                                         parser%tokens(parser%current_token-1)%column)
-            
             if (i <= num_values) then
                 ! Use corresponding value
-                value_index = push_literal(arena, value_exprs(i), LITERAL_STRING, &
-                                         parser%tokens(parser%current_token-1)%line, &
-                                         parser%tokens(parser%current_token-1)%column)
+                target_index = var_indices(i)
+                value_index = value_indices(i)
             else
                 ! Use last value if not enough values provided
-                value_index = push_literal(arena, value_exprs(num_values), LITERAL_STRING, &
-                                         parser%tokens(parser%current_token-1)%line, &
-                                         parser%tokens(parser%current_token-1)%column)
+                target_index = var_indices(i)
+                value_index = value_indices(num_values)
             end if
             
             if (target_index > 0 .and. value_index > 0) then
@@ -517,5 +518,38 @@ contains
         end if
         
     end subroutine parse_multi_variable_assignment_dispatcher
+
+    ! Helper function to determine literal type from token kind (dispatcher version)
+    function get_literal_type_from_token_kind_dispatcher(token_kind, token_text) result(literal_type)
+        use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_OPERATOR
+        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL
+        integer, intent(in) :: token_kind
+        character(len=*), intent(in) :: token_text
+        integer :: literal_type
+        
+        select case (token_kind)
+        case (TK_NUMBER)
+            ! Check if it contains a decimal point or exponent
+            if (index(token_text, '.') > 0 .or. index(token_text, 'e') > 0 .or. &
+                index(token_text, 'E') > 0 .or. index(token_text, 'd') > 0 .or. &
+                index(token_text, 'D') > 0) then
+                literal_type = LITERAL_REAL
+            else
+                literal_type = LITERAL_INTEGER
+            end if
+        case (TK_STRING)
+            literal_type = LITERAL_STRING
+        case (TK_OPERATOR)
+            ! For logical literals (.true., .false.)
+            if (token_text == '.true.' .or. token_text == '.false.') then
+                literal_type = LITERAL_INTEGER  ! Treat as integer for now (should be LITERAL_LOGICAL)
+            else
+                literal_type = LITERAL_STRING  ! Default fallback
+            end if
+        case default
+            ! For identifiers and other tokens, treat as string
+            literal_type = LITERAL_STRING
+        end select
+    end function get_literal_type_from_token_kind_dispatcher
 
 end module parser_dispatcher_module

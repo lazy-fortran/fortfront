@@ -478,7 +478,9 @@ contains
                     string_result%value = "character(len="//trim(size_str)//")"
                 end block
             else
-                string_result%value = "character(*)"
+                ! For zero-length or unknown strings, use explicit length 0
+                ! character(*) is only valid in parameter declarations, not variable declarations
+                string_result%value = "character(len=0)"
             end if
         case (TARRAY)
             ! For arrays, get the element type

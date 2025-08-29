@@ -273,11 +273,13 @@ contains
             case (TCHAR)
                 if (node%inferred_type%alloc_info%needs_allocatable_string) then
                     type_str = "character(len=:)"
-                else if (node%inferred_type%size >= 0) then
+                else if (node%inferred_type%size > 0) then
                     type_str = "character(len=" // &
                         trim(adjustl(int_to_string(node%inferred_type%size))) // ")"
                 else
-                    type_str = "character"
+                    ! For zero-length or unknown strings, use explicit length 0
+                    ! character(*) is only valid in parameter declarations
+                    type_str = "character(len=0)"
                 end if
             case (TLOGICAL)
                 type_str = "logical"
