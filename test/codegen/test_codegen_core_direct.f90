@@ -1,5 +1,5 @@
 program test_codegen_core_direct
-    use codegen_core, only: generate_code_from_arena, generate_code_polymorphic
+    use codegen_core, only: codegen_core_generate_arena, generate_code_polymorphic
     use ast_core, only: ast_arena_t, create_ast_arena, create_identifier, &
                         create_literal, create_program, identifier_node, &
                         literal_node, LITERAL_INTEGER, LITERAL_STRING
@@ -24,7 +24,7 @@ program test_codegen_core_direct
     id_node = create_identifier("test_var", 1, 1)
     call arena%push(id_node, "identifier")
     node_index = arena%size
-    code = generate_code_from_arena(arena, node_index)
+    code = codegen_core_generate_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "test_var") > 0) then
         call test_pass()
     else
@@ -39,7 +39,7 @@ program test_codegen_core_direct
     lit_node = create_literal("42", LITERAL_INTEGER, 1, 1)
     call arena%push(lit_node, "literal")
     node_index = arena%size
-    code = generate_code_from_arena(arena, node_index)
+    code = codegen_core_generate_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "42") > 0) then
         call test_pass()
     else
@@ -54,7 +54,7 @@ program test_codegen_core_direct
     lit_node = create_literal("'hello'", LITERAL_STRING, 1, 1)
     call arena%push(lit_node, "literal")
     node_index = arena%size
-    code = generate_code_from_arena(arena, node_index)
+    code = codegen_core_generate_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "hello") > 0) then
         call test_pass()
     else
@@ -68,7 +68,7 @@ program test_codegen_core_direct
     arena = create_ast_arena()
     call arena%push(create_program("test_prog", [integer::]), "program")
     node_index = arena%size
-    code = generate_code_from_arena(arena, node_index)
+    code = codegen_core_generate_arena(arena, node_index)
     if (len_trim(code) > 0 .and. index(code, "program") > 0) then
         call test_pass()
     else
@@ -80,7 +80,7 @@ program test_codegen_core_direct
     ! Test 5: Invalid node index handling
     call test_start("Invalid node index")
     arena = create_ast_arena()
-    code = generate_code_from_arena(arena, 999)  ! Invalid index
+    code = codegen_core_generate_arena(arena, 999)  ! Invalid index
     if (len_trim(code) == 0) then  ! Should return empty string
         call test_pass()
     else
@@ -92,7 +92,7 @@ program test_codegen_core_direct
     ! Test 6: Empty arena handling
     call test_start("Empty arena")
     arena = create_ast_arena()
-    code = generate_code_from_arena(arena, 1)  ! No nodes in arena
+    code = codegen_core_generate_arena(arena, 1)  ! No nodes in arena
     if (len_trim(code) == 0) then  ! Should return empty string
         call test_pass()
     else
@@ -108,7 +108,7 @@ program test_codegen_core_direct
     call arena%push(create_literal("5", LITERAL_INTEGER), "literal")
     
     ! Generate code for first node
-    code = generate_code_from_arena(arena, 1)
+    code = codegen_core_generate_arena(arena, 1)
     if (len_trim(code) > 0 .and. index(code, "x") > 0) then
         call test_pass()
     else
@@ -119,7 +119,7 @@ program test_codegen_core_direct
 
     ! Test 8: Generate code for second node
     call test_start("Second node in arena")
-    code = generate_code_from_arena(arena, 2)
+    code = codegen_core_generate_arena(arena, 2)
     if (len_trim(code) > 0 .and. index(code, "5") > 0) then
         call test_pass()
     else

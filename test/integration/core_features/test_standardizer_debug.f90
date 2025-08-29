@@ -2,7 +2,7 @@ program test_standardizer_debug
     use frontend, only: lex_file, parse_tokens
     use standardizer, only: standardize_ast
     use ast_core
-    use codegen_core, only: generate_code_from_arena
+    use codegen_core, only: codegen_core_generate_arena
     use lexer_core, only: token_t
     implicit none
     
@@ -62,14 +62,14 @@ program test_standardizer_debug
     end if
     
     print *, 'Before standardization:'
-    generated_code = generate_code_from_arena(arena, root_index)
+    generated_code = codegen_core_generate_arena(arena, root_index)
     print *, trim(generated_code)
     
     ! Standardize
     call standardize_ast(arena, root_index)
     
     print *, 'After standardization:'
-    generated_code = generate_code_from_arena(arena, root_index)
+    generated_code = codegen_core_generate_arena(arena, root_index)
     print *, trim(generated_code)
     
 end program test_standardizer_debug
