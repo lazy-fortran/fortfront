@@ -3,6 +3,7 @@ module parser_dispatcher_module
     ! This implements the SRP by separating the switch logic from the implementations
     use iso_fortran_env, only: error_unit
     use lexer_core
+    use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
     use parser_state_module
     use parser_expressions_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration, parse_derived_type_def
@@ -201,31 +202,40 @@ contains
         integer :: stmt_index
         type(token_t) :: id_token, op_token
         integer :: target_index, value_index
+        logical :: is_multi_assignment
 
-        id_token = parser%consume()
-        op_token = parser%peek()
-
-        if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
-            op_token = parser%consume()
-
-            ! Create target identifier
-    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
-
-            ! Parse value expression
-            value_index = parse_range(parser, arena)
-
-            ! Create assignment
-            if (value_index > 0) then
-                stmt_index = push_assignment(arena, target_index, value_index, &
-                                              id_token%line, id_token%column)
-            else
-                stmt_index = push_literal(arena, "! Error: missing value", &
-                                           LITERAL_STRING, id_token%line, &
-                                           id_token%column)
-            end if
+        ! Check if this is a multi-variable assignment before consuming tokens
+        is_multi_assignment = is_multi_var_assignment_dispatcher(parser)
+        
+        if (is_multi_assignment) then
+            call parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
         else
-            ! Not an assignment, treat as expression statement
-      stmt_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+            ! Handle single assignment or expression
+            id_token = parser%consume()
+            op_token = parser%peek()
+
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
+                op_token = parser%consume()
+
+                ! Create target identifier
+                target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+
+                ! Parse value expression
+                value_index = parse_range(parser, arena)
+
+                ! Create assignment
+                if (value_index > 0) then
+                    stmt_index = push_assignment(arena, target_index, value_index, &
+                                                  id_token%line, id_token%column)
+                else
+                    stmt_index = push_literal(arena, "! Error: missing value", &
+                                               LITERAL_STRING, id_token%line, &
+                                               id_token%column)
+                end if
+            else
+                ! Not an assignment, treat as expression statement
+                stmt_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+            end if
         end if
 
     end function parse_assignment_or_expression
@@ -349,5 +359,163 @@ contains
             deallocate(additional_indices)
         end if
     end subroutine clear_additional_indices
+
+    ! Check if the current position is a multi-variable assignment (dispatcher version)
+    logical function is_multi_var_assignment_dispatcher(parser)
+        type(parser_state_t), intent(in) :: parser
+        integer :: pos
+        type(token_t) :: token
+        
+        is_multi_var_assignment_dispatcher = .false.
+        pos = parser%current_token
+        
+        ! Look ahead for pattern: identifier, comma, identifier, ..., =
+        do while (pos <= size(parser%tokens))
+            token = parser%tokens(pos)
+            
+            if (token%kind == TK_IDENTIFIER) then
+                pos = pos + 1
+                if (pos > size(parser%tokens)) exit
+                
+                token = parser%tokens(pos)
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    ! Found comma after identifier, continue looking
+                    is_multi_var_assignment_dispatcher = .true.
+                    pos = pos + 1
+                    cycle
+                else if (token%kind == TK_OPERATOR .and. token%text == "=" .and. is_multi_var_assignment_dispatcher) then
+                    ! Found = and we already saw a comma, this is multi-var assignment
+                    return
+                else if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                    ! Found = but no comma, this is single assignment
+                    is_multi_var_assignment_dispatcher = .false.
+                    return
+                else
+                    ! Something else, not an assignment
+                    is_multi_var_assignment_dispatcher = .false.
+                    return
+                end if
+            else
+                ! Not identifier, exit
+                exit
+            end if
+        end do
+        
+        is_multi_var_assignment_dispatcher = .false.
+    end function is_multi_var_assignment_dispatcher
+
+    ! Parse multi-variable assignment like "a, b, c = 1, 2, 3" (dispatcher version)
+    subroutine parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
+        use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_KEYWORD, TK_NEWLINE
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        character(len=:), allocatable :: var_names(:)
+        character(len=:), allocatable :: value_exprs(:)
+        integer :: num_vars, num_values, i
+        type(token_t) :: token
+        integer :: target_index, value_index
+        integer, allocatable :: assignment_indices(:)
+        
+        stmt_index = 0
+        allocate(character(len=64) :: var_names(0))
+        allocate(character(len=64) :: value_exprs(0))
+        allocate(assignment_indices(0))
+        
+        ! Parse left-hand side variables (a, b, c)
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER) then
+                token = parser%consume()
+                var_names = [var_names, token%text]
+                
+                ! Check for comma or equals
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    token = parser%consume()  ! consume comma
+                    cycle
+                else if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                    token = parser%consume()  ! consume equals
+                    exit
+                else
+                    ! Error condition
+                    return
+                end if
+            else
+                return
+            end if
+        end do
+        
+        num_vars = size(var_names)
+        if (num_vars == 0) return
+        
+        ! Parse right-hand side values (1, 2, 3)
+        do while (.not. parser%is_at_end())
+            ! Parse a value expression (could be literal, variable, etc.)
+            token = parser%peek()
+            if (token%kind == TK_NUMBER .or. token%kind == TK_STRING .or. token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD .or. &
+                (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. token%text == '.false.'))) then
+                token = parser%consume()
+                value_exprs = [value_exprs, token%text]
+                
+                ! Check for comma or end
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    token = parser%consume()  ! consume comma
+                    cycle
+                else
+                    ! End of expression list
+                    exit
+                end if
+            else if (token%kind == TK_NEWLINE .or. parser%is_at_end()) then
+                exit
+            else
+                ! Try to consume the token and exit
+                token = parser%consume()
+                exit
+            end if
+        end do
+        
+        num_values = size(value_exprs)
+        
+        ! Create individual assignment statements
+        ! For each variable, assign corresponding value (or last value if fewer values)
+        do i = 1, num_vars
+            target_index = push_identifier(arena, var_names(i), &
+                                         parser%tokens(parser%current_token-1)%line, &
+                                         parser%tokens(parser%current_token-1)%column)
+            
+            if (i <= num_values) then
+                ! Use corresponding value
+                value_index = push_literal(arena, value_exprs(i), LITERAL_STRING, &
+                                         parser%tokens(parser%current_token-1)%line, &
+                                         parser%tokens(parser%current_token-1)%column)
+            else
+                ! Use last value if not enough values provided
+                value_index = push_literal(arena, value_exprs(num_values), LITERAL_STRING, &
+                                         parser%tokens(parser%current_token-1)%line, &
+                                         parser%tokens(parser%current_token-1)%column)
+            end if
+            
+            if (target_index > 0 .and. value_index > 0) then
+                assignment_indices = [assignment_indices, &
+                    push_assignment(arena, target_index, value_index, &
+                                  parser%tokens(parser%current_token-1)%line, &
+                                  parser%tokens(parser%current_token-1)%column)]
+            end if
+        end do
+        
+        ! Return first assignment index and store rest in additional_indices
+        if (size(assignment_indices) > 0) then
+            stmt_index = assignment_indices(1)
+            
+            if (size(assignment_indices) > 1) then
+                if (allocated(additional_indices)) deallocate(additional_indices)
+                allocate(additional_indices(size(assignment_indices) - 1))
+                additional_indices = assignment_indices(2:)
+            end if
+        end if
+        
+    end subroutine parse_multi_variable_assignment_dispatcher
 
 end module parser_dispatcher_module
