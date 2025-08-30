@@ -353,10 +353,10 @@ jobs:
         
         # Run tests with error handling
         try {
-          fpm test --flag "-cpp -fmax-stack-var-size=131072 -O1"
+          fpm test --flag "-cpp -fmax-stack-var-size=524288 -O1"
         } catch {
           Write-Host "⚠️  Test execution failed, attempting build validation..."
-          fpm build --flag "-cpp -fmax-stack-var-size=131072"
+          fpm build --flag "-cpp -fmax-stack-var-size=524288"
         }
 
   # macOS CI temporarily disabled due to runner issues
