@@ -23,6 +23,7 @@ module frontend_core
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
+    use json_reader, only: json_read_ast_from_file, json_read_semantic_from_file
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_core, only: generate_code_polymorphic, initialize_codegen
     use codegen_indent, only: set_indent_config, get_indent_config, &
@@ -211,8 +212,18 @@ contains
         ! Initialize unified compiler arena
         compiler_arena = create_compiler_arena()
 
-        ! Read AST from JSON - simplified for now
-        prog_index = push_literal(compiler_arena%ast, "! JSON loading not implemented", LITERAL_STRING, 1, 1)
+        ! Read AST from JSON using existing JSON reader
+        if (index(ast_json_file, '.json') > 0) then
+            ! Load AST from JSON file
+            prog_index = json_read_ast_from_file(ast_json_file, compiler_arena%ast)
+            if (prog_index == 0) then
+                error_msg = "Failed to load AST from JSON file"
+                return
+            end if
+        else
+            error_msg = "AST file must be a JSON file for from_json compilation"
+            return
+        end if
 
         ! Phase 3: Semantic Analysis
         call compiler_arena%next_phase("semantic")
@@ -245,6 +256,7 @@ contains
         integer :: prog_index
         character(len=:), allocatable :: code
         type(path_validation_result_t) :: validation_result
+        type(semantic_context_t) :: local_semantic_context
 
         error_msg = ""
         
@@ -258,9 +270,18 @@ contains
         ! Initialize unified compiler arena
         compiler_arena = create_compiler_arena()
 
-        ! Read annotated AST and semantic context from JSON - simplified
-        prog_index = push_literal(compiler_arena%ast, "! Semantic JSON loading not implemented", &
-                                 LITERAL_STRING, 1, 1)
+        ! Read annotated AST and semantic context from JSON
+        if (index(semantic_json_file, '.json') > 0) then
+            ! Load AST and semantic context from JSON file
+            call json_read_semantic_from_file(semantic_json_file, compiler_arena%ast, prog_index, local_semantic_context)
+            if (prog_index == 0) then
+                error_msg = "Failed to load semantic AST from JSON file"
+                return
+            end if
+        else
+            error_msg = "Semantic file must be a JSON file for from_semantic_json compilation"
+            return
+        end if
 
         ! Phase 4: Code Generation (direct from annotated AST)
         call compiler_arena%next_phase("codegen")
