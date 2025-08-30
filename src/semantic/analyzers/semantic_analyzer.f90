@@ -539,8 +539,15 @@ contains
             call ctx%unify(right_typ, typ)
         ! Arithmetic operators preserve type
         else
-            call ctx%unify(left_typ, right_typ)
-            typ = left_typ
+            ! CRITICAL FIX: Use proper type promotion rules for mixed arithmetic
+            ! Import get_common_type from type_checker for Fortran-compliant promotion
+            typ = get_common_type(left_typ, right_typ)
+            
+            ! Fallback: if get_common_type returns invalid type, use unification
+            if (typ%kind == 0) then
+                call ctx%unify(left_typ, right_typ)
+                typ = left_typ
+            end if
         end if
 
         ! Store inferred type in node if it's a binary_op_node
