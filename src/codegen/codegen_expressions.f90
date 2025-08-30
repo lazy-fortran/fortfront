@@ -62,6 +62,7 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: left_code, right_code
+        character(len=:), allocatable :: fortran_operator
 
         ! Generate operands
         if (node%left_index > 0) then
@@ -76,9 +77,16 @@ contains
             right_code = ""
         end if
 
-        ! Generate operation
+        ! Determine the correct Fortran operator
         if (allocated(node%operator)) then
-            code = left_code // " " // node%operator // " " // right_code
+            fortran_operator = node%operator
+            
+            ! Check for string concatenation: if operator is '+' and we're dealing with string literals
+            if (node%operator == "+" .and. is_string_concatenation(left_code, right_code)) then
+                fortran_operator = "//"  ! Use Fortran string concatenation operator
+            end if
+            
+            code = left_code // " " // fortran_operator // " " // right_code
         else
             ! Fallback for missing operator
             code = left_code // " + " // right_code  ! Safe default operator
@@ -212,6 +220,37 @@ contains
         write(buffer, '(I0)') n
         str = trim(buffer)
     end function int_to_string
+
+    ! Check if we have string concatenation (both operands are string literals)
+    function is_string_concatenation(left_code, right_code) result(is_string)
+        character(len=*), intent(in) :: left_code, right_code
+        logical :: is_string
+        
+        ! Check if both operands are string literals (enclosed in single or double quotes)
+        is_string = is_string_literal(left_code) .and. is_string_literal(right_code)
+    end function is_string_concatenation
+
+    ! Check if a code fragment is a string literal
+    function is_string_literal(code) result(is_string)
+        character(len=*), intent(in) :: code
+        logical :: is_string
+        character(len=:), allocatable :: trimmed_code
+        
+        ! Trim whitespace
+        trimmed_code = trim(adjustl(code))
+        
+        ! Check if it starts and ends with quotes
+        is_string = .false.
+        if (len(trimmed_code) >= 2) then
+            ! Check for single quotes
+            if (trimmed_code(1:1) == "'" .and. trimmed_code(len(trimmed_code):len(trimmed_code)) == "'") then
+                is_string = .true.
+            ! Check for double quotes
+            else if (trimmed_code(1:1) == '"' .and. trimmed_code(len(trimmed_code):len(trimmed_code)) == '"') then
+                is_string = .true.
+            end if
+        end if
+    end function is_string_literal
 
     ! generate_code_from_arena is provided as an interface at the module level
 
