@@ -7,8 +7,7 @@ module parser_module_structures_module
                            push_assignment, push_identifier, push_literal
     use parser_declarations, only: parse_declaration
     use ast_types, only: LITERAL_STRING
-    ! Temporarily removed to avoid circular dependency
-    ! Will be added back after refactoring is complete
+    use parser_procedure_definitions_module, only: parse_function_definition, parse_subroutine_definition
     implicit none
     private
 
@@ -148,19 +147,21 @@ contains
                 end if
             end if
 
-            ! Parse subroutine definitions for contains section (temporarily simplified)
+            ! Parse subroutine definitions for contains section
             if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "subroutine") then
-                ! Temporarily skip procedure parsing to avoid circular dependency
-                ! This will be restored after refactoring is complete
-                call skip_procedure_body(parser, "subroutine")
+                stmt_index = parse_subroutine_definition(parser, arena)
+                if (stmt_index > 0) then
+                    procedure_indices = [procedure_indices, stmt_index]
+                end if
                 cycle
             end if
             
-            ! Parse function definitions for contains section (temporarily simplified)
+            ! Parse function definitions for contains section
             if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "function") then
-                ! Temporarily skip procedure parsing to avoid circular dependency
-                ! This will be restored after refactoring is complete
-                call skip_procedure_body(parser, "function")
+                stmt_index = parse_function_definition(parser, arena)
+                if (stmt_index > 0) then
+                    procedure_indices = [procedure_indices, stmt_index]
+                end if
                 cycle
             end if
             
