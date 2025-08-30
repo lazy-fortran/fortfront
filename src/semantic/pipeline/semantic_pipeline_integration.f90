@@ -32,9 +32,8 @@ contains
         ! Run traditional semantic analysis first for compatibility
         call analyze_program(local_context, arena, node_index)
         
-        ! Run pipeline analyzers - type hierarchy fixed but not enabled yet
-        ! Pipeline integration requires additional interface work for production stability
-        ! call pipeline%run_analysis(arena, node_index, local_context)
+        ! Run pipeline analyzers - now enabled with correct vtable interface
+        call pipeline%run_analysis(arena, node_index, local_context)
         
         ! Return context if provided
         if (present(context)) then

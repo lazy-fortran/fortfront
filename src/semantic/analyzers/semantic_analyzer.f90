@@ -37,6 +37,7 @@ module semantic_analyzer
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: error_collection_t, create_error_collection, result_t, &
                                create_error_result, ERROR_SEMANTIC
+    use semantic_context_types, only: semantic_context_base_t
     implicit none
     private
 
@@ -46,7 +47,7 @@ module semantic_analyzer
     public :: has_semantic_errors
 
     ! Semantic analysis context
-    type :: semantic_context_t
+    type, extends(semantic_context_base_t) :: semantic_context_t
         type(scope_stack_t) :: scopes  ! Hierarchical scope management
         integer :: next_var_id = 0
         type(substitution_t) :: subst
@@ -55,6 +56,10 @@ module semantic_analyzer
         type(error_collection_t) :: errors  ! Collect semantic errors
         logical :: strict_mode = .false.  ! True for standard Fortran (implicit none), false for lazy Fortran
     contains
+        ! Implement required abstract procedures from semantic_context_base_t FIRST
+        procedure :: get_context_name => semantic_get_context_name
+        procedure :: clone_context => semantic_clone_context
+        ! Other procedures
         procedure :: infer => infer_type
         procedure :: infer_stmt => infer_statement_type
         procedure :: unify => unify_types
@@ -79,6 +84,12 @@ contains
         type(semantic_context_t) :: ctx
         type(poly_type_t) :: builtin_scheme
         type(mono_type_t) :: real_to_real, real_type
+        
+        ! Initialize base class components
+        ctx%context_id = 1
+        ctx%context_name = "semantic_context"
+        
+        ! Initialize basic components
         ctx%scopes = create_scope_stack()
         ctx%subst%count = 0
         ctx%param_tracker%count = 0
@@ -996,5 +1007,34 @@ contains
         
         if (ctx%strict_mode .and. ctx%errors%has_errors()) return
     end subroutine check_undefined_variables_internal
+
+    ! Implementation of required abstract procedures from semantic_context_base_t
+    
+    ! Get context name
+    function semantic_get_context_name(this) result(name)
+        class(semantic_context_t), intent(in) :: this
+        character(:), allocatable :: name
+        name = "semantic_context"
+    end function semantic_get_context_name
+    
+    ! Clone context (simplified implementation)  
+    function semantic_clone_context(this) result(cloned)
+        class(semantic_context_t), intent(in) :: this
+        class(semantic_context_base_t), allocatable :: cloned
+        type(semantic_context_t) :: temp_context
+        
+        ! Copy basic components - simplified for compatibility
+        temp_context%context_id = this%context_id
+        temp_context%context_name = this%context_name
+        temp_context%scopes = this%scopes
+        temp_context%next_var_id = this%next_var_id
+        temp_context%subst = this%subst
+        temp_context%param_tracker = this%param_tracker
+        temp_context%temp_tracker = this%temp_tracker
+        temp_context%errors = this%errors
+        temp_context%strict_mode = this%strict_mode
+        
+        allocate(cloned, source=temp_context)
+    end function semantic_clone_context
 
 end module semantic_analyzer
