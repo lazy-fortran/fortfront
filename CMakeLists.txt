@@ -68,11 +68,16 @@ set(AST_SOURCES
     src/ast/traversal/ast_traversal.f90
     src/ast/nodes/ast_nodes_core.f90
     src/ast/nodes/ast_nodes_procedure.f90
-    src/ast/nodes/ast_nodes_control.f90
     src/ast/nodes/ast_nodes_data.f90
     src/ast/nodes/ast_nodes_io.f90
     src/ast/nodes/ast_nodes_misc.f90
     src/ast/nodes/ast_nodes_bounds.f90
+    src/ast/nodes/ast_nodes_conditional.f90
+    src/ast/nodes/ast_nodes_loops.f90
+    src/ast/nodes/ast_nodes_array.f90
+    src/ast/nodes/ast_nodes_transfer.f90
+    src/ast/nodes/ast_nodes_associate.f90
+    src/ast/nodes/ast_nodes_control.f90
     src/ast/arena/ast_arena_core.f90
     src/ast/arena/ast_arena_compat.f90
     src/ast/arena/ast_arena_modern.f90
@@ -118,12 +123,15 @@ set(PARSER_SOURCES
     src/parser/parser_result_types.f90
     src/parser/parser_utils.f90
     src/parser/parser_core.f90
+    src/parser/parser_expression_helpers.f90
     src/parser/parser_expressions.f90
     src/parser/parser_declarations.f90
     src/parser/parser_control_statements.f90
     src/parser/parser_array_constructs.f90
     src/parser/parser_basic_statement_module.f90
     src/parser/parser_control_flow.f90
+    src/parser/parser_parameter_handling.f90
+    src/parser/parser_type_definitions.f90
     src/parser/parser_definition_statements.f90
     src/parser/parser_do_constructs.f90
     src/parser/parser_execution_statements.f90
@@ -159,16 +167,26 @@ set(SEMANTIC_SOURCES
 set(ANALYSIS_SOURCES
     src/analysis/control_flow_graph.f90
     src/analysis/conditional_evaluation.f90
+    src/analysis/cfg_builder_types.f90
+    src/analysis/cfg_builder_helpers.f90
+    src/analysis/cfg_builder_control_handlers.f90
+    src/analysis/cfg_builder_utilities.f90
+    src/analysis/cfg_builder_core.f90
     src/analysis/cfg_builder.f90
     src/analysis/control_flow_analysis.f90
     src/analysis/call_graph.f90
     src/analysis/call_graph_builder.f90
     src/analysis/call_graph_analysis.f90
+    src/analysis/variable_usage_core.f90
+    src/analysis/variable_usage_dispatcher.f90
     src/analysis/variable_usage_tracker.f90
 )
 
 set(CODEGEN_SOURCES
     src/codegen/codegen_indent.f90
+    src/codegen/codegen_type_utils.f90
+    src/codegen/codegen_basic_utils.f90
+    src/codegen/codegen_arena_interface.f90
     src/codegen/codegen_utilities.f90
     src/codegen/codegen_expressions.f90
     src/codegen/codegen_statements.f90
