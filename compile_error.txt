@@ -1,0 +1,6 @@
+sample_fluff_tool.f90:2:9:
+
+    2 |     use fortfront_core           ! Direct Fortran module usage
+      |         1
+Fatal Error: Cannot open module file ‘fortfront_core.mod’ for reading at (1): No such file or directory
+compilation terminated.

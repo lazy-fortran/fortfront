@@ -73,7 +73,8 @@ contains
         
         ! Check if already registered
         if (this%is_registered(name)) then
-            write(error_unit, '(A)') "ERROR [analyzer_factory]: Analyzer factory already registered: " // name // " - ignoring registration"
+            write(error_unit, '(A)') "ERROR [analyzer_factory]: Analyzer factory already registered: " &
+                // name // " - ignoring registration"
             return  ! Skip registration
         end if
         

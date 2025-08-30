@@ -45,14 +45,23 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(type_specifier_t) :: type_spec
 
-        type(token_t) :: token
+        type(token_t) :: token, next_token
 
         token = parser%consume()
-        type_spec%type_name = token%text
+        type_spec%type_name = trim(token%text)  ! Explicit trim for clean allocation
         type_spec%line = token%line
         type_spec%column = token%column
         type_spec%has_kind = .false.
         type_spec%kind_value = 0
+
+        ! Handle "double precision" as a two-word type name
+        if (trim(token%text) == "double" .and. .not. parser%is_at_end()) then
+            next_token = parser%peek()
+            if (trim(next_token%text) == "precision") then
+                next_token = parser%consume()  ! consume "precision"
+                type_spec%type_name = "double precision"
+            end if
+        end if
 
         ! Check for kind specification
         if (.not. parser%is_at_end()) then
