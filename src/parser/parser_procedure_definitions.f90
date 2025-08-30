@@ -3,7 +3,7 @@ module parser_procedure_definitions_module
     use lexer_core
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_parameter_handling_module, only: parse_typed_parameters, merge_parameter_attributes
-    use parser_statement_utilities_module, only: parse_statement_in_if_block
+    use parser_statement_core_module, only: parse_statement_in_if_block_simple
     use ast_core
     use ast_factory
     implicit none
@@ -167,7 +167,7 @@ contains
                     
                     ! Parse the statement
                     block_parser = create_parser_state(stmt_tokens)
-                    stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                    stmt_index = parse_statement_in_if_block_simple(block_parser, arena, stmt_tokens(1))
                     
                     ! Add to body
                     if (stmt_index > 0) then
@@ -309,7 +309,7 @@ contains
                     
                     ! Parse the statement
                     block_parser = create_parser_state(stmt_tokens)
-                    stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                    stmt_index = parse_statement_in_if_block_simple(block_parser, arena, stmt_tokens(1))
                     
                     ! Add to body
                     if (stmt_index > 0) then

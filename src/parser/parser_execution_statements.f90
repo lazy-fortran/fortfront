@@ -12,7 +12,7 @@ module parser_execution_statements_module
                                                parse_error_stop_statement, parse_return_statement, &
                                                parse_cycle_statement, parse_exit_statement
     use parser_control_flow_module, only: parse_do_loop
-    use parser_definition_statements_module, only: parse_function_definition, parse_subroutine_definition
+    use parser_procedure_definitions_module, only: parse_function_definition, parse_subroutine_definition
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL
