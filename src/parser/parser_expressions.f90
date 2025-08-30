@@ -877,6 +877,13 @@ contains
             if (current%text == ".true." .or. current%text == ".false.") then
                 expr_index = push_literal(arena, current%text, &
                     LITERAL_LOGICAL, current%line, current%column)
+            else if (current%text == "real" .or. current%text == "integer" .or. &
+                     current%text == "character" .or. current%text == "logical" .or. &
+                     current%text == "complex" .or. current%text == "double") then
+                ! Type keywords should not appear in expressions - this indicates 
+                ! a parser routing error. Create a placeholder identifier node
+                ! instead of an error to allow parsing to continue
+                expr_index = push_identifier(arena, current%text, current%line, current%column)
             else
                 ! Other keywords - create error node
                 expr_index = push_literal(arena, &
