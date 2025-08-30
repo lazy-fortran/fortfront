@@ -2,6 +2,7 @@ module frontend_core
     ! fortfront - Core frontend API module
     ! Main entry points for compilation pipeline
 
+    use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                            TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
                            TK_NUMBER, TK_STRING, TK_UNKNOWN
@@ -79,8 +80,8 @@ contains
         integer :: unit, iostat
         type(path_validation_result_t) :: validation_result
 
-        ! Log compilation start - TODO: add proper logging
-        ! Debug: compile_source called with input_file
+        ! Log compilation start with proper logging
+        write(error_unit, '(A)') "INFO [frontend_core]: Starting compilation of " // input_file
 
         error_msg = ""
         
