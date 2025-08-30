@@ -278,7 +278,7 @@ contains
     function generate_code_use_statement(node) result(code)
         type(use_statement_node), intent(in) :: node
         character(len=:), allocatable :: code
-        character(len=1024) :: only_clause, rename_clause
+        character(len=:), allocatable :: only_clause, rename_clause
         integer :: i
 
         ! Build proper use statement with all components
