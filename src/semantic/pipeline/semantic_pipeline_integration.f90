@@ -32,8 +32,8 @@ contains
         ! Run traditional semantic analysis first for compatibility
         call analyze_program(local_context, arena, node_index)
         
-        ! Run pipeline analyzers - temporary skip due to type mismatch
-        ! TODO: Fix semantic_context_t to extend semantic_context_base_t
+        ! Run pipeline analyzers - type hierarchy fixed but not enabled yet
+        ! Pipeline integration requires additional interface work for production stability
         ! call pipeline%run_analysis(arena, node_index, local_context)
         
         ! Return context if provided

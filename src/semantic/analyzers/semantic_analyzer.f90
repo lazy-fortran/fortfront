@@ -1032,5 +1032,4 @@ contains
         end if
     end subroutine check_undefined_variables_internal
 
-
 end module semantic_analyzer

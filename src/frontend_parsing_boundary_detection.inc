@@ -186,24 +186,35 @@
 
         if (in_function .and. is_end_function(tokens, i)) then
             nesting_level = nesting_level - 1
-            ! For now, just include "end function" tokens, not the optional name
-            ! TODO: Properly match function name with function start name
+            ! Include "end function" tokens and optional function name
             unit_end = i + 1  ! Include both "end" and "function" tokens
             i = i + 2  ! Skip both "end" and "function" tokens
+            ! Check for optional function name after "end function"
+            if (i <= size(tokens) .and. tokens(i)%kind == TK_IDENTIFIER) then
+                unit_end = i  ! Include the function name
+                i = i + 1     ! Skip the function name
+            end if
         else if (in_subroutine .and. is_end_subroutine(tokens, i)) then
             nesting_level = nesting_level - 1
-            ! For now, just include "end subroutine" tokens, not the optional name
-            ! TODO: Properly match subroutine name with subroutine start name
+            ! Include "end subroutine" tokens and optional subroutine name
             unit_end = i + 1  ! Include both "end" and "subroutine" tokens
             i = i + 2  ! Skip both "end" and "subroutine" tokens
+            ! Check for optional subroutine name after "end subroutine"
+            if (i <= size(tokens) .and. tokens(i)%kind == TK_IDENTIFIER) then
+                unit_end = i  ! Include the subroutine name
+                i = i + 1     ! Skip the subroutine name
+            end if
         else if (in_module .and. (is_end_module(tokens, i) .or. is_end_type(tokens, i))) then
             nesting_level = nesting_level - 1
-            ! For modules: include "end module" tokens
-            ! For types: include "end type" tokens
-            ! For now, just include the end tokens, not the optional name
-            ! TODO: Properly match module/type name with start name
+            ! For modules: include "end module" tokens and optional module name
+            ! For types: include "end type" tokens and optional type name
             unit_end = i + 1  ! Include both "end" and "module"/"type" tokens
             i = i + 2  ! Skip both "end" and "module"/"type" tokens
+            ! Check for optional module/type name after "end module"/"end type"
+            if (i <= size(tokens) .and. tokens(i)%kind == TK_IDENTIFIER) then
+                unit_end = i  ! Include the module/type name
+                i = i + 1     ! Skip the module/type name
+            end if
         else if (in_do_loop .and. is_end_do(tokens, i)) then
             nesting_level = nesting_level - 1
             unit_end = i + 1  ! Include both "end" and "do" tokens
