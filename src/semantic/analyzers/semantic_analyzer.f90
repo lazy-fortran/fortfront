@@ -1056,7 +1056,7 @@ contains
         ! In strict mode, errors are already reported during type inference
         ! This is a placeholder for more comprehensive checks if needed
         
-        if (ctx%strict_mode .and. ctx%has_errors()) then
+        if (ctx%strict_mode .and. ctx%errors%has_errors()) then
             ! Errors already collected during type inference
             return
         end if
