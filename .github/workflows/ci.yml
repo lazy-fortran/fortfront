@@ -346,6 +346,9 @@ jobs:
         Write-Host "🛡️ Windows FRAUD RECOVERY build validation"
         Write-Host "Addressing systematic Windows CI failures from Sprint #2"
         
+        # Explicitly add FPM to PATH for this session (CRITICAL FIX)
+        $env:PATH = "C:\tools\fpm;$env:PATH"
+        
         # Verify MinGW and FPM are available with detailed diagnostics
         Write-Host "🔍 Compiler Diagnostics:"
         try {
