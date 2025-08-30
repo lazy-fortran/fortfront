@@ -49,19 +49,6 @@ module semantic_analyzer_core
         logical :: strict_mode = .false.  ! True for standard Fortran (implicit none), false for lazy Fortran
     contains
         procedure :: infer_stmt => infer_statement_type
-        procedure :: unify => unify_types
-        procedure :: instantiate => instantiate_type_scheme
-        procedure :: generalize => generalize_type
-        procedure :: fresh_type_var => generate_fresh_type_var
-        procedure :: apply_subst_to_type => apply_current_substitution
-        procedure :: get_builtin_function_type
-        procedure :: compose_with_subst
-        procedure :: deep_copy => semantic_context_deep_copy
-        procedure :: assign => semantic_context_assign
-        procedure :: validate_bounds => validate_array_access_bounds
-        procedure :: check_conformance => check_array_shape_conformance
-        procedure :: has_errors => semantic_context_has_errors
-        generic :: assignment(=) => assign
     end type semantic_context_t
 
 contains
@@ -106,15 +93,20 @@ contains
         
         ! Validate root node
         if (root_index <= 0 .or. root_index > arena%size) then
-            call ctx%errors%add_error(ERROR_SEMANTIC, "Invalid program root node index")
+            call ctx%errors%add_error("Invalid program root node index", ERROR_SEMANTIC)
             return
         end if
         
-        root_node = arena%nodes(root_index)
-        if (root_node%node_type == program_node%type_id) then
-            call analyze_program_node_arena(ctx, arena, root_node, root_index)
+        root_node = arena%entries(root_index)
+        if (allocated(root_node%node)) then
+            select type (node => root_node%node)
+            type is (program_node)
+                call analyze_program_node_arena(ctx, arena, root_node, root_index)
+            class default
+                call ctx%errors%add_error("Root node must be a program node", ERROR_SEMANTIC)
+            end select
         else
-            call ctx%errors%add_error(ERROR_SEMANTIC, "Root node must be a program node")
+            call ctx%errors%add_error("Root node is not allocated", ERROR_SEMANTIC)
         end if
         
         ! Check for undefined variables at program level
@@ -129,16 +121,23 @@ contains
         integer, intent(in) :: prog_index
         integer :: i
         
-        call ctx%scopes%push_scope()
+        call ctx%scopes%push(create_scope(1, "program"))
         
         ! Process each statement in the program body
-        do i = 1, prog%program_data%body_size
-            if (prog%program_data%body_indices(i) > 0) then
-                call infer_and_store_type(ctx, arena, prog%program_data%body_indices(i))
-            end if
-        end do
+        if (allocated(prog%node)) then
+            select type (node => prog%node)
+            type is (program_node)
+                if (allocated(node%body_indices)) then
+                    do i = 1, size(node%body_indices)
+                        if (node%body_indices(i) > 0) then
+                            call infer_and_store_type(ctx, arena, node%body_indices(i))
+                        end if
+                    end do
+                end if
+            end select
+        end if
         
-        call ctx%scopes%pop_scope()
+        call ctx%scopes%pop()
     end subroutine analyze_program_node_arena
 
     ! Infer type and store result in arena
@@ -153,126 +152,13 @@ contains
         
         ! Store type in arena for later use
         if (node_index > 0 .and. node_index <= arena%size) then
-            arena%nodes(node_index)%type_info = inferred_type
+            if (allocated(arena%entries(node_index)%node)) then
+                arena%entries(node_index)%node%inferred_type = inferred_type
+            end if
         end if
     end subroutine infer_and_store_type
 
-    ! Type system operations
-    subroutine unify_types(this, t1, t2)
-        class(semantic_context_t), intent(inout) :: this
-        type(mono_type_t), intent(in) :: t1, t2
-        
-        ! Simple unification - actual implementation needs constraint solving
-        continue
-    end subroutine unify_types
-
-    function instantiate_type_scheme(this, scheme) result(typ)
-        class(semantic_context_t), intent(inout) :: this
-        type(poly_type_t), intent(in) :: scheme
-        type(mono_type_t) :: typ
-        
-        ! For now, just return the monomorphic part
-        typ = scheme%mono
-    end function instantiate_type_scheme
-
-    function generalize_type(this, typ) result(scheme)
-        class(semantic_context_t), intent(in) :: this
-        type(mono_type_t), intent(in) :: typ
-        type(poly_type_t) :: scheme
-        
-        ! Create scheme with no free variables for now
-        scheme = create_poly_type(forall_vars=[type_var_t::], mono=typ)
-    end function generalize_type
-
-    function generate_fresh_type_var(this) result(tv)
-        class(semantic_context_t), intent(inout) :: this
-        type(type_var_t) :: tv
-        
-        tv%id = this%next_var_id
-        this%next_var_id = this%next_var_id + 1
-    end function generate_fresh_type_var
-
-    function apply_current_substitution(this, typ) result(result_type)
-        class(semantic_context_t), intent(in) :: this
-        type(mono_type_t), intent(in) :: typ
-        type(mono_type_t) :: result_type
-        
-        ! Apply current substitution to type
-        result_type = typ  ! Simplified for now
-    end function apply_current_substitution
-
-    function get_builtin_function_type(this, name) result(typ)
-        class(semantic_context_t), intent(in) :: this
-        character(len=*), intent(in) :: name
-        type(mono_type_t) :: typ
-        
-        ! Return appropriate type for builtin functions
-        select case (trim(name))
-        case ("sin", "cos", "tan", "sqrt", "exp", "log", "abs")
-            typ = create_fun_type(create_mono_type(TREAL), create_mono_type(TREAL))
-        case default
-            typ = create_mono_type(TREAL)  ! Default fallback
-        end select
-    end function get_builtin_function_type
-
-    subroutine compose_with_subst(this, new_subst)
-        class(semantic_context_t), intent(inout) :: this
-        type(substitution_t), intent(in) :: new_subst
-        
-        this%subst = compose_substitutions(this%subst, new_subst)
-    end subroutine compose_with_subst
-
-    function semantic_context_deep_copy(this) result(copy)
-        class(semantic_context_t), intent(in) :: this
-        type(semantic_context_t) :: copy
-        
-        copy%scopes = this%scopes
-        copy%next_var_id = this%next_var_id
-        copy%subst = this%subst
-        copy%param_tracker = this%param_tracker
-        copy%temp_tracker = this%temp_tracker
-        copy%errors = this%errors
-        copy%strict_mode = this%strict_mode
-    end function semantic_context_deep_copy
-
-    subroutine semantic_context_assign(lhs, rhs)
-        type(semantic_context_t), intent(out) :: lhs
-        type(semantic_context_t), intent(in) :: rhs
-        
-        lhs%scopes = rhs%scopes
-        lhs%next_var_id = rhs%next_var_id
-        lhs%subst = rhs%subst
-        lhs%param_tracker = rhs%param_tracker
-        lhs%temp_tracker = rhs%temp_tracker
-        lhs%errors = rhs%errors
-        lhs%strict_mode = rhs%strict_mode
-    end subroutine semantic_context_assign
-
-    ! Array validation operations
-    subroutine validate_array_access_bounds(ctx, arena, slice_node)
-        type(semantic_context_t), intent(inout) :: ctx
-        type(ast_arena_t), intent(in) :: arena
-        type(ast_entry_t), intent(in) :: slice_node
-        
-        ! Placeholder for array bounds validation
-        continue
-    end subroutine validate_array_access_bounds
-
-    subroutine check_array_shape_conformance(ctx, lhs_type, rhs_type, is_conformant)
-        type(semantic_context_t), intent(in) :: ctx
-        type(mono_type_t), intent(in) :: lhs_type, rhs_type
-        logical, intent(out) :: is_conformant
-        
-        ! Simplified shape conformance check
-        is_conformant = .true.
-    end subroutine check_array_shape_conformance
-
-    function semantic_context_has_errors(this) result(has_errors)
-        class(semantic_context_t), intent(in) :: this
-        logical :: has_errors
-        
-        has_errors = this%errors%count > 0
-    end function semantic_context_has_errors
+    ! Utility functions for compatibility (implementations moved to inference module)
 
     ! Utility functions
     subroutine validate_array_bounds(arena, slice_node, result)
@@ -294,7 +180,7 @@ contains
         type(semantic_context_t), intent(in) :: ctx
         logical :: has_errors
         
-        has_errors = ctx%has_errors()
+        has_errors = ctx%errors%count > 0
     end function has_semantic_errors
 
     subroutine check_undefined_variables_internal(ctx, arena, prog_index)
@@ -306,7 +192,8 @@ contains
         continue
     end subroutine check_undefined_variables_internal
 
-    ! Main statement type inference dispatcher - placeholder implementation
+    ! Forward declaration to inference module - actual implementation is in semantic_analyzer_inference
+    ! This placeholder exists only for bootstrapping
     function infer_statement_type(this, arena, stmt_index) result(typ)
         class(semantic_context_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena

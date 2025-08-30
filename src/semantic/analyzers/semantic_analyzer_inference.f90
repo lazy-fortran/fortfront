@@ -7,7 +7,8 @@ module semantic_analyzer_inference
                                create_error_result, ERROR_SEMANTIC
     use type_system_unified, only: type_var_t, mono_type_t, poly_type_t, &
                                    substitution_t, &
-                                   create_mono_type, create_poly_type, &
+                                   create_mono_type, create_poly_type, create_fun_type, &
+                                   compose_substitutions, &
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY, &
                                    type_args_allocated, type_args_size, type_args_element
     use ast_core
@@ -74,43 +75,54 @@ contains
             return
         end if
         
-        stmt = arena%nodes(stmt_index)
+        stmt = arena%entries(stmt_index)
         
-        select case (stmt%node_type)
-        case (literal_node%type_id)
-            typ = infer_literal(this, stmt%literal_data)
-        case (identifier_node%type_id)
-            typ = infer_identifier(this, stmt%identifier_data)
-        case (binary_op_node%type_id)
-            typ = infer_binary_op(this, arena, stmt%binary_op_data, stmt_index)
-        case (assignment_node%type_id)
-            typ = infer_assignment(this, arena, stmt%assignment_data, stmt_index)
-        case (call_or_subscript_node%type_id)
-            typ = infer_function_call(this, arena, stmt%call_or_subscript_data)
-        case (array_literal_node%type_id)
-            typ = infer_array_literal(this, arena, stmt%array_literal_data, stmt_index)
-        case (declaration_node%type_id)
-            typ = infer_declaration_helper(this, stmt%declaration_data)
-        case (if_node%type_id)
-            typ = infer_if_helper(this, arena, stmt)
-        case (do_while_node%type_id)
-            typ = infer_do_while_helper(this, arena, stmt)
-        case (where_node%type_id)
-            typ = infer_where_helper(this, arena, stmt)
-        case (where_stmt_node%type_id)
-            typ = infer_where_stmt_helper(this, arena, stmt)
-        case (forall_node%type_id)
-            typ = infer_forall_helper(this, arena, stmt)
-        case (select_case_node%type_id)
-            typ = infer_select_case_helper(this, arena, stmt)
-        case (associate_node%type_id)
-            typ = infer_associate_helper(this, arena, stmt)
-        case (stop_node%type_id, exit_node%type_id, cycle_node%type_id, return_node%type_id)
-            typ = infer_stop_helper(this, arena, stmt)
-        case default
-            ! Default case for unhandled node types
+        ! Use select type for proper node access
+        if (allocated(stmt%node)) then
+            select type (node => stmt%node)
+            type is (literal_node)
+                typ = infer_literal(this, node)
+            type is (identifier_node)
+                typ = infer_identifier(this, node)
+            type is (binary_op_node)
+                typ = infer_binary_op(this, arena, node, stmt_index)
+            type is (assignment_node)
+                typ = infer_assignment(this, arena, node, stmt_index)
+            type is (call_or_subscript_node)
+                typ = infer_function_call(this, arena, node)
+            type is (array_literal_node)
+                typ = infer_array_literal(this, arena, node, stmt_index)
+            type is (declaration_node)
+                typ = infer_declaration_helper(this, node)
+            type is (if_node)
+                typ = infer_if_helper(this, arena, stmt)
+            type is (do_while_node)
+                typ = infer_do_while_helper(this, arena, stmt)
+            type is (where_node)
+                typ = infer_where_helper(this, arena, stmt)
+            type is (where_stmt_node)
+                typ = infer_where_stmt_helper(this, arena, stmt)
+            type is (forall_node)
+                typ = infer_forall_helper(this, arena, stmt)
+            type is (select_case_node)
+                typ = infer_select_case_helper(this, arena, stmt)
+            type is (associate_node)
+                typ = infer_associate_helper(this, arena, stmt)
+            type is (stop_node)
+                typ = infer_stop_helper(this, arena, stmt)
+            type is (exit_node)
+                typ = infer_stop_helper(this, arena, stmt)
+            type is (cycle_node)
+                typ = infer_stop_helper(this, arena, stmt)
+            type is (return_node)
+                typ = infer_stop_helper(this, arena, stmt)
+            class default
+                ! Default case for unhandled node types
+                typ = create_mono_type(TVAR, var=this%fresh_type_var())
+            end select
+        else
             typ = create_mono_type(TVAR, var=this%fresh_type_var())
-        end select
+        end if
     end function infer_statement_type
 
     ! Infer type of literal
@@ -263,7 +275,9 @@ contains
         end if
 
         ! Store inferred type in node if it's a binary_op_node
-        arena%entries(binop_index)%node%inferred_type = typ
+        if (allocated(arena%entries(binop_index)%node)) then
+            arena%entries(binop_index)%node%inferred_type = typ
+        end if
     end function infer_binary_op
 
     ! Infer type of function call (simplified)
@@ -399,7 +413,9 @@ contains
         end if
 
         ! Store the actual assignment type
-        arena%entries(assignment_index)%node%inferred_type = typ
+        if (allocated(arena%entries(assignment_index)%node)) then
+            arena%entries(assignment_index)%node%inferred_type = typ
+        end if
     end function infer_assignment
 
     ! Helper: Update identifier type throughout arena
@@ -523,5 +539,122 @@ contains
         
         typ = create_mono_type(TLOGICAL)
     end function infer_stop_helper
+
+    ! Missing procedure implementations that are referenced in the type binding
+    
+    subroutine unify_types(this, t1, t2)
+        class(semantic_context_t), intent(inout) :: this
+        type(mono_type_t), intent(in) :: t1, t2
+        
+        ! Simple unification - actual implementation needs constraint solving
+        continue
+    end subroutine unify_types
+
+    function instantiate_type_scheme(this, scheme) result(typ)
+        class(semantic_context_t), intent(inout) :: this
+        type(poly_type_t), intent(inout) :: scheme
+        type(mono_type_t) :: typ
+        
+        ! For now, just return the monomorphic part
+        typ = scheme%get_mono()
+    end function instantiate_type_scheme
+
+    function generalize_type(this, typ) result(scheme)
+        class(semantic_context_t), intent(in) :: this
+        type(mono_type_t), intent(in) :: typ
+        type(poly_type_t) :: scheme
+        
+        ! Create scheme with no free variables for now
+        scheme = create_poly_type(forall_vars=[type_var_t::], mono=typ)
+    end function generalize_type
+
+    function generate_fresh_type_var(this) result(tv)
+        class(semantic_context_t), intent(inout) :: this
+        type(type_var_t) :: tv
+        
+        tv%id = this%next_var_id
+        this%next_var_id = this%next_var_id + 1
+    end function generate_fresh_type_var
+
+    function apply_current_substitution(this, typ) result(result_type)
+        class(semantic_context_t), intent(in) :: this
+        type(mono_type_t), intent(in) :: typ
+        type(mono_type_t) :: result_type
+        
+        ! Apply current substitution to type
+        result_type = typ  ! Simplified for now
+    end function apply_current_substitution
+
+    function get_builtin_function_type(this, name) result(typ)
+        class(semantic_context_t), intent(in) :: this
+        character(len=*), intent(in) :: name
+        type(mono_type_t) :: typ
+        
+        ! Return appropriate type for builtin functions
+        select case (trim(name))
+        case ("sin", "cos", "tan", "sqrt", "exp", "log", "abs")
+            typ = create_fun_type(create_mono_type(TREAL), create_mono_type(TREAL))
+        case default
+            typ = create_mono_type(TREAL)  ! Default fallback
+        end select
+    end function get_builtin_function_type
+
+    subroutine compose_with_subst(this, new_subst)
+        class(semantic_context_t), intent(inout) :: this
+        type(substitution_t), intent(in) :: new_subst
+        
+        this%subst = compose_substitutions(this%subst, new_subst)
+    end subroutine compose_with_subst
+
+    function semantic_context_deep_copy(this) result(copy)
+        class(semantic_context_t), intent(in) :: this
+        type(semantic_context_t) :: copy
+        
+        copy%scopes = this%scopes
+        copy%next_var_id = this%next_var_id
+        copy%subst = this%subst
+        copy%param_tracker = this%param_tracker
+        copy%temp_tracker = this%temp_tracker
+        copy%errors = this%errors
+        copy%strict_mode = this%strict_mode
+    end function semantic_context_deep_copy
+
+    subroutine semantic_context_assign(lhs, rhs)
+        class(semantic_context_t), intent(out) :: lhs
+        class(semantic_context_t), intent(in) :: rhs
+        
+        lhs%scopes = rhs%scopes
+        lhs%next_var_id = rhs%next_var_id
+        lhs%subst = rhs%subst
+        lhs%param_tracker = rhs%param_tracker
+        lhs%temp_tracker = rhs%temp_tracker
+        lhs%errors = rhs%errors
+        lhs%strict_mode = rhs%strict_mode
+    end subroutine semantic_context_assign
+
+    subroutine validate_array_access_bounds(this, arena, slice_node)
+        class(semantic_context_t), intent(inout) :: this
+        type(ast_arena_t), intent(in) :: arena
+        type(ast_entry_t), intent(in) :: slice_node
+        
+        ! Placeholder for array bounds validation
+        continue
+    end subroutine validate_array_access_bounds
+
+    subroutine check_array_shape_conformance(this, lhs_type, rhs_type, is_conformant)
+        class(semantic_context_t), intent(in) :: this
+        type(mono_type_t), intent(in) :: lhs_type, rhs_type
+        logical, intent(out) :: is_conformant
+        
+        ! Simplified shape conformance check
+        is_conformant = .true.
+    end subroutine check_array_shape_conformance
+
+    function semantic_context_has_errors(this) result(has_errors)
+        class(semantic_context_t), intent(in) :: this
+        logical :: has_errors
+        
+        has_errors = this%errors%count > 0
+    end function semantic_context_has_errors
 
 end module semantic_analyzer_inference
