@@ -361,6 +361,11 @@ contains
         block
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
+            
+            ! CRITICAL FIX: Enable strict mode to detect undefined variables
+            ! This addresses Linux CI failure in Issue #495 test
+            ctx%strict_mode = .true.
+            
             call analyze_program(ctx, arena, prog_index)
             
             ! Check for semantic errors and return error message if found

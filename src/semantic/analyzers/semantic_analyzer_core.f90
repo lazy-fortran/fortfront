@@ -188,9 +188,81 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: prog_index
         
-        ! Placeholder for undefined variable checking
-        continue
+        ! Walk the AST and check for undefined variables if in strict mode
+        if (ctx%strict_mode) then
+            call check_undefined_variables_recursive(ctx, arena, prog_index)
+        end if
     end subroutine check_undefined_variables_internal
+
+    ! Recursively check for undefined variables in the AST
+    recursive subroutine check_undefined_variables_recursive(ctx, arena, node_index)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(ast_entry_t) :: node_entry
+        integer :: i
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        
+        node_entry = arena%entries(node_index)
+        if (.not. allocated(node_entry%node)) return
+        
+        ! Check different node types for undefined variables
+        select type (node => node_entry%node)
+        
+        type is (identifier_node)
+            ! Check if identifier is defined in current scope
+            call check_identifier_defined(ctx, node%name)
+            
+        type is (assignment_node)
+            ! Check RHS of assignment (value being assigned)
+            if (node%value_index > 0) then
+                call check_undefined_variables_recursive(ctx, arena, node%value_index)
+            end if
+            ! Check LHS - for assignment to identifier 
+            if (node%target_index > 0) then
+                call check_undefined_variables_recursive(ctx, arena, node%target_index) 
+            end if
+            
+        type is (binary_op_node)
+            ! Check both operands
+            if (node%left_index > 0) then
+                call check_undefined_variables_recursive(ctx, arena, node%left_index)
+            end if
+            if (node%right_index > 0) then
+                call check_undefined_variables_recursive(ctx, arena, node%right_index)
+            end if
+            
+        type is (program_node)
+            ! Check all statements in program body
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    if (node%body_indices(i) > 0) then
+                        call check_undefined_variables_recursive(ctx, arena, node%body_indices(i))
+                    end if
+                end do
+            end if
+            
+        end select
+    end subroutine check_undefined_variables_recursive
+
+    ! Check if an identifier is defined in the current scope
+    subroutine check_identifier_defined(ctx, identifier_name)
+        type(semantic_context_t), intent(inout) :: ctx
+        character(len=*), intent(in) :: identifier_name
+        type(poly_type_t), allocatable :: scheme
+        
+        ! Look up identifier in scope stack
+        call ctx%scopes%lookup(identifier_name, scheme)
+        
+        if (.not. allocated(scheme)) then
+            ! Identifier not found - this is an undefined variable error
+            call ctx%errors%add_error( &
+                "Undefined variable '" // identifier_name // "'", &
+                ERROR_SEMANTIC &
+            )
+        end if
+    end subroutine check_identifier_defined
 
     ! Forward declaration to inference module - actual implementation is in semantic_analyzer_inference
     ! This placeholder exists only for bootstrapping
