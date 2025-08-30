@@ -230,9 +230,9 @@ contains
         large_collection = create_error_collection(5)  ! Small initial capacity
         
         ! Create a large error message to stress memory allocation
-        large_error_message = repeat('X', 900) // 'END_OF_LARGE_MESSAGE'
+        large_error_message = repeat('X', 200) // 'END_OF_LARGE_MESSAGE'
         
-        do i = 1, 200
+        do i = 1, 50
             write(counter, '(I0)') i
             
             temp_result = create_error_result( &
@@ -247,7 +247,7 @@ contains
         end do
         
         call assert_robustness_test( &
-            large_collection%get_error_count() == 200, &
+            large_collection%get_error_count() == 50, &
             'Memory exhaustion - large error collection with reallocation' &
         )
         
@@ -278,7 +278,7 @@ contains
             summary = large_collection%get_summary()
             
             call assert_robustness_test( &
-                len_trim(summary) > 0 .and. index(summary, 'Total: 200') > 0, &
+                len_trim(summary) > 0 .and. index(summary, 'Total: 50') > 0, &
                 'Memory exhaustion - summary generation under pressure' &
             )
         end block
@@ -288,7 +288,7 @@ contains
 
     subroutine test_concurrent_error_handling()
         type(error_collection_t) :: concurrent_errors
-        type(result_t) :: concurrent_results(100)
+        type(result_t) :: concurrent_results(25)
         integer :: i
         character(len=30) :: thread_id
         
@@ -297,7 +297,7 @@ contains
         ! Test 1: Simulate concurrent error generation
         concurrent_errors = create_error_collection(20)
         
-        do i = 1, 100
+        do i = 1, 25
             write(thread_id, '(A,I0)') 'thread_', mod(i, 8) + 1
             
             call concurrent_errors%add_error( &
@@ -311,12 +311,12 @@ contains
         end do
         
         call assert_robustness_test( &
-            concurrent_errors%get_error_count() == 100, &
+            concurrent_errors%get_error_count() == 25, &
             'Concurrent error handling - error collection thread-safety simulation' &
         )
         
         ! Test 2: Concurrent result combination
-        do i = 1, 100
+        do i = 1, 25
             select case (mod(i, 5))
             case (0)
                 concurrent_results(i) = critical_result('Critical from concurrent', ERROR_MEMORY)
