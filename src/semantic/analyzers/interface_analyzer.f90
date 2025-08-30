@@ -115,7 +115,8 @@ contains
             lhs%result = rhs%result
             lhs%analysis_complete = rhs%analysis_complete
         class default
-            write(error_unit, '(A)') "ERROR [interface_analyzer]: Type mismatch in interface_analyzer assignment - assignment ignored"
+            write(error_unit, '(A)') "ERROR [interface_analyzer]: Type mismatch in " &
+                // "interface_analyzer assignment - assignment ignored"
             ! Don't perform assignment on type mismatch
         end select
     end subroutine

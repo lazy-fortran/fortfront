@@ -11,6 +11,9 @@ module parser_expressions_module
                            push_call_or_subscript_with_slice_detection, &
                            push_component_access, push_range_subscript
     use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_expression_helpers_module, only: parse_number_literal, &
+                           parse_string_literal, parse_boolean_literal, &
+                           parse_component_access_postfix
     use codegen_arena_interface, only: generate_code_from_arena
     implicit none
     private
@@ -21,7 +24,6 @@ module parser_expressions_module
     public :: parse_concatenation, parse_term, parse_factor, parse_power, parse_unary, parse_primary
 
 contains
-
     ! Helper function to parse stride (third component of range expression)
     function parse_stride_component(parser, arena) result(stride_index)
         type(parser_state_t), intent(inout) :: parser
@@ -30,13 +32,10 @@ contains
         type(token_t) :: op_token, next_tok
         
         stride_index = 0
-        
         if (.not. parser%is_at_end()) then
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
-                op_token = parser%consume()  ! consume second ':'
-                
-                ! Parse stride
+                op_token = parser%consume()
                 if (.not. parser%is_at_end()) then
                     next_tok = parser%peek()
                     if (.not. (next_tok%kind == TK_OPERATOR .and. &
@@ -48,6 +47,187 @@ contains
             end if
         end if
     end function parse_stride_component
+
+    ! Parse identifier or function call
+    function parse_identifier_or_call(parser, arena, identifier_token) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: identifier_token
+        integer :: expr_index
+        
+        ! Check if followed by '(' for function call
+        block
+            type(token_t) :: next_token
+            character(len=:), allocatable :: func_name
+            integer, allocatable :: arg_indices(:)
+            type(token_t) :: paren
+            integer :: arg_count
+
+            next_token = parser%peek()
+            if (next_token%kind == TK_OPERATOR .and. next_token%text == "(") then
+                ! Parse function call
+
+                func_name = identifier_token%text
+                arg_count = 0
+
+                ! Consume opening paren
+                paren = parser%consume()
+
+                ! Parse arguments (now handles multiple arguments)
+                next_token = parser%peek()
+                if (next_token%kind /= TK_OPERATOR .or. next_token%text /= ")") then
+                    block
+                        class(ast_node), allocatable :: arg
+
+                        ! Handle multiple arguments using indices
+                        arg_count = 0
+
+                        ! Parse first argument
+                        block
+                            integer :: arg_index
+                            arg_index = parse_range(parser, arena)
+                            if (arg_index > 0) then
+                                arg_count = 1
+                                allocate (arg_indices(1))
+                                arg_indices(1) = arg_index
+
+                                ! Parse additional arguments separated by commas
+                                do
+                                    next_token = parser%peek()
+                if (next_token%kind /= TK_OPERATOR .or. next_token%text /= ",") exit
+
+                                    ! Consume comma
+                                    next_token = parser%consume()
+
+                                    ! Parse next argument
+                                    arg_index = parse_range(parser, arena)
+                                    if (arg_index > 0) then
+                                        ! Extend index array
+                                        arg_indices = [arg_indices, arg_index]
+                                        arg_count = arg_count + 1
+                                    else
+                                        exit
+                                    end if
+                                end do
+                            end if
+                        end block
+                    end block
+                end if
+
+                ! Consume closing paren if present
+                next_token = parser%peek()
+               if (next_token%kind == TK_OPERATOR .and. next_token%text == ")") then
+                    paren = parser%consume()
+                end if
+
+                ! Create function call node with array slice detection
+                if (allocated(arg_indices)) then
+                    expr_index = &
+                        push_call_or_subscript_with_slice_detection(arena, &
+                        func_name, arg_indices, identifier_token%line, identifier_token%column)
+                else
+                    ! For empty args, create empty function call
+                    block
+                        integer, allocatable :: empty_args(:)
+                        allocate (empty_args(0))  ! Empty index array
+                        expr_index = push_call_or_subscript(arena, func_name, &
+                            empty_args, identifier_token%line, identifier_token%column)
+                    end block
+                end if
+            else
+                ! Check for boolean literals first
+                if (identifier_token%text == 'true' .or. identifier_token%text == 'false') then
+                    expr_index = push_literal(arena, identifier_token%text, LITERAL_LOGICAL, &
+                        identifier_token%line, identifier_token%column)
+                else
+                    expr_index = push_identifier(arena, identifier_token%text, &
+                        identifier_token%line, identifier_token%column)
+                end if
+            end if
+        end block
+    end function parse_identifier_or_call
+
+    ! Parse array indexing or function call postfix operator (())
+    function parse_array_indexing_postfix(parser, arena, base_expr) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: base_expr
+        integer :: expr_index
+        
+        block
+            integer, allocatable :: arg_indices(:)
+            type(token_t) :: paren, op_token
+            integer :: arg_count
+            character(len=:), allocatable :: name_for_call
+            
+            arg_count = 0
+            expr_index = base_expr
+            
+            ! Consume opening paren
+            paren = parser%consume()
+            
+            ! Parse arguments
+            op_token = parser%peek()
+            if (op_token%kind /= TK_OPERATOR .or. op_token%text /= ")") then
+                ! Parse first argument
+                block
+                    integer :: arg_index
+                    arg_index = parse_range(parser, arena)
+                    if (arg_index > 0) then
+                        arg_count = 1
+                        allocate (arg_indices(1))
+                        arg_indices(1) = arg_index
+                        
+                        ! Parse additional arguments
+                        do
+                            op_token = parser%peek()
+                            if (op_token%kind /= TK_OPERATOR .or. &
+                                op_token%text /= ",") exit
+                            
+                            ! Consume comma
+                            op_token = parser%consume()
+                            
+                            ! Parse next argument
+                            arg_index = parse_range(parser, arena)
+                            if (arg_index > 0) then
+                                arg_indices = [arg_indices, arg_index]
+                                arg_count = arg_count + 1
+                            else
+                                exit
+                            end if
+                        end do
+                    end if
+                end block
+            end if
+            
+            ! Consume closing paren if present
+            op_token = parser%peek()
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == ")") then
+                paren = parser%consume()
+            end if
+            
+            ! Create call_or_subscript node with slice detection
+            if (allocated(arg_indices)) then
+                
+                select type (node => arena%entries(expr_index)%node)
+                type is (component_access_node)
+                    name_for_call = node%component_name
+                type is (identifier_node)
+                    name_for_call = node%name
+                class default
+                    if (allocated(arg_indices)) deallocate(arg_indices)
+                    return
+                end select
+                
+                if (allocated(name_for_call)) then
+                    expr_index = &
+                        push_call_or_subscript_with_slice_detection(arena, &
+                        name_for_call, arg_indices, &
+                        paren%line, paren%column)
+                end if
+            end if
+        end block
+    end function parse_array_indexing_postfix
 
     ! Main expression parsing entry point with stack
     function parse_expression(tokens, arena) result(expr_index)
@@ -72,7 +252,7 @@ contains
         op_token = parser%peek()
         if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
             ! Empty lower bound case (e.g., :5)
-            op_token = parser%consume()  ! consume ':'
+            op_token = parser%consume()
             expr_index = 0  ! No lower bound
 
             ! Parse the upper bound (optional)
@@ -113,7 +293,7 @@ contains
         if (.not. parser%is_at_end()) then
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
-                op_token = parser%consume()  ! consume ':'
+                op_token = parser%consume()
 
                 ! Parse the upper bound (optional)
                 if (.not. parser%is_at_end()) then
@@ -154,7 +334,7 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
-        integer :: loop_count  ! Safety counter
+        integer :: loop_count
 
         expr_index = parse_logical_or(parser, arena)
         loop_count = 0
@@ -164,7 +344,7 @@ contains
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. &
                 (op_token%text == ".eqv." .or. op_token%text == ".neqv.")) then
-                op_token = parser%consume()  ! consume operator
+                op_token = parser%consume()
                 right_index = parse_logical_or(parser, arena)
                 if (right_index > 0) then
                     expr_index = push_binary_op(arena, expr_index, right_index, &
@@ -185,7 +365,7 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
-        integer :: loop_count  ! Safety counter
+        integer :: loop_count
 
         expr_index = parse_logical_and(parser, arena)
         loop_count = 0
@@ -194,7 +374,7 @@ contains
             loop_count = loop_count + 1
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == ".or.") then
-                op_token = parser%consume()  ! consume operator
+                op_token = parser%consume()
                 right_index = parse_logical_and(parser, arena)
                 if (right_index > 0) then
                     expr_index = push_binary_op(arena, expr_index, right_index, &
@@ -215,7 +395,7 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
-        integer :: loop_count  ! Safety counter
+        integer :: loop_count
 
         expr_index = parse_comparison(parser, arena)
         loop_count = 0
@@ -224,7 +404,7 @@ contains
             loop_count = loop_count + 1
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == ".and.") then
-                op_token = parser%consume()  ! consume operator
+                op_token = parser%consume()
                 right_index = parse_comparison(parser, arena)
                 if (right_index > 0) then
                     expr_index = push_binary_op(arena, expr_index, right_index, &
@@ -272,7 +452,7 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
-        integer :: loop_count  ! Safety counter
+        integer :: loop_count
 
         expr_index = parse_term(parser, arena)
         loop_count = 0
@@ -291,18 +471,6 @@ contains
             end if
         end do
     end function parse_concatenation
-
-    ! Parse member access operator (%)
-    function parse_member_access(parser, arena) result(expr_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: expr_index
-
-        ! Note: % operator is now handled as a postfix operator in parse_primary
-        ! This function just passes through to parse_term for backward compatibility
-        expr_index = parse_term(parser, arena)
-    end function parse_member_access
-
     ! Parse addition and subtraction
     function parse_term(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
@@ -310,7 +478,7 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
-        integer :: loop_count  ! Safety counter
+        integer :: loop_count
 
         expr_index = parse_factor(parser, arena)
         loop_count = 0
@@ -338,7 +506,7 @@ contains
         integer :: expr_index
         integer :: right_index
         type(token_t) :: op_token
-        integer :: loop_count  ! Safety counter
+        integer :: loop_count
 
         expr_index = parse_power(parser, arena)
         loop_count = 0
@@ -436,114 +604,19 @@ contains
         case (TK_NUMBER)
             ! Parse number literal
             current = parser%consume()
-            if (index(current%text, '.') > 0) then
-                ! Contains decimal point - classify as real
-                expr_index = push_literal(arena, current%text, LITERAL_REAL, &
-                    current%line, current%column)
-            else
-                ! No decimal point - classify as integer
-                expr_index = push_literal(arena, current%text, &
-                    LITERAL_INTEGER, current%line, current%column)
-            end if
+            expr_index = parse_number_literal(current, arena)
 
         case (TK_STRING)
             ! Parse string literal
             current = parser%consume()
-            expr_index = push_literal(arena, current%text, LITERAL_STRING, &
-                current%line, current%column)
+            expr_index = parse_string_literal(current, arena)
 
         case (TK_IDENTIFIER)
             ! Parse identifier or function call
             current = parser%consume()
-
-            ! Check if followed by '(' for function call
-            block
-                type(token_t) :: next_token
-                character(len=:), allocatable :: func_name
-                integer, allocatable :: arg_indices(:)
-                type(token_t) :: paren
-                integer :: arg_count
-
-                next_token = parser%peek()
-                if (next_token%kind == TK_OPERATOR .and. next_token%text == "(") then
-                    ! Parse function call
-
-                    func_name = current%text
-                    arg_count = 0
-
-                    ! Consume opening paren
-                    paren = parser%consume()
-
-                    ! Parse arguments (now handles multiple arguments)
-                    next_token = parser%peek()
-                    if (next_token%kind /= TK_OPERATOR .or. next_token%text /= ")") then
-                        block
-                            class(ast_node), allocatable :: arg
-
-                            ! Handle multiple arguments using indices
-                            arg_count = 0
-
-                            ! Parse first argument
-                            block
-                                integer :: arg_index
-                                arg_index = parse_range(parser, arena)
-                                if (arg_index > 0) then
-                                    arg_count = 1
-                                    allocate (arg_indices(1))
-                                    arg_indices(1) = arg_index
-
-                                    ! Parse additional arguments separated by commas
-                                    do
-                                        next_token = parser%peek()
-                    if (next_token%kind /= TK_OPERATOR .or. next_token%text /= ",") exit
-
-                                        ! Consume comma
-                                        next_token = parser%consume()
-
-                                        ! Parse next argument
-                                        arg_index = parse_range(parser, arena)
-                                        if (arg_index > 0) then
-                                            ! Extend index array
-                                            arg_indices = [arg_indices, arg_index]
-                                            arg_count = arg_count + 1
-                                        else
-                                            exit
-                                        end if
-                                    end do
-                                end if
-                            end block
-                        end block
-                    end if
-
-                    ! Consume closing paren if present
-                    next_token = parser%peek()
-                   if (next_token%kind == TK_OPERATOR .and. next_token%text == ")") then
-                        paren = parser%consume()
-                    end if
-
-                    ! Create function call node with array slice detection
-                    if (allocated(arg_indices)) then
-                        expr_index = &
-                            push_call_or_subscript_with_slice_detection(arena, &
-                            func_name, arg_indices, current%line, current%column)
-                    else
-                        ! For empty args, create empty function call
-                        block
-                            integer, allocatable :: empty_args(:)
-                            allocate (empty_args(0))  ! Empty index array
-                            expr_index = push_call_or_subscript(arena, func_name, &
-                                empty_args, current%line, current%column)
-                        end block
-                    end if
-                else
-                    expr_index = push_identifier(arena, current%text, &
-                        current%line, current%column)
-                end if
-            end block
+            expr_index = parse_identifier_or_call(parser, arena, current)
 
         case (TK_OPERATOR)
-            ! Debug: print operator
-            ! print *, "DEBUG parse_primary: operator = '", trim(current%text), "'"
             ! Check for parentheses or legacy array literal
             if (current%text == "(") then
                 ! Check for legacy array literal: (/ ... /) FIRST before consuming
@@ -568,38 +641,35 @@ contains
                             integer :: element_count
                             integer, allocatable :: temp_indices(:)
 
-                            paren_token = parser%consume()  ! consume '('
-                            slash_token = parser%consume()  ! consume '/'
+                            paren_token = parser%consume()
+                            slash_token = parser%consume()
                             element_count = 0
-                            allocate (temp_indices(100))  ! Start with space for 100 elements
+                            allocate (temp_indices(100))
 
                             ! Check for empty array (//)
                             current = parser%peek()
                             if (current%text == "/") then
-                                current = parser%consume()  ! consume '/'
+                                current = parser%consume()
                                 current = parser%peek()
                                 if (current%text == ")") then
-                                    current = parser%consume()  ! consume ')'
+                                    current = parser%consume()
                                     allocate (element_indices(0))
                                     expr_index = push_array_literal(arena, element_indices, &
                                                                      paren_token%line, &
                                                                      paren_token%column, &
                                                                      syntax_style="legacy")
                                 else
-                                    expr_index = 0  ! Error - expected )
+                                    expr_index = 0
                                 end if
                             else
                                 ! Parse array elements for legacy syntax
                                 do
-                                    ! Parse element expression
                                     element_count = element_count + 1
                                     if (element_count > size(temp_indices)) then
-                                        ! Resize array
                                         block
                                             integer, allocatable :: new_indices(:)
                                             allocate (new_indices(size(temp_indices)*2))
                                             new_indices(1:size(temp_indices)) = temp_indices
-                                            ! Use move_alloc for O(1) array transfer instead of O(n) copying
                                             call move_alloc(new_indices, temp_indices)
                                         end block
                                     end if
@@ -608,7 +678,6 @@ contains
 
                                     ! Check if element parsing failed
                                     if (temp_indices(element_count) <= 0) then
-                                        ! Element parsing failed - return error
                                         expr_index = 0
                                         return
                                     end if
@@ -616,21 +685,19 @@ contains
                                     ! Check for comma or closing /
                                     current = parser%peek()
                                     if (current%text == ",") then
-                                        current = parser%consume()  ! consume ','
-                                        ! Continue parsing
+                                        current = parser%consume()
                                     else if (current%text == "/") then
-                                        current = parser%consume()  ! consume '/'
-                                        ! Check for closing )
+                                        current = parser%consume()
                                         current = parser%peek()
                                         if (current%text == ")") then
-                                            current = parser%consume()  ! consume ')'
-                                            exit  ! End of array
+                                            current = parser%consume()
+                                            exit
                                         else
-                                            expr_index = 0  ! Error - expected )
+                                            expr_index = 0
                                             return
                                         end if
                                     else
-                                        expr_index = 0  ! Error - expected , or /
+                                        expr_index = 0
                                         return
                                     end if
                                 end do
@@ -646,11 +713,11 @@ contains
                         end block
                     else
                         ! Regular parenthesized expression
-                        current = parser%consume()  ! consume '('
+                        current = parser%consume()
                         expr_index = parse_range(parser, arena)  ! parse the expression inside
                         current = parser%peek()
                         if (current%text == ")") then
-                            current = parser%consume()  ! consume ')'
+                            current = parser%consume()
                         end if
                     end if
                 end block
@@ -662,14 +729,14 @@ contains
                     integer :: element_count
                     integer, allocatable :: temp_indices(:)
 
-                    bracket_token = parser%consume()  ! consume '['
+                    bracket_token = parser%consume()
                     element_count = 0
                     allocate (temp_indices(100))  ! Start with space for 100 elements
 
                     ! Check for empty array []
                     current = parser%peek()
                     if (current%text == "]") then
-                        current = parser%consume()  ! consume ']'
+                        current = parser%consume()
                         allocate (element_indices(0))
                         expr_index = push_array_literal(arena, element_indices, &
                                                          bracket_token%line, &
@@ -722,7 +789,7 @@ contains
                             ! Check for comma or closing bracket
                             current = parser%peek()
                             if (current%text == ",") then
-                                current = parser%consume()  ! consume ','
+                                current = parser%consume()
 
                                 ! Check for implied do loop: (expr, var=start,end)
                                 ! Peek ahead to see if next token is identifier &
@@ -837,10 +904,9 @@ contains
                                     end if
                                 end block
                             else if (current%text == "]") then
-                                current = parser%consume()  ! consume ']'
+                                current = parser%consume()
                                 exit
                             else
-                                ! Error: expected comma or closing bracket
                                 write (error_unit, *) &
                                     'Error: Expected "," or "]" in array literal at line ', &
                                     current%line, ', column ', current%column
@@ -861,8 +927,7 @@ contains
             else if (current%text == ".true." .or. current%text == ".false.") then
                 ! Handle boolean literals as single tokens
                 current = parser%consume()
-                expr_index = push_literal(arena, current%text, LITERAL_LOGICAL, &
-                    current%line, current%column)
+                expr_index = parse_boolean_literal(current, arena)
             else
                 ! Unrecognized operator - create error node
                 expr_index = push_literal(arena, &
@@ -875,8 +940,14 @@ contains
             ! Handle logical constants
             current = parser%consume()
             if (current%text == ".true." .or. current%text == ".false.") then
-                expr_index = push_literal(arena, current%text, &
-                    LITERAL_LOGICAL, current%line, current%column)
+                expr_index = parse_boolean_literal(current, arena)
+            else if (current%text == "real" .or. current%text == "integer" .or. &
+                     current%text == "character" .or. current%text == "logical" .or. &
+                     current%text == "complex" .or. current%text == "double") then
+                ! Type keywords should not appear in expressions - this indicates 
+                ! a parser routing error. Create a placeholder identifier node
+                ! instead of an error to allow parsing to continue
+                expr_index = push_identifier(arena, current%text, current%line, current%column)
             else
                 ! Other keywords - create error node
                 expr_index = push_literal(arena, &
@@ -905,7 +976,7 @@ contains
         integer, intent(in) :: base_expr
         integer :: expr_index
         type(token_t) :: op_token
-        integer :: loop_count  ! Safety counter
+        integer :: loop_count
         
         expr_index = base_expr
         loop_count = 0
@@ -916,215 +987,14 @@ contains
             op_token = parser%peek()
             
             if (op_token%kind == TK_OPERATOR .and. op_token%text == "%") then
-                ! Component access
-                op_token = parser%consume()  ! consume '%'
-                
-                block
-                    type(token_t) :: component_token
-                    component_token = parser%peek()
-                    if (component_token%kind == TK_IDENTIFIER) then
-                        component_token = parser%consume()
-                        expr_index = push_component_access(arena, expr_index, &
-                                                              component_token%text, &
-                                                         op_token%line, op_token%column)
-                    else
-                        ! Error: expected identifier after %
-                        expr_index = push_literal(arena, &
-                            "!ERROR: Expected identifier after %", &
-                            LITERAL_STRING, op_token%line, op_token%column)
-                        exit
-                    end if
-                end block
-                
+                op_token = parser%consume()
+                expr_index = parse_component_access_postfix(parser, arena, expr_index, op_token)
+                if (expr_index <= 0) exit
             else if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
-                ! Array indexing or function call on the expression result
-                ! NOTE: This is a partial implementation. Full support for
-                ! expressions like matrix%data(i,j) requires AST restructuring
-                block
-                    integer, allocatable :: arg_indices(:)
-                    type(token_t) :: paren
-                    integer :: arg_count
-                    character(len=:), allocatable :: name_for_call
-                    
-                    arg_count = 0
-                    
-                    ! Consume opening paren
-                    paren = parser%consume()
-                    
-                    ! Parse arguments
-                    op_token = parser%peek()
-                    if (op_token%kind /= TK_OPERATOR .or. op_token%text /= ")") then
-                        ! Parse first argument
-                        block
-                            integer :: arg_index
-                            arg_index = parse_range(parser, arena)
-                            if (arg_index > 0) then
-                                arg_count = 1
-                                allocate (arg_indices(1))
-                                arg_indices(1) = arg_index
-                                
-                                ! Parse additional arguments
-                                do
-                                    op_token = parser%peek()
-                                    if (op_token%kind /= TK_OPERATOR .or. &
-                                        op_token%text /= ",") exit
-                                    
-                                    ! Consume comma
-                                    op_token = parser%consume()
-                                    
-                                    ! Parse next argument
-                                    arg_index = parse_range(parser, arena)
-                                    if (arg_index > 0) then
-                                        arg_indices = [arg_indices, arg_index]
-                                        arg_count = arg_count + 1
-                                    else
-                                        exit
-                                    end if
-                                end do
-                            end if
-                        end block
-                    end if
-                    
-                    ! Consume closing paren if present
-                    op_token = parser%peek()
-                    if (op_token%kind == TK_OPERATOR .and. op_token%text == ")") then
-                        paren = parser%consume()
-                    end if
-                    
-                    ! Create call_or_subscript node with slice detection
-                    if (allocated(arg_indices)) then
-                        ! Get the name to use for the call_or_subscript node
-                        select type (node => arena%entries(expr_index)%node)
-                        type is (component_access_node)
-                            ! For component access, use the component name
-                            name_for_call = node%component_name
-                        type is (identifier_node)
-                            ! For identifiers, use the identifier name
-                            name_for_call = node%name
-                        type is (range_subscript_node)
-                            ! For range subscripts, handle nested subscript operation
-                            block
-                                use ast_nodes_bounds, only: range_expression_node
-                                logical :: is_range_subscript
-                                
-                                is_range_subscript = .false.
-                                if (size(arg_indices) == 1 .and. &
-                                    arg_indices(1) > 0 .and. &
-                                    arg_indices(1) <= arena%size) then
-                                    select type (arg_node => &
-                                        arena%entries(arg_indices(1))%node)
-                                    type is (range_expression_node)
-                                        ! Create nested range subscript
-                                        expr_index = push_range_subscript(arena, &
-                                            expr_index, arg_node%start_index, &
-                                            arg_node%end_index, paren%line, &
-                                            paren%column)
-                                        is_range_subscript = .true.
-                                    end select
-                                end if
-                                
-                                if (is_range_subscript) then
-                                    deallocate(arg_indices)
-                                    cycle
-                                else
-                                    ! Not a range - can't handle other operations on &
-                                    ! range_subscript
-                                    deallocate(arg_indices)
-                                    exit
-                                end if
-                            end block
-                        type is (array_slice_node)
-                            ! For array slices (which could be character substrings),
-                            ! handle nested subscript operation
-                            block
-                                use ast_nodes_bounds, only: range_expression_node, &
-                                    array_slice_node
-                                logical :: is_range_subscript
-                                
-                                is_range_subscript = .false.
-                                if (size(arg_indices) == 1 .and. &
-                                    arg_indices(1) > 0 .and. &
-                                    arg_indices(1) <= arena%size) then
-                                    select type (arg_node => &
-                                        arena%entries(arg_indices(1))%node)
-                                    type is (range_expression_node)
-                                        ! Create nested range subscript using the 
-                                        ! array_slice as the base expression
-                                        expr_index = push_range_subscript(arena, &
-                                            expr_index, arg_node%start_index, &
-                                            arg_node%end_index, paren%line, &
-                                            paren%column)
-                                        is_range_subscript = .true.
-                                    end select
-                                end if
-                                
-                                if (is_range_subscript) then
-                                    deallocate(arg_indices)
-                                    cycle
-                                else
-                                    ! Not a range - can't handle other operations
-                                    deallocate(arg_indices)
-                                    exit
-                                end if
-                            end block
-                        class default
-                            ! For other expressions, we can't handle array indexing
-                            deallocate(arg_indices)
-                            exit
-                        end select
-                        
-                        if (allocated(name_for_call)) then
-                            ! Special handling for component access followed &
-                            ! by array indexing
-                            select type (node => arena%entries(expr_index)%node)
-                            type is (component_access_node)
-                                ! Build the full qualified name
-                                block
-                                    character(len=:), allocatable :: base_name, full_name
-                                    
-                                    ! Get the base name
-                                    if (node%base_expr_index > 0) then
-                                        select type (base_node => &
-                                            arena%entries(node%base_expr_index)%node)
-                                        type is (identifier_node)
-                                            base_name = base_node%name
-                                        type is (component_access_node)
-                                            ! Handle chained component access &
-                                            ! recursively
-                                            base_name = &
-                                                generate_code_from_arena(arena, &
-                                                node%base_expr_index)
-                                        class default
-                                            base_name = "__expr__"
-                                        end select
-                                    else
-                                        base_name = "__expr__"
-                                    end if
-                                    
-                                    ! Build full qualified name
-                                    full_name = base_name // "%" // name_for_call
-                                    
-                                    ! Create call_or_subscript with full name
-                                    expr_index = &
-                                        push_call_or_subscript_with_slice_detection(&
-                                            arena, full_name, arg_indices, paren%line, &
-                                            paren%column)
-                                end block
-                            class default
-                                ! Standard case
-                                expr_index = &
-                                    push_call_or_subscript_with_slice_detection(arena, &
-                                    name_for_call, arg_indices, &
-                                    paren%line, paren%column)
-                            end select
-                        end if
-                    end if
-                end block
+                expr_index = parse_array_indexing_postfix(parser, arena, expr_index)
             else
-                ! No more postfix operators
                 exit
             end if
         end do
     end function parse_postfix_ops
-
 end module parser_expressions_module

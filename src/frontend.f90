@@ -9,7 +9,8 @@ module frontend
                             compile_source, compilation_options_t, &
                             compile_from_tokens_json, compile_from_ast_json, &
                             compile_from_semantic_json, lex_file
-    use frontend_parsing, only: parse_tokens, find_program_unit_boundary, &
+    use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t, &
+                               find_program_unit_boundary, &
                                is_function_start, is_end_function, parse_program_unit, &
                                is_do_loop_start, is_do_while_start, is_select_case_start, &
                                is_end_do, is_end_select, is_if_then_start, is_end_if
@@ -21,7 +22,8 @@ module frontend
     private
 
     ! Re-export all public interfaces for backward compatibility
-    public :: lex_source, parse_tokens, analyze_semantics, emit_fortran
+    public :: lex_source, parse_tokens, parse_tokens_safe, parse_result_with_index_t, &
+              analyze_semantics, emit_fortran
     public :: compile_source, compilation_options_t
     public :: compile_from_tokens_json, compile_from_ast_json, &
               compile_from_semantic_json

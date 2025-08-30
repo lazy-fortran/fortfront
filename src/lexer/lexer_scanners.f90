@@ -392,6 +392,7 @@ contains
         select case (trim(lower_word))
         case ('program', 'end', 'function', 'subroutine', 'if', 'then', 'else', &
               'do', 'while', 'for', 'integer', 'real', 'logical', 'character', &
+              'complex', 'double', 'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
               'intent', 'in', 'out', 'inout', 'use', 'module', 'contains', &
               'public', 'private', 'type', 'class', 'extends', 'abstract', &

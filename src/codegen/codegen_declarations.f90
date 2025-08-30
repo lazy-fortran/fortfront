@@ -283,6 +283,17 @@ contains
                 end if
             case (TLOGICAL)
                 type_str = "logical"
+            case (TCOMPLEX)
+                type_str = "complex"
+            case (TDOUBLE)
+                type_str = "double precision"
+            case (TDERIVED)
+                ! For derived types, use the type name from the node
+                if (len_trim(node%type_name) > 0) then
+                    type_str = node%type_name
+                else
+                    type_str = "type(unknown_t)"  ! Fallback for derived types
+                end if
             case default
                 type_str = "real"  ! Default to real
             end select

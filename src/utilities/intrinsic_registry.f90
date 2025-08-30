@@ -240,7 +240,8 @@ contains
 
         ! Validate we used all allocated slots
         if (i /= NUM_INTRINSICS) then
-            write(error_unit, '(A)') "ERROR [intrinsic_registry]: Intrinsic function count mismatch in initialization - registry may be incomplete"
+            write(error_unit, '(A)') "ERROR [intrinsic_registry]: Intrinsic function count mismatch"
+            write(error_unit, '(A)') "in initialization - registry may be incomplete"
             ! Continue with partial registry rather than crashing
         end if
 

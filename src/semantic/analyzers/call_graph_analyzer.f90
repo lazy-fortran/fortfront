@@ -76,7 +76,8 @@ contains
             lhs%call_graph = rhs%call_graph
             lhs%analysis_complete = rhs%analysis_complete
         class default
-            write(error_unit, '(A)') "ERROR [call_graph_analyzer]: Type mismatch in call_graph_analyzer assignment - assignment ignored"
+            write(error_unit, '(A)') "ERROR [call_graph_analyzer]: Type mismatch in " &
+                // "call_graph_analyzer assignment - assignment ignored"
             ! Don't perform assignment on type mismatch
         end select
     end subroutine

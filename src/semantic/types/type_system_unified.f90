@@ -21,6 +21,9 @@ module type_system_unified
     integer, parameter, public :: TLOGICAL = 5  ! Logical type
     integer, parameter, public :: TFUN = 6      ! Function type
     integer, parameter, public :: TARRAY = 7    ! Array type
+    integer, parameter, public :: TCOMPLEX = 8  ! Complex type
+    integer, parameter, public :: TDOUBLE = 9   ! Double precision type
+    integer, parameter, public :: TDERIVED = 10 ! Derived/user-defined type
 
     ! Compatibility layer types (lightweight wrappers around arena handles)
     public :: type_var_t, mono_type_t, poly_type_t, type_env_t, substitution_t
