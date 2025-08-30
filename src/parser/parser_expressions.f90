@@ -11,7 +11,6 @@ module parser_expressions_module
                            push_call_or_subscript_with_slice_detection, &
                            push_component_access, push_range_subscript
     use parser_state_module, only: parser_state_t, create_parser_state
-    use codegen_arena_interface, only: generate_code_from_arena
     implicit none
     private
 
@@ -1091,9 +1090,8 @@ contains
                                         type is (component_access_node)
                                             ! Handle chained component access &
                                             ! recursively
-                                            base_name = &
-                                                generate_code_from_arena(arena, &
-                                                node%base_expr_index)
+                                            ! TODO: Fix circular dependency with codegen
+                                            base_name = "__chained__"
                                         class default
                                             base_name = "__expr__"
                                         end select

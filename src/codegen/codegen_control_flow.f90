@@ -2,6 +2,7 @@ module codegen_control_flow
     use iso_fortran_env, only: error_unit
     use ast_core
     use ast_nodes_control
+    use ast_nodes_conditional, only: case_default_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -228,12 +229,26 @@ contains
         end if
 
         ! Handle default case if present
-        if (node%default_index > 0) then
-            code = code // new_line('A') // repeat("    ", indent_level) // "case default"
-            body_code = generate_code_from_arena(arena, node%default_index)
-            if (len(body_code) > 0) then
-                code = code // new_line('A') // body_code
-            end if
+        if (node%default_index > 0 .and. node%default_index <= arena%size) then
+            select type (default_node => arena%entries(node%default_index)%node)
+            type is (case_default_node)
+                code = code // new_line('A') // repeat("    ", indent_level) // "case default"
+                
+                ! Generate default case body
+                if (allocated(default_node%body_indices)) then
+                    body_code = generate_grouped_body_internal(arena, default_node%body_indices, indent_level + 1)
+                    if (len(body_code) > 0) then
+                        code = code // new_line('A') // body_code
+                    end if
+                end if
+            class default
+                ! Fallback: treat as single statement
+                code = code // new_line('A') // repeat("    ", indent_level) // "case default"
+                body_code = generate_code_from_arena(arena, node%default_index)
+                if (len(body_code) > 0) then
+                    code = code // new_line('A') // repeat("    ", indent_level + 1) // body_code
+                end if
+            end select
         end if
 
         ! Generate end select
@@ -246,7 +261,10 @@ contains
         type(where_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: mask_code
+        character(len=:), allocatable :: mask_code, body_code
+        integer :: i, indent_level
+
+        indent_level = 0
 
         ! Generate mask expression
         if (node%mask_expr_index > 0) then
@@ -255,11 +273,57 @@ contains
             mask_code = ".true."
         end if
 
-        ! Generate simplified where construct
-        ! TODO: Implement proper where body and elsewhere clause generation
-        code = "where (" // mask_code // ")" // new_line('A') // &
-               "    ! TODO: implement where body" // new_line('A') // &
-               "end where"
+        ! Check if it's a single-line where
+        if (allocated(node%where_body_indices)) then
+            if (size(node%where_body_indices) == 1 .and. &
+                .not. allocated(node%elsewhere_clauses)) then
+                ! Single-line where: where (mask) statement
+                code = "where (" // mask_code // ") "
+                body_code = generate_code_from_arena(arena, node%where_body_indices(1))
+                code = code // body_code
+                return  ! No "end where" for single-line
+            end if
+        end if
+
+        ! Multi-line where construct
+        code = "where (" // mask_code // ")"
+
+        ! Generate where body
+        if (allocated(node%where_body_indices)) then
+            body_code = generate_grouped_body_internal(arena, node%where_body_indices, indent_level + 1)
+            if (len(body_code) > 0) then
+                code = code // new_line('A') // body_code
+            end if
+        end if
+
+        ! Generate elsewhere clauses
+        if (allocated(node%elsewhere_clauses)) then
+            do i = 1, size(node%elsewhere_clauses)
+                code = code // new_line('A') // repeat("    ", indent_level)
+                
+                if (node%elsewhere_clauses(i)%mask_index > 0) then
+                    ! Elsewhere with mask
+                    mask_code = generate_code_from_arena(arena, node%elsewhere_clauses(i)%mask_index)
+                    code = code // "elsewhere (" // mask_code // ")"
+                else
+                    ! Final elsewhere without mask
+                    code = code // "elsewhere"
+                end if
+                
+                ! Generate elsewhere body
+                if (allocated(node%elsewhere_clauses(i)%body_indices)) then
+                    body_code = generate_grouped_body_internal(arena, &
+                                                               node%elsewhere_clauses(i)%body_indices, &
+                                                               indent_level + 1)
+                    if (len(body_code) > 0) then
+                        code = code // new_line('A') // body_code
+                    end if
+                end if
+            end do
+        end if
+
+        ! Generate end where
+        code = code // new_line('A') // repeat("    ", indent_level) // "end where"
     end function generate_code_where
 
     ! Generate code for forall constructs
@@ -268,12 +332,98 @@ contains
         type(forall_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: index_code, body_code
+        character(len=:), allocatable :: lower_code, upper_code, stride_code
+        integer :: i, indent_level
 
-        ! Generate simplified forall construct
-        ! TODO: Implement proper forall triplet and mask generation
-        code = "forall (i = 1:10)" // new_line('A') // &
-               "    ! TODO: implement forall body" // new_line('A') // &
-               "end forall"
+        indent_level = 0
+
+        ! Generate forall statement
+        code = "forall ("
+        
+        ! Generate index specifications
+        if (node%num_indices > 0 .and. allocated(node%index_names)) then
+            do i = 1, node%num_indices
+                if (i > 1) code = code // ", "
+                
+                ! Index name
+                if (allocated(node%index_names)) then
+                    if (i <= size(node%index_names)) then
+                        code = code // trim(node%index_names(i)) // "="
+                    end if
+                end if
+                
+                ! Lower bound
+                if (allocated(node%lower_bound_indices)) then
+                    if (i <= size(node%lower_bound_indices) .and. &
+                        node%lower_bound_indices(i) > 0) then
+                        lower_code = generate_code_from_arena(arena, node%lower_bound_indices(i))
+                        code = code // lower_code
+                    else
+                        code = code // "1"
+                    end if
+                else
+                    code = code // "1"
+                end if
+                
+                code = code // ":"
+                
+                ! Upper bound
+                if (allocated(node%upper_bound_indices)) then
+                    if (i <= size(node%upper_bound_indices) .and. &
+                        node%upper_bound_indices(i) > 0) then
+                        upper_code = generate_code_from_arena(arena, node%upper_bound_indices(i))
+                        code = code // upper_code
+                    else
+                        code = code // "10"
+                    end if
+                else
+                    code = code // "10"
+                end if
+                
+                ! Optional stride
+                if (allocated(node%stride_indices)) then
+                    if (i <= size(node%stride_indices) .and. &
+                        node%stride_indices(i) > 0) then
+                        stride_code = generate_code_from_arena(arena, node%stride_indices(i))
+                        code = code // ":" // stride_code
+                    end if
+                end if
+            end do
+        else
+            ! Default if no indices specified
+            code = code // "i=1:10"
+        end if
+        
+        ! Add optional mask
+        if (node%has_mask .and. node%mask_expr_index > 0) then
+            index_code = generate_code_from_arena(arena, node%mask_expr_index)
+            code = code // ", " // index_code
+        end if
+        
+        code = code // ")"
+        
+        ! Generate body
+        if (allocated(node%body_indices)) then
+            ! Check if it's a single-line forall
+            if (size(node%body_indices) == 1) then
+                ! Single-line forall: forall(...) statement
+                body_code = generate_code_from_arena(arena, node%body_indices(1))
+                code = code // " " // body_code
+                ! No "end forall" for single-line
+            else
+                ! Multi-line forall
+                body_code = generate_grouped_body_internal(arena, node%body_indices, indent_level + 1)
+                if (len(body_code) > 0) then
+                    code = code // new_line('A') // body_code
+                end if
+                ! Generate end forall
+                code = code // new_line('A') // repeat("    ", indent_level) // "end forall"
+            end if
+        else
+            ! Empty body (shouldn't happen but handle gracefully)
+            code = code // new_line('A') // repeat("    ", indent_level) // "end forall"
+        end if
     end function generate_code_forall
 
     ! Generate code for associate constructs

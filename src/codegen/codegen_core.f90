@@ -97,6 +97,9 @@ contains
             code = generate_code_where(arena, node, node_index)
         type is (forall_node)
             code = generate_code_forall(arena, node, node_index)
+        ! TODO: Fix circular dependency for associate_node
+        ! type is (associate_node)
+        !     code = generate_code_associate(arena, node, node_index)
             
         ! Declaration and definition nodes
         type is (declaration_node)
