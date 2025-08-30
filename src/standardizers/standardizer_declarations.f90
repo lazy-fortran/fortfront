@@ -1040,7 +1040,10 @@ contains
         right_type = infer_operand_type(arena, right_index)
         
         ! Type promotion rules: real > integer
-        if (trim(left_type) == "real" .or. trim(right_type) == "real") then
+        ! Check for any real-like types (real, real(8), real(kind=8))
+        if (trim(left_type) == "real" .or. trim(right_type) == "real" .or. &
+            trim(left_type) == "real(8)" .or. trim(right_type) == "real(8)" .or. &
+            index(left_type, "real") > 0 .or. index(right_type, "real") > 0) then
             ! Get type standardization setting
             call get_standardizer_type_standardization(standardize_types)
             if (standardize_types) then
@@ -1052,6 +1055,59 @@ contains
             result_type = "integer"
         end if
     end function infer_arithmetic_result_type
+    
+    ! Helper: Infer identifier type from assignment context
+    function infer_identifier_type_from_context(arena, identifier_name) result(inferred_type)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: identifier_name
+        character(len=64) :: inferred_type
+        integer :: i
+        logical :: standardize_types
+        
+        inferred_type = "integer"  ! Default fallback
+        
+        ! Search through arena for assignments to this identifier
+        do i = 1, arena%size
+            if (allocated(arena%entries(i)%node)) then
+                select type (node => arena%entries(i)%node)
+                type is (assignment_node)
+                    if (allocated(arena%entries(node%target_index)%node)) then
+                        select type (target => arena%entries(node%target_index)%node)
+                        type is (identifier_node)
+                            if (trim(target%name) == trim(identifier_name)) then
+                                ! Found assignment to this identifier, check value type
+                                if (node%value_index > 0 .and. node%value_index <= arena%size .and. &
+                                    allocated(arena%entries(node%value_index)%node)) then
+                                    select type (value => arena%entries(node%value_index)%node)
+                                    type is (literal_node)
+                                        select case (value%literal_kind)
+                                        case (LITERAL_INTEGER)
+                                            inferred_type = "integer"
+                                            return
+                                        case (LITERAL_REAL)
+                                            call get_standardizer_type_standardization(standardize_types)
+                                            if (standardize_types) then
+                                                inferred_type = "real(8)"
+                                            else
+                                                inferred_type = "real"
+                                            end if
+                                            return
+                                        case (LITERAL_STRING)
+                                            inferred_type = "character"
+                                            return
+                                        case (LITERAL_LOGICAL)
+                                            inferred_type = "logical"
+                                            return
+                                        end select
+                                    end select
+                                end if
+                            end if
+                        end select
+                    end if
+                end select
+            end if
+        end do
+    end function infer_identifier_type_from_context
     
     ! Helper: Infer type of a single operand
     function infer_operand_type(arena, operand_index) result(operand_type)
@@ -1082,6 +1138,36 @@ contains
             case (LITERAL_LOGICAL)
                 operand_type = "logical"
             end select
+        type is (identifier_node)
+            ! CRITICAL FIX: Handle identifier nodes by checking their inferred type
+            if (node%inferred_type%kind > 0) then
+                ! Use the identifier's inferred type from semantic analysis
+                select case (node%inferred_type%kind)
+                case (TINT)
+                    operand_type = "integer"
+                case (TREAL)
+                    call get_standardizer_type_standardization(standardize_types)
+                    if (standardize_types) then
+                        operand_type = "real(8)"
+                    else
+                        operand_type = "real"
+                    end if
+                case (TDOUBLE)
+                    operand_type = "real(8)"
+                case (TCHAR)
+                    operand_type = "character"
+                case (TLOGICAL)
+                    operand_type = "logical"
+                case (TCOMPLEX)
+                    operand_type = "complex"
+                case default
+                    ! For unknown types, try to infer from literal assignments
+                    operand_type = infer_identifier_type_from_context(arena, node%name)
+                end select
+            else
+                ! Fallback: try to infer from assignments in the arena
+                operand_type = infer_identifier_type_from_context(arena, node%name)
+            end if
         end select
     end function infer_operand_type
 

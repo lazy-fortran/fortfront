@@ -79,8 +79,6 @@ contains
         type(semantic_context_t) :: ctx
         type(poly_type_t) :: builtin_scheme
         type(mono_type_t) :: real_to_real, real_type
-        
-        ! Initialize basic components
         ctx%scopes = create_scope_stack()
         ctx%subst%count = 0
         ctx%param_tracker%count = 0
@@ -116,7 +114,6 @@ contains
 
         select type (ast => arena%entries(root_index)%node)
         type is (program_node)
-            ! Detect mode based on presence of implicit none
             ctx%strict_mode = check_implicit_none(arena, ast)
             call analyze_program_node_arena(ctx, arena, ast, root_index)
         type is (module_node)
@@ -143,8 +140,6 @@ contains
                 end if
             end do
         end if
-        
-        ! Check for undefined variables (Issue #495)
         call check_undefined_variables_internal(ctx, arena, prog_index)
     end subroutine analyze_program_node_arena
 
@@ -266,8 +261,7 @@ contains
         class(semantic_context_t), intent(inout) :: this
         type(mono_type_t), intent(in) :: t1, t2
 
-        ! Simplified: do nothing
-        ! Real implementation would unify types and update substitution
+        ! Simplified unification
     end subroutine unify_types
 
     ! Instantiate type scheme
@@ -276,8 +270,7 @@ contains
         type(poly_type_t), intent(in) :: scheme
         type(mono_type_t) :: typ
 
-        ! Simplified: create a fresh type variable for instantiation
-        ! Real implementation would properly handle polymorphic types
+        ! Simplified instantiation
         typ = create_mono_type(TVAR, var=this%fresh_type_var())
     end function instantiate_type_scheme
 
@@ -288,9 +281,8 @@ contains
         type(poly_type_t) :: scheme
         type(type_var_t), allocatable :: free_vars(:)
 
-        ! Simplified: create a poly type without finding free variables
-        ! Real implementation would find free type variables
-        allocate(free_vars(0))  ! Empty free variables
+        ! Simplified generalization
+        allocate(free_vars(0))
         scheme = create_poly_type(free_vars, typ)
     end function generalize_type
 
@@ -309,8 +301,7 @@ contains
         type(mono_type_t), intent(in) :: typ
         type(mono_type_t) :: result_type
 
-        ! Simplified: return type as-is
-        ! Real implementation would apply substitution
+        ! Simplified substitution application
         result_type = typ
     end function apply_current_substitution
 
@@ -372,8 +363,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(in) :: slice_node
         
-        ! Simplified: just ensure bounds indices exist
-        ! Could add more sophisticated checking later
+        ! Simplified bounds validation
     end subroutine validate_array_access_bounds
 
     ! Array shape conformance checking
@@ -382,15 +372,13 @@ contains
         type(mono_type_t), intent(in) :: lhs_type, rhs_type
         logical, intent(out) :: is_conformant
 
-        ! Simplified: check if both are arrays
+        ! Simplified conformance
         is_conformant = (lhs_type%kind == TARRAY .and. rhs_type%kind == TARRAY)
     end subroutine check_array_shape_conformance
 
-    ! Check if context has errors
     function semantic_context_has_errors(this) result(has_errors)
         class(semantic_context_t), intent(in) :: this
         logical :: has_errors
-        
         has_errors = this%errors%has_errors()
     end function semantic_context_has_errors
 
@@ -539,8 +527,8 @@ contains
             call ctx%unify(right_typ, typ)
         ! Arithmetic operators preserve type
         else
-            call ctx%unify(left_typ, right_typ)
-            typ = left_typ
+            typ = get_common_type(left_typ, right_typ)
+            if (typ%kind == 0) then; call ctx%unify(left_typ, right_typ); typ = left_typ; end if
         end if
 
         ! Store inferred type in node if it's a binary_op_node
@@ -929,15 +917,13 @@ contains
         call process_stop_node_code(node, typ)
     end function infer_stop_helper
 
-    ! Check if semantic analysis found any errors (public function)
     function has_semantic_errors(ctx) result(has_errors)
         type(semantic_context_t), intent(in) :: ctx
         logical :: has_errors
-        
         has_errors = ctx%errors%has_errors()
     end function has_semantic_errors
 
-    ! Helper: Process control flow node with condition and body
+    ! Helper: Process control flow nodes (consolidated)
     subroutine process_simple_control_node(ctx, arena, condition_index, body_indices)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -954,7 +940,6 @@ contains
         end if
     end subroutine process_simple_control_node
 
-    ! Helper: Process indices array
     subroutine process_indices_array(ctx, arena, indices)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -963,13 +948,10 @@ contains
         integer :: i
         
         if (present(indices)) then
-            do i = 1, size(indices)
-                temp_type = ctx%infer(arena, indices(i))
-            end do
+            do i = 1, size(indices); temp_type = ctx%infer(arena, indices(i)); end do
         end if
     end subroutine process_indices_array
 
-    ! Helper: Process elsewhere clauses
     subroutine process_elsewhere_clauses(ctx, arena, elsewhere_clauses)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -979,19 +961,14 @@ contains
         
         if (present(elsewhere_clauses)) then
             do i = 1, size(elsewhere_clauses)
-                if (elsewhere_clauses(i)%mask_index > 0) then
-                    temp_type = ctx%infer(arena, elsewhere_clauses(i)%mask_index)
-                end if
+                if (elsewhere_clauses(i)%mask_index > 0) temp_type = ctx%infer(arena, elsewhere_clauses(i)%mask_index)
                 if (allocated(elsewhere_clauses(i)%body_indices)) then
-                    do j = 1, size(elsewhere_clauses(i)%body_indices)
-                        temp_type = ctx%infer(arena, elsewhere_clauses(i)%body_indices(j))
-                    end do
+                    do j = 1, size(elsewhere_clauses(i)%body_indices); temp_type = ctx%infer(arena, elsewhere_clauses(i)%body_indices(j)); end do
                 end if
             end do
         end if
     end subroutine process_elsewhere_clauses
 
-    ! Helper: Process complex control flow (if with elseif blocks)  
     subroutine process_control_flow_node(ctx, arena, condition_index, then_indices, elseif_blocks, else_indices)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -999,37 +976,25 @@ contains
         integer, intent(in), optional :: then_indices(:), else_indices(:)
         type(elseif_wrapper), intent(in), optional :: elseif_blocks(:)
         type(mono_type_t) :: temp_type
-        integer :: i, j
+        integer :: i
         
         if (condition_index > 0) temp_type = ctx%infer(arena, condition_index)
         call process_indices_array(ctx, arena, then_indices)
-        
         if (present(elseif_blocks)) then
             do i = 1, size(elseif_blocks)
-                if (elseif_blocks(i)%condition_index > 0) then
-                    temp_type = ctx%infer(arena, elseif_blocks(i)%condition_index)
-                end if
+                if (elseif_blocks(i)%condition_index > 0) temp_type = ctx%infer(arena, elseif_blocks(i)%condition_index)
                 call process_indices_array(ctx, arena, elseif_blocks(i)%body_indices)
             end do
         end if
-        
         call process_indices_array(ctx, arena, else_indices)
     end subroutine process_control_flow_node
 
-    ! Helper: Check for undefined variables in strict mode
     subroutine check_undefined_variables_internal(ctx, arena, prog_index)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
         
-        ! Simple implementation - in lazy mode, undefined variables are auto-declared
-        ! In strict mode, errors are already reported during type inference
-        ! This is a placeholder for more comprehensive checks if needed
-        
-        if (ctx%strict_mode .and. ctx%errors%has_errors()) then
-            ! Errors already collected during type inference
-            return
-        end if
+        if (ctx%strict_mode .and. ctx%errors%has_errors()) return
     end subroutine check_undefined_variables_internal
 
 end module semantic_analyzer

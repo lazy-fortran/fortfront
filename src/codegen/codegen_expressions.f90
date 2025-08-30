@@ -3,6 +3,7 @@ module codegen_expressions
     use ast_core
     use ast_nodes_core
     use ast_nodes_data
+    use ast_nodes_bounds, only: array_slice_node, range_expression_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -161,14 +162,46 @@ contains
         code = "(/ /)"  ! Empty array literal - proper implementation needs element processing
     end function generate_code_array_literal
 
-    ! Placeholder functions for missing implementations
+    ! CRITICAL FIX: Generate proper range expression code (e.g. 1:3, :5, 2:, ::2)
     function generate_code_range_expression(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         class(*), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        ! Generate range expression code
-        code = "1:10"  ! Basic range - needs proper start and end extraction from node
+        character(len=:), allocatable :: start_code, end_code, stride_code
+        
+        select type (range_node => node)
+        type is (range_expression_node)
+            ! Generate start expression
+            if (range_node%start_index > 0 .and. range_node%start_index <= arena%size) then
+                start_code = generate_code_from_arena(arena, range_node%start_index)
+            else
+                start_code = ""  ! Implicit start (e.g., :5)
+            end if
+            
+            ! Generate end expression  
+            if (range_node%end_index > 0 .and. range_node%end_index <= arena%size) then
+                end_code = generate_code_from_arena(arena, range_node%end_index)
+            else
+                end_code = ""  ! Implicit end (e.g., 2:)
+            end if
+            
+            ! Generate stride expression (optional)
+            if (range_node%stride_index > 0 .and. range_node%stride_index <= arena%size) then
+                stride_code = generate_code_from_arena(arena, range_node%stride_index)
+            else
+                stride_code = ""  ! No stride
+            end if
+            
+            ! Combine into range expression: start:end or start:end:stride
+            code = start_code // ":" // end_code
+            if (len_trim(stride_code) > 0) then
+                code = code // ":" // stride_code
+            end if
+        class default
+            ! Fallback for non-range_expression_node
+            code = "1:10"
+        end select
     end function generate_code_range_expression
 
     function generate_code_array_bounds(arena, node, node_index) result(code)
@@ -185,8 +218,37 @@ contains
         class(*), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        ! Generate array slice code
-        code = ":"  ! Basic slice - needs start:end:stride processing
+        character(len=:), allocatable :: array_code, bounds_code
+        integer :: i
+        
+        ! CRITICAL FIX: Implement proper array slice code generation
+        select type (slice_node => node)
+        type is (array_slice_node)
+            ! Generate the array part (e.g., 'name' in name(1:3))
+            if (slice_node%array_index > 0 .and. slice_node%array_index <= arena%size) then
+                array_code = generate_code_from_arena(arena, slice_node%array_index)
+            else
+                array_code = "unknown_array"
+            end if
+            
+            ! Generate the bounds part (e.g., '1:3' in name(1:3))
+            bounds_code = ""
+            do i = 1, slice_node%num_dimensions
+                if (i > 1) bounds_code = bounds_code // ", "
+                if (slice_node%bounds_indices(i) > 0 .and. &
+                    slice_node%bounds_indices(i) <= arena%size) then
+                    bounds_code = bounds_code // generate_code_from_arena(arena, slice_node%bounds_indices(i))
+                else
+                    bounds_code = bounds_code // ":"  ! Default to full range if bounds missing
+                end if
+            end do
+            
+            ! Combine array and bounds: array(bounds)
+            code = array_code // "(" // bounds_code // ")"
+        class default
+            ! Fallback for non-array_slice_node
+            code = ":"
+        end select
     end function generate_code_array_slice
 
     function generate_code_array_operation(arena, node, node_index) result(code)
