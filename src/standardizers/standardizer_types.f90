@@ -112,10 +112,30 @@ contains
                 ! For now, we'll check if it has a colon operator (array slice)
                 if (has_array_slice_args(arena, node)) then
                     ! This is an array slice, so result is an array
-                    ! We need to get the base array type
+                    ! We need to get the base array type with proper element type
                     allocate(expr_type)
-                    expr_type%kind = TARRAY
-                    ! TODO: Set proper element type
+                    ! Set element type based on common Fortran patterns
+                    ! For slice operations, default to real unless identified otherwise
+                    block
+                        type(mono_type_t) :: element_type_args(1)
+                        if (allocated(node%name)) then
+                            ! Pattern matching for common array names and their element types
+                            if (index(node%name, "int") > 0 .or. index(node%name, "idx") > 0 .or. &
+                                index(node%name, "_i") > 0) then
+                                element_type_args(1) = create_mono_type(TINT)
+                            else if (index(node%name, "real") > 0 .or. index(node%name, "float") > 0 .or. &
+                                     index(node%name, "_r") > 0) then
+                                element_type_args(1) = create_mono_type(TREAL)
+                            else
+                                ! Default to real for generic arrays
+                                element_type_args(1) = create_mono_type(TREAL)
+                            end if
+                        else
+                            ! No name available, default to real
+                            element_type_args(1) = create_mono_type(TREAL)
+                        end if
+                        expr_type = create_mono_type(TARRAY, args=element_type_args)
+                    end block
                 end if
             end if
         type is (binary_op_node)

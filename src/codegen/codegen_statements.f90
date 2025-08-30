@@ -278,12 +278,62 @@ contains
     function generate_code_use_statement(node) result(code)
         type(use_statement_node), intent(in) :: node
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: only_clause, rename_clause
+        integer :: i
 
-        ! Simplified placeholder implementation  
-        if (allocated(node%module_name)) then
-            code = "use " // node%module_name
-        else
-            code = "use ! TODO: implement proper use statement"
+        ! Build proper use statement with all components
+        if (.not. allocated(node%module_name)) then
+            code = "use ! ERROR: no module name"
+            return
+        end if
+
+        code = "use"
+        
+        ! Add URL spec for Go-style imports if present
+        if (allocated(node%url_spec)) then
+            code = code // " " // node%url_spec // " "
+        end if
+        
+        ! Add module name
+        code = code // " " // node%module_name
+        
+        ! Add only clause if present
+        if (node%has_only .and. allocated(node%only_list)) then
+            only_clause = ""
+            do i = 1, size(node%only_list)
+                if (allocated(node%only_list(i)%s)) then
+                    if (i == 1) then
+                        only_clause = only_clause // node%only_list(i)%s
+                    else
+                        only_clause = only_clause // ", " // node%only_list(i)%s
+                    end if
+                end if
+            end do
+            if (len_trim(only_clause) > 0) then
+                code = code // ", only: " // trim(only_clause)
+            end if
+        end if
+        
+        ! Add rename clause if present (format: new_name => old_name)
+        if (allocated(node%rename_list) .and. size(node%rename_list) > 0) then
+            rename_clause = ""
+            do i = 1, size(node%rename_list), 2  ! Process pairs
+                if (i+1 <= size(node%rename_list)) then
+                    if (allocated(node%rename_list(i)%s) .and. allocated(node%rename_list(i+1)%s)) then
+                        if (len_trim(rename_clause) > 0) then
+                            rename_clause = rename_clause // ", "
+                        end if
+                        rename_clause = rename_clause // node%rename_list(i)%s // " => " // node%rename_list(i+1)%s
+                    end if
+                end if
+            end do
+            if (len_trim(rename_clause) > 0) then
+                if (index(code, "only:") > 0) then
+                    code = code // ", " // trim(rename_clause)
+                else
+                    code = code // ", " // trim(rename_clause)
+                end if
+            end if
         end if
     end function generate_code_use_statement
 
