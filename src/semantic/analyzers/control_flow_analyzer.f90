@@ -81,7 +81,8 @@ contains
             lhs%cfg = rhs%cfg
             lhs%analysis_complete = rhs%analysis_complete
         class default
-            write(error_unit, '(A)') "ERROR [control_flow_analyzer]: Type mismatch in control_flow_analyzer assignment - assignment ignored"
+            write(error_unit, '(A)') "ERROR [control_flow_analyzer]: Type mismatch in " &
+                // "control_flow_analyzer assignment - assignment ignored"
             ! Don't perform assignment on type mismatch
         end select
     end subroutine

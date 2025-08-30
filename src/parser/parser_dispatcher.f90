@@ -496,7 +496,8 @@ contains
         do while (.not. parser%is_at_end())
             ! Parse a value expression (could be literal, variable, etc.)
             token = parser%peek()
-            if (token%kind == TK_NUMBER .or. token%kind == TK_STRING .or. token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD .or. &
+            if (token%kind == TK_NUMBER .or. token%kind == TK_STRING .or. &
+                token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD .or. &
                 (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. token%text == '.false.'))) then
                 token = parser%consume()
                 ! Determine literal type based on token kind

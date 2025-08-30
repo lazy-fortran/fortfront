@@ -33,7 +33,8 @@ contains
         ! Validate file path for security
         validation_result = validate_input_path(filename)
         if (.not. validation_result%is_valid()) then
-            write(error_unit, '(A)') "ERROR [json_reader]: Path validation failed: " // validation_result%get_message() // " - returning empty array"
+            write(error_unit, '(A)') "ERROR [json_reader]: Path validation failed: " &
+                // validation_result%get_message() // " - returning empty array"
             allocate(tokens(0))
             return
         end if
@@ -67,7 +68,8 @@ contains
             end block
 
             if (.not. json_valid) then
-                write(error_unit, '(A)') "ERROR [json_reader]: Invalid JSON format: expected tokens JSON structure - returning empty array"
+                write(error_unit, '(A)') "ERROR [json_reader]: Invalid JSON format: " &
+                    // "expected tokens JSON structure - returning empty array"
                 allocate(tokens(0))
                 return
             end if
@@ -155,7 +157,8 @@ contains
         ! Validate file path for security
         validation_result = validate_input_path(filename)
         if (.not. validation_result%is_valid()) then
-            write(error_unit, '(A)') "ERROR [json_reader]: Path validation failed: " // validation_result%get_message() // " - returning invalid index"
+            write(error_unit, '(A)') "ERROR [json_reader]: Path validation failed: " &
+                // validation_result%get_message() // " - returning invalid index"
             root_index = 0
             return
         end if
@@ -707,7 +710,8 @@ contains
         ! Validate file path for security
         validation_result = validate_input_path(filename)
         if (.not. validation_result%is_valid()) then
-            write(error_unit, '(A)') "ERROR [json_reader]: Path validation failed: " // validation_result%get_message() // " - setting defaults"
+            write(error_unit, '(A)') "ERROR [json_reader]: Path validation failed: " &
+                // validation_result%get_message() // " - setting defaults"
             root_index = 0
             sem_ctx = create_semantic_context()
             return
