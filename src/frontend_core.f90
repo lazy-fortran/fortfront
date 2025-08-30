@@ -362,9 +362,10 @@ contains
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
             
-            ! CRITICAL FIX: Enable strict mode to detect undefined variables
-            ! This addresses Linux CI failure in Issue #495 test
-            ctx%strict_mode = .true.
+            ! LAZY FORTRAN MODE: Disable strict mode for undefined variable inference
+            ! This allows array literals like 'arr = [10, 20, 30]' to auto-declare variables
+            ! Note: Issue #495 should be addressed through proper variable declaration analysis
+            ctx%strict_mode = .false.
             
             call analyze_program(ctx, arena, prog_index)
             
