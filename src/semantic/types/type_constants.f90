@@ -12,5 +12,8 @@ module type_constants
     integer, parameter :: TLOGICAL = 5  ! Logical type
     integer, parameter :: TFUN = 6      ! Function type
     integer, parameter :: TARRAY = 7    ! Array type
+    integer, parameter :: TCOMPLEX = 8  ! Complex type
+    integer, parameter :: TDOUBLE = 9   ! Double precision type
+    integer, parameter :: TDERIVED = 10 ! Derived/user-defined type
 
 end module type_constants
