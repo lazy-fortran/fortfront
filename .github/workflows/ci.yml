@@ -272,13 +272,13 @@ jobs:
           Set-ExecutionPolicy Bypass -Scope Process -Force
           [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
           Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-          refreshenv
+          # Skip refreshenv in PowerShell as it's not needed
         }
         
         # Install MinGW-w64 with gfortran via Chocolatey
         Write-Host "Installing MinGW-w64 with gfortran..."
         choco install mingw --version=11.2.0 -y --no-progress
-        refreshenv
+        # Skip refreshenv in PowerShell as it's not needed
         
         # Add MinGW to PATH
         $mingwPath = "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin"
