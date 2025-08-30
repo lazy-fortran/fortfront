@@ -12,7 +12,6 @@ module parser_execution_statements_module
                                                parse_error_stop_statement, parse_return_statement, &
                                                parse_cycle_statement, parse_exit_statement
     use parser_control_flow_module, only: parse_do_loop
-    use parser_definition_statements_module, only: parse_function_definition, parse_subroutine_definition
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL
@@ -229,11 +228,15 @@ contains
                     token = parser%consume()
                     stmt_index = 0
                 case ("function")
-                    ! Parse function definition in contains section
-                    stmt_index = parse_function_definition(parser, arena)
+                    ! Skip function definitions for now - handled at higher level
+                    ! This avoids circular dependency with parser_definition_statements
+                    token = parser%consume()
+                    stmt_index = 0
                 case ("subroutine")
-                    ! Parse subroutine definition in contains section
-                    stmt_index = parse_subroutine_definition(parser, arena)
+                    ! Skip subroutine definitions for now - handled at higher level
+                    ! This avoids circular dependency with parser_definition_statements
+                    token = parser%consume()
+                    stmt_index = 0
                 case default
                     ! Skip unknown keywords for now
                     token = parser%consume()
