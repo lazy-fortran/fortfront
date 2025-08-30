@@ -16,11 +16,18 @@ module frontend_parsing
     use frontend_utilities, only: int_to_str
     use mixed_construct_detector, only: detect_mixed_constructs, mixed_construct_result_t
     use ast_nodes_data, only: mixed_construct_container_node, create_mixed_construct_container
+    use error_handling, only: result_t
 
     implicit none
     private
 
-    public :: parse_tokens
+    ! Parse result type combining result_t with program index
+    type, public :: parse_result_with_index_t
+        type(result_t) :: result
+        integer :: prog_index = 0
+    end type parse_result_with_index_t
+
+    public :: parse_tokens, parse_tokens_safe
     ! Debug functions for unit testing
     public :: find_program_unit_boundary, is_function_start, is_end_function, &
               parse_program_unit
@@ -151,6 +158,49 @@ contains
         call create_final_program_structure(arena, body_indices, stmt_count, &
                                           has_explicit_program_unit, prog_index, error_msg)
     end subroutine parse_tokens
+
+    ! Safe wrapper for parse_tokens that returns structured result instead of crashing
+    function parse_tokens_safe(tokens, arena) result(parse_result)
+        use error_handling, only: result_t, success_result, create_error_result, &
+                                 ERROR_PARSER
+        type(token_t), intent(in) :: tokens(:)
+        type(ast_arena_t), intent(inout) :: arena
+        type(parse_result_with_index_t) :: parse_result
+        
+        integer :: prog_index
+        character(len=1024) :: error_msg
+        
+        ! Call existing parse_tokens function
+        call parse_tokens(tokens, arena, prog_index, error_msg)
+        
+        ! Convert to structured result
+        parse_result%prog_index = prog_index
+        
+        if (prog_index > 0 .and. len_trim(error_msg) == 0) then
+            ! Success - return success result with program index
+            parse_result%result = success_result()
+        else if (len_trim(error_msg) > 0) then
+            ! Error with message
+            parse_result%result = create_error_result( &
+                trim(error_msg), &
+                ERROR_PARSER, &
+                "frontend_parsing", &
+                "parse_tokens_safe", &
+                "Check token stream for syntax errors" &
+            )
+            parse_result%prog_index = 0  ! Ensure invalid index on error
+        else
+            ! Unknown failure
+            parse_result%result = create_error_result( &
+                "Failed to parse tokens: unknown parsing error", &
+                ERROR_PARSER, &
+                "frontend_parsing", &
+                "parse_tokens_safe", &
+                "Verify token stream is valid Fortran syntax" &
+            )
+            parse_result%prog_index = 0  ! Ensure invalid index on error
+        end if
+    end function parse_tokens_safe
 
     ! Detect if file has explicit program unit
     function detect_explicit_program_unit(tokens) result(has_explicit_program_unit)

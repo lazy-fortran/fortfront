@@ -35,7 +35,7 @@ module frontend_core
                                 has_only_meaningless_tokens, format_enhanced_error, &
                                 format_syntax_error, split_into_lines
     use path_validation, only: validate_input_path, validate_output_path, path_validation_result_t
-    use frontend_parsing, only: parse_tokens
+    use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t
     use frontend_utilities, only: write_output_file, int_to_str
 
     implicit none
@@ -46,6 +46,7 @@ module frontend_core
     public :: compile_from_tokens_json, compile_from_ast_json, &
               compile_from_semantic_json
     public :: lex_file
+    public :: parse_tokens_safe, parse_result_with_index_t
 
     ! Simplified compilation options - no backend selection
     type :: compilation_options_t
