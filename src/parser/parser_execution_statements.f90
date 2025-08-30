@@ -155,6 +155,7 @@ contains
     ! Parse the body of a program until 'end program'
     ! Simplified approach that handles the basic case
     subroutine parse_program_body(parser, arena, body_indices)
+        use iso_fortran_env, only: error_unit
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: body_indices(:)
@@ -191,9 +192,12 @@ contains
                 select case (token%text)
                 case ("implicit")
                     call parse_simple_implicit(parser, arena, stmt_index)
-                case ("real", "integer", "logical", "character", "complex")
+                case ("real", "integer", "logical", "character", "complex", "double")
                     ! Handle single vs multi-variable declarations
                     call handle_variable_declaration(parser, arena, stmt_index)
+                case ("type")
+                    ! Handle type definitions and derived type variable declarations
+                    call handle_type_declaration(parser, arena, stmt_index)
                 case ("print")
                     stmt_index = parse_print_statement(parser, arena)
                 case ("write")
@@ -527,7 +531,6 @@ contains
         logical :: has_initializer, has_comma
         integer, allocatable :: decl_indices(:)
         
-        
         ! Analyze the declaration structure
         call analyze_declaration_structure(parser, has_initializer, has_comma)
         
@@ -553,6 +556,44 @@ contains
             stmt_index = parse_declaration(parser, arena)
         end if
     end subroutine handle_variable_declaration
+
+    ! Handle type definitions and derived type variable declarations
+    subroutine handle_type_declaration(parser, arena, stmt_index)
+        use parser_declarations, only: parse_derived_type_def
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        type(token_t) :: first_token, second_token
+        logical :: is_derived_type_def
+        
+        stmt_index = 0
+        first_token = parser%peek()
+        is_derived_type_def = .false.
+        
+        if (first_token%text == "type") then
+            ! Check if this is a derived type definition or variable declaration
+            if (parser%current_token + 1 <= size(parser%tokens)) then
+                second_token = parser%tokens(parser%current_token + 1)
+                
+                ! If second token is :: or identifier, it's a derived type definition
+                if (second_token%kind == TK_OPERATOR .and. second_token%text == "::") then
+                    is_derived_type_def = .true.
+                else if (second_token%kind == TK_IDENTIFIER) then
+                    is_derived_type_def = .true.
+                end if
+            end if
+            
+            if (is_derived_type_def) then
+                stmt_index = parse_derived_type_def(parser, arena)
+            else
+                ! Handle as variable declaration with derived type
+                call handle_variable_declaration(parser, arena, stmt_index)
+            end if
+        else
+            ! This shouldn't happen, but fallback to variable declaration
+            call handle_variable_declaration(parser, arena, stmt_index)
+        end if
+    end subroutine handle_type_declaration
 
     ! Check if the current position is a multi-variable assignment
     logical function is_multi_var_assignment(parser)

@@ -86,7 +86,7 @@ contains
                 stmt_index = parse_program_statement(parser, arena)
             case ("type")
                 stmt_index = parse_type_or_declaration(parser, arena)
-            case ("real", "integer", "logical", "character", "complex")
+            case ("real", "integer", "logical", "character", "complex", "double")
                 stmt_index = parse_type_or_declaration(parser, arena)
             case ("call")
                 stmt_index = parse_call_statement(parser, arena)
