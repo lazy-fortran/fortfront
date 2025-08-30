@@ -219,8 +219,24 @@ contains
         integer, intent(in) :: plugin_id
         logical, intent(out) :: success
         character(len=*), intent(out) :: error_msg
-        success = .false.
-        error_msg = "Recovery not implemented"
+        
+        ! Validate plugin ID
+        if (plugin_id < 1 .or. plugin_id > this%registry_size) then
+            success = .false.
+            error_msg = "Invalid plugin ID for recovery"
+            return
+        end if
+        
+        ! Check current state
+        if (this%states(plugin_id) == "error") then
+            ! Attempt to reset plugin to initialized state
+            this%states(plugin_id) = "initialized"
+            success = .true.
+            error_msg = ""
+        else
+            success = .false.
+            error_msg = "Plugin not in error state - no recovery needed"
+        end if
     end subroutine
     
     subroutine lifecycle_transition_state(this, plugin_id, new_state, success)
