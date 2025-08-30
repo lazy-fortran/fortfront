@@ -397,9 +397,12 @@ contains
                     call update_identifier_type_in_arena(arena, lhs_node%name, expr_typ)
                     
                     ! Generalize the expression type and define/update in scope
-                    allocate(scheme)
-                    scheme = ctx%generalize(expr_typ)
-                    call ctx%scopes%define(lhs_node%name, scheme)
+                    ! BUT only if variable was already defined OR we're in lazy mode
+                    if (allocated(existing_scheme) .or. .not. ctx%strict_mode) then
+                        allocate(scheme)
+                        scheme = ctx%generalize(expr_typ)
+                        call ctx%scopes%define(lhs_node%name, scheme)
+                    end if
                 end select
             end if
         end if
