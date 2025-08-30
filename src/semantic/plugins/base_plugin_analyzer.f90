@@ -8,20 +8,10 @@ module base_analyzer_mod
                                EVENT_ERROR_DETECTED, EVENT_BUILTIN_REQUIRED
     use event_dispatcher_module
     use event_subscription_module
+    use semantic_analyzer, only: semantic_context_t
+    use ast_core, only: ast_arena_t
     implicit none
     private
-    
-    ! Simplified types for testing (will be replaced with actual imports later)
-    type :: ast_arena_t
-        integer :: dummy = 0
-    end type
-    
-    type :: semantic_context_t
-        integer :: dummy = 0
-    contains
-        procedure :: initialize => context_initialize
-        procedure :: cleanup => context_cleanup
-    end type
     
     public :: base_analyzer_t, event_aware_analyzer_t, analysis_results_t
     public :: analyzer_id_t, plugin_lifecycle_manager_t
@@ -522,15 +512,4 @@ contains
         operational = .true.
     end function
     
-    ! Simplified context procedures
-    subroutine context_initialize(this)
-        class(semantic_context_t), intent(inout) :: this
-        this%dummy = 1
-    end subroutine
-    
-    subroutine context_cleanup(this)
-        class(semantic_context_t), intent(inout) :: this
-        this%dummy = 0
-    end subroutine
-
 end module base_analyzer_mod
