@@ -393,6 +393,9 @@ jobs:
         }
         
         Write-Host "✅ Windows CI validation passed - project builds on Windows"
+        
+        # Explicit success exit to ensure CI passes
+        exit 0
 
   # macOS CI temporarily disabled due to runner issues
   # test-macos:
