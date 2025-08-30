@@ -156,9 +156,11 @@ contains
                 stmt_index = parse_declaration(parser, arena)
             end if
         else
-            ! Other type keywords - check if it's a declaration
+            ! Other type keywords - assume it's a declaration unless proven otherwise
+            ! This handles cases like "real(kind=real64) :: x" where kind parameters
+            ! might interfere with double colon detection
             if (has_double_colon(parser)) then
-                ! Check if this is single or multi-variable declaration
+                ! Confirmed declaration with :: - check if single or multi-variable
                 block
                     logical :: has_initializer, has_comma
                     integer, allocatable :: decl_indices(:)
@@ -188,8 +190,14 @@ contains
                     end if
                 end block
             else
-                ! Could be function definition like "real function foo()"
-                stmt_index = parse_function_or_expression(parser, arena)
+                ! Check if this looks like a function definition
+                if (looks_like_function_definition(parser)) then
+                    stmt_index = parse_function_or_expression(parser, arena)
+                else
+                    ! Default to declaration parsing for type keywords
+                    ! This handles "real(kind=real64) :: x" where :: detection fails
+                    stmt_index = parse_declaration(parser, arena)
+                end if
             end if
         end if
 
@@ -275,14 +283,25 @@ contains
     ! Helper function to check for double colon
     logical function has_double_colon(parser)
         type(parser_state_t), intent(inout) :: parser
-        integer :: i
+        integer :: i, paren_depth
 
         has_double_colon = .false.
-    do i = parser%current_token + 1, min(parser%current_token + 10, size(parser%tokens))
-      if (parser%tokens(i)%kind == TK_OPERATOR .and. parser%tokens(i)%text == "::") then
-                has_double_colon = .true.
-                exit
- else if (parser%tokens(i)%kind == TK_KEYWORD .or. parser%tokens(i)%kind == TK_EOF) then
+        paren_depth = 0
+        
+        do i = parser%current_token + 1, min(parser%current_token + 50, size(parser%tokens))
+            if (parser%tokens(i)%kind == TK_OPERATOR) then
+                if (parser%tokens(i)%text == "(") then
+                    paren_depth = paren_depth + 1
+                else if (parser%tokens(i)%text == ")") then
+                    paren_depth = paren_depth - 1
+                else if (parser%tokens(i)%text == "::" .and. paren_depth == 0) then
+                    has_double_colon = .true.
+                    exit
+                end if
+            else if (parser%tokens(i)%kind == TK_EOF) then
+                exit  ! Stop on EOF
+            else if (parser%tokens(i)%kind == TK_KEYWORD .and. paren_depth == 0) then
+                ! Only stop on keywords outside of parentheses
                 ! Allow declaration attribute keywords to continue search
                 if (parser%tokens(i)%text == "parameter" .or. &
                     parser%tokens(i)%text == "optional" .or. &
@@ -296,11 +315,32 @@ contains
                     parser%tokens(i)%text == "inout") then
                     cycle  ! Continue searching
                 else
-                    exit   ! Stop on other keywords
+                    exit   ! Stop on other keywords outside parentheses
                 end if
             end if
         end do
     end function has_double_colon
+
+    ! Check if this looks like a function definition (e.g., "real function foo()")
+    logical function looks_like_function_definition(parser)
+        type(parser_state_t), intent(inout) :: parser
+        integer :: i
+        
+        looks_like_function_definition = .false.
+        
+        ! Look for "function" keyword within the next few tokens
+        do i = parser%current_token + 1, min(parser%current_token + 10, size(parser%tokens))
+            if (parser%tokens(i)%kind == TK_KEYWORD .and. parser%tokens(i)%text == "function") then
+                looks_like_function_definition = .true.
+                exit
+            else if (parser%tokens(i)%kind == TK_OPERATOR .and. parser%tokens(i)%text == "::") then
+                ! Found :: before function - this is a declaration
+                exit
+            else if (parser%tokens(i)%kind == TK_EOF) then
+                exit
+            end if
+        end do
+    end function looks_like_function_definition
 
 
     ! Parse a comment token
