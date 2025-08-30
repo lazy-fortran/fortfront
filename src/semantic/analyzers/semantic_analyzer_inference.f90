@@ -28,7 +28,6 @@ module semantic_analyzer_inference
     implicit none
     private
 
-    public :: semantic_context_t
     public :: infer_statement_type, infer_literal, infer_identifier
     public :: infer_binary_op, infer_function_call, infer_array_slice
     public :: infer_assignment, infer_array_literal, infer_implied_do_loop

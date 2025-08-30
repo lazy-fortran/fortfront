@@ -49,6 +49,7 @@ module semantic_analyzer_core
         logical :: strict_mode = .false.  ! True for standard Fortran (implicit none), false for lazy Fortran
     contains
         procedure :: infer_stmt => infer_statement_type
+        procedure :: deep_copy => semantic_context_deep_copy
     end type semantic_context_t
 
 contains
@@ -275,5 +276,20 @@ contains
         ! Simple placeholder - return real type for now
         typ = create_mono_type(TREAL)
     end function infer_statement_type
+
+    ! Deep copy method for semantic context
+    function semantic_context_deep_copy(this) result(copied)
+        class(semantic_context_t), intent(in) :: this
+        type(semantic_context_t) :: copied
+        
+        ! Copy all components
+        copied%scopes = this%scopes
+        copied%next_var_id = this%next_var_id
+        copied%subst = this%subst
+        copied%param_tracker = this%param_tracker
+        copied%temp_tracker = this%temp_tracker
+        copied%errors = this%errors
+        copied%strict_mode = this%strict_mode
+    end function semantic_context_deep_copy
 
 end module semantic_analyzer_core
