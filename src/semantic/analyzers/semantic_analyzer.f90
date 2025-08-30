@@ -210,6 +210,8 @@ contains
             typ = infer_implied_do_loop(this, arena, expr, expr_index)
         type is (declaration_node)
             typ = infer_declaration_helper(this, expr)
+            ! Store inferred type in node for code generation
+            arena%entries(expr_index)%node%inferred_type = typ
         type is (if_node)
             typ = infer_if_helper(this, arena, expr)
         type is (do_while_node)
