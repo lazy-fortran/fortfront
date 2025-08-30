@@ -619,7 +619,26 @@ contains
                 end do
             end if
         type is (select_case_node)
-            ! TODO: Handle select case when implemented
+            ! Collect variables from selector expression
+            if (stmt%selector_index > 0) then
+                call collect_statement_vars(arena, stmt%selector_index, &
+                                    var_names, var_types, var_declared, var_count, &
+                                            function_names, func_count)
+            end if
+            ! Collect variables from case blocks
+            if (allocated(stmt%case_indices)) then
+                do i = 1, size(stmt%case_indices)
+                    call collect_statement_vars(arena, stmt%case_indices(i), &
+                                        var_names, var_types, var_declared, var_count, &
+                                                function_names, func_count)
+                end do
+            end if
+            ! Collect variables from default case
+            if (stmt%default_index > 0) then
+                call collect_statement_vars(arena, stmt%default_index, &
+                                    var_names, var_types, var_declared, var_count, &
+                                            function_names, func_count)
+            end if
         end select
     end subroutine collect_statement_vars
 

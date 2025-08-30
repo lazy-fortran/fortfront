@@ -78,9 +78,13 @@ contains
         type(call_graph_t), intent(in) :: graph
         type(call_edge_t), allocatable :: edges(:)
         
-        ! TODO: Implement edge extraction from call graph
-        ! This would iterate through the graph structure and extract edges
-        allocate(edges(0))
+        ! Extract edges from the call graph structure
+        if (allocated(graph%calls) .and. graph%call_count > 0) then
+            allocate(edges(graph%call_count))
+            edges(1:graph%call_count) = graph%calls(1:graph%call_count)
+        else
+            allocate(edges(0))
+        end if
     end function get_call_edges
 
     ! Find recursive cycles in the call graph

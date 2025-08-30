@@ -37,8 +37,13 @@ contains
                         has_use_statements, has_executable_statements, should_be_module)
 
         if (should_be_module) then
-            ! TODO: Transform to module_node
-            ! For now, just handle contains insertion
+            ! Handle contains insertion for module-like programs
+            ! Find where to insert contains (before first function/subroutine)
+            insert_pos = find_contains_insertion_point(arena, prog)
+            if (insert_pos > 0) then
+                ! Insert contains statement at the determined position
+                call insert_contains_statement(arena, prog, prog_index, insert_pos)
+            end if
         end if
 
         ! Standardize existing declarations (e.g., real -> real(8))
