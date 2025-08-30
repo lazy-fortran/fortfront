@@ -310,6 +310,11 @@ contains
         block
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
+            
+            ! CRITICAL FIX: Enable strict mode for undefined variable detection
+            ! This ensures both CLI and compile_source use consistent semantic analysis  
+            ctx%strict_mode = .true.
+            
             call analyze_program(ctx, compiler_arena%ast, prog_index)
         end block
     end subroutine run_semantic_analysis_phase
