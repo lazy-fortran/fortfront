@@ -56,6 +56,10 @@ module semantic_analyzer
         type(error_collection_t) :: errors  ! Collect semantic errors
         logical :: strict_mode = .false.  ! True for standard Fortran (implicit none), false for lazy Fortran
     contains
+        ! Implement required abstract procedures from semantic_context_base_t FIRST
+        procedure :: get_context_name => semantic_get_context_name
+        procedure :: clone_context => semantic_clone_context
+        ! Other procedures
         procedure :: infer => infer_type
         procedure :: infer_stmt => infer_statement_type
         procedure :: unify => unify_types
@@ -70,9 +74,6 @@ module semantic_analyzer
         procedure :: validate_bounds => validate_array_access_bounds
         procedure :: check_conformance => check_array_shape_conformance
         procedure :: has_errors => semantic_context_has_errors
-        ! Implement required abstract procedures from semantic_context_base_t
-        procedure :: get_context_name => semantic_get_context_name
-        procedure :: clone_context => semantic_clone_context
         generic :: assignment(=) => assign
     end type semantic_context_t
 
