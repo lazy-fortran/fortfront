@@ -732,13 +732,17 @@ contains
         case (TK_OPERATOR)
             ! For logical literals (.true., .false.)
             if (token_text == '.true.' .or. token_text == '.false.') then
-                literal_type = LITERAL_INTEGER  ! Treat as integer for now (should be LITERAL_LOGICAL)
+                literal_type = LITERAL_LOGICAL
             else
                 literal_type = LITERAL_STRING  ! Default fallback
             end if
         case default
-            ! For identifiers and other tokens, treat as string
-            literal_type = LITERAL_STRING
+            ! For identifiers and other tokens, check for boolean literals
+            if (token_text == 'true' .or. token_text == 'false') then
+                literal_type = LITERAL_LOGICAL
+            else
+                literal_type = LITERAL_STRING
+            end if
         end select
     end function get_literal_type_from_token_kind
 

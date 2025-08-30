@@ -35,7 +35,14 @@ contains
 
         ! Generate literal value - handle missing values gracefully
         if (allocated(node%value)) then
-            code = node%value
+            ! Transform non-Fortran boolean literals to Fortran format
+            if (node%value == "true") then
+                code = ".true."
+            else if (node%value == "false") then
+                code = ".false."
+            else
+                code = node%value
+            end if
         else
             ! Fallback for missing literal value
             code = "0"  ! Safe default literal

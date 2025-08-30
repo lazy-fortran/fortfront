@@ -536,8 +536,14 @@ contains
                         end block
                     end if
                 else
-                    expr_index = push_identifier(arena, current%text, &
-                        current%line, current%column)
+                    ! Check for boolean literals first
+                    if (current%text == 'true' .or. current%text == 'false') then
+                        expr_index = push_literal(arena, current%text, LITERAL_LOGICAL, &
+                            current%line, current%column)
+                    else
+                        expr_index = push_identifier(arena, current%text, &
+                            current%line, current%column)
+                    end if
                 end if
             end block
 
