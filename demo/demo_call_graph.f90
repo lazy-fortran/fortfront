@@ -12,6 +12,7 @@ program demo_call_graph
     character(len=:), allocatable :: unused(:), callers(:), callees(:)
     character(len=:), allocatable :: all_procs(:)
     type(call_edge_t), allocatable :: edges(:)
+    type(parse_result_with_index_t) :: parse_result
     integer :: i
 
     print *, "=== Call Graph Analysis Demo ==="
@@ -80,11 +81,16 @@ program demo_call_graph
     print *, "-------------------------------------------------------"
     call tokenize_core(source, tokens)
     arena = create_ast_arena()
-    root_index = parse_tokens(tokens, arena)
+    parse_result = parse_tokens_safe(tokens, arena)
 
-    if (root_index <= 0) then
-        error stop "Failed to parse source code"
+    if (parse_result%result%is_failure()) then
+        print *, "ERROR: Failed to parse source code"
+        print *, "Details: ", parse_result%result%get_full_message()
+        print *, "Demo will exit gracefully instead of crashing."
+        stop 1
     end if
+    
+    root_index = parse_result%prog_index
 
     ctx = create_semantic_context()
     call analyze_semantics(ctx, arena, root_index)

@@ -12,7 +12,6 @@ module parser_execution_statements_module
                                                parse_error_stop_statement, parse_return_statement, &
                                                parse_cycle_statement, parse_exit_statement
     use parser_control_flow_module, only: parse_do_loop
-    use parser_definition_statements_module, only: parse_function_definition, parse_subroutine_definition
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL
@@ -156,6 +155,7 @@ contains
     ! Parse the body of a program until 'end program'
     ! Simplified approach that handles the basic case
     subroutine parse_program_body(parser, arena, body_indices)
+        use iso_fortran_env, only: error_unit
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: body_indices(:)
@@ -192,9 +192,12 @@ contains
                 select case (token%text)
                 case ("implicit")
                     call parse_simple_implicit(parser, arena, stmt_index)
-                case ("real", "integer", "logical", "character", "complex")
+                case ("real", "integer", "logical", "character", "complex", "double")
                     ! Handle single vs multi-variable declarations
                     call handle_variable_declaration(parser, arena, stmt_index)
+                case ("type")
+                    ! Handle type definitions and derived type variable declarations
+                    call handle_type_declaration(parser, arena, stmt_index)
                 case ("print")
                     stmt_index = parse_print_statement(parser, arena)
                 case ("write")
@@ -229,11 +232,15 @@ contains
                     token = parser%consume()
                     stmt_index = 0
                 case ("function")
-                    ! Parse function definition in contains section
-                    stmt_index = parse_function_definition(parser, arena)
+                    ! Skip function definitions for now - handled at higher level
+                    ! This avoids circular dependency with parser_definition_statements
+                    token = parser%consume()
+                    stmt_index = 0
                 case ("subroutine")
-                    ! Parse subroutine definition in contains section
-                    stmt_index = parse_subroutine_definition(parser, arena)
+                    ! Skip subroutine definitions for now - handled at higher level
+                    ! This avoids circular dependency with parser_definition_statements
+                    token = parser%consume()
+                    stmt_index = 0
                 case default
                     ! Skip unknown keywords for now
                     token = parser%consume()
@@ -524,7 +531,6 @@ contains
         logical :: has_initializer, has_comma
         integer, allocatable :: decl_indices(:)
         
-        
         ! Analyze the declaration structure
         call analyze_declaration_structure(parser, has_initializer, has_comma)
         
@@ -550,6 +556,44 @@ contains
             stmt_index = parse_declaration(parser, arena)
         end if
     end subroutine handle_variable_declaration
+
+    ! Handle type definitions and derived type variable declarations
+    subroutine handle_type_declaration(parser, arena, stmt_index)
+        use parser_declarations, only: parse_derived_type_def
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(out) :: stmt_index
+        type(token_t) :: first_token, second_token
+        logical :: is_derived_type_def
+        
+        stmt_index = 0
+        first_token = parser%peek()
+        is_derived_type_def = .false.
+        
+        if (first_token%text == "type") then
+            ! Check if this is a derived type definition or variable declaration
+            if (parser%current_token + 1 <= size(parser%tokens)) then
+                second_token = parser%tokens(parser%current_token + 1)
+                
+                ! If second token is :: or identifier, it's a derived type definition
+                if (second_token%kind == TK_OPERATOR .and. second_token%text == "::") then
+                    is_derived_type_def = .true.
+                else if (second_token%kind == TK_IDENTIFIER) then
+                    is_derived_type_def = .true.
+                end if
+            end if
+            
+            if (is_derived_type_def) then
+                stmt_index = parse_derived_type_def(parser, arena)
+            else
+                ! Handle as variable declaration with derived type
+                call handle_variable_declaration(parser, arena, stmt_index)
+            end if
+        else
+            ! This shouldn't happen, but fallback to variable declaration
+            call handle_variable_declaration(parser, arena, stmt_index)
+        end if
+    end subroutine handle_type_declaration
 
     ! Check if the current position is a multi-variable assignment
     logical function is_multi_var_assignment(parser)
@@ -645,7 +689,8 @@ contains
         do while (.not. parser%is_at_end())
             ! Parse a value expression (could be literal, variable, etc.)
             token = parser%peek()
-            if (token%kind == TK_NUMBER .or. token%kind == TK_STRING .or. token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD .or. &
+            if (token%kind == TK_NUMBER .or. token%kind == TK_STRING .or. &
+                token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD .or. &
                 (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. token%text == '.false.'))) then
                 token = parser%consume()
                 ! Determine literal type based on token kind
@@ -729,13 +774,17 @@ contains
         case (TK_OPERATOR)
             ! For logical literals (.true., .false.)
             if (token_text == '.true.' .or. token_text == '.false.') then
-                literal_type = LITERAL_INTEGER  ! Treat as integer for now (should be LITERAL_LOGICAL)
+                literal_type = LITERAL_LOGICAL
             else
                 literal_type = LITERAL_STRING  ! Default fallback
             end if
         case default
-            ! For identifiers and other tokens, treat as string
-            literal_type = LITERAL_STRING
+            ! For identifiers and other tokens, check for boolean literals
+            if (token_text == 'true' .or. token_text == 'false') then
+                literal_type = LITERAL_LOGICAL
+            else
+                literal_type = LITERAL_STRING
+            end if
         end select
     end function get_literal_type_from_token_kind
 

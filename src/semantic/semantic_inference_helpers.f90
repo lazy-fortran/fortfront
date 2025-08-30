@@ -3,7 +3,7 @@ module semantic_inference_helpers
     ! This avoids circular dependencies with semantic_analyzer
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
                                    create_mono_type, create_type_var, create_poly_type, &
-                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL
+                                   TVAR, TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
     use ast_core
     use ast_nodes_core, only: program_node
     use ast_nodes_control, only: if_node, do_while_node, where_node, where_stmt_node, &
@@ -120,9 +120,18 @@ contains
             var_type_kind = TCHAR
         case ("logical")
             var_type_kind = TLOGICAL
+        case ("complex")
+            var_type_kind = TCOMPLEX
+        case ("double precision")
+            var_type_kind = TDOUBLE
         case default
-            ! Default to real for unknown types
-            var_type_kind = TREAL
+            ! Check if it's a derived type (starts with "type(" or contains user-defined name)
+            if (index(trim(decl%type_name), "type(") == 1) then
+                var_type_kind = TDERIVED
+            else
+                ! Default to real for unknown types
+                var_type_kind = TREAL
+            end if
         end select
         
         ! Create mono type

@@ -30,6 +30,7 @@ module standardizer_declarations
     public :: standardize_declarations
     public :: handle_string_concatenation
     public :: get_string_length_from_node
+    public :: infer_type_from_binary_operation
 
 contains
 
@@ -676,6 +677,11 @@ contains
                                     if (len_trim(var_type) == 0) then
                                         var_type = handle_string_concatenation(arena, assign%value_index)
                                     end if
+                                    
+                                    ! If still no type found, try to infer from binary operation structure
+                                    if (len_trim(var_type) == 0) then
+                                        var_type = infer_type_from_binary_operation(arena, assign%value_index)
+                                    end if
                                 end if
                             end if
                         end if
@@ -795,8 +801,28 @@ contains
             var_count = var_count + 1
             if (var_count <= size(var_names)) then
                 var_names(var_count) = identifier%name
-                var_types(var_count) = var_type
-                var_declared(var_count) = .true.
+                
+                ! Use provided type, or fall back to identifier's inferred type if empty
+                if (len_trim(var_type) > 0) then
+                    var_types(var_count) = var_type
+                    var_declared(var_count) = .true.
+                else if (identifier%inferred_type%kind > 0) then
+                    ! Fall back to identifier's inferred type
+                    block
+                        type(string_result_t) :: type_result
+                        type_result = get_fortran_type_string(identifier%inferred_type)
+                        if (type_result%is_success()) then
+                            var_types(var_count) = type_result%get_value()
+                            var_declared(var_count) = .true.
+                        else
+                            ! Skip variables with unknown types
+                            var_count = var_count - 1
+                        end if
+                    end block
+                else
+                    ! Skip variables with no type information
+                    var_count = var_count - 1
+                end if
             end if
         end if
     end subroutine collect_identifier_var_with_type
@@ -943,5 +969,101 @@ contains
             end if
         end select
     end function get_string_length_from_node
+
+    ! Infer type from binary operation structure when semantic analysis failed
+    function infer_type_from_binary_operation(arena, expr_index) result(var_type)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: expr_index
+        character(len=64) :: var_type
+        
+        var_type = ""  ! Default empty result
+        
+        if (expr_index <= 0 .or. expr_index > arena%size) return
+        if (.not. allocated(arena%entries(expr_index)%node)) return
+        
+        select type (node => arena%entries(expr_index)%node)
+        type is (binary_op_node)
+            ! Check operator type and infer result type
+            if (allocated(node%operator)) then
+                select case (trim(node%operator))
+                case ("+", "-", "*", "/", "**")
+                    ! Arithmetic operators - check operand types
+                    var_type = infer_arithmetic_result_type(arena, node%left_index, node%right_index)
+                case ("//")
+                    ! String concatenation
+                    var_type = "character(len=:), allocatable"
+                case ("==", "/=", "<", "<=", ">", ">=")
+                    ! Comparison operators
+                    var_type = "logical"
+                case (".and.", ".or.", ".not.", ".eqv.", ".neqv.")
+                    ! Logical operators
+                    var_type = "logical"
+                case default
+                    ! Unknown operator - try to infer from operands
+                    var_type = infer_arithmetic_result_type(arena, node%left_index, node%right_index)
+                end select
+            end if
+        end select
+    end function infer_type_from_binary_operation
+    
+    ! Helper: Infer arithmetic result type from operands
+    function infer_arithmetic_result_type(arena, left_index, right_index) result(result_type)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: left_index, right_index
+        character(len=64) :: result_type
+        character(len=64) :: left_type, right_type
+        logical :: standardize_types
+        
+        result_type = "integer"  ! Default to integer for arithmetic
+        
+        ! Get left operand type
+        left_type = infer_operand_type(arena, left_index)
+        right_type = infer_operand_type(arena, right_index)
+        
+        ! Type promotion rules: real > integer
+        if (trim(left_type) == "real" .or. trim(right_type) == "real") then
+            ! Get type standardization setting
+            call get_standardizer_type_standardization(standardize_types)
+            if (standardize_types) then
+                result_type = "real(8)"
+            else
+                result_type = "real"
+            end if
+        else if (trim(left_type) == "integer" .and. trim(right_type) == "integer") then
+            result_type = "integer"
+        end if
+    end function infer_arithmetic_result_type
+    
+    ! Helper: Infer type of a single operand
+    function infer_operand_type(arena, operand_index) result(operand_type)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: operand_index
+        character(len=64) :: operand_type
+        logical :: standardize_types
+        
+        operand_type = "integer"  ! Default
+        
+        if (operand_index <= 0 .or. operand_index > arena%size) return
+        if (.not. allocated(arena%entries(operand_index)%node)) return
+        
+        select type (node => arena%entries(operand_index)%node)
+        type is (literal_node)
+            select case (node%literal_kind)
+            case (LITERAL_INTEGER)
+                operand_type = "integer"
+            case (LITERAL_REAL)
+                call get_standardizer_type_standardization(standardize_types)
+                if (standardize_types) then
+                    operand_type = "real(8)"
+                else
+                    operand_type = "real"
+                end if
+            case (LITERAL_STRING)
+                operand_type = "character"
+            case (LITERAL_LOGICAL)
+                operand_type = "logical"
+            end select
+        end select
+    end function infer_operand_type
 
 end module standardizer_declarations

@@ -310,6 +310,12 @@ contains
         block
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
+            
+            ! LAZY FORTRAN MODE: Disable strict mode for CLI transformation
+            ! This allows undefined variables to be auto-declared with inferred types
+            ! Required for proper variable declaration generation in standardization phase
+            ctx%strict_mode = .false.
+            
             call analyze_program(ctx, compiler_arena%ast, prog_index)
         end block
     end subroutine run_semantic_analysis_phase

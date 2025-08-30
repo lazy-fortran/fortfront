@@ -31,7 +31,8 @@ module fortfront
                        emit_fortran, &
                        transform_lazy_fortran_string, &
                        transform_lazy_fortran_string_with_format, &
-                       compilation_options_t, format_options_t
+                       compilation_options_t, format_options_t, &
+                       parse_tokens_safe, parse_result_with_index_t
     
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c
