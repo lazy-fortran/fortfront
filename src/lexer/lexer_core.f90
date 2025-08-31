@@ -87,8 +87,7 @@ contains
                 call skip_whitespace(source, pos, line_num, col_num)
                 
             case (char(10), char(13))  ! Newline
-                call handle_newline(source, pos, line_num, col_num, &
-                                   tokenize_res%tokens, tokenize_res%token_count)
+                call skip_newline(source, pos, line_num, col_num)
                 
             case ('!')  ! Comment
                 call scan_comment(source, pos, line_num, col_num, &
@@ -160,6 +159,30 @@ contains
             end if
         end do
     end subroutine skip_whitespace
+
+    ! Skip newline characters (update line/column tracking without creating tokens)
+    subroutine skip_newline(source, pos, line_num, col_num)
+        character(len=*), intent(in) :: source
+        integer, intent(inout) :: pos, line_num, col_num
+        
+        ! Handle CRLF or LF - with proper bounds checking
+        if (pos <= len(source)) then
+            if (source(pos:pos) == char(13) .and. pos + 1 <= len(source)) then
+                if (source(pos+1:pos+1) == char(10)) then
+                    pos = pos + 2
+                else
+                    pos = pos + 1
+                end if
+            else
+                pos = pos + 1
+            end if
+        else
+            pos = pos + 1
+        end if
+        
+        line_num = line_num + 1
+        col_num = 1
+    end subroutine skip_newline
 
     ! Handle newline characters
     subroutine handle_newline(source, pos, line_num, col_num, tokens, token_count)
