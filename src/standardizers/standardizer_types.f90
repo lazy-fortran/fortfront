@@ -400,6 +400,15 @@ contains
                     end if
                 end if
                 
+                ! CRITICAL FIX: Provide fallback element type if inference failed
+                if (.not. allocated(elem_type_str) .or. len_trim(elem_type_str) == 0) then
+                    elem_type_str = "integer"  ! Default fallback for array literals
+                end if
+                
+                ! DEBUG: Print what we're generating
+                ! print *, 'DEBUG get_array_var_type: elem_type_str=', elem_type_str, &
+                !          ' size=', size(node%element_indices)
+                
                 ! Check if this is an implied do loop
                 if (has_implied_do_loop(arena, node)) then
                     ! Calculate the size from the implied do loop bounds
