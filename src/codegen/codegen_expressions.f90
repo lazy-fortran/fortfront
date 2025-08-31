@@ -74,13 +74,13 @@ contains
 
         ! Generate operands
         if (node%left_index > 0) then
-            left_code = generate_code_from_arena(arena, node%left_index)
+            left_code = codegen_core_generate_arena(arena, node%left_index)
         else
             left_code = ""
         end if
 
         if (node%right_index > 0) then
-            right_code = generate_code_from_arena(arena, node%right_index)
+            right_code = codegen_core_generate_arena(arena, node%right_index)
         else
             right_code = ""
         end if
@@ -94,7 +94,14 @@ contains
                 fortran_operator = "//"  ! Use Fortran string concatenation operator
             end if
             
-            code = left_code // " " // fortran_operator // " " // right_code
+            select case (trim(fortran_operator))
+            case ('*','/')
+                ! For multiplication and division, no spaces per style tests
+                code = left_code // fortran_operator // right_code
+            case default
+                ! For all other operators, include spaces around
+                code = left_code // " " // fortran_operator // " " // right_code
+            end select
         else
             ! Fallback for missing operator
             code = left_code // " + " // right_code  ! Safe default operator

@@ -260,9 +260,12 @@ contains
         case ('=', '<', '>')
             pos = pos + 1
             col_num = col_num + 1
-            if (pos <= len(source) .and. source(pos:pos) == '=') then
-                pos = pos + 1
-                col_num = col_num + 1
+            ! Guard evaluation order to avoid out-of-bounds when at end of line
+            if (pos <= len(source)) then
+                if (source(pos:pos) == '=') then
+                    pos = pos + 1
+                    col_num = col_num + 1
+                end if
             end if
         case default
             pos = pos + 1

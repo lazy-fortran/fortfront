@@ -84,12 +84,27 @@ contains
     ! Create a new scope stack with global scope
     function create_scope_stack() result(stack)
         type(scope_stack_t) :: stack
+        integer :: i, j
 
         ! Initialize capacity and create global scope
         stack%capacity = 10
         allocate (stack%scopes(stack%capacity))
+        
+        ! CRITICAL FIX: Initialize allocated scopes to prevent segfault
+        ! Only initialize structure-level components, not massive fixed arrays
+        ! The type_env_t fixed arrays have default initializers that should work
+        do i = 1, stack%capacity
+            stack%scopes(i)%scope_type = SCOPE_GLOBAL
+            stack%scopes(i)%name = ""
+            ! env components should use default initializers (count=0, capacity=MAX_ENV_SIZE)
+            ! Fixed arrays (names, schemes) don't need explicit initialization for unused elements
+        end do
+        
         stack%depth = 1
-        stack%scopes(1) = create_scope(SCOPE_GLOBAL, "global")
+        ! Initialize first scope directly without assignment to avoid massive copy
+        stack%scopes(1)%scope_type = SCOPE_GLOBAL
+        stack%scopes(1)%name = "global"
+        ! env is already initialized by type defaults
 
     end function create_scope_stack
 
@@ -158,21 +173,6 @@ contains
         type(scope_t), intent(in) :: new_scope
         type(scope_t), allocatable :: temp_scopes(:)
         integer :: new_capacity, j
-
-        ! Defensive initialization in case stack was not properly created
-        if (.not. allocated(this%scopes) .or. this%capacity <= 0 .or. this%depth <= 0) then
-            this%capacity = 10
-            allocate (this%scopes(this%capacity))
-            ! Initialize slots with safe defaults
-            do j = 1, this%capacity
-                this%scopes(j)%scope_type = SCOPE_GLOBAL
-                this%scopes(j)%name = ""
-                this%scopes(j)%env%count = 0
-            end do
-            this%depth = 1
-            this%scopes(1)%scope_type = SCOPE_GLOBAL
-            this%scopes(1)%name = "global"
-        end if
 
         ! Grow array if needed (following CLAUDE.md safe array extension)
         if (this%depth >= this%capacity) then
@@ -278,8 +278,7 @@ contains
         type(scope_t) :: new_scope
 
         new_scope = create_scope(SCOPE_MODULE, module_name)
-        ! Call module procedure directly to avoid TBP dispatch issues
-        call stack_push_scope(this, new_scope)
+        call this%push(new_scope)
 
     end subroutine stack_enter_module
 
@@ -290,8 +289,7 @@ contains
         type(scope_t) :: new_scope
 
         new_scope = create_scope(SCOPE_FUNCTION, function_name)
-        ! Call module procedure directly to avoid TBP dispatch issues
-        call stack_push_scope(this, new_scope)
+        call this%push(new_scope)
 
     end subroutine stack_enter_function
 
@@ -302,8 +300,7 @@ contains
         type(scope_t) :: new_scope
 
         new_scope = create_scope(SCOPE_SUBROUTINE, subroutine_name)
-        ! Call module procedure directly to avoid TBP dispatch issues
-        call stack_push_scope(this, new_scope)
+        call this%push(new_scope)
 
     end subroutine stack_enter_subroutine
 
@@ -313,8 +310,7 @@ contains
         type(scope_t) :: new_scope
 
         new_scope = create_scope(SCOPE_BLOCK, "")
-        ! Call module procedure directly to avoid TBP dispatch issues
-        call stack_push_scope(this, new_scope)
+        call this%push(new_scope)
 
     end subroutine stack_enter_block
 
@@ -329,8 +325,7 @@ contains
         else
             new_scope = create_scope(SCOPE_INTERFACE, "")
         end if
-        ! Call module procedure directly to avoid TBP dispatch issues
-        call stack_push_scope(this, new_scope)
+        call this%push(new_scope)
 
     end subroutine stack_enter_interface
 
@@ -338,8 +333,7 @@ contains
     subroutine stack_leave_scope(this)
         class(scope_stack_t), intent(inout) :: this
 
-        ! Call module procedure directly to avoid TBP dispatch issues
-        call stack_pop_scope(this)
+        call this%pop()
 
     end subroutine stack_leave_scope
 
