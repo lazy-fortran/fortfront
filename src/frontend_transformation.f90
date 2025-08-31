@@ -296,7 +296,16 @@ contains
 
         ! Phase 3: Semantic Analysis
         call run_semantic_analysis_phase(compiler_arena, prog_index, error_msg)
-        if (allocated(error_msg) .and. len(error_msg) > 0) return
+        if (allocated(error_msg) .and. len(error_msg) > 0) then
+            ! CRITICAL FIX for Issue #1120: Generate output even with semantic errors
+            ! Continue to code generation to provide useful output to user
+            call run_code_generation_phase(compiler_arena, prog_index, output)
+            ! If code generation fails, provide minimal program
+            if (.not. allocated(output) .or. len(output) == 0) then
+                call create_minimal_program(output)
+            end if
+            return  ! Error message already set, output generated
+        end if
 
         ! Phase 4: Standardization
         call run_standardization_phase(compiler_arena, prog_index)
