@@ -2,7 +2,7 @@ program test_standardizer_debug
     use frontend, only: lex_file, parse_tokens
     use standardizer, only: standardize_ast
     use ast_core
-    use codegen_core, only: codegen_core_generate_arena
+    use codegen_core, only: codegen_core_generate_arena, initialize_codegen
     use lexer_core, only: token_t
     implicit none
     
@@ -18,6 +18,9 @@ program test_standardizer_debug
     character(len=1) :: ch
     
     print *, '=== Standardizer Debug Test ==='
+    
+    ! Initialize codegen system for arena operations
+    call initialize_codegen()
     
     ! Create test input
     input_file = 'test_slice_debug.lf'

@@ -3,11 +3,14 @@ program test_range_subscript_node
     use ast_nodes_core, only: range_subscript_node, create_range_subscript
     use ast_factory, only: push_range_subscript, push_identifier
     use json_module
-    use codegen_core, only: codegen_core_generate_arena
+    use codegen_core, only: codegen_core_generate_arena, initialize_codegen
     implicit none
     
     logical :: all_passed
     all_passed = .true.
+    
+    ! Initialize codegen system for arena operations
+    call initialize_codegen()
     
     call test_range_subscript_creation(all_passed)
     call test_range_subscript_json(all_passed)
