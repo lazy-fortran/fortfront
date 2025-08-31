@@ -1,0 +1,4 @@
+empty_arr = []
+allocate(empty_arr(3))
+empty_arr = [1, 2, 3]
+print *, "Allocated:", empty_arr
