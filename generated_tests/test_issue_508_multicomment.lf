@@ -1,0 +1,24 @@
+! Top comment
+module m
+! Module comment
+contains
+! Before subroutine
+subroutine foo()
+! Inside subroutine
+print*,"foo"
+end subroutine
+! Between subroutines
+subroutine bar()
+print*,"bar"
+end subroutine bar
+! Before end module
+end module
+! After module
+
+! Before use
+use m
+! Before calls
+call foo()
+call bar()
+! Before end
+end

@@ -1,0 +1,8 @@
+int_arr = [1, 2, 3, 4, 5]
+real_arr = [1.5, 2.5, 3.5]
+char_arr = ["abc", "def", "ghi"]
+bool_arr = [.true., .false., .true., .true.]
+print *, "Int sum:", sum(int_arr)
+print *, "Real sum:", sum(real_arr)
+print *, "Char array:", char_arr
+print *, "Bool count true:", count(bool_arr)
