@@ -1,5 +1,5 @@
 program test_codegen_core_direct
-    use codegen_core, only: codegen_core_generate_arena, generate_code_polymorphic
+    use codegen_core, only: codegen_core_generate_arena, generate_code_polymorphic, initialize_codegen
     use ast_core, only: ast_arena_t, create_ast_arena, create_identifier, &
                         create_literal, create_program, identifier_node, &
                         literal_node, LITERAL_INTEGER, LITERAL_STRING
@@ -17,6 +17,9 @@ program test_codegen_core_direct
 
     print *, "=== Codegen Core Direct Function Tests ==="
     print *, ""
+    
+    ! Initialize codegen system for arena operations
+    call initialize_codegen()
 
     ! Test 1: Generate code for identifier
     call test_start("Generate identifier code")
