@@ -134,25 +134,25 @@ contains
         
         select case (kind)
         case (TK_EOF)
-            name = "EOF"
+            name = "eof"
         case (TK_IDENTIFIER)
-            name = "IDENTIFIER"
+            name = "identifier"
         case (TK_NUMBER)
-            name = "NUMBER"
+            name = "number"
         case (TK_STRING)
-            name = "STRING"
+            name = "string"
         case (TK_OPERATOR)
-            name = "OPERATOR"
+            name = "operator"
         case (TK_KEYWORD)
-            name = "KEYWORD"
+            name = "keyword"
         case (TK_NEWLINE)
-            name = "NEWLINE"
+            name = "newline"
         case (TK_COMMENT)
-            name = "COMMENT"
+            name = "comment"
         case (TK_WHITESPACE)
-            name = "WHITESPACE"
+            name = "whitespace"
         case default
-            name = "UNKNOWN"
+            name = "unknown"
         end select
     end function token_type_name
 
