@@ -119,8 +119,20 @@ contains
             ! No units found - create empty main program
             prog_index = push_program(arena, "main", [integer::], 1, 1)
         else if (unit_count == 1) then
-            ! Single unit
-            prog_index = unit_indices(1)
+            ! Single unit - check if it's already a program node
+            if (allocated(arena%entries(unit_indices(1))%node)) then
+                select type (node => arena%entries(unit_indices(1))%node)
+                type is (program_node)
+                    ! Already a program node
+                    prog_index = unit_indices(1)
+                class default
+                    ! Wrap in program node for consistent API
+                    prog_index = push_program(arena, "main", unit_indices(1:1), 1, 1)
+                end select
+            else
+                ! Safety fallback
+                prog_index = push_program(arena, "main", [integer::], 1, 1)
+            end if
         else
             ! Multiple units
             call handle_multiple_program_units(arena, unit_indices, prog_index, error_msg)

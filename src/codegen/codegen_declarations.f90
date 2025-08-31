@@ -552,6 +552,9 @@ contains
 
         ! Program header
         code = "program " // node%name // new_line('A')
+        
+        ! Always add implicit none for program units
+        code = code // "    implicit none" // new_line('A')
 
         ! Generate body with proper grouping
         if (allocated(node%body_indices)) then

@@ -181,8 +181,20 @@ contains
             ! No valid units - create empty main program
             prog_index = push_program(arena, "main", [integer::], 1, 1)
         else if (valid_count == 1) then
-            ! Single unit
-            prog_index = valid_units(1)
+            ! Single unit - check if it's already a program node
+            if (allocated(arena%entries(valid_units(1))%node)) then
+                select type (node => arena%entries(valid_units(1))%node)
+                type is (program_node)
+                    ! Already a program node
+                    prog_index = valid_units(1)
+                class default
+                    ! Wrap in program node for consistent API
+                    prog_index = push_program(arena, "main", valid_units(1:1), 1, 1)
+                end select
+            else
+                ! Safety fallback  
+                prog_index = push_program(arena, "main", [integer::], 1, 1)
+            end if
         else
             ! Multiple units - create container
             prog_index = push_program(arena, "__MULTI_UNIT__", valid_units(1:valid_count), 1, 1)
