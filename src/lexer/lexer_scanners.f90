@@ -279,13 +279,14 @@ contains
         end if
     end subroutine scan_operator
 
-    ! Scan logical token (.not., .and., .or., etc.)
+    ! Scan logical token (.not., .and., .or., .true., .false., etc.)
     subroutine scan_logical_token(source, pos, line_num, col_num, tokens, token_count)
         character(len=*), intent(in) :: source
         integer, intent(inout) :: pos, line_num, col_num, token_count
         type(token_t), intent(inout) :: tokens(:)
         integer :: start_pos, start_col, end_pos
         character :: c
+        character(len=:), allocatable :: token_text
         
         start_pos = pos
         start_col = col_num
@@ -309,11 +310,18 @@ contains
             end if
         end do
         
-        ! Create operator token
+        ! Get the token text
+        token_text = source(start_pos:pos-1)
+        
+        ! Create token - check if it's a logical constant or logical operator
         if (token_count < size(tokens)) then
             token_count = token_count + 1
-            tokens(token_count)%kind = TK_OPERATOR
-            tokens(token_count)%text = source(start_pos:pos-1)
+            if (is_logical_constant(token_text)) then
+                tokens(token_count)%kind = TK_KEYWORD
+            else
+                tokens(token_count)%kind = TK_OPERATOR
+            end if
+            tokens(token_count)%text = token_text
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
         end if
@@ -409,18 +417,34 @@ contains
         lower_word = to_lower(word)
         
         select case (trim(lower_word))
-        case ('program', 'end', 'function', 'subroutine', 'if', 'then', 'else', &
+        case ('program', 'end', 'endif', 'function', 'subroutine', 'if', 'then', 'else', &
               'do', 'while', 'for', 'integer', 'real', 'logical', 'character', &
               'complex', 'double', 'precision', &
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
               'intent', 'in', 'out', 'inout', 'use', 'module', 'contains', &
               'public', 'private', 'type', 'class', 'extends', 'abstract', &
-              'procedure', 'interface', 'generic', 'operator', 'assignment')
+              'procedure', 'interface', 'generic', 'operator', 'assignment', 'print', 'read', 'write', 'call')
             keyword = .true.
         case default
             keyword = .false.
         end select
     end function is_keyword
+
+    ! Helper function to check if a logical token is a constant (.true./.false.)
+    function is_logical_constant(token_text) result(is_constant)
+        character(len=*), intent(in) :: token_text
+        logical :: is_constant
+        character(len=len(token_text)) :: lower_text
+        
+        lower_text = to_lower(token_text)
+        
+        select case (trim(lower_text))
+        case ('.true.', '.false.')
+            is_constant = .true.
+        case default
+            is_constant = .false.
+        end select
+    end function is_logical_constant
 
     ! Helper function to convert string to lowercase
     function to_lower(str) result(lower_str)
