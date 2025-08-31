@@ -151,6 +151,23 @@ contains
         end if
     end function generate_code_call_or_subscript
 
+    ! Helper function to generate comma-separated element code from indices
+    function generate_elements_code_from_indices(arena, element_indices) result(elements_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: element_indices(:)
+        character(len=:), allocatable :: elements_code
+        integer :: i
+        
+        elements_code = ""
+        do i = 1, size(element_indices)
+            if (i > 1) elements_code = elements_code // ", "
+            if (element_indices(i) > 0) then
+                elements_code = elements_code // &
+                    generate_code_from_arena(arena, element_indices(i))
+            end if
+        end do
+    end function generate_elements_code_from_indices
+
     ! Generate code for array literals
     function generate_code_array_literal(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -158,20 +175,12 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: elements_code
-        integer :: i
         
         ! Handle different syntax styles
         if (allocated(node%syntax_style) .and. node%syntax_style == "modern") then
             ! Modern syntax: [1, 2, 3]
             if (allocated(node%element_indices)) then
-                elements_code = ""
-                do i = 1, size(node%element_indices)
-                    if (i > 1) elements_code = elements_code // ", "
-                    if (node%element_indices(i) > 0) then
-                        elements_code = elements_code // &
-                            generate_code_from_arena(arena, node%element_indices(i))
-                    end if
-                end do
+                elements_code = generate_elements_code_from_indices(arena, node%element_indices)
                 code = "[" // elements_code // "]"
             else
                 code = "[]"  ! Empty array
@@ -179,14 +188,7 @@ contains
         else
             ! Legacy syntax: (/ 1, 2, 3 /)
             if (allocated(node%element_indices)) then
-                elements_code = ""
-                do i = 1, size(node%element_indices)
-                    if (i > 1) elements_code = elements_code // ", "
-                    if (node%element_indices(i) > 0) then
-                        elements_code = elements_code // &
-                            generate_code_from_arena(arena, node%element_indices(i))
-                    end if
-                end do
+                elements_code = generate_elements_code_from_indices(arena, node%element_indices)
                 code = "(/ " // elements_code // " /)"
             else
                 code = "(/ /)"  ! Empty array
