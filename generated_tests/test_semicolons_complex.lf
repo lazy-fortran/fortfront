@@ -1,0 +1,2 @@
+integer :: i; real :: x; i = 42; x = 3.14
+print *, i; print *, x

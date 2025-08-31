@@ -1,0 +1,2 @@
+integer :: matrix(5,5)
+print *, matrix(2:4, 1:3)

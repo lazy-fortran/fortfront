@@ -1,0 +1,7 @@
+program test
+    integer :: arr(5)
+    arr = [1, 2, 3, 4, 5]
+    print *, sum(arr)
+    print *, maxval(arr)
+    print *, size(arr)
+end program

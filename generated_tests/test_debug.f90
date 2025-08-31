@@ -1,0 +1,1 @@
+program test_debug; use fortfront; character(len=:), allocatable :: source, code; source = 'real function compute(x, y)' // new_line('A') // 'real :: x, y' // new_line('A') // 'compute = x * x + y * y' // new_line('A') // 'end function compute'; call transform_source(source, code); print *, 'GENERATED:'; print *, code; end program test_debug

@@ -1,0 +1,3 @@
+arr = [10, 20, 30]
+print *, "Sum:", sum(arr)
+print *, "Size:", size(arr)

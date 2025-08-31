@@ -1,0 +1,4 @@
+integer :: arr(5), lower(2), upper(3)
+arr = [10, 20, 30, 40, 50]
+lower = arr(:2)
+upper = arr(3:)

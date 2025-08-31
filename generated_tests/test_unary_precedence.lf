@@ -1,0 +1,5 @@
+program test_unary
+    integer :: result
+    result = -2 ** 2
+    print *, result
+end program test_unary

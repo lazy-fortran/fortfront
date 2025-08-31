@@ -128,7 +128,11 @@ contains
 
         select type (ast => arena%entries(root_index)%node)
         type is (program_node)
-            ctx%strict_mode = check_implicit_none(arena, ast)
+            ! Issue #1076 FIX: Only check implicit none if strict mode is not already explicitly enabled
+            ! When strict mode is explicitly set (e.g., by frontend for Issue #495), don't override it
+            if (.not. ctx%strict_mode) then
+                ctx%strict_mode = check_implicit_none(arena, ast)
+            end if
             call analyze_program_node_arena(ctx, arena, ast, root_index)
         type is (module_node)
             return  ! Skip module analysis
