@@ -29,6 +29,9 @@ contains
         do i = 1, size(param_indices)
             if (param_indices(i) <= 0 .or. param_indices(i) > arena%size) cycle
             
+            ! CRITICAL FIX for Issue #1121: Check if node is allocated before accessing
+            if (.not. allocated(arena%entries(param_indices(i))%node)) cycle
+            
             select type (param_node => arena%entries(param_indices(i))%node)
             type is (parameter_declaration_node)
                 param_name = param_node%name
@@ -36,6 +39,9 @@ contains
                 ! Look for corresponding declaration in body
                 do j = 1, size(body_indices)
                     if (body_indices(j) <= 0 .or. body_indices(j) > arena%size) cycle
+                    
+                    ! CRITICAL FIX for Issue #1121: Check if node is allocated before accessing
+                    if (.not. allocated(arena%entries(body_indices(j))%node)) cycle
                     
                     select type (body_node => arena%entries(body_indices(j))%node)
                     type is (declaration_node)
