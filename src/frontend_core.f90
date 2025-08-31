@@ -394,15 +394,52 @@ contains
             
             call analyze_program(ctx, arena, prog_index)
             
-            ! Check for semantic errors and return error message if found
+            ! Check for semantic errors and provide detailed error messages
             if (has_semantic_errors(ctx)) then
-                error_msg = "Semantic errors detected: undefined variables or type mismatches"
+                error_msg = get_detailed_semantic_errors(ctx)
                 return
             end if
         end block
         
         error_msg = ""
     end subroutine run_semantic_analysis
+
+    ! Helper function to get detailed semantic error messages
+    function get_detailed_semantic_errors(ctx) result(error_msg)
+        type(semantic_context_t), intent(in) :: ctx
+        character(len=:), allocatable :: error_msg
+        integer :: i, total_errors
+        character(len=1000) :: temp_msg
+        
+        total_errors = ctx%errors%count
+        if (total_errors == 0) then
+            error_msg = "No semantic errors found"
+            return
+        end if
+        
+        ! Build comprehensive error message
+        temp_msg = ""
+        write(temp_msg, '(A,I0,A)') "Found ", total_errors, " semantic error(s):"
+        error_msg = trim(temp_msg)
+        
+        ! Add first few error messages for details
+        do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
+            if (i <= size(ctx%errors%errors)) then
+                if (allocated(ctx%errors%errors(i)%error_message)) then
+                    error_msg = error_msg // new_line('a') // "  - " // ctx%errors%errors(i)%error_message
+                    if (allocated(ctx%errors%errors(i)%suggestion)) then
+                        error_msg = error_msg // new_line('a') // "    Suggestion: " // ctx%errors%errors(i)%suggestion
+                    end if
+                end if
+            end if
+        end do
+        
+        ! Add summary if there are more errors
+        if (total_errors > 3) then
+            write(temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
+            error_msg = error_msg // new_line('a') // trim(temp_msg)
+        end if
+    end function get_detailed_semantic_errors
 
     subroutine run_compilation_pipeline_from_phase2(tokens, compiler_arena, prog_index, &
                                                     error_msg)
