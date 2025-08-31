@@ -155,12 +155,13 @@ contains
         character(len=:), allocatable, intent(out) :: output
         type(compiler_arena_t), intent(inout) :: compiler_arena
 
-        output = "! COMPILATION FAILED" // new_line('A') // &
-                "! Error: " // error_msg // new_line('A') // &
-                "program main" // new_line('A') // &
+        ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
+        ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
+        output = "program main" // new_line('A') // &
                 "    implicit none" // new_line('A') // &
                 "    ! Original code could not be parsed" // new_line('A') // &
                 "end program main" // new_line('A')
+        ! error_msg already contains the error details for stderr
         call destroy_compiler_arena(compiler_arena)
     end subroutine handle_lexical_error
 
@@ -174,15 +175,13 @@ contains
 
         call validate_basic_syntax(input, tokens, error_msg)
         if (error_msg /= "") then
-            ! Issue #256 requirement #4: No silent fallback to empty programs
-            ! Issue #256 requirement #5: Meaningful output for invalid syntax
-            ! Always preserve the error message for reporting and include it in output
-            output = "! COMPILATION FAILED" // new_line('A') // &
-                    "! Error: " // error_msg // new_line('A') // &
-                    "program main" // new_line('A') // &
+            ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
+            ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
+            output = "program main" // new_line('A') // &
                     "    implicit none" // new_line('A') // &
                     "    ! Original code could not be parsed" // new_line('A') // &
                     "end program main" // new_line('A')
+            ! error_msg already contains the error details for stderr
             call destroy_compiler_arena(compiler_arena)
         end if
     end subroutine validate_syntax_with_reporting
@@ -235,16 +234,11 @@ contains
         character(len=:), allocatable, intent(inout) :: error_msg
         character(len=:), allocatable, intent(out) :: output
 
-        ! Enhanced error reporting for parsing failures (Issue #256 requirements)
+        ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
+        ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
         if (prog_index > 0) then
             call emit_fortran(compiler_arena%ast, prog_index, output)
-            ! Append comprehensive error information to output
-            output = output // new_line('A') // &
-                    "! COMPILATION FAILED - PARSING ERROR" // new_line('A') // &
-                    "! " // error_msg // new_line('A') // &
-                    "!" // new_line('A') // &
-                    "! fortfront encountered errors while parsing the code structure." // new_line('A') // &
-                    "! The partial output above may be incomplete or incorrect." // new_line('A')
+            ! Don't append error messages to output - they go to stderr via error_msg
         else
             call create_parsing_error_program(error_msg, output)
         end if
@@ -256,17 +250,13 @@ contains
         character(len=*), intent(in) :: error_msg
         character(len=:), allocatable, intent(out) :: output
 
-        ! No valid output, provide meaningful error information
-        output = "! COMPILATION FAILED - PARSING ERROR" // new_line('A') // &
-                "! " // error_msg // new_line('A') // &
-                "!" // new_line('A') // &
-                "! fortfront could not understand the structure of your code." // new_line('A') // &
-                "! Please check for missing keywords, unmatched parentheses," // new_line('A') // &
-                "! or other structural issues." // new_line('A') // &
-                "program main" // new_line('A') // &
+        ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
+        ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
+        output = "program main" // new_line('A') // &
                 "    implicit none" // new_line('A') // &
-                "    ! ERROR: Original code could not be parsed" // new_line('A') // &
+                "    ! Original code could not be parsed" // new_line('A') // &
                 "end program main" // new_line('A')
+        ! error_msg parameter already contains the error details for stderr
     end subroutine create_parsing_error_program
 
     ! Handle invalid program index
@@ -276,12 +266,13 @@ contains
         type(compiler_arena_t), intent(inout) :: compiler_arena
 
         error_msg = "Parsing succeeded but no valid program unit was created"
-        output = "! COMPILATION FAILED" // new_line('A') // &
-                "! Error: " // error_msg // new_line('A') // &
-                "program main" // new_line('A') // &
+        ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
+        ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
+        output = "program main" // new_line('A') // &
                 "    implicit none" // new_line('A') // &
                 "    ! Original code could not be structured as a program" // new_line('A') // &
                 "end program main" // new_line('A')
+        ! error_msg already contains the error details for stderr
         call destroy_compiler_arena(compiler_arena)
     end subroutine handle_invalid_program_index
 

@@ -109,20 +109,26 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         integer :: start_pos, start_col
         character :: quote_char, c
-        logical :: escaped
+        logical :: escaped, found_closing_quote
         
         start_pos = pos
         start_col = col_num
         quote_char = source(pos:pos)
         escaped = .false.
+        found_closing_quote = .false.
         
         ! Skip opening quote
         pos = pos + 1
         col_num = col_num + 1
         
-        ! Scan until closing quote
+        ! Scan until closing quote, end of line, or end of file
         do while (pos <= len(source))
             c = source(pos:pos)
+            
+            ! Stop at newlines to prevent multiline string literals
+            if (c == char(10) .or. c == char(13)) then
+                exit
+            end if
             
             if (escaped) then
                 escaped = .false.
@@ -131,18 +137,31 @@ contains
             else if (c == quote_char) then
                 pos = pos + 1
                 col_num = col_num + 1
+                found_closing_quote = .true.
                 exit
             end if
             
             pos = pos + 1
             col_num = col_num + 1
+            
+            ! Check if we've reached the end - if so, we have an unclosed string
+            if (pos > len(source)) then
+                exit
+            end if
         end do
         
-        ! Create string token
+        ! Create string token - ensure it's always valid Fortran
         if (token_count < size(tokens)) then
             token_count = token_count + 1
             tokens(token_count)%kind = TK_STRING
-            tokens(token_count)%text = source(start_pos:pos-1)
+            if (found_closing_quote) then
+                ! Complete string token
+                tokens(token_count)%text = source(start_pos:pos-1)
+            else
+                ! Unclosed string - create proper closed string to prevent invalid multiline Fortran
+                ! Extract content until current position and add closing quote
+                tokens(token_count)%text = source(start_pos:pos-1) // quote_char
+            end if
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
         end if

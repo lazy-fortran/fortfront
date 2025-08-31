@@ -705,6 +705,12 @@ contains
                             end if
                         end if
                         
+                        ! CRITICAL FIX for Issue #1060: Ensure variable always gets a type
+                        ! If all type inference failed, provide default type for mathematical expressions
+                        if (len_trim(var_type) == 0) then
+                            var_type = "real"  ! Default for mathematical expressions
+                        end if
+                        
                         ! Now collect the variable with the determined type
                         call collect_identifier_var_with_type(target, var_type, &
                             var_names, var_types, var_declared, var_count, &
@@ -769,8 +775,10 @@ contains
                         end if
                     end block
                 else
-                    ! Skip variables with no type information instead of defaulting
-                    var_count = var_count - 1
+                    ! CRITICAL FIX for Issue #1060: Don't skip variables with no type information
+                    ! Instead, provide a reasonable default type for mathematical expressions
+                    var_types(var_count) = "real"
+                    var_declared(var_count) = .true.
                 end if
             end if
         end if
@@ -839,8 +847,11 @@ contains
                         end if
                     end block
                 else
-                    ! Skip variables with no type information
-                    var_count = var_count - 1
+                    ! CRITICAL FIX for Issue #1060: Don't skip variables with no type information
+                    ! Instead, infer a reasonable default type based on context
+                    ! For assignments without explicit type information, default to real for math expressions
+                    var_types(var_count) = "real"
+                    var_declared(var_count) = .true.
                 end if
             end if
         end if
