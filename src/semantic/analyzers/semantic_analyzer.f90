@@ -39,7 +39,7 @@ module semantic_analyzer
     use error_handling, only: error_collection_t, create_error_collection, result_t, &
                                create_error_result, ERROR_SEMANTIC
     use semantic_context_types, only: semantic_context_base_t
-    use semantic_undefined_variable_checker, only: check_undefined_variables_internal
+    use semantic_undefined_variable_checker, only: check_undefined_variables_generic
     implicit none
     private
 
@@ -154,7 +154,7 @@ contains
                 end if
             end do
         end if
-        call check_undefined_variables_internal(ctx, arena, prog_index)
+        call check_undefined_variables_generic(ctx%scopes, ctx%errors, ctx%strict_mode, arena, prog_index)
     end subroutine analyze_program_node_arena
 
     ! Infer type and store in AST node
