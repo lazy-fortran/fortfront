@@ -7,6 +7,8 @@ module cfg_builder_control_handlers
     use cfg_builder_types
     use cfg_builder_helpers
     use cfg_builder_utilities
+    use error_handling, only: result_t, create_error_result, success_result, &
+                              ERROR_SEMANTIC
     implicit none
     private
 
@@ -22,11 +24,12 @@ module cfg_builder_control_handlers
 contains
 
     ! Process if statement
-    subroutine process_if_statement(builder, arena, node_index)
+    function process_if_statement(builder, arena, node_index) result(process_result)
         use ast_nodes_control, only: elseif_wrapper
         type(cfg_builder_t), intent(inout) :: builder
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
+        type(result_t) :: process_result
         
         integer :: condition_index, then_block_id, merge_block_id
         integer :: current_block, else_block_id, elseif_block_id
@@ -34,10 +37,28 @@ contains
         type(elseif_wrapper), allocatable :: elseif_blocks(:)
         integer :: i, j
         
-        ! Initialize variables
+        ! Initialize result and variables
+        process_result = success_result()
         condition_index = 0
         else_block_id = 0
         elseif_block_id = 0
+        
+        ! Validate input parameters
+        if (node_index <= 0 .or. node_index > arena%size) then
+            process_result = create_error_result( &
+                "Invalid node index in process_if_statement", &
+                ERROR_SEMANTIC, "cfg_builder", &
+                "node_index out of bounds", "Check node index validity")
+            return
+        end if
+        
+        if (.not. allocated(arena%entries(node_index)%node)) then
+            process_result = create_error_result( &
+                "Unallocated node in process_if_statement", &
+                ERROR_SEMANTIC, "cfg_builder", &
+                "node not allocated in arena", "Check arena integrity")
+            return
+        end if
         
         ! Flush current buffer
         call flush_statement_buffer(builder)
@@ -60,7 +81,12 @@ contains
                 else_indices = node%else_body_indices
             end if
         class default
-            ! Should not happen if node_type was checked correctly
+            ! Wrong node type - return error instead of silent failure
+            process_result = create_error_result( &
+                "Wrong node type in process_if_statement", &
+                ERROR_SEMANTIC, "cfg_builder", &
+                "expected if_node but got " // arena%entries(node_index)%node_type, &
+                "Ensure node type is checked before calling")
             return
         end select
         
@@ -87,7 +113,8 @@ contains
                     builder%current_block_id = then_block_id
                     if (allocated(then_indices) .and. size(then_indices) > 0) then
                         do i = 1, size(then_indices)
-                            call process_node(builder, arena, then_indices(i))
+                            process_result = process_node(builder, arena, then_indices(i))
+                            if (process_result%is_failure()) return
                         end do
                     end if
                     call flush_statement_buffer(builder)
@@ -102,7 +129,8 @@ contains
                         ! Don't connect it to entry - it's unreachable
                         builder%current_block_id = else_block_id
                         do i = 1, size(else_indices)
-                            call process_node(builder, arena, else_indices(i))
+                            process_result = process_node(builder, arena, else_indices(i))
+                            if (process_result%is_failure()) return
                         end do
                         call flush_statement_buffer(builder)
                     end if
@@ -117,7 +145,8 @@ contains
                         ! Process else branch
                         builder%current_block_id = else_block_id
                         do i = 1, size(else_indices)
-                            call process_node(builder, arena, else_indices(i))
+                            process_result = process_node(builder, arena, else_indices(i))
+                            if (process_result%is_failure()) return
                         end do
                         call flush_statement_buffer(builder)
                         if (builder%current_block_id > 0) then
@@ -134,7 +163,8 @@ contains
                     builder%current_block_id = then_block_id
                     if (allocated(then_indices) .and. size(then_indices) > 0) then
                         do i = 1, size(then_indices)
-                            call process_node(builder, arena, then_indices(i))
+                            process_result = process_node(builder, arena, then_indices(i))
+                            if (process_result%is_failure()) return
                         end do
                     end if
                     call flush_statement_buffer(builder)
@@ -163,7 +193,8 @@ contains
         builder%current_block_id = then_block_id
         if (allocated(then_indices) .and. size(then_indices) > 0) then
             do i = 1, size(then_indices)
-                call process_node(builder, arena, then_indices(i))
+                process_result = process_node(builder, arena, then_indices(i))
+                if (process_result%is_failure()) return
             end do
         end if
         call flush_statement_buffer(builder)
@@ -198,7 +229,8 @@ contains
                 builder%current_block_id = then_block_id
                 if (allocated(elseif_blocks(j)%body_indices)) then
                     do i = 1, size(elseif_blocks(j)%body_indices)
-                        call process_node(builder, arena, elseif_blocks(j)%body_indices(i))
+                        process_result = process_node(builder, arena, elseif_blocks(j)%body_indices(i))
+                        if (process_result%is_failure()) return
                     end do
                 end if
                 call flush_statement_buffer(builder)
@@ -244,7 +276,8 @@ contains
         if (allocated(else_indices) .and. size(else_indices) > 0 .and. else_block_id > 0) then
             builder%current_block_id = else_block_id
             do i = 1, size(else_indices)
-                call process_node(builder, arena, else_indices(i))
+                process_result = process_node(builder, arena, else_indices(i))
+                if (process_result%is_failure()) return
             end do
             call flush_statement_buffer(builder)
             ! Only connect to merge if this branch doesn't end with a terminating statement
@@ -256,18 +289,42 @@ contains
         
         ! Continue from merge block
         builder%current_block_id = merge_block_id
-    end subroutine process_if_statement
+        
+        ! Return success if we get here
+        process_result = success_result()
+    end function process_if_statement
 
     ! Process do loop
-    subroutine process_do_loop(builder, arena, node_index)
+    function process_do_loop(builder, arena, node_index) result(process_result)
         type(cfg_builder_t), intent(inout) :: builder
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
+        type(result_t) :: process_result
         
         integer :: loop_header_id, loop_body_id, loop_exit_id
         integer :: current_block
         integer, allocatable :: body_indices(:)
         integer :: i
+        
+        ! Initialize result
+        process_result = success_result()
+        
+        ! Validate input parameters
+        if (node_index <= 0 .or. node_index > arena%size) then
+            process_result = create_error_result( &
+                "Invalid node index in process_do_loop", &
+                ERROR_SEMANTIC, "cfg_builder", &
+                "node_index out of bounds", "Check node index validity")
+            return
+        end if
+        
+        if (.not. allocated(arena%entries(node_index)%node)) then
+            process_result = create_error_result( &
+                "Unallocated node in process_do_loop", &
+                ERROR_SEMANTIC, "cfg_builder", &
+                "node not allocated in arena", "Check arena integrity")
+            return
+        end if
         
         ! Flush current buffer
         call flush_statement_buffer(builder)
@@ -281,7 +338,13 @@ contains
                 body_indices = node%body_indices
             end if
         class default
-            ! Should not happen if node_type was checked correctly
+            ! Wrong node type - return error instead of silent failure
+            process_result = create_error_result( &
+                "Wrong node type in process_do_loop", &
+                ERROR_SEMANTIC, "cfg_builder", &
+                "expected do_loop_node but got " // arena%entries(node_index)%node_type, &
+                "Ensure node type is checked before calling")
+            return
         end select
         
         ! Create blocks
@@ -303,7 +366,8 @@ contains
         builder%current_block_id = loop_body_id
         if (allocated(body_indices)) then
             do i = 1, size(body_indices)
-                call process_node(builder, arena, body_indices(i))
+                process_result = process_node(builder, arena, body_indices(i))
+                if (process_result%is_failure()) return
             end do
         end if
         call flush_statement_buffer(builder)
@@ -316,17 +380,21 @@ contains
         
         ! Continue from loop exit
         builder%current_block_id = loop_exit_id
-    end subroutine process_do_loop
+        
+        ! Return success
+        process_result = success_result()
+    end function process_do_loop
 
     ! Process do while loop
-    subroutine process_do_while(builder, arena, node_index)
+    function process_do_while(builder, arena, node_index) result(process_result)
         type(cfg_builder_t), intent(inout) :: builder
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
+        type(result_t) :: process_result
         
         ! Similar to do loop but with condition at the beginning
-        call process_do_loop(builder, arena, node_index)
-    end subroutine process_do_while
+        process_result = process_do_loop(builder, arena, node_index)
+    end function process_do_while
 
     ! Process select case
     subroutine process_select_case(builder, arena, node_index)
@@ -520,15 +588,33 @@ contains
     end subroutine process_error_stop
 
     ! Process an AST node - main dispatch routine
-    recursive subroutine process_node(builder, arena, node_index)
+    recursive function process_node(builder, arena, node_index) result(process_result)
         type(cfg_builder_t), intent(inout) :: builder
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
+        type(result_t) :: process_result
         
         character(len=:), allocatable :: node_type
         
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
+        ! Initialize result
+        process_result = success_result()
+        
+        ! Validate input parameters  
+        if (node_index <= 0 .or. node_index > arena%size) then
+            process_result = create_error_result( &
+                "Invalid node index in process_node", &
+                ERROR_SEMANTIC, "cfg_builder", &
+                "node_index out of bounds", "Check node index validity")
+            return
+        end if
+        
+        if (.not. allocated(arena%entries(node_index)%node)) then
+            process_result = create_error_result( &
+                "Unallocated node in process_node", &
+                ERROR_SEMANTIC, "cfg_builder", &
+                "node not allocated in arena", "Check arena integrity")  
+            return
+        end if
         
         node_type = arena%entries(node_index)%node_type
         
@@ -537,13 +623,16 @@ contains
             call process_procedure(builder, arena, node_index)
             
         case ("if_statement", "if_node")
-            call process_if_statement(builder, arena, node_index)
+            process_result = process_if_statement(builder, arena, node_index)
+            if (process_result%is_failure()) return
             
         case ("do_loop", "do_loop_node")
-            call process_do_loop(builder, arena, node_index)
+            process_result = process_do_loop(builder, arena, node_index)
+            if (process_result%is_failure()) return
             
         case ("do_while", "do_while_node")
-            call process_do_while(builder, arena, node_index)
+            process_result = process_do_while(builder, arena, node_index)
+            if (process_result%is_failure()) return
             
         case ("select_case", "select_case_node")
             call process_select_case(builder, arena, node_index)
@@ -595,7 +684,10 @@ contains
             ! For other nodes, add to current block
             call add_statement_to_buffer(builder, node_index)
         end select
-    end subroutine process_node
+        
+        ! Return success if we get here
+        process_result = success_result()
+    end function process_node
 
     ! Process a procedure (program, function, subroutine)
     subroutine process_procedure(builder, arena, node_index)
@@ -605,6 +697,7 @@ contains
         
         integer, allocatable :: body_indices(:)
         integer :: i, exit_block_id
+        type(result_t) :: process_result
         
         ! Get body statements
         select case (arena%entries(node_index)%node_type)
@@ -643,7 +736,8 @@ contains
         ! Process body statements
         if (allocated(body_indices)) then
             do i = 1, size(body_indices)
-                call process_node(builder, arena, body_indices(i))
+                process_result = process_node(builder, arena, body_indices(i))
+                if (process_result%is_failure()) return
             end do
         end if
         
