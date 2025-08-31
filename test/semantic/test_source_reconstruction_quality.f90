@@ -186,7 +186,11 @@ program test_source_reconstruction_quality
         arena = create_ast_arena()
         
         ! Try to reconstruct with invalid index (arena is empty)
-        result = dispatcher%reconstruct_node(context, arena, 999)
+        block
+            type(source_location_t) :: location
+            location = source_location_t(line=1, column=1, start_char=1, end_char=5)
+            result = dispatcher%reconstruct_node(context, location, 999)
+        end block
         
         if (result == "<invalid_index>") then
             call test_pass()
@@ -216,7 +220,11 @@ program test_source_reconstruction_quality
         arena%capacity = 10
         
         ! Try to reconstruct with unallocated node
-        result = dispatcher%reconstruct_node(context, arena, 1)
+        block
+            type(source_location_t) :: location
+            location = source_location_t(line=1, column=1, start_char=1, end_char=5)
+            result = dispatcher%reconstruct_node(context, location, 1)
+        end block
         
         if (result == "<unallocated_node>") then
             call test_pass()
@@ -237,7 +245,7 @@ program test_source_reconstruction_quality
         ! Don't initialize context - should handle gracefully
         location = source_location_t(line=1, column=1, start_char=1, end_char=5)
         
-        result = context%extract_range(location)
+        result = context%extract_range(location%start_char, location%end_char)
         
         if (result == "") then
             call test_pass()
@@ -281,7 +289,7 @@ program test_source_reconstruction_quality
         ! Invalid range (end before start)
         location = source_location_t(line=1, column=1, start_char=5, end_char=3)
         
-        result = context%extract_range(location)
+        result = context%extract_range(location%start_char, location%end_char)
         
         if (result == "") then
             call test_pass()
