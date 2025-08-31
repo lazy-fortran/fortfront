@@ -8,6 +8,7 @@ module codegen_core
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_basic_utils, only: add_line_continuations
     use codegen_arena_interface, only: set_arena_generator
+    use ast_nodes_data, only: mixed_construct_container_node
     implicit none
     private
 
@@ -113,6 +114,8 @@ contains
             code = generate_code_program(arena, node, node_index)
         type is (derived_type_node)
             code = generate_code_derived_type(arena, node, node_index)
+        type is (mixed_construct_container_node)
+            code = generate_code_mixed_construct_container(arena, node, node_index)
             
         ! Special nodes
         type is (contains_node)
@@ -160,5 +163,46 @@ contains
     subroutine initialize_codegen()
         call set_arena_generator(codegen_core_generate_arena)
     end subroutine initialize_codegen
+
+    ! Generate code for mixed construct containers
+    function generate_code_mixed_construct_container(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(mixed_construct_container_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        integer :: i
+        
+        code = ""
+        
+        ! Generate code for explicit program units
+        if (allocated(node%explicit_program_indices)) then
+            do i = 1, size(node%explicit_program_indices)
+                if (node%explicit_program_indices(i) > 0 .and. &
+                    node%explicit_program_indices(i) <= arena%size) then
+                    
+                    if (i > 1) then
+                        code = code // new_line('A') // new_line('A')
+                    end if
+                    
+                    code = code // codegen_core_generate_arena(arena, node%explicit_program_indices(i))
+                end if
+            end do
+        end if
+        
+        ! Generate code for implicit declarations (if any)
+        if (allocated(node%implicit_declaration_indices)) then
+            do i = 1, size(node%implicit_declaration_indices)
+                if (node%implicit_declaration_indices(i) > 0 .and. &
+                    node%implicit_declaration_indices(i) <= arena%size) then
+                    
+                    if (len(code) > 0) then
+                        code = code // new_line('A') // new_line('A')
+                    end if
+                    
+                    code = code // codegen_core_generate_arena(arena, node%implicit_declaration_indices(i))
+                end if
+            end do
+        end if
+    end function generate_code_mixed_construct_container
 
 end module codegen_core

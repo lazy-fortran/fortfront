@@ -454,6 +454,7 @@ contains
     end function has_only_meaningless_tokens
 
     ! Enhanced error formatting with comprehensive Issue #256 requirements
+    ! CRITICAL FIX for Issue #1089: Clean text-only output to prevent ELF corruption
     function format_enhanced_error(message, line, column, source_lines, suggestion, error_type) result(formatted)
         character(len=*), intent(in) :: message
         integer, intent(in) :: line, column
@@ -463,18 +464,38 @@ contains
         character(len=:), allocatable :: formatted
         
         character(len=50) :: location_str
+        character(len=:), allocatable :: clean_source_line
+        integer :: i
         
         ! Format with clear line/column information (Issue #256 requirement #2)
         write(location_str, '("at line ", I0, ", column ", I0)') line, column
         formatted = "[" // trim(error_type) // "] " // trim(message) // " " // trim(location_str)
         
-        ! Add source line context (Issue #256 requirement #6)
+        ! Add source line context with binary corruption prevention (Issue #1089 FIX)
         if (line > 0 .and. line <= size(source_lines)) then
-            formatted = formatted // new_line('A') // &
-                       "  Source: " // source_lines(line)
-            if (column > 0 .and. column <= len(source_lines(line))) then
+            ! CRITICAL: Clean source line of any non-printable characters to prevent ELF corruption
+            clean_source_line = ""
+            do i = 1, len(source_lines(line))
+                ! Only include printable ASCII characters (32-126) plus tab and space
+                if (iachar(source_lines(line)(i:i)) >= 32 .and. iachar(source_lines(line)(i:i)) <= 126) then
+                    clean_source_line = clean_source_line // source_lines(line)(i:i)
+                else if (source_lines(line)(i:i) == char(9)) then  ! Tab character
+                    clean_source_line = clean_source_line // "    "  ! Convert tab to spaces
+                end if
+            end do
+            
+            ! Only add source context if we have clean printable content
+            if (len(clean_source_line) > 0) then
                 formatted = formatted // new_line('A') // &
-                           "  " // repeat(" ", 9 + column - 1) // "^"
+                           "  Source: " // clean_source_line
+                if (column > 0 .and. column <= len(clean_source_line)) then
+                    formatted = formatted // new_line('A') // &
+                               "  " // repeat(" ", 9 + column - 1) // "^"
+                end if
+            else
+                ! If source line contains only binary data, omit it and add warning
+                formatted = formatted // new_line('A') // &
+                           "  Source: <contains non-printable characters>"
             end if
         end if
         
