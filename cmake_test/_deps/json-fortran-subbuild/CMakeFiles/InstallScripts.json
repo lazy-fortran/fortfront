@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

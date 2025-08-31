@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/CMakeFiles/json-fortran-populate"
+		},
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/CMakeFiles/json-fortran-populate.rule"
+		},
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/CMakeFiles/json-fortran-populate-complete.rule"
+		},
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/json-fortran-populate-prefix/src/json-fortran-populate-stamp/json-fortran-populate-build.rule"
+		},
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/json-fortran-populate-prefix/src/json-fortran-populate-stamp/json-fortran-populate-configure.rule"
+		},
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/json-fortran-populate-prefix/src/json-fortran-populate-stamp/json-fortran-populate-download.rule"
+		},
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/json-fortran-populate-prefix/src/json-fortran-populate-stamp/json-fortran-populate-install.rule"
+		},
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/json-fortran-populate-prefix/src/json-fortran-populate-stamp/json-fortran-populate-mkdir.rule"
+		},
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/json-fortran-populate-prefix/src/json-fortran-populate-stamp/json-fortran-populate-patch.rule"
+		},
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/json-fortran-populate-prefix/src/json-fortran-populate-stamp/json-fortran-populate-test.rule"
+		},
+		{
+			"file" : "/home/ert/code/fortfront/cmake_test/_deps/json-fortran-subbuild/json-fortran-populate-prefix/src/json-fortran-populate-stamp/json-fortran-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"json-fortran-populate"
+		],
+		"name" : "json-fortran-populate"
+	}
+}
