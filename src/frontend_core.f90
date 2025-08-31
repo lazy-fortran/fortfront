@@ -125,6 +125,8 @@ contains
 
         ! Phase 5: Standard Fortran Code Generation
         call compiler_arena%next_phase("codegen")
+        ! CRITICAL FIX: Initialize codegen system before generating code
+        call initialize_codegen()
         code = generate_code_from_arena(compiler_arena%ast, prog_index)
 
         ! Debug codegen output disabled - implement later if needed
@@ -460,6 +462,8 @@ contains
         integer, intent(in) :: prog_index
         character(len=:), allocatable, intent(out) :: code
 
+        ! CRITICAL FIX: Initialize codegen system before generating code
+        call initialize_codegen()
         code = generate_code_from_arena(arena, prog_index)
     end subroutine generate_fortran_code
 

@@ -355,6 +355,7 @@ contains
         character(len=20) :: dim_str
         integer :: dim_size
 
+
         ! Initialize declaration node
         decl_node%var_name = trim(var_name)
         decl_node%has_kind = .false.
@@ -413,6 +414,7 @@ contains
         character(len=20) :: dim_str
         type(literal_node) :: size_literal
         character(len=20) :: size_str
+
 
         ! Extract dimension value
         paren_pos = index(var_type(dim_pos:), ')')
