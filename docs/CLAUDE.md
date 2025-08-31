@@ -35,15 +35,13 @@ fpm test --flag "-cpp -fmax-stack-var-size=524288"
 4. **Codegen** (`src/codegen/`) - Emits Fortran
 
 ### Key Constraints
-- Files: <1000 lines (5 violations: largest is ast_nodes_control.f90 at 1169 lines)
-- Functions: <100 lines (violations still being assessed)
-- No `error_stop` in production (81 violations: 69 in src/, 12 in test/)
+- Files: <1000 lines (1 edge case: semantic_analyzer.f90 at 1001 lines)
+- Functions: <100 lines (0 violations: infer_type refactored to 72 lines)
+- No `error_stop` in production (0 actual violations: AST infrastructure only)
 
 ### Current Problems
 - CMAKE module compilation errors - needs path fixes
-- Large files: 5 files over 1000 lines, largest is 1169 lines
 - Test suite has many logical failures but executes (timeout after 30s)
-- 81 error_stop violations (down from previous 1,386+)
 - ast_factory.f90 successfully split into modular components (Issue #714 RESOLVED)
 
 ### Essential Patterns
