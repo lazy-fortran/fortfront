@@ -1077,6 +1077,22 @@ contains
                 end do
             end if
             
+        type is (if_node)
+            ! Traverse if statement condition and branches
+            if (node%condition_index > 0) then
+                call traverse_for_undefined_variables(ctx, arena, node%condition_index)
+            end if
+            if (allocated(node%then_body_indices)) then
+                do i = 1, size(node%then_body_indices)
+                    call traverse_for_undefined_variables(ctx, arena, node%then_body_indices(i))
+                end do
+            end if
+            if (allocated(node%else_body_indices)) then
+                do i = 1, size(node%else_body_indices)
+                    call traverse_for_undefined_variables(ctx, arena, node%else_body_indices(i))
+                end do
+            end if
+            
         class default
             ! For other node types, no traversal needed or implement as needed
             continue

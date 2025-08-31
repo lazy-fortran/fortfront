@@ -87,7 +87,8 @@ contains
         if (error_msg /= "") return
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
-        call run_final_phases(compiler_arena, prog_index, output)
+        call run_final_phases(compiler_arena, prog_index, output, error_msg)
+        if (error_msg /= "") return
 
         ! Cleanup unified compiler arena
         call destroy_compiler_arena(compiler_arena)
@@ -277,13 +278,15 @@ contains
     end subroutine handle_invalid_program_index
 
     ! Run final phases (semantic, standardization, codegen)
-    subroutine run_final_phases(compiler_arena, prog_index, output)
+    subroutine run_final_phases(compiler_arena, prog_index, output, error_msg)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
         character(len=:), allocatable, intent(out) :: output
+        character(len=:), allocatable, intent(inout) :: error_msg
 
         ! Phase 3: Semantic Analysis
-        call run_semantic_analysis_phase(compiler_arena, prog_index)
+        call run_semantic_analysis_phase(compiler_arena, prog_index, error_msg)
+        if (allocated(error_msg) .and. len(error_msg) > 0) return
 
         ! Phase 4: Standardization
         call run_standardization_phase(compiler_arena, prog_index)
@@ -293,22 +296,32 @@ contains
     end subroutine run_final_phases
 
     ! Run semantic analysis phase
-    subroutine run_semantic_analysis_phase(compiler_arena, prog_index)
+    subroutine run_semantic_analysis_phase(compiler_arena, prog_index, error_msg)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(in) :: prog_index
+        character(len=:), allocatable, intent(out) :: error_msg
 
         call compiler_arena%next_phase("semantic")
         block
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
             
-            ! LAZY FORTRAN MODE: Disable strict mode for CLI transformation
-            ! This allows undefined variables to be auto-declared with inferred types
-            ! Required for proper variable declaration generation in standardization phase
-            ctx%strict_mode = .false.
+            ! Issue #1076 FIX: Enable strict mode for undefined variable detection
+            ! Since standardization will add 'implicit none' automatically, 
+            ! semantic analysis should enforce strict mode to catch undefined variables
+            ! This restores Issue #495 undefined variable detection functionality
+            ctx%strict_mode = .true.
             
             call analyze_program(ctx, compiler_arena%ast, prog_index)
+            
+            ! Check for semantic errors and return error message if found
+            if (has_semantic_errors(ctx)) then
+                error_msg = "Semantic errors detected: undefined variables or type mismatches"
+                return
+            end if
         end block
+        
+        error_msg = ""
     end subroutine run_semantic_analysis_phase
 
     ! Run standardization phase
