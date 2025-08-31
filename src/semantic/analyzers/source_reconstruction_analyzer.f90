@@ -1,7 +1,14 @@
 module source_reconstruction_analyzer
+    ! Source reconstruction analyzer - refactored for architectural compliance
+    ! Uses extracted types from source_reconstruction_types.f90 (Issue #1067)
     use semantic_analyzer_base, only: semantic_analyzer_t
     use semantic_context_types, only: semantic_context_base_t
     use semantic_result_types, only: semantic_result_base_t
+    use source_reconstruction_types, only: source_reconstruction_analyzer_t, source_location_t, &
+                                           source_context_t, exact_source_strategy_t, &
+                                           generated_source_strategy_t, strategy_dispatcher_t, &
+                                           node_registry_t, reconstruction_quality_t, &
+                                           source_map_t, source_reconstruction_result_t
     use ast_core, only: ast_arena_t, ast_entry_t, identifier_node, literal_node, &
                         program_node, assignment_node, if_node, do_loop_node, &
                         function_def_node, declaration_node
@@ -14,131 +21,10 @@ module source_reconstruction_analyzer
               generated_source_strategy_t, strategy_dispatcher_t, &
               node_registry_t, reconstruction_quality_t
 
-    ! Enhanced source mapping information with exact character ranges
-    type :: source_location_t
-        integer :: line = 0
-        integer :: column = 0
-        integer :: start_char = 0    ! Exact character position start
-        integer :: end_char = 0      ! Exact character position end
-    end type
-
-    ! Source context for storing original source and line information
-    type :: source_context_t
-        character(:), allocatable :: original_source
-        integer, allocatable :: line_starts(:)
-        integer :: total_lines = 0
+    ! Source reconstruction analyzer plugin - extended from types module
+    type, extends(source_reconstruction_analyzer_t) :: source_reconstruction_analyzer_impl_t
     contains
-        procedure :: initialize_source
-        procedure :: get_line_text => get_line_text_from_context
-        procedure :: extract_range => extract_range_from_context
-    end type
-
-    ! Abstract base strategy for source reconstruction
-    type, abstract :: source_strategy_t
-    contains
-        procedure(strategy_name_interface), deferred :: get_name
-        procedure(reconstruct_interface), deferred :: reconstruct_node
-    end type
-
-    ! Exact source strategy - uses original source text when available
-    type, extends(source_strategy_t) :: exact_source_strategy_t
-    contains
-        procedure :: get_name => get_exact_strategy_name
-        procedure :: reconstruct_node => reconstruct_exact_source
-    end type
-
-    ! Generated source strategy - regenerates from AST nodes
-    type, extends(source_strategy_t) :: generated_source_strategy_t
-    contains
-        procedure :: get_name => get_generated_strategy_name
-        procedure :: reconstruct_node => reconstruct_generated_source
-        procedure :: reconstruct_node_with_arena
-    end type
-
-    ! Node registry for strategy mapping
-    type :: node_registry_entry_t
-        character(:), allocatable :: node_type
-        class(source_strategy_t), allocatable :: strategy
-    end type
-
-    type :: node_registry_t
-        type(node_registry_entry_t), allocatable :: entries(:)
-        integer :: count = 0
-    contains
-        procedure :: register_strategy
-        procedure :: has_strategy
-        procedure :: get_strategy
-    end type
-
-    ! Strategy dispatcher
-    type :: strategy_dispatcher_t
-        type(node_registry_t) :: registry
-        type(exact_source_strategy_t) :: exact_strategy
-        type(generated_source_strategy_t) :: generated_strategy
-    contains
-        procedure :: initialize_default_strategies
-        procedure :: reconstruct_node => dispatch_reconstruct_node
-    end type
-
-    ! Reconstruction quality assessment
-    type :: reconstruction_quality_t
-        integer :: total_nodes = 0
-        integer :: exact_matches = 0
-        integer :: generated_fallbacks = 0
-        integer :: failed_reconstructions = 0
-    contains
-        procedure :: initialize => initialize_quality
-        procedure :: record_exact_match
-        procedure :: record_generated_fallback
-        procedure :: record_failed_reconstruction
-        procedure :: get_accuracy
-    end type
-
-    ! Abstract interfaces
-    abstract interface
-        function strategy_name_interface(this) result(name)
-            import :: source_strategy_t
-            class(source_strategy_t), intent(in) :: this
-            character(:), allocatable :: name
-        end function
-
-        function reconstruct_interface(this, context, location, node_index) &
-                 result(source_text)
-            import :: source_strategy_t, source_context_t, source_location_t
-            class(source_strategy_t), intent(in) :: this
-            type(source_context_t), intent(in) :: context
-            type(source_location_t), intent(in) :: location
-            integer, intent(in) :: node_index
-            character(:), allocatable :: source_text
-        end function
-    end interface
-
-    ! Source mapping table
-    type :: source_map_t
-        integer, allocatable :: node_indices(:)
-        type(source_location_t), allocatable :: locations(:)
-        integer :: entry_count = 0
-    end type
-
-    ! Source reconstruction result
-    type, extends(semantic_result_base_t) :: source_reconstruction_result_t
-        character(:), allocatable :: original_source
-        type(source_map_t) :: node_map
-        integer :: total_lines = 0
-        character(:), allocatable :: line_starts(:)  ! Character positions
-    contains
-        procedure :: get_result_type => source_reconstruction_get_result_type
-        procedure :: clone_result => source_reconstruction_clone_result
-        procedure :: merge_results => source_reconstruction_merge_results
-        procedure :: assign => source_reconstruction_result_assign
-        generic :: assignment(=) => assign
-    end type
-
-    ! Source reconstruction analyzer plugin
-    type, extends(semantic_analyzer_t) :: source_reconstruction_analyzer_t
-        type(source_reconstruction_result_t) :: result
-        logical :: analysis_complete = .false.
-    contains
+        ! Override base methods with full implementations
         procedure :: analyze => analyze_source_reconstruction
         procedure :: get_results => get_source_reconstruction_results
         procedure :: get_name => get_source_reconstruction_name
@@ -156,7 +42,7 @@ module source_reconstruction_analyzer
 contains
 
     subroutine analyze_source_reconstruction(this, shared_context, arena, node_index)
-        class(source_reconstruction_analyzer_t), intent(inout) :: this
+        class(source_reconstruction_analyzer_impl_t), intent(inout) :: this
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
@@ -170,7 +56,7 @@ contains
     end subroutine
 
     function get_source_reconstruction_results(this) result(results)
-        class(source_reconstruction_analyzer_t), intent(in) :: this
+        class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
         
         ! Return the source reconstruction result
@@ -182,7 +68,7 @@ contains
     end function
 
     function get_source_reconstruction_name(this) result(name)
-        class(source_reconstruction_analyzer_t), intent(in) :: this
+        class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         character(:), allocatable :: name
         
         name = "source_reconstruction_analyzer"
@@ -190,11 +76,11 @@ contains
 
     subroutine assign_source_reconstruction_analyzer(lhs, rhs)
         use semantic_analyzer_base, only: semantic_analyzer_t
-        class(source_reconstruction_analyzer_t), intent(out) :: lhs
+        class(source_reconstruction_analyzer_impl_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
         select type(rhs)
-        type is (source_reconstruction_analyzer_t)
+        type is (source_reconstruction_analyzer_impl_t)
             ! Deep copy the result
             lhs%result = rhs%result
             lhs%analysis_complete = rhs%analysis_complete
@@ -207,7 +93,7 @@ contains
 
     ! Analysis methods for fluff rules
     function get_node_source_text(this, node_index) result(text)
-        class(source_reconstruction_analyzer_t), intent(in) :: this
+        class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: node_index
         character(:), allocatable :: text
         
@@ -235,7 +121,7 @@ contains
 
     function extract_text_span(this, start_line, start_col, end_line, &
                                 end_col) result(text)
-        class(source_reconstruction_analyzer_t), intent(in) :: this
+        class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: start_line, start_col, end_line, end_col
         character(:), allocatable :: text
         
@@ -296,7 +182,7 @@ contains
     end function
 
     function get_line_text(this, line_number) result(line_text)
-        class(source_reconstruction_analyzer_t), intent(in) :: this
+        class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: line_number
         character(:), allocatable :: line_text
         
@@ -315,7 +201,7 @@ contains
     end function
 
     function get_context_around_node(this, node_index, context_lines) result(context)
-        class(source_reconstruction_analyzer_t), intent(in) :: this
+        class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: node_index
         integer, intent(in) :: context_lines
         character(:), allocatable :: context
@@ -346,7 +232,7 @@ contains
     end function
 
     function format_source_location(this, node_index) result(location_str)
-        class(source_reconstruction_analyzer_t), intent(in) :: this
+        class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: node_index
         character(:), allocatable :: location_str
         
@@ -370,355 +256,16 @@ contains
         location_str = "unknown"
     end function
 
-    ! Source context procedures
-    subroutine initialize_source(this, source_text)
-        class(source_context_t), intent(inout) :: this
-        character(*), intent(in) :: source_text
+    function get_source_reconstruction_dependencies(this) result(deps)
+        class(source_reconstruction_analyzer_impl_t), intent(in) :: this
+        character(:), allocatable :: deps(:)
         
-        integer :: i, line_count, pos
-        
-        ! Store the original source
-        this%original_source = source_text
-        
-        ! Count lines
-        line_count = 1
-        do i = 1, len(source_text)
-            if (source_text(i:i) == new_line('a')) then
-                line_count = line_count + 1
-            end if
-        end do
-        this%total_lines = line_count
-        
-        ! Build line starts array
-        allocate(this%line_starts(line_count))
-        line_count = 1
-        this%line_starts(1) = 1
-        
-        do i = 1, len(source_text)
-            if (source_text(i:i) == new_line('a')) then
-                line_count = line_count + 1
-                if (line_count <= size(this%line_starts)) then
-                    this%line_starts(line_count) = i + 1
-                end if
-            end if
-        end do
-    end subroutine initialize_source
-
-    function get_line_text_from_context(this, line_number) result(line_text)
-        class(source_context_t), intent(in) :: this
-        integer, intent(in) :: line_number
-        character(:), allocatable :: line_text
-        
-        integer :: start_pos, end_pos
-        
-        if (.not. allocated(this%original_source) .or. &
-            line_number <= 0 .or. line_number > this%total_lines) then
-            line_text = ""
-            return
-        end if
-        
-        start_pos = this%line_starts(line_number)
-        
-        if (line_number == this%total_lines) then
-            ! Last line - go to end of source
-            end_pos = len(this%original_source)
-        else
-            ! Find end of line (before newline)
-            end_pos = this%line_starts(line_number + 1) - 2
-        end if
-        
-        if (end_pos >= start_pos) then
-            line_text = this%original_source(start_pos:end_pos)
-        else
-            line_text = ""
-        end if
-    end function get_line_text_from_context
-
-    function extract_range_from_context(this, location) result(extracted)
-        class(source_context_t), intent(in) :: this
-        type(source_location_t), intent(in) :: location
-        character(:), allocatable :: extracted
-        
-        if (.not. allocated(this%original_source) .or. &
-            location%start_char <= 0 .or. location%end_char <= 0 .or. &
-            location%start_char > location%end_char .or. &
-            location%end_char > len(this%original_source)) then
-            extracted = ""
-            return
-        end if
-        
-        extracted = this%original_source(location%start_char:location%end_char)
-    end function extract_range_from_context
-
-    ! Strategy implementations
-    function get_exact_strategy_name(this) result(name)
-        class(exact_source_strategy_t), intent(in) :: this
-        character(:), allocatable :: name
-        
-        name = "exact_source"
+        ! Source reconstruction analyzer has no dependencies
+        allocate(character(len=0) :: deps(0))
         
         associate(dummy => this)
         end associate
-    end function get_exact_strategy_name
-
-    function reconstruct_exact_source(this, context, location, node_index) &
-             result(source_text)
-        class(exact_source_strategy_t), intent(in) :: this
-        type(source_context_t), intent(in) :: context
-        type(source_location_t), intent(in) :: location
-        integer, intent(in) :: node_index
-        character(:), allocatable :: source_text
-        
-        ! Use exact source if available
-        if (allocated(context%original_source)) then
-            source_text = context%extract_range(location)
-        else
-            source_text = ""
-        end if
-        
-        associate(dummy => this, dummy2 => node_index)
-        end associate
-    end function reconstruct_exact_source
-
-    function get_generated_strategy_name(this) result(name)
-        class(generated_source_strategy_t), intent(in) :: this
-        character(:), allocatable :: name
-        
-        name = "generated_source"
-        
-        associate(dummy => this)
-        end associate
-    end function get_generated_strategy_name
-
-    function reconstruct_generated_source(this, context, location, node_index) &
-             result(source_text)
-        class(generated_source_strategy_t), intent(in) :: this
-        type(source_context_t), intent(in) :: context
-        type(source_location_t), intent(in) :: location
-        integer, intent(in) :: node_index
-        character(:), allocatable :: source_text
-        
-        ! Basic fallback - needs AST arena for full implementation
-        source_text = "<generated>"
-        
-        associate(dummy => this, dummy2 => context, dummy3 => location, &
-                  dummy4 => node_index)
-        end associate
-    end function reconstruct_generated_source
-
-    function reconstruct_node_with_arena(this, context, location, &
-                                        node_index, arena) result(source_text)
-        class(generated_source_strategy_t), intent(in) :: this
-        type(source_context_t), intent(in) :: context
-        type(source_location_t), intent(in) :: location
-        integer, intent(in) :: node_index
-        type(ast_arena_t), intent(in) :: arena
-        character(:), allocatable :: source_text
-        
-        ! Generate source from AST node
-        if (node_index > 0 .and. node_index <= arena%size) then
-            if (allocated(arena%entries(node_index)%node)) then
-                select type(node => arena%entries(node_index)%node)
-                type is (identifier_node)
-                    source_text = node%name
-                type is (literal_node)
-                    source_text = node%value
-                type is (program_node)
-                    source_text = "program " // node%name
-                type is (assignment_node)
-                    source_text = "<assignment>"
-                type is (if_node)
-                    source_text = "if (<condition>) then"
-                type is (do_loop_node)
-                    source_text = "do " // node%var_name // " = <start>, <end>"
-                type is (function_def_node)
-                    source_text = "function " // node%name // "()"
-                type is (declaration_node)
-                    source_text = node%type_name // " :: " // node%var_name
-                class default
-                    source_text = "<unknown_node>"
-                end select
-            else
-                source_text = "<invalid_node>"
-            end if
-        else
-            source_text = "<out_of_bounds>"
-        end if
-        
-        associate(dummy => this, dummy2 => context, dummy3 => location)
-        end associate
-    end function reconstruct_node_with_arena
-
-    ! Node registry procedures
-    subroutine register_strategy(this, node_type, strategy)
-        class(node_registry_t), intent(inout) :: this
-        character(*), intent(in) :: node_type
-        class(source_strategy_t), intent(in) :: strategy
-        
-        integer :: new_size
-        type(node_registry_entry_t), allocatable :: temp(:)
-        
-        ! Expand registry if needed
-        if (.not. allocated(this%entries)) then
-            allocate(this%entries(10))
-        end if
-        
-        if (this%count >= size(this%entries)) then
-            new_size = size(this%entries) * 2
-            allocate(temp(new_size))
-            temp(1:this%count) = this%entries(1:this%count)
-            call move_alloc(temp, this%entries)
-        end if
-        
-        ! Add new entry
-        this%count = this%count + 1
-        this%entries(this%count)%node_type = node_type
-        allocate(this%entries(this%count)%strategy, source=strategy)
-    end subroutine register_strategy
-
-    function has_strategy(this, node_type) result(found)
-        class(node_registry_t), intent(in) :: this
-        character(*), intent(in) :: node_type
-        logical :: found
-        
-        integer :: i
-        
-        found = .false.
-        do i = 1, this%count
-            if (allocated(this%entries(i)%node_type)) then
-                if (this%entries(i)%node_type == node_type) then
-                    found = .true.
-                    return
-                end if
-            end if
-        end do
-    end function has_strategy
-
-    function get_strategy(this, node_type) result(strategy)
-        class(node_registry_t), intent(in) :: this
-        character(*), intent(in) :: node_type
-        class(source_strategy_t), allocatable :: strategy
-        
-        integer :: i
-        
-        do i = 1, this%count
-            if (allocated(this%entries(i)%node_type)) then
-                if (this%entries(i)%node_type == node_type) then
-                    if (allocated(this%entries(i)%strategy)) then
-                        allocate(strategy, source=this%entries(i)%strategy)
-                        return
-                    end if
-                end if
-            end if
-        end do
-        
-        ! Strategy not found
-    end function get_strategy
-
-    ! Strategy dispatcher procedures
-    subroutine initialize_default_strategies(this)
-        class(strategy_dispatcher_t), intent(inout) :: this
-        
-        ! Register default strategies for common node types
-        call this%registry%register_strategy("identifier", this%generated_strategy)
-        call this%registry%register_strategy("literal", this%generated_strategy)
-        call this%registry%register_strategy("program", this%generated_strategy)
-        call this%registry%register_strategy("assignment", this%generated_strategy)
-        call this%registry%register_strategy("if", this%generated_strategy)
-        call this%registry%register_strategy("do_loop", this%generated_strategy)
-        call this%registry%register_strategy("function_def", this%generated_strategy)
-        call this%registry%register_strategy("declaration", this%generated_strategy)
-    end subroutine initialize_default_strategies
-
-    function dispatch_reconstruct_node(this, context, arena, node_index) &
-             result(source_text)
-        class(strategy_dispatcher_t), intent(in) :: this
-        type(source_context_t), intent(in) :: context
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(:), allocatable :: source_text
-        
-        character(:), allocatable :: node_type
-        class(source_strategy_t), allocatable :: strategy
-        type(source_location_t) :: location
-        
-        if (node_index > 0 .and. node_index <= arena%size) then
-            if (allocated(arena%entries(node_index)%node)) then
-                node_type = arena%entries(node_index)%node_type
-                
-                if (this%registry%has_strategy(node_type)) then
-                    strategy = this%registry%get_strategy(node_type)
-                    
-                    ! Create location from node info
-                    location%line = arena%entries(node_index)%node%line
-                    location%column = arena%entries(node_index)%node%column
-                    location%start_char = 0
-                    location%end_char = 0
-                    
-                    if (allocated(strategy)) then
-                        select type(strategy)
-                        type is (generated_source_strategy_t)
-                            source_text = strategy%reconstruct_node_with_arena( &
-                                context, location, node_index, arena)
-                        class default
-                            source_text = strategy%reconstruct_node( &
-                                context, location, node_index)
-                        end select
-                    else
-                        source_text = "<no_strategy>"
-                    end if
-                else
-                    source_text = "<unknown_node_type:" // node_type // ">"
-                end if
-            else
-                source_text = "<unallocated_node>"
-            end if
-        else
-            source_text = "<invalid_index>"
-        end if
-    end function dispatch_reconstruct_node
-
-    ! Quality assessment procedures
-    subroutine initialize_quality(this)
-        class(reconstruction_quality_t), intent(inout) :: this
-        
-        this%total_nodes = 0
-        this%exact_matches = 0
-        this%generated_fallbacks = 0
-        this%failed_reconstructions = 0
-    end subroutine initialize_quality
-
-    subroutine record_exact_match(this)
-        class(reconstruction_quality_t), intent(inout) :: this
-        
-        this%total_nodes = this%total_nodes + 1
-        this%exact_matches = this%exact_matches + 1
-    end subroutine record_exact_match
-
-    subroutine record_generated_fallback(this)
-        class(reconstruction_quality_t), intent(inout) :: this
-        
-        this%total_nodes = this%total_nodes + 1
-        this%generated_fallbacks = this%generated_fallbacks + 1
-    end subroutine record_generated_fallback
-
-    subroutine record_failed_reconstruction(this)
-        class(reconstruction_quality_t), intent(inout) :: this
-        
-        this%total_nodes = this%total_nodes + 1
-        this%failed_reconstructions = this%failed_reconstructions + 1
-    end subroutine record_failed_reconstruction
-
-    function get_accuracy(this) result(accuracy)
-        class(reconstruction_quality_t), intent(in) :: this
-        real :: accuracy
-        
-        if (this%total_nodes > 0) then
-            accuracy = real(this%exact_matches) / real(this%total_nodes)
-        else
-            accuracy = 0.0
-        end if
-    end function get_accuracy
+    end function
 
     ! Helper subroutines
     subroutine build_source_mapping(result, arena, root_index)
@@ -809,7 +356,7 @@ contains
     end function
 
     function build_context_string(this, center_line, context_lines) result(context)
-        class(source_reconstruction_analyzer_t), intent(in) :: this
+        class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: center_line, context_lines
         character(:), allocatable :: context
         
@@ -844,17 +391,6 @@ contains
         end do
         
         line_count = max_line
-    end function
-
-    function get_source_reconstruction_dependencies(this) result(deps)
-        class(source_reconstruction_analyzer_t), intent(in) :: this
-        character(:), allocatable :: deps(:)
-        
-        ! Source reconstruction analyzer has no dependencies
-        allocate(character(len=0) :: deps(0))
-        
-        associate(dummy => this)
-        end associate
     end function
 
     ! Additional helper functions for real source mapping
@@ -1002,51 +538,5 @@ contains
         write(temp_str, '(I0)') value
         str = trim(temp_str)
     end function int_to_str
-
-    ! Source reconstruction result implementations
-    function source_reconstruction_get_result_type(this) result(type_name)
-        class(source_reconstruction_result_t), intent(in) :: this
-        character(:), allocatable :: type_name
-        type_name = "source_reconstruction_result"
-    end function source_reconstruction_get_result_type
-
-    function source_reconstruction_clone_result(this) result(cloned)
-        class(source_reconstruction_result_t), intent(in) :: this
-        class(semantic_result_base_t), allocatable :: cloned
-        type(source_reconstruction_result_t) :: temp_result
-        
-        temp_result = this
-        allocate(cloned, source=temp_result)
-    end function source_reconstruction_clone_result
-
-    subroutine source_reconstruction_merge_results(this, other)
-        class(source_reconstruction_result_t), intent(inout) :: this
-        class(semantic_result_base_t), intent(in) :: other
-        
-        select type (other_result => other)
-        type is (source_reconstruction_result_t)
-            ! Merge source reconstruction results
-            this%total_lines = this%total_lines + other_result%total_lines
-        end select
-    end subroutine source_reconstruction_merge_results
-
-    subroutine source_reconstruction_result_assign(lhs, rhs)
-        class(source_reconstruction_result_t), intent(out) :: lhs
-        type(source_reconstruction_result_t), intent(in) :: rhs
-        
-        lhs%result_id = rhs%result_id
-        lhs%result_type_name = rhs%result_type_name
-        lhs%has_errors = rhs%has_errors
-        lhs%has_warnings = rhs%has_warnings
-        lhs%summary = rhs%summary
-        lhs%original_source = rhs%original_source
-        lhs%node_map = rhs%node_map
-        lhs%total_lines = rhs%total_lines
-        
-        ! Handle deferred-length allocatable character array
-        if (allocated(rhs%line_starts)) then
-            allocate(lhs%line_starts(size(rhs%line_starts)), source=rhs%line_starts)
-        end if
-    end subroutine source_reconstruction_result_assign
 
 end module source_reconstruction_analyzer
