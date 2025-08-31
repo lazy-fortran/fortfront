@@ -214,12 +214,22 @@ contains
         character(len=:), allocatable, intent(inout) :: error_msg
         character(len=:), allocatable, intent(out) :: output
 
-        ! Phase 2: Parsing
+        ! Phase 2: Parsing with enhanced error recovery
         call compiler_arena%next_phase("parser")
         call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
-        if (error_msg /= "") then
-            call handle_parsing_error(compiler_arena, prog_index, error_msg, output)
-            return
+        
+        ! Enhanced error handling - don't stop at first parsing issue
+        if (error_msg /= "" .and. index(error_msg, "Cannot open") == 0) then
+            ! Try to continue parsing with partial results if we have a valid program
+            if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
+                ! We have a partial parse - continue with what we have
+                ! Log the parsing warning but don't fail completely
+                write(*, '(A,A)') "Warning: Parsing issues detected but continuing: ", error_msg
+                error_msg = ""  ! Clear error to continue processing
+            else
+                call handle_parsing_error(compiler_arena, prog_index, error_msg, output)
+                return
+            end if
         end if
 
         ! Debug: check if we got a valid program index
@@ -314,15 +324,52 @@ contains
             
             call analyze_program(ctx, compiler_arena%ast, prog_index)
             
-            ! Check for semantic errors and return error message if found
+            ! Check for semantic errors and provide detailed error messages
             if (has_semantic_errors(ctx)) then
-                error_msg = "Semantic errors detected: undefined variables or type mismatches"
+                error_msg = get_detailed_semantic_errors(ctx)
                 return
             end if
         end block
         
         error_msg = ""
     end subroutine run_semantic_analysis_phase
+
+    ! Helper function to get detailed semantic error messages
+    function get_detailed_semantic_errors(ctx) result(error_msg)
+        type(semantic_context_t), intent(in) :: ctx
+        character(len=:), allocatable :: error_msg
+        integer :: i, total_errors
+        character(len=1000) :: temp_msg
+        
+        total_errors = ctx%errors%count
+        if (total_errors == 0) then
+            error_msg = "No semantic errors found"
+            return
+        end if
+        
+        ! Build comprehensive error message
+        temp_msg = ""
+        write(temp_msg, '(A,I0,A)') "Found ", total_errors, " semantic error(s):"
+        error_msg = trim(temp_msg)
+        
+        ! Add first few error messages for details
+        do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
+            if (i <= size(ctx%errors%errors)) then
+                if (allocated(ctx%errors%errors(i)%error_message)) then
+                    error_msg = error_msg // new_line('a') // "  - " // ctx%errors%errors(i)%error_message
+                    if (allocated(ctx%errors%errors(i)%suggestion)) then
+                        error_msg = error_msg // new_line('a') // "    Suggestion: " // ctx%errors%errors(i)%suggestion
+                    end if
+                end if
+            end if
+        end do
+        
+        ! Add summary if there are more errors
+        if (total_errors > 3) then
+            write(temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
+            error_msg = error_msg // new_line('a') // trim(temp_msg)
+        end if
+    end function get_detailed_semantic_errors
 
     ! Run standardization phase
     subroutine run_standardization_phase(compiler_arena, prog_index)

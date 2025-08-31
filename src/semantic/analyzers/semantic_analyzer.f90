@@ -24,7 +24,7 @@ module semantic_analyzer
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
                                assignment_node, call_or_subscript_node, &
                                array_literal_node, program_node
-    use ast_nodes_procedure, only: subroutine_call_node
+    use ast_nodes_procedure, only: subroutine_call_node, function_def_node, subroutine_def_node
     use ast_nodes_control, only: do_loop_node, if_node, do_while_node, &
                                   where_node, where_stmt_node, forall_node, &
                                   select_case_node, case_block_node, &
@@ -219,6 +219,10 @@ contains
         type is (subroutine_call_node)
             ! Subroutine calls don't return a value
             typ = create_mono_type(TVAR, var=create_type_var(0, "error"))
+            
+        type is (function_def_node)
+            ! Handle function definitions with enhanced type inference
+            typ = infer_function_definition(this, arena, expr, expr_index)
         type is (assignment_node)
             typ = infer_assignment(this, arena, expr, expr_index)
         type is (array_literal_node)
@@ -427,6 +431,131 @@ contains
         copy%strict_mode = this%strict_mode
     end function semantic_context_deep_copy
 
+    ! Helper function to infer type from usage context (enhanced type inference)
+    function infer_type_from_usage_context(ctx, var_name) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        character(len=*), intent(in) :: var_name
+        type(mono_type_t) :: typ
+        
+        ! Enhanced type inference based on variable name patterns and context
+        ! This improves user experience by making reasonable type guesses
+        
+        ! Pattern-based type inference for common variable names
+        select case(var_name)
+        case ('i', 'j', 'k', 'n', 'count', 'index', 'num', 'size')
+            ! Common integer variable patterns
+            typ = create_mono_type(TINT)
+        case ('x', 'y', 'z', 'result', 'value', 'temp')
+            ! Common real variable patterns  
+            typ = create_mono_type(TREAL)
+        case ('flag', 'found', 'done', 'success', 'valid')
+            ! Common logical variable patterns
+            typ = create_mono_type(TLOGICAL)
+        case default
+            ! Check if name suggests a specific type
+            if (index(var_name, 'str') > 0 .or. index(var_name, 'name') > 0 .or. &
+                index(var_name, 'msg') > 0 .or. index(var_name, 'text') > 0) then
+                ! String-like variable names
+                typ = create_mono_type(TCHAR)
+            else if (index(var_name, 'num') > 0 .or. index(var_name, 'count') > 0 .or. &
+                     index(var_name, 'idx') > 0) then
+                ! Number-like variable names
+                typ = create_mono_type(TINT)
+            else
+                ! Default: create type variable for later unification
+                typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+            end if
+        end select
+    end function infer_type_from_usage_context
+
+    ! Enhanced function definition semantic analysis
+    function infer_function_definition(ctx, arena, func_node, func_index) result(typ)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(in) :: func_node
+        integer, intent(in) :: func_index
+        type(mono_type_t) :: typ
+        type(mono_type_t), allocatable :: param_types(:)
+        type(mono_type_t) :: return_type
+        integer :: i
+        
+        ! Analyze function parameters
+        if (allocated(func_node%param_indices)) then
+            allocate(param_types(size(func_node%param_indices)))
+            
+            ! Create new scope for function parameters
+            call ctx%scopes%enter_block()
+            
+            do i = 1, size(func_node%param_indices)
+                ! Infer parameter type and add to scope
+                param_types(i) = ctx%infer(arena, func_node%param_indices(i))
+                
+                ! Add parameter to function scope if it's an identifier
+                if (func_node%param_indices(i) > 0 .and. func_node%param_indices(i) <= arena%size) then
+                    select type (param_node => arena%entries(func_node%param_indices(i))%node)
+                    type is (identifier_node)
+                        if (allocated(param_node%name) .and. len_trim(param_node%name) > 0) then
+                            block
+                                type(poly_type_t) :: param_scheme
+                                param_scheme = create_poly_type(forall_vars=[type_var_t::], mono=param_types(i))
+                                call ctx%scopes%define(param_node%name, param_scheme)
+                            end block
+                        end if
+                    end select
+                end if
+            end do
+        else
+            allocate(param_types(0))
+        end if
+        
+        ! Determine return type based on function name and return variable
+        if (allocated(func_node%result_variable) .and. len_trim(func_node%result_variable) > 0) then
+            ! Function has explicit result variable
+            return_type = infer_type_from_usage_context(ctx, func_node%result_variable)
+            
+            ! Add result variable to function scope
+            block
+                type(poly_type_t) :: result_scheme
+                result_scheme = create_poly_type(forall_vars=[type_var_t::], mono=return_type)
+                call ctx%scopes%define(func_node%result_variable, result_scheme)
+            end block
+        else if (allocated(func_node%name) .and. len_trim(func_node%name) > 0) then
+            ! Function name is the result variable (standard Fortran)
+            return_type = infer_type_from_usage_context(ctx, func_node%name)
+            
+            ! Add function name as result variable to scope
+            block
+                type(poly_type_t) :: result_scheme
+                result_scheme = create_poly_type(forall_vars=[type_var_t::], mono=return_type)
+                call ctx%scopes%define(func_node%name, result_scheme)
+            end block
+        else
+            ! Default return type for unnamed functions
+            return_type = create_mono_type(TREAL)
+        end if
+        
+        ! Analyze function body with parameters and result in scope
+        if (allocated(func_node%body_indices)) then
+            do i = 1, size(func_node%body_indices)
+                ! Use infer instead of infer_stmt (which doesn't exist)
+                typ = ctx%infer(arena, func_node%body_indices(i))
+            end do
+        end if
+        
+        ! Pop function scope
+        call ctx%scopes%leave_scope()
+        
+        ! Create function type
+        if (size(param_types) == 0) then
+            typ = create_fun_type(create_mono_type(TCHAR), return_type)  ! No params
+        else if (size(param_types) == 1) then
+            typ = create_fun_type(param_types(1), return_type)  ! Single param
+        else
+            ! Multiple parameters - create tuple type or simplified signature
+            typ = create_fun_type(param_types(1), return_type)  ! Simplified for now
+        end if
+    end function infer_function_definition
+
     ! Assignment operator
     subroutine semantic_context_assign(lhs, rhs)
         class(semantic_context_t), intent(inout) :: lhs
@@ -519,22 +648,23 @@ contains
             if (ctx%strict_mode) then
                 ! Standard Fortran mode: undefined variable is an error
                 error_result = create_error_result( &
-                    "Undefined variable '" // ident%name // "'", &
+                    "Undefined variable '" // ident%name // "' in strict mode", &
                     ERROR_SEMANTIC, &
                     component="semantic_analyzer", &
                     context="infer_identifier", &
-                    suggestion="Declare the variable before using it" &
+                    suggestion="Declare the variable with 'integer :: " // ident%name // &
+                    "' or remove 'implicit none' for lazy Fortran mode" &
                 )
                 call ctx%errors%add_result(error_result)
                 
                 ! Create fresh type variable for continued analysis
                 typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
             else
-                ! Lazy Fortran mode: auto-declare undefined variables
-                ! Create a fresh type variable and add to scope for future use
-                typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
+                ! Lazy Fortran mode: auto-declare undefined variables with type inference
+                ! Try to infer the type from context or create a fresh type variable
+                typ = infer_type_from_usage_context(ctx, ident%name)
                 
-                ! Create polymorphic type scheme (no generalization needed for simple variables)
+                ! Create polymorphic type scheme and add to scope for future use
                 block
                     type(poly_type_t) :: new_scheme
                     new_scheme = create_poly_type(forall_vars=[type_var_t::], mono=typ)
