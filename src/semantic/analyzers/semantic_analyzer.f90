@@ -724,10 +724,10 @@ contains
             promoted_type = create_mono_type(TREAL)
         end if
         
-        ! Create array type
+        ! Create array type with correct size
         allocate(args(1))
         args(1) = promoted_type
-        typ = create_mono_type(TARRAY, args=args)
+        typ = create_mono_type(TARRAY, args=args, array_size=size(array_lit%element_indices))
         
         ! Store in node
         arena%entries(array_index)%node%inferred_type = typ
