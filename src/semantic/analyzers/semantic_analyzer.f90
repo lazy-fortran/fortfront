@@ -1005,8 +1005,83 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
         
-        if (ctx%strict_mode .and. ctx%errors%has_errors()) return
+        ! Only perform undefined variable checking in strict mode
+        if (.not. ctx%strict_mode) return
+        
+        ! Recursively traverse the AST to find identifier nodes and check if they're defined
+        call traverse_for_undefined_variables(ctx, arena, prog_index)
     end subroutine check_undefined_variables_internal
+    
+    ! Recursive helper to traverse AST and detect undefined variables
+    recursive subroutine traverse_for_undefined_variables(ctx, arena, node_index)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: node_index
+        type(poly_type_t), allocatable :: scheme
+        type(result_t) :: error_result
+        integer :: i
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (identifier_node)
+            ! Skip empty/unallocated identifiers
+            if (.not. allocated(node%name) .or. len_trim(node%name) == 0) return
+            
+            ! Check if identifier is defined in scope  
+            call ctx%scopes%lookup(node%name, scheme)
+            if (.not. allocated(scheme)) then
+                ! Undefined variable found - create semantic error
+                error_result = create_error_result( &
+                    "Undefined variable '" // node%name // "'", &
+                    ERROR_SEMANTIC, &
+                    component="semantic_analyzer", &
+                    context="check_undefined_variables", &
+                    suggestion="Declare the variable before using it or remove 'implicit none'" &
+                )
+                call ctx%errors%add_result(error_result)
+            end if
+            
+        type is (program_node)
+            ! Traverse program body
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    call traverse_for_undefined_variables(ctx, arena, node%body_indices(i))
+                end do
+            end if
+            
+        type is (binary_op_node)
+            ! Traverse both operands
+            call traverse_for_undefined_variables(ctx, arena, node%left_index)
+            call traverse_for_undefined_variables(ctx, arena, node%right_index)
+            
+        type is (assignment_node)
+            ! Traverse both sides of assignment
+            call traverse_for_undefined_variables(ctx, arena, node%target_index)
+            call traverse_for_undefined_variables(ctx, arena, node%value_index)
+            
+        type is (call_or_subscript_node)
+            ! Traverse function arguments
+            if (allocated(node%arg_indices)) then
+                do i = 1, size(node%arg_indices)
+                    call traverse_for_undefined_variables(ctx, arena, node%arg_indices(i))
+                end do
+            end if
+            
+        type is (array_literal_node)
+            ! Traverse array elements
+            if (allocated(node%element_indices)) then
+                do i = 1, size(node%element_indices)
+                    call traverse_for_undefined_variables(ctx, arena, node%element_indices(i))
+                end do
+            end if
+            
+        class default
+            ! For other node types, no traversal needed or implement as needed
+            continue
+        end select
+    end subroutine traverse_for_undefined_variables
 
     ! Implementation of required abstract procedures from semantic_context_base_t
     
