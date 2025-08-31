@@ -1,0 +1,4 @@
+program test
+    real :: arr(3)
+    arr = [1, 2.0, 3]
+end program
