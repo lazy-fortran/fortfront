@@ -384,11 +384,9 @@ contains
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
             
-            ! LAZY FORTRAN MODE: Disable strict mode for undefined variable inference
-            ! This allows array literals like 'arr = [10, 20, 30]' to auto-declare variables
-            ! Note: Issue #495 should be addressed through proper variable declaration analysis
-            ctx%strict_mode = .false.
-            
+            ! Issue #1076 FIX: Allow analyze_program to set strict_mode based on 'implicit none'
+            ! The semantic analyzer will properly detect implicit none and set ctx%strict_mode
+            ! This restores Issue #495 undefined variable detection functionality
             call analyze_program(ctx, arena, prog_index)
             
             ! Check for semantic errors and return error message if found
