@@ -104,7 +104,13 @@ contains
         end do
         
         call system_clock(finish)
-        ops_per_second = real(operations_count) / (real(finish - start) / real(rate))
+        
+        ! Prevent division by zero causing "Inf ops/sec" fraud
+        if (finish - start <= 0) then
+            ops_per_second = 0.0  ! Duration too small to measure
+        else
+            ops_per_second = real(operations_count) / (real(finish - start) / real(rate))
+        end if
         
         write(stdout, '(A,I0,A,F0.0,A)') "Completed ", operations_count, &
                                         " operations at ", ops_per_second, " ops/sec"
