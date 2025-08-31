@@ -10,6 +10,7 @@ module semantic_inference_helpers
                                   forall_node, select_case_node, associate_node, &
                                   stop_node
     use ast_nodes_data, only: declaration_node
+    use ast_nodes_misc, only: implicit_statement_node
     use scope_manager, only: scope_stack_t
     implicit none
     private
@@ -159,13 +160,11 @@ contains
                     prog%body_indices(i) <= arena%size) then
                     if (allocated(arena%entries(prog%body_indices(i))%node)) then
                         select type (stmt => arena%entries(prog%body_indices(i))%node)
-                        type is (declaration_node)
-                            ! Check if it's an implicit none declaration
-                            if (allocated(stmt%type_name)) then
-                                if (index(stmt%type_name, "implicit") > 0) then
-                                    has_implicit = .true.
-                                    return
-                                end if
+                        type is (implicit_statement_node)
+                            ! Check if it's an implicit none statement (is_none = .true.)
+                            if (stmt%is_none) then
+                                has_implicit = .true.
+                                return
                             end if
                         end select
                     end if

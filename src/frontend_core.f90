@@ -384,9 +384,12 @@ contains
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
             
-            ! Issue #1076 FIX: Allow analyze_program to set strict_mode based on 'implicit none'
-            ! The semantic analyzer will properly detect implicit none and set ctx%strict_mode
+            ! Issue #1076 FIX: Enable strict mode for undefined variable detection
+            ! Since standardization will add 'implicit none' automatically, 
+            ! semantic analysis should enforce strict mode to catch undefined variables
             ! This restores Issue #495 undefined variable detection functionality
+            ctx%strict_mode = .true.
+            
             call analyze_program(ctx, arena, prog_index)
             
             ! Check for semantic errors and return error message if found
