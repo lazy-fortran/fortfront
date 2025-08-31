@@ -78,7 +78,16 @@ contains
                                                   is_entry=.true.)
         
         ! Process the AST
-        call process_node(builder, arena, root_index)
+        block
+            use error_handling, only: result_t
+            type(result_t) :: process_result
+            process_result = process_node(builder, arena, root_index)
+            ! For now, continue even on error but could enhance to propagate error
+            if (process_result%is_failure()) then
+                ! Log error but continue building CFG
+                write(error_unit, '(A)') "Warning: " // process_result%get_message()
+            end if
+        end block
         
         ! Flush any remaining statements
         call flush_statement_buffer(builder)
