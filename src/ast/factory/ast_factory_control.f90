@@ -1,4 +1,5 @@
 module ast_factory_control
+    use iso_fortran_env, only: error_unit
     use ast_core
     use ast_factory_core, only: validate_arena, validate_node_index
     use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH
@@ -197,7 +198,7 @@ contains
         ! Validate arena is initialized
         validation = validate_arena(arena, "push_forall")
         if (validation%is_failure()) then
-            write(*, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
             forall_index = 0
             return
         end if
@@ -205,12 +206,12 @@ contains
         ! Validate index variable name
         index_var_len = len_trim(index_var)
         if (index_var_len == 0) then
-            write(*, '(A)') "ERROR [ast_factory_control]: FORALL index variable name cannot be empty"
+            write(error_unit, '(A)') "ERROR [ast_factory_control]: FORALL index variable name cannot be empty"
             forall_index = 0
             return
         end if
         if (index_var_len > MAX_INDEX_NAME_LENGTH) then
-            write(*, '(A)') "ERROR [ast_factory_control]: FORALL index variable name exceeds maximum length"
+            write(error_unit, '(A)') "ERROR [ast_factory_control]: FORALL index variable name exceeds maximum length"
             forall_index = 0
             return
         end if
@@ -218,14 +219,14 @@ contains
         ! Validate required indices
         validation = validate_node_index(arena, start_index, "push_forall start")
         if (validation%is_failure()) then
-            write(*, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
             forall_index = 0
             return
         end if
 
         validation = validate_node_index(arena, end_index, "push_forall end")
         if (validation%is_failure()) then
-            write(*, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
             forall_index = 0
             return
         end if
@@ -235,7 +236,7 @@ contains
             if (step_index > 0) then
                 validation = validate_node_index(arena, step_index, "push_forall step")
                 if (validation%is_failure()) then
-                    write(*, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     forall_index = 0
                     return
                 end if
@@ -259,7 +260,7 @@ contains
             do i = 1, size(body_indices)
                 validation = validate_node_index(arena, body_indices(i), "push_forall body")
                 if (validation%is_failure()) then
-                    write(*, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     forall_index = 0
                     return
                 end if
@@ -469,7 +470,7 @@ contains
         ! Validate arena is initialized
         validation = validate_arena(arena, "push_where")
         if (validation%is_failure()) then
-            write(*, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
             where_index = 0
             return
         end if
@@ -477,7 +478,7 @@ contains
         ! Validate mask expression index
         validation = validate_node_index(arena, mask_expr_index, "push_where mask")
         if (validation%is_failure()) then
-            write(*, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
             where_index = 0
             return
         end if
@@ -487,7 +488,7 @@ contains
             do i = 1, size(where_body_indices)
                 validation = validate_node_index(arena, where_body_indices(i), "push_where body")
                 if (validation%is_failure()) then
-                    write(*, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     where_index = 0
                     return
                 end if
@@ -499,7 +500,7 @@ contains
             do i = 1, size(elsewhere_body_indices)
                 validation = validate_node_index(arena, elsewhere_body_indices(i), "push_where elsewhere")
                 if (validation%is_failure()) then
-                    write(*, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     where_index = 0
                     return
                 end if
