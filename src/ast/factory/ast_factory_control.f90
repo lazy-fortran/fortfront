@@ -1,6 +1,7 @@
 module ast_factory_control
     use iso_fortran_env, only: error_unit
     use ast_core
+    use iso_fortran_env, only: error_unit
     use ast_factory_core, only: validate_arena, validate_node_index
     use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH
     use error_handling, only: result_t, success_result, create_error_result
@@ -248,7 +249,7 @@ contains
             if (mask_index > 0) then
                 validation = validate_node_index(arena, mask_index, "push_forall mask")
                 if (validation%is_failure()) then
-                    write(*, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     forall_index = 0
                     return
                 end if
