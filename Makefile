@@ -67,7 +67,10 @@ install: libfortfront.a
 
 # Run tests
 test:
+	# Ensure a clean workspace before running tests and remove artifacts after
+	$(MAKE) -s clean-test-artifacts
 	fpm test --runner "scripts/xfail_runner.sh"
+	$(MAKE) -s clean-test-artifacts
 
 # Build and run example external tool
 example: libfortfront.a
