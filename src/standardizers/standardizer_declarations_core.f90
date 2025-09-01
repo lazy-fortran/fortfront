@@ -656,6 +656,7 @@ contains
         integer, intent(in) :: func_count
         type(mono_type_t), pointer :: value_type
         character(len=64) :: var_type
+        integer :: existing_idx
 
         if (assign_index <= 0 .or. assign_index > arena%size) return
         if (.not. allocated(arena%entries(assign_index)%node)) return
@@ -669,6 +670,15 @@ contains
                     type is (identifier_node)
                         ! Try to get type from the value expression
                         var_type = ""  ! Empty default indicates type not determined
+                        
+                        ! Check if variable was already collected (second assignment)
+                        existing_idx = 0
+                        do i = 1, var_count
+                            if (trim(var_names(i)) == trim(target%name)) then
+                                existing_idx = i
+                                exit
+                            end if
+                        end do
                         
                         if (assign%value_index > 0 .and. &
                             assign%value_index <= arena%size) then
@@ -718,10 +728,17 @@ contains
                             var_type = "real"  ! Default for mathematical expressions
                         end if
                         
-                        ! Now collect the variable with the determined type
-                        call collect_identifier_var_with_type(target, var_type, &
-                            var_names, var_types, var_declared, var_count, &
-                            function_names, func_count)
+                        ! If this is a subsequent assignment to the same variable, mark as allocatable
+                        if (existing_idx > 0) then
+                            if (index(var_types(existing_idx), 'allocatable') == 0) then
+                                var_types(existing_idx) = trim(var_types(existing_idx)) // ", allocatable"
+                            end if
+                        else
+                            ! Now collect the variable with the determined type
+                            call collect_identifier_var_with_type(target, var_type, &
+                                var_names, var_types, var_declared, var_count, &
+                                function_names, func_count)
+                        end if
                     end select
                 end if
             end if
