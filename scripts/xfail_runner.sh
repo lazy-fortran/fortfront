@@ -17,17 +17,45 @@ fi
 
 mkdir -p "$repo_root/logs"
 
+# Internal helper: run a command with a timeout even if GNU timeout is absent.
+# Behavior:
+# - Returns 124 on timeout, mirroring GNU timeout.
+# - Sends SIGTERM at TIME_LIMIT and SIGKILL after 5 seconds.
+run_with_timeout() {
+  local limit_kill=5
+  if command -v timeout >/dev/null 2>&1; then
+    timeout -k ${limit_kill}s "${TIME_LIMIT}s" "$@"
+    return $?
+  fi
+
+  # Portable bash fallback
+  "$@" &
+  local cmd_pid=$!
+  (
+    # Watchdog subshell
+    sleep "$TIME_LIMIT" && kill -s TERM "$cmd_pid" 2>/dev/null && \
+      sleep "$limit_kill" && kill -s KILL "$cmd_pid" 2>/dev/null
+  ) &
+  local killer_pid=$!
+
+  # Wait for the command to finish
+  wait "$cmd_pid"
+  local ec=$?
+
+  # If the command finished, stop watchdog; if it didn’t, infer timeout
+  if kill -0 "$killer_pid" 2>/dev/null; then
+    kill -s TERM "$killer_pid" 2>/dev/null || true
+    wait "$killer_pid" 2>/dev/null || true
+    return $ec
+  else
+    # Watchdog already fired; normalize to 124 for timeout
+    return 124
+  fi
+}
+
 # Run the test with a timeout; capture exit code robustly
 code=0
-if command -v timeout >/dev/null 2>&1; then
-  # Send SIGTERM at TIME_LIMIT, escalate to SIGKILL after 5s.
-  # Do not preserve child status so timeout returns 124 on timeout consistently.
-  timeout -k 5s "${TIME_LIMIT}s" "$exe" \
-    > "$repo_root/logs/${name}.log" 2>&1 || code=$? || code=0
-else
-  # Fallback: no timeout available; still run and capture code
-  "$exe" > "$repo_root/logs/${name}.log" 2>&1 || code=$? || code=0
-fi
+run_with_timeout "$exe" > "$repo_root/logs/${name}.log" 2>&1 || code=$? || code=0
 code=${code:-0}
 
 # Interpret results, including timeout exit (124)
