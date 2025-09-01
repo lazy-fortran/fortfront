@@ -43,6 +43,7 @@ test_where_forall_codegen,https://github.com/lazy-fortran/fortfront/issues/1134
 test_issue_180_character_arrays,https://github.com/lazy-fortran/fortfront/issues/1135
 test_issue_187_char_arrays,https://github.com/lazy-fortran/fortfront/issues/1135
 test_issue_312_character_type_handling,https://github.com/lazy-fortran/fortfront/issues/1135
+test_ast_traversal,https://github.com/lazy-fortran/fortfront/issues/1136
 test_ast_traversal_simple,https://github.com/lazy-fortran/fortfront/issues/1136
 test_frontend_codegen_comprehensive,https://github.com/lazy-fortran/fortfront/issues/1137
 test_all_github_issues_fixed,https://github.com/lazy-fortran/fortfront/issues/1137
