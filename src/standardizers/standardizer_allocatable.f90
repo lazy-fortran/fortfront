@@ -351,24 +351,24 @@ contains
                             end if
                         end do
                         if (pos > 0) then
-                            integer :: nb, m
+                            integer :: nbm, mm
                             integer, allocatable :: replaced(:)
-                            nb = size(prog%body_indices) - 1 + new_count
-                            allocate(replaced(nb))
+                            nbm = size(prog%body_indices) - 1 + new_count
+                            allocate(replaced(nbm))
                             ! Copy before
                             do k = 1, pos-1
                                 replaced(k) = prog%body_indices(k)
                             end do
                             ! Insert new ones
-                            m = pos
+                            mm = pos
                             do k = 1, new_count
-                                replaced(m) = new_indices(k)
-                                m = m + 1
+                                replaced(mm) = new_indices(k)
+                                mm = mm + 1
                             end do
                             ! Copy after
                             do k = pos+1, size(prog%body_indices)
-                                replaced(m) = prog%body_indices(k)
-                                m = m + 1
+                                replaced(mm) = prog%body_indices(k)
+                                mm = mm + 1
                             end do
                             prog%body_indices = replaced
                             arena%entries(prog_index)%node = prog
