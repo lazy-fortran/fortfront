@@ -163,8 +163,8 @@ contains
                 ! Single variable declaration
                 do i = 1, var_count
                     if (trim(assigned_vars(i)) == trim(stmt%var_name)) then
-                        ! Only mark allocatable if multiple assignments or if it's a procedure parameter
-                        if (assignment_counts(i) > 1 .or. is_procedure_parameter(arena, stmt_index)) then
+                        ! Mark allocatable if any array assignment occurs or if it's a procedure parameter
+                        if (assignment_counts(i) >= 1 .or. is_procedure_parameter(arena, stmt_index)) then
                             stmt%is_allocatable = .true.
                             if (stmt%is_array .and. allocated(stmt%dimension_indices)) then
                                 ! Change fixed dimensions to deferred shape
@@ -231,7 +231,7 @@ contains
                 do i = 1, size(decl%var_names)
                     do j = 1, var_count
                         if (trim(assigned_vars(j)) == trim(decl%var_names(i))) then
-                            if (assignment_counts(j) > 1 .or. is_procedure_parameter(arena, decl_index)) then
+                            if (assignment_counts(j) >= 1 .or. is_procedure_parameter(arena, decl_index)) then
                                 found_allocatable = .true.
                             else
                                 found_non_allocatable = .true.
@@ -301,7 +301,7 @@ contains
                 needs_allocatable = .false.
                 do j = 1, var_count
                     if (trim(assigned_vars(j)) == trim(decl%var_names(i))) then
-                        if (assignment_counts(j) > 1 .or. is_procedure_parameter(arena, decl_index)) then
+                        if (assignment_counts(j) >= 1 .or. is_procedure_parameter(arena, decl_index)) then
                             needs_allocatable = .true.
                         end if
                         exit
