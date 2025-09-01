@@ -9,7 +9,7 @@ module semantic_assignment_inference
     use semantic_validation_utils, only: update_identifier_type_in_arena
     use error_handling, only: result_t, create_error_result, ERROR_SEMANTIC
     use scope_manager, only: scope_stack_t
-    use semantic_function_analysis, only: infer_type_from_usage_context
+    ! No direct dependency on function analysis here
     use error_handling, only: error_collection_t
     implicit none
     private
@@ -30,7 +30,8 @@ contains
         type(error_collection_t), intent(inout) :: errors
         logical, intent(in) :: strict_mode
         integer, intent(inout) :: next_var_id
-        type(poly_type_t), allocatable :: scheme, existing_scheme
+        type(poly_type_t) :: scheme
+        type(poly_type_t), allocatable :: existing_scheme
         type(result_t) :: error_result
 
         if (lhs_index > 0 .and. lhs_index <= arena%size) then
@@ -67,7 +68,6 @@ contains
                     call update_identifier_type_in_arena(arena, lhs_node%name, expr_typ)
                     
                     ! Generalize the expression type and define/update in scope
-                    allocate(scheme)
                     scheme = create_poly_type(forall_vars=[type_var_t::], mono=expr_typ)
                     call scopes%define(lhs_node%name, scheme)
                 end select
