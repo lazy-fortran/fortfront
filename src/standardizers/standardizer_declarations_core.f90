@@ -656,6 +656,8 @@ contains
         integer, intent(in) :: func_count
         type(mono_type_t), pointer :: value_type
         character(len=64) :: var_type
+        integer :: existing_idx
+        integer :: i
 
         if (assign_index <= 0 .or. assign_index > arena%size) return
         if (.not. allocated(arena%entries(assign_index)%node)) return
@@ -669,6 +671,15 @@ contains
                     type is (identifier_node)
                         ! Try to get type from the value expression
                         var_type = ""  ! Empty default indicates type not determined
+                        
+                        ! Check if variable was already collected (second assignment)
+                        existing_idx = 0
+                        do i = 1, var_count
+                            if (trim(var_names(i)) == trim(target%name)) then
+                                existing_idx = i
+                                exit
+                            end if
+                        end do
                         
                         if (assign%value_index > 0 .and. &
                             assign%value_index <= arena%size) then
@@ -692,6 +703,13 @@ contains
                                         end block
                                     end if
                                     
+                                    ! Prefer integer for pure-integer binary expressions
+                                    if (len_trim(var_type) == 0) then
+                                        if (is_integer_expression(arena, assign%value_index)) then
+                                            var_type = "integer"
+                                        end if
+                                    end if
+
                                     ! If that failed, check for string concatenation as special case
                                     if (len_trim(var_type) == 0) then
                                         var_type = handle_string_concatenation(arena, assign%value_index)
@@ -711,10 +729,17 @@ contains
                             var_type = "real"  ! Default for mathematical expressions
                         end if
                         
-                        ! Now collect the variable with the determined type
-                        call collect_identifier_var_with_type(target, var_type, &
-                            var_names, var_types, var_declared, var_count, &
-                            function_names, func_count)
+                        ! If this is a subsequent assignment to the same variable, mark as allocatable
+                        if (existing_idx > 0) then
+                            if (index(var_types(existing_idx), 'allocatable') == 0) then
+                                var_types(existing_idx) = trim(var_types(existing_idx)) // ", allocatable"
+                            end if
+                        else
+                            ! Now collect the variable with the determined type
+                            call collect_identifier_var_with_type(target, var_type, &
+                                var_names, var_types, var_declared, var_count, &
+                                function_names, func_count)
+                        end if
                     end select
                 end if
             end if
@@ -812,8 +837,41 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
         character(len=64) :: var_type
-        var_type = "real"  ! Basic fallback for mathematical expressions
+        if (is_integer_expression(arena, expr_index)) then
+            var_type = "integer"
+        else
+            var_type = "real"
+        end if
     end function infer_type_from_binary_operation
+
+    ! Heuristic: determine if expression consists of integer-only operations
+    recursive logical function is_integer_expression(arena, idx) result(is_int)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+        is_int = .false.
+        if (idx <= 0 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+        select type (node => arena%entries(idx)%node)
+        type is (literal_node)
+            is_int = (node%literal_kind == LITERAL_INTEGER)
+        type is (identifier_node)
+            if (node%inferred_type%kind > 0) then
+                is_int = (node%inferred_type%kind == TINT)
+            else
+                is_int = .true.
+            end if
+        type is (binary_op_node)
+            ! Division may promote to real; conservatively mark real for '/'
+            if (trim(node%operator) == "/") then
+                is_int = .false.
+            else
+                is_int = is_integer_expression(arena, node%left_index) .and. &
+                         is_integer_expression(arena, node%right_index)
+            end if
+        class default
+            is_int = .false.
+        end select
+    end function is_integer_expression
     
     ! Collect identifier variable - stub implementation
     subroutine collect_identifier_var(identifier, var_names, var_types, &

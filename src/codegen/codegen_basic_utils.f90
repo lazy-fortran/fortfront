@@ -1,4 +1,5 @@
 module codegen_basic_utils
+    use codegen_indent, only: get_line_length_config
     implicit none
     private
     
@@ -10,9 +11,9 @@ contains
     function add_line_continuations(input_code) result(output_code)
         character(len=*), intent(in) :: input_code
         character(len=:), allocatable :: output_code
-        integer, parameter :: MAX_LINE_LENGTH = 90
         integer, parameter :: CONTINUATION_INDENT = 6
         integer :: pos, line_start, line_end, len_input
+        integer :: max_len
         character(len=:), allocatable :: current_line
         logical :: in_string, in_comment
         character :: quote_char
@@ -26,13 +27,15 @@ contains
         output_code = ""
         pos = 1
         
+        call get_line_length_config(max_len)
+
         do while (pos <= len_input)
             ! Find the end of the current line
             line_start = pos
             line_end = pos
-            do while (line_end <= len_input .and. &
-                     input_code(line_end:line_end) /= char(10) .and. &
-                     input_code(line_end:line_end) /= char(13))
+            do while (line_end <= len_input)
+                if (input_code(line_end:line_end) == char(10) .or. &
+                    input_code(line_end:line_end) == char(13)) exit
                 line_end = line_end + 1
             end do
             
@@ -44,8 +47,8 @@ contains
             end if
             
             ! Check if line needs continuation
-            if (len(current_line) > MAX_LINE_LENGTH) then
-                call add_line_with_continuation(current_line, output_code)
+            if (len(current_line) > max_len) then
+                call add_line_with_continuation(current_line, output_code, max_len)
             else
                 output_code = output_code // current_line // new_line('A')
             end if
@@ -66,17 +69,17 @@ contains
     end function add_line_continuations
 
     ! Helper subroutine to add continuation to a long line
-    subroutine add_line_with_continuation(input_line, output_code)
+    subroutine add_line_with_continuation(input_line, output_code, max_len)
         character(len=*), intent(in) :: input_line
         character(len=:), allocatable, intent(inout) :: output_code
-        integer, parameter :: MAX_LINE_LENGTH = 90
+        integer, intent(in) :: max_len
         integer, parameter :: CONTINUATION_INDENT = 6
         integer :: pos, last_break, len_line
         character(len=:), allocatable :: current_line, continuation_str
         logical :: found_break
         
         len_line = len(input_line)
-        if (len_line <= MAX_LINE_LENGTH) then
+        if (len_line <= max_len) then
             output_code = output_code // input_line // new_line('A')
             return
         end if
@@ -90,7 +93,7 @@ contains
             found_break = .false.
             
             ! Find a good break point within MAX_LINE_LENGTH
-            do while (last_break - pos + 1 <= MAX_LINE_LENGTH .and. last_break <= len_line)
+            do while (last_break - pos + 1 <= max_len .and. last_break <= len_line)
                 if (input_line(last_break:last_break) == ' ' .or. &
                     input_line(last_break:last_break) == ',' .or. &
                     input_line(last_break:last_break) == '(' .or. &
@@ -102,7 +105,7 @@ contains
             
             if (.not. found_break .or. last_break > len_line) then
                 ! No good break point found, just break at MAX_LINE_LENGTH
-                last_break = min(pos + MAX_LINE_LENGTH - 1, len_line)
+                last_break = min(pos + max_len - 1, len_line)
             else
                 last_break = last_break - 1  ! Step back to the break character
             end if
@@ -113,17 +116,17 @@ contains
                 if (pos == 1) then
                     output_code = output_code // current_line // ' &' // new_line('A')
                 else
-                    output_code = output_code // continuation_str // current_line
-                    if (last_break < len_line) then
-                        output_code = output_code // ' &'
-                    end if
-                    output_code = output_code // new_line('A')
+                    output_code = output_code // continuation_str // current_line // new_line('A')
                 end if
+                ! Write the remainder of the line as-is and exit (single continuation is enough)
+                if (last_break + 1 <= len_line) then
+                    output_code = output_code // input_line(last_break+1:len_line) // new_line('A')
+                end if
+                exit
             else
-                output_code = output_code // current_line // new_line('A')
+                output_code = output_code // input_line // new_line('A')
+                exit
             end if
-            
-            pos = last_break + 1
         end do
     end subroutine add_line_with_continuation
 

@@ -11,6 +11,7 @@ module frontend_transformation
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
+    use codegen_basic_utils, only: add_line_continuations
     use codegen_core, only: initialize_codegen
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_indent, only: set_indent_config, get_indent_config, &
@@ -89,6 +90,9 @@ contains
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call run_final_phases(compiler_arena, prog_index, output, error_msg)
         if (error_msg /= "") return
+
+        ! Ensure error_msg is empty on successful transformation
+        error_msg = ""
 
         ! Cleanup unified compiler arena
         call destroy_compiler_arena(compiler_arena)
@@ -180,6 +184,7 @@ contains
             ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
             output = "program main" // new_line('A') // &
                     "    implicit none" // new_line('A') // &
+                    "    ! COMPILATION FAILED" // new_line('A') // &
                     "    ! Original code could not be parsed" // new_line('A') // &
                     "end program main" // new_line('A')
             ! error_msg already contains the error details for stderr
@@ -263,10 +268,11 @@ contains
 
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-        output = "program main" // new_line('A') // &
-                "    implicit none" // new_line('A') // &
-                "    ! Original code could not be parsed" // new_line('A') // &
-                "end program main" // new_line('A')
+            output = "program main" // new_line('A') // &
+                    "    implicit none" // new_line('A') // &
+                    "    ! COMPILATION FAILED" // new_line('A') // &
+                    "    ! Original code could not be parsed" // new_line('A') // &
+                    "end program main" // new_line('A')
         ! error_msg parameter already contains the error details for stderr
     end subroutine create_parsing_error_program
 
@@ -281,6 +287,7 @@ contains
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
         output = "program main" // new_line('A') // &
                 "    implicit none" // new_line('A') // &
+                "    ! COMPILATION FAILED" // new_line('A') // &
                 "    ! Original code could not be structured as a program" // new_line('A') // &
                 "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
@@ -325,11 +332,8 @@ contains
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
             
-            ! Issue #1076 FIX: Enable strict mode for undefined variable detection
-            ! Since standardization will add 'implicit none' automatically, 
-            ! semantic analysis should enforce strict mode to catch undefined variables
-            ! This restores Issue #495 undefined variable detection functionality
-            ctx%strict_mode = .true.
+            ! Keep pre-standardization semantics permissive in string transform path
+            ctx%strict_mode = .false.
             
             call analyze_program(ctx, compiler_arena%ast, prog_index)
             
@@ -421,6 +425,7 @@ contains
 
         call compiler_arena%next_phase("codegen")
         output = generate_code_from_arena(compiler_arena%ast, prog_index)
+        output = add_line_continuations(output)
     end subroutine run_code_generation_phase
 
     ! Save current configuration

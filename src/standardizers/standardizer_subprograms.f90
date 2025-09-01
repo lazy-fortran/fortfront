@@ -5,6 +5,7 @@ module standardizer_subprograms
     use ast_core
     use ast_factory
     use type_system_unified
+    use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     implicit none
     private
 
@@ -106,6 +107,10 @@ contains
         type(declaration_node) :: param_decl
         integer, allocatable :: new_body_indices(:)
         integer, allocatable :: param_names_found(:)
+        
+        logical, allocatable :: fn_param_optional(:)
+        character(len=8), allocatable :: fn_param_intent(:)
+        
         integer :: i, j, n_params, n_body, param_idx
         character(len=64) :: param_name
         character(len=64), allocatable :: param_names(:)
@@ -121,7 +126,11 @@ contains
         ! Get parameter names
         allocate (param_names(n_params))
         allocate (param_names_found(n_params))
+        allocate (fn_param_optional(n_params))
+        allocate (fn_param_intent(n_params))
         param_names_found = 0
+        fn_param_optional = .false.
+        fn_param_intent = ""
         
         ! Initialize all param_names to avoid undefined behavior
         do i = 1, n_params
@@ -136,6 +145,18 @@ contains
                         param_names(i) = param%name
                     type is (parameter_declaration_node)
                         param_names(i) = param%name
+                        fn_param_optional(i) = param%is_optional
+                        select case (param%intent_type)
+                        case (INTENT_IN)
+                            fn_param_intent(i) = "in"
+                        case (INTENT_OUT)
+                            fn_param_intent(i) = "out"
+                        case (INTENT_INOUT)
+                            fn_param_intent(i) = "inout"
+                        case default
+                            fn_param_intent(i) = ""
+                        end select
+                        ! captured above into param_optional/param_intent
                     type is (declaration_node)
                         param_names(i) = param%var_name
                     class default
@@ -180,8 +201,14 @@ contains
                                     end if
                                 ! Keep integer, logical, character as-is
                                 end if
-                                stmt%intent = "in"
-                                stmt%has_intent = .true.
+                                if (len_trim(fn_param_intent(param_idx)) > 0) then
+                                    stmt%intent = fn_param_intent(param_idx)
+                                    stmt%has_intent = .true.
+                                else
+                                    stmt%intent = "in"
+                                    stmt%has_intent = .true.
+                                end if
+                                if (fn_param_optional(param_idx)) stmt%is_optional = .true.
                                 param_names_found(param_idx) = func_def%body_indices(i)
                                 ! Update in arena
                                 arena%entries(func_def%body_indices(i))%node = stmt
@@ -193,19 +220,25 @@ contains
         end if
 
         ! Add declarations for parameters not found
-        call add_missing_parameter_declarations(arena, func_def, func_index, &
-                                              param_names, param_names_found, n_params)
+        call add_missing_parameter_declarations_ext(arena, func_def, func_index, &
+                                              param_names, param_names_found, n_params, &
+                                              fn_param_optional, fn_param_intent, &
+                                              standardizer_type_standardization_enabled)
 
     end subroutine standardize_function_parameters
 
     ! Add missing parameter declarations
-    subroutine add_missing_parameter_declarations(arena, func_def, func_index, &
-                                                param_names, param_names_found, n_params)
+    subroutine add_missing_parameter_declarations_ext(arena, func_def, func_index, &
+                                                param_names, param_names_found, n_params, &
+                                                param_optional, param_intent, type_std_enabled)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
         integer, intent(in) :: func_index, n_params
         character(len=64), intent(in) :: param_names(:)
         integer, intent(in) :: param_names_found(:)
+        logical, intent(in) :: param_optional(:)
+        character(len=8), intent(in) :: param_intent(:)
+        logical, intent(in) :: type_std_enabled
         type(declaration_node) :: param_decl
         integer, allocatable :: new_body_indices(:)
         integer :: i, j, n_body, new_decl_count
@@ -235,9 +268,19 @@ contains
                     ! Create declaration for this parameter
                     call infer_parameter_type(param_names(i), param_decl%type_name, &
                                             param_decl%has_kind, param_decl%kind_value)
+                    if (param_decl%type_name == "real" .and. type_std_enabled) then
+                        param_decl%has_kind = .true.
+                        param_decl%kind_value = 8
+                    end if
                     param_decl%var_name = param_names(i)
-                    param_decl%intent = "in"
-                    param_decl%has_intent = .true.
+                    if (len_trim(param_intent(i)) > 0) then
+                        param_decl%intent = param_intent(i)
+                        param_decl%has_intent = .true.
+                    else
+                        param_decl%intent = "in"
+                        param_decl%has_intent = .true.
+                    end if
+                    if (param_optional(i)) param_decl%is_optional = .true.
                     param_decl%is_array = .false.
                     param_decl%is_allocatable = .false.
                     param_decl%initializer_index = 0
@@ -259,7 +302,7 @@ contains
             func_def%body_indices = new_body_indices
         end if
 
-    end subroutine add_missing_parameter_declarations
+    end subroutine add_missing_parameter_declarations_ext
 
     ! Standardize a subroutine definition
     subroutine standardize_subroutine_def(arena, sub_def, sub_index)
@@ -299,6 +342,8 @@ contains
         type(declaration_node) :: param_decl
         integer, allocatable :: new_body_indices(:)
         integer, allocatable :: param_names_found(:)
+        logical, allocatable :: sb_param_optional(:)
+        character(len=8), allocatable :: sb_param_intent(:)
         integer :: i, j, n_params, n_body, param_idx
         character(len=64) :: param_name
         character(len=64), allocatable :: param_names(:)
@@ -314,7 +359,11 @@ contains
         ! Get parameter names
         allocate (param_names(n_params))
         allocate (param_names_found(n_params))
+        allocate (sb_param_optional(n_params))
+        allocate (sb_param_intent(n_params))
         param_names_found = 0
+        sb_param_optional = .false.
+        sb_param_intent = ""
         
         ! Initialize all param_names to avoid undefined behavior
         do i = 1, n_params
@@ -329,6 +378,17 @@ contains
                         param_names(i) = param%name
                     type is (parameter_declaration_node)
                         param_names(i) = param%name
+                        sb_param_optional(i) = param%is_optional
+                        select case (param%intent_type)
+                        case (INTENT_IN)
+                            sb_param_intent(i) = "in"
+                        case (INTENT_OUT)
+                            sb_param_intent(i) = "out"
+                        case (INTENT_INOUT)
+                            sb_param_intent(i) = "inout"
+                        case default
+                            sb_param_intent(i) = ""
+                        end select
                     type is (declaration_node)
                         param_names(i) = param%var_name
                     class default
@@ -375,8 +435,14 @@ contains
                                 end if
                                 ! Default to intent(inout) for subroutine parameters
                                 if (.not. stmt%has_intent) then
+                                if (len_trim(sb_param_intent(param_idx)) > 0) then
+                                    stmt%intent = sb_param_intent(param_idx)
+                                    stmt%has_intent = .true.
+                                else
                                     stmt%intent = "inout"
                                     stmt%has_intent = .true.
+                                end if
+                                if (sb_param_optional(param_idx)) stmt%is_optional = .true.
                                 end if
                                 param_names_found(param_idx) = sub_def%body_indices(i)
                                 ! Update in arena
@@ -389,19 +455,25 @@ contains
         end if
 
         ! Add declarations for parameters not found
-        call add_missing_subroutine_parameter_declarations(arena, sub_def, sub_index, &
-                                                          param_names, param_names_found, n_params)
+        call add_missing_subroutine_parameter_declarations_ext(arena, sub_def, sub_index, &
+                                                          param_names, param_names_found, n_params, &
+                                                          sb_param_optional, sb_param_intent, &
+                                                          standardizer_type_standardization_enabled)
 
     end subroutine standardize_subroutine_parameters
 
     ! Add missing subroutine parameter declarations
-    subroutine add_missing_subroutine_parameter_declarations(arena, sub_def, sub_index, &
-                                                           param_names, param_names_found, n_params)
+    subroutine add_missing_subroutine_parameter_declarations_ext(arena, sub_def, sub_index, &
+                                                           param_names, param_names_found, n_params, &
+                                                           param_optional, param_intent, type_std_enabled)
         type(ast_arena_t), intent(inout) :: arena
         type(subroutine_def_node), intent(inout) :: sub_def
         integer, intent(in) :: sub_index, n_params
         character(len=64), intent(in) :: param_names(:)
         integer, intent(in) :: param_names_found(:)
+        logical, intent(in) :: param_optional(:)
+        character(len=8), intent(in) :: param_intent(:)
+        logical, intent(in) :: type_std_enabled
         type(declaration_node) :: param_decl
         integer, allocatable :: new_body_indices(:)
         integer :: i, j, n_body, new_decl_count
@@ -431,9 +503,19 @@ contains
                     ! Create declaration for this parameter
                     call infer_parameter_type(param_names(i), param_decl%type_name, &
                                             param_decl%has_kind, param_decl%kind_value)
+                    if (param_decl%type_name == "real" .and. type_std_enabled) then
+                        param_decl%has_kind = .true.
+                        param_decl%kind_value = 8
+                    end if
                     param_decl%var_name = param_names(i)
-                    param_decl%intent = "inout"  ! Default for subroutines
-                    param_decl%has_intent = .true.
+                    if (len_trim(param_intent(i)) > 0) then
+                        param_decl%intent = param_intent(i)
+                        param_decl%has_intent = .true.
+                    else
+                        param_decl%intent = "inout"
+                        param_decl%has_intent = .true.
+                    end if
+                    if (param_optional(i)) param_decl%is_optional = .true.
                     param_decl%is_array = .false.
                     param_decl%is_allocatable = .false.
                     param_decl%initializer_index = 0
@@ -454,7 +536,7 @@ contains
             sub_def%body_indices = new_body_indices
         end if
 
-    end subroutine add_missing_subroutine_parameter_declarations
+    end subroutine add_missing_subroutine_parameter_declarations_ext
 
     ! Infer parameter type from name patterns
     subroutine infer_parameter_type(param_name, type_name, has_kind, kind_value)

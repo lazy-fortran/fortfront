@@ -94,7 +94,14 @@ contains
                 fortran_operator = "//"  ! Use Fortran string concatenation operator
             end if
             
-            code = left_code // " " // fortran_operator // " " // right_code
+            select case (trim(fortran_operator))
+            case ('*','/')
+                ! For multiplication and division, no spaces per style tests
+                code = left_code // fortran_operator // right_code
+            case default
+                ! For all other operators, include spaces around
+                code = left_code // " " // fortran_operator // " " // right_code
+            end select
         else
             ! Fallback for missing operator
             code = left_code // " + " // right_code  ! Safe default operator
@@ -119,8 +126,35 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
-        ! Generate range subscript code (e.g., array(start:end))
-        code = "1:n"  ! Basic range implementation - needs proper bounds from node
+        character(len=:), allocatable :: base_code, start_code, end_code
+
+        ! Base expression (e.g., array or variable name)
+        if (node%base_expr_index > 0) then
+            base_code = generate_code_from_arena(arena, node%base_expr_index)
+        else
+            base_code = ""
+        end if
+
+        ! Start index (optional)
+        if (node%start_index > 0) then
+            start_code = generate_code_from_arena(arena, node%start_index)
+        else
+            start_code = ""
+        end if
+
+        ! End index (optional)
+        if (node%end_index > 0) then
+            end_code = generate_code_from_arena(arena, node%end_index)
+        else
+            end_code = ""
+        end if
+
+        ! Assemble range: base(start:end) with optional bounds
+        code = base_code // "("
+        if (len(start_code) > 0) code = code // start_code
+        code = code // ":"
+        if (len(end_code) > 0) code = code // end_code
+        code = code // ")"
     end function generate_code_range_subscript
 
     ! Generate code for call or subscript nodes
