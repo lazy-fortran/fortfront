@@ -6,6 +6,7 @@ module frontend_transformation
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                            TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
                            TK_NUMBER, TK_STRING, TK_UNKNOWN
+    use iso_fortran_env, only: error_unit
     use compiler_arena, only: compiler_arena_t, create_compiler_arena, destroy_compiler_arena
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                    analyze_program, has_semantic_errors
