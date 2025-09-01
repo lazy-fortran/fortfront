@@ -128,8 +128,7 @@ contains
 
         select type (ast => arena%entries(root_index)%node)
         type is (program_node)
-            ! Issue #1076 FIX: Only check implicit none if strict mode is not already explicitly enabled
-            ! When strict mode is explicitly set (e.g., by frontend for Issue #495), don't override it
+            ! Only enable strict mode when implicit none is present
             if (.not. ctx%strict_mode) then
                 ctx%strict_mode = check_implicit_none(arena, ast)
             end if
@@ -151,9 +150,39 @@ contains
         integer, intent(in) :: prog_index
         integer :: i
 
+        ! Prepass: define all declared variables in scope before inference
         if (allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)
-             if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                        select type (node => arena%entries(prog%body_indices(i))%node)
+                        type is (declaration_node)
+                            block
+                                type(mono_type_t) :: decl_type
+                                type(poly_type_t) :: scheme
+                                integer :: j
+                                call process_declaration_variables(node, decl_type)
+                                scheme = ctx%generalize(decl_type)
+                                if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                                    do j = 1, size(node%var_names)
+                                        call ctx%scopes%define(node%var_names(j), scheme)
+                                    end do
+                                else if (allocated(node%var_name)) then
+                                    call ctx%scopes%define(node%var_name, scheme)
+                                end if
+                            end block
+                        class default
+                            continue
+                        end select
+                    end if
+                end if
+            end do
+        end if
+
+        ! Main inference over statements
+        if (allocated(prog%body_indices)) then
+            do i = 1, size(prog%body_indices)
+                if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
                     call infer_and_store_type(ctx, arena, prog%body_indices(i))
                 end if
             end do
@@ -829,8 +858,12 @@ contains
                         existing_typ = ctx%instantiate(existing_scheme)
                         call ctx%unify(existing_typ, expr_typ)
                     else
-                        ! Assignment to undefined variable - behavior depends on mode
-                        if (ctx%strict_mode) then
+                        ! Not found in scope: attempt to discover prior declaration in arena
+                        call ensure_declared_from_arena(ctx, arena, lhs_node%name)
+                        ! Re-check after potential definition
+                        call ctx%scopes%lookup(lhs_node%name, existing_scheme)
+                        
+                        if (.not. allocated(existing_scheme) .and. ctx%strict_mode) then
                             ! Standard Fortran mode: undefined variable is an error
                             error_result = create_error_result( &
                                 "Undefined variable '" // lhs_node%name // "' in assignment", &
@@ -890,6 +923,41 @@ contains
         ! Store the actual assignment type
         arena%entries(assignment_index)%node%inferred_type = typ
     end function infer_assignment
+
+    ! Best-effort: if a declaration for the given name exists in the arena, define it in scope
+    subroutine ensure_declared_from_arena(ctx, arena, name)
+        type(semantic_context_t), intent(inout) :: ctx
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: name
+        integer :: i, j
+        type(poly_type_t) :: scheme
+        type(mono_type_t) :: decl_type
+
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (node => arena%entries(i)%node)
+            type is (declaration_node)
+                if (allocated(node%var_name)) then
+                    if (trim(node%var_name) == trim(name)) then
+                        call process_declaration_variables(node, decl_type)
+                        scheme = ctx%generalize(decl_type)
+                        call ctx%scopes%define(name, scheme)
+                        return
+                    end if
+                end if
+                if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                    do j = 1, size(node%var_names)
+                        if (trim(node%var_names(j)) == trim(name)) then
+                            call process_declaration_variables(node, decl_type)
+                            scheme = ctx%generalize(decl_type)
+                            call ctx%scopes%define(name, scheme)
+                            return
+                        end if
+                    end do
+                end if
+            end select
+        end do
+    end subroutine ensure_declared_from_arena
 
 
     ! Infer type of array literal with type promotion

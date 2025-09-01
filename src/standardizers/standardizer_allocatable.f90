@@ -247,6 +247,20 @@ contains
                 
                 ! If some variables need allocatable and others don't, we need to split
                 needs_split = (found_allocatable .and. found_non_allocatable)
+
+                ! If all variables in the declaration need allocatable, mark the whole
+                ! multi-declaration as allocatable (no split needed)
+                if (found_allocatable .and. .not. found_non_allocatable) then
+                    decl%is_allocatable = .true.
+                    if (decl%is_array .and. allocated(decl%dimension_indices)) then
+                        deallocate(decl%dimension_indices)
+                        allocate(decl%dimension_indices(1))
+                        decl%dimension_indices(1) = 0  ! Deferred shape for allocatable
+                    end if
+                end if
+                
+                ! Update arena with potential changes
+                arena%entries(decl_index)%node = decl
             end if
         end select
     end subroutine handle_multi_variable_declaration_allocatable
@@ -265,6 +279,7 @@ contains
         character(len=64), allocatable :: alloc_vars(:), non_alloc_vars(:)
         integer :: alloc_count, non_alloc_count
         logical :: needs_allocatable
+        integer :: idx_alloc, idx_non
         
         if (decl_index <= 0 .or. decl_index > arena%size) return
         if (.not. allocated(arena%entries(decl_index)%node)) return
@@ -301,20 +316,22 @@ contains
             end do
             
             ! Create new declaration nodes
+            idx_alloc = 0
+            idx_non = 0
             if (alloc_count > 0) then
                 call create_split_declaration(decl, alloc_vars, alloc_count, .true., allocatable_decl)
                 call arena%push(allocatable_decl, "declaration", prog_index)
+                idx_alloc = arena%size
             end if
             
             if (non_alloc_count > 0) then
                 call create_split_declaration(decl, non_alloc_vars, non_alloc_count, .false., non_allocatable_decl)
                 call arena%push(non_allocatable_decl, "declaration", prog_index)
+                idx_non = arena%size
             end if
             
-            ! Update program body indices to replace the old declaration
-            call update_program_body_indices(arena, prog_index, decl_index, &
-                merge(arena%size-1, 0, alloc_count > 0), &
-                merge(arena%size, 0, non_alloc_count > 0))
+            ! Update program body indices to replace the old declaration with new ones
+            call update_program_body_indices(arena, prog_index, decl_index, idx_alloc, idx_non)
             
             deallocate(alloc_vars)
             deallocate(non_alloc_vars)

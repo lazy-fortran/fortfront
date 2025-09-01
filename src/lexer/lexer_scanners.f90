@@ -39,7 +39,7 @@ contains
                 dot_count = 1
                 pos = pos + 1
                 col_num = col_num + 1
-            else if ((c == 'e' .or. c == 'E') .and. .not. has_exp) then
+            else if (((c == 'e' .or. c == 'E') .or. (c == 'd' .or. c == 'D')) .and. .not. has_exp) then
                 has_exp = .true.
                 e_count = 1
                 pos = pos + 1
@@ -240,9 +240,11 @@ contains
         case ('*')
             pos = pos + 1
             col_num = col_num + 1
-            if (pos <= len(source) .and. source(pos:pos) == '*') then
-                pos = pos + 1
-                col_num = col_num + 1
+            if (pos <= len(source)) then
+                if (source(pos:pos) == '*') then
+                    pos = pos + 1
+                    col_num = col_num + 1
+                end if
             end if
         case ('/')
             pos = pos + 1
@@ -263,6 +265,15 @@ contains
             ! Guard evaluation order to avoid out-of-bounds when at end of line
             if (pos <= len(source)) then
                 if (source(pos:pos) == '=') then
+                    pos = pos + 1
+                    col_num = col_num + 1
+                end if
+            end if
+        case (':')
+            pos = pos + 1
+            col_num = col_num + 1
+            if (pos <= len(source)) then
+                if (source(pos:pos) == ':') then
                     pos = pos + 1
                     col_num = col_num + 1
                 end if

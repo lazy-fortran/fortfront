@@ -692,6 +692,13 @@ contains
                                         end block
                                     end if
                                     
+                                    ! Prefer integer for pure-integer binary expressions
+                                    if (len_trim(var_type) == 0) then
+                                        if (is_integer_expression(arena, assign%value_index)) then
+                                            var_type = "integer"
+                                        end if
+                                    end if
+
                                     ! If that failed, check for string concatenation as special case
                                     if (len_trim(var_type) == 0) then
                                         var_type = handle_string_concatenation(arena, assign%value_index)
@@ -812,8 +819,41 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
         character(len=64) :: var_type
-        var_type = "real"  ! Basic fallback for mathematical expressions
+        if (is_integer_expression(arena, expr_index)) then
+            var_type = "integer"
+        else
+            var_type = "real"
+        end if
     end function infer_type_from_binary_operation
+
+    ! Heuristic: determine if expression consists of integer-only operations
+    recursive logical function is_integer_expression(arena, idx) result(is_int)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: idx
+        is_int = .false.
+        if (idx <= 0 .or. idx > arena%size) return
+        if (.not. allocated(arena%entries(idx)%node)) return
+        select type (node => arena%entries(idx)%node)
+        type is (literal_node)
+            is_int = (node%literal_kind == LITERAL_INTEGER)
+        type is (identifier_node)
+            if (node%inferred_type%kind > 0) then
+                is_int = (node%inferred_type%kind == TINT)
+            else
+                is_int = .true.
+            end if
+        type is (binary_op_node)
+            ! Division may promote to real; conservatively mark real for '/'
+            if (trim(node%operator) == "/") then
+                is_int = .false.
+            else
+                is_int = is_integer_expression(arena, node%left_index) .and. &
+                         is_integer_expression(arena, node%right_index)
+            end if
+        class default
+            is_int = .false.
+        end select
+    end function is_integer_expression
     
     ! Collect identifier variable - stub implementation
     subroutine collect_identifier_var(identifier, var_names, var_types, &

@@ -110,6 +110,16 @@ contains
                 case ("parameter")
                     attr_info%is_parameter = .true.
                     token = parser%consume()
+                case ("dimension")
+                    token = parser%consume()
+                    if (.not. parser%is_at_end()) then
+                        token = parser%peek()
+                        if (token%text == "(") then
+                            token = parser%consume()  ! consume '('
+                            call parse_array_dimensions(parser, arena, attr_info%global_dimension_indices)
+                            attr_info%has_global_dimensions = .true.
+                        end if
+                    end if
                 case default
                     exit
                 end select
@@ -250,7 +260,19 @@ contains
             intent_code = 0
 
             ! Create declaration node
-            decl_index = push_declaration( &
+            if (attr_info%has_global_dimensions) then
+                decl_index = push_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_name, &
+                    dimension_indices=attr_info%global_dimension_indices, &
+                    initializer_index=initializer_index, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            else
+                decl_index = push_declaration( &
                 arena, &
                 type_spec%type_name, &
                 var_name, &
@@ -259,6 +281,7 @@ contains
                 is_pointer=attr_info%is_pointer, &
                 is_parameter=attr_info%is_parameter &
             )
+            end if
         end block
     end function parse_declaration
 
@@ -409,26 +432,53 @@ contains
         
         ! Create multi-variable declaration node
         if (type_spec%has_kind) then
-            decl_index = push_multi_declaration( &
-                arena, &
-                type_spec%type_name, &
-                var_names(1:var_count), &
-                kind_value=type_spec%kind_value, &
-                initializer_index=initializer_index, &
-                is_allocatable=attr_info%is_allocatable, &
-                is_pointer=attr_info%is_pointer, &
-                is_parameter=attr_info%is_parameter &
-            )
+            if (attr_info%has_global_dimensions) then
+                decl_index = push_multi_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_names(1:var_count), &
+                    kind_value=type_spec%kind_value, &
+                    dimension_indices=attr_info%global_dimension_indices, &
+                    initializer_index=initializer_index, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            else
+                decl_index = push_multi_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_names(1:var_count), &
+                    kind_value=type_spec%kind_value, &
+                    initializer_index=initializer_index, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            end if
         else
-            decl_index = push_multi_declaration( &
-                arena, &
-                type_spec%type_name, &
-                var_names(1:var_count), &
-                initializer_index=initializer_index, &
-                is_allocatable=attr_info%is_allocatable, &
-                is_pointer=attr_info%is_pointer, &
-                is_parameter=attr_info%is_parameter &
-            )
+            if (attr_info%has_global_dimensions) then
+                decl_index = push_multi_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_names(1:var_count), &
+                    dimension_indices=attr_info%global_dimension_indices, &
+                    initializer_index=initializer_index, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            else
+                decl_index = push_multi_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_names(1:var_count), &
+                    initializer_index=initializer_index, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            end if
         end if
         
         if (decl_index > 0) then

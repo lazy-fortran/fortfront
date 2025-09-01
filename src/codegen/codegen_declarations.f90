@@ -40,14 +40,24 @@ contains
             code = "function " // node%name
         end if
 
-        ! Generate parameters
+        ! Generate parameters (names only)
         if (allocated(node%param_indices) .and. size(node%param_indices) > 0) then
             code = code // "("
             do i = 1, size(node%param_indices)
                 if (i > 1) code = code // ", "
                 if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
-                    params_code = generate_code_from_arena(arena, node%param_indices(i))
-                    code = code // params_code
+                    if (allocated(arena%entries(node%param_indices(i))%node)) then
+                        select type (p => arena%entries(node%param_indices(i))%node)
+                        type is (identifier_node)
+                            code = code // p%name
+                        type is (parameter_declaration_node)
+                            code = code // p%name
+                        type is (declaration_node)
+                            code = code // p%var_name
+                        class default
+                            code = code // "param"//trim(adjustl(int_to_string(i)))
+                        end select
+                    end if
                 end if
             end do
             code = code // ")"
@@ -151,14 +161,24 @@ contains
         ! Start subroutine definition
         code = "subroutine " // node%name
 
-        ! Generate parameters
+        ! Generate parameters (names only)
         if (allocated(node%param_indices) .and. size(node%param_indices) > 0) then
             code = code // "("
             do i = 1, size(node%param_indices)
                 if (i > 1) code = code // ", "
                 if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
-                    params_code = generate_code_from_arena(arena, node%param_indices(i))
-                    code = code // params_code
+                    if (allocated(arena%entries(node%param_indices(i))%node)) then
+                        select type (p => arena%entries(node%param_indices(i))%node)
+                        type is (identifier_node)
+                            code = code // p%name
+                        type is (parameter_declaration_node)
+                            code = code // p%name
+                        type is (declaration_node)
+                            code = code // p%var_name
+                        class default
+                            code = code // "param"//trim(adjustl(int_to_string(i)))
+                        end select
+                    end if
                 end if
             end do
             code = code // ")"
@@ -404,21 +424,9 @@ contains
         type(parameter_declaration_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-
-        ! Generate the parameter declaration
-        if (allocated(node%type_name)) then
-            code = node%type_name
-        else
-            code = "real"
-        end if
-        if (node%has_kind) then
-            code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
-        end if
-        if (node%intent_type /= INTENT_NONE) then
-            code = code // ", intent(" // intent_type_to_string(node%intent_type) // ")"
-        end if
-        if (node%is_optional) code = code // ", optional"
-        code = code // " :: " // node%name
+        ! For parameter_declaration_node, emit only the name. Attributes are handled
+        ! by separate declaration nodes in the body and should not appear in signatures.
+        code = node%name
     end function generate_code_parameter_declaration
 
     ! Generate code for modules
