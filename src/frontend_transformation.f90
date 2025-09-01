@@ -5,6 +5,7 @@ module frontend_transformation
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                            TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
                            TK_NUMBER, TK_STRING, TK_UNKNOWN
+    use iso_fortran_env, only: error_unit
     use compiler_arena, only: compiler_arena_t, create_compiler_arena, destroy_compiler_arena
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                    analyze_program, has_semantic_errors
@@ -235,8 +236,8 @@ contains
             ! Try to continue parsing with partial results if we have a valid program
             if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
                 ! We have a partial parse - continue with what we have
-                ! Log the parsing warning but don't fail completely
-                write(*, '(A,A)') "Warning: Parsing issues detected but continuing: ", error_msg
+                ! Log the parsing warning to stderr but don't fail completely
+                write(error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ", error_msg
                 error_msg = ""  ! Clear error to continue processing
             else
                 call handle_parsing_error(compiler_arena, prog_index, error_msg, output)
