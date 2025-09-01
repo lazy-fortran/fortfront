@@ -53,8 +53,8 @@ contains
                             )
                             call errors%add_result(error_result)
                         else
-                            ! Lazy Fortran mode: auto-declare with inferred type
-                            expr_typ = infer_type_from_usage_context(lhs_node%name, next_var_id)
+                            ! Lazy Fortran mode: auto-declare using the expression's inferred type
+                            ! Keep expr_typ as computed from the RHS to drive accurate typing
                         end if
                     end if
                     
