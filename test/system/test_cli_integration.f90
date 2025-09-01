@@ -36,7 +36,10 @@ program test_cli_integration
     
     ! Test 2: Error handling works
     call test_error_handling()
-    
+
+    ! Test 2b: Unknown flag returns non-zero exit code
+    call test_invalid_flag_exit_code()
+
     ! Test 3: Empty input handling
     call test_empty_input()
     
@@ -140,7 +143,7 @@ contains
     
     
     subroutine test_basic_io()
-        integer :: exit_code
+        integer :: exit_code, run_status
         character(len=1000) :: output_line
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
@@ -159,9 +162,9 @@ contains
         ! Run: echo "print *, 'test'" | fortfront
         command = 'echo "print *, ''test''" | ' // executable_path // ' > ' // &
                   'test_output.txt 2>test_error.txt'
-        call execute_command_line(command, exitstat=exit_code)
+        call execute_command_line(command, exitstat=run_status)
         
-        success = (exit_code == 0)
+        success = (run_status == 0)
         
         if (success) then
             ! Check if output contains expected Fortran code
@@ -183,7 +186,7 @@ contains
         if (.not. success) then
             print *, "  Failed to run basic CLI command"
             print *, "  Executable path: ", executable_path
-            print *, "  Exit code: ", exit_code
+            print *, "  Exit code: ", run_status
         end if
     end subroutine test_basic_io
     
@@ -220,6 +223,29 @@ contains
             print *, "  Exit code: ", exit_code
         end if
     end subroutine test_error_handling
+
+    subroutine test_invalid_flag_exit_code()
+        integer :: exit_code, run_status
+        character(len=512) :: command
+        logical :: success
+
+        call test_start("Unknown flag returns non-zero exit")
+
+        ! Use fpm run to ensure the current build is used
+        command = 'fpm run -- --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
+        call execute_command_line(command, exitstat=run_status)
+
+        ! Clean up test files
+        call execute_command_line('rm -f test_output_flag.txt test_error_flag.txt', exitstat=exit_code)
+
+        success = (run_status /= 0)
+
+        call test_result(success)
+        if (.not. success) then
+            print *, "  Expected non-zero exit for unknown flag"
+            print *, "  Exit code: ", run_status
+        end if
+    end subroutine test_invalid_flag_exit_code
     
     subroutine test_empty_input()
         integer :: exit_code
