@@ -657,6 +657,7 @@ contains
         type(mono_type_t), pointer :: value_type
         character(len=64) :: var_type
         integer :: existing_idx
+        integer :: i
 
         if (assign_index <= 0 .or. assign_index > arena%size) return
         if (.not. allocated(arena%entries(assign_index)%node)) return
