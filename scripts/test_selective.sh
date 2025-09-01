@@ -38,7 +38,13 @@ TIMEOUT_FAST=${TIMEOUT_FAST:-180}
 run_with_timeout() {
     local t="$1"; shift
     if command -v timeout >/dev/null 2>&1; then
-        timeout --preserve-status "${t}" "$@"
+        # Prefer preserving child status when supported (GNU coreutils)
+        if timeout --help 2>&1 | grep -q -- "--preserve-status"; then
+            timeout --preserve-status "${t}" "$@"
+        else
+            # BusyBox/other implementations: no preserve flag available
+            timeout "${t}" "$@"
+        fi
     else
         # Fallback: no timeout available
         "$@"
