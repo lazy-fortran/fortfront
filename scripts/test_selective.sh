@@ -10,16 +10,14 @@
 
 set -euo pipefail
 
-echo "🧪 Selective Test Runner - CI Infrastructure"
-echo "=============================================="
+echo "Selective Test Runner - CI Infrastructure"
+echo "========================================"
 
 # Environment detection
 CI_MODE=${ENABLE_COVERAGE:-false}
-PARALLEL_JOBS=${OMP_NUM_THREADS:-4}
 
-echo "CI Mode: Coverage enabled = $CI_MODE"
-echo "Parallel jobs: $PARALLEL_JOBS"
-echo ""
+echo "CI Mode: coverage enabled = $CI_MODE"
+echo
 
 # Common FPM flags for all test runs
 FPM_FLAGS="-cpp -fmax-stack-var-size=524288"
@@ -42,7 +40,7 @@ run_with_timeout() {
 }
 
 if [ "$CI_MODE" = "true" ]; then
-    echo "🎯 FULL TESTING MODE (Main branch with coverage)"
+    echo "FULL TESTING MODE (main branch with coverage)"
     echo "Running comprehensive test suite..."
     
     # Add coverage flags for full testing
@@ -53,15 +51,15 @@ if [ "$CI_MODE" = "true" ]; then
     rc=$?
     set -e
     if [ "$rc" -eq 124 ]; then
-        echo "❌ Full test suite timed out after ${TIMEOUT_FULL}s" >&2
+        echo "ERROR: full test suite timed out after ${TIMEOUT_FULL}s" >&2
         exit 124
     elif [ "$rc" -ne 0 ]; then
-        echo "❌ Full test suite failed with exit code $rc" >&2
+        echo "ERROR: full test suite failed with exit code $rc" >&2
         exit "$rc"
     fi
     
 else
-    echo "🚀 FAST TESTING MODE (PR/branch validation)"
+    echo "FAST TESTING MODE (PR/branch validation)"
     echo "Running core test suite without coverage..."
     
     # Fast mode - run essential tests only with optimization
@@ -71,21 +69,21 @@ else
     echo "Running critical infrastructure tests (timeout ${TIMEOUT_FAST}s each)..."
     set +e
     run_with_timeout "$TIMEOUT_FAST" fpm test test_minimal_bench --flag "$FPM_FLAGS $FAST_FLAGS" --verbose; rc=$?
-    if [ "$rc" -eq 124 ]; then echo "❌ test_minimal_bench timed out" >&2; exit 124; fi
-    if [ "$rc" -ne 0 ]; then echo "❌ test_minimal_bench failed with exit code $rc" >&2; exit "$rc"; fi
+    if [ "$rc" -eq 124 ]; then echo "ERROR: test_minimal_bench timed out" >&2; exit 124; fi
+    if [ "$rc" -ne 0 ]; then echo "ERROR: test_minimal_bench failed with exit code $rc" >&2; exit "$rc"; fi
 
     run_with_timeout "$TIMEOUT_FAST" fpm test test_fortfront_api_parsing --flag "$FPM_FLAGS $FAST_FLAGS" --verbose; rc=$?
-    if [ "$rc" -eq 124 ]; then echo "❌ test_fortfront_api_parsing timed out" >&2; exit 124; fi
-    if [ "$rc" -ne 0 ]; then echo "❌ test_fortfront_api_parsing failed with exit code $rc" >&2; exit "$rc"; fi
+    if [ "$rc" -eq 124 ]; then echo "ERROR: test_fortfront_api_parsing timed out" >&2; exit 124; fi
+    if [ "$rc" -ne 0 ]; then echo "ERROR: test_fortfront_api_parsing failed with exit code $rc" >&2; exit "$rc"; fi
 
     run_with_timeout "$TIMEOUT_FAST" fpm test test_fortfront_api_integration --flag "$FPM_FLAGS $FAST_FLAGS" --verbose; rc=$?
-    if [ "$rc" -eq 124 ]; then echo "❌ test_fortfront_api_integration timed out" >&2; exit 124; fi
-    if [ "$rc" -ne 0 ]; then echo "❌ test_fortfront_api_integration failed with exit code $rc" >&2; exit "$rc"; fi
+    if [ "$rc" -eq 124 ]; then echo "ERROR: test_fortfront_api_integration timed out" >&2; exit 124; fi
+    if [ "$rc" -ne 0 ]; then echo "ERROR: test_fortfront_api_integration failed with exit code $rc" >&2; exit "$rc"; fi
     set -e
     
-    echo "✅ Fast testing completed"
+    echo "Fast testing completed"
 fi
 
-echo ""
-echo "✅ Selective test execution completed"
-echo "CI Infrastructure Status: Ready for further validation"
+echo
+echo "Selective test execution completed"
+echo "CI infrastructure status: ready for further validation"
