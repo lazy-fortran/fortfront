@@ -13,6 +13,12 @@ set -euo pipefail
 echo "Selective Test Runner - CI Infrastructure"
 echo "========================================"
 
+# Basic environment validation
+if ! command -v fpm >/dev/null 2>&1; then
+    echo "ERROR: fpm is not installed or not on PATH" >&2
+    exit 127
+fi
+
 # Environment detection
 CI_MODE=${ENABLE_COVERAGE:-false}
 
@@ -50,8 +56,10 @@ if [ "$CI_MODE" = "true" ]; then
     run_with_timeout "$TIMEOUT_FULL" fpm test --flag "$FPM_FLAGS $COVERAGE_FLAGS" --verbose
     rc=$?
     set -e
-    if [ "$rc" -eq 124 ]; then
-        echo "ERROR: full test suite timed out after ${TIMEOUT_FULL}s" >&2
+    # GNU timeout returns 124 on timeout by default; with --preserve-status it
+    # may return 128+signal (143 for SIGTERM, 137 for SIGKILL). Treat these as timeout.
+    if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ] || [ "$rc" -eq 143 ]; then
+        echo "ERROR: full test suite timed out after ${TIMEOUT_FULL}s (rc=$rc)" >&2
         exit 124
     elif [ "$rc" -ne 0 ]; then
         echo "ERROR: full test suite failed with exit code $rc" >&2
@@ -68,16 +76,17 @@ else
     # Run critical test subset for fast feedback
     echo "Running critical infrastructure tests (timeout ${TIMEOUT_FAST}s each)..."
     set +e
-    run_with_timeout "$TIMEOUT_FAST" fpm test test_minimal_bench --flag "$FPM_FLAGS $FAST_FLAGS" --verbose; rc=$?
-    if [ "$rc" -eq 124 ]; then echo "ERROR: test_minimal_bench timed out" >&2; exit 124; fi
-    if [ "$rc" -ne 0 ]; then echo "ERROR: test_minimal_bench failed with exit code $rc" >&2; exit "$rc"; fi
+    # Small/fast unit covering core utilities
+    run_with_timeout "$TIMEOUT_FAST" fpm test test_uid_generator --flag "$FPM_FLAGS $FAST_FLAGS" --verbose; rc=$?
+    if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ] || [ "$rc" -eq 143 ]; then echo "ERROR: test_uid_generator timed out" >&2; exit 124; fi
+    if [ "$rc" -ne 0 ]; then echo "ERROR: test_uid_generator failed with exit code $rc" >&2; exit "$rc"; fi
 
     run_with_timeout "$TIMEOUT_FAST" fpm test test_fortfront_api_parsing --flag "$FPM_FLAGS $FAST_FLAGS" --verbose; rc=$?
-    if [ "$rc" -eq 124 ]; then echo "ERROR: test_fortfront_api_parsing timed out" >&2; exit 124; fi
+    if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ] || [ "$rc" -eq 143 ]; then echo "ERROR: test_fortfront_api_parsing timed out" >&2; exit 124; fi
     if [ "$rc" -ne 0 ]; then echo "ERROR: test_fortfront_api_parsing failed with exit code $rc" >&2; exit "$rc"; fi
 
     run_with_timeout "$TIMEOUT_FAST" fpm test test_fortfront_api_integration --flag "$FPM_FLAGS $FAST_FLAGS" --verbose; rc=$?
-    if [ "$rc" -eq 124 ]; then echo "ERROR: test_fortfront_api_integration timed out" >&2; exit 124; fi
+    if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ] || [ "$rc" -eq 143 ]; then echo "ERROR: test_fortfront_api_integration timed out" >&2; exit 124; fi
     if [ "$rc" -ne 0 ]; then echo "ERROR: test_fortfront_api_integration failed with exit code $rc" >&2; exit "$rc"; fi
     set -e
     
