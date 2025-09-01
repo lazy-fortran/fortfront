@@ -411,7 +411,7 @@ contains
             return
         end if
 
-        ! Equal precedence: handle associativity
+        ! Equal precedence: handle associativity and non-associative cases
         select case (trim(parent_op))
         case ('**')
             ! Exponentiation is right-associative.
@@ -421,6 +421,14 @@ contains
             else
                 needs_parens = .false.
             end if
+        case ('-')
+            ! Subtraction is left-associative but not associative.
+            ! Be conservative: for right child at equal precedence, add parentheses.
+            needs_parens = .not. is_left
+        case ('/')
+            ! Division is left-associative but not associative.
+            ! Be conservative: for right child at equal precedence, add parentheses.
+            needs_parens = .not. is_left
         case default
             ! Most others are left-associative: no parentheses needed for equal precedence
             needs_parens = .false.
