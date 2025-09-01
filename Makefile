@@ -67,7 +67,10 @@ install: libfortfront.a
 
 # Run tests
 test:
+	# Ensure a clean workspace before running tests and remove artifacts after
+	$(MAKE) -s clean-test-artifacts
 	fpm test --runner "scripts/xfail_runner.sh"
+	$(MAKE) -s clean-test-artifacts
 
 # Build and run example external tool
 example: libfortfront.a
@@ -122,6 +125,13 @@ clean-test-artifacts:
 	rm -f *.lf *.f90 *.json 2>/dev/null || true
 	rm -f coverage.*.html coverage.info coverage_filtered.info coverage.css 2>/dev/null || true
 	rm -f intent_*.f90 valid_*.f90 2>/dev/null || true
+	# Additional test-generated files (mirrors .gitignore entries)
+	rm -f test_*.md test_*.txt *_test.md *_test.txt *_test.f *_test.f90 \
+		test_results* test_output* 2>/dev/null || true
+	rm -f *.tmp *.temp 2>/dev/null || true
+	rm -f test_go_style_simple test_minimal_components \
+		test_simple_plugin_registry test_standalone_events test_output \
+		debug_error_test debug_*_test 2>/dev/null || true
 	@echo "Test artifacts cleaned"
 
 # Help target
