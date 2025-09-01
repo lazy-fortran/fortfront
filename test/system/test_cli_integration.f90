@@ -184,6 +184,17 @@ contains
                     if (index(output_line, 'Warning:') > 0) success = .false.
                 end do
 100             close(10)
+
+                ! Additionally assert stderr is empty for clean basic run
+                open(unit=12, file='test_error.txt', status='old', action='read', iostat=exit_code)
+                if (exit_code == 0) then
+                    read(12, '(A)', end=110, iostat=exit_code) output_line
+                    if (exit_code == 0) then
+                        success = .false.
+                    end if
+110                 close(12)
+                end if
+
                 ! Clean up test files
                 call execute_command_line('rm -f test_output.txt test_error.txt', exitstat=exit_code)
             else
