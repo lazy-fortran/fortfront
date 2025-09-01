@@ -571,8 +571,14 @@ contains
                     if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
                         if (allocated(arena%entries(node%body_indices(i))%node)) then
                             select type (ib => arena%entries(node%body_indices(i))%node)
+                            ! Detect either a proper implicit statement node marked as none,
+                            ! or a literal node that already contains the text 'implicit none'.
                             type is (implicit_statement_node)
                                 if (ib%is_none) has_implicit = .true.
+                            type is (literal_node)
+                                if (allocated(ib%value)) then
+                                    if (index(ib%value, 'implicit none') > 0) has_implicit = .true.
+                                end if
                             end select
                         end if
                     end if
