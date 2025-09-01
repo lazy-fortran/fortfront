@@ -21,6 +21,9 @@ program test_string_transformation
     
     ! Test 4: Multiple statements
     call test_multiple_statements()
+
+    ! Test 4b: Multi-line string concatenation
+    call test_multi_line_string_concat()
     
     ! Test 5: Syntax error handling
     call test_syntax_error()
@@ -30,6 +33,9 @@ program test_string_transformation
     
     ! Test 7: Complex expression
     call test_complex_expression()
+
+    ! Test 8: Non-character declarations unaffected by string logic
+    call test_non_character_declaration_safety()
     
     print *, ""
     print *, "=== Test Summary ==="
@@ -131,6 +137,55 @@ contains
             print *, "  Error: ", trim(error_msg)
         end if
     end subroutine test_multiple_statements
+
+    subroutine test_multi_line_string_concat()
+        character(len=:), allocatable :: input, output, error_msg
+        logical :: success
+        
+        call test_start("Multi-line string concatenation")
+        
+        input = "s = 'a' // 'b'" // new_line('A') // &
+                "t = s // 'c'" // new_line('A') // &
+                "print *, t"
+        
+        call transform_lazy_fortran_string(input, output, error_msg)
+        
+        ! Expect no errors and both assignments preserved in output
+        success = (len_trim(error_msg) == 0) .and. &
+                  (index(output, "s = 'a' // 'b'") > 0) .and. &
+                  (index(output, "t = s // 'c'") > 0)
+        
+        call test_result(success)
+        if (.not. success) then
+            print *, "  Error: ", trim(error_msg)
+            print *, "  Output: ", trim(output)
+        end if
+    end subroutine test_multi_line_string_concat
+
+    subroutine test_non_character_declaration_safety()
+        character(len=:), allocatable :: input, output, error_msg
+        logical :: success
+        
+        call test_start("Non-character declaration safety")
+        
+        input = "integer :: n" // new_line('A') // &
+                "n = 5" // new_line('A') // &
+                "s = 'x'" // new_line('A') // &
+                "s = s // 'y'" // new_line('A') // &
+                "print *, n, s"
+        
+        call transform_lazy_fortran_string(input, output, error_msg)
+        
+        ! Ensure integer declaration remains and character handling applies only to strings
+        success = (len_trim(error_msg) == 0) .and. &
+                  (index(output, "integer :: n") > 0)
+        
+        call test_result(success)
+        if (.not. success) then
+            print *, "  Error: ", trim(error_msg)
+            print *, "  Output: ", trim(output)
+        end if
+    end subroutine test_non_character_declaration_safety
     
     subroutine test_syntax_error()
         character(len=:), allocatable :: output, error_msg
