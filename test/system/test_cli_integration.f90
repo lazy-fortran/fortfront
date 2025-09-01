@@ -42,6 +42,9 @@ program test_cli_integration
 
     ! Test 3: Empty input handling
     call test_empty_input()
+
+    ! Test 4: No stdout contamination (warnings go to stderr)
+    call test_no_stdout_contamination()
     
     print *, ""
     print *, "=== Test Summary ==="
@@ -255,6 +258,65 @@ contains
             print *, "  Exit code: ", run_status
         end if
     end subroutine test_invalid_flag_exit_code
+    
+    subroutine test_no_stdout_contamination()
+        integer :: exit_code, run_status, unit_err, unit_out, stat
+        character(len=1000) :: output_line
+        character(len=512) :: command
+        character(len=:), allocatable :: executable_path
+        logical :: success, err_empty
+
+        call test_start("No stdout contamination")
+
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+
+        command = 'echo "x = 5" | ' // executable_path // ' > test_out_clean.txt 2>test_err_clean.txt'
+        call execute_command_line(command, exitstat=run_status)
+
+        success = (run_status == 0)
+        
+        ! Check stdout does not start with warnings/debug
+        if (success) then
+            open(newunit=unit_out, file='test_out_clean.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                read(unit_out, '(A)', end=10, iostat=exit_code) output_line
+10              close(unit_out)
+                if (exit_code == 0) then
+                    if (index(output_line, 'Warning:') == 1 .or. index(output_line, 'DEBUG:') == 1) then
+                        success = .false.
+                    end if
+                end if
+            else
+                success = .false.
+            end if
+        end if
+
+        ! Check stderr is empty
+        if (success) then
+            open(newunit=unit_err, file='test_err_clean.txt', status='old', action='read', iostat=stat)
+            if (stat == 0) then
+                read(unit_err, '(A)', end=20, iostat=stat) output_line
+20              close(unit_err)
+                err_empty = (stat /= 0)  ! reading failed or hit EOF immediately
+            else
+                err_empty = .true.
+            end if
+            success = success .and. err_empty
+        end if
+
+        call execute_command_line('rm -f test_out_clean.txt test_err_clean.txt', exitstat=exit_code)
+
+        call test_result(success)
+        if (.not. success) then
+            print *, "  Stdout contamination detected or stderr not empty"
+            print *, "  Exit code: ", run_status
+        end if
+    end subroutine test_no_stdout_contamination
     
     subroutine test_empty_input()
         integer :: exit_code
