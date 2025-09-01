@@ -422,6 +422,54 @@ contains
                         end if
                     end block
                 else
+                    ! Heuristic implied-do detection for modern syntax: [expr, i, start, end[, step]]
+                    if (allocated(node%syntax_style) .and. node%syntax_style == "modern") then
+                        if (allocated(node%element_indices)) then
+                            if (size(node%element_indices) >= 4) then
+                                block
+                                    integer :: start_val, end_val, step_val, sz
+                                    logical :: ok
+                                    ok = .false.
+                                    ! Second element should be an identifier (loop variable)
+                                    if (node%element_indices(2) > 0 .and. node%element_indices(2) <= arena%size) then
+                                        if (allocated(arena%entries(node%element_indices(2))%node)) then
+                                            select type (idnode => arena%entries(node%element_indices(2))%node)
+                                            type is (identifier_node)
+                                                ok = .true.
+                                            class default
+                                                ok = .false.
+                                            end select
+                                        end if
+                                    end if
+                                    if (ok) then
+                                        start_val = get_integer_literal_value(arena, node%element_indices(3))
+                                        end_val = get_integer_literal_value(arena, node%element_indices(4))
+                                        if (size(node%element_indices) >= 5) then
+                                            step_val = get_integer_literal_value(arena, node%element_indices(5))
+                                        else
+                                            step_val = INVALID_INTEGER
+                                        end if
+                                        if (start_val /= INVALID_INTEGER .and. end_val /= INVALID_INTEGER) then
+                                            if (step_val == INVALID_INTEGER) then
+                                                sz = calculate_loop_size(arena, node%element_indices(3), node%element_indices(4), 0)
+                                            else
+                                                sz = calculate_loop_size(arena, node%element_indices(3), node%element_indices(4), node%element_indices(5))
+                                            end if
+                                            if (sz > 0) then
+                                                write(var_type, '(a,a,i0,a)') trim(elem_type_str), ", dimension(", sz, ")"
+                                            else
+                                                var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                                            end if
+                                        else
+                                            ! Non-literal bounds -> deferred shape allocatable
+                                            var_type = trim(elem_type_str) // ", dimension(:), allocatable"
+                                        end if
+                                        return
+                                    end if
+                                end block
+                            end if
+                        end if
+                    end if
                     ! Regular array literal with explicit elements
                     write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
                         ", dimension(", size(node%element_indices), ")"

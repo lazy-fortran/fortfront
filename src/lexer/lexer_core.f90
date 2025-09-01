@@ -87,7 +87,8 @@ contains
                 call skip_whitespace(source, pos, line_num, col_num)
                 
             case (char(10), char(13))  ! Newline
-                call skip_newline(source, pos, line_num, col_num)
+                call handle_newline(source, pos, line_num, col_num, &
+                                    tokenize_res%tokens, tokenize_res%token_count)
                 
             case ('!')  ! Comment
                 call scan_comment(source, pos, line_num, col_num, &
@@ -105,13 +106,35 @@ contains
                 call scan_identifier(source, pos, line_num, col_num, &
                                     tokenize_res%tokens, tokenize_res%token_count)
                 
-            case ('.')  ! Logical operator or number
-                if (pos < source_len .and. source(pos+1:pos+1) >= '0' .and. source(pos+1:pos+1) <= '9') then
-                    call scan_number(source, pos, line_num, col_num, &
-                                    tokenize_res%tokens, tokenize_res%token_count)
+            case ('.')  ! Logical token, decimal number, or separator between numbers
+                if (pos < source_len) then
+                    if (source(pos+1:pos+1) >= '0' .and. source(pos+1:pos+1) <= '9') then
+                        ! Only treat as a decimal number if not immediately following a digit
+                        block
+                            logical :: prev_is_digit
+                            if (pos > 1) then
+                                prev_is_digit = (source(pos-1:pos-1) >= '0' .and. source(pos-1:pos-1) <= '9')
+                            else
+                                prev_is_digit = .false.
+                            end if
+                            if (prev_is_digit) then
+                                ! Pattern like "3.14.159": second dot should be an operator separator
+                                call scan_operator(source, pos, line_num, col_num, &
+                                                  tokenize_res%tokens, tokenize_res%token_count)
+                            else
+                                call scan_number(source, pos, line_num, col_num, &
+                                                tokenize_res%tokens, tokenize_res%token_count)
+                            end if
+                        end block
+                    else
+                        ! Not followed by a digit: try logical token forms like .and., .true.
+                        call scan_logical_token(source, pos, line_num, col_num, &
+                                              tokenize_res%tokens, tokenize_res%token_count)
+                    end if
                 else
-                    call scan_logical_token(source, pos, line_num, col_num, &
-                                          tokenize_res%tokens, tokenize_res%token_count)
+                    ! At end of source: treat as operator (defensive)
+                    call scan_operator(source, pos, line_num, col_num, &
+                                      tokenize_res%tokens, tokenize_res%token_count)
                 end if
                 
             case default  ! Operator or unknown

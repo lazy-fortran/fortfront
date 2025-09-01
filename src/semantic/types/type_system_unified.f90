@@ -87,7 +87,7 @@ module type_system_unified
     ! Maximum sizes for fixed arrays (GCC 15.2.1 compatibility)
     ! Increased for large-scale processing (100K+ lines) - Issue #1046
     integer, parameter :: MAX_SUBST_SIZE = 512
-    integer, parameter :: MAX_ENV_SIZE = 10240  ! 10x increase for capacity limits
+    integer, parameter :: MAX_ENV_SIZE = 1024   ! revert to stable size to avoid stack bloat
     integer, parameter :: MAX_NAME_LEN = 128
     
     type :: substitution_t

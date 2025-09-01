@@ -24,6 +24,7 @@ module frontend_core
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
+    use codegen_basic_utils, only: add_line_continuations
     use json_reader, only: json_read_ast_from_file, json_read_semantic_from_file
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_core, only: generate_code_polymorphic, initialize_codegen
@@ -386,11 +387,9 @@ contains
             type(semantic_context_t) :: ctx
             ctx = create_semantic_context()
             
-            ! Issue #1076 FIX: Enable strict mode for undefined variable detection
-            ! Since standardization will add 'implicit none' automatically, 
-            ! semantic analysis should enforce strict mode to catch undefined variables
-            ! This restores Issue #495 undefined variable detection functionality
-            ctx%strict_mode = .true.
+            ! Use permissive mode here; strictness is decided in semantic analyzer
+            ! based on presence of 'implicit none' within the program unit.
+            ctx%strict_mode = .false.
             
             call analyze_program(ctx, arena, prog_index)
             

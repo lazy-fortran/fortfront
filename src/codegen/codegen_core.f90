@@ -9,6 +9,9 @@ module codegen_core
     use codegen_basic_utils, only: add_line_continuations
     use codegen_arena_interface, only: set_arena_generator
     use ast_nodes_data, only: mixed_construct_container_node
+    use ast_nodes_bounds, only: range_expression_node, array_bounds_node, array_slice_node, &
+                                array_operation_node
+    use ast_nodes_core, only: range_subscript_node
     implicit none
     private
 
@@ -50,6 +53,8 @@ contains
             code = generate_code_array_bounds(arena, node, node_index)
         type is (array_slice_node)
             code = generate_code_array_slice(arena, node, node_index)
+        type is (range_subscript_node)
+            code = generate_code_range_subscript(arena, node, node_index)
         type is (array_operation_node)
             code = generate_code_array_operation(arena, node, node_index)
             

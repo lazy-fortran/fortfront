@@ -108,6 +108,29 @@ contains
             return
         end if
 
+        ! Avoid grouping if array shapes or key attributes differ
+        if (node1%is_array .or. node2%is_array) then
+            can_group = .false.
+            return
+        end if
+
+        if (node1%is_allocatable .neqv. node2%is_allocatable) then
+            can_group = .false.
+            return
+        end if
+        if (node1%is_pointer .neqv. node2%is_pointer) then
+            can_group = .false.
+            return
+        end if
+        if (node1%is_target .neqv. node2%is_target) then
+            can_group = .false.
+            return
+        end if
+        if (node1%is_parameter .neqv. node2%is_parameter) then
+            can_group = .false.
+            return
+        end if
+
         can_group = trim(node1%type_name) == trim(node2%type_name) .and. &
                     node1%kind_value == node2%kind_value .and. &
                     node1%has_kind .eqv. node2%has_kind .and. &
@@ -370,6 +393,15 @@ contains
         
         select type (node => arena%entries(body_indices(i))%node)
         type is (declaration_node)
+            ! If this is a multi-variable declaration, emit it as-is to preserve
+            ! per-variable dimensions/attributes
+            if (node%is_multi_declaration) then
+                stmt_code = generate_code_from_arena(arena, body_indices(i))
+                code = code // indent_str // stmt_code // new_line('A')
+                i = i + 1
+                return
+            end if
+
             first_node = node
             var_list = trim(node%var_name)
             

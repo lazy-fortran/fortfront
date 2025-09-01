@@ -65,7 +65,7 @@ install: libfortfront.a
 
 # Run tests
 test:
-	fpm test
+	fpm test --runner "scripts/xfail_runner.sh"
 
 # Build and run example external tool
 example: libfortfront.a

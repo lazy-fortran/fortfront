@@ -77,33 +77,28 @@ contains
         
         select type (stmt => arena%entries(stmt_index)%node)
         type is (assignment_node)
-            ! Check if this is an array assignment
+            ! Count all assignments to identifiers; allocation need decided later
             if (stmt%target_index > 0 .and. stmt%target_index <= arena%size) then
                 if (allocated(arena%entries(stmt%target_index)%node)) then
                     select type (target => arena%entries(stmt%target_index)%node)
                     type is (identifier_node)
-                        ! Check if value is an array expression
-                        if (is_array_assignment(arena, stmt%value_index)) then
-                            ! Find or add variable to tracking
-                            var_idx = 0
-                            do i = 1, var_count
-                                if (trim(assigned_vars(i)) == trim(target%name)) then
-                                    var_idx = i
-                                    exit
-                                end if
-                            end do
-                            
-                            if (var_idx == 0) then
-                                ! New variable
-                                if (var_count < size(assigned_vars)) then
-                                    var_count = var_count + 1
-                                    assigned_vars(var_count) = target%name
-                                    assignment_counts(var_count) = 1
-                                end if
-                            else
-                                ! Increment count for existing variable
-                                assignment_counts(var_idx) = assignment_counts(var_idx) + 1
+                        ! Find or add variable to tracking
+                        var_idx = 0
+                        do i = 1, var_count
+                            if (trim(assigned_vars(i)) == trim(target%name)) then
+                                var_idx = i
+                                exit
                             end if
+                        end do
+                        
+                        if (var_idx == 0) then
+                            if (var_count < size(assigned_vars)) then
+                                var_count = var_count + 1
+                                assigned_vars(var_count) = target%name
+                                assignment_counts(var_count) = 1
+                            end if
+                        else
+                            assignment_counts(var_idx) = assignment_counts(var_idx) + 1
                         end if
                     end select
                 end if
@@ -163,8 +158,8 @@ contains
                 ! Single variable declaration
                 do i = 1, var_count
                     if (trim(assigned_vars(i)) == trim(stmt%var_name)) then
-                        ! Only mark allocatable if multiple assignments or if it's a procedure parameter
-                        if (assignment_counts(i) > 1 .or. is_procedure_parameter(arena, stmt_index)) then
+                        ! Mark allocatable if variable is assigned more than once or is a procedure parameter
+                        if (assignment_counts(i) >= 2 .or. is_procedure_parameter(arena, stmt_index)) then
                             stmt%is_allocatable = .true.
                             if (stmt%is_array .and. allocated(stmt%dimension_indices)) then
                                 ! Change fixed dimensions to deferred shape
@@ -207,7 +202,7 @@ contains
     ! Handle multi-variable declarations for allocatable marking
     subroutine handle_multi_variable_declaration_allocatable(arena, decl_index, &
         assigned_vars, assignment_counts, var_count, prog_index, needs_split)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
         character(len=64), intent(in) :: assigned_vars(:)
         integer, intent(in) :: assignment_counts(:)
@@ -231,7 +226,7 @@ contains
                 do i = 1, size(decl%var_names)
                     do j = 1, var_count
                         if (trim(assigned_vars(j)) == trim(decl%var_names(i))) then
-                            if (assignment_counts(j) > 1 .or. is_procedure_parameter(arena, decl_index)) then
+                            if (assignment_counts(j) >= 2 .or. is_procedure_parameter(arena, decl_index)) then
                                 found_allocatable = .true.
                             else
                                 found_non_allocatable = .true.
@@ -247,6 +242,22 @@ contains
                 
                 ! If some variables need allocatable and others don't, we need to split
                 needs_split = (found_allocatable .and. found_non_allocatable)
+
+                ! If all variables in the declaration need allocatable, mark the whole
+                ! multi-declaration as allocatable (no split needed)
+                if (found_allocatable .and. .not. found_non_allocatable) then
+                    block
+                        type(declaration_node) :: tmp
+                        tmp = decl
+                        tmp%is_allocatable = .true.
+                        if (tmp%is_array .and. allocated(tmp%dimension_indices)) then
+                            deallocate(tmp%dimension_indices)
+                            allocate(tmp%dimension_indices(1))
+                            tmp%dimension_indices(1) = 0  ! Deferred shape for allocatable
+                        end if
+                        arena%entries(decl_index)%node = tmp
+                    end block
+                end if
             end if
         end select
     end subroutine handle_multi_variable_declaration_allocatable
@@ -265,6 +276,7 @@ contains
         character(len=64), allocatable :: alloc_vars(:), non_alloc_vars(:)
         integer :: alloc_count, non_alloc_count
         logical :: needs_allocatable
+        integer :: idx_alloc, idx_non
         
         if (decl_index <= 0 .or. decl_index > arena%size) return
         if (.not. allocated(arena%entries(decl_index)%node)) return
@@ -284,7 +296,7 @@ contains
                 needs_allocatable = .false.
                 do j = 1, var_count
                     if (trim(assigned_vars(j)) == trim(decl%var_names(i))) then
-                        if (assignment_counts(j) > 1 .or. is_procedure_parameter(arena, decl_index)) then
+                        if (assignment_counts(j) >= 2 .or. is_procedure_parameter(arena, decl_index)) then
                             needs_allocatable = .true.
                         end if
                         exit
@@ -300,24 +312,74 @@ contains
                 end if
             end do
             
-            ! Create new declaration nodes
-            if (alloc_count > 0) then
-                call create_split_declaration(decl, alloc_vars, alloc_count, .true., allocatable_decl)
-                call arena%push(allocatable_decl, "declaration", prog_index)
-            end if
-            
-            if (non_alloc_count > 0) then
-                call create_split_declaration(decl, non_alloc_vars, non_alloc_count, .false., non_allocatable_decl)
-                call arena%push(non_allocatable_decl, "declaration", prog_index)
-            end if
-            
-            ! Update program body indices to replace the old declaration
-            call update_program_body_indices(arena, prog_index, decl_index, &
-                merge(arena%size-1, 0, alloc_count > 0), &
-                merge(arena%size, 0, non_alloc_count > 0))
-            
-            deallocate(alloc_vars)
-            deallocate(non_alloc_vars)
+            ! Create per-variable declarations to preserve names and attributes precisely
+            block
+                integer, allocatable :: new_indices(:)
+                integer, allocatable :: replaced(:)
+                integer :: new_count, pos, k, nbm, mm
+                type(declaration_node) :: single_decl
+
+                new_count = 0
+                allocate(new_indices(size(decl%var_names)))
+
+                do i = 1, size(decl%var_names)
+                    needs_allocatable = .false.
+                    do j = 1, var_count
+                        if (trim(assigned_vars(j)) == trim(decl%var_names(i))) then
+                            if (assignment_counts(j) >= 2 .or. is_procedure_parameter(arena, decl_index)) then
+                                needs_allocatable = .true.
+                            end if
+                            exit
+                        end if
+                    end do
+
+                    block
+                        character(len=64) :: one_name(1)
+                        one_name(1) = trim(decl%var_names(i))
+                        call create_split_declaration(decl, one_name, 1, needs_allocatable, single_decl)
+                    end block
+                    call arena%push(single_decl, "declaration", prog_index)
+                    new_count = new_count + 1
+                    new_indices(new_count) = arena%size
+                end do
+
+                ! Replace old declaration index in program body with new_indices list
+                select type (prog => arena%entries(prog_index)%node)
+                type is (program_node)
+                    if (allocated(prog%body_indices)) then
+                        pos = 0
+                        do k = 1, size(prog%body_indices)
+                            if (prog%body_indices(k) == decl_index) then
+                                pos = k
+                                exit
+                            end if
+                        end do
+                        if (pos > 0) then
+                            nbm = size(prog%body_indices) - 1 + new_count
+                            allocate(replaced(nbm))
+                            ! Copy before
+                            do k = 1, pos-1
+                                replaced(k) = prog%body_indices(k)
+                            end do
+                            ! Insert new ones
+                            mm = pos
+                            do k = 1, new_count
+                                replaced(mm) = new_indices(k)
+                                mm = mm + 1
+                            end do
+                            ! Copy after
+                            do k = pos+1, size(prog%body_indices)
+                                replaced(mm) = prog%body_indices(k)
+                                mm = mm + 1
+                            end do
+                            prog%body_indices = replaced
+                            arena%entries(prog_index)%node = prog
+                        end if
+                    end if
+                end select
+
+                deallocate(new_indices)
+            end block
         end select
     end subroutine split_multi_variable_declaration
     

@@ -246,7 +246,9 @@ contains
         if (present(line)) decl%line = line
         if (present(column)) decl%column = column
 
-        call arena%push(decl, "multi_declaration", parent_index)
+        ! Use the same node category as single declarations so downstream
+        ! codegen/standardizer logic treats both uniformly.
+        call arena%push(decl, "declaration", parent_index)
         decl_index = arena%size
     end function push_multi_declaration
 

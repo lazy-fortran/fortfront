@@ -7,6 +7,7 @@ module frontend_program_units
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_core, only: parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
+    use frontend_statement_processing, only: parse_all_statements => parse_all_statements
     use parser_declarations, only: parse_derived_type_def
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
@@ -136,7 +137,7 @@ contains
         ! Check if there's meaningful content that should become an implicit main
         if (has_any_non_comment_content(tokens)) then
             if (has_executable_statements(tokens)) then
-                ! Parse all statements into a program block
+                ! Parse all statements into a program block (multi-statement aware)
                 prog_index = parse_all_statements(tokens, arena)
             else
                 ! Just declarations - still creates implicit main program
@@ -192,15 +193,7 @@ contains
         end do
     end function has_executable_statements
 
-    ! Parse all statements into a program block
-    function parse_all_statements(tokens, arena) result(prog_index)
-        type(token_t), intent(in) :: tokens(:)
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: prog_index
-
-        ! Use statement dispatcher to parse all content
-        prog_index = parse_statement_dispatcher(tokens, arena)
-    end function parse_all_statements
+    ! Remove single-statement version to avoid shadowing the multi-statement parser
 
     ! Parse explicit program unit
     function parse_explicit_program_unit(tokens, arena) result(prog_index)
