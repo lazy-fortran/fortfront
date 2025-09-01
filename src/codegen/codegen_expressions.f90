@@ -74,13 +74,13 @@ contains
 
         ! Generate operands
         if (node%left_index > 0) then
-            left_code = codegen_core_generate_arena(arena, node%left_index)
+            left_code = generate_code_from_arena(arena, node%left_index)
         else
             left_code = ""
         end if
 
         if (node%right_index > 0) then
-            right_code = codegen_core_generate_arena(arena, node%right_index)
+            right_code = generate_code_from_arena(arena, node%right_index)
         else
             right_code = ""
         end if
@@ -126,8 +126,35 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
 
-        ! Generate range subscript code (e.g., array(start:end))
-        code = "1:n"  ! Basic range implementation - needs proper bounds from node
+        character(len=:), allocatable :: base_code, start_code, end_code
+
+        ! Base expression (e.g., array or variable name)
+        if (node%base_expr_index > 0) then
+            base_code = generate_code_from_arena(arena, node%base_expr_index)
+        else
+            base_code = ""
+        end if
+
+        ! Start index (optional)
+        if (node%start_index > 0) then
+            start_code = generate_code_from_arena(arena, node%start_index)
+        else
+            start_code = ""
+        end if
+
+        ! End index (optional)
+        if (node%end_index > 0) then
+            end_code = generate_code_from_arena(arena, node%end_index)
+        else
+            end_code = ""
+        end if
+
+        ! Assemble range: base(start:end) with optional bounds
+        code = base_code // "("
+        if (len(start_code) > 0) code = code // start_code
+        code = code // ":"
+        if (len(end_code) > 0) code = code // end_code
+        code = code // ")"
     end function generate_code_range_subscript
 
     ! Generate code for call or subscript nodes

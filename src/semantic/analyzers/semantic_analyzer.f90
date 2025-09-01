@@ -56,7 +56,7 @@ module semantic_analyzer
         type(parameter_tracker_t) :: param_tracker  ! Track parameter attributes
         type(temp_tracker_t) :: temp_tracker  ! Track expression temporaries
         type(error_collection_t) :: errors  ! Collect semantic errors
-        logical :: strict_mode = .false.  ! True for standard Fortran (implicit none), false for lazy Fortran
+        logical :: strict_mode = .false.  ! Default lazy mode; callers may enable strict
     contains
         ! Implement required abstract procedures from semantic_context_base_t FIRST
         procedure :: get_context_name => semantic_get_context_name

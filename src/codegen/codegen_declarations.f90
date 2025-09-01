@@ -2,6 +2,7 @@ module codegen_declarations
     use iso_fortran_env, only: error_unit
     use ast_core
     use ast_nodes_data
+    use ast_nodes_misc, only: implicit_statement_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -552,9 +553,27 @@ contains
 
         ! Program header
         code = "program " // node%name // new_line('A')
-        
-        ! Always add implicit none for program units
-        code = code // "    implicit none" // new_line('A')
+
+        ! Add implicit none only if not already present in body
+        block
+            logical :: has_implicit
+            has_implicit = .false.
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
+                        if (allocated(arena%entries(node%body_indices(i))%node)) then
+                            select type (ib => arena%entries(node%body_indices(i))%node)
+                            type is (implicit_statement_node)
+                                if (ib%is_none) has_implicit = .true.
+                            end select
+                        end if
+                    end if
+                end do
+            end if
+            if (.not. has_implicit) then
+                code = code // "    implicit none" // new_line('A')
+            end if
+        end block
 
         ! Generate body with proper grouping
         if (allocated(node%body_indices)) then

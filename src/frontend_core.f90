@@ -24,6 +24,7 @@ module frontend_core
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
                            get_standardizer_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
+    use codegen_basic_utils, only: add_line_continuations
     use json_reader, only: json_read_ast_from_file, json_read_semantic_from_file
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_core, only: generate_code_polymorphic, initialize_codegen
