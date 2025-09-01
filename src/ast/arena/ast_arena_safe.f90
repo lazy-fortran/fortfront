@@ -222,16 +222,16 @@ contains
     subroutine store_error_placeholder(arena, node, index)
         use ast_arena_modern, only: ast_arena_t
         use ast_error_nodes, only: error_node_t, create_error_node
+        use iso_fortran_env, only: error_unit
         type(ast_arena_t), intent(inout) :: arena
         class(ast_node), intent(in) :: node
         integer, intent(in) :: index
         
-        use iso_fortran_env, only: error_unit
         write(error_unit, '(A)') "ERROR: Unknown AST node type - creating error placeholder"
         allocate(error_node_t :: arena%entries(index)%node)
         select type(error_node => arena%entries(index)%node)
-        type is (error_node_t)
-            error_node = create_error_node("Unknown node type in arena storage", &
+            type is (error_node_t)
+                error_node = create_error_node("Unknown node type in arena storage", &
                                            "Could not safely store node")
         end select
     end subroutine store_error_placeholder
