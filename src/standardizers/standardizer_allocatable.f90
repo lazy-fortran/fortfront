@@ -315,7 +315,8 @@ contains
             ! Create per-variable declarations to preserve names and attributes precisely
             block
                 integer, allocatable :: new_indices(:)
-                integer :: new_count, pos, k
+                integer, allocatable :: replaced(:)
+                integer :: new_count, pos, k, nbm, mm
                 type(declaration_node) :: single_decl
 
                 new_count = 0
@@ -351,8 +352,6 @@ contains
                             end if
                         end do
                         if (pos > 0) then
-                            integer :: nbm, mm
-                            integer, allocatable :: replaced(:)
                             nbm = size(prog%body_indices) - 1 + new_count
                             allocate(replaced(nbm))
                             ! Copy before
