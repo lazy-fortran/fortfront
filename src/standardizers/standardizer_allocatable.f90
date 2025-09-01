@@ -351,10 +351,9 @@ contains
                             end if
                         end do
                         if (pos > 0) then
-                            integer :: nb, m, t
-                            nb = size(prog%body_indices) - 1 + new_count
-                            allocate(t, source=nb)  ! dummy to silence unused warning
+                            integer :: nb, m
                             integer, allocatable :: replaced(:)
+                            nb = size(prog%body_indices) - 1 + new_count
                             allocate(replaced(nb))
                             ! Copy before
                             do k = 1, pos-1
