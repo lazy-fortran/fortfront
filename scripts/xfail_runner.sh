@@ -20,8 +20,9 @@ mkdir -p "$repo_root/logs"
 # Run the test with a timeout; capture exit code robustly
 code=0
 if command -v timeout >/dev/null 2>&1; then
-  # Send SIGTERM at TIME_LIMIT, escalate to SIGKILL after 5s, preserve exit code
-  timeout --preserve-status -k 5s "${TIME_LIMIT}s" "$exe" \
+  # Send SIGTERM at TIME_LIMIT, escalate to SIGKILL after 5s.
+  # Do not preserve child status so timeout returns 124 on timeout consistently.
+  timeout -k 5s "${TIME_LIMIT}s" "$exe" \
     > "$repo_root/logs/${name}.log" 2>&1 || code=$? || code=0
 else
   # Fallback: no timeout available; still run and capture code
