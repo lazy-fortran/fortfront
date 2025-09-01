@@ -230,14 +230,52 @@ contains
             end if
             
             if (is_multi_var) then
-                ! Create multi-variable declaration
-                
-                temp_index = push_multi_declaration( &
-                    arena, &
-                    type_spec%type_name, &
-                    var_names(1:var_count) &
-                )
-                
+                ! Create multi-variable declaration preserving attributes
+                if (type_spec%has_kind) then
+                    if (attr_info%has_global_dimensions) then
+                        temp_index = push_multi_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            var_names(1:var_count), &
+                            kind_value=type_spec%kind_value, &
+                            dimension_indices=attr_info%global_dimension_indices, &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    else
+                        temp_index = push_multi_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            var_names(1:var_count), &
+                            kind_value=type_spec%kind_value, &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    end if
+                else
+                    if (attr_info%has_global_dimensions) then
+                        temp_index = push_multi_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            var_names(1:var_count), &
+                            dimension_indices=attr_info%global_dimension_indices, &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    else
+                        temp_index = push_multi_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            var_names(1:var_count), &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    end if
+                end if
                 decl_index = temp_index
                 return
             end if
