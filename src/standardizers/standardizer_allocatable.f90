@@ -333,8 +333,11 @@ contains
                         end if
                     end do
 
-                    call create_split_declaration(decl, [character(len=64) :: trim(decl%var_names(i))], 1, &
-                                                  needs_allocatable, single_decl)
+                    block
+                        character(len=64) :: one_name(1)
+                        one_name(1) = trim(decl%var_names(i))
+                        call create_split_declaration(decl, one_name, 1, needs_allocatable, single_decl)
+                    end block
                     call arena%push(single_decl, "declaration", prog_index)
                     new_count = new_count + 1
                     new_indices(new_count) = arena%size
