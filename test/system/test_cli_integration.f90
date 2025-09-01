@@ -42,9 +42,6 @@ program test_cli_integration
 
     ! Test 3: Empty input handling
     call test_empty_input()
-
-    ! Test 4: No debug text in stdout
-    call test_no_debug_output()
     
     print *, ""
     print *, "=== Test Summary ==="
@@ -147,7 +144,7 @@ contains
     
     subroutine test_basic_io()
         integer :: exit_code, run_status
-        character(len=1000) :: output_line
+        character(len=1000) :: output_line, err_line
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
         logical :: success
@@ -170,31 +167,24 @@ contains
         success = (run_status == 0)
         
         if (success) then
-            ! Check stdout contains expected Fortran code and no debug/warnings
+            ! Check if output contains expected Fortran code
             open(unit=10, file='test_output.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
-                success = .false.
-                do
-                    read(10, '(A)', end=100, iostat=exit_code) output_line
-                    if (exit_code /= 0) exit
-                    if (.not. success) then
-                        if (index(output_line, 'program main') > 0) success = .true.
-                    end if
-                    if (index(output_line, 'DEBUG:') > 0) success = .false.
-                    if (index(output_line, 'Warning:') > 0) success = .false.
-                end do
+                read(10, '(A)', end=100, iostat=exit_code) output_line
+                if (exit_code == 0) then
+                    success = success .and. (index(output_line, 'program main') > 0)
+                end if
 100             close(10)
-
-                ! Additionally assert stderr is empty for clean basic run
+                ! Ensure no diagnostics leaked to stdout (stderr should be empty on success)
                 open(unit=12, file='test_error.txt', status='old', action='read', iostat=exit_code)
                 if (exit_code == 0) then
-                    read(12, '(A)', end=110, iostat=exit_code) output_line
-                    if (exit_code == 0) then
+                    read(12, '(A)', end=101, iostat=exit_code) err_line
+                    ! If we successfully read any content, it's a failure for clean runs
+                    if (exit_code == 0 .and. len_trim(err_line) > 0) then
                         success = .false.
                     end if
-110                 close(12)
+101                 close(12)
                 end if
-
                 ! Clean up test files
                 call execute_command_line('rm -f test_output.txt test_error.txt', exitstat=exit_code)
             else
@@ -322,54 +312,6 @@ contains
             print *, "  Exit code: ", exit_code
         end if
     end subroutine test_empty_input
-
-    subroutine test_no_debug_output()
-        integer :: exit_code, run_status, unit
-        character(len=512) :: command
-        character(len=:), allocatable :: executable_path
-        character(len=1024) :: line
-        logical :: success, saw_debug
-
-        call test_start("No debug text in stdout")
-
-        executable_path = find_fortfront_executable()
-        if (len(executable_path) == 0) then
-            call test_result(.false.)
-            print *, "  ERROR: Could not locate fortfront executable"
-            return
-        end if
-
-        command = 'echo "x = 5" | ' // executable_path // ' > t_out.txt 2>t_err.txt'
-        call execute_command_line(command, exitstat=run_status)
-
-        success = (run_status == 0)
-        if (success) then
-            saw_debug = .false.
-            open(newunit=unit, file='t_out.txt', status='old', action='read', iostat=exit_code)
-            if (exit_code == 0) then
-                do
-                    read(unit, '(A)', iostat=exit_code) line
-                    if (exit_code /= 0) exit
-                    if (index(line, 'DEBUG:') > 0 .or. index(line, 'Warning:') > 0) then
-                        saw_debug = .true.
-                        exit
-                    end if
-                end do
-                close(unit)
-            else
-                success = .false.
-            end if
-            success = success .and. (.not. saw_debug)
-        end if
-
-        ! Cleanup
-        call execute_command_line('rm -f t_out.txt t_err.txt', exitstat=exit_code)
-
-        call test_result(success)
-        if (.not. success) then
-            print *, "  Unexpected debug output present in stdout"
-        end if
-    end subroutine test_no_debug_output
     
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name

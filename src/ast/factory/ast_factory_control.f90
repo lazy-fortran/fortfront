@@ -5,6 +5,7 @@ module ast_factory_control
     use ast_factory_core, only: validate_arena, validate_node_index
     use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH
     use error_handling, only: result_t, success_result, create_error_result
+    use iso_fortran_env, only: error_unit
     implicit none
     private
 
