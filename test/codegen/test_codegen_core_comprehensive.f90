@@ -10,6 +10,7 @@ program test_codegen_core_comprehensive
     pass_count = 0
     
     print *, "=== Codegen Core Comprehensive Tests ==="
+    call initialize_codegen()
     
     ! Test basic node code generation
     call test_literal_generation()

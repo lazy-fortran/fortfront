@@ -2,6 +2,7 @@ module codegen_declarations
     use iso_fortran_env, only: error_unit
     use ast_core
     use ast_nodes_data
+    use ast_nodes_misc, only: implicit_statement_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -39,14 +40,24 @@ contains
             code = "function " // node%name
         end if
 
-        ! Generate parameters
+        ! Generate parameters (names only)
         if (allocated(node%param_indices) .and. size(node%param_indices) > 0) then
             code = code // "("
             do i = 1, size(node%param_indices)
                 if (i > 1) code = code // ", "
                 if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
-                    params_code = generate_code_from_arena(arena, node%param_indices(i))
-                    code = code // params_code
+                    if (allocated(arena%entries(node%param_indices(i))%node)) then
+                        select type (p => arena%entries(node%param_indices(i))%node)
+                        type is (identifier_node)
+                            code = code // p%name
+                        type is (parameter_declaration_node)
+                            code = code // p%name
+                        type is (declaration_node)
+                            code = code // p%var_name
+                        class default
+                            code = code // "param"//trim(adjustl(int_to_string(i)))
+                        end select
+                    end if
                 end if
             end do
             code = code // ")"
@@ -150,14 +161,24 @@ contains
         ! Start subroutine definition
         code = "subroutine " // node%name
 
-        ! Generate parameters
+        ! Generate parameters (names only)
         if (allocated(node%param_indices) .and. size(node%param_indices) > 0) then
             code = code // "("
             do i = 1, size(node%param_indices)
                 if (i > 1) code = code // ", "
                 if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
-                    params_code = generate_code_from_arena(arena, node%param_indices(i))
-                    code = code // params_code
+                    if (allocated(arena%entries(node%param_indices(i))%node)) then
+                        select type (p => arena%entries(node%param_indices(i))%node)
+                        type is (identifier_node)
+                            code = code // p%name
+                        type is (parameter_declaration_node)
+                            code = code // p%name
+                        type is (declaration_node)
+                            code = code // p%var_name
+                        class default
+                            code = code // "param"//trim(adjustl(int_to_string(i)))
+                        end select
+                    end if
                 end if
             end do
             code = code // ")"
@@ -403,21 +424,9 @@ contains
         type(parameter_declaration_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-
-        ! Generate the parameter declaration
-        if (allocated(node%type_name)) then
-            code = node%type_name
-        else
-            code = "real"
-        end if
-        if (node%has_kind) then
-            code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
-        end if
-        if (node%intent_type /= INTENT_NONE) then
-            code = code // ", intent(" // intent_type_to_string(node%intent_type) // ")"
-        end if
-        if (node%is_optional) code = code // ", optional"
-        code = code // " :: " // node%name
+        ! For parameter_declaration_node, emit only the name. Attributes are handled
+        ! by separate declaration nodes in the body and should not appear in signatures.
+        code = node%name
     end function generate_code_parameter_declaration
 
     ! Generate code for modules
@@ -552,9 +561,27 @@ contains
 
         ! Program header
         code = "program " // node%name // new_line('A')
-        
-        ! Always add implicit none for program units
-        code = code // "    implicit none" // new_line('A')
+
+        ! Add implicit none only if not already present in body
+        block
+            logical :: has_implicit
+            has_implicit = .false.
+            if (allocated(node%body_indices)) then
+                do i = 1, size(node%body_indices)
+                    if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
+                        if (allocated(arena%entries(node%body_indices(i))%node)) then
+                            select type (ib => arena%entries(node%body_indices(i))%node)
+                            type is (implicit_statement_node)
+                                if (ib%is_none) has_implicit = .true.
+                            end select
+                        end if
+                    end if
+                end do
+            end if
+            if (.not. has_implicit) then
+                code = code // "    implicit none" // new_line('A')
+            end if
+        end block
 
         ! Generate body with proper grouping
         if (allocated(node%body_indices)) then
