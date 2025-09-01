@@ -77,33 +77,28 @@ contains
         
         select type (stmt => arena%entries(stmt_index)%node)
         type is (assignment_node)
-            ! Check if this is an array assignment
+            ! Count all assignments to identifiers; allocation need decided later
             if (stmt%target_index > 0 .and. stmt%target_index <= arena%size) then
                 if (allocated(arena%entries(stmt%target_index)%node)) then
                     select type (target => arena%entries(stmt%target_index)%node)
                     type is (identifier_node)
-                        ! Check if value is an array expression
-                        if (is_array_assignment(arena, stmt%value_index)) then
-                            ! Find or add variable to tracking
-                            var_idx = 0
-                            do i = 1, var_count
-                                if (trim(assigned_vars(i)) == trim(target%name)) then
-                                    var_idx = i
-                                    exit
-                                end if
-                            end do
-                            
-                            if (var_idx == 0) then
-                                ! New variable
-                                if (var_count < size(assigned_vars)) then
-                                    var_count = var_count + 1
-                                    assigned_vars(var_count) = target%name
-                                    assignment_counts(var_count) = 1
-                                end if
-                            else
-                                ! Increment count for existing variable
-                                assignment_counts(var_idx) = assignment_counts(var_idx) + 1
+                        ! Find or add variable to tracking
+                        var_idx = 0
+                        do i = 1, var_count
+                            if (trim(assigned_vars(i)) == trim(target%name)) then
+                                var_idx = i
+                                exit
                             end if
+                        end do
+                        
+                        if (var_idx == 0) then
+                            if (var_count < size(assigned_vars)) then
+                                var_count = var_count + 1
+                                assigned_vars(var_count) = target%name
+                                assignment_counts(var_count) = 1
+                            end if
+                        else
+                            assignment_counts(var_idx) = assignment_counts(var_idx) + 1
                         end if
                     end select
                 end if
@@ -163,8 +158,8 @@ contains
                 ! Single variable declaration
                 do i = 1, var_count
                     if (trim(assigned_vars(i)) == trim(stmt%var_name)) then
-                        ! Mark allocatable if any array assignment occurs or if it's a procedure parameter
-                        if (assignment_counts(i) >= 1 .or. is_procedure_parameter(arena, stmt_index)) then
+                        ! Mark allocatable if variable is assigned more than once or is a procedure parameter
+                        if (assignment_counts(i) >= 2 .or. is_procedure_parameter(arena, stmt_index)) then
                             stmt%is_allocatable = .true.
                             if (stmt%is_array .and. allocated(stmt%dimension_indices)) then
                                 ! Change fixed dimensions to deferred shape
@@ -231,7 +226,7 @@ contains
                 do i = 1, size(decl%var_names)
                     do j = 1, var_count
                         if (trim(assigned_vars(j)) == trim(decl%var_names(i))) then
-                            if (assignment_counts(j) >= 1 .or. is_procedure_parameter(arena, decl_index)) then
+                            if (assignment_counts(j) >= 2 .or. is_procedure_parameter(arena, decl_index)) then
                                 found_allocatable = .true.
                             else
                                 found_non_allocatable = .true.
@@ -301,7 +296,7 @@ contains
                 needs_allocatable = .false.
                 do j = 1, var_count
                     if (trim(assigned_vars(j)) == trim(decl%var_names(i))) then
-                        if (assignment_counts(j) >= 1 .or. is_procedure_parameter(arena, decl_index)) then
+                        if (assignment_counts(j) >= 2 .or. is_procedure_parameter(arena, decl_index)) then
                             needs_allocatable = .true.
                         end if
                         exit
