@@ -36,7 +36,10 @@ program test_cli_integration
     
     ! Test 2: Error handling works
     call test_error_handling()
-    
+
+    ! Test 2b: Unknown flag returns non-zero exit code
+    call test_invalid_flag_exit_code()
+
     ! Test 3: Empty input handling
     call test_empty_input()
     
@@ -140,7 +143,7 @@ contains
     
     
     subroutine test_basic_io()
-        integer :: exit_code
+        integer :: exit_code, run_status
         character(len=1000) :: output_line
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
@@ -159,9 +162,9 @@ contains
         ! Run: echo "print *, 'test'" | fortfront
         command = 'echo "print *, ''test''" | ' // executable_path // ' > ' // &
                   'test_output.txt 2>test_error.txt'
-        call execute_command_line(command, exitstat=exit_code)
+        call execute_command_line(command, exitstat=run_status)
         
-        success = (exit_code == 0)
+        success = (run_status == 0)
         
         if (success) then
             ! Check if output contains expected Fortran code
@@ -183,12 +186,12 @@ contains
         if (.not. success) then
             print *, "  Failed to run basic CLI command"
             print *, "  Executable path: ", executable_path
-            print *, "  Exit code: ", exit_code
+            print *, "  Exit code: ", run_status
         end if
     end subroutine test_basic_io
     
     subroutine test_error_handling()
-        integer :: exit_code
+        integer :: exit_code, run_status
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
         logical :: success
@@ -206,20 +209,52 @@ contains
         ! Run with invalid input
         command = 'echo "invalid fortran code @#$%" | ' // executable_path // ' > ' // &
                   'test_output2.txt 2>test_error2.txt'
-        call execute_command_line(command, exitstat=exit_code)
+        call execute_command_line(command, exitstat=run_status)
         
         ! Clean up test files
         call execute_command_line('rm -f test_output2.txt test_error2.txt', exitstat=exit_code)
         
-        ! Should still exit successfully but output should contain error markers
-        success = (exit_code == 0)
+        ! Invalid source input should not crash; current design returns 0
+        success = (run_status == 0)
         
         call test_result(success)
         if (.not. success) then
             print *, "  Error handling failed"
-            print *, "  Exit code: ", exit_code
+            print *, "  Exit code: ", run_status
         end if
     end subroutine test_error_handling
+
+    subroutine test_invalid_flag_exit_code()
+        integer :: exit_code, run_status
+        character(len=512) :: command
+        character(len=:), allocatable :: executable_path
+        logical :: success
+
+        call test_start("Unknown flag returns non-zero exit")
+
+        ! Find the fortfront executable
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+
+        ! Run with an unknown flag; expect non-zero exit
+        command = executable_path // ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
+        call execute_command_line(command, exitstat=run_status)
+
+        ! Clean up test files
+        call execute_command_line('rm -f test_output_flag.txt test_error_flag.txt', exitstat=exit_code)
+
+        success = (run_status /= 0)
+
+        call test_result(success)
+        if (.not. success) then
+            print *, "  Expected non-zero exit for unknown flag"
+            print *, "  Exit code: ", run_status
+        end if
+    end subroutine test_invalid_flag_exit_code
     
     subroutine test_empty_input()
         integer :: exit_code
