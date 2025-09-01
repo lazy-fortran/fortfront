@@ -6,7 +6,8 @@ module frontend_parsing
                            TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: program_node, module_node
+    use ast_nodes_core, only: program_node
+    use ast_nodes_data, only: module_node
     use ast_factory, only: push_program
     use frontend_utilities, only: int_to_str
     use mixed_construct_detector, only: detect_mixed_constructs, mixed_construct_result_t
