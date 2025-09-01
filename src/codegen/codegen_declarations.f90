@@ -549,7 +549,15 @@ contains
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
                     if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
-                        if (i > 1) then
+                        if (allocated(arena%entries(node%body_indices(i))%node)) then
+                            select type (child => arena%entries(node%body_indices(i))%node)
+                            type is (program_node)
+                                ! Skip empty implicit main programs to avoid duplicate minimal outputs
+                                if ((child%name == "main" .or. child%name == "__IMPLICIT_MAIN__") .and. &
+                                    (.not. allocated(child%body_indices) .or. size(child%body_indices) == 0)) cycle
+                            end select
+                        end if
+                        if (len(code) > 0) then
                             code = code // new_line('A') // new_line('A')
                         end if
                         code = code // generate_code_from_arena(arena, node%body_indices(i))

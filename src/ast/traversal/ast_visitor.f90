@@ -397,7 +397,12 @@ contains
 
         call append_debug(this, "program: "//node%name)
         this%indent_level = this%indent_level + 1
-       call append_debug(this, "body_indices: "//int_array_to_string(node%body_indices))
+        if (allocated(node%body_indices)) then
+            call append_debug(this, "body_indices: "// &
+                int_array_to_string(node%body_indices))
+        else
+            call append_debug(this, "body_indices: []")
+        end if
         this%indent_level = this%indent_level - 1
     end subroutine debug_visit_program
 

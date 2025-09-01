@@ -7,6 +7,7 @@ module frontend_parsing
     use parser_state_module, only: parser_state_t, create_parser_state
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
+    use ast_nodes_data, only: module_node
     use ast_factory, only: push_program
     use frontend_utilities, only: int_to_str
     use mixed_construct_detector, only: detect_mixed_constructs, mixed_construct_result_t
@@ -119,14 +120,16 @@ contains
             ! No units found - create empty main program
             prog_index = push_program(arena, "main", [integer::], 1, 1)
         else if (unit_count == 1) then
-            ! Single unit - check if it's already a program node
+            ! Single unit - if it's a program, use it; if it's a module, return it directly;
+            ! otherwise wrap in a program for consistent API.
             if (allocated(arena%entries(unit_indices(1))%node)) then
                 select type (node => arena%entries(unit_indices(1))%node)
                 type is (program_node)
-                    ! Already a program node
+                    prog_index = unit_indices(1)
+                type is (module_node)
+                    ! Do not wrap a lone module in a synthetic program
                     prog_index = unit_indices(1)
                 class default
-                    ! Wrap in program node for consistent API
                     prog_index = push_program(arena, "main", unit_indices(1:1), 1, 1)
                 end select
             else
