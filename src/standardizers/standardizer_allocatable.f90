@@ -251,16 +251,18 @@ contains
                 ! If all variables in the declaration need allocatable, mark the whole
                 ! multi-declaration as allocatable (no split needed)
                 if (found_allocatable .and. .not. found_non_allocatable) then
-                    decl%is_allocatable = .true.
-                    if (decl%is_array .and. allocated(decl%dimension_indices)) then
-                        deallocate(decl%dimension_indices)
-                        allocate(decl%dimension_indices(1))
-                        decl%dimension_indices(1) = 0  ! Deferred shape for allocatable
-                    end if
+                    block
+                        type(declaration_node) :: tmp
+                        tmp = decl
+                        tmp%is_allocatable = .true.
+                        if (tmp%is_array .and. allocated(tmp%dimension_indices)) then
+                            deallocate(tmp%dimension_indices)
+                            allocate(tmp%dimension_indices(1))
+                            tmp%dimension_indices(1) = 0  ! Deferred shape for allocatable
+                        end if
+                        arena%entries(decl_index)%node = tmp
+                    end block
                 end if
-                
-                ! Update arena with potential changes
-                arena%entries(decl_index)%node = decl
             end if
         end select
     end subroutine handle_multi_variable_declaration_allocatable
