@@ -17,6 +17,14 @@ fi
 
 mkdir -p "$repo_root/logs"
 
+# Prune old logs to prevent repository bloat (infra hygiene)
+# - Remove logs older than LOG_RETENTION_DAYS (default: 7)
+# - Keep directory tidy but non-destructive for recent runs
+LOG_RETENTION_DAYS=${LOG_RETENTION_DAYS:-7}
+if [ -d "$repo_root/logs" ]; then
+  find "$repo_root/logs" -type f -name '*.log' -mtime +"$LOG_RETENTION_DAYS" -delete 2>/dev/null || true
+fi
+
 # Internal helper: run a command with a timeout even if GNU timeout is absent.
 # Behavior:
 # - Returns 124 on timeout, mirroring GNU timeout.
