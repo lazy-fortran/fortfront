@@ -170,7 +170,7 @@ contains
         success = (run_status == 0)
         
         if (success) then
-            ! Check if output contains expected Fortran code
+            ! Check stdout contains expected Fortran code
             open(unit=10, file='test_output.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
                 read(10, '(A)', end=100, iostat=exit_code) output_line
@@ -178,12 +178,26 @@ contains
                     success = success .and. (index(output_line, 'program main') > 0)
                 end if
 100             close(10)
-                ! Clean up test files
-                call execute_command_line('rm -f test_output.txt test_error.txt', exitstat=exit_code)
             else
                 success = .false.
             end if
         end if
+
+        if (success) then
+            ! Assert stderr is empty for valid input (no warnings/errors)
+            open(unit=12, file='test_error.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                read(12, '(A)', end=200, iostat=exit_code) output_line
+                ! If we could read a line (exit_code == 0), stderr was not empty -> fail
+                if (exit_code == 0) then
+                    success = .false.
+                end if
+200             close(12)
+            end if
+        end if
+
+        ! Clean up test files
+        call execute_command_line('rm -f test_output.txt test_error.txt', exitstat=exit_code)
         
         call test_result(success)
         if (.not. success) then
