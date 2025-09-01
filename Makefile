@@ -5,6 +5,8 @@ all: build
 
 # Build the project
 build:
+	# Ensure stray root artifacts (e.g., *.f90 from samples/tests) don't pollute builds
+	$(MAKE) -s clean-test-artifacts
 	fpm build --flag "-cpp -fmax-stack-var-size=65536"
 
 # Create libfortfront.a in project root for external linking
