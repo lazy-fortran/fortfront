@@ -265,6 +265,7 @@ contains
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
         logical :: success, err_empty
+        integer(kind=8) :: err_size
 
         call test_start("No stdout contamination")
 
@@ -280,14 +281,14 @@ contains
 
         success = (run_status == 0)
         
-        ! Check stdout does not start with warnings/debug
+        ! Check stdout contains no warnings/debug prefixes on first line
         if (success) then
             open(newunit=unit_out, file='test_out_clean.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
                 read(unit_out, '(A)', end=10, iostat=exit_code) output_line
 10              close(unit_out)
                 if (exit_code == 0) then
-                    if (index(output_line, 'Warning:') == 1 .or. index(output_line, 'DEBUG:') == 1) then
+                    if (index(output_line, 'Warning:') > 0 .or. index(output_line, 'DEBUG:') > 0) then
                         success = .false.
                     end if
                 end if
@@ -296,13 +297,11 @@ contains
             end if
         end if
 
-        ! Check stderr is empty
+        ! Check stderr is empty using file size
         if (success) then
-            open(newunit=unit_err, file='test_err_clean.txt', status='old', action='read', iostat=stat)
+            inquire(file='test_err_clean.txt', size=err_size, iostat=stat)
             if (stat == 0) then
-                read(unit_err, '(A)', end=20, iostat=stat) output_line
-20              close(unit_err)
-                err_empty = (stat /= 0)  ! reading failed or hit EOF immediately
+                err_empty = (err_size == 0)
             else
                 err_empty = .true.
             end if
