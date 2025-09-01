@@ -455,64 +455,64 @@ contains
         type(control_flow_graph_t), intent(in) :: cfg
         integer :: i
         
-        print *, "Control Flow Graph for: ", trim(cfg%procedure_name)
-        print *, "Blocks: ", cfg%block_count
-        print *, "Edges: ", cfg%edge_count
-        print *, ""
+        write(error_unit, *) "Control Flow Graph for: ", trim(cfg%procedure_name)
+        write(error_unit, *) "Blocks: ", cfg%block_count
+        write(error_unit, *) "Edges: ", cfg%edge_count
+        write(error_unit, *) ""
         
         ! Print blocks
         do i = 1, cfg%block_count
-            print *, "Block ", i, " (", trim(cfg%blocks(i)%label), ")"
-            if (cfg%blocks(i)%is_entry) print *, "  [ENTRY]"
-            if (cfg%blocks(i)%is_exit) print *, "  [EXIT]"
+            write(error_unit, *) "Block ", i, " (", trim(cfg%blocks(i)%label), ")"
+            if (cfg%blocks(i)%is_entry) write(error_unit, *) "  [ENTRY]"
+            if (cfg%blocks(i)%is_exit) write(error_unit, *) "  [EXIT]"
             if (cfg%blocks(i)%is_reachable) then
-                print *, "  Reachable: YES"
+                write(error_unit, *) "  Reachable: YES"
             else
-                print *, "  Reachable: NO"
+                write(error_unit, *) "  Reachable: NO"
             end if
             if (size(cfg%blocks(i)%statement_indices) > 0) then
-                print *, "  Statements: ", cfg%blocks(i)%statement_indices
+                write(error_unit, *) "  Statements: ", cfg%blocks(i)%statement_indices
             end if
         end do
         
-        print *, ""
-        print *, "Edges:"
+        write(error_unit, *) ""
+        write(error_unit, *) "Edges:"
         do i = 1, cfg%edge_count
             select case (cfg%edges(i)%edge_type)
             case (EDGE_UNCONDITIONAL)
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [unconditional]"
             case (EDGE_TRUE_BRANCH)
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [true: ", &
                          trim(cfg%edges(i)%condition), "]"
             case (EDGE_FALSE_BRANCH)
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [false: ", &
                          trim(cfg%edges(i)%condition), "]"
             case (EDGE_LOOP_BACK)
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [loop]"
             case (EDGE_RETURN)
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [return]"
             case (EDGE_EXCEPTION)
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [exception]"
             case (EDGE_CONDITIONAL_RETURN)
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [conditional-return]"
             case (EDGE_ERROR_HANDLING)
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [error-handling]"
             case (EDGE_SUCCESS_PATH)
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [success]"
             case (EDGE_FAILURE_PATH)
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id, " [failure]"
             case default
-                print *, "  ", cfg%edges(i)%from_block_id, " -> ", &
+                write(error_unit, *) "  ", cfg%edges(i)%from_block_id, " -> ", &
                          cfg%edges(i)%to_block_id
             end select
         end do
