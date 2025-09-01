@@ -53,6 +53,9 @@ test_old_api.o
 *.a
 *.so
 
-# Log files
+# Log files and outputs
 *.log
+*.err
+*.out
+logs/
 examples/external_tool_example
