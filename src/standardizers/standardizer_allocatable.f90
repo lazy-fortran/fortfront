@@ -312,26 +312,73 @@ contains
                 end if
             end do
             
-            ! Create new declaration nodes
-            idx_alloc = 0
-            idx_non = 0
-            if (alloc_count > 0) then
-                call create_split_declaration(decl, alloc_vars, alloc_count, .true., allocatable_decl)
-                call arena%push(allocatable_decl, "declaration", prog_index)
-                idx_alloc = arena%size
-            end if
-            
-            if (non_alloc_count > 0) then
-                call create_split_declaration(decl, non_alloc_vars, non_alloc_count, .false., non_allocatable_decl)
-                call arena%push(non_allocatable_decl, "declaration", prog_index)
-                idx_non = arena%size
-            end if
-            
-            ! Update program body indices to replace the old declaration with new ones
-            call update_program_body_indices(arena, prog_index, decl_index, idx_alloc, idx_non)
-            
-            deallocate(alloc_vars)
-            deallocate(non_alloc_vars)
+            ! Create per-variable declarations to preserve names and attributes precisely
+            block
+                integer, allocatable :: new_indices(:)
+                integer :: new_count, pos, k
+                type(declaration_node) :: single_decl
+
+                new_count = 0
+                allocate(new_indices(size(decl%var_names)))
+
+                do i = 1, size(decl%var_names)
+                    needs_allocatable = .false.
+                    do j = 1, var_count
+                        if (trim(assigned_vars(j)) == trim(decl%var_names(i))) then
+                            if (assignment_counts(j) >= 2 .or. is_procedure_parameter(arena, decl_index)) then
+                                needs_allocatable = .true.
+                            end if
+                            exit
+                        end if
+                    end do
+
+                    call create_split_declaration(decl, [character(len=64) :: trim(decl%var_names(i))], 1, &
+                                                  needs_allocatable, single_decl)
+                    call arena%push(single_decl, "declaration", prog_index)
+                    new_count = new_count + 1
+                    new_indices(new_count) = arena%size
+                end do
+
+                ! Replace old declaration index in program body with new_indices list
+                select type (prog => arena%entries(prog_index)%node)
+                type is (program_node)
+                    if (allocated(prog%body_indices)) then
+                        pos = 0
+                        do k = 1, size(prog%body_indices)
+                            if (prog%body_indices(k) == decl_index) then
+                                pos = k
+                                exit
+                            end if
+                        end do
+                        if (pos > 0) then
+                            integer :: nb, m, t
+                            nb = size(prog%body_indices) - 1 + new_count
+                            allocate(t, source=nb)  ! dummy to silence unused warning
+                            integer, allocatable :: replaced(:)
+                            allocate(replaced(nb))
+                            ! Copy before
+                            do k = 1, pos-1
+                                replaced(k) = prog%body_indices(k)
+                            end do
+                            ! Insert new ones
+                            m = pos
+                            do k = 1, new_count
+                                replaced(m) = new_indices(k)
+                                m = m + 1
+                            end do
+                            ! Copy after
+                            do k = pos+1, size(prog%body_indices)
+                                replaced(m) = prog%body_indices(k)
+                                m = m + 1
+                            end do
+                            prog%body_indices = replaced
+                            arena%entries(prog_index)%node = prog
+                        end if
+                    end if
+                end select
+
+                deallocate(new_indices)
+            end block
         end select
     end subroutine split_multi_variable_declaration
     
