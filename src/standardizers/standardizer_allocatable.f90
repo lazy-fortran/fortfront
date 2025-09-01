@@ -551,17 +551,21 @@ contains
                             ! Check if this declaration needs to be marked
                             do j = 1, var_count
                                 if (trim(stmt%var_name) == trim(string_vars_needing_allocatable(j))) then
-                                    if (stmt%inferred_type%kind > 0) then
-                                        stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
-                                        ! Clear type_name so codegen uses inferred_type
-                                        stmt%type_name = ""
-                                    else
-                                        ! Create an inferred_type for the declaration
-                                        stmt%inferred_type%kind = TCHAR
-                                        stmt%inferred_type%size = 0  ! Unknown size for allocatable
-                                        stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
-                                        ! Clear type_name so codegen uses inferred_type
-                                        stmt%type_name = ""
+                                    ! Guard: only mark character declarations as allocatable strings.
+                                    ! Avoid changing non-character types (e.g., integer/real) into character.
+                                    if (trim(stmt%type_name) == 'character' .or. stmt%inferred_type%kind == TCHAR) then
+                                        if (stmt%inferred_type%kind > 0) then
+                                            stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
+                                            ! Clear type_name so codegen uses inferred_type
+                                            stmt%type_name = ""
+                                        else
+                                            ! Create an inferred_type for the declaration
+                                            stmt%inferred_type%kind = TCHAR
+                                            stmt%inferred_type%size = 0  ! Unknown size for allocatable
+                                            stmt%inferred_type%alloc_info%needs_allocatable_string = .true.
+                                            ! Clear type_name so codegen uses inferred_type
+                                            stmt%type_name = ""
+                                        end if
                                     end if
                                     exit
                                 end if
