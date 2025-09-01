@@ -68,6 +68,7 @@ install: libfortfront.a
 # Run tests
 test:
 	# Ensure a clean workspace before running tests and remove artifacts after
+	$(MAKE) -s clean-logs
 	$(MAKE) -s clean-test-artifacts
 	fpm test --runner "scripts/xfail_runner.sh"
 	$(MAKE) -s clean-test-artifacts
@@ -111,6 +112,7 @@ clean: clean-test-artifacts
 	fpm clean --all
 	rm -f libfortfront.a
 	rm -rf fortfront_modules/
+	$(MAKE) -s clean-logs
 
 # Clean coverage files only
 clean-coverage:
@@ -133,6 +135,13 @@ clean-test-artifacts:
 		test_simple_plugin_registry test_standalone_events test_output \
 		debug_error_test debug_*_test 2>/dev/null || true
 	@echo "Test artifacts cleaned"
+
+# Clean logs to prevent accumulation
+clean-logs:
+	@echo "Cleaning old log files..."
+	rm -f *.log *.err *.out 2>/dev/null || true
+	find logs -type f -name '*.log' -delete 2>/dev/null || true
+	@echo "Logs cleaned"
 
 # Help target
 help:
