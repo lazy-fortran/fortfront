@@ -1,4 +1,4 @@
-.PHONY: all build test coverage clean clean-coverage clean-test-artifacts help install libfortfront.a example
+.PHONY: all build test coverage clean clean-coverage clean-test-artifacts clean-logs help install libfortfront.a example setup-githooks
 
 # Default target
 all: build
@@ -157,3 +157,9 @@ help:
 	@echo "  make clean-coverage - Clean coverage files only"
 	@echo "  make clean-test-artifacts - Clean test temporary files only"
 	@echo "  make help     - Show this help message"
+	@echo "  make setup-githooks - Configure repo to use .githooks/"
+
+# Configure git to use the repo's githooks directory
+setup-githooks:
+	@git config core.hooksPath .githooks
+	@echo "Configured git core.hooksPath to .githooks"
