@@ -4,18 +4,16 @@ set -euo pipefail
 # Prevent committing log/output files accidentally
 blocked_patterns=("*.log" "*.err" "*.out" "logs/*")
 
-# Collect staged files
-staged=$(git diff --cached --name-only)
-
+# Collect staged files (NUL-delimited to handle spaces/newlines safely)
 block=false
-for f in $staged; do
+while IFS= read -r -d '' f; do
   for pat in "${blocked_patterns[@]}"; do
     if [[ $f == $pat ]]; then
       echo "Pre-commit: refusing to commit '$f' (matches $pat)" >&2
       block=true
     fi
   done
-done
+done < <(git diff --cached --name-only -z)
 
 if $block; then
   echo "Remove these files from the commit or update .gitignore." >&2
@@ -23,4 +21,3 @@ if $block; then
 fi
 
 exit 0
-
