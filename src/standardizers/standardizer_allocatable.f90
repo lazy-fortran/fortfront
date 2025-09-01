@@ -207,7 +207,7 @@ contains
     ! Handle multi-variable declarations for allocatable marking
     subroutine handle_multi_variable_declaration_allocatable(arena, decl_index, &
         assigned_vars, assignment_counts, var_count, prog_index, needs_split)
-        type(ast_arena_t), intent(in) :: arena
+        type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: decl_index
         character(len=64), intent(in) :: assigned_vars(:)
         integer, intent(in) :: assignment_counts(:)
