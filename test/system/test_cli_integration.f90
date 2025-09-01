@@ -214,7 +214,7 @@ contains
         ! Clean up test files
         call execute_command_line('rm -f test_output2.txt test_error2.txt', exitstat=exit_code)
         
-        ! Should still exit successfully but output should contain error markers
+        ! Invalid source input should not crash; current design returns 0
         success = (exit_code == 0)
         
         call test_result(success)

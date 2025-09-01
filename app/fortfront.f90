@@ -133,12 +133,10 @@ program fortfront_cli
     ! Transform lazy fortran to standard fortran
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
     
-    ! Handle errors
-    if (error_msg /= "" .and. index(error_msg, "Cannot open") > 0) then
+    ! Handle errors: any error message implies non-zero exit
+    if (error_msg /= "") then
         write(error_unit, '(A)') trim(error_msg)
         error stop EXIT_FAILURE
-    else if (error_msg /= "") then
-        write(error_unit, '(A)') trim(error_msg)
     end if
     
     ! Write output to stdout
