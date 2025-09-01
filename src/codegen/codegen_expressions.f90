@@ -7,6 +7,7 @@ module codegen_expressions
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
+    use codegen_type_utils, only: get_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
     implicit none
     private
@@ -25,6 +26,7 @@ module codegen_expressions
     public :: generate_code_implied_do
     public :: get_operator_precedence
     public :: needs_parentheses
+    public :: get_node_operator
     public :: int_to_string
 
 contains
@@ -33,6 +35,7 @@ contains
     function generate_code_literal(node) result(code)
         type(literal_node), intent(in) :: node
         character(len=:), allocatable :: code
+        logical :: standardize_types_enabled
 
         ! Generate literal value - handle missing values gracefully
         if (allocated(node%value)) then
@@ -43,6 +46,24 @@ contains
                 code = ".false."
             else
                 code = node%value
+                ! If this is a real literal and type standardization is enabled,
+                ! emit double precision literal with d0 suffix (e.g., 3.14d0)
+                call get_type_standardization(standardize_types_enabled)
+                if (standardize_types_enabled) then
+                    if (node%literal_kind == LITERAL_REAL) then
+                        block
+                            character(len=:), allocatable :: lc
+                            lc = code
+                            ! Only append if not already having exponent/kind/d-suffix
+                            if (index(lc, 'e') == 0 .and. index(lc, 'E') == 0 .and. &
+                                index(lc, 'd') == 0 .and. index(lc, 'D') == 0) then
+                                if (index(lc, '.') > 0) then
+                                    code = trim(lc) // 'd0'
+                                end if
+                            end if
+                        end block
+                    end if
+                end if
             end if
         else
             ! Fallback for missing literal value
@@ -71,6 +92,8 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: left_code, right_code
         character(len=:), allocatable :: fortran_operator
+        character(len=:), allocatable :: left_op, right_op
+        logical :: left_paren, right_paren
 
         ! Generate operands
         if (node%left_index > 0) then
@@ -88,15 +111,27 @@ contains
         ! Determine the correct Fortran operator
         if (allocated(node%operator)) then
             fortran_operator = node%operator
-            
+
             ! Check for string concatenation: if operator is '+' and we're dealing with string literals
             if (node%operator == "+" .and. is_string_concatenation(left_code, right_code)) then
                 fortran_operator = "//"  ! Use Fortran string concatenation operator
             end if
+
+            ! Determine child operators to decide on parentheses
+            left_op = get_node_operator(arena, node%left_index)
+            right_op = get_node_operator(arena, node%right_index)
             
+            left_paren = .false.
+            right_paren = .false.
+            if (len_trim(left_op) > 0) left_paren = needs_parentheses(trim(fortran_operator), trim(left_op), .true.)
+            if (len_trim(right_op) > 0) right_paren = needs_parentheses(trim(fortran_operator), trim(right_op), .false.)
+
+            if (left_paren) left_code = "(" // left_code // ")"
+            if (right_paren) right_code = "(" // right_code // ")"
+
             select case (trim(fortran_operator))
-            case ('*','/')
-                ! For multiplication and division, no spaces per style tests
+            case ('*','/','**')
+                ! For multiplication, division, and exponentiation, no spaces per style/tests
                 code = left_code // fortran_operator // right_code
             case default
                 ! For all other operators, include spaces around
@@ -337,13 +372,23 @@ contains
         code = "(expr, i=1,n)"  ! Basic implied do - needs variable and bounds extraction
     end function generate_code_implied_do
 
-    ! Get operator precedence
+    ! Get operator precedence (higher number = higher precedence)
     function get_operator_precedence(op) result(precedence)
         character(len=*), intent(in) :: op
         integer :: precedence
 
-        ! Simplified precedence - all operators have same precedence
-        precedence = 1
+        select case (trim(op))
+        case ('**')
+            precedence = 4
+        case ('*','/')
+            precedence = 3
+        case ('+','-')
+            precedence = 2
+        case ('//')
+            precedence = 1
+        case default
+            precedence = 1
+        end select
     end function get_operator_precedence
 
     ! Check if parentheses are needed
@@ -352,9 +397,55 @@ contains
         logical, intent(in) :: is_left
         logical :: needs_parens
 
-        ! Simplified - always add parentheses for safety
-        needs_parens = .true.
+        integer :: p_prec, c_prec
+        p_prec = get_operator_precedence(parent_op)
+        c_prec = get_operator_precedence(child_op)
+
+        if (c_prec < p_prec) then
+            needs_parens = .true.
+            return
+        end if
+
+        if (c_prec > p_prec) then
+            needs_parens = .false.
+            return
+        end if
+
+        ! Equal precedence: handle associativity
+        select case (trim(parent_op))
+        case ('**')
+            ! Exponentiation is right-associative.
+            ! Parentheses needed for left child when it is also '**' to preserve explicit left-grouping.
+            if (is_left .and. trim(child_op) == '**') then
+                needs_parens = .true.
+            else
+                needs_parens = .false.
+            end if
+        case default
+            ! Most others are left-associative: no parentheses needed for equal precedence
+            needs_parens = .false.
+        end select
     end function needs_parentheses
+
+    ! Get operator for a node index if it's a binary operation; empty otherwise
+    function get_node_operator(arena, node_index) result(op)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: op
+
+        op = ""
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (n => arena%entries(node_index)%node)
+        type is (binary_op_node)
+            if (allocated(n%operator)) then
+                op = n%operator
+            end if
+        class default
+            op = ""
+        end select
+    end function get_node_operator
 
     ! Convert integer to string
     function int_to_string(n) result(str)

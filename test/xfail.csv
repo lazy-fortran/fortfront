@@ -24,8 +24,7 @@ test_issue_8_configurable_formatting,https://github.com/lazy-fortran/fortfront/i
 test_issue_9_type_specifier_preservation,https://github.com/lazy-fortran/fortfront/issues/1130
 test_source_reconstruction_integration,https://github.com/lazy-fortran/fortfront/issues/1130
 test_issue_521_source_fidelity,https://github.com/lazy-fortran/fortfront/issues/1130
-test_issue_212_exponentiation_precedence,https://github.com/lazy-fortran/fortfront/issues/1131
-test_expression_parentheses_preservation,https://github.com/lazy-fortran/fortfront/issues/1131
+ 
 test_issue_281_mathematical_expressions,https://github.com/lazy-fortran/fortfront/issues/1131
 test_interface_analyzer_enhanced,https://github.com/lazy-fortran/fortfront/issues/1132
 test_associate_construct_identifiers,https://github.com/lazy-fortran/fortfront/issues/1132
@@ -54,4 +53,4 @@ test_issue_10_disable_type_standardization,https://github.com/lazy-fortran/fortf
 test_analysis_plugins,https://github.com/lazy-fortran/fortfront/issues/1141
 test_intent_semantic_check,https://github.com/lazy-fortran/fortfront/issues/1141
 test_subroutine_standardization,https://github.com/lazy-fortran/fortfront/issues/1141
-test_intrinsic_functions_math_expr,https://github.com/lazy-fortran/fortfront/issues/1131
+ 
