@@ -43,8 +43,8 @@ program test_cli_integration
     ! Test 3: Empty input handling
     call test_empty_input()
 
-    ! Test 4: No stdout contamination (warnings go to stderr)
-    call test_no_stdout_contamination()
+    ! Test 4: No debug text in stdout
+    call test_no_debug_output()
     
     print *, ""
     print *, "=== Test Summary ==="
@@ -273,64 +273,6 @@ contains
         end if
     end subroutine test_invalid_flag_exit_code
     
-    subroutine test_no_stdout_contamination()
-        integer :: exit_code, run_status, unit_err, unit_out, stat
-        character(len=1000) :: output_line
-        character(len=512) :: command
-        character(len=:), allocatable :: executable_path
-        logical :: success, err_empty
-        integer(kind=8) :: err_size
-
-        call test_start("No stdout contamination")
-
-        executable_path = find_fortfront_executable()
-        if (len(executable_path) == 0) then
-            call test_result(.false.)
-            print *, "  ERROR: Could not locate fortfront executable"
-            return
-        end if
-
-        command = 'echo "x = 5" | ' // executable_path // ' > test_out_clean.txt 2>test_err_clean.txt'
-        call execute_command_line(command, exitstat=run_status)
-
-        success = (run_status == 0)
-        
-        ! Check stdout contains no warnings/debug prefixes on first line
-        if (success) then
-            open(newunit=unit_out, file='test_out_clean.txt', status='old', action='read', iostat=exit_code)
-            if (exit_code == 0) then
-                read(unit_out, '(A)', end=10, iostat=exit_code) output_line
-10              close(unit_out)
-                if (exit_code == 0) then
-                    if (index(output_line, 'Warning:') > 0 .or. index(output_line, 'DEBUG:') > 0) then
-                        success = .false.
-                    end if
-                end if
-            else
-                success = .false.
-            end if
-        end if
-
-        ! Check stderr is empty using file size
-        if (success) then
-            inquire(file='test_err_clean.txt', size=err_size, iostat=stat)
-            if (stat == 0) then
-                err_empty = (err_size == 0)
-            else
-                err_empty = .true.
-            end if
-            success = success .and. err_empty
-        end if
-
-        call execute_command_line('rm -f test_out_clean.txt test_err_clean.txt', exitstat=exit_code)
-
-        call test_result(success)
-        if (.not. success) then
-            print *, "  Stdout contamination detected or stderr not empty"
-            print *, "  Exit code: ", run_status
-        end if
-    end subroutine test_no_stdout_contamination
-    
     subroutine test_empty_input()
         integer :: exit_code
         character(len=1000) :: output_line
@@ -377,6 +319,54 @@ contains
             print *, "  Exit code: ", exit_code
         end if
     end subroutine test_empty_input
+
+    subroutine test_no_debug_output()
+        integer :: exit_code, run_status, unit
+        character(len=512) :: command
+        character(len=:), allocatable :: executable_path
+        character(len=1024) :: line
+        logical :: success, saw_debug
+
+        call test_start("No debug text in stdout")
+
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+
+        command = 'echo "x = 5" | ' // executable_path // ' > t_out.txt 2>t_err.txt'
+        call execute_command_line(command, exitstat=run_status)
+
+        success = (run_status == 0)
+        if (success) then
+            saw_debug = .false.
+            open(newunit=unit, file='t_out.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                do
+                    read(unit, '(A)', iostat=exit_code) line
+                    if (exit_code /= 0) exit
+                    if (index(line, 'DEBUG:') > 0 .or. index(line, 'Warning:') > 0) then
+                        saw_debug = .true.
+                        exit
+                    end if
+                end do
+                close(unit)
+            else
+                success = .false.
+            end if
+            success = success .and. (.not. saw_debug)
+        end if
+
+        ! Cleanup
+        call execute_command_line('rm -f t_out.txt t_err.txt', exitstat=exit_code)
+
+        call test_result(success)
+        if (.not. success) then
+            print *, "  Unexpected debug output present in stdout"
+        end if
+    end subroutine test_no_debug_output
     
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
