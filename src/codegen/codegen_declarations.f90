@@ -437,9 +437,38 @@ contains
         character(len=:), allocatable :: code
         character(len=:), allocatable :: body_code
         integer :: i
+        logical :: has_implicit
 
         ! Module header
         code = "module " // node%name // new_line('A')
+
+        ! Ensure module includes implicit none (quality requirement for lazy Fortran)
+        has_implicit = .false.
+        if (allocated(node%declaration_indices)) then
+            do i = 1, size(node%declaration_indices)
+                if (node%declaration_indices(i) > 0 .and. node%declaration_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(node%declaration_indices(i))%node)) then
+                        select type (decl => arena%entries(node%declaration_indices(i))%node)
+                        type is (implicit_statement_node)
+                            if (decl%is_none) then
+                                has_implicit = .true.
+                                exit
+                            end if
+                        type is (literal_node)
+                            if (allocated(decl%value)) then
+                                if (index(decl%value, 'implicit none') > 0) then
+                                    has_implicit = .true.
+                                    exit
+                                end if
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        end if
+        if (.not. has_implicit) then
+            code = code // "    implicit none" // new_line('A')
+        end if
 
         ! Generate module declarations
         if (allocated(node%declaration_indices)) then

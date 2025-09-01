@@ -27,6 +27,11 @@ module frontend_transformation
     public :: transform_lazy_fortran_string, &
               transform_lazy_fortran_string_with_format, format_options_t
 
+    ! Performance: reuse a single compiler arena across transformations
+    ! to avoid repeated heavy allocations and deallocations.
+    type(compiler_arena_t), save :: shared_arena
+    logical, save :: shared_arena_initialized = .false.
+
     ! Formatting options for code generation
     type :: format_options_t
         integer :: indent_size = 4
@@ -46,56 +51,58 @@ contains
 
         ! Local variables for 4-phase pipeline
         type(token_t), allocatable :: tokens(:)
-        type(compiler_arena_t) :: compiler_arena
+        ! Use shared module-level arena for performance
         integer :: prog_index
 
         allocate(character(len=0) :: error_msg)
         error_msg = ""
 
-        ! Initialize the codegen system
+        ! Initialize the codegen system (idempotent)
         call initialize_codegen()
 
-        ! Initialize unified compiler arena
-        compiler_arena = create_compiler_arena()
+        ! Obtain the shared compiler arena and reset for a clean run
+        if (.not. shared_arena_initialized) then
+            shared_arena = create_compiler_arena()
+            shared_arena_initialized = .true.
+        else
+            call shared_arena%reset()
+        end if
 
         ! Handle empty or whitespace-only input
         if (is_empty_or_whitespace_only(input)) then
             call create_minimal_program(output)
-            call destroy_compiler_arena(compiler_arena)
             return
         end if
 
         ! Phase 1: Lexical Analysis
-        call run_lexical_analysis(input, tokens, compiler_arena, error_msg)
+        call run_lexical_analysis(input, tokens, shared_arena, error_msg)
         if (error_msg /= "") then
-            call handle_lexical_error(input, error_msg, output, compiler_arena)
+            call handle_lexical_error(input, error_msg, output, shared_arena)
             return
         end if
 
         ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
-        call validate_syntax_with_reporting(input, tokens, error_msg, output, compiler_arena)
+        call validate_syntax_with_reporting(input, tokens, error_msg, output, shared_arena)
         if (error_msg /= "") return
 
         ! Check for meaningful content
         if (not_meaningful_for_parsing(tokens)) then
             call create_minimal_program(output)
-            call destroy_compiler_arena(compiler_arena)
             return
         end if
 
         ! Phase 2: Parsing
-        call run_parsing_phase(tokens, compiler_arena, prog_index, error_msg, output)
+        call run_parsing_phase(tokens, shared_arena, prog_index, error_msg, output)
         if (error_msg /= "") return
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
-        call run_final_phases(compiler_arena, prog_index, output, error_msg)
+        call run_final_phases(shared_arena, prog_index, output, error_msg)
         if (error_msg /= "") return
 
         ! Ensure error_msg is empty on successful transformation
         error_msg = ""
 
-        ! Cleanup unified compiler arena
-        call destroy_compiler_arena(compiler_arena)
+        ! Reuse arena: no destroy, it will be reset at next call
     end subroutine transform_lazy_fortran_string
 
     ! String-based transformation function with formatting options
@@ -167,7 +174,7 @@ contains
                 "    ! Original code could not be parsed" // new_line('A') // &
                 "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
-        call destroy_compiler_arena(compiler_arena)
+        ! Reuse shared arena: do not destroy here
     end subroutine handle_lexical_error
 
     ! Validate syntax with reporting
@@ -188,7 +195,7 @@ contains
                     "    ! Original code could not be parsed" // new_line('A') // &
                     "end program main" // new_line('A')
             ! error_msg already contains the error details for stderr
-            call destroy_compiler_arena(compiler_arena)
+            ! Reuse shared arena: do not destroy here
         end if
     end subroutine validate_syntax_with_reporting
 
@@ -258,7 +265,7 @@ contains
         else
             call create_parsing_error_program(error_msg, output)
         end if
-        call destroy_compiler_arena(compiler_arena)
+        ! Reuse shared arena: do not destroy here
     end subroutine handle_parsing_error
 
     ! Create parsing error program
@@ -291,7 +298,7 @@ contains
                 "    ! Original code could not be structured as a program" // new_line('A') // &
                 "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
-        call destroy_compiler_arena(compiler_arena)
+        ! Reuse shared arena: do not destroy here
     end subroutine handle_invalid_program_index
 
     ! Run final phases (semantic, standardization, codegen)
