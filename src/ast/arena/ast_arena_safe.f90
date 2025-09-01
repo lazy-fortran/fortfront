@@ -226,7 +226,8 @@ contains
         class(ast_node), intent(in) :: node
         integer, intent(in) :: index
         
-        print *, "ERROR: Unknown AST node type - creating error placeholder"
+        use iso_fortran_env, only: error_unit
+        write(error_unit, '(A)') "ERROR: Unknown AST node type - creating error placeholder"
         allocate(error_node_t :: arena%entries(index)%node)
         select type(error_node => arena%entries(index)%node)
         type is (error_node_t)
