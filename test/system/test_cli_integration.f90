@@ -191,7 +191,7 @@ contains
     end subroutine test_basic_io
     
     subroutine test_error_handling()
-        integer :: exit_code
+        integer :: exit_code, run_status
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
         logical :: success
@@ -209,30 +209,39 @@ contains
         ! Run with invalid input
         command = 'echo "invalid fortran code @#$%" | ' // executable_path // ' > ' // &
                   'test_output2.txt 2>test_error2.txt'
-        call execute_command_line(command, exitstat=exit_code)
+        call execute_command_line(command, exitstat=run_status)
         
         ! Clean up test files
         call execute_command_line('rm -f test_output2.txt test_error2.txt', exitstat=exit_code)
         
         ! Invalid source input should not crash; current design returns 0
-        success = (exit_code == 0)
+        success = (run_status == 0)
         
         call test_result(success)
         if (.not. success) then
             print *, "  Error handling failed"
-            print *, "  Exit code: ", exit_code
+            print *, "  Exit code: ", run_status
         end if
     end subroutine test_error_handling
 
     subroutine test_invalid_flag_exit_code()
         integer :: exit_code, run_status
         character(len=512) :: command
+        character(len=:), allocatable :: executable_path
         logical :: success
 
         call test_start("Unknown flag returns non-zero exit")
 
-        ! Use fpm run to ensure the current build is used
-        command = 'fpm run -- --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
+        ! Find the fortfront executable
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+
+        ! Run with an unknown flag; expect non-zero exit
+        command = executable_path // ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
         call execute_command_line(command, exitstat=run_status)
 
         ! Clean up test files
