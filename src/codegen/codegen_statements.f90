@@ -98,28 +98,13 @@ contains
             format_code = "*"
         end if
 
-        ! Generate output list
-        ! For now, generate arguments directly without recursive calls
+        ! Generate output list using recursive code generation for each expression
         args_code = ""
         if (allocated(node%expression_indices)) then
             do i = 1, size(node%expression_indices)
                 if (i > 1) args_code = args_code // ", "
                 if (node%expression_indices(i) > 0 .and. node%expression_indices(i) <= arena%size) then
-                    ! Instead of calling the stub, generate inline code for common cases
-                    block
-                        select type (arg_node => arena%entries(node%expression_indices(i))%node)
-                        type is (literal_node)
-                            args_code = args_code // arg_node%value
-                        type is (identifier_node)
-                            args_code = args_code // arg_node%name
-                        type is (binary_op_node)
-                            ! For operators, need proper generation
-                            args_code = args_code // "EXPR"
-                        class default
-                            ! For other types, use placeholder
-                            args_code = args_code // "..."
-                        end select
-                    end block
+                    args_code = args_code // generate_code_from_arena(arena, node%expression_indices(i))
                 end if
             end do
         end if
