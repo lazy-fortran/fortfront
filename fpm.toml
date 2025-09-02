@@ -9,12 +9,17 @@ stdlib = "*"
 json-fortran = { git = "https://github.com/jacobwilliams/json-fortran.git", tag = "8.3.0" }
 
 [build]
-auto-executables = true
+# Lock executables to explicit list to prevent accidental test binaries in app/
+auto-executables = false
 auto-tests = true
 auto-examples = true
+
+[[executable]]
+name = "fortfront"
+source-dir = "app"
+main = "fortfront.f90"
 
 [fortran]
 implicit-external = false
 implicit-typing = false
 source-form = "free"
-
