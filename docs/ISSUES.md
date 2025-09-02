@@ -4,7 +4,7 @@ This document lists all open GitHub issues prioritized by architectural impact a
 
 ## ⚠️ Development Workflow Note
 
-**All completed issues must await qodo merge feedback and code coverage analysis before being considered fully closed.** Issues marked as ✅ COMPLETED with ⚠️ PENDING status indicate implementation is done but awaiting final quality review.
+**All completed issues must await qodo merge feedback before being considered fully closed.** Issues marked as ✅ COMPLETED with ⚠️ PENDING status indicate implementation is done but awaiting final quality review.
 
 ## 🔴 Critical Architectural Issues (Blocking)
 
