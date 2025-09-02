@@ -433,9 +433,9 @@ contains
                 block
                     type(token_t) :: next_tok
                     next_tok = parser%peek()
-                    ! Check if next token is not a closing paren or comma
+                    ! Check if next token is not a closing paren/bracket or comma
                     if (.not. (next_tok%kind == TK_OPERATOR .and. &
-                               (next_tok%text == ")" .or. next_tok%text == ","))) then
+                               (next_tok%text == ")" .or. next_tok%text == "]" .or. next_tok%text == ","))) then
                         right_index = parse_logical_eqv(parser, arena)
                     else
                         ! Empty upper bound too (just :)
@@ -473,9 +473,9 @@ contains
                     block
                         type(token_t) :: next_tok
                         next_tok = parser%peek()
-                        ! Check if next token is not a closing paren or comma
+                        ! Check if next token is not a closing paren/bracket or comma
                         if (.not. (next_tok%kind == TK_OPERATOR .and. &
-                                 (next_tok%text == ")" .or. next_tok%text == ","))) then
+                                 (next_tok%text == ")" .or. next_tok%text == "]" .or. next_tok%text == ","))) then
                             right_index = parse_logical_eqv(parser, arena)
                         else
                             ! Empty upper bound (e.g., arr(2:))
