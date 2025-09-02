@@ -78,7 +78,7 @@ test:
 	# Validate xfail map to prevent stale entries
 	scripts/validate_xfail.sh
 	@echo "Running tests with timeout $(TEST_TIMEOUT)"
-	@sh -c 'timeout $(TEST_TIMEOUT) fpm test --runner "scripts/xfail_runner.sh"; rc=$$?; $(MAKE) -s clean-test-artifacts; exit $$rc'
+	@sh -c 'scripts/with_timeout.sh $(TEST_TIMEOUT) fpm test --runner "scripts/xfail_runner.sh"; rc=$$?; $(MAKE) -s clean-test-artifacts; exit $$rc'
 
 # Build and run example external tool
 example: libfortfront.a
