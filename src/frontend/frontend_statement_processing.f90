@@ -105,13 +105,14 @@ contains
 
         ! Heuristic: skip non-Fortran prefixes like "Simple test:" before real code (fixes #843)
         block
-            integer :: i, colon_pos, eq_pos, local_start
+            integer :: i, colon_pos, eq_pos, local_start, paren_depth
             logical :: saw_keyword
             colon_pos = 0
             eq_pos = 0
             saw_keyword = .false.
             ! Local adjustable start to avoid modifying INTENT(IN) argument
             local_start = stmt_start
+            paren_depth = 0
 
             ! Locate first '=' in the statement (assignment anchor)
             do i = local_start, stmt_end
@@ -125,12 +126,23 @@ contains
             end do
 
             if (eq_pos > 0) then
-                ! If there's a ':' before '=', and the prefix contains no Fortran keywords,
-                ! treat everything up to and including ':' as a non-Fortran label and skip it.
+                ! If there's a ':' before '=', and the prefix contains no Fortran
+                ! keywords, treat everything up to and including ':' as a non-Fortran
+                ! label and skip it. Do NOT do this when ':' is inside parentheses
+                ! (e.g., array slices/substrings like a(1:3) or s(2:4)).
                 do i = local_start, eq_pos - 1
-                    if (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == ":") then
-                        colon_pos = i
-                        exit
+                    if (tokens(i)%kind == TK_OPERATOR) then
+                        select case (tokens(i)%text)
+                        case ("(")
+                            paren_depth = paren_depth + 1
+                        case (")")
+                            if (paren_depth > 0) paren_depth = paren_depth - 1
+                        case (":")
+                            if (paren_depth == 0) then
+                                colon_pos = i
+                                exit
+                            end if
+                        end select
                     end if
                 end do
                 if (colon_pos > 0 .and. .not. saw_keyword) then
