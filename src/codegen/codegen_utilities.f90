@@ -430,10 +430,19 @@ contains
             end do
             
             ! Generate grouped declaration
-            stmt_code = generate_grouped_declaration(first_node%type_name, &
-                first_node%kind_value, first_node%has_kind, &
-                merge(first_node%intent, "", first_node%has_intent), &
-                var_list, first_node%is_optional)
+            ! Avoid MERGE on character of unequal lengths; build intent string explicitly
+            block
+                character(len=:), allocatable :: intent_str
+                if (first_node%has_intent) then
+                    intent_str = first_node%intent
+                else
+                    intent_str = ""
+                end if
+                stmt_code = generate_grouped_declaration(first_node%type_name, &
+                    first_node%kind_value, first_node%has_kind, &
+                    intent_str, &
+                    var_list, first_node%is_optional)
+            end block
             code = code // indent_str // stmt_code // new_line('A')
             i = j
         end select
