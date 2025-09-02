@@ -1,4 +1,4 @@
-.PHONY: all build test clean clean-test-artifacts clean-logs help install libfortfront.a example setup-githooks prune-build-cache
+.PHONY: all build test lint clean clean-test-artifacts clean-logs help install libfortfront.a example setup-githooks prune-build-cache
 
 # Number of newest fpm build cache directories to keep under build/
 # Can be overridden, e.g.: `make PRUNE_KEEP=2 prune-build-cache`
@@ -126,6 +126,7 @@ help:
 	@echo "  make libfortfront.a - Create static library and collect modules for external linking"
 	@echo "  make install  - Install libfortfront.a, module files, and pkg-config"
 	@echo "  make test     - Run tests"
+	@echo "  make lint     - Enforce source file-length (line count) limits"
 	@echo "  make example  - Build and run example external tool"
 	@echo "  make clean    - Clean all build and test artifacts"
 	@echo "  make clean-test-artifacts - Clean test temporary files only"
@@ -147,3 +148,7 @@ prune-build-cache:
 	    | awk -v k="$$keep" 'NR>k{print $$2}' \
 	    | xargs -r rm -rf; \
 	fi; true
+
+# Lint: enforce soft/hard file length (line count) limits for sources
+lint:
+	@scripts/check_line_lengths.sh
