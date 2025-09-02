@@ -42,7 +42,7 @@ The fraud prevention system prevents "resolved" issue claims where generated cod
 
 The fraud prevention gate is integrated into `.github/workflows/ci.yml`:
 
-- Runs after tests but before coverage/merge
+- Runs after tests and before merge
 - Mandatory for all PRs and main branch commits
 - Fails CI if generated code doesn't compile
 - Prevents fraudulent "resolved" claims from being merged

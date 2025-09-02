@@ -1,4 +1,4 @@
-.PHONY: all build test coverage clean clean-coverage clean-test-artifacts clean-logs help install libfortfront.a example setup-githooks
+.PHONY: all build test clean clean-test-artifacts clean-logs help install libfortfront.a example setup-githooks
 
 # Default target
 all: build
@@ -81,32 +81,6 @@ example: libfortfront.a
 	@echo "=== Running example ===" 
 	@./examples/external_tool_example
 
-# Generate coverage report
-coverage: clean-coverage
-	@echo "=== Generating code coverage with lcov ==="
-	fpm clean --all
-	fpm test --profile debug --flag '-cpp -fprofile-arcs -ftest-coverage -g'
-	lcov --capture --directory build/ --output-file coverage.info \
-		--rc branch_coverage=1 \
-		--ignore-errors inconsistent,mismatch
-	lcov --remove coverage.info \
-		'build/dependencies/*' \
-		'test/*' \
-		--output-file coverage_filtered.info \
-		--ignore-errors unused
-	genhtml coverage_filtered.info --output-directory coverage_html \
-		--branch-coverage \
-		--legend
-	@echo "=== Coverage Summary ==="
-	@lcov --summary coverage_filtered.info
-	@if command -v lcov_cobertura &> /dev/null; then \
-		echo "Generating XML report for CI/CD..."; \
-		lcov_cobertura coverage_filtered.info -o coverage.xml; \
-	else \
-		echo "Note: Install lcov_cobertura (pip install lcov-cobertura) to generate XML reports"; \
-	fi
-	@echo "Coverage report generated in coverage_html/index.html"
-
 # Clean build artifacts and test artifacts
 clean: clean-test-artifacts
 	fpm clean --all
@@ -114,18 +88,10 @@ clean: clean-test-artifacts
 	rm -rf fortfront_modules/
 	$(MAKE) -s clean-logs
 
-# Clean coverage files only
-clean-coverage:
-	rm -rf coverage_html/
-	rm -f coverage.info coverage_filtered.info coverage.xml
-	rm -f *.gcov *.gcda *.gcno
-	find . -name "*.gcov" -o -name "*.gcda" -o -name "*.gcno" -delete 2>/dev/null || true
-
 # Clean test artifacts (temporary files created by tests)
 clean-test-artifacts:
 	@echo "Cleaning test artifacts..."
 	rm -f *.lf *.f90 *.json 2>/dev/null || true
-	rm -f coverage.*.html coverage.info coverage_filtered.info coverage.css 2>/dev/null || true
 	rm -f intent_*.f90 valid_*.f90 2>/dev/null || true
 	# Additional test-generated files (mirrors .gitignore entries)
 	rm -f test_*.md test_*.txt *_test.md *_test.txt *_test.f *_test.f90 \
@@ -152,9 +118,7 @@ help:
 	@echo "  make install  - Install libfortfront.a, module files, and pkg-config"
 	@echo "  make test     - Run tests"
 	@echo "  make example  - Build and run example external tool"
-	@echo "  make coverage - Generate coverage report with lcov"
 	@echo "  make clean    - Clean all build and test artifacts"
-	@echo "  make clean-coverage - Clean coverage files only"
 	@echo "  make clean-test-artifacts - Clean test temporary files only"
 	@echo "  make help     - Show this help message"
 	@echo "  make setup-githooks - Configure repo to use .githooks/"
