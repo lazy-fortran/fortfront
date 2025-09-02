@@ -6,8 +6,8 @@ program fortfront_cli
     character(len=:), allocatable :: input_text, output_text, error_msg
     character(len=:), allocatable :: temp_text, arg_str, filename
     character(len=4096) :: buffer
-    integer :: io_stat, total_size, capacity, line_len, file_unit
-    integer :: num_args, arg_len, i
+    integer :: io_stat, total_size, capacity, file_unit
+    integer :: num_args, arg_len
     integer, parameter :: MAX_INPUT_SIZE = 10485760  ! 10MB safety limit
     integer, parameter :: INITIAL_CAPACITY = 8192
     integer, parameter :: EXIT_SUCCESS = 0
@@ -77,7 +77,7 @@ program fortfront_cli
     if (show_version) then
         write(output_unit, '(A)') 'fortfront 0.1.0'
         write(output_unit, '(A)') 'Lazy Fortran to Standard Fortran Transpiler'
-        write(output_unit, '(A)') 'https://github.com/krystophny/fortfront'
+        write(output_unit, '(A)') 'https://github.com/lazy-fortran/fortfront'
         stop EXIT_SUCCESS
     end if
     
@@ -133,16 +133,21 @@ program fortfront_cli
     ! Transform lazy fortran to standard fortran
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
     
-    ! Handle errors: any error message implies non-zero exit
-    if (error_msg /= "") then
-        write(error_unit, '(A)') trim(error_msg)
-        error stop EXIT_FAILURE
-    end if
-    
-    ! Write output to stdout
+    ! Always write any generated output to stdout first
     if (allocated(output_text) .and. len(output_text) > 0) then
         write(output_unit, '(A)', advance='no') output_text
-    else
+    end if
+
+    ! Handle errors: print diagnostics and return non-zero exit
+    if (allocated(error_msg)) then
+        if (len_trim(error_msg) > 0) then
+            write(error_unit, '(A)') trim(error_msg)
+            error stop EXIT_FAILURE
+        end if
+    end if
+
+    ! If no output was generated and no error was reported, treat as failure
+    if (.not. allocated(output_text) .or. len(output_text) == 0) then
         write(error_unit, '(A)') 'No output generated'
         error stop EXIT_FAILURE
     end if
