@@ -87,7 +87,8 @@ module type_system_unified
     ! Maximum sizes for fixed arrays (GCC 15.2.1 compatibility)
     ! Increased for large-scale processing (100K+ lines) - Issue #1046
     integer, parameter :: MAX_SUBST_SIZE = 512
-    integer, parameter :: MAX_ENV_SIZE = 1024   ! revert to stable size to avoid stack bloat
+    ! Increase environment capacity to better handle larger inputs (Issue #1046)
+    integer, parameter :: MAX_ENV_SIZE = 4096
     integer, parameter :: MAX_NAME_LEN = 128
     
     type :: substitution_t
@@ -108,6 +109,7 @@ module type_system_unified
         integer :: capacity = MAX_ENV_SIZE
         character(len=MAX_NAME_LEN) :: names(MAX_ENV_SIZE)
         type(poly_type_t) :: schemes(MAX_ENV_SIZE)
+        logical :: capacity_exceeded_reported = .false.
     contains
         procedure :: extend => type_env_extend
         procedure :: assign => type_env_assign
@@ -340,6 +342,7 @@ contains
 
         lhs%count = rhs%count
         lhs%capacity = rhs%capacity
+        lhs%capacity_exceeded_reported = rhs%capacity_exceeded_reported
         
         ! Copy only used elements
         do i = 1, rhs%count
@@ -531,9 +534,12 @@ contains
 
         ! Check capacity
         if (this%count >= this%capacity) then
-            write(error_unit, *) "ERROR: Type environment capacity exceeded (", this%capacity, ")"
-            write(error_unit, *) "Consider increasing MAX_ENV_SIZE parameter"
-            ! Skip adding binding rather than stopping
+            if (.not. this%capacity_exceeded_reported) then
+                write(error_unit, *) "ERROR: Type environment capacity exceeded (", this%capacity, ")"
+                write(error_unit, *) "Consider increasing MAX_ENV_SIZE parameter"
+                this%capacity_exceeded_reported = .true.
+            end if
+            ! Skip adding binding rather than stopping (report only once)
             return
         end if
         
