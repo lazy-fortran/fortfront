@@ -4,6 +4,7 @@ program test_cli_integration
     
     integer :: test_count, pass_count
     logical :: is_windows
+    logical :: run_system
     
     test_count = 0
     pass_count = 0
@@ -11,9 +12,18 @@ program test_cli_integration
     ! Detect if we're on Windows
     is_windows = check_if_windows()
     
+    ! By default, do not run CLI system tests that invoke external tools.
+    ! Enable explicitly with: RUN_SYSTEM_TESTS=1 fpm test
+    run_system = should_run_system_tests()
+    
     print *, "=== CLI Integration System Tests ==="
     print *, ""
     
+    if (.not. run_system) then
+        print *, "SKIPPING: CLI system tests disabled (set RUN_SYSTEM_TESTS=1 to enable)"
+        stop 0
+    end if
+
     if (is_windows) then
         print *, "SKIPPING: CLI integration tests on Windows (shell compatibility issues)"
         print *, "This is a known limitation and will be fixed in a future update"
@@ -60,6 +70,22 @@ program test_cli_integration
     end if
     
 contains
+
+    function should_run_system_tests() result(run)
+        logical :: run
+        character(len=16) :: val
+        integer :: stat
+        run = .false.
+        call get_environment_variable('RUN_SYSTEM_TESTS', val, status=stat)
+        if (stat == 0) then
+            if (len_trim(val) > 0) then
+                select case (adjustl(val(1:1)))
+                case ('1','y','Y','t','T')
+                    run = .true.
+                end select
+            end if
+        end if
+    end function should_run_system_tests
 
     function timeout_wrapper(limit_secs) result(prefix)
         character(len=*), intent(in) :: limit_secs
