@@ -122,147 +122,273 @@ contains
         class(ast_node), intent(in) :: node
         class(ast_visitor_t), intent(inout) :: visitor
         logical, intent(in) :: is_preorder
-        integer :: i
-        
+
         select type (n => node)
         type is (program_node)
-            if (allocated(n%body_indices)) then
-                do i = 1, size(n%body_indices)
-                    call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
-                end do
-            end if
-            
+            call traverse_program_children(arena, n, visitor, is_preorder)
+
         type is (assignment_node)
-            call traverse_node(arena, n%target_index, visitor, is_preorder)
-            call traverse_node(arena, n%value_index, visitor, is_preorder)
-            
+            call traverse_assignment_children(arena, n, visitor, is_preorder)
+
         type is (binary_op_node)
-            call traverse_node(arena, n%left_index, visitor, is_preorder)
-            call traverse_node(arena, n%right_index, visitor, is_preorder)
-            
+            call traverse_binary_op_children(arena, n, visitor, is_preorder)
+
         type is (function_def_node)
-            if (allocated(n%param_indices)) then
-                do i = 1, size(n%param_indices)
-                    call traverse_node(arena, n%param_indices(i), visitor, is_preorder)
-                end do
-            end if
-            if (allocated(n%body_indices)) then
-                do i = 1, size(n%body_indices)
-                    call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
-                end do
-            end if
-            
+            call traverse_function_def_children(arena, n, visitor, is_preorder)
+
         type is (subroutine_def_node)
-            if (allocated(n%param_indices)) then
-                do i = 1, size(n%param_indices)
-                    call traverse_node(arena, n%param_indices(i), visitor, is_preorder)
-                end do
-            end if
-            if (allocated(n%body_indices)) then
-                do i = 1, size(n%body_indices)
-                    call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
-                end do
-            end if
-            
+            call traverse_subroutine_def_children(arena, n, visitor, is_preorder)
+
         type is (call_or_subscript_node)
-            if (allocated(n%arg_indices)) then
-                do i = 1, size(n%arg_indices)
-                    call traverse_node(arena, n%arg_indices(i), visitor, is_preorder)
-                end do
-            end if
-            
+            call traverse_call_or_subscript_children(arena, n, visitor, is_preorder)
+
         type is (subroutine_call_node)
-            if (allocated(n%arg_indices)) then
-                do i = 1, size(n%arg_indices)
-                    call traverse_node(arena, n%arg_indices(i), visitor, is_preorder)
-                end do
-            end if
-            
+            call traverse_subroutine_call_children(arena, n, visitor, is_preorder)
+
         type is (if_node)
-            call traverse_node(arena, n%condition_index, visitor, is_preorder)
-            if (allocated(n%then_body_indices)) then
-                do i = 1, size(n%then_body_indices)
-                    call traverse_node(arena, n%then_body_indices(i), visitor, &
-                        is_preorder)
-                end do
-            end if
-            if (allocated(n%else_body_indices)) then
-                do i = 1, size(n%else_body_indices)
-                    call traverse_node(arena, n%else_body_indices(i), visitor, &
-                        is_preorder)
-                end do
-            end if
-            
+            call traverse_if_children(arena, n, visitor, is_preorder)
+
         type is (do_loop_node)
-            call traverse_node(arena, n%start_expr_index, visitor, is_preorder)
-            call traverse_node(arena, n%end_expr_index, visitor, is_preorder)
-            if (n%step_expr_index > 0) then
-                call traverse_node(arena, n%step_expr_index, visitor, is_preorder)
-            end if
-            if (allocated(n%body_indices)) then
-                do i = 1, size(n%body_indices)
-                    call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
-                end do
-            end if
-            
+            call traverse_do_loop_children(arena, n, visitor, is_preorder)
+
         type is (do_while_node)
-            call traverse_node(arena, n%condition_index, visitor, is_preorder)
-            if (allocated(n%body_indices)) then
-                do i = 1, size(n%body_indices)
-                    call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
-                end do
-            end if
-            
+            call traverse_do_while_children(arena, n, visitor, is_preorder)
+
         type is (select_case_node)
-            call traverse_node(arena, n%selector_index, visitor, is_preorder)
-            if (allocated(n%case_indices)) then
-                do i = 1, size(n%case_indices)
-                    call traverse_node(arena, n%case_indices(i), visitor, is_preorder)
-                end do
-            end if
-            if (n%default_index > 0) then
-                call traverse_node(arena, n%default_index, visitor, is_preorder)
-            end if
-            
+            call traverse_select_case_children(arena, n, visitor, is_preorder)
+
         type is (module_node)
-            if (allocated(n%declaration_indices)) then
-                do i = 1, size(n%declaration_indices)
-                    call traverse_node(arena, n%declaration_indices(i), visitor, &
-                        is_preorder)
-                end do
-            end if
-            if (allocated(n%procedure_indices)) then
-                do i = 1, size(n%procedure_indices)
-                    call traverse_node(arena, n%procedure_indices(i), visitor, &
-                        is_preorder)
-                end do
-            end if
-            
+            call traverse_module_children(arena, n, visitor, is_preorder)
+
         type is (derived_type_node)
-            if (allocated(n%component_indices)) then
-                do i = 1, size(n%component_indices)
-                    call traverse_node(arena, n%component_indices(i), visitor, &
-                        is_preorder)
-                end do
-            end if
-            
+            call traverse_derived_type_children(arena, n, visitor, is_preorder)
+
         type is (interface_block_node)
-            if (allocated(n%procedure_indices)) then
-                do i = 1, size(n%procedure_indices)
-                    call traverse_node(arena, n%procedure_indices(i), visitor, &
-                        is_preorder)
-                end do
-            end if
-            
+            call traverse_interface_block_children(arena, n, visitor, is_preorder)
+
         type is (print_statement_node)
-            if (allocated(n%expression_indices)) then
-                do i = 1, size(n%expression_indices)
-                    call traverse_node(arena, n%expression_indices(i), visitor, &
-                        is_preorder)
-                end do
-            end if
+            call traverse_print_statement_children(arena, n, visitor, is_preorder)
         end select
     end subroutine traverse_children
+
+    ! Per-node child traversal helpers (kept small and focused)
+    subroutine traverse_program_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        if (allocated(n%body_indices)) then
+            do i = 1, size(n%body_indices)
+                call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_program_children
+
+    subroutine traverse_assignment_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(assignment_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        call traverse_node(arena, n%target_index, visitor, is_preorder)
+        call traverse_node(arena, n%value_index, visitor, is_preorder)
+    end subroutine traverse_assignment_children
+
+    subroutine traverse_binary_op_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(binary_op_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        call traverse_node(arena, n%left_index, visitor, is_preorder)
+        call traverse_node(arena, n%right_index, visitor, is_preorder)
+    end subroutine traverse_binary_op_children
+
+    subroutine traverse_function_def_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        if (allocated(n%param_indices)) then
+            do i = 1, size(n%param_indices)
+                call traverse_node(arena, n%param_indices(i), visitor, is_preorder)
+            end do
+        end if
+        if (allocated(n%body_indices)) then
+            do i = 1, size(n%body_indices)
+                call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_function_def_children
+
+    subroutine traverse_subroutine_def_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_def_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        if (allocated(n%param_indices)) then
+            do i = 1, size(n%param_indices)
+                call traverse_node(arena, n%param_indices(i), visitor, is_preorder)
+            end do
+        end if
+        if (allocated(n%body_indices)) then
+            do i = 1, size(n%body_indices)
+                call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_subroutine_def_children
+
+    subroutine traverse_call_or_subscript_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(call_or_subscript_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        if (allocated(n%arg_indices)) then
+            do i = 1, size(n%arg_indices)
+                call traverse_node(arena, n%arg_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_call_or_subscript_children
+
+    subroutine traverse_subroutine_call_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(subroutine_call_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        if (allocated(n%arg_indices)) then
+            do i = 1, size(n%arg_indices)
+                call traverse_node(arena, n%arg_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_subroutine_call_children
+
+    subroutine traverse_if_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(if_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        call traverse_node(arena, n%condition_index, visitor, is_preorder)
+        if (allocated(n%then_body_indices)) then
+            do i = 1, size(n%then_body_indices)
+                call traverse_node(arena, n%then_body_indices(i), visitor, is_preorder)
+            end do
+        end if
+        if (allocated(n%else_body_indices)) then
+            do i = 1, size(n%else_body_indices)
+                call traverse_node(arena, n%else_body_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_if_children
+
+    subroutine traverse_do_loop_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(do_loop_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        call traverse_node(arena, n%start_expr_index, visitor, is_preorder)
+        call traverse_node(arena, n%end_expr_index, visitor, is_preorder)
+        if (n%step_expr_index > 0) then
+            call traverse_node(arena, n%step_expr_index, visitor, is_preorder)
+        end if
+        if (allocated(n%body_indices)) then
+            do i = 1, size(n%body_indices)
+                call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_do_loop_children
+
+    subroutine traverse_do_while_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(do_while_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        call traverse_node(arena, n%condition_index, visitor, is_preorder)
+        if (allocated(n%body_indices)) then
+            do i = 1, size(n%body_indices)
+                call traverse_node(arena, n%body_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_do_while_children
+
+    subroutine traverse_select_case_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(select_case_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        call traverse_node(arena, n%selector_index, visitor, is_preorder)
+        if (allocated(n%case_indices)) then
+            do i = 1, size(n%case_indices)
+                call traverse_node(arena, n%case_indices(i), visitor, is_preorder)
+            end do
+        end if
+        if (n%default_index > 0) then
+            call traverse_node(arena, n%default_index, visitor, is_preorder)
+        end if
+    end subroutine traverse_select_case_children
+
+    subroutine traverse_module_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(module_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        if (allocated(n%declaration_indices)) then
+            do i = 1, size(n%declaration_indices)
+                call traverse_node(arena, n%declaration_indices(i), visitor, is_preorder)
+            end do
+        end if
+        if (allocated(n%procedure_indices)) then
+            do i = 1, size(n%procedure_indices)
+                call traverse_node(arena, n%procedure_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_module_children
+
+    subroutine traverse_derived_type_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(derived_type_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        if (allocated(n%component_indices)) then
+            do i = 1, size(n%component_indices)
+                call traverse_node(arena, n%component_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_derived_type_children
+
+    subroutine traverse_interface_block_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(interface_block_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        if (allocated(n%procedure_indices)) then
+            do i = 1, size(n%procedure_indices)
+                call traverse_node(arena, n%procedure_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_interface_block_children
+
+    subroutine traverse_print_statement_children(arena, n, visitor, is_preorder)
+        type(ast_arena_t), intent(in) :: arena
+        type(print_statement_node), intent(in) :: n
+        class(ast_visitor_t), intent(inout) :: visitor
+        logical, intent(in) :: is_preorder
+        integer :: i
+        if (allocated(n%expression_indices)) then
+            do i = 1, size(n%expression_indices)
+                call traverse_node(arena, n%expression_indices(i), visitor, is_preorder)
+            end do
+        end if
+    end subroutine traverse_print_statement_children
     
     ! Helper to traverse a single node
     recursive subroutine traverse_node(arena, node_index, visitor, is_preorder)
