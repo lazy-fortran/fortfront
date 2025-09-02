@@ -51,6 +51,9 @@ program test_cli_integration
     ! Test 2b: Unknown flag returns non-zero exit code
     call test_invalid_flag_exit_code()
 
+    ! Test 2c-alt: Single dash returns non-zero exit code
+    call test_single_dash_invalid_flag()
+
     ! Test 2c: 'func' syntax yields error but still prints valid program
     call test_func_syntax_error_outputs_program()
 
@@ -318,6 +321,39 @@ contains
             print *, "  Exit code: ", run_status
         end if
     end subroutine test_invalid_flag_exit_code
+
+    subroutine test_single_dash_invalid_flag()
+        integer :: exit_code, run_status
+        character(len=512) :: command
+        character(len=:), allocatable :: executable_path
+        logical :: success
+
+        call test_start("Single '-' returns non-zero exit")
+
+        ! Find the fortfront executable
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+
+        ! Run with a single dash; expect non-zero exit
+        command = timeout_wrapper('20') // executable_path // &
+                  ' - > test_output_dash.txt 2>test_error_dash.txt'
+        call execute_command_line(command, exitstat=run_status)
+
+        ! Clean up test files
+        call execute_command_line('rm -f test_output_dash.txt test_error_dash.txt', exitstat=exit_code)
+
+        success = (run_status /= 0)
+
+        call test_result(success)
+        if (.not. success) then
+            print *, "  Expected non-zero exit for single '-'"
+            print *, "  Exit code: ", run_status
+        end if
+    end subroutine test_single_dash_invalid_flag
 
     subroutine test_func_syntax_error_outputs_program()
         integer :: run_status, exit_code
