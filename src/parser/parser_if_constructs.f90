@@ -429,11 +429,30 @@ contains
 
                 ! Find end of current statement (same line or semicolon boundary)
                 do j = stmt_start, size(parser%tokens)
+                    ! Treat control-flow keywords as hard boundaries within a line
+                    if (parser%tokens(j)%kind == TK_KEYWORD) then
+                        select case (parser%tokens(j)%text)
+                        case ("else", "elseif", "else if")
+                            stmt_end = j - 1
+                            exit
+                        case ("endif", "end if")
+                            stmt_end = j - 1
+                            exit
+                        case ("end")
+                            if (j + 1 <= size(parser%tokens)) then
+                                if (parser%tokens(j+1)%kind == TK_KEYWORD .and. &
+                                    parser%tokens(j+1)%text == "if") then
+                                    stmt_end = j - 1
+                                    exit
+                                end if
+                            end if
+                        end select
+                    end if
                     if (parser%tokens(j)%kind == TK_EOF) then
                         stmt_end = j
                         exit
                     end if
-   if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
+                    if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
                         stmt_end = j - 1
                         exit
                     end if
