@@ -1,4 +1,8 @@
-.PHONY: all build test clean clean-test-artifacts clean-logs help install libfortfront.a example setup-githooks
+.PHONY: all build test clean clean-test-artifacts clean-logs help install libfortfront.a example setup-githooks prune-build-cache
+
+# Number of newest fpm build cache directories to keep under build/
+# Can be overridden: `make PRUNE_KEEP=1 build`
+PRUNE_KEEP ?= 2
 
 # Default target
 all: build
@@ -86,6 +90,8 @@ clean: clean-test-artifacts
 	fpm clean --all
 	rm -f libfortfront.a
 	rm -rf fortfront_modules/
+	# Also remove any stale fpm hash build directories to prevent bloat
+	find build -mindepth 1 -maxdepth 1 -type d -name 'gfortran_*' -exec rm -rf {} + 2>/dev/null || true
 	$(MAKE) -s clean-logs
 
 # Clean test artifacts (temporary files created by tests)
@@ -127,3 +133,13 @@ help:
 setup-githooks:
 	@git config core.hooksPath .githooks
 	@echo "Configured git core.hooksPath to .githooks"
+
+# Prune old fpm build hash directories (build/gfortran_*), keeping only the newest PRUNE_KEEP
+prune-build-cache:
+	@keep=$${PRUNE_KEEP:-2}; if [ -d build ]; then \
+	  echo "Pruning fpm build cache (keeping $$keep newest)"; \
+	  find build -mindepth 1 -maxdepth 1 -type d -name 'gfortran_*' -printf '%T@ %p\n' \
+	    | sort -nr \
+	    | awk -v k="$$keep" 'NR>k{print $$2}' \
+	    | xargs -r rm -rf; \
+	fi; true
