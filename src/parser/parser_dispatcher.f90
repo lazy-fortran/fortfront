@@ -241,8 +241,9 @@ contains
                                                id_token%column)
                 end if
             else
-                ! Not an assignment, treat as expression statement
-                stmt_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+                ! Not an assignment: avoid emitting bare identifiers as statements
+                ! Return 0 to skip stray tokens like prefixes (e.g., "Simple test:")
+                stmt_index = 0
             end if
         end if
 
