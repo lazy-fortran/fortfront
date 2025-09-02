@@ -35,7 +35,8 @@ program fortfront_cli
             show_help = .true.
         else if (arg_str == "--version" .or. arg_str == "-v") then
             show_version = .true.
-        else if (arg_str(1:2) == "--" .or. arg_str(1:1) == "-") then
+        else if ((len(arg_str) >= 2 .and. arg_str(1:2) == "--") .or. &
+                 (len(arg_str) >= 1 .and. arg_str(1:1) == "-")) then
             ! Unknown flag - provide helpful error
             write(error_unit, '(A,A)') 'Error: Unknown option ', trim(arg_str)
             write(error_unit, '(A)') ''
