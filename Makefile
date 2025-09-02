@@ -74,6 +74,8 @@ test:
 	# Ensure a clean workspace before running tests and remove artifacts after
 	$(MAKE) -s clean-logs
 	$(MAKE) -s clean-test-artifacts
+	# Validate xfail map to prevent stale entries
+	scripts/validate_xfail.sh
 	fpm test --runner "scripts/xfail_runner.sh"
 	$(MAKE) -s clean-test-artifacts
 
