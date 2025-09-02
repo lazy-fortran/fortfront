@@ -20,6 +20,7 @@ module standardizer_subprograms
     public :: wrap_function_in_program
     public :: wrap_subroutine_in_program
     public :: infer_parameter_type
+    public :: standardize_function_result
 
 contains
 
@@ -95,9 +96,118 @@ contains
         ! Standardize parameter declarations
         call standardize_function_parameters(arena, func_def, func_index)
 
+        ! Ensure function result variable is standardized and declared
+        call standardize_function_result(arena, func_def, func_index)
+
         ! Update the arena entry
         arena%entries(func_index)%node = func_def
     end subroutine standardize_function_def
+
+    ! Ensure a function has a proper result(...) clause and a declared result variable
+    subroutine standardize_function_result(arena, func_def, func_index)
+        use ast_nodes_core, only: assignment_node, identifier_node
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(inout) :: func_def
+        integer, intent(in) :: func_index
+        integer :: i
+        character(len=:), allocatable :: res_name
+        logical :: has_decl
+        integer, allocatable :: new_body_indices(:)
+        type(declaration_node) :: decl
+        logical :: type_std_enabled
+
+        call get_standardizer_type_standardization(type_std_enabled)
+
+        ! If result variable not set, try to infer from first assignment target
+        if ((.not. allocated(func_def%result_variable)) .or. len_trim(func_def%result_variable) == 0) then
+            if (allocated(func_def%body_indices)) then
+                do i = 1, size(func_def%body_indices)
+                    if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= arena%size) then
+                        if (allocated(arena%entries(func_def%body_indices(i))%node)) then
+                            select type (stmt => arena%entries(func_def%body_indices(i))%node)
+                            type is (assignment_node)
+                                if (stmt%target_index > 0 .and. stmt%target_index <= arena%size) then
+                                    if (allocated(arena%entries(stmt%target_index)%node)) then
+                                        select type (t => arena%entries(stmt%target_index)%node)
+                                        type is (identifier_node)
+                                            res_name = t%name
+                                            exit
+                                        end select
+                                    end if
+                                end if
+                            end select
+                        end if
+                    end if
+                end do
+            end if
+            if (allocated(res_name) .and. len_trim(res_name) > 0) then
+                func_def%result_variable = trim(res_name)
+            end if
+        end if
+
+        ! If still no result variable, nothing to do
+        if ((.not. allocated(func_def%result_variable)) .or. len_trim(func_def%result_variable) == 0) return
+
+        ! Check if a declaration exists for the result variable
+        has_decl = .false.
+        if (allocated(func_def%body_indices)) then
+            do i = 1, size(func_def%body_indices)
+                if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(func_def%body_indices(i))%node)) then
+                        select type (stmt => arena%entries(func_def%body_indices(i))%node)
+                        type is (declaration_node)
+                            if (trim(stmt%var_name) == trim(func_def%result_variable)) then
+                                has_decl = .true.
+                                exit
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        end if
+
+        if (has_decl) return
+
+        ! Insert a declaration for the result variable after implicit none
+        call infer_parameter_type(func_def%result_variable, decl%type_name, decl%has_kind, decl%kind_value)
+        if (decl%type_name == "real" .and. type_std_enabled) then
+            decl%has_kind = .true.
+            decl%kind_value = 8
+        end if
+        decl%var_name = trim(func_def%result_variable)
+        decl%intent = ""
+        decl%has_intent = .false.
+        decl%is_optional = .false.
+        decl%is_array = .false.
+        decl%is_allocatable = .false.
+        decl%initializer_index = 0
+        decl%line = 1
+        decl%column = 1
+
+        ! Push declaration into arena under the function node
+        call arena%push(decl, "declaration", func_index)
+
+        if (.not. allocated(func_def%body_indices)) then
+            allocate(func_def%body_indices(1))
+            func_def%body_indices(1) = arena%size
+        else
+            ! Insert as the second statement (after implicit none which we added earlier)
+            allocate(new_body_indices(size(func_def%body_indices) + 1))
+            if (size(func_def%body_indices) == 0) then
+                new_body_indices(1) = arena%size
+            else
+                new_body_indices(1) = func_def%body_indices(1)
+                new_body_indices(2) = arena%size
+                if (size(func_def%body_indices) > 1) then
+                    new_body_indices(3:) = func_def%body_indices(2:)
+                end if
+            end if
+            func_def%body_indices = new_body_indices
+        end if
+
+        ! Update arena entry with modified function
+        arena%entries(func_index)%node = func_def
+    end subroutine standardize_function_result
 
     ! Standardize function parameters by updating existing declarations or adding new ones
     subroutine standardize_function_parameters(arena, func_def, func_index)
