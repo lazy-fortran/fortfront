@@ -72,6 +72,56 @@ contains
         passed = .true.
     end function test_bare_true_emits_fortran_and_infers_logical
 
+    function test_dot_false_infers_logical() result(passed)
+        logical :: passed
+        character(len=:), allocatable :: out
+
+        out = compile_and_generate('flag = .false.')
+        print *, 'OUTPUT(.false.):', trim(out)
+
+        passed = .false.
+        if (index(out, 'logical :: flag') == 0) then
+            print *, 'FAIL: missing logical declaration for .false. assignment'
+            return
+        end if
+        if (index(out, 'flag = .false.') == 0) then
+            print *, 'FAIL: missing .false. assignment in output'
+            return
+        end if
+        if (index(out, '!ERROR:') > 0) then
+            print *, 'FAIL: unexpected ERROR comments in output'
+            return
+        end if
+
+        print *, 'PASS: .false. infers logical and emits correctly'
+        passed = .true.
+    end function test_dot_false_infers_logical
+
+    function test_bare_false_emits_fortran_and_infers_logical() result(passed)
+        logical :: passed
+        character(len=:), allocatable :: out
+
+        out = compile_and_generate('flag = false')
+        print *, 'OUTPUT(false):', trim(out)
+
+        passed = .false.
+        if (index(out, 'logical :: flag') == 0) then
+            print *, 'FAIL: missing logical declaration for bare false assignment'
+            return
+        end if
+        if (index(out, 'flag = .false.') == 0) then
+            print *, 'FAIL: bare false was not converted to .false.'
+            return
+        end if
+        if (index(out, '!ERROR:') > 0) then
+            print *, 'FAIL: unexpected ERROR comments in output'
+            return
+        end if
+
+        print *, 'PASS: bare false infers logical and emits .false.'
+        passed = .true.
+    end function test_bare_false_emits_fortran_and_infers_logical
+
     function compile_and_generate(source_line) result(output)
         character(len=*), intent(in) :: source_line
         character(len=:), allocatable :: output
