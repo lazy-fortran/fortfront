@@ -3,6 +3,7 @@
 # Number of newest fpm build cache directories to keep under build/
 # Can be overridden, e.g.: `make PRUNE_KEEP=2 prune-build-cache`
 PRUNE_KEEP ?= 2
+TEST_TIMEOUT ?= 120s
 
 # Default target
 all: build
@@ -76,8 +77,8 @@ test:
 	$(MAKE) -s clean-test-artifacts
 	# Validate xfail map to prevent stale entries
 	scripts/validate_xfail.sh
-	fpm test --runner "scripts/xfail_runner.sh"
-	$(MAKE) -s clean-test-artifacts
+	@echo "Running tests with timeout $(TEST_TIMEOUT)"
+	@sh -c 'timeout $(TEST_TIMEOUT) fpm test --runner "scripts/xfail_runner.sh"; rc=$$?; $(MAKE) -s clean-test-artifacts; exit $$rc'
 
 # Build and run example external tool
 example: libfortfront.a
