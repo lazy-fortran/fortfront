@@ -1,5 +1,10 @@
 debug
+# Ignore generic build directories everywhere by default
 build
+
+# But keep tracked test sources under test/build/
+!test/build/
+!test/build/**
 packages/*/
 
 # Compiled/generated Fortran and JSON files in project root

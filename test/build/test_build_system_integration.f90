@@ -133,7 +133,12 @@ contains
                         'find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
                 end if
                 if (exit_code == 0) then
-                    call execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+                    call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=exit_code)
+                    if (exit_code == 0) then
+                        call execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+                    else
+                        call execute_command_line('scripts/with_timeout.sh 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+                    end if
                     inquire(file='libfortfront.a', exist=file_exists)
                     makefile_works = (exit_code == 0) .and. file_exists
                 else
@@ -172,7 +177,12 @@ contains
             if (exit_code == 0) then
                 ! Try running static library build script with timeout
                 ! Use timeout to prevent hanging during recursive builds
-                call execute_command_line('timeout 10 ./build_static_lib.sh 2>/dev/null', exitstat=exit_code)
+                call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=exit_code)
+                if (exit_code == 0) then
+                    call execute_command_line('timeout 10 ./build_static_lib.sh 2>/dev/null', exitstat=exit_code)
+                else
+                    call execute_command_line('scripts/with_timeout.sh 10 ./build_static_lib.sh 2>/dev/null', exitstat=exit_code)
+                end if
                 inquire(file='libfortfront.a', exist=lib_exists)
                 inquire(file='fortfront_modules', exist=modules_exist)
                 script_works = (exit_code == 0) .and. lib_exists .and. modules_exist
@@ -217,7 +227,12 @@ contains
                 'find . -name "Makefile" -type f -printf "%p\n" >/dev/null 2>&1', exitstat=exit_code)
         end if
         if (exit_code == 0) then
-            call execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+            call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=exit_code)
+            if (exit_code == 0) then
+                call execute_command_line('timeout 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+            else
+                call execute_command_line('scripts/with_timeout.sh 10 make libfortfront.a 2>/dev/null', exitstat=exit_code)
+            end if
             inquire(file='libfortfront.a', exist=file_exists_after)
             clean_rebuild_works = (exit_code == 0) .and. file_exists_after
         else
