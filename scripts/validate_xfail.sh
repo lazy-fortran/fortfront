@@ -11,14 +11,29 @@ if [[ ! -f "$xfail_file" ]]; then
   exit 0
 fi
 
-# Get candidate test names from fpm; skip header line and pick first field
-mapfile -t candidates < <(fpm test --list | awk 'NR>1{print $1}' | sed '/^$/d')
+# Get candidate test names from fpm; normalize whitespace and capture stdout/stderr
+# Robustly extract names after the "Matched names:" header, trim, and take the first field
+mapfile -t candidates < <( \
+  fpm test --list 2>&1 \
+    | sed -n '/^ Matched names:/,$p' \
+    | tail -n +2 \
+    | sed 's/[[:space:]]\+$//' \
+    | sed '/^$/d' \
+    | awk '{print $1}' \
+)
 
 # Read xfail names (ignore comments/blank lines)
 mapfile -t xfails < <(awk -F, 'NF>=1 && $1 !~ /^#/ && $1!="" {print $1}' "$xfail_file")
 
-# If either list is empty, nothing to validate
-if [[ ${#xfails[@]} -eq 0 || ${#candidates[@]} -eq 0 ]]; then
+# If there are no xfails, nothing to validate
+if [[ ${#xfails[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+# If candidates is empty, treat as an environment/listing failure and skip
+# strict validation to avoid false negatives in CI while still allowing tests to run.
+if [[ ${#candidates[@]} -eq 0 ]]; then
+  echo "WARN: could not discover test names from 'fpm test --list'; skipping xfail validation" >&2
   exit 0
 fi
 
@@ -39,4 +54,3 @@ if [[ -n "$missing" ]]; then
 fi
 
 exit 0
-

@@ -1,54 +1,15 @@
 # test_name,issue
 # Group: allocatable/arrays (1128)
-test_issue_188_allocatable_arrays,https://github.com/krystophny/fortfront/issues/1128
-test_issue_188_general_reassignment,https://github.com/krystophny/fortfront/issues/1128
-test_basic_allocate_functionality,https://github.com/krystophny/fortfront/issues/1128
-test_allocate_statement_identifiers,https://github.com/krystophny/fortfront/issues/1128
-test_allocatable_string_generation,https://github.com/krystophny/fortfront/issues/1128
 # Group: lexer/parsing (1129)
-test_lexer_error_handling,https://github.com/krystophny/fortfront/issues/1129
-test_lexer_core_direct,https://github.com/krystophny/fortfront/issues/1129
-test_issue_497_io_parsing,https://github.com/krystophny/fortfront/issues/1129
 # Group: format/roundtrip (1130)
-test_comment_preservation,https://github.com/krystophny/fortfront/issues/1130
-test_issue_7_comment_preservation,https://github.com/krystophny/fortfront/issues/1130
-test_formatting_idempotent,https://github.com/krystophny/fortfront/issues/1130
-test_issue_8_configurable_formatting,https://github.com/krystophny/fortfront/issues/1130
-test_issue_9_type_specifier_preservation,https://github.com/krystophny/fortfront/issues/1130
-test_source_reconstruction_integration,https://github.com/krystophny/fortfront/issues/1130
-test_issue_521_source_fidelity,https://github.com/krystophny/fortfront/issues/1130
 # Group: expr/precedence (1131)
 # Note: remove entries that now pass to avoid XPASS noise
-test_issue_281_mathematical_expressions,https://github.com/krystophny/fortfront/issues/1131
 # Group: analysis/control (1132)
-test_interface_analyzer_enhanced,https://github.com/krystophny/fortfront/issues/1132
-test_associate_construct_identifiers,https://github.com/krystophny/fortfront/issues/1132
-test_associate_variable_tracking,https://github.com/krystophny/fortfront/issues/1132
-test_conditional_return_flow,https://github.com/krystophny/fortfront/issues/1132
-test_early_return_detection,https://github.com/krystophny/fortfront/issues/1132
-test_control_flow_graph,https://github.com/krystophny/fortfront/issues/1132
 # Group: vars/validation (1133)
-test_undeclared_variable_error,https://github.com/krystophny/fortfront/issues/1133
-test_undefined_variables_comprehensive,https://github.com/krystophny/fortfront/issues/1133
-test_issue_495_undefined_variables,https://github.com/krystophny/fortfront/issues/1133
-test_dependency_validation,https://github.com/krystophny/fortfront/issues/1133
-test_comprehensive_validation_coverage,https://github.com/krystophny/fortfront/issues/1133
 # Group: where/forall (1134)
-test_where_forall_ast,https://github.com/krystophny/fortfront/issues/1134
 # Group: char/types (1135)
-test_issue_180_character_arrays,https://github.com/krystophny/fortfront/issues/1135
-test_issue_187_char_arrays,https://github.com/krystophny/fortfront/issues/1135
-test_issue_312_character_type_handling,https://github.com/krystophny/fortfront/issues/1135
 # Group: api/traversal (1136)
 # Group: frontend/comprehensive (1137)
-test_frontend_codegen_comprehensive,https://github.com/krystophny/fortfront/issues/1137
-test_all_github_issues_fixed,https://github.com/krystophny/fortfront/issues/1137
-test_external_tool_integration,https://github.com/krystophny/fortfront/issues/1137
 # Group: module/comment (1139)
-test_issue_508_module_comment_main,https://github.com/krystophny/fortfront/issues/1139
 # Group: disable/type/std (1140)
-test_issue_10_disable_type_standardization,https://github.com/krystophny/fortfront/issues/1140
 # Group: Other (1141)
-test_analysis_plugins,https://github.com/krystophny/fortfront/issues/1141
-test_intent_semantic_check,https://github.com/krystophny/fortfront/issues/1141
-test_subroutine_standardization,https://github.com/krystophny/fortfront/issues/1141
