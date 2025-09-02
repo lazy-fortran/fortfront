@@ -33,7 +33,8 @@ contains
         character(len=:), allocatable :: code
         
         if (.not. associated(arena_generator)) then
-            code = "! ERROR: Arena generator not set"
+            ! Provide an actionable diagnostic if initialization was skipped
+            code = "! ERROR: Arena generator not set (call initialize_codegen())"
             return
         end if
         
