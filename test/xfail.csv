@@ -45,8 +45,6 @@ test_issue_312_character_type_handling,https://github.com/krystophny/fortfront/i
 test_frontend_codegen_comprehensive,https://github.com/krystophny/fortfront/issues/1137
 test_all_github_issues_fixed,https://github.com/krystophny/fortfront/issues/1137
 test_external_tool_integration,https://github.com/krystophny/fortfront/issues/1137
-# Group: standard/roundtrip (1138)
-test_standard_fortran_roundtrip,https://github.com/krystophny/fortfront/issues/1138
 # Group: module/comment (1139)
 test_issue_508_module_comment_main,https://github.com/krystophny/fortfront/issues/1139
 # Group: disable/type/std (1140)
