@@ -21,7 +21,8 @@ program test_print_codegen
 
     if (.not. allocated(output)) success = .false.
     if (allocated(output)) then
-        if (index(output, 'print *') == 0) success = .false.
+        ! Ensure full print with arguments is emitted, not just 'print *'
+        if (index(output, 'print *, x') == 0) success = .false.
         if (index(output, 'x = 42') == 0) success = .false.
     end if
 
@@ -43,4 +44,3 @@ program test_print_codegen
     end if
 
 end program test_print_codegen
-
