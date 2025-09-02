@@ -713,7 +713,7 @@ contains
     ! POSTFIX OPERATIONS SECTION
     !=================================================================================
 
-    ! Parse array indexing or function call postfix operator (())
+    ! Parse array indexing or function call postfix operator using parentheses: (...)
     function parse_array_indexing_postfix(parser, arena, base_expr) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -794,6 +794,85 @@ contains
             end if
         end block
     end function parse_array_indexing_postfix
+    
+    ! Parse array indexing postfix operator using square brackets: [...]
+    function parse_square_indexing_postfix(parser, arena, base_expr) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: base_expr
+        integer :: expr_index
+        
+        block
+            integer, allocatable :: arg_indices(:)
+            type(token_t) :: bracket, op_token
+            integer :: arg_count
+            character(len=:), allocatable :: name_for_call
+            
+            arg_count = 0
+            expr_index = base_expr
+            
+            ! Consume opening bracket
+            bracket = parser%consume()
+            
+            ! Parse indices (use same range parser as for parentheses)
+            op_token = parser%peek()
+            if (op_token%kind /= TK_OPERATOR .or. op_token%text /= "]") then
+                block
+                    integer :: arg_index
+                    arg_index = parse_range(parser, arena)
+                    if (arg_index > 0) then
+                        arg_count = 1
+                        allocate (arg_indices(1))
+                        arg_indices(1) = arg_index
+                        
+                        do
+                            op_token = parser%peek()
+                            if (op_token%kind /= TK_OPERATOR .or. &
+                                op_token%text /= ",") exit
+                            
+                            ! Consume comma
+                            op_token = parser%consume()
+                            
+                            ! Parse next index
+                            arg_index = parse_range(parser, arena)
+                            if (arg_index > 0) then
+                                arg_indices = [arg_indices, arg_index]
+                                arg_count = arg_count + 1
+                            else
+                                exit
+                            end if
+                        end do
+                    end if
+                end block
+            end if
+            
+            ! Consume closing bracket if present
+            op_token = parser%peek()
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == "]") then
+                bracket = parser%consume()
+            end if
+            
+            ! Create call_or_subscript node with slice detection (same as parentheses)
+            if (allocated(arg_indices)) then
+                select type (node => arena%entries(expr_index)%node)
+                type is (component_access_node)
+                    name_for_call = node%component_name
+                type is (identifier_node)
+                    name_for_call = node%name
+                class default
+                    if (allocated(arg_indices)) deallocate(arg_indices)
+                    return
+                end select
+                
+                if (allocated(name_for_call)) then
+                    expr_index = &
+                        push_call_or_subscript_with_slice_detection(arena, &
+                        name_for_call, arg_indices, &
+                        bracket%line, bracket%column)
+                end if
+            end if
+        end block
+    end function parse_square_indexing_postfix
      
     ! Parse postfix operators on an expression
     function parse_postfix_ops(parser, arena, base_expr) result(expr_index)
@@ -818,6 +897,8 @@ contains
                 if (expr_index <= 0) exit
             else if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
                 expr_index = parse_array_indexing_postfix(parser, arena, expr_index)
+            else if (op_token%kind == TK_OPERATOR .and. op_token%text == "[") then
+                expr_index = parse_square_indexing_postfix(parser, arena, expr_index)
             else
                 exit
             end if
