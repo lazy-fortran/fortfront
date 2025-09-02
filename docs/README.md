@@ -24,13 +24,13 @@ echo "x = 42" | ./build/gfortran_*/app/fortfront
 
 ## Building
 
-### FMP Build System (Primary)
+### FPM/Make (Primary)
 ```bash
-./build.sh  # Build project
-./test.sh   # Run tests
+make         # Build project via fpm
+make test    # Run the full test suite
 ```
 
-### CMake Build System
+### CMake
 Removed to avoid confusion and build fragmentation. Use FPM/Make.
 
 ## Project Status
@@ -38,9 +38,8 @@ Removed to avoid confusion and build fragmentation. Use FPM/Make.
 **Active Development**: Continuously maintained and improved.
 
 **Current State**:
-- ✅ FMP build system operational
-- ✅ Test suite executes successfully
-- ⚠️ Some test failures being addressed
+- ✅ FPM build system operational
+- ✅ Test suite passes locally (<=120s)
 - ❌ CMake build system removed (use FPM)
 
 **Known Limitations**:
