@@ -453,7 +453,9 @@ contains
                                             if (step_val == INVALID_INTEGER) then
                                                 sz = calculate_loop_size(arena, node%element_indices(3), node%element_indices(4), 0)
                                             else
-                                                sz = calculate_loop_size(arena, node%element_indices(3), node%element_indices(4), node%element_indices(5))
+                                                sz = calculate_loop_size(arena, node%element_indices(3), &
+                                                                         node%element_indices(4), &
+                                                                         node%element_indices(5))
                                             end if
                                             if (sz > 0) then
                                                 write(var_type, '(a,a,i0,a)') trim(elem_type_str), ", dimension(", sz, ")"
