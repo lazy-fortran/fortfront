@@ -228,11 +228,25 @@ contains
         end if
 
         ! Handle default case if present
-        if (node%default_index > 0) then
+        if (node%default_index > 0 .and. node%default_index <= arena%size) then
             code = code // new_line('A') // repeat("    ", indent_level) // "case default"
-            body_code = generate_code_from_arena(arena, node%default_index)
-            if (len(body_code) > 0) then
-                code = code // new_line('A') // body_code
+
+            if (allocated(arena%entries(node%default_index)%node)) then
+                select type (default_node => arena%entries(node%default_index)%node)
+                type is (case_default_node)
+                    if (allocated(default_node%body_indices)) then
+                        body_code = generate_grouped_body_internal(arena, default_node%body_indices, indent_level + 1)
+                        if (len(body_code) > 0) then
+                            code = code // new_line('A') // body_code
+                        end if
+                    end if
+                class default
+                    ! If the default entry is not a case_default_node, fall back to direct generation
+                    body_code = generate_code_from_arena(arena, node%default_index)
+                    if (len(body_code) > 0) then
+                        code = code // new_line('A') // body_code
+                    end if
+                end select
             end if
         end if
 
