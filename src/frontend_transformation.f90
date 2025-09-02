@@ -104,6 +104,23 @@ contains
         ! Ensure error_msg is empty on successful transformation
         error_msg = ""
 
+        ! Preserve a contiguous leading block of comment lines from the input
+        if (has_leading_comment(input)) then
+            block
+                character(len=:), allocatable :: lead
+                lead = extract_leading_comment_block(input)
+                if (allocated(lead)) then
+                    if (len_trim(lead) > 0) then
+                        if (len_trim(output) > 0) then
+                            output = trim(lead) // new_line('A') // trim(output)
+                        else
+                            output = trim(lead)
+                        end if
+                    end if
+                end if
+            end block
+        end if
+
         ! Reuse arena: no destroy, it will be reset at next call
     end subroutine transform_lazy_fortran_string
 
@@ -488,5 +505,98 @@ contains
             end if
         end do
     end function is_whitespace_only
+
+    pure logical function has_leading_comment(src)
+        character(len=*), intent(in) :: src
+        integer :: n, k
+        n = len(src)
+        k = 1
+        do while (k <= n)
+            if (src(k:k) == ' ' .or. iachar(src(k:k)) == 9 .or. &
+                src(k:k) == new_line('A')) then
+                k = k + 1
+            else
+                exit
+            end if
+        end do
+        has_leading_comment = (k <= n .and. src(k:k) == '!')
+    end function has_leading_comment
+
+    ! Extract a contiguous leading block of comment lines from the raw input.
+    ! Leading comment lines start with optional whitespace followed by '!'.
+    pure function extract_leading_comment_block(src) result(block_text)
+        character(len=*), intent(in) :: src
+        character(len=:), allocatable :: block_text
+        integer :: n, i, j
+        logical :: saw_comment
+
+        block_text = ""
+        saw_comment = .false.
+        n = len(src)
+        i = 1
+
+        ! Quick check: if the first non-whitespace character is not '!',
+        ! there is no leading comment block to preserve.
+        do while (i <= n)
+            if (src(i:i) == ' ' .or. iachar(src(i:i)) == 9 .or. &
+                src(i:i) == new_line('A')) then
+                i = i + 1
+            else
+                exit
+            end if
+        end do
+        if (i > n) then
+            deallocate(block_text)
+            return
+        end if
+        if (src(i:i) /= '!') then
+            deallocate(block_text)
+            return
+        end if
+
+        ! Reset to start scanning from the beginning to capture all leading comments
+        i = 1
+
+        do while (i <= n)
+            ! Find start of line (skip nothing; i already at start)
+            j = i
+            ! Skip leading spaces/tabs
+            do while (j <= n)
+                if (src(j:j) == ' ' .or. iachar(src(j:j)) == 9) then
+                    j = j + 1
+                else
+                    exit
+                end if
+            end do
+
+            if (j > n) exit
+
+            select case (src(j:j))
+            case ('!')
+                ! Comment line: collect until newline
+                saw_comment = .true.
+                if (len(block_text) > 0) block_text = block_text // new_line('A')
+                do while (i <= n .and. src(i:i) /= new_line('A'))
+                    block_text = block_text // src(i:i)
+                    i = i + 1
+                end do
+                ! Trim trailing spaces from collected line
+                block_text = trim(block_text)
+                ! Consume newline if present
+                if (i <= n .and. src(i:i) == new_line('A')) i = i + 1
+            case (char(10))  ! newline encountered at line start
+                if (saw_comment) then
+                    if (len(block_text) > 0) block_text = block_text // new_line('A')
+                end if
+                i = i + 1
+            case default
+                exit  ! Non-comment, non-blank line: stop
+            end select
+        end do
+
+        if (len(block_text) == 0) then
+            deallocate(block_text)
+        end if
+    end function extract_leading_comment_block
 
 end module frontend_transformation
