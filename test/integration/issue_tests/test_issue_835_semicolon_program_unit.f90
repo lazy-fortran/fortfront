@@ -1,6 +1,5 @@
 program test_issue_835_semicolon_program_unit
     ! Regression test for Issue #835: semicolons in explicit program units
-    use iso_fortran_env, only: error_unit
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use ast_core, only: ast_arena_t, create_ast_arena
@@ -51,4 +50,3 @@ program test_issue_835_semicolon_program_unit
 
     if (.not. ok) stop 1
 end program test_issue_835_semicolon_program_unit
-
