@@ -42,21 +42,18 @@ contains
                     call scopes%lookup(lhs_node%name, existing_scheme)
                     
                     if (.not. allocated(existing_scheme)) then
-                        ! Assignment to undefined variable - behavior depends on mode
-                        if (strict_mode) then
-                            ! Standard Fortran mode: undefined variable is an error
-                            error_result = create_error_result( &
-                                "Undefined variable '" // lhs_node%name // "' in assignment", &
-                                ERROR_SEMANTIC, &
-                                component="semantic_analyzer", &
-                                context="infer_assignment", &
-                                suggestion="Declare the variable before assigning to it" &
-                            )
-                            call errors%add_result(error_result)
-                        else
-                            ! Lazy Fortran mode: auto-declare using the expression's inferred type
-                            ! Keep expr_typ as computed from the RHS to drive accurate typing
-                        end if
+                        ! Fallback: if this identifier is declared somewhere in the arena,
+                        ! define it in scope before deciding it's undefined. This protects
+                        ! multi-variable declarations with initializers and re-ordered nodes.
+                        call ensure_declared_from_arena_local(scopes, arena, lhs_node%name)
+                        call scopes%lookup(lhs_node%name, existing_scheme)
+                    end if
+
+                    if (.not. allocated(existing_scheme)) then
+                        ! Do not raise an error here. A centralized undefined-variable
+                        ! check runs after inference and handles strict-mode diagnostics
+                        ! with proper arena-backed discovery. Keeping this path silent
+                        ! avoids duplicate or premature errors for multi-declarations.
                     end if
                     
                     ! Handle allocatable character detection
@@ -74,6 +71,43 @@ contains
             end if
         end if
     end subroutine process_assignment_inference
+
+    ! Local helper: best-effort define symbol from any declaration present in the arena
+    subroutine ensure_declared_from_arena_local(scopes, arena, name)
+        use ast_nodes_data, only: declaration_node
+        use semantic_inference_helpers, only: process_declaration_variables
+        type(scope_stack_t), intent(inout) :: scopes
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: name
+        integer :: i, j
+        type(mono_type_t) :: decl_type
+        type(poly_type_t) :: scheme
+
+        do i = 1, arena%size
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (node => arena%entries(i)%node)
+            type is (declaration_node)
+                if (allocated(node%var_name)) then
+                    if (trim(node%var_name) == trim(name)) then
+                        call process_declaration_variables(node, decl_type)
+                        scheme = create_poly_type(forall_vars=[type_var_t::], mono=decl_type)
+                        call scopes%define(name, scheme)
+                        return
+                    end if
+                end if
+                if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                    do j = 1, size(node%var_names)
+                        if (trim(node%var_names(j)) == trim(name)) then
+                            call process_declaration_variables(node, decl_type)
+                            scheme = create_poly_type(forall_vars=[type_var_t::], mono=decl_type)
+                            call scopes%define(name, scheme)
+                            return
+                        end if
+                    end do
+                end if
+            end select
+        end do
+    end subroutine ensure_declared_from_arena_local
 
     ! Handle character allocation detection for string concatenation
     subroutine handle_character_allocation(arena, assignment, expr_typ, var_name)
