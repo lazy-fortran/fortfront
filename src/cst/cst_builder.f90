@@ -1,14 +1,9 @@
 module cst_builder
-    ! CST Builder for Parallel Construction alongside AST
-    ! =================================================
+    ! CST Builder for parallel construction alongside AST.
     ! Builds CST nodes in parallel with existing AST parsing to maintain
     ! source fidelity and enable external tool integration.
-    !
-    ! Design Goals:
-    ! - Zero impact on existing AST parsing performance
-    ! - Complete source preservation including trivia
-    ! - Foundation for Issue #397 (CST to AST converter)
-    ! - External tool integration via stable UIDs
+    ! Design goals: zero AST performance impact; complete trivia preservation;
+    ! external tool integration via stable UIDs.
     
     use, intrinsic :: iso_fortran_env, only: int64
     use cst_nodes, only: cst_node_t, trivia_t, CST_PROGRAM, CST_SUBROUTINE, &
@@ -213,8 +208,7 @@ contains
             end do
         end if
         
-        ! Note: In a real implementation, we would need to update the arena with
-        ! the modified node. For now, this demonstrates the interface.
+        ! Arena update omitted in this simplified implementation.
         success = .true.
     end function attach_trivia_to_node
 
@@ -331,7 +325,7 @@ contains
             parent_node = builder%context%arena%get(parent_handle)
             if (parent_node%kind >= 0) then  ! Valid parent node
                 call add_child_to_cst_node(parent_node, child_handle%index)
-                ! Note: In a real implementation, would need to update arena
+                ! Arena update omitted in this simplified implementation
             end if
         end if
     end subroutine add_child_to_current_parent
@@ -379,7 +373,7 @@ contains
         type(cst_handle_t), intent(in) :: node_handle
         
         ! For now, finalization is a no-op
-        ! In a full implementation, this might trigger validation or cleanup
+        ! Placeholder for potential validation/cleanup in full implementation
     end subroutine builder_finalize_node
 
     ! Builder method: Get root CST node handle
