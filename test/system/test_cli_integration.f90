@@ -22,7 +22,8 @@ program test_cli_integration
     
     ! Pre-build fortfront to ensure it exists before testing
     print *, "Building fortfront executable..."
-    call execute_command_line('fpm build --flag "-cpp -fmax-stack-var-size=65536"', exitstat=test_count)
+    call execute_command_line(timeout_wrapper('60') // &
+         'fpm build --flag "-cpp -fmax-stack-var-size=65536"', exitstat=test_count)
     if (test_count /= 0) then
         print *, "SKIPPING: Failed to build fortfront executable (exit code:", test_count, ")"
         print *, "This may indicate CI environment issues or missing build dependencies"
@@ -59,6 +60,28 @@ program test_cli_integration
     end if
     
 contains
+
+    function timeout_wrapper(limit_secs) result(prefix)
+        character(len=*), intent(in) :: limit_secs
+        character(len=:), allocatable :: prefix
+        integer :: ec
+        logical :: script_exists
+        
+        prefix = ""
+        
+        inquire(file='scripts/with_timeout.sh', exist=script_exists)
+        if (script_exists) then
+            prefix = 'scripts/with_timeout.sh ' // trim(limit_secs) // ' '
+            return
+        end if
+        
+        call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=ec)
+        if (ec == 0) then
+            prefix = 'timeout ' // trim(limit_secs) // ' '
+        else
+            prefix = ''
+        end if
+    end function timeout_wrapper
 
     function check_if_windows() result(is_win)
         logical :: is_win
@@ -254,7 +277,8 @@ contains
         end if
 
         ! Run with an unknown flag; expect non-zero exit
-        command = executable_path // ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
+        command = timeout_wrapper('20') // executable_path // &
+                  ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
         call execute_command_line(command, exitstat=run_status)
 
         ! Clean up test files
@@ -287,8 +311,9 @@ contains
         end if
 
         ! Run with lazy function syntax which is not supported
-        command = 'echo "func add(x, y) = x + y" | ' // executable_path // &
-                  ' > test_out_func.txt 2>test_err_func.txt'
+        command = 'bash -lc "echo \"func add(x, y) = x + y\" | ' // &
+                  timeout_wrapper('20') // executable_path // &
+                  ' > test_out_func.txt 2>test_err_func.txt"'
         call execute_command_line(command, exitstat=run_status)
 
         ! Expect non-zero exit code
@@ -336,8 +361,8 @@ contains
         end if
         
         ! Run with empty input
-        command = 'echo "" | ' // executable_path // ' > ' // &
-                  'test_output3.txt 2>test_error3.txt'
+        command = 'bash -lc "echo \"\" | ' // timeout_wrapper('20') // &
+                  executable_path // ' > test_output3.txt 2>test_error3.txt"'
         call execute_command_line(command, exitstat=exit_code)
         
         success = (exit_code == 0)
