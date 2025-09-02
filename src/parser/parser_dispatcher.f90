@@ -447,7 +447,7 @@ contains
     ! Parse multi-variable assignment like "a, b, c = 1, 2, 3" (dispatcher version)
     subroutine parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
         use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_KEYWORD, TK_NEWLINE
-        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL
+        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -562,8 +562,8 @@ contains
 
     ! Helper function to determine literal type from token kind (dispatcher version)
     function get_literal_type_from_token_kind_dispatcher(token_kind, token_text) result(literal_type)
-        use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_OPERATOR
-        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL
+        use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_OPERATOR, TK_KEYWORD
+        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
         integer, intent(in) :: token_kind
         character(len=*), intent(in) :: token_text
         integer :: literal_type
@@ -586,6 +586,14 @@ contains
                 literal_type = LITERAL_LOGICAL
             else
                 literal_type = LITERAL_STRING  ! Default fallback
+            end if
+        case (TK_KEYWORD)
+            ! Lexer classifies .true./.false. as keywords in our pipeline
+            if (token_text == '.true.' .or. token_text == '.false.') then
+                literal_type = LITERAL_LOGICAL
+            else
+                ! Other keywords are not literals
+                literal_type = LITERAL_STRING
             end if
         case default
             ! For identifiers and other tokens, check for boolean literals
