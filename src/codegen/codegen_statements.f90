@@ -24,6 +24,8 @@ module codegen_statements
     public :: generate_code_implicit_statement
     public :: generate_code_comment
     public :: generate_code_blank_line
+    public :: generate_code_allocate_statement
+    public :: generate_code_deallocate_statement
 
 contains
     ! Generate code for assignment statements
@@ -343,5 +345,92 @@ contains
     end function generate_code_blank_line
 
     ! generate_code_from_arena is provided as an interface at the module level
+
+    ! Generate code for allocate statements
+    function generate_code_allocate_statement(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(allocate_statement_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: args, var_code, shape_code
+        integer :: i, j
+
+        args = ""
+
+        if (allocated(node%var_indices)) then
+            do i = 1, size(node%var_indices)
+                if (i > 1) args = args // ", "
+                if (node%var_indices(i) > 0 .and. node%var_indices(i) <= arena%size) then
+                    var_code = generate_code_from_arena(arena, node%var_indices(i))
+                else
+                    var_code = ""
+                end if
+                if (i == 1) then
+                    ! Attach shape to the first variable if present
+                    if (allocated(node%shape_indices)) then
+                        if (size(node%shape_indices) > 0) then
+                            shape_code = ""
+                            do j = 1, size(node%shape_indices)
+                                if (j > 1) shape_code = shape_code // ", "
+                                if (node%shape_indices(j) > 0 .and. node%shape_indices(j) <= arena%size) then
+                                    shape_code = shape_code // generate_code_from_arena(arena, node%shape_indices(j))
+                                end if
+                            end do
+                            if (len(shape_code) > 0) then
+                                var_code = var_code // "(" // shape_code // ")"
+                            end if
+                        end if
+                    end if
+                end if
+                args = args // var_code
+            end do
+        end if
+
+        ! Optional keyword arguments
+        if (node%stat_var_index > 0 .and. node%stat_var_index <= arena%size) then
+            args = args // ", stat=" // generate_code_from_arena(arena, node%stat_var_index)
+        end if
+        if (node%errmsg_var_index > 0 .and. node%errmsg_var_index <= arena%size) then
+            args = args // ", errmsg=" // generate_code_from_arena(arena, node%errmsg_var_index)
+        end if
+        if (node%source_expr_index > 0 .and. node%source_expr_index <= arena%size) then
+            args = args // ", source=" // generate_code_from_arena(arena, node%source_expr_index)
+        end if
+        if (node%mold_expr_index > 0 .and. node%mold_expr_index <= arena%size) then
+            args = args // ", mold=" // generate_code_from_arena(arena, node%mold_expr_index)
+        end if
+
+        code = "allocate(" // args // ")"
+    end function generate_code_allocate_statement
+
+    ! Generate code for deallocate statements
+    function generate_code_deallocate_statement(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(deallocate_statement_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: args
+        integer :: i
+
+        args = ""
+
+        if (allocated(node%var_indices)) then
+            do i = 1, size(node%var_indices)
+                if (i > 1) args = args // ", "
+                if (node%var_indices(i) > 0 .and. node%var_indices(i) <= arena%size) then
+                    args = args // generate_code_from_arena(arena, node%var_indices(i))
+                end if
+            end do
+        end if
+
+        if (node%stat_var_index > 0 .and. node%stat_var_index <= arena%size) then
+            args = args // ", stat=" // generate_code_from_arena(arena, node%stat_var_index)
+        end if
+        if (node%errmsg_var_index > 0 .and. node%errmsg_var_index <= arena%size) then
+            args = args // ", errmsg=" // generate_code_from_arena(arena, node%errmsg_var_index)
+        end if
+
+        code = "deallocate(" // args // ")"
+    end function generate_code_deallocate_statement
 
 end module codegen_statements

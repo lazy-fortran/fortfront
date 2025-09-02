@@ -437,7 +437,8 @@ contains
               'implicit', 'none', 'parameter', 'dimension', 'allocatable', &
               'intent', 'in', 'out', 'inout', 'use', 'module', 'contains', &
               'public', 'private', 'type', 'class', 'extends', 'abstract', &
-              'procedure', 'interface', 'generic', 'operator', 'assignment', 'print', 'read', 'write', 'call')
+              'procedure', 'interface', 'generic', 'operator', 'assignment', 'print', 'read', 'write', 'call', &
+              'allocate', 'deallocate')
             keyword = .true.
         case default
             keyword = .false.

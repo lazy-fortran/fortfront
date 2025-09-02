@@ -11,6 +11,7 @@ program test_lexer_keywords
     if (.not. test_control_keywords()) all_passed = .false.
     if (.not. test_type_keywords()) all_passed = .false.
     if (.not. test_io_keywords()) all_passed = .false.
+    if (.not. test_memory_keywords()) all_passed = .false.
     if (.not. test_case_insensitive()) all_passed = .false.
 
     ! Report results
@@ -142,6 +143,34 @@ contains
 
         print '(a)', "PASS: I/O keyword tokenization"
     end function test_io_keywords
+
+    logical function test_memory_keywords()
+        type(token_t), allocatable :: tokens(:)
+        character(len=10), dimension(2) :: mem_keywords = [ &
+            "allocate  ", "deallocate" &
+        ]
+        integer :: i
+
+        test_memory_keywords = .true.
+        print '(a)', "Testing memory keyword tokenization..."
+
+        do i = 1, size(mem_keywords)
+            call tokenize_core(trim(mem_keywords(i)), tokens)
+            if (tokens(1)%kind /= TK_KEYWORD) then
+                print '(a,a)', "FAIL: Expected KEYWORD token for: ", trim(mem_keywords(i))
+                test_memory_keywords = .false.
+                return
+            end if
+
+            if (tokens(1)%text /= trim(mem_keywords(i))) then
+                print '(a,a)', "FAIL: Wrong text for keyword: ", trim(mem_keywords(i))
+                test_memory_keywords = .false.
+                return
+            end if
+        end do
+
+        print '(a)', "PASS: Memory keyword tokenization"
+    end function test_memory_keywords
 
     logical function test_case_insensitive()
         type(token_t), allocatable :: tokens(:)
