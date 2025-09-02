@@ -149,6 +149,6 @@ prune-build-cache:
 	    | xargs -r rm -rf; \
 	fi; true
 
-# Lint: enforce soft/hard line limits for source files
+# Lint: enforce soft/hard file length (line count) limits for sources
 lint:
 	@scripts/check_line_lengths.sh
