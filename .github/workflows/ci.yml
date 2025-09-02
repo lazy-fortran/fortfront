@@ -92,6 +92,13 @@ jobs:
         echo "🛡️ Running fraud prevention validation"
         ./scripts/ci_fraud_prevention.sh
 
+    - name: Cleanup build cache and logs
+      if: always()
+      run: |
+        echo "Pruning old fpm build cache directories and logs"
+        make prune-build-cache PRUNE_KEEP=2 || true
+        bash scripts/prune_logs.sh || true
+
     - name: Generate coverage data (optimized)
       if: false  # coverage disabled
       run: |
@@ -430,6 +437,26 @@ jobs:
           Write-Host "❌ FRAUD RECOVERY FAILURE: All Windows build attempts failed"
           Write-Host "This indicates genuine systematic Windows CI issues"
           exit 1
+        }
+
+    - name: Cleanup build cache and logs (Windows)
+      if: always()
+      shell: pwsh
+      run: |
+        Write-Host "Pruning old build cache directories (keeping 2 newest)"
+        if (Test-Path build) {
+          Get-ChildItem build -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like 'gfortran_*' } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -Skip 2 |
+            ForEach-Object { Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+        }
+        Write-Host "Deleting stale logs older than 7 days"
+        $logDir = Join-Path (Get-Location) 'logs'
+        if (Test-Path $logDir) {
+          Get-ChildItem $logDir -Recurse -Include *.log -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-7) } |
+            ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
         }
 
   # macOS CI temporarily disabled due to runner issues
