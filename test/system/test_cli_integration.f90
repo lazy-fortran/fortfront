@@ -40,6 +40,9 @@ program test_cli_integration
     ! Test 2b: Unknown flag returns non-zero exit code
     call test_invalid_flag_exit_code()
 
+    ! Test 2c: 'func' syntax yields error but still prints valid program
+    call test_func_syntax_error_outputs_program()
+
     ! Test 3: Empty input handling
     call test_empty_input()
     
@@ -265,6 +268,55 @@ contains
             print *, "  Exit code: ", run_status
         end if
     end subroutine test_invalid_flag_exit_code
+
+    subroutine test_func_syntax_error_outputs_program()
+        integer :: run_status, exit_code
+        character(len=512) :: command
+        character(len=1000) :: line
+        character(len=:), allocatable :: executable_path
+        logical :: success
+
+        call test_start("'func' syntax prints program and exits non-zero")
+
+        ! Find the fortfront executable
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+
+        ! Run with lazy function syntax which is not supported
+        command = 'echo "func add(x, y) = x + y" | ' // executable_path // &
+                  ' > test_out_func.txt 2>test_err_func.txt'
+        call execute_command_line(command, exitstat=run_status)
+
+        ! Expect non-zero exit code
+        success = (run_status /= 0)
+
+        ! And program output should still be produced
+        if (success) then
+            open(unit=21, file='test_out_func.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                read(21, '(A)', end=300, iostat=exit_code) line
+                if (exit_code == 0) then
+                    success = success .and. (index(line, 'program main') > 0)
+                end if
+300             close(21)
+            else
+                success = .false.
+            end if
+        end if
+
+        ! Clean up files
+        call execute_command_line('rm -f test_out_func.txt test_err_func.txt', exitstat=exit_code)
+
+        call test_result(success)
+        if (.not. success) then
+            print *, "  Expected non-zero exit and program output for 'func' syntax"
+            print *, "  Exit code: ", run_status
+        end if
+    end subroutine test_func_syntax_error_outputs_program
     
     subroutine test_empty_input()
         integer :: exit_code

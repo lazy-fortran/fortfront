@@ -133,16 +133,19 @@ program fortfront_cli
     ! Transform lazy fortran to standard fortran
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
     
-    ! Handle errors: any error message implies non-zero exit
+    ! Always write any generated output to stdout first
+    if (allocated(output_text) .and. len(output_text) > 0) then
+        write(output_unit, '(A)', advance='no') output_text
+    end if
+
+    ! Handle errors: print diagnostics and return non-zero exit
     if (error_msg /= "") then
         write(error_unit, '(A)') trim(error_msg)
         error stop EXIT_FAILURE
     end if
-    
-    ! Write output to stdout
-    if (allocated(output_text) .and. len(output_text) > 0) then
-        write(output_unit, '(A)', advance='no') output_text
-    else
+
+    ! If no output was generated and no error was reported, treat as failure
+    if (.not. allocated(output_text) .or. len(output_text) == 0) then
         write(error_unit, '(A)') 'No output generated'
         error stop EXIT_FAILURE
     end if
