@@ -9,6 +9,8 @@ program test_boolean_literal_type_inference
 
     if (.not. test_dot_true_infers_logical()) all_passed = .false.
     if (.not. test_bare_true_emits_fortran_and_infers_logical()) all_passed = .false.
+    if (.not. test_dot_false_infers_logical()) all_passed = .false.
+    if (.not. test_bare_false_emits_fortran_and_infers_logical()) all_passed = .false.
 
     if (all_passed) then
         print *, 'All boolean literal inference tests passed!'
