@@ -75,6 +75,8 @@ test:
 	# Ensure a clean workspace before running tests and remove artifacts after
 	$(MAKE) -s clean-logs
 	$(MAKE) -s clean-test-artifacts
+	# Enforce production error handling policy (no 'error stop' in src/)
+	scripts/check_no_error_stop.sh
 	# Validate xfail map to prevent stale entries
 	scripts/validate_xfail.sh
 	@echo "Running tests with timeout $(TEST_TIMEOUT)"
