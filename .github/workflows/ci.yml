@@ -186,10 +186,10 @@ jobs:
         exclude-detailed-coverage: false
 
     - name: Create coverage checks
-      # Only create coverage checks on pull requests. On direct pushes
-      # to main there is no PR context and some GitHub APIs expect it,
-      # which caused a TypeError in actions/github-script.
-      if: github.event_name == 'pull_request'
+      # Create checks only when coverage XML exists. This naturally skips
+      # PR runs (fast path, no coverage) and runs on main pushes where
+      # coverage is generated.
+      if: ${{ hashFiles('cobertura.xml') != '' }}
       uses: actions/github-script@v7
       with:
         script: |
