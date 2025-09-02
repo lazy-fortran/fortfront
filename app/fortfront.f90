@@ -7,6 +7,7 @@ program fortfront_cli
     character(len=:), allocatable :: temp_text, arg_str, filename
     character(len=4096) :: buffer
     integer :: io_stat, total_size, capacity, file_unit
+    integer :: alloc_stat
     integer :: num_args, arg_len
     integer, parameter :: MAX_INPUT_SIZE = 10485760  ! 10MB safety limit
     integer, parameter :: INITIAL_CAPACITY = 8192
@@ -23,7 +24,11 @@ program fortfront_cli
     ! Handle command line arguments
     if (num_args > 0) then
         call get_command_argument(1, length=arg_len)
-        allocate(character(len=arg_len) :: arg_str)
+        allocate(character(len=arg_len) :: arg_str, stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            write(error_unit, '(A,I0)') 'Memory allocation failed for command argument (stat=', alloc_stat, ')'
+            error stop EXIT_FAILURE
+        end if
         call get_command_argument(1, value=arg_str)
         
         if (arg_str == "--help" .or. arg_str == "-h") then
@@ -83,7 +88,11 @@ program fortfront_cli
     
     ! Read input (from file or stdin)
     capacity = INITIAL_CAPACITY
-    allocate(character(len=capacity) :: input_text)
+    allocate(character(len=capacity) :: input_text, stat=alloc_stat)
+    if (alloc_stat /= 0) then
+        write(error_unit, '(A,I0)') 'Memory allocation failed for input buffer (stat=', alloc_stat, ')'
+        error stop EXIT_FAILURE
+    end if
     total_size = 0
     
     if (from_file) then
@@ -123,9 +132,17 @@ program fortfront_cli
     
     ! Trim to actual size to save memory
     if (total_size == 0) then
-        allocate(character(len=0) :: temp_text)
+        allocate(character(len=0) :: temp_text, stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            write(error_unit, '(A,I0)') 'Memory allocation failed for temp buffer (stat=', alloc_stat, ')'
+            error stop EXIT_FAILURE
+        end if
     else
-        allocate(character(len=total_size) :: temp_text)
+        allocate(character(len=total_size) :: temp_text, stat=alloc_stat)
+        if (alloc_stat /= 0) then
+            write(error_unit, '(A,I0)') 'Memory allocation failed for sized temp buffer (stat=', alloc_stat, ')'
+            error stop EXIT_FAILURE
+        end if
         temp_text = input_text(1:total_size)
     end if
     call move_alloc(temp_text, input_text)
@@ -183,7 +200,11 @@ contains
                 error stop EXIT_FAILURE
             end if
             
-            allocate(character(len=capacity) :: temp_text)
+            allocate(character(len=capacity) :: temp_text, stat=alloc_stat)
+            if (alloc_stat /= 0) then
+                write(error_unit, '(A,I0)') 'Memory allocation failed while growing input buffer (stat=', alloc_stat, ')'
+                error stop EXIT_FAILURE
+            end if
             if (total_size > 0) then
                 temp_text(1:total_size) = input_text(1:total_size)
             end if
