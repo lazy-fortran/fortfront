@@ -60,22 +60,8 @@ contains
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()
-            ! CRITICAL FIX for Issue #1121: Safe parameter parsing with fallback
-            ! Initialize empty parameters as fallback
-            allocate(param_indices(0))
-            ! CRITICAL FIX for Issue #1121: Temporarily disable parameter parsing 
-            ! to prevent segmentation fault until underlying issue is resolved
-            ! TODO: Fix parse_typed_parameters memory safety issue
-            ! call parse_typed_parameters(parser, arena, param_indices)
-            
-            ! Skip to closing parenthesis
-            do while (.not. parser%is_at_end())
-                token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                    exit
-                end if
-                token = parser%consume()
-            end do
+            ! Parse typed parameters safely
+            call parse_typed_parameters(parser, arena, param_indices)
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
                 token = parser%consume()
