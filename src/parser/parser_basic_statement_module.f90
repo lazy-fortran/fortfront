@@ -54,8 +54,8 @@ contains
                     call analyze_declaration_structure(parser, has_initializer, has_comma)
                     
                     
-                    if (has_initializer .and. .not. has_comma) then
-                        ! Single variable with initializer - use parse_declaration
+                    if (.not. has_comma) then
+                        ! Single-variable declaration (with or without initializer)
                         allocate (stmt_indices(1))
                         stmt_indices(1) = parse_declaration(parser, arena)
                         return
@@ -119,13 +119,89 @@ contains
             block
                 type(token_t) :: id_token, op_token
                 integer :: target_index, value_index
+                integer :: pos, left_end, paren_depth
+                logical :: has_complex_lhs
 
                 id_token = parser%consume()
                 op_token = parser%peek()
 
-                if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
+                has_complex_lhs = .false.
+                if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
+                    ! LHS is a subscript/call expression like arr(5) = ...
+                    has_complex_lhs = .true.
+                end if
+
+                if (has_complex_lhs) then
+                    ! Find '=' matching at top-level (outside parentheses)
+                    paren_depth = 0
+                    left_end = parser%current_token - 1
+                    do pos = parser%current_token, size(parser%tokens)
+                        if (parser%tokens(pos)%kind == TK_EOF) exit
+                        select case (trim(parser%tokens(pos)%text))
+                        case ("(")
+                            paren_depth = paren_depth + 1
+                        case (")")
+                            if (paren_depth > 0) paren_depth = paren_depth - 1
+                        case ("=")
+                            if (paren_depth == 0) then
+                                left_end = pos - 1
+                                exit
+                            end if
+                        end select
+                        left_end = pos
+                    end do
+
+                    if (left_end >= parser%current_token - 1) then
+                        block
+                            type(token_t), allocatable :: lhs_tokens(:)
+                            integer :: lhs_len
+                            ! Construct LHS token stream: id_token + tokens up to left_end
+                            lhs_len = 1 + max(0, left_end - (parser%current_token) + 1) + 1  ! +EOF
+                            allocate(lhs_tokens(lhs_len))
+                            lhs_tokens(1) = id_token
+                            if (lhs_len >= 2) then
+                                if (left_end >= parser%current_token) then
+                                    lhs_tokens(2:1 + (left_end - parser%current_token + 1)) = &
+                                        parser%tokens(parser%current_token:left_end)
+                                end if
+                            end if
+                            ! EOF sentinel
+                            lhs_tokens(lhs_len)%kind = TK_EOF
+                            lhs_tokens(lhs_len)%text = ""
+                            lhs_tokens(lhs_len)%line = id_token%line
+                            lhs_tokens(lhs_len)%column = id_token%column
+
+                            target_index = parse_expression(lhs_tokens, arena)
+                        end block
+
+                        ! Advance main parser to '=' and consume it
+                        parser%current_token = left_end + 1
+                        op_token = parser%peek()
+                        if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
+                            op_token = parser%consume()
+                        end if
+
+                        ! Parse RHS from remaining tokens on this line
+                        block
+                            type(token_t), allocatable :: rhs_tokens(:)
+                            integer :: remaining_count
+                            remaining_count = size(tokens) - parser%current_token + 1
+                            if (remaining_count > 0) then
+                                allocate (rhs_tokens(remaining_count))
+                                rhs_tokens = tokens(parser%current_token:)
+                                value_index = parse_expression(rhs_tokens, arena)
+                                if (value_index > 0 .and. target_index > 0) then
+                                    stmt_index = push_assignment(arena, target_index, value_index, &
+                                                                 id_token%line, id_token%column, &
+                                                                 parent_index)
+                                end if
+                            end if
+                        end block
+                    end if
+                else if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
+                    ! Simple identifier assignment: x = expr
                     op_token = parser%consume()  ! consume '='
-    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column, parent_index)
+                    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column, parent_index)
                     ! Get remaining tokens for expression parsing
                     block
                         type(token_t), allocatable :: expr_tokens(:)
@@ -135,10 +211,10 @@ contains
                             allocate (expr_tokens(remaining_count))
                             expr_tokens = tokens(parser%current_token:)
                             value_index = parse_expression(expr_tokens, arena)
-                            if (value_index > 0) then
-                        stmt_index = push_assignment(arena, target_index, value_index, &
-                                                         id_token%line, id_token%column, &
-                                                         parent_index)
+                            if (value_index > 0 .and. target_index > 0) then
+                                stmt_index = push_assignment(arena, target_index, value_index, &
+                                                             id_token%line, id_token%column, &
+                                                             parent_index)
                             end if
                         end if
                     end block

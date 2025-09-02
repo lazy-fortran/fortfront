@@ -433,22 +433,81 @@ contains
         if (is_multi_assignment) then
             call parse_multi_variable_assignment(parser, arena, stmt_index)
         else
-            ! Original single assignment logic
+            ! Single assignment (identifier or complex LHS like arr(5))
             id_token = parser%consume()
             op_token = parser%peek()
 
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
-                op_token = parser%consume()
+            if (op_token%kind == TK_OPERATOR .and. (op_token%text == "=" .or. op_token%text == "(")) then
+                if (op_token%text == "=") then
+                    ! Simple identifier assignment: x = expr
+                    op_token = parser%consume()
+                    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+                    value_index = parse_range(parser, arena)
+                    if (value_index > 0) then
+                        stmt_index = push_assignment(arena, target_index, value_index, &
+                                                   id_token%line, id_token%column)
+                    end if
+                else if (op_token%text == "(") then
+                    ! Complex LHS: parse expression up to '=' (handles subscripts/slices)
+                    block
+                        integer :: start_pos, pos, paren_depth, left_end
+                        type(token_t), allocatable :: lhs_tokens(:)
+                        type(parser_state_t) :: lhs_parser
+                        integer :: lhs_len
 
-                ! Create target identifier
-                target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+                        start_pos = parser%current_token - 1  ! include id_token already consumed
+                        paren_depth = 0
+                        left_end = start_pos
+                        do pos = parser%current_token, size(parser%tokens)
+                            if (parser%tokens(pos)%kind == TK_EOF) exit
+                            select case (parser%tokens(pos)%text)
+                            case ("(")
+                                paren_depth = paren_depth + 1
+                            case (")")
+                                if (paren_depth > 0) paren_depth = paren_depth - 1
+                            case ("=")
+                                if (paren_depth == 0) then
+                                    left_end = pos - 1
+                                    exit
+                                end if
+                            end select
+                            left_end = pos
+                        end do
 
-                ! Parse value expression
-                value_index = parse_range(parser, arena)
-                
-                if (value_index > 0) then
-                    stmt_index = push_assignment(arena, target_index, value_index, &
-                                               id_token%line, id_token%column)
+                        ! Construct LHS token array: id_token + following tokens up to left_end
+                        lhs_len = (left_end - start_pos + 1) + 1  ! plus EOF
+                        allocate(lhs_tokens(lhs_len))
+                        lhs_tokens(1) = id_token
+                        if (left_end >= parser%current_token) then
+                            lhs_tokens(2:1 + (left_end - parser%current_token + 1)) = &
+                                parser%tokens(parser%current_token:left_end)
+                        end if
+                        lhs_tokens(lhs_len)%kind = TK_EOF
+                        lhs_tokens(lhs_len)%text = ""
+                        lhs_tokens(lhs_len)%line = id_token%line
+                        lhs_tokens(lhs_len)%column = id_token%column
+
+                        lhs_parser = create_parser_state(lhs_tokens)
+                        target_index = parse_range(lhs_parser, arena)
+                    end block
+
+                    ! Advance original parser to '=' and consume it
+                    do while (.not. parser%is_at_end())
+                        op_token = parser%peek()
+                        if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
+                            op_token = parser%consume()
+                            exit
+                        else
+                            op_token = parser%consume()
+                        end if
+                    end do
+
+                    ! Parse RHS on original parser
+                    value_index = parse_range(parser, arena)
+                    if (value_index > 0 .and. target_index > 0) then
+                        stmt_index = push_assignment(arena, target_index, value_index, &
+                                                   id_token%line, id_token%column)
+                    end if
                 end if
             end if
         end if
