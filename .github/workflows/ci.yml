@@ -212,7 +212,7 @@ jobs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             name: 'coverage/project',
-            head_sha: context.payload.pull_request.head.sha,
+            head_sha: context.sha,
             status: 'completed',
             conclusion: projectPassed ? 'success' : 'failure',
             output: {
@@ -229,7 +229,7 @@ jobs:
             owner: context.repo.owner,
             repo: context.repo.repo,
             name: 'coverage/patch',
-            head_sha: context.payload.pull_request.head.sha,
+            head_sha: context.sha,
             status: 'completed',
             conclusion: patchPassed ? 'success' : 'failure',
             output: {
