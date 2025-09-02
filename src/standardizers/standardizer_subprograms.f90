@@ -606,7 +606,7 @@ contains
                 new_body_indices(i) = sub_def%body_indices(i)
             end do
 
-            ! Add new parameter declarations after implicit none (position 2)
+            ! Add new parameter declarations after implicit none when present; otherwise at start
             new_decl_count = 0
             do i = 1, n_params
                 if (param_names_found(i) == 0) then
@@ -634,12 +634,18 @@ contains
 
                     call arena%push(param_decl, "declaration", sub_index)
                     new_decl_count = new_decl_count + 1
-                    
-                    ! Insert after implicit none, shift other statements down
-                    do j = n_body + new_decl_count, 3, -1
-                        new_body_indices(j) = new_body_indices(j-1)
-                    end do
-                    new_body_indices(1 + new_decl_count) = arena%size
+
+                    ! Determine insertion base: 2 if implicit none exists (n_body>=1), else 1
+                    if (n_body >= 1) then
+                        ! Shift existing statements down to make room after implicit none
+                        do j = n_body + new_decl_count, 3, -1
+                            new_body_indices(j) = new_body_indices(j-1)
+                        end do
+                        new_body_indices(1 + new_decl_count) = arena%size
+                    else
+                        ! No existing body (no implicit none yet); append sequentially starting at 1
+                        new_body_indices(new_decl_count) = arena%size
+                    end if
                 end if
             end do
 
