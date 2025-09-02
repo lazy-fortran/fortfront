@@ -379,12 +379,24 @@ contains
 
         select case (trim(op))
         case ('**')
-            precedence = 4
+            precedence = 9
         case ('*','/')
-            precedence = 3
+            precedence = 8
         case ('+','-')
-            precedence = 2
+            precedence = 7
         case ('//')
+            precedence = 6
+        ! Relational operators (map syntactic variants to same precedence)
+        case ('.lt.', '.le.', '.gt.', '.ge.', '.eq.', '.ne.', '<', '<=', '>', '>=', '==', '/=')
+            precedence = 5
+        ! Logical NOT (unary) binds tighter than AND/OR
+        case ('.not.')
+            precedence = 4
+        case ('.and.')
+            precedence = 3
+        case ('.or.')
+            precedence = 2
+        case ('.eqv.', '.neqv.')
             precedence = 1
         case default
             precedence = 1
