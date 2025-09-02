@@ -103,14 +103,52 @@ contains
             return
         end if
 
-        ! Extract statement tokens
-        allocate (stmt_tokens(stmt_end - stmt_start + 2))
-        stmt_tokens(1:stmt_end - stmt_start + 1) = tokens(stmt_start:stmt_end)
+        ! Heuristic: skip non-Fortran prefixes like "Simple test:" before real code (fixes #843)
+        block
+            integer :: i, colon_pos, eq_pos, local_start
+            logical :: saw_keyword
+            colon_pos = 0
+            eq_pos = 0
+            saw_keyword = .false.
+            ! Local adjustable start to avoid modifying INTENT(IN) argument
+            local_start = stmt_start
+
+            ! Locate first '=' in the statement (assignment anchor)
+            do i = local_start, stmt_end
+                if (tokens(i)%kind == TK_KEYWORD) then
+                    saw_keyword = .true.
+                end if
+                if (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == "=") then
+                    eq_pos = i
+                    exit
+                end if
+            end do
+
+            if (eq_pos > 0) then
+                ! If there's a ':' before '=', and the prefix contains no Fortran keywords,
+                ! treat everything up to and including ':' as a non-Fortran label and skip it.
+                do i = local_start, eq_pos - 1
+                    if (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == ":") then
+                        colon_pos = i
+                        exit
+                    end if
+                end do
+                if (colon_pos > 0 .and. .not. saw_keyword) then
+                    local_start = colon_pos + 1
+                end if
+            end if
+        
+        ! Extract statement tokens (after any prefix adjustment)
+        allocate (stmt_tokens(stmt_end - local_start + 2))
+        stmt_tokens(1:stmt_end - local_start + 1) = tokens(local_start:stmt_end)
         ! Add EOF token
-        stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
-        stmt_tokens(stmt_end - stmt_start + 2)%text = ""
-        stmt_tokens(stmt_end - stmt_start + 2)%line = tokens(stmt_end)%line
-        stmt_tokens(stmt_end - stmt_start + 2)%column = tokens(stmt_end)%column + 1
+        stmt_tokens(stmt_end - local_start + 2)%kind = TK_EOF
+        stmt_tokens(stmt_end - local_start + 2)%text = ""
+        stmt_tokens(stmt_end - local_start + 2)%line = tokens(stmt_end)%line
+        stmt_tokens(stmt_end - local_start + 2)%column = tokens(stmt_end)%column + 1
+        end block
+
+        ! Note: stmt_tokens already allocated and filled in the block above
 
         ! Parse the statement
         stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
