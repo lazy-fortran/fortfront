@@ -74,6 +74,22 @@ contains
             print *, '  FAIL: Missing END WHERE'
             test_where_codegen = .false.
         end if
+
+        ! Stronger content checks (mask and assignments)
+        if (index(code, 'a > 0') == 0) then
+            print *, '  FAIL: WHERE mask not found'
+            test_where_codegen = .false.
+        end if
+
+        if (index(code, 'a = a + 1') == 0) then
+            print *, '  FAIL: THEN-body assignment missing'
+            test_where_codegen = .false.
+        end if
+
+        if (index(code, 'a = 0') == 0) then
+            print *, '  FAIL: ELSEWHERE-body assignment missing'
+            test_where_codegen = .false.
+        end if
     end function test_where_codegen
 
     logical function test_forall_codegen()
@@ -114,6 +130,17 @@ contains
 
         if (index(code, 'end forall') == 0) then
             print *, '  FAIL: Missing END FORALL'
+            test_forall_codegen = .false.
+        end if
+
+        ! Stronger content checks (triplet and body)
+        if (index(code, 'i = 1:n') == 0) then
+            print *, '  FAIL: FORALL triplet not found'
+            test_forall_codegen = .false.
+        end if
+
+        if (index(code, 'i = 1') == 0) then
+            print *, '  FAIL: FORALL body assignment missing'
             test_forall_codegen = .false.
         end if
     end function test_forall_codegen
