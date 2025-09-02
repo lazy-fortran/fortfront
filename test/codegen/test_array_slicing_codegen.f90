@@ -35,10 +35,12 @@ contains
         call lex_source(source, tokens, error_msg)
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root, error_msg)
-        if (error_msg /= '') then
-            print *, '  FAIL: parse error: ', trim(error_msg)
-            test_basic_slices = .false.
-            return
+        if (allocated(error_msg)) then
+            if (len_trim(error_msg) > 0) then
+                print *, '  FAIL: parse error: ', trim(error_msg)
+                test_basic_slices = .false.
+                return
+            end if
         end if
 
         call analyze_semantics(arena, root)
@@ -81,10 +83,12 @@ contains
         call lex_source(source, tokens, error_msg)
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root, error_msg)
-        if (error_msg /= '') then
-            print *, '  FAIL: parse error: ', trim(error_msg)
-            test_empty_bounds = .false.
-            return
+        if (allocated(error_msg)) then
+            if (len_trim(error_msg) > 0) then
+                print *, '  FAIL: parse error: ', trim(error_msg)
+                test_empty_bounds = .false.
+                return
+            end if
         end if
 
         call analyze_semantics(arena, root)
@@ -105,7 +109,7 @@ contains
             test_empty_bounds = .false.
             return
         end if
-        ! Accept either 'arr(:)' or 'arr(:,:)' variations depending on internal transforms
+        ! Expect a full-range slice for 1-D array
         if (index(code, 'arr(:)') == 0) then
             print *, '  FAIL: missing arr(:)'
             test_empty_bounds = .false.
@@ -129,10 +133,12 @@ contains
         call lex_source(source, tokens, error_msg)
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, root, error_msg)
-        if (error_msg /= '') then
-            print *, '  FAIL: parse error: ', trim(error_msg)
-            test_multidim_slices = .false.
-            return
+        if (allocated(error_msg)) then
+            if (len_trim(error_msg) > 0) then
+                print *, '  FAIL: parse error: ', trim(error_msg)
+                test_multidim_slices = .false.
+                return
+            end if
         end if
 
         call analyze_semantics(arena, root)
