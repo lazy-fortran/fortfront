@@ -18,15 +18,19 @@ fi
 # Delete logs older than RETAIN_DAYS
 find "$log_dir" -type f -name "*.log" -mtime +"$RETAIN_DAYS" -print -delete 2>/dev/null || true
 
-# Keep only the newest KEEP_COUNT logs (by mtime)
-count=$(find "$log_dir" -type f -name "*.log" | wc -l | awk "{print $1}")
+# Keep only the newest KEEP_COUNT logs (by mtime), robust to spaces in names
+count=$(find "$log_dir" -type f -name "*.log" -print0 | tr -cd '\0' | wc -c)
 if [ "$count" -gt "$KEEP_COUNT" ]; then
-  # List all logs sorted by mtime newest first, skip first KEEP_COUNT, delete the rest
-  find "$log_dir" -type f -name "*.log" -printf "%T@ %p\n" | sort -nr | awk -v k="$KEEP_COUNT" "NR>k{print $2}" | xargs -r rm -f
+  # Build null-delimited list with timestamps, sort desc by mtime, drop first KEEP_COUNT,
+  # strip timestamps, and delete the remainder.
+  find "$log_dir" -type f -name "*.log" -printf '%T@ %p\0' \
+    | sort -z -nr \
+    | awk -v RS='\0' -v ORS='\0' -v k="$KEEP_COUNT" 'NR>k{print}' \
+    | cut -z -d' ' -f2- \
+    | xargs -0 -r rm -f --
 fi
 
 # Also clean stray top-level logs to avoid accumulation
 find "$repo_root" -maxdepth 1 -type f \(
   -name "*.log" -o -name "*.err" -o -name "*.out"
 \) -mtime +"$RETAIN_DAYS" -print -delete 2>/dev/null || true
-
