@@ -36,12 +36,17 @@ run_with_timeout() {
     return $?
   fi
 
-  # Portable bash fallback
+  # Portable bash fallback with a timeout sentinel
+  local sentinel
+  sentinel=$(mktemp)
+  rm -f "$sentinel"
+
   "$@" &
   local cmd_pid=$!
   (
     # Watchdog subshell
-    sleep "$TIME_LIMIT" && kill -s TERM "$cmd_pid" 2>/dev/null && \
+    sleep "$TIME_LIMIT" && touch "$sentinel" && \
+      kill -s TERM "$cmd_pid" 2>/dev/null && \
       sleep "$limit_kill" && kill -s KILL "$cmd_pid" 2>/dev/null
   ) &
   local killer_pid=$!
@@ -50,22 +55,25 @@ run_with_timeout() {
   wait "$cmd_pid"
   local ec=$?
 
-  # If the command finished, stop watchdog; if it didn’t, infer timeout
+  # Stop watchdog if still running
   if kill -0 "$killer_pid" 2>/dev/null; then
     kill -s TERM "$killer_pid" 2>/dev/null || true
     wait "$killer_pid" 2>/dev/null || true
-    return $ec
-  else
-    # Watchdog already fired; normalize to 124 for timeout
+  fi
+
+  # If sentinel exists, normalize to 124 (timeout)
+  if [[ -f "$sentinel" ]]; then
+    rm -f "$sentinel" 2>/dev/null || true
     return 124
   fi
+  return $ec
 }
 
 # Run the test with a timeout; capture exit code robustly
 # To reduce IO overhead, write logs to a temp file and only persist on failure/XFAIL
 tmp_log=$(mktemp)
 code=0
-run_with_timeout "$exe" > "$tmp_log" 2>&1 || code=$? || code=0
+run_with_timeout "$exe" >"$tmp_log" 2>&1 || code=$?
 code=${code:-0}
 
 # Interpret results, including timeout exit (124)

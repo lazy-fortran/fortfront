@@ -23,6 +23,36 @@ if [[ $default_jobs -gt 8 ]]; then default_jobs=8; fi
 TEST_JOBS=${TEST_JOBS:-$default_jobs}
 if [[ $TEST_JOBS -lt 1 ]]; then TEST_JOBS=1; fi
 
+# Timeout helper (mirrors GNU timeout semantics; returns 124 on timeout)
+run_with_timeout() {
+  local limit_kill=5
+  if command -v timeout >/dev/null 2>&1; then
+    timeout -k ${limit_kill}s "${TIME_LIMIT}s" "$@"
+    return $?
+  fi
+  local sentinel
+  sentinel=$(mktemp)
+  rm -f "$sentinel"
+  "$@" &
+  local cmd_pid=$!
+  (
+    sleep "$TIME_LIMIT" && touch "$sentinel" && \
+      kill -s TERM "$cmd_pid" 2>/dev/null && \
+      sleep "$limit_kill" && kill -s KILL "$cmd_pid" 2>/dev/null
+  ) &
+  local killer_pid=$!
+  wait "$cmd_pid"; local ec=$?
+  if kill -0 "$killer_pid" 2>/dev/null; then
+    kill -s TERM "$killer_pid" 2>/dev/null || true
+    wait "$killer_pid" 2>/dev/null || true
+  fi
+  if [[ -f "$sentinel" ]]; then
+    rm -f "$sentinel" 2>/dev/null || true
+    return 124
+  fi
+  return $ec
+}
+
 xfail_file="test/xfail.csv"
 declare -A XFAIL
 if [[ -f "$xfail_file" ]]; then
@@ -74,11 +104,9 @@ run_one() {
   fi
   echo "[RUN ] $t"
   local code=0
-  if command -v timeout >/dev/null 2>&1; then
-    timeout -k 5s "${TIME_LIMIT}s" "$exe" >"logs/${t}.log" 2>&1 || code=$?
-  else
-    "$exe" >"logs/${t}.log" 2>&1 || code=$?
-  fi
+  local tmp_log
+  tmp_log=$(mktemp)
+  run_with_timeout "$exe" >"$tmp_log" 2>&1 || code=$?
   if [[ $code -eq 0 ]]; then
     if [[ -n "${XFAIL[$t]:-}" ]]; then
       echo "[XPASS] $t (was xfail: ${XFAIL[$t]})" | tee -a "$results_dir/summary"
@@ -87,19 +115,24 @@ run_one() {
       echo "[PASS] $t" | tee -a "$results_dir/summary"
       echo "PASS" >"$results_dir/$t.status"
     fi
+    rm -f "$tmp_log" 2>/dev/null || true
   elif [[ $code -eq 124 ]]; then
     if [[ -n "${XFAIL[$t]:-}" ]]; then
+      mv -f "$tmp_log" "logs/${t}.log" 2>/dev/null || true
       echo "[XFAIL] $t -> timeout after ${TIME_LIMIT}s (${XFAIL[$t]})" | tee -a "$results_dir/summary"
       echo "XFAIL" >"$results_dir/$t.status"
     else
+      mv -f "$tmp_log" "logs/${t}.log" 2>/dev/null || true
       echo "[FAIL] $t -> timeout after ${TIME_LIMIT}s (see logs/${t}.log)" | tee -a "$results_dir/summary"
       echo "FAIL" >"$results_dir/$t.status"
     fi
   else
     if [[ -n "${XFAIL[$t]:-}" ]]; then
+      mv -f "$tmp_log" "logs/${t}.log" 2>/dev/null || true
       echo "[XFAIL] $t -> exit=$code (${XFAIL[$t]})" | tee -a "$results_dir/summary"
       echo "XFAIL" >"$results_dir/$t.status"
     else
+      mv -f "$tmp_log" "logs/${t}.log" 2>/dev/null || true
       echo "[FAIL] $t -> exit=$code (see logs/${t}.log)" | tee -a "$results_dir/summary"
       echo "FAIL" >"$results_dir/$t.status"
     fi
