@@ -246,7 +246,8 @@ contains
         type(where_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        character(len=:), allocatable :: mask_code
+        character(len=:), allocatable :: mask_code, body_code
+        integer :: i
 
         ! Generate mask expression
         if (node%mask_expr_index > 0) then
@@ -255,10 +256,38 @@ contains
             mask_code = ".true."
         end if
 
-        ! Generate where construct with body
-        code = "where (" // mask_code // ")" // new_line('A') // &
-               "    ! where body statements" // new_line('A') // &
-               "end where"
+        ! WHERE header
+        code = "where (" // mask_code // ")"
+
+        ! WHERE body
+        if (allocated(node%where_body_indices)) then
+            body_code = generate_grouped_body_internal(arena, node%where_body_indices, 1)
+            if (len(body_code) > 0) then
+                code = code // new_line('A') // body_code
+            end if
+        end if
+
+        ! ELSEWHERE clauses (including final ELSEWHERE without mask)
+        if (allocated(node%elsewhere_clauses)) then
+            do i = 1, size(node%elsewhere_clauses)
+                if (node%elsewhere_clauses(i)%mask_index > 0) then
+                    mask_code = generate_code_from_arena(arena, node%elsewhere_clauses(i)%mask_index)
+                    code = code // new_line('A') // "elsewhere (" // mask_code // ")"
+                else
+                    code = code // new_line('A') // "elsewhere"
+                end if
+
+                if (allocated(node%elsewhere_clauses(i)%body_indices)) then
+                    body_code = generate_grouped_body_internal(arena, node%elsewhere_clauses(i)%body_indices, 1)
+                    if (len(body_code) > 0) then
+                        code = code // new_line('A') // body_code
+                    end if
+                end if
+            end do
+        end if
+
+        ! END WHERE
+        code = code // new_line('A') // "end where"
     end function generate_code_where
 
     ! Generate code for forall constructs
@@ -267,11 +296,50 @@ contains
         type(forall_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: header, part
+        character(len=:), allocatable :: body_code
+        integer :: i
 
-        ! Generate forall construct with basic triplet
-        code = "forall (i = 1:n)" // new_line('A') // &
-               "    ! forall body statements" // new_line('A') // &
-               "end forall"
+        header = "forall ("
+        if (node%num_indices > 0 .and. allocated(node%index_names) .and. &
+            allocated(node%lower_bound_indices) .and. allocated(node%upper_bound_indices) .and. &
+            allocated(node%stride_indices)) then
+            do i = 1, node%num_indices
+                if (i > 1) header = header // ", "
+
+                part = ""
+                part = trim(node%index_names(i)) // " = "
+
+                if (node%lower_bound_indices(i) > 0) then
+                    part = part // generate_code_from_arena(arena, node%lower_bound_indices(i))
+                end if
+                part = part // ":"
+                if (node%upper_bound_indices(i) > 0) then
+                    part = part // generate_code_from_arena(arena, node%upper_bound_indices(i))
+                end if
+                if (node%stride_indices(i) > 0) then
+                    part = part // ":" // generate_code_from_arena(arena, node%stride_indices(i))
+                end if
+
+                header = header // part
+            end do
+        end if
+
+        if (node%has_mask .and. node%mask_expr_index > 0) then
+            header = header // ", " // generate_code_from_arena(arena, node%mask_expr_index)
+        end if
+        header = header // ")"
+
+        code = header
+
+        if (allocated(node%body_indices)) then
+            body_code = generate_grouped_body_internal(arena, node%body_indices, 1)
+            if (len(body_code) > 0) then
+                code = code // new_line('A') // body_code
+            end if
+        end if
+
+        code = code // new_line('A') // "end forall"
     end function generate_code_forall
 
     ! Generate code for associate constructs

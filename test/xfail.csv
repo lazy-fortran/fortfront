@@ -35,7 +35,6 @@ test_dependency_validation,https://github.com/krystophny/fortfront/issues/1133
 test_comprehensive_validation_coverage,https://github.com/krystophny/fortfront/issues/1133
 # Group: where/forall (1134)
 test_where_forall_ast,https://github.com/krystophny/fortfront/issues/1134
-test_where_forall_codegen,https://github.com/krystophny/fortfront/issues/1134
 # Group: char/types (1135)
 test_issue_180_character_arrays,https://github.com/krystophny/fortfront/issues/1135
 test_issue_187_char_arrays,https://github.com/krystophny/fortfront/issues/1135
