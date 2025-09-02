@@ -89,6 +89,10 @@ contains
             code = generate_code_comment(node)
         type is (blank_line_node)
             code = generate_code_blank_line(node)
+        type is (allocate_statement_node)
+            code = generate_code_allocate_statement(arena, node, node_index)
+        type is (deallocate_statement_node)
+            code = generate_code_deallocate_statement(arena, node, node_index)
             
         ! Control flow nodes
         type is (if_node)
