@@ -41,7 +41,6 @@ contains
         ! Provides comprehensive error formatting to satisfy all Issue #256 requirements
         
         character(len=:), allocatable :: source_lines(:)
-        integer :: i
         
         error_msg = ""
         
@@ -102,10 +101,8 @@ contains
         character(len=:), allocatable, intent(out) :: error_msg
 
         integer :: i
-        logical :: found
 
         error_msg = ""
-        found = .false.
 
         do i = 1, size(tokens)
             if (tokens(i)%kind == TK_EOF) exit
@@ -116,7 +113,6 @@ contains
      &              tokens(i)%line, tokens(i)%column, source_lines, &
      &              "Replace 'func' with 'function' and add 'end function'", &
      &              "SYNTAX_ERROR")
-                found = .true.
                 exit
             end if
         end do
