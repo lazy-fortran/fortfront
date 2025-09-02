@@ -2,7 +2,7 @@ module fortfront_advanced
     ! fortfront Advanced Functions - Main interface module
     ! This module re-exports functionality from specialized modules:
     ! - ast_node_accessors: Type-safe AST node accessors
-    ! - symbol_management: Symbol table and scope analysis  
+    ! - semantic_query_api: Symbol table and scope analysis
     ! - type_utilities: Type system utilities and intrinsics
     ! - expression_temporaries: Expression temporary tracking
     ! - call_graph_analysis: Call graph building and analysis
@@ -12,7 +12,7 @@ module fortfront_advanced
     ! Re-export all functionality from specialized modules
     ! NOTE: Multiple modules temporarily disabled due to API mismatch
     ! use ast_node_accessors
-    ! use symbol_management  
+    ! use semantic_query_api
     ! use type_utilities
     ! use expression_temporaries
     use call_graph_analysis
@@ -28,7 +28,7 @@ module fortfront_advanced
     !           get_literal_value, get_call_info, get_array_literal_info, &
     !           get_program_info, get_declaration_info, get_parameter_declaration_info, &
     !           get_declaration_details, get_parameter_declaration_details, &
-    ! NOTE: symbol_management functions temporarily disabled
+    ! NOTE: semantic_query_api functions are provided by semantic_query_api
     ! public :: get_symbol_info, get_symbols_in_scope, get_symbol_references, &
     !           get_scope_info, get_all_scopes, &
     ! NOTE: expression_temporaries functions temporarily disabled
