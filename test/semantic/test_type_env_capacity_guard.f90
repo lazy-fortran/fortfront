@@ -1,5 +1,6 @@
 program test_type_env_capacity_guard
-    use type_system_unified
+    use type_system_unified, only: type_env_t, mono_type_t, poly_type_t, &
+        type_var_t, create_mono_type, create_poly_type, TINT
     implicit none
 
     type(type_env_t) :: env
@@ -29,4 +30,3 @@ program test_type_env_capacity_guard
     end if
 
 end program test_type_env_capacity_guard
-
