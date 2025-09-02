@@ -1,3 +1,5 @@
 # test_name,issue_url
 # Temporary expected failure mappings; replace with real fixes and remove.
-# Keep names exactly as in `fpm test --list`.
+# Names can be either exact test names (as in `fpm test --list`) or
+# shell globs to match multiple tests (e.g., `test_frontend_*`).
+# Format: name_or_glob,https://github.com/<org>/<repo>/issues/<n>

@@ -11,8 +11,28 @@ xfail_file="$repo_root/test/xfail.csv"
 TIME_LIMIT=${TIME_LIMIT:-120}
 
 issue=""
+# Support both exact names and glob patterns in test/xfail.csv
 if [[ -f "$xfail_file" ]]; then
-  issue=$(awk -F, -v n="$name" 'BEGIN{found=""} $1==n{found=$2} END{print found}' "$xfail_file")
+  # Exact match fast-path
+  issue=$(awk -F, -v n="$name" 'BEGIN{found=""} $1==n{gsub(/\r$/, "", $2); found=$2} END{print found}' "$xfail_file")
+  if [[ -z "$issue" ]]; then
+    # Pattern match: treat entries containing glob metacharacters (*, ?, [) as shell globs
+    while IFS=, read -r pat url; do
+      # Trim spaces
+      pat=$(echo "$pat" | sed 's/^ *//;s/ *$//')
+      url=$(echo "$url" | sed 's/^ *//;s/ *$//')
+      # Skip comments/blank lines
+      [[ -z "$pat" ]] && continue
+      [[ "$pat" =~ ^# ]] && continue
+      # Only consider globs here; exact names already handled above
+      if [[ "$pat" == *[*?[]* ]]; then
+        if [[ "$name" == $pat ]]; then
+          issue="$url"
+          break
+        fi
+      fi
+    done < "$xfail_file"
+  fi
 fi
 
 mkdir -p "$repo_root/logs"

@@ -23,7 +23,7 @@ mapfile -t candidates < <( \
     | awk '{print $1}' \
 )
 
-# Read xfail names (ignore comments/blank lines)
+# Read xfail names (ignore comments/blank lines); support glob patterns (*,?,[...])
 mapfile -t xfails < <(\
   awk -F, 'NF>=1 && $1 !~ /^#/ && $1!="" {gsub(/^ +| +$/, "", $1); print $1}' "$xfail_file"\
 )
@@ -43,18 +43,30 @@ if [[ ${#candidates[@]} -eq 0 ]]; then
   exit 0
 fi
 
-# Compare sets to find dangling xfail entries not present in candidates
-tmpdir=$(mktemp -d)
-trap 'rm -rf "$tmpdir"' EXIT
+# Validate each xfail entry: exact names must exist; globs must match >=1
+stale_list=""
+for name in "${xfails[@]}"; do
+  if [[ "$name" == *[*?[]* ]]; then
+    # glob pattern
+    matched=0
+    for cand in "${candidates[@]}"; do
+      if [[ "$cand" == $name ]]; then matched=1; break; fi
+    done
+    if [[ $matched -eq 0 ]]; then
+      stale_list+="$name\n"
+    fi
+  else
+    # exact
+    found=$(printf '%s\n' "${candidates[@]}" | grep -x -- "$name" || true)
+    if [[ -z "$found" ]]; then
+      stale_list+="$name\n"
+    fi
+  fi
+done
 
-printf '%s\n' "${xfails[@]}" | sort -u >"$tmpdir/xfails.txt"
-printf '%s\n' "${candidates[@]}" | sort -u >"$tmpdir/candidates.txt"
-
-missing=$(comm -23 "$tmpdir/xfails.txt" "$tmpdir/candidates.txt" || true)
-
-if [[ -n "$missing" ]]; then
+if [[ -n "$stale_list" ]]; then
   echo "ERROR: stale entries in test/xfail.csv (no matching tests):" >&2
-  echo "$missing" | sed 's/^/  - /' >&2
+  printf "%b" "$stale_list" | sed 's/^/  - /' >&2
   echo "Please remove or correct these entries to avoid XPASS noise." >&2
   exit 1
 fi

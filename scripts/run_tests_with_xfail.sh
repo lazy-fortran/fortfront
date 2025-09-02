@@ -55,14 +55,22 @@ run_with_timeout() {
 
 xfail_file="test/xfail.csv"
 declare -A XFAIL
+declare -A XFAIL_PATTERNS
 if [[ -f "$xfail_file" ]]; then
-  # Format: test_name,issue_url
+  # Format: test_name_or_glob,issue_url
+  # - Exact names must match entries from `fpm test --list`
+  # - Globs supported using shell patterns (*, ?, [..])
   while IFS=, read -r name url; do
     name=$(echo "$name" | sed 's/^ *//;s/ *$//')
     url=$(echo "$url" | sed 's/^ *//;s/ *$//')
     [[ -n "$name" ]] || continue
     [[ "$name" =~ ^# ]] && continue
-    XFAIL["$name"]="$url"
+    if [[ "$name" == *[*?[]* ]]; then
+      # Treat as glob pattern
+      XFAIL_PATTERNS["$name"]="$url"
+    else
+      XFAIL["$name"]="$url"
+    fi
   done < "$xfail_file"
 fi
 
@@ -107,9 +115,23 @@ run_one() {
   local tmp_log
   tmp_log=$(mktemp)
   run_with_timeout "$exe" >"$tmp_log" 2>&1 || code=$?
+  # Determine if this test is expected to fail via exact or pattern match
+  local xfail_url=""
+  if [[ -n "${XFAIL[$t]:-}" ]]; then
+    xfail_url="${XFAIL[$t]}"
+  else
+    # check glob patterns
+    for pat in "${!XFAIL_PATTERNS[@]}"; do
+      if [[ "$t" == $pat ]]; then
+        xfail_url="${XFAIL_PATTERNS[$pat]}"
+        break
+      fi
+    done
+  fi
+
   if [[ $code -eq 0 ]]; then
-    if [[ -n "${XFAIL[$t]:-}" ]]; then
-      echo "[XPASS] $t (was xfail: ${XFAIL[$t]})" | tee -a "$results_dir/summary"
+    if [[ -n "$xfail_url" ]]; then
+      echo "[XPASS] $t (was xfail: $xfail_url)" | tee -a "$results_dir/summary"
       echo "XPASS" >"$results_dir/$t.status"
     else
       echo "[PASS] $t" | tee -a "$results_dir/summary"
@@ -117,9 +139,9 @@ run_one() {
     fi
     rm -f "$tmp_log" 2>/dev/null || true
   elif [[ $code -eq 124 ]]; then
-    if [[ -n "${XFAIL[$t]:-}" ]]; then
+    if [[ -n "$xfail_url" ]]; then
       mv -f "$tmp_log" "logs/${t}.log" 2>/dev/null || true
-      echo "[XFAIL] $t -> timeout after ${TIME_LIMIT}s (${XFAIL[$t]})" | tee -a "$results_dir/summary"
+      echo "[XFAIL] $t -> timeout after ${TIME_LIMIT}s ($xfail_url)" | tee -a "$results_dir/summary"
       echo "XFAIL" >"$results_dir/$t.status"
     else
       mv -f "$tmp_log" "logs/${t}.log" 2>/dev/null || true
@@ -127,9 +149,9 @@ run_one() {
       echo "FAIL" >"$results_dir/$t.status"
     fi
   else
-    if [[ -n "${XFAIL[$t]:-}" ]]; then
+    if [[ -n "$xfail_url" ]]; then
       mv -f "$tmp_log" "logs/${t}.log" 2>/dev/null || true
-      echo "[XFAIL] $t -> exit=$code (${XFAIL[$t]})" | tee -a "$results_dir/summary"
+      echo "[XFAIL] $t -> exit=$code ($xfail_url)" | tee -a "$results_dir/summary"
       echo "XFAIL" >"$results_dir/$t.status"
     else
       mv -f "$tmp_log" "logs/${t}.log" 2>/dev/null || true
