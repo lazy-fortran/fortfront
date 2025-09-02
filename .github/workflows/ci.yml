@@ -186,7 +186,10 @@ jobs:
         exclude-detailed-coverage: false
 
     - name: Create coverage checks
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      # Only create coverage checks on pull requests. On direct pushes
+      # to main there is no PR context and some GitHub APIs expect it,
+      # which caused a TypeError in actions/github-script.
+      if: github.event_name == 'pull_request'
       uses: actions/github-script@v7
       with:
         script: |
