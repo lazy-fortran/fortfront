@@ -126,7 +126,7 @@ help:
 	@echo "  make libfortfront.a - Create static library and collect modules for external linking"
 	@echo "  make install  - Install libfortfront.a, module files, and pkg-config"
 	@echo "  make test     - Run tests"
-	@echo "  make lint     - Enforce source file line-length limits"
+	@echo "  make lint     - Enforce source file-length (line count) limits"
 	@echo "  make example  - Build and run example external tool"
 	@echo "  make clean    - Clean all build and test artifacts"
 	@echo "  make clean-test-artifacts - Clean test temporary files only"
