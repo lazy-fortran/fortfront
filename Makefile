@@ -1,7 +1,7 @@
 .PHONY: all build test clean clean-test-artifacts clean-logs help install libfortfront.a example setup-githooks prune-build-cache
 
 # Number of newest fpm build cache directories to keep under build/
-# Can be overridden: `make PRUNE_KEEP=1 build`
+# Can be overridden, e.g.: `make PRUNE_KEEP=2 prune-build-cache`
 PRUNE_KEEP ?= 2
 
 # Default target
@@ -126,6 +126,7 @@ help:
 	@echo "  make example  - Build and run example external tool"
 	@echo "  make clean    - Clean all build and test artifacts"
 	@echo "  make clean-test-artifacts - Clean test temporary files only"
+	@echo "  make prune-build-cache - Prune old fpm hash dirs; keep newest via PRUNE_KEEP (default 2)"
 	@echo "  make help     - Show this help message"
 	@echo "  make setup-githooks - Configure repo to use .githooks/"
 
