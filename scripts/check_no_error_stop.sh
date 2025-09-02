@@ -15,14 +15,43 @@ fi
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 
-# Find Fortran sources and scan each line with comments stripped.
-# Match standalone keyword sequence: error [spaces] stop
+# Find Fortran sources and scan each line with comments and strings stripped.
+# Match standalone keyword sequence: error [spaces] stop (case-insensitive)
 found=0
 while IFS= read -r -d '' f; do
   awk -v file="$f" '
+    BEGIN { IGNORECASE=1 }
+    function strip_strings(s,    out, i, c, in_str, sq) {
+      out = ""
+      in_str = 0
+      sq = sprintf("%c", 39)
+      for (i = 1; i <= length(s); i++) {
+        c = substr(s, i, 1)
+        if (in_str) {
+          if (c == sq) {
+            if (i < length(s) && substr(s, i+1, 1) == sq) {
+              i++  # skip the escaped quote
+              continue
+            } else {
+              in_str = 0
+            }
+          }
+          # skip characters while inside string
+          continue
+        } else {
+          if (c == sq) {
+            in_str = 1
+            continue
+          }
+          out = out c
+        }
+      }
+      return out
+    }
     {
       code=$0
       sub(/!.*/, "", code)            # strip trailing comments
+      code=strip_strings(code)          # strip string literals
       if (code ~ /(^|[^A-Za-z_])error[ \t]*stop([^A-Za-z_]|$)/) {
         printf("%s:%d:%s\n", file, NR, $0)
       }
@@ -38,4 +67,3 @@ fi
 
 echo "PASS: No 'error stop' statements in src/"
 exit 0
-
