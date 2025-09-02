@@ -283,8 +283,21 @@ contains
 
         block
             character(len=:), allocatable :: var_name
+            integer, allocatable :: local_dimension_indices(:)
+            logical :: has_local_dimensions
             var_name = token%text
-            
+            has_local_dimensions = .false.
+
+            ! Per-variable dimensions: e.g., "integer :: arr(10)"
+            if (.not. parser%is_at_end()) then
+                token = parser%peek()
+                if (token%text == "(") then
+                    token = parser%consume()  ! consume '('
+                    call parse_array_dimensions(parser, arena, local_dimension_indices)
+                    has_local_dimensions = .true.
+                end if
+            end if
+
             ! Check for initialization
             if (.not. parser%is_at_end()) then
                 token = parser%peek()
@@ -304,6 +317,17 @@ contains
                     type_spec%type_name, &
                     var_name, &
                     dimension_indices=attr_info%global_dimension_indices, &
+                    initializer_index=initializer_index, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            else if (has_local_dimensions) then
+                decl_index = push_declaration( &
+                    arena, &
+                    type_spec%type_name, &
+                    var_name, &
+                    dimension_indices=local_dimension_indices, &
                     initializer_index=initializer_index, &
                     is_allocatable=attr_info%is_allocatable, &
                     is_pointer=attr_info%is_pointer, &
