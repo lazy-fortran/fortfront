@@ -14,6 +14,7 @@ module input_validation
     public :: validate_basic_syntax
     public :: check_missing_then_statements
     public :: check_incomplete_statements
+    public :: check_incomplete_lazy_function_defs
     public :: check_for_fortran_content
     public :: check_missing_end_constructs
     public :: contains_invalid_patterns
@@ -26,6 +27,7 @@ module input_validation
     private :: is_likely_valid_fortran
     private :: has_any_fortran_patterns
     private :: is_likely_fortran_expression
+    private :: detect_lazy_func_header
 
 contains
 
@@ -75,7 +77,11 @@ contains
         ! Check for incomplete statements first (most critical syntax errors)
         call check_incomplete_statements(tokens, source_lines, error_msg)
         if (error_msg /= "") return
-        
+
+        ! Detect Lazy Fortran-style incomplete function headers using 'func'
+        call check_incomplete_lazy_function_defs(tokens, source_lines, error_msg)
+        if (error_msg /= "") return
+
         ! Look for missing 'then' in if statements (Issue #256 primary test case)
         ! This is more specific than missing end constructs, so check it first
         call check_missing_then_statements(tokens, source_lines, error_msg)
@@ -87,6 +93,72 @@ contains
         if (error_msg /= "") return
         
     end subroutine validate_basic_syntax
+
+    ! Detect "func name(args)" headers without proper Fortran function syntax
+    ! and report a clear, actionable diagnostic instead of emitting invalid code.
+    subroutine check_incomplete_lazy_function_defs(tokens, source_lines, error_msg)
+        type(token_t), intent(in) :: tokens(:)
+        character(len=*), intent(in) :: source_lines(:)
+        character(len=:), allocatable, intent(out) :: error_msg
+
+        integer :: i
+        logical :: found
+
+        error_msg = ""
+        found = .false.
+
+        do i = 1, size(tokens)
+            if (tokens(i)%kind == TK_EOF) exit
+
+            if (detect_lazy_func_header(tokens, i)) then
+                error_msg = format_enhanced_error( &
+     &              "Incomplete function-like definition: 'func' is not valid Fortran", &
+     &              tokens(i)%line, tokens(i)%column, source_lines, &
+     &              "Replace 'func' with 'function' and add 'end function'", &
+     &              "SYNTAX_ERROR")
+                found = .true.
+                exit
+            end if
+        end do
+    end subroutine check_incomplete_lazy_function_defs
+
+    ! Helper: detect pattern "func <identifier>( ... )" at the start of a line
+    logical function detect_lazy_func_header(tokens, pos) result(is_lazy_func)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        integer :: j
+        integer :: current_line
+
+        is_lazy_func = .false.
+        if (pos < 1 .or. pos > size(tokens)) return
+
+        ! Token text must literally be "func" and appear at line start
+        if (.not. (tokens(pos)%kind == TK_IDENTIFIER .and. trim(tokens(pos)%text) == "func")) return
+
+        current_line = tokens(pos)%line
+        ! Ensure it's at line start (no tokens before it on the same line)
+        if (pos > 1) then
+            if (tokens(pos-1)%line == current_line) return
+        end if
+
+        ! Next must be identifier then an opening parenthesis on same line
+        j = pos + 1
+        if (j <= size(tokens) .and. tokens(j)%line == current_line .and. &
+     &      tokens(j)%kind == TK_IDENTIFIER) then
+            j = j + 1
+            if (j <= size(tokens) .and. tokens(j)%line == current_line .and. &
+     &          tokens(j)%kind == TK_OPERATOR .and. tokens(j)%text == "(") then
+                ! Look ahead for closing paren on same line (header form)
+                do while (j <= size(tokens) .and. tokens(j)%line == current_line)
+                    if (tokens(j)%kind == TK_OPERATOR .and. tokens(j)%text == ")") then
+                        is_lazy_func = .true.
+                        return
+                    end if
+                    j = j + 1
+                end do
+            end if
+        end if
+    end function detect_lazy_func_header
 
     ! Check for missing 'then' statements (Issue #256 primary test case)
     subroutine check_missing_then_statements(tokens, source_lines, error_msg)
