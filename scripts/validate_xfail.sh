@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Validate that every entry in test/xfail.csv corresponds to an actual
-# test executable known to fpm (via `fpm test --list`).
+# Validate xfail mappings:
+# - Each test name exists in `fpm test --list` output.
+# - Each mapped GitHub issue URL refers to an OPEN issue.
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 xfail_file="$repo_root/test/xfail.csv"
@@ -24,6 +25,7 @@ mapfile -t candidates < <( \
 
 # Read xfail names (ignore comments/blank lines)
 mapfile -t xfails < <(awk -F, 'NF>=1 && $1 !~ /^#/ && $1!="" {print $1}' "$xfail_file")
+mapfile -t issue_urls < <(awk -F, 'NF>=2 && $1 !~ /^#/ && $1!="" {gsub(/\r$/, "", $2); print $2}' "$xfail_file")
 
 # If there are no xfails, nothing to validate
 if [[ ${#xfails[@]} -eq 0 ]]; then
@@ -50,6 +52,27 @@ if [[ -n "$missing" ]]; then
   echo "ERROR: stale entries in test/xfail.csv (no matching tests):" >&2
   echo "$missing" | sed 's/^/  - /' >&2
   echo "Please remove or correct these entries to avoid XPASS noise." >&2
+  exit 1
+fi
+
+# Validate that referenced issues are open (best-effort; skip non-GitHub URLs)
+closed_list=""
+for url in "${issue_urls[@]:-}"; do
+  [[ -z "$url" ]] && continue
+  if [[ "$url" =~ ^https://github.com/([^/]+)/([^/]+)/issues/([0-9]+)$ ]]; then
+    owner_repo="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    num="${BASH_REMATCH[3]}"
+    state=$(gh issue view "$num" --repo "$owner_repo" --json state --jq .state 2>/dev/null || echo unknown)
+    if [[ "$state" != "OPEN" ]]; then
+      closed_list+="${url} (state: ${state})\n"
+    fi
+  fi
+done
+
+if [[ -n "$closed_list" ]]; then
+  echo "ERROR: xfail entries point to closed/non-open issues:" >&2
+  printf "%b" "$closed_list" | sed 's/^/  - /' >&2
+  echo "Please remove these xfail rows now that tests should pass." >&2
   exit 1
 fi
 
