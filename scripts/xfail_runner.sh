@@ -6,9 +6,9 @@ name=$(basename "$exe")
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 xfail_file="$repo_root/test/xfail.csv"
 
-# Per-repo policy: enforce a strict 300s cap for all test runs
+# Per-repo policy: enforce a strict 120s cap for all test runs
 # Allow override via TIME_LIMIT env var for local experimentation
-TIME_LIMIT=${TIME_LIMIT:-300}
+TIME_LIMIT=${TIME_LIMIT:-120}
 
 issue=""
 if [[ -f "$xfail_file" ]]; then
@@ -62,8 +62,10 @@ run_with_timeout() {
 }
 
 # Run the test with a timeout; capture exit code robustly
+# To reduce IO overhead, write logs to a temp file and only persist on failure/XFAIL
+tmp_log=$(mktemp)
 code=0
-run_with_timeout "$exe" > "$repo_root/logs/${name}.log" 2>&1 || code=$? || code=0
+run_with_timeout "$exe" > "$tmp_log" 2>&1 || code=$? || code=0
 code=${code:-0}
 
 # Interpret results, including timeout exit (124)
@@ -73,21 +75,28 @@ if [[ $code -eq 0 ]]; then
   else
     echo "[PASS] $name"
   fi
+  # Passing test: drop log to save disk/time
+  rm -f "$tmp_log" 2>/dev/null || true
   exit 0
 elif [[ $code -eq 124 ]]; then
   # Timeout
   if [[ -n "$issue" ]]; then
+    # Persist log for reference
+    mkdir -p "$repo_root/logs"; mv -f "$tmp_log" "$repo_root/logs/${name}.log" 2>/dev/null || true
     echo "[XFAIL] $name -> timeout after ${TIME_LIMIT}s ($issue)"
     exit 0
   else
+    mkdir -p "$repo_root/logs"; mv -f "$tmp_log" "$repo_root/logs/${name}.log" 2>/dev/null || true
     echo "[FAIL] $name -> timeout after ${TIME_LIMIT}s (see logs/${name}.log)"
     exit 1
   fi
 else
   if [[ -n "$issue" ]]; then
+    mkdir -p "$repo_root/logs"; mv -f "$tmp_log" "$repo_root/logs/${name}.log" 2>/dev/null || true
     echo "[XFAIL] $name -> exit=$code ($issue)"
     exit 0
   else
+    mkdir -p "$repo_root/logs"; mv -f "$tmp_log" "$repo_root/logs/${name}.log" 2>/dev/null || true
     echo "[FAIL] $name -> exit=$code (see logs/${name}.log)"
     exit 1
   fi
