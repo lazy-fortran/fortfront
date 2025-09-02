@@ -16,6 +16,7 @@ program test_select_case_codegen
 
     call test_basic_select_case()
     call test_select_case_with_default()
+    call test_select_case_with_empty_default()
 
 contains
 
@@ -115,5 +116,37 @@ contains
         call require(index(out, 'print *, "other"') > 0 .or. index(out, 'print*, "other"') > 0, 'Missing default case body print')
         call require(index(out, 'end select') > 0, 'Missing end select (default)')
     end subroutine test_select_case_with_default
+
+    subroutine test_select_case_with_empty_default()
+        print *, 'Testing select-case with empty default...'
+        block
+            type(ast_arena_t) :: arena
+            integer :: x_id
+            integer :: select_idx, prog_idx, default_idx
+            integer, allocatable :: empty_cases(:)
+            integer, allocatable :: empty_body(:)
+            character(len=:), allocatable :: code
+
+            arena = create_ast_arena()
+
+            x_id = push_identifier(arena, 'x')
+
+            allocate(empty_cases(0))
+            allocate(empty_body(0))
+
+            default_idx = push_case_default(arena, empty_body)
+            select_idx = push_select_case_with_default(arena, x_id, empty_cases, default_idx)
+
+            prog_idx = push_program(arena, 'main', [select_idx])
+
+            call emit_fortran(arena, prog_idx, code)
+            call require(allocated(code), 'No code generated (empty default)')
+            out = code
+        end block
+
+        call require(index(out, 'select case (x)') > 0, 'Missing header (empty default)')
+        call require(index(out, 'case default') > 0, 'Missing case default (empty)')
+        call require(index(out, 'end select') > 0, 'Missing end select (empty default)')
+    end subroutine test_select_case_with_empty_default
 
 end program test_select_case_codegen
