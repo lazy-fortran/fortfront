@@ -1,5 +1,5 @@
 # test_name,issue_url
 # Temporary expected failure mappings; replace with real fixes and remove.
 # Added for CI stability per issue #1136
-# NOTE: Keep names exactly as in .
+# NOTE: Keep names exactly as in `fpm test --list`.
 test_ast_traversal_simple,https://github.com/lazy-fortran/fortfront/issues/1136
