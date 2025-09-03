@@ -39,8 +39,11 @@ contains
             print *, "ERROR: No output generated"
             passed = .false.
         else
-            print *, "Generated code:"
+            print *, "===== Input code: ====="
+            print *, trim(source)
+            print *, "===== Generated code: ====="
             print *, trim(output)
+            print *, "===== End of output ====="
             
             ! Verify parameter attributes are preserved
             if (index(output, "intent(in)") == 0) then

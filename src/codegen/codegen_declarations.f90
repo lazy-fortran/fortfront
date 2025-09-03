@@ -596,6 +596,32 @@ contains
                                 ! Skip empty implicit main programs to avoid duplicate minimal outputs
                                 if ((child%name == "main" .or. child%name == "__IMPLICIT_MAIN__") .and. &
                                     (.not. allocated(child%body_indices) .or. size(child%body_indices) == 0)) cycle
+                            type is (subroutine_def_node)
+                                ! Skip duplicate empty subroutines (defensive check)
+                                if (.not. allocated(child%body_indices) .or. size(child%body_indices) == 0) then
+                                    if (.not. allocated(child%param_indices) .or. size(child%param_indices) == 0) then
+                                        ! Check if this is a duplicate of a previous subroutine
+                                        block
+                                            integer :: j
+                                            logical :: is_duplicate
+                                            is_duplicate = .false.
+                                            do j = 1, i-1
+                                                if (node%body_indices(j) > 0 .and. node%body_indices(j) <= arena%size) then
+                                                    if (allocated(arena%entries(node%body_indices(j))%node)) then
+                                                        select type (prev => arena%entries(node%body_indices(j))%node)
+                                                        type is (subroutine_def_node)
+                                                            if (prev%name == child%name) then
+                                                                is_duplicate = .true.
+                                                                exit
+                                                            end if
+                                                        end select
+                                                    end if
+                                                end if
+                                            end do
+                                            if (is_duplicate) cycle
+                                        end block
+                                    end if
+                                end if
                             end select
                         end if
                         if (len(code) > 0) then
