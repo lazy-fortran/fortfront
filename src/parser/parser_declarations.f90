@@ -1,6 +1,6 @@
 module parser_declarations
     use iso_fortran_env, only: error_unit
-    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_types, only: LITERAL_STRING
@@ -160,10 +160,18 @@ contains
             token = parser%consume()
         end if
 
+        ! Skip any newlines after ::
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_NEWLINE) then
+                token = parser%consume()
+            else
+                exit
+            end if
+        end do
+
         ! Get variable name(s) - handle both single and multiple variables
-        if (parser%is_at_end()) then
-            return
-        end if
+        ! Removed is_at_end check - might prevent parsing after newlines
 
         token = parser%consume()
         if (token%kind /= TK_IDENTIFIER) then
@@ -584,6 +592,17 @@ contains
         end if
         type_name = token%text
 
+        ! Skip any semicolons or newlines  
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if ((token%kind == TK_OPERATOR .and. token%text == ";") .or. &
+                token%kind == TK_NEWLINE) then
+                token = parser%consume()
+            else
+                exit
+            end if
+        end do
+
         ! Parse components
         do while (.not. parser%is_at_end())
             token = parser%peek()
@@ -592,17 +611,39 @@ contains
             if (token%kind == TK_IDENTIFIER .and. token%text == "end") then
                 token = parser%consume()
                 token = parser%peek()
-                if (token%text == "type") then
+                if (token%kind == TK_IDENTIFIER .and. token%text == "type") then
                     token = parser%consume()
+                    exit
+                else
+                    ! Not "end type", we need to reprocess this
+                    ! This is a problem - we can't push tokens back!
+                    ! For now, exit anyway
                     exit
                 end if
             end if
 
             ! Parse component
             comp_index = parse_derived_type_component(parser, arena)
+            !print *, "DEBUG: parse_derived_type_component returned", comp_index
             if (comp_index > 0 .and. component_count < max_components) then
                 component_count = component_count + 1
                 component_indices(component_count) = comp_index
+                ! Skip any trailing newlines after parsing a component
+                do while (.not. parser%is_at_end())
+                    token = parser%peek()
+                    if (token%kind == TK_NEWLINE) then
+                        token = parser%consume()
+                    else
+                        exit
+                    end if
+                end do
+            else if (comp_index == 0) then
+                ! If we couldn't parse a component, skip to next line or token
+                token = parser%peek()
+                if (.not. (token%kind == TK_IDENTIFIER .and. token%text == "end")) then
+                    ! Skip unknown token to avoid infinite loop
+                    token = parser%consume()
+                end if
             end if
         end do
 
@@ -623,40 +664,39 @@ contains
         integer :: comp_index
 
         type(token_t) :: token
-        integer :: safety_counter
 
         comp_index = 0
-        safety_counter = 0
 
-        ! Safety mechanism to prevent infinite loops
-        do
-            safety_counter = safety_counter + 1
-            if (safety_counter > 5 .or. parser%is_at_end()) then
-                exit
-            end if
-
+        ! Skip any leading newlines
+        do while (.not. parser%is_at_end())
             token = parser%peek()
-            
-            ! Handle end of type definition
-            if (token%kind == TK_IDENTIFIER .and. token%text == "end") then
-                exit
-            end if
-
-            ! Check for type declaration keywords
-            if (token%kind == TK_IDENTIFIER) then
-                select case (token%text)
-                case ("integer", "real", "complex", "logical", "character", "type")
-                    comp_index = parse_declaration(parser, arena)
-                    exit
-                case default
-                    ! Skip unknown token safely
-                    token = parser%consume()
-                end select
-            else
-                ! Skip non-identifier token
+            if (token%kind == TK_NEWLINE) then
                 token = parser%consume()
+            else
+                exit
             end if
         end do
+
+        token = parser%peek()
+        
+        ! Handle end of type definition
+        if (token%kind == TK_IDENTIFIER .and. token%text == "end") then
+            return
+        end if
+
+        ! Check for type declaration keywords
+        if (token%kind == TK_IDENTIFIER) then
+            select case (trim(adjustl(token%text)))
+            case ("integer", "real", "complex", "logical", "character", "type", "double")
+                comp_index = parse_declaration(parser, arena)
+            case default
+                ! Not a component declaration, return 0
+                comp_index = 0
+            end select
+        else
+            ! Not a component declaration
+            comp_index = 0
+        end if
     end function parse_derived_type_component
 
 end module parser_declarations
