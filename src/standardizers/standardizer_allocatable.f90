@@ -159,16 +159,29 @@ contains
                 do i = 1, var_count
                     if (trim(assigned_vars(i)) == trim(stmt%var_name)) then
                         ! Mark allocatable if variable is assigned more than once or is a procedure parameter
+                        ! But only for arrays and character types - scalars cannot be allocatable
                         if (assignment_counts(i) >= 2 .or. is_procedure_parameter(arena, stmt_index)) then
-                            stmt%is_allocatable = .true.
-                            if (stmt%is_array .and. allocated(stmt%dimension_indices)) then
-                                ! Change fixed dimensions to deferred shape
-                                deallocate(stmt%dimension_indices)
-                                allocate(stmt%dimension_indices(1))
-                                stmt%dimension_indices(1) = 0  ! Deferred shape
+                            ! Only mark allocatable for arrays or character types
+                            ! Check both explicit type name and inferred type
+                            if (stmt%is_array) then
+                                ! Arrays can be allocatable
+                                stmt%is_allocatable = .true.
+                                if (allocated(stmt%dimension_indices)) then
+                                    ! Change fixed dimensions to deferred shape
+                                    deallocate(stmt%dimension_indices)
+                                    allocate(stmt%dimension_indices(1))
+                                    stmt%dimension_indices(1) = 0  ! Deferred shape
+                                end if
+                                ! Update the arena
+                                arena%entries(stmt_index)%node = stmt
+                            else if ((allocated(stmt%type_name) .and. trim(stmt%type_name) == "character") .or. &
+                                     (stmt%inferred_type%kind == TCHAR)) then
+                                ! Character strings can be allocatable
+                                stmt%is_allocatable = .true.
+                                ! Update the arena
+                                arena%entries(stmt_index)%node = stmt
                             end if
-                            ! Update the arena
-                            arena%entries(stmt_index)%node = stmt
+                            ! Do NOT mark scalars of numeric types (integer, real, etc.) as allocatable
                         end if
                         exit
                     end if
@@ -245,17 +258,22 @@ contains
 
                 ! If all variables in the declaration need allocatable, mark the whole
                 ! multi-declaration as allocatable (no split needed)
+                ! But only for arrays and character types - scalars cannot be allocatable
                 if (found_allocatable .and. .not. found_non_allocatable) then
                     block
                         type(declaration_node) :: tmp
                         tmp = decl
-                        tmp%is_allocatable = .true.
-                        if (tmp%is_array .and. allocated(tmp%dimension_indices)) then
-                            deallocate(tmp%dimension_indices)
-                            allocate(tmp%dimension_indices(1))
-                            tmp%dimension_indices(1) = 0  ! Deferred shape for allocatable
+                        ! Only mark allocatable for arrays or character types
+                        if (tmp%is_array .or. &
+                            (allocated(tmp%type_name) .and. trim(tmp%type_name) == "character")) then
+                            tmp%is_allocatable = .true.
+                            if (tmp%is_array .and. allocated(tmp%dimension_indices)) then
+                                deallocate(tmp%dimension_indices)
+                                allocate(tmp%dimension_indices(1))
+                                tmp%dimension_indices(1) = 0  ! Deferred shape for allocatable
+                            end if
+                            arena%entries(decl_index)%node = tmp
                         end if
-                        arena%entries(decl_index)%node = tmp
                     end block
                 end if
             end if
