@@ -288,23 +288,71 @@ contains
         integer, intent(in) :: start_pos
         integer, intent(out) :: unit_start, unit_end
         
-        integer :: i
+        integer :: i, nesting_level
+        character(len=:), allocatable :: unit_type
+        logical :: in_module_contains
         
         unit_start = start_pos
         unit_end = start_pos
+        nesting_level = 0
+        in_module_contains = .false.
+        unit_type = ""
         
-        ! Find end of current unit (simplified)
-        do i = start_pos, size(tokens)
-            if (tokens(i)%kind == TK_EOF) then
-                unit_end = i - 1
-                exit
-            else if (i > start_pos .and. is_program_unit_start(tokens, i)) then
-                unit_end = i - 1
-                exit
-            else
-                unit_end = i
+        ! Determine the unit type from the first keyword
+        if (start_pos <= size(tokens)) then
+            if (tokens(start_pos)%kind == TK_KEYWORD) then
+                unit_type = tokens(start_pos)%text
             end if
-        end do
+        end if
+        
+        ! For modules, we need to find the matching "end module"
+        if (unit_type == "module") then
+            nesting_level = 1
+            do i = start_pos + 1, size(tokens)
+                if (tokens(i)%kind == TK_EOF) then
+                    unit_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_KEYWORD) then
+                    if (tokens(i)%text == "contains") then
+                        in_module_contains = .true.
+                    else if (tokens(i)%text == "end") then
+                        ! Check if this is "end module"
+                        if (i + 1 <= size(tokens)) then
+                            if (tokens(i+1)%kind == TK_KEYWORD .and. tokens(i+1)%text == "module") then
+                                nesting_level = nesting_level - 1
+                                if (nesting_level == 0) then
+                                    unit_end = i + 1  ! Include "end module"
+                                    ! Check if there's a module name after "end module"
+                                    if (i + 2 <= size(tokens)) then
+                                        if (tokens(i+2)%kind == TK_IDENTIFIER) then
+                                            unit_end = i + 2  ! Include the module name too
+                                        end if
+                                    end if
+                                    exit
+                                end if
+                            end if
+                        end if
+                    else if (tokens(i)%text == "module" .and. .not. in_module_contains) then
+                        ! Nested module (rare but possible)
+                        nesting_level = nesting_level + 1
+                    end if
+                end if
+                unit_end = i
+            end do
+        else
+            ! Original logic for non-module units
+            do i = start_pos, size(tokens)
+                if (tokens(i)%kind == TK_EOF) then
+                    unit_end = i - 1
+                    exit
+                else if (i > start_pos .and. is_program_unit_start(tokens, i)) then
+                    unit_end = i - 1
+                    exit
+                else
+                    unit_end = i
+                end if
+            end do
+        end if
         
         if (unit_end > size(tokens)) unit_end = size(tokens)
     end subroutine find_program_unit_boundary
