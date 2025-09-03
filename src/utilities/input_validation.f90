@@ -170,8 +170,15 @@ contains
         do i = 1, size(tokens)
             if (tokens(i)%kind == TK_EOF) exit
             
-            ! Detect if statement
+            ! Detect if statement (but skip "end if")
             if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "if") then
+                ! Check if previous token is "end" (to skip "end if")
+                if (i > 1) then
+                    if (tokens(i-1)%kind == TK_KEYWORD .and. tokens(i-1)%text == "end") then
+                        cycle  ! Skip "end if" - not a new if statement
+                    end if
+                end if
+                
                 if_pos = i
                 found_then = .false.
                 
