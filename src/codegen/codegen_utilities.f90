@@ -416,6 +416,47 @@ contains
                                 
                                 code = code // new_line('A')
                             end if
+                        type is (parameter_declaration_node)
+                            ! Check if this parameter_declaration_node is for a parameter
+                            param_idx = find_parameter_info(param_map, node%name)
+                            if (param_idx > 0) then
+                                ! Generate the declaration with attributes from parameter_declaration_node
+                                type_name = node%type_name
+                                ! Debug: print if type_name is empty
+                                if (len_trim(type_name) == 0) then
+                                    ! Skip if no type name - will be handled elsewhere
+                                    cycle
+                                end if
+                                code = code // indent_str // type_name
+                                
+                                if (node%has_kind) then
+                                    code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                end if
+                                
+                                ! Use attributes from the parameter_declaration_node itself
+                                if (len_trim(param_map(param_idx)%intent_str) > 0) then
+                                    code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
+                                end if
+                                
+                                if (param_map(param_idx)%is_optional) then
+                                    code = code // ", optional"
+                                end if
+                                
+                                code = code // " :: " // param_map(param_idx)%name
+                                
+                                ! Add dimensions if present
+                                if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
+                                    code = code // "("
+                                    do j = 1, size(node%dimension_indices)
+                                        if (j > 1) code = code // ", "
+                                        stmt_code = generate_code_from_arena(arena, node%dimension_indices(j))
+                                        code = code // stmt_code
+                                    end do
+                                    code = code // ")"
+                                end if
+                                
+                                code = code // new_line('A')
+                            end if
                         end select
                     end if
                 end if
@@ -435,6 +476,14 @@ contains
                         ! Skip parameter declarations if we're handling them separately
                         if (size(param_map) > 0) then
                             param_idx = find_parameter_info(param_map, node%var_name)
+                            if (param_idx > 0) then
+                                should_skip = .true.
+                            end if
+                        end if
+                    type is (parameter_declaration_node)
+                        ! Also skip parameter_declaration_node entries for parameters
+                        if (size(param_map) > 0) then
+                            param_idx = find_parameter_info(param_map, node%name)
                             if (param_idx > 0) then
                                 should_skip = .true.
                             end if

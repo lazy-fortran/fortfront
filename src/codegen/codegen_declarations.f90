@@ -1,8 +1,11 @@
 module codegen_declarations
     use iso_fortran_env, only: error_unit
     use ast_core
-    use ast_nodes_data
-    use ast_nodes_misc, only: implicit_statement_node
+    use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
+        derived_type_node, intent_type_to_string, module_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_core, only: program_node, identifier_node, literal_node
+    use ast_nodes_misc, only: implicit_statement_node, contains_node, comment_node, blank_line_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -436,9 +439,46 @@ contains
         type(parameter_declaration_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        ! For parameter_declaration_node, emit only the name. Attributes are handled
-        ! by separate declaration nodes in the body and should not appear in signatures.
-        code = node%name
+        character(len=:), allocatable :: intent_str
+        integer :: j
+        
+        ! Check if this node has a parent that needs just the name (parameter list)
+        ! vs full declaration (in body). For now, generate full declaration when
+        ! the node has type and attributes.
+        if (len_trim(node%type_name) > 0) then
+            ! Generate full declaration (when in body)
+            code = node%type_name
+            
+            if (node%has_kind) then
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+            end if
+            
+            ! Add intent attribute
+            intent_str = intent_type_to_string(node%intent_type)
+            if (len_trim(intent_str) > 0) then
+                code = code // ", intent(" // intent_str // ")"
+            end if
+            
+            ! Add optional attribute
+            if (node%is_optional) then
+                code = code // ", optional"
+            end if
+            
+            code = code // " :: " // node%name
+            
+            ! Add dimensions if present
+            if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
+                code = code // "("
+                do j = 1, size(node%dimension_indices)
+                    if (j > 1) code = code // ", "
+                    code = code // generate_code_from_arena(arena, node%dimension_indices(j))
+                end do
+                code = code // ")"
+            end if
+        else
+            ! Just emit the name (when in parameter list)
+            code = node%name
+        end if
     end function generate_code_parameter_declaration
 
     ! Generate code for modules
