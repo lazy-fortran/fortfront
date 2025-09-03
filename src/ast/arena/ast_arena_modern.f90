@@ -41,8 +41,8 @@ contains
         type(ast_arena_t) :: arena
         integer :: capacity
         
-        ! Set default capacity first
-        capacity = 1024
+        ! Set default capacity first - PERFORMANCE FIX: Start small for simple programs
+        capacity = 16  ! Minimal starting size, will grow as needed
         if (present(initial_capacity)) capacity = initial_capacity
         
         ! Create compatibility layer with explicit capacity

@@ -57,7 +57,7 @@ contains
         type(ast_arena_compat_t) :: arena
         integer :: capacity
         
-        capacity = 1024
+        capacity = 16  ! PERFORMANCE FIX: Start minimal, grow as needed
         if (present(initial_capacity)) capacity = initial_capacity
         
         ! Initialize core arena
