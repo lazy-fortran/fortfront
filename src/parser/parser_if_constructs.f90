@@ -10,6 +10,7 @@ module parser_if_constructs_module
     use parser_control_statements_module, only: parse_cycle_statement, parse_exit_statement, &
                                                 parse_return_statement, parse_stop_statement, &
                                                 parse_goto_statement, parse_error_stop_statement
+    use parser_do_constructs_module, only: parse_do_loop
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
     use ast_core
@@ -88,6 +89,12 @@ contains
                 stmt_index = parse_goto_statement(parser, arena)
             case ("error")
                 stmt_index = parse_error_stop_statement(parser, arena)
+            case ("if")
+                ! Handle nested if statements
+                stmt_index = parse_if(parser, arena, parent_index)
+            case ("do")
+                ! Handle nested do loops
+                stmt_index = parse_do_loop(parser, arena)
             case default
                 ! Unknown or control flow keyword - create placeholder
                 stmt_index = 0
@@ -154,9 +161,10 @@ contains
     end function parse_basic_stmt_local
 
     ! Parse if statement
-    function parse_if(parser, arena) result(if_index)
+    function parse_if(parser, arena, parent_index) result(if_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in), optional :: parent_index
         integer :: if_index
 
         type(token_t) :: if_token, then_token
@@ -176,10 +184,19 @@ contains
         if (then_token%kind == TK_KEYWORD .and. then_token%text == "then") then
             ! Standard if/then/endif block
             then_token = parser%consume()
+            
+            ! Skip optional semicolon after 'then'
+            if (.not. parser%is_at_end()) then
+                then_token = parser%peek()
+                if (then_token%kind == TK_OPERATOR .and. then_token%text == ";") then
+                    then_token = parser%consume()  ! Skip the semicolon
+                end if
+            end if
 
             ! Create if node placeholder first to get the parent index
             if_index = push_if(arena, condition_index, [integer::], &
-                               line=if_token%line, column=if_token%column)
+                               line=if_token%line, column=if_token%column, &
+                               parent_index=parent_index)
 
             ! Parse then body statements with the if node as parent
             then_body_indices = parse_if_body(parser, arena, if_index)
@@ -221,6 +238,15 @@ contains
                         end if
                         ! Parse else block
                         then_token = parser%consume()  ! consume 'else'
+                        
+                        ! Skip optional semicolon after 'else'
+                        if (.not. parser%is_at_end()) then
+                            then_token = parser%peek()
+                            if (then_token%kind == TK_OPERATOR .and. then_token%text == ";") then
+                                then_token = parser%consume()  ! Skip the semicolon
+                            end if
+                        end if
+                        
                         else_body_indices = parse_if_body(parser, arena, if_index)
                         exit
               else if (then_token%text == "endif" .or. then_token%text == "end if") then
@@ -295,7 +321,8 @@ contains
             if_index = push_if(arena, condition_index, then_body_indices, &
                                elseif_indices=elseif_indices, &
                                else_body_indices=else_body_indices, &
-                               line=if_token%line, column=if_token%column)
+                               line=if_token%line, column=if_token%column, &
+                               parent_index=parent_index)
         end if
 
     end function parse_if
@@ -418,52 +445,146 @@ contains
 
                 stmt_start = parser%current_token
                 
-                ! Skip leading semicolons to get to actual statement
+                ! Skip leading semicolons and newlines to get to actual statement
                 do while (stmt_start <= size(parser%tokens) .and. &
-                         parser%tokens(stmt_start)%kind == TK_OPERATOR .and. &
-                         parser%tokens(stmt_start)%text == ";")
+                         ((parser%tokens(stmt_start)%kind == TK_OPERATOR .and. &
+                          parser%tokens(stmt_start)%text == ";") .or. &
+                          parser%tokens(stmt_start)%kind == TK_NEWLINE))
                     stmt_start = stmt_start + 1
                 end do
                 
+                ! Check if we've gone past the end of tokens
+                if (stmt_start > size(parser%tokens)) then
+                    parser%current_token = stmt_start
+                    exit  ! Exit the main body parsing loop
+                end if
+                
                 stmt_end = stmt_start
 
-                ! Find end of current statement (same line or semicolon boundary)
-                do j = stmt_start, size(parser%tokens)
-                    ! Treat control-flow keywords as hard boundaries within a line
-                    if (parser%tokens(j)%kind == TK_KEYWORD) then
-                        select case (parser%tokens(j)%text)
-                        case ("else", "elseif", "else if")
-                            stmt_end = j - 1
-                            exit
-                        case ("endif", "end if")
-                            stmt_end = j - 1
-                            exit
-                        case ("end")
-                            if (j + 1 <= size(parser%tokens)) then
-                                if (parser%tokens(j+1)%kind == TK_KEYWORD .and. &
-                                    parser%tokens(j+1)%text == "if") then
-                                    stmt_end = j - 1
+                ! Find end of current statement (handle multi-line properly)
+                block
+                    logical :: is_nested_if
+                    integer :: nesting_depth
+                    
+                    is_nested_if = .false.
+                    nesting_depth = 0
+                    
+                    ! Check if statement starts with 'if' (for same-line nested ifs only)
+                    if (parser%tokens(stmt_start)%kind == TK_KEYWORD .and. &
+                        parser%tokens(stmt_start)%text == "if") then
+                        ! Check if there are semicolons on the same line (same-line nesting)
+                        block
+                            integer :: k
+                            logical :: has_semicolon
+                            has_semicolon = .false.
+                            do k = stmt_start + 1, min(stmt_start + 20, size(parser%tokens))
+                                if (parser%tokens(k)%line > parser%tokens(stmt_start)%line) exit
+                                if (parser%tokens(k)%kind == TK_OPERATOR .and. &
+                                    parser%tokens(k)%text == ";") then
+                                    has_semicolon = .true.
                                     exit
                                 end if
+                            end do
+                            if (has_semicolon) then
+                                is_nested_if = .true.
+                                nesting_depth = 1
                             end if
-                        end select
+                        end block
                     end if
-                    if (parser%tokens(j)%kind == TK_EOF) then
+                    
+                    do j = stmt_start, size(parser%tokens)
+                        ! For nested if, need to find matching end if
+                        if (is_nested_if .and. j > stmt_start) then
+                            if (parser%tokens(j)%kind == TK_KEYWORD) then
+                                if (parser%tokens(j)%text == "if") then
+                                    ! Check if it's a new if (has 'then' later)
+                                    block
+                                        integer :: k
+                                        logical :: has_then
+                                        has_then = .false.
+                                        do k = j + 1, min(j + 10, size(parser%tokens))
+                                            if (parser%tokens(k)%kind == TK_KEYWORD .and. &
+                                                parser%tokens(k)%text == "then") then
+                                                has_then = .true.
+                                                exit
+                                            else if (parser%tokens(k)%kind == TK_NEWLINE .or. &
+                                                    parser%tokens(k)%kind == TK_EOF) then
+                                                exit
+                                            end if
+                                        end do
+                                        if (has_then) then
+                                            nesting_depth = nesting_depth + 1
+                                        end if
+                                    end block
+                                else if (parser%tokens(j)%text == "endif" .or. &
+                                        parser%tokens(j)%text == "end") then
+                                    if (parser%tokens(j)%text == "endif") then
+                                        nesting_depth = nesting_depth - 1
+                                        if (nesting_depth == 0) then
+                                            stmt_end = j
+                                            exit
+                                        end if
+                                    else if (j + 1 <= size(parser%tokens) .and. &
+                                            parser%tokens(j+1)%kind == TK_KEYWORD .and. &
+                                            parser%tokens(j+1)%text == "if") then
+                                        nesting_depth = nesting_depth - 1
+                                        if (nesting_depth == 0) then
+                                            stmt_end = j + 1
+                                            exit
+                                        end if
+                                    end if
+                                end if
+                            end if
+                        else if (.not. is_nested_if) then
+                            ! Non-nested statement - original logic
+                            ! Treat control-flow keywords as hard boundaries
+                            if (parser%tokens(j)%kind == TK_KEYWORD) then
+                                select case (parser%tokens(j)%text)
+                                case ("else", "elseif", "else if")
+                                    if (j > stmt_start) then
+                                        stmt_end = j - 1
+                                        exit
+                                    end if
+                                case ("endif", "end if")
+                                    if (j > stmt_start) then
+                                        stmt_end = j - 1
+                                        exit
+                                    end if
+                                case ("end")
+                                    if (j + 1 <= size(parser%tokens)) then
+                                        if (parser%tokens(j+1)%kind == TK_KEYWORD .and. &
+                                            parser%tokens(j+1)%text == "if") then
+                                            if (j > stmt_start) then
+                                                stmt_end = j - 1
+                                                exit
+                                            end if
+                                        end if
+                                    end if
+                                end select
+                            end if
+                        end if
+                        if (parser%tokens(j)%kind == TK_EOF) then
+                            stmt_end = j
+                            exit
+                        end if
+                        ! For non-nested statements, check for newlines and semicolons
+                        if (.not. is_nested_if) then
+                            ! For multi-line control flow bodies, treat NEWLINE as a statement boundary
+                            ! but only after we've seen some content
+                            if (j > stmt_start .and. parser%tokens(j)%kind == TK_NEWLINE) then
+                                stmt_end = j - 1
+                                exit
+                            end if
+                            ! Check for semicolon as statement separator
+                            if (j > stmt_start .and. parser%tokens(j)%kind == TK_OPERATOR .and. &
+                                parser%tokens(j)%text == ";") then
+                                stmt_end = j - 1
+                                exit
+                            end if
+                        end if
                         stmt_end = j
-                        exit
-                    end if
-                    if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
-                        stmt_end = j - 1
-                        exit
-                    end if
-                    ! Check for semicolon as statement separator
-                    if (j > stmt_start .and. parser%tokens(j)%kind == TK_OPERATOR .and. &
-                        parser%tokens(j)%text == ";") then
-                        stmt_end = j - 1
-                        exit
-                    end if
-                    stmt_end = j
-                end do
+                    end do
+                end block
 
                 ! Extract statement tokens
                 if (stmt_end >= stmt_start) then
