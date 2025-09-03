@@ -1,0 +1,4 @@
+program test
+    character(len=20) :: msg
+    msg = "hello" // " world"
+end program

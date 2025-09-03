@@ -1,0 +1,6 @@
+program test
+    integer :: arr(10), sub(3)
+    arr = [(i, i=1,10)]
+    sub = arr(1:3)
+    print *, arr(:)
+end program
