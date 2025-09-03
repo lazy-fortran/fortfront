@@ -316,6 +316,11 @@ contains
         current = parser%peek()
 
         select case (current%kind)
+        case (TK_EOF)
+            ! End of file reached - return invalid expression index
+            expr_index = 0
+            return
+            
         case (TK_NUMBER)
             ! Parse number literal
             current = parser%consume()
@@ -398,8 +403,8 @@ contains
         case default
             ! Unrecognized token - create error node and skip
             expr_index = push_literal(arena, &
-                "!ERROR: Unrecognized token in expression", LITERAL_STRING, &
-                current%line, current%column)
+                "!ERROR: Unrecognized token in expression", &
+                LITERAL_STRING, current%line, current%column)
             current = parser%consume()
         end select
         
