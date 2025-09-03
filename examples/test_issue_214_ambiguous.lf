@@ -1,0 +1,5 @@
+program test_ambiguous
+    character(len=10) :: result
+    result = "a" + "b" // "c"
+    print *, result
+end program test_ambiguous
