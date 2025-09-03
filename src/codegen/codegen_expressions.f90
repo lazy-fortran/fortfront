@@ -4,6 +4,7 @@ module codegen_expressions
     use ast_nodes_core
     use ast_nodes_data
     use ast_nodes_bounds, only: array_slice_node, range_expression_node
+    use ast_nodes_misc, only: complex_literal_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -19,6 +20,7 @@ module codegen_expressions
     public :: generate_code_range_subscript
     public :: generate_code_call_or_subscript
     public :: generate_code_array_literal
+    public :: generate_code_complex_literal
     public :: generate_code_range_expression
     public :: generate_code_array_bounds
     public :: generate_code_array_slice
@@ -264,6 +266,36 @@ contains
             end if
         end if
     end function generate_code_array_literal
+
+    ! Generate code for complex literal nodes (e.g., (1.0, 2.0))
+    function generate_code_complex_literal(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(complex_literal_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: real_part, imag_part
+        
+        ! Initialize to empty complex literal if indices are invalid
+        code = "(0.0, 0.0)"
+        
+        ! Generate real part
+        if (node%real_index > 0 .and. node%real_index <= arena%size) then
+            real_part = generate_code_from_arena(arena, node%real_index)
+        else
+            real_part = "0.0"
+        end if
+        
+        ! Generate imaginary part
+        if (node%imag_index > 0 .and. node%imag_index <= arena%size) then
+            imag_part = generate_code_from_arena(arena, node%imag_index)
+        else
+            imag_part = "0.0"
+        end if
+        
+        ! Construct complex literal
+        code = "(" // real_part // ", " // imag_part // ")"
+        
+    end function generate_code_complex_literal
 
     ! CRITICAL FIX: Generate proper range expression code (e.g. 1:3, :5, 2:, ::2)
     function generate_code_range_expression(arena, node, node_index) result(code)

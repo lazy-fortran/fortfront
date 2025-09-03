@@ -13,6 +13,7 @@ module codegen_core
                                 array_operation_node
     use ast_nodes_core, only: range_subscript_node
     use ast_nodes_associate, only: associate_node
+    use ast_nodes_misc, only: complex_literal_node
     implicit none
     private
 
@@ -48,6 +49,8 @@ contains
             code = generate_code_call_or_subscript(arena, node, node_index)
         type is (array_literal_node)
             code = generate_code_array_literal(arena, node, node_index)
+        type is (complex_literal_node)
+            code = generate_code_complex_literal(arena, node, node_index)
         type is (range_expression_node)
             code = generate_code_range_expression(arena, node, node_index)
         type is (array_bounds_node)
