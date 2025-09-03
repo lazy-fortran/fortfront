@@ -195,7 +195,8 @@ contains
             error stop 1
         end if
         
-        if (index(output_code, 'res = x * x') == 0) then
+        ! Check for function body - allow either with or without spaces around *
+        if (index(output_code, 'res = x*x') == 0 .and. index(output_code, 'res = x * x') == 0) then
             print *, "FAIL: Function body missing from output"
             error stop 1
         end if
