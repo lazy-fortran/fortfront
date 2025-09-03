@@ -486,8 +486,8 @@ contains
         if (allocated(options%output_file) .and. len_trim(options%output_file) > 0) then
             call write_output_file(options%output_file, code, error_msg)
         else
-            ! Write to stdout
-            print '(a)', code
+            ! Write to stdout - commented out as fortfront.f90 handles printing
+            ! print '(a)', code
             error_msg = ""
         end if
     end subroutine write_compiled_output
