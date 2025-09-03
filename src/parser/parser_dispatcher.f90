@@ -23,6 +23,7 @@ module parser_dispatcher_module
     use parser_execution_statements_module, only: parse_call_statement, parse_program_statement
     use parser_control_flow_module, only: parse_if, parse_do_loop, parse_select_case, &
                                          parse_where_construct, parse_associate
+    use parser_forall_module, only: parse_forall
     use ast_core
     use ast_factory
     use parser_expressions_module, only: parse_expression, parse_range
@@ -104,6 +105,8 @@ contains
                 stmt_index = parse_exit_statement(parser, arena)
             case ("associate")
                 stmt_index = parse_associate(parser, arena)
+            case ("forall")
+                stmt_index = parse_forall(parser, arena)
             case ("end")
                 stmt_index = parse_end_statement(parser, arena)
             case default
