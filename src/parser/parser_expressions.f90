@@ -403,7 +403,7 @@ contains
         case default
             ! Unrecognized token - create error node and skip
             expr_index = push_literal(arena, &
-                "!ERROR: Unrecognized token in expression", &
+                "!ERROR: Unrecognized token '"//trim(current%text)//"' in expression", &
                 LITERAL_STRING, current%line, current%column)
             current = parser%consume()
         end select
