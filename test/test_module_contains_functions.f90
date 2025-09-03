@@ -41,14 +41,14 @@ contains
         arena = create_ast_arena()
         call lex_source(input_code, tokens, error_msg)
         
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "Lexing error: ", trim(error_msg)
             error stop 1
         end if
         
         call parse_tokens(tokens, arena, prog_index, error_msg)
         
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "Parsing error: ", error_msg
             error stop 1
         end if
@@ -106,14 +106,14 @@ contains
         arena = create_ast_arena()
         call lex_source(input_code, tokens, error_msg)
         
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "Lexing error: ", trim(error_msg)
             error stop 1
         end if
         
         call parse_tokens(tokens, arena, prog_index, error_msg)
         
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "Parsing error: ", error_msg
             error stop 1
         end if
@@ -171,14 +171,14 @@ contains
         arena = create_ast_arena()
         call lex_source(input_code, tokens, error_msg)
         
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "Lexing error: ", trim(error_msg)
             error stop 1
         end if
         
         call parse_tokens(tokens, arena, prog_index, error_msg)
         
-        if (allocated(error_msg)) then
+        if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "Parsing error: ", error_msg
             error stop 1
         end if
