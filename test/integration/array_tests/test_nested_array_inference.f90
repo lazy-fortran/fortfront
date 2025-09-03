@@ -188,7 +188,9 @@ contains
             read (unit, '(a)', iostat=iostat) line
             if (iostat /= 0) exit
             if (index(line, 'real :: coords(2,2)') > 0 .or. &
-                index(line, 'real :: coords(2, 2)') > 0) then
+                index(line, 'real :: coords(2, 2)') > 0 .or. &
+                index(line, 'real(8) :: coords(2,2)') > 0 .or. &
+                index(line, 'real(8) :: coords(2, 2)') > 0) then
                 found_correct_declaration = .true.
                 exit
             end if
