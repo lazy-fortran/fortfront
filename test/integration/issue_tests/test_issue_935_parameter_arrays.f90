@@ -10,6 +10,7 @@ program test_issue_935
     
     if (.not. test_parameter_with_dimension()) all_passed = .false.
     if (.not. test_parameter_in_allocate()) all_passed = .false.
+    if (.not. test_multidim_array_with_params()) all_passed = .false.
     
     print *
     if (all_passed) then
@@ -147,5 +148,69 @@ contains
         call execute_command_line('rm -f ' // input_file // ' ' // output_file, &
                                   exitstat=iostat)
     end function test_parameter_in_allocate
+    
+    logical function test_multidim_array_with_params()
+        character(len=:), allocatable :: input_file, output_file
+        character(len=256) :: error_msg, line
+        type(compilation_options_t) :: options
+        integer :: unit, iostat
+        logical :: found_multidim_array
+        
+        test_multidim_array_with_params = .true.
+        print *, 'Testing multi-dimensional arrays with parameter dimensions...'
+        
+        ! Create test input
+        input_file = 'test_multidim.f90'
+        open(newunit=unit, file=input_file, status='replace')
+        write(unit, '(a)') 'program test'
+        write(unit, '(a)') '    implicit none'
+        write(unit, '(a)') '    integer, parameter :: m = 5, n = 10'
+        write(unit, '(a)') '    real, dimension(m, n) :: matrix'
+        write(unit, '(a)') '    integer, dimension(m, n, 3) :: tensor'
+        write(unit, '(a)') '    matrix = 0.0'
+        write(unit, '(a)') '    tensor = 0'
+        write(unit, '(a)') 'end program test'
+        close(unit)
+        
+        ! Compile
+        output_file = 'test_multidim_out.f90'
+        options%output_file = output_file
+        
+        call compile_source(input_file, options, error_msg)
+        
+        if (len_trim(error_msg) > 0) then
+            print *, '  FAIL: Compilation error:', trim(error_msg)
+            test_multidim_array_with_params = .false.
+            return
+        end if
+        
+        ! Check output contains multi-dimensional array declarations
+        found_multidim_array = .false.
+        open(newunit=unit, file=output_file, status='old', iostat=iostat)
+        if (iostat == 0) then
+            do
+                read(unit, '(a)', iostat=iostat) line
+                if (iostat /= 0) exit
+                ! Check for array declarations with multiple dimensions
+                if ((index(line, 'matrix(') > 0 .and. index(line, ',') > 0) .or. &
+                    (index(line, 'tensor(') > 0 .and. index(line, ',') > 0)) then
+                    found_multidim_array = .true.
+                    exit
+                end if
+            end do
+            close(unit)
+        end if
+        
+        if (found_multidim_array) then
+            print *, '  PASS: Multi-dimensional array declarations preserved'
+        else
+            print *, '  FAIL: Multi-dimensional array dimensions lost'
+            test_multidim_array_with_params = .false.
+        end if
+        
+        ! Clean up
+        call execute_command_line('rm -f ' // input_file // ' ' // output_file, &
+                                  exitstat=iostat)
+    end function test_multidim_array_with_params
     
 end program test_issue_935
