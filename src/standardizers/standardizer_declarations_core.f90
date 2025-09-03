@@ -411,19 +411,21 @@ contains
         integer, intent(in) :: prog_index, dim_pos
         character(len=*), intent(in) :: var_type
         type(declaration_node), intent(inout) :: decl_node
-        integer :: paren_pos, iostat, dim_size
+        integer :: paren_pos, iostat, dim_size, i, comma_count, ndims
+        integer :: start_pos, end_pos, comma_pos
         character(len=20) :: dim_str
         type(literal_node) :: size_literal
         character(len=20) :: size_str
+        integer, allocatable :: dimensions(:)
+        character(len=100) :: dims_str
 
-
-        ! Extract dimension value
+        ! Extract dimension value(s)
         paren_pos = index(var_type(dim_pos:), ')')
         if (paren_pos > 10) then  ! Must have at least 1 character after dimension(
-            dim_str = var_type(dim_pos+10:dim_pos+paren_pos-2)
+            dims_str = var_type(dim_pos+10:dim_pos+paren_pos-2)
             
             ! Check if it's a deferred shape (:) - indicates allocatable
-            if (trim(dim_str) == ':') then
+            if (trim(dims_str) == ':') then
                 decl_node%is_array = .true.
                 decl_node%is_allocatable = .true.
                 if (allocated(decl_node%dimension_indices)) &
@@ -431,20 +433,59 @@ contains
                 allocate(decl_node%dimension_indices(1))
                 decl_node%dimension_indices(1) = 0  ! 0 indicates deferred shape
             else
-                ! Try to parse as integer
-                read(dim_str, *, iostat=iostat) dim_size
-                if (iostat == 0) then
-                    ! Successfully parsed dimension
-                    decl_node%is_array = .true.
-                    if (allocated(decl_node%dimension_indices)) &
-                        deallocate(decl_node%dimension_indices)
-                    allocate(decl_node%dimension_indices(1))
-                    ! Create literal node for the size
-                    write(size_str, '(i0)') dim_size
-                    size_literal = create_literal(trim(size_str), LITERAL_INTEGER, 1, 1)
-                    call arena%push(size_literal, "literal", prog_index)
-                    decl_node%dimension_indices(1) = arena%size
-                end if
+                ! Count commas to determine number of dimensions
+                comma_count = 0
+                do i = 1, len_trim(dims_str)
+                    if (dims_str(i:i) == ',') comma_count = comma_count + 1
+                end do
+                ndims = comma_count + 1
+                
+                allocate(dimensions(ndims))
+                
+                ! Parse each dimension
+                start_pos = 1
+                do i = 1, ndims
+                    if (i < ndims) then
+                        comma_pos = index(dims_str(start_pos:), ',')
+                        if (comma_pos > 0) then
+                            end_pos = start_pos + comma_pos - 2
+                        else
+                            end_pos = len_trim(dims_str)
+                        end if
+                    else
+                        end_pos = len_trim(dims_str)
+                    end if
+                    
+                    dim_str = dims_str(start_pos:end_pos)
+                    read(dim_str, *, iostat=iostat) dim_size
+                    if (iostat == 0) then
+                        dimensions(i) = dim_size
+                    else
+                        dimensions(i) = 0  ! Failed to parse
+                    end if
+                    
+                    start_pos = end_pos + 2  ! Skip comma
+                end do
+                
+                ! Set array properties
+                decl_node%is_array = .true.
+                if (allocated(decl_node%dimension_indices)) &
+                    deallocate(decl_node%dimension_indices)
+                allocate(decl_node%dimension_indices(ndims))
+                
+                ! Create literal nodes for each dimension
+                do i = 1, ndims
+                    if (dimensions(i) > 0) then
+                        write(size_str, '(i0)') dimensions(i)
+                        size_literal = create_literal(trim(size_str), LITERAL_INTEGER, 1, 1)
+                        call arena%push(size_literal, "literal", prog_index)
+                        decl_node%dimension_indices(i) = arena%size
+                    else
+                        decl_node%dimension_indices(i) = 0  ! Deferred shape
+                    end if
+                end do
+                
+                deallocate(dimensions)
             end if
         end if
 
@@ -478,6 +519,7 @@ contains
                                 current_type = node%inferred_type
                                 ndims = 0
                                 
+                                
                                 ! Count dimensions by traversing nested array types
                                 do while (current_type%kind == TARRAY)
                                     ndims = ndims + 1
@@ -498,15 +540,34 @@ contains
                                 allocate(dim_sizes(ndims))
                                 
                                 ! Extract dimension sizes
-                                current_type = node%inferred_type
-                                dim_idx = 1
-                                do while (current_type%kind == TARRAY .and. dim_idx <= ndims)
-                                    dim_sizes(dim_idx) = current_type%size
-                                    if (.not. current_type%has_args() .or. &
-                                        current_type%get_args_count() < 1) exit
-                                    current_type = current_type%get_arg(1)
-                                    dim_idx = dim_idx + 1
-                                end do
+                                ! For nested arrays, we need to get both dimensions
+                                if (ndims == 2) then
+                                    ! First dimension = outer array size (number of sub-arrays)
+                                    dim_sizes(1) = node%inferred_type%size
+                                    ! Second dimension = inner array size (elements per sub-array)
+                                    if (node%inferred_type%has_args() .and. &
+                                        node%inferred_type%get_args_count() > 0) then
+                                        current_type = node%inferred_type%get_arg(1)
+                                        if (current_type%kind == TARRAY) then
+                                            dim_sizes(2) = current_type%size
+                                        else
+                                            dim_sizes(2) = 0  ! Should not happen for nested arrays
+                                        end if
+                                    else
+                                        dim_sizes(2) = 0
+                                    end if
+                                else
+                                    ! Single dimension array
+                                    current_type = node%inferred_type
+                                    dim_idx = 1
+                                    do while (current_type%kind == TARRAY .and. dim_idx <= ndims)
+                                        dim_sizes(dim_idx) = current_type%size
+                                        if (.not. current_type%has_args() .or. &
+                                            current_type%get_args_count() < 1) exit
+                                        current_type = current_type%get_arg(1)
+                                        dim_idx = dim_idx + 1
+                                    end do
+                                end if
                                 
                                 ! Set dimension indices
                                 do i = 1, ndims

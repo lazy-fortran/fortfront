@@ -849,6 +849,7 @@ contains
         all_arrays = (first_type%kind == TARRAY)
         consistent_sizes = .true.
         
+        
         ! If first element is an array, get its size
         if (all_arrays) then
             first_array_size = first_type%size
