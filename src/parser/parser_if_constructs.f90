@@ -418,32 +418,45 @@ contains
 
                 stmt_start = parser%current_token
                 
-                ! Skip leading semicolons to get to actual statement
+                ! Skip leading semicolons and newlines to get to actual statement
                 do while (stmt_start <= size(parser%tokens) .and. &
-                         parser%tokens(stmt_start)%kind == TK_OPERATOR .and. &
-                         parser%tokens(stmt_start)%text == ";")
+                         ((parser%tokens(stmt_start)%kind == TK_OPERATOR .and. &
+                          parser%tokens(stmt_start)%text == ";") .or. &
+                          parser%tokens(stmt_start)%kind == TK_NEWLINE))
                     stmt_start = stmt_start + 1
                 end do
                 
+                ! Check if we've gone past the end of tokens
+                if (stmt_start > size(parser%tokens)) then
+                    parser%current_token = stmt_start
+                    exit  ! Exit the main body parsing loop
+                end if
+                
                 stmt_end = stmt_start
 
-                ! Find end of current statement (same line or semicolon boundary)
+                ! Find end of current statement (handle multi-line properly)
                 do j = stmt_start, size(parser%tokens)
-                    ! Treat control-flow keywords as hard boundaries within a line
+                    ! Treat control-flow keywords as hard boundaries
                     if (parser%tokens(j)%kind == TK_KEYWORD) then
                         select case (parser%tokens(j)%text)
                         case ("else", "elseif", "else if")
-                            stmt_end = j - 1
-                            exit
+                            if (j > stmt_start) then
+                                stmt_end = j - 1
+                                exit
+                            end if
                         case ("endif", "end if")
-                            stmt_end = j - 1
-                            exit
+                            if (j > stmt_start) then
+                                stmt_end = j - 1
+                                exit
+                            end if
                         case ("end")
                             if (j + 1 <= size(parser%tokens)) then
                                 if (parser%tokens(j+1)%kind == TK_KEYWORD .and. &
                                     parser%tokens(j+1)%text == "if") then
-                                    stmt_end = j - 1
-                                    exit
+                                    if (j > stmt_start) then
+                                        stmt_end = j - 1
+                                        exit
+                                    end if
                                 end if
                             end if
                         end select
@@ -452,7 +465,9 @@ contains
                         stmt_end = j
                         exit
                     end if
-                    if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
+                    ! For multi-line control flow bodies, treat NEWLINE as a statement boundary
+                    ! but only after we've seen some content
+                    if (j > stmt_start .and. parser%tokens(j)%kind == TK_NEWLINE) then
                         stmt_end = j - 1
                         exit
                     end if
