@@ -13,6 +13,7 @@ module parser_execution_statements_module
                                                parse_cycle_statement, parse_exit_statement
     use parser_control_flow_module, only: parse_do_loop, parse_select_case, &
                                           parse_where_construct, parse_associate
+    use parser_forall_module, only: parse_forall
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL
@@ -238,9 +239,8 @@ contains
                     ! Parse associate construct using control flow module
                     stmt_index = parse_associate(parser, arena)
                 case ("forall")
-                    ! Parse forall construct using control flow module (not implemented yet)
-                    token = parser%consume()
-                    stmt_index = 0
+                    ! Parse forall construct
+                    stmt_index = parse_forall(parser, arena)
                 case ("contains")
                     ! Consume 'contains' keyword and continue parsing definitions
                     token = parser%consume()
