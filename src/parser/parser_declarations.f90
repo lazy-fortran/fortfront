@@ -311,7 +311,12 @@ contains
                 token = parser%peek()
                 if (token%text == "=" .or. token%text == "=>") then
                     token = parser%consume()
-                    initializer_index = parse_comparison(parser, arena)
+                    ! Special handling for complex type initializers
+                    if (type_spec%type_name == "complex") then
+                        initializer_index = handle_complex_initializer(parser, arena, type_spec%type_name)
+                    else
+                        initializer_index = parse_comparison(parser, arena)
+                    end if
                 end if
             end if
 
@@ -484,7 +489,12 @@ contains
                 else if (next_token%text == "=" .or. next_token%text == "=>") then
                     ! Initialization found - consume and parse
                     next_token = parser%consume()
-                    initializer_index = parse_comparison(parser, arena)
+                    ! Special handling for complex type initializers
+                    if (type_spec%type_name == "complex") then
+                        initializer_index = handle_complex_initializer(parser, arena, type_spec%type_name)
+                    else
+                        initializer_index = parse_comparison(parser, arena)
+                    end if
                     exit
                 else
                     ! End of variable list
@@ -697,5 +707,75 @@ contains
             comp_index = 0
         end if
     end function parse_derived_type_component
+
+    ! Helper function to detect and convert complex literals
+    ! When we have a complex type declaration with initializer like (1.0, 2.0),
+    ! we need to parse it as a complex literal, not just take the first value
+    function handle_complex_initializer(parser, arena, type_name) result(complex_index)
+        use ast_factory, only: push_complex_literal
+        use parser_expressions_module, only: parse_comparison
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in) :: type_name
+        integer :: complex_index
+        
+        type(token_t) :: token
+        integer :: real_index, imag_index
+        
+        complex_index = 0
+        
+        ! Only handle if type is complex
+        if (type_name /= "complex") then
+            ! Not a complex type, parse normally
+            complex_index = parse_comparison(parser, arena)
+            return
+        end if
+        
+        ! Check for opening parenthesis
+        token = parser%peek()
+        if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
+            ! Not a parenthesized expression, parse normally
+            complex_index = parse_comparison(parser, arena)
+            return
+        end if
+        
+        ! Consume opening parenthesis
+        token = parser%consume()
+        
+        ! Parse real part
+        real_index = parse_comparison(parser, arena)
+        
+        ! Check for comma
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == ",") then
+            ! This looks like a complex literal
+            token = parser%consume()  ! consume comma
+            
+            ! Parse imaginary part
+            imag_index = parse_comparison(parser, arena)
+            
+            ! Check for closing parenthesis
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()  ! consume closing paren
+                
+                ! Create complex literal node
+                complex_index = push_complex_literal(arena, real_index, imag_index, &
+                                                     token%line, token%column)
+            else
+                ! Malformed, return what we have
+                complex_index = real_index
+            end if
+        else
+            ! Not a complex literal, just a parenthesized expression
+            ! Check for closing parenthesis
+            token = parser%peek()
+            if (token%kind == TK_OPERATOR .and. token%text == ")") then
+                token = parser%consume()
+            end if
+            complex_index = real_index
+        end if
+        
+    end function handle_complex_initializer
 
 end module parser_declarations
