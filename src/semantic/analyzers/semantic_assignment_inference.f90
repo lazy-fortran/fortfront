@@ -3,7 +3,7 @@ module semantic_assignment_inference
     ! for architectural compliance (Issue #1117)
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
                                    create_mono_type, create_poly_type, &
-                                   TCHAR, TARRAY
+                                   TCHAR, TARRAY, TINT
     use ast_core
     use ast_nodes_core, only: identifier_node, binary_op_node, assignment_node
     use semantic_validation_utils, only: update_identifier_type_in_arena

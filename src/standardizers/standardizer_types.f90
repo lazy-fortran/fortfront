@@ -502,8 +502,36 @@ contains
                         end if
                     end if
                     ! Regular array literal with explicit elements
-                    write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
-                        ", dimension(", size(node%element_indices), ")"
+                    ! Check if this is a nested array (all elements are arrays)
+                    block
+                        logical :: is_nested
+                        integer :: inner_size, i
+                        type(mono_type_t) :: inner_type
+                        is_nested = .false.
+                        inner_size = 0
+                        
+                        ! Check if node has inferred type that's nested TARRAY
+                        if (node%inferred_type%kind == TARRAY) then
+                            if (node%inferred_type%has_args() .and. &
+                                node%inferred_type%get_args_count() > 0) then
+                                inner_type = node%inferred_type%get_arg(1)
+                                if (inner_type%kind == TARRAY) then
+                                    is_nested = .true.
+                                    inner_size = inner_type%size
+                                end if
+                            end if
+                        end if
+                        
+                        if (is_nested .and. inner_size > 0) then
+                            ! Nested array - output 2D dimensions
+                            write(var_type, '(a,a,i0,a,i0,a)') trim(elem_type_str), &
+                                ", dimension(", size(node%element_indices), ",", inner_size, ")"
+                        else
+                            ! Simple 1D array
+                            write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                                ", dimension(", size(node%element_indices), ")"
+                        end if
+                    end block
                 end if
             end if
         type is (call_or_subscript_node)
