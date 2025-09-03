@@ -624,7 +624,6 @@ contains
 
             ! Parse component
             comp_index = parse_derived_type_component(parser, arena)
-            !print *, "DEBUG: parse_derived_type_component returned", comp_index
             if (comp_index > 0 .and. component_count < max_components) then
                 component_count = component_count + 1
                 component_indices(component_count) = comp_index
@@ -680,12 +679,12 @@ contains
         token = parser%peek()
         
         ! Handle end of type definition
-        if (token%kind == TK_IDENTIFIER .and. token%text == "end") then
+        if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. token%text == "end") then
             return
         end if
 
         ! Check for type declaration keywords
-        if (token%kind == TK_IDENTIFIER) then
+        if (token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) then
             select case (trim(adjustl(token%text)))
             case ("integer", "real", "complex", "logical", "character", "type", "double")
                 comp_index = parse_declaration(parser, arena)
