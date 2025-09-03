@@ -667,13 +667,17 @@ contains
 
     ! Infer type of function call (simplified)
     function infer_function_call(ctx, arena, call_node) result(typ)
+        use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
+        use iso_fortran_env, only: error_unit
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(call_or_subscript_node), intent(in) :: call_node
         type(mono_type_t) :: typ
         type(poly_type_t), allocatable :: scheme
         type(mono_type_t) :: arg_type
+        character(len=:), allocatable :: intrinsic_sig
         integer :: i
+        logical :: is_intrinsic_func
 
         ! Process arguments to detect undefined variables
         if (allocated(call_node%arg_indices)) then
@@ -695,9 +699,42 @@ contains
             if (typ%kind == TFUN .and. type_args_allocated(typ) .and. type_args_size(typ) >= 2) then
                 typ = type_args_element(typ, 2)  ! Second arg is return type
             end if
-        else
-            ! Unknown function - default to real type
-            typ = create_mono_type(TREAL)
+        else 
+            ! Check if it's an intrinsic function
+            is_intrinsic_func = is_intrinsic_function(call_node%name)
+            ! DEBUG: Print to stderr for debugging
+            ! write(error_unit, '(A,A,A,L1)') "DEBUG: Checking function '", call_node%name, "' - is_intrinsic: ", is_intrinsic_func
+            
+            if (is_intrinsic_func) then
+                ! Handle intrinsic functions - double check with registry
+                intrinsic_sig = get_intrinsic_signature(call_node%name)
+                ! DEBUG: Print signature
+                ! if (allocated(intrinsic_sig)) write(error_unit, '(A,A)') "DEBUG: Signature: ", intrinsic_sig
+                
+                if (len_trim(intrinsic_sig) > 0) then
+                    ! Parse the return type from the signature
+                    ! Signature format: "return_type(arg_types)"
+                    ! For mathematical intrinsics, return type is typically "real"
+                    if (index(intrinsic_sig, "real(") == 1) then
+                        typ = create_mono_type(TREAL)
+                    else if (index(intrinsic_sig, "integer(") == 1) then
+                        typ = create_mono_type(TINT)
+                    else if (index(intrinsic_sig, "logical(") == 1) then
+                        typ = create_mono_type(TLOGICAL)
+                    else if (index(intrinsic_sig, "character(") == 1) then
+                        typ = create_mono_type(TCHAR)
+                    else
+                        ! Default to real for unknown intrinsic types
+                        typ = create_mono_type(TREAL)
+                    end if
+                else
+                    ! Unknown intrinsic - default to real type
+                    typ = create_mono_type(TREAL)
+                end if
+            else
+                ! Unknown function - default to real type
+                typ = create_mono_type(TREAL)
+            end if
         end if
     end function infer_function_call
 
@@ -724,6 +761,13 @@ contains
 
         lhs_index = assignment%target_index
         expr_typ = ctx%infer(arena, assignment%value_index)
+        
+        ! Store the inferred type for the value expression node  
+        if (assignment%value_index > 0 .and. assignment%value_index <= arena%size) then
+            if (allocated(arena%entries(assignment%value_index)%node)) then
+                arena%entries(assignment%value_index)%node%inferred_type = expr_typ
+            end if
+        end if
 
         ! Use extracted assignment processing
         call process_assignment_inference(arena, assignment, assignment_index, &

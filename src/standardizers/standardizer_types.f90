@@ -107,6 +107,35 @@ contains
             if (node%inferred_type%kind > 0) then
                 expr_type => node%inferred_type
             else
+                ! Check if it's an intrinsic function
+                block
+                    use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
+                    character(len=:), allocatable :: intrinsic_sig
+                    logical :: is_intrinsic_func
+                    
+                    is_intrinsic_func = is_intrinsic_function(node%name)
+                    if (is_intrinsic_func) then
+                        intrinsic_sig = get_intrinsic_signature(node%name)
+                        if (len_trim(intrinsic_sig) > 0) then
+                            allocate(expr_type)
+                            ! Parse the return type from the signature
+                            if (index(intrinsic_sig, "real(") == 1) then
+                                expr_type = create_mono_type(TREAL)
+                            else if (index(intrinsic_sig, "integer(") == 1) then
+                                expr_type = create_mono_type(TINT)
+                            else if (index(intrinsic_sig, "logical(") == 1) then
+                                expr_type = create_mono_type(TLOGICAL)
+                            else if (index(intrinsic_sig, "character(") == 1) then
+                                expr_type = create_mono_type(TCHAR)
+                            else
+                                ! Default to real for unknown intrinsic types
+                                expr_type = create_mono_type(TREAL)
+                            end if
+                            return  ! Early return with the intrinsic type
+                        end if
+                    end if
+                end block
+                
                 ! If it's a subscript of an array, the result should be the 
                 ! element type or a subarray
                 ! For now, we'll check if it has a colon operator (array slice)
