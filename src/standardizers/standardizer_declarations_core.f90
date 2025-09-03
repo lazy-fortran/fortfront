@@ -456,9 +456,12 @@ contains
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: prog_index
         type(declaration_node), intent(inout) :: decl_node
-        integer :: j
+        integer :: j, i
         type(literal_node) :: size_literal
         character(len=20) :: size_str
+        type(mono_type_t) :: current_type
+        integer :: ndims, dim_idx
+        integer, allocatable :: dim_sizes(:)
 
         ! Search for the identifier node with this name to check its inferred type
         do j = 1, arena%size
@@ -469,22 +472,53 @@ contains
                         if (node%inferred_type%kind > 0) then
                             if (node%inferred_type%kind == TARRAY) then
                                 decl_node%is_array = .true.
-                                ! Use fixed-size array if size is known
+                                
+                                ! Count array dimensions for nested arrays
+                                
+                                current_type = node%inferred_type
+                                ndims = 0
+                                
+                                ! Count dimensions by traversing nested array types
+                                do while (current_type%kind == TARRAY)
+                                    ndims = ndims + 1
+                                    if (.not. current_type%has_args() .or. &
+                                        current_type%get_args_count() < 1) exit
+                                    current_type = current_type%get_arg(1)
+                                end do
+                                
+                                ! For a nested array (2D), standardize as regular 2D array
+                                if (ndims > 1) then
+                                    ndims = 2  ! For [[1,2],[3,4]] -> 2x2 array
+                                end if
+                                
+                                ! Allocate dimension indices
                                 if (allocated(decl_node%dimension_indices)) &
                                     deallocate(decl_node%dimension_indices)
-                                allocate(decl_node%dimension_indices(1))
-                                if (node%inferred_type%size > 0 .and. &
-                                    .not. node%inferred_type%alloc_info%is_allocatable) then
-                                    ! Create literal node for the size
-                                    write(size_str, '(i0)') node%inferred_type%size
-                                    size_literal = create_literal(trim(size_str), &
-                                                                 LITERAL_INTEGER, 1, 1)
-                                    ! Note: can't modify arena in this context, so defer
-                                    decl_node%dimension_indices(1) = node%inferred_type%size
-                                else
-                                    ! Allocatable dimension
-                                    decl_node%dimension_indices(1) = 0
-                                end if
+                                allocate(decl_node%dimension_indices(ndims))
+                                allocate(dim_sizes(ndims))
+                                
+                                ! Extract dimension sizes
+                                current_type = node%inferred_type
+                                dim_idx = 1
+                                do while (current_type%kind == TARRAY .and. dim_idx <= ndims)
+                                    dim_sizes(dim_idx) = current_type%size
+                                    if (.not. current_type%has_args() .or. &
+                                        current_type%get_args_count() < 1) exit
+                                    current_type = current_type%get_arg(1)
+                                    dim_idx = dim_idx + 1
+                                end do
+                                
+                                ! Set dimension indices
+                                do i = 1, ndims
+                                    if (dim_sizes(i) > 0 .and. &
+                                        .not. node%inferred_type%alloc_info%is_allocatable) then
+                                        decl_node%dimension_indices(i) = dim_sizes(i)
+                                    else
+                                        decl_node%dimension_indices(i) = 0  ! Allocatable
+                                    end if
+                                end do
+                                
+                                deallocate(dim_sizes)
                                 exit
                             end if
                         end if

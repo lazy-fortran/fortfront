@@ -828,10 +828,10 @@ contains
         type(array_literal_node), intent(in) :: array_lit
         integer, intent(in) :: array_index
         type(mono_type_t) :: typ
-        type(mono_type_t) :: element_type, promoted_type
-        type(mono_type_t), allocatable :: args(:)
-        integer :: i
-        logical :: has_real
+        type(mono_type_t) :: element_type, promoted_type, first_type
+        type(mono_type_t), allocatable :: args(:), inner_args(:)
+        integer :: i, elem_array_size, first_array_size
+        logical :: has_real, all_arrays, consistent_sizes
 
         ! If empty array, default to integer
         if (.not. allocated(array_lit%element_indices) .or. &
@@ -843,29 +843,87 @@ contains
         end if
 
         ! Start with first element type
-        promoted_type = ctx%infer(arena, array_lit%element_indices(1))
-        has_real = (promoted_type%kind == TREAL)
+        first_type = ctx%infer(arena, array_lit%element_indices(1))
+        promoted_type = first_type
+        has_real = (first_type%kind == TREAL)
+        all_arrays = (first_type%kind == TARRAY)
+        consistent_sizes = .true.
         
-        ! Check all elements for type promotion
+        ! If first element is an array, get its size
+        if (all_arrays) then
+            first_array_size = first_type%size
+        end if
+        
+        ! Check all elements for type promotion and consistency
         do i = 2, size(array_lit%element_indices)
             element_type = ctx%infer(arena, array_lit%element_indices(i))
+            
+            ! Check if all elements are arrays (for nested arrays)
+            if (all_arrays .and. element_type%kind /= TARRAY) then
+                all_arrays = .false.
+            else if (all_arrays .and. element_type%kind == TARRAY) then
+                ! Check for consistent sizes in nested arrays
+                elem_array_size = element_type%size
+                if (elem_array_size /= first_array_size) then
+                    consistent_sizes = .false.
+                end if
+            end if
             
             ! If we encounter a real type, promote the entire array to real
             if (element_type%kind == TREAL) then
                 has_real = .true.
-                promoted_type = create_mono_type(TREAL)
+                if (.not. all_arrays) promoted_type = create_mono_type(TREAL)
+            else if (element_type%kind == TARRAY .and. element_type%has_args()) then
+                ! Check element type of nested array for real promotion
+                if (element_type%get_args_count() > 0) then
+                    promoted_type = element_type%get_arg(1)
+                    if (promoted_type%kind == TREAL) then
+                        has_real = .true.
+                    end if
+                end if
             end if
         end do
         
-        ! If any element is real, promote to real
-        if (has_real .and. promoted_type%kind == TINT) then
-            promoted_type = create_mono_type(TREAL)
+        ! Handle nested arrays (multi-dimensional)
+        if (all_arrays .and. consistent_sizes) then
+            ! All elements are arrays of the same size - create a 2D array
+            ! Get the element type of the nested arrays
+            if (first_type%has_args() .and. first_type%get_args_count() > 0) then
+                ! Determine base element type (integer or real)
+                if (has_real) then
+                    promoted_type = create_mono_type(TREAL)
+                else 
+                    promoted_type = first_type%get_arg(1)
+                end if
+            else
+                promoted_type = create_mono_type(TINT)
+            end if
+            
+            ! Create nested array type: array of arrays
+            ! The outer array has size equal to number of sub-arrays
+            ! The inner arrays have their original size
+            allocate(inner_args(1))
+            inner_args(1) = promoted_type
+            
+            allocate(args(1))
+            args(1) = create_mono_type(TARRAY, args=inner_args, &
+                                        array_size=first_array_size)
+            typ = create_mono_type(TARRAY, args=args, &
+                                   array_size=size(array_lit%element_indices))
+            deallocate(inner_args)
+        else
+            ! Regular 1D array (not nested)
+            ! If any element is real, promote to real
+            if (has_real .and. promoted_type%kind == TINT) then
+                promoted_type = create_mono_type(TREAL)
+            end if
+            
+            ! Create array type with correct size
+            allocate(args(1))
+            args(1) = promoted_type
+            typ = create_mono_type(TARRAY, args=args, &
+                                   array_size=size(array_lit%element_indices))
         end if
-        
-        ! Create array type with correct size
-        allocate(args(1))
-        args(1) = promoted_type
-        typ = create_mono_type(TARRAY, args=args, array_size=size(array_lit%element_indices))
         
         ! Store in node
         arena%entries(array_index)%node%inferred_type = typ

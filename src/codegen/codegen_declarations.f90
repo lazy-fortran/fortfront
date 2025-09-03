@@ -417,9 +417,13 @@ contains
                     if (i > 1) code = code // ","
                     if (node%dimension_indices(i) > 0 .and. &
                         node%dimension_indices(i) <= arena%size) then
+                        ! Valid arena index
                         code = code // generate_code_from_arena(arena, node%dimension_indices(i))
+                    else if (node%dimension_indices(i) > arena%size) then
+                        ! Direct integer value (for inferred dimensions)
+                        code = code // int_to_string(node%dimension_indices(i))
                     else
-                        code = code // ":"  ! Default for unspecified dimensions
+                        code = code // ":"  ! Default for unspecified dimensions (allocatable)
                     end if
                 end do
                 code = code // ")"
