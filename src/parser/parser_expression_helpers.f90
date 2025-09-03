@@ -70,7 +70,7 @@ contains
         else
             ! Error: expected identifier after %
             expr_index = push_literal(arena, &
-                "!ERROR: Expected identifier after %", &
+                "!ERROR: Expected identifier after %, got '"//trim(component_token%text)//"'", &
                 LITERAL_STRING, op_token%line, op_token%column)
         end if
     end function parse_component_access_postfix
