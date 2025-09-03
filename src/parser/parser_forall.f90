@@ -3,10 +3,10 @@ module parser_forall_module
     use iso_fortran_env, only: error_unit
     use lexer_core
     use parser_state_module
-    use parser_expressions_module, only: parse_expression
+    use parser_expressions_module, only: parse_expression, parse_range
     use parser_utils, only: analyze_declaration_structure
     use ast_core
-    use ast_factory, only: push_forall
+    use ast_factory, only: push_forall, push_assignment, push_identifier
     use ast_nodes_loops, only: forall_triplet_t
     implicit none
     private
@@ -165,34 +165,51 @@ contains
         end if
         
         if (is_single_statement) then
-            ! Parse single statement
+            ! Parse single statement (usually an assignment)
             block
-                integer :: stmt_index
-                type(token_t), allocatable :: remaining_tokens(:)
-                integer :: n, j
+                integer :: stmt_index, target_index, value_index
+                type(token_t) :: id_token, eq_token
                 
-                ! Count remaining tokens until newline or EOF
-                n = 0
-                do j = parser%current_token, size(parser%tokens)
-                    if (parser%tokens(j)%kind == TK_NEWLINE .or. &
-                        parser%tokens(j)%kind == TK_EOF) exit
-                    n = n + 1
-                end do
-                
-                if (n > 0) then
-                    allocate(remaining_tokens(n))
-                    do j = 1, n
-                        remaining_tokens(j) = parser%tokens(parser%current_token + j - 1)
-                    end do
+                ! Parse assignment: identifier = expression
+                id_token = parser%peek()
+                if (id_token%kind == TK_IDENTIFIER) then
+                    id_token = parser%consume()
                     
-                    stmt_index = parse_expression(remaining_tokens, arena)
-                    if (stmt_index > 0) then
-                        deallocate(body_indices)
-                        allocate(body_indices(1))
-                        body_indices(1) = stmt_index
+                    eq_token = parser%peek()
+                    if (eq_token%kind == TK_OPERATOR .and. eq_token%text == "=") then
+                        eq_token = parser%consume()
+                        
+                        ! Create target (can be array element)
+                        target_index = push_identifier(arena, id_token%text, &
+                                                      id_token%line, id_token%column)
+                        
+                        ! Check for array subscript
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                            ! Parse array reference
+                            target_index = parse_expression(parser%tokens(parser%current_token-1:), arena)
+                            ! Adjust parser position
+                            do while (.not. parser%is_at_end())
+                                token = parser%peek()
+                                if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                                    token = parser%consume()
+                                    exit
+                                end if
+                                token = parser%consume()
+                            end do
+                        end if
+                        
+                        ! Parse value expression
+                        value_index = parse_range(parser, arena)
+                        
+                        if (value_index > 0) then
+                            stmt_index = push_assignment(arena, target_index, value_index, &
+                                                        id_token%line, id_token%column)
+                            deallocate(body_indices)
+                            allocate(body_indices(1))
+                            body_indices(1) = stmt_index
+                        end if
                     end if
-                    
-                    parser%current_token = parser%current_token + n
                 end if
             end block
         else
@@ -252,7 +269,36 @@ contains
                             stmt_tokens(j) = parser%tokens(parser%current_token + j - 1)
                         end do
                         
-                        stmt_index = parse_expression(stmt_tokens, arena)
+                        ! Parse the statement (usually an assignment)
+                        block
+                            type(parser_state_t) :: stmt_parser
+                            integer :: target_idx, value_idx
+                            
+                            stmt_parser = parser_state_t(stmt_tokens)
+                            
+                            ! Try to parse as assignment
+                            if (stmt_parser%current_token <= size(stmt_tokens)) then
+                                if (stmt_tokens(1)%kind == TK_IDENTIFIER) then
+                                    target_idx = parse_expression(stmt_tokens(1:), arena)
+                                    
+                                    ! Find the = operator
+                                    do j = 1, size(stmt_tokens)
+                                        if (stmt_tokens(j)%kind == TK_OPERATOR .and. &
+                                            stmt_tokens(j)%text == "=") then
+                                            ! Parse value after =
+                                            if (j < size(stmt_tokens)) then
+                                                value_idx = parse_expression(stmt_tokens(j+1:), arena)
+                                                if (target_idx > 0 .and. value_idx > 0) then
+                                                    stmt_index = push_assignment(arena, target_idx, value_idx, &
+                                                                               stmt_tokens(1)%line, stmt_tokens(1)%column)
+                                                end if
+                                            end if
+                                            exit
+                                        end if
+                                    end do
+                                end if
+                            end if
+                        end block
                         if (stmt_index > 0) then
                             body_count = body_count + 1
                             if (body_count > size(body_indices)) then
