@@ -550,6 +550,16 @@ contains
             first_node = node
             var_list = trim(node%var_name)
             
+            ! For arrays or other non-groupable declarations, emit them individually
+            if (node%is_array .or. node%is_allocatable .or. node%is_pointer .or. &
+                node%is_target .or. node%is_parameter .or. node%initializer_index > 0) then
+                ! Use the full declaration generator for complex declarations
+                stmt_code = generate_code_from_arena(arena, body_indices(i))
+                code = code // indent_str // stmt_code // new_line('A')
+                i = i + 1
+                return
+            end if
+            
             ! Look ahead for groupable declarations
             j = i + 1
             do while (j <= size(body_indices))
