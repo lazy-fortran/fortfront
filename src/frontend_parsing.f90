@@ -322,6 +322,12 @@ contains
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     unit_end = i + 1  ! Include "end module"
+                                    ! Check if there's a module name after "end module"
+                                    if (i + 2 <= size(tokens)) then
+                                        if (tokens(i+2)%kind == TK_IDENTIFIER) then
+                                            unit_end = i + 2  ! Include the module name too
+                                        end if
+                                    end if
                                     exit
                                 end if
                             end if
