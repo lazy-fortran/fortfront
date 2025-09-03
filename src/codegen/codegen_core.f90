@@ -12,6 +12,7 @@ module codegen_core
     use ast_nodes_bounds, only: range_expression_node, array_bounds_node, array_slice_node, &
                                 array_operation_node
     use ast_nodes_core, only: range_subscript_node
+    use ast_nodes_associate, only: associate_node
     implicit none
     private
 
@@ -107,6 +108,8 @@ contains
             code = generate_code_where(arena, node, node_index)
         type is (forall_node)
             code = generate_code_forall(arena, node, node_index)
+        type is (associate_node)
+            code = generate_code_associate(arena, node, node_index)
             
         ! Declaration and definition nodes
         type is (declaration_node)
