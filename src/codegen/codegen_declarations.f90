@@ -96,6 +96,12 @@ contains
                                      arena%entries(node%param_indices(i))%node)
                         type is (identifier_node)
                             param_map(i)%name = param_node%name
+                        type is (parameter_declaration_node)
+                            ! Get attributes directly from parameter node
+                            param_map(i)%name = param_node%name
+                            param_map(i)%intent_str = &
+                                intent_type_to_string(param_node%intent_type)
+                            param_map(i)%is_optional = param_node%is_optional
                         end select
                     end if
                 end if
@@ -211,6 +217,12 @@ contains
                                      arena%entries(node%param_indices(i))%node)
                         type is (identifier_node)
                             param_map(i)%name = param_node%name
+                        type is (parameter_declaration_node)
+                            ! Get attributes directly from parameter node
+                            param_map(i)%name = param_node%name
+                            param_map(i)%intent_str = &
+                                intent_type_to_string(param_node%intent_type)
+                            param_map(i)%is_optional = param_node%is_optional
                         end select
                     end if
                 end if

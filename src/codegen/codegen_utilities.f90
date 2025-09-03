@@ -355,10 +355,51 @@ contains
         type(parameter_info_t), intent(in) :: param_map(:)
         class(ast_node), intent(in) :: proc_node
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: indent_str
+        integer :: i
+        logical :: has_params_with_attrs
         
-        ! For now, delegate to regular grouped body
-        ! Full parameter-aware grouping would be implemented here
-        code = generate_grouped_body(arena, body_indices, indent)
+        ! Build indent string
+        indent_str = repeat("    ", indent)
+        code = ""
+        
+        ! Check if we have any parameters with attributes
+        has_params_with_attrs = .false.
+        do i = 1, size(param_map)
+            if (allocated(param_map(i)%name) .and. len_trim(param_map(i)%name) > 0) then
+                if ((allocated(param_map(i)%intent_str) .and. len_trim(param_map(i)%intent_str) > 0) &
+                    .or. param_map(i)%is_optional) then
+                    has_params_with_attrs = .true.
+                    exit
+                end if
+            end if
+        end do
+        
+        ! Generate parameter declarations if needed
+        if (has_params_with_attrs) then
+            do i = 1, size(param_map)
+                if (allocated(param_map(i)%name) .and. len_trim(param_map(i)%name) > 0) then
+                    if ((allocated(param_map(i)%intent_str) .and. len_trim(param_map(i)%intent_str) > 0) &
+                        .or. param_map(i)%is_optional) then
+                        ! Output parameter declaration with attributes
+                        code = code // indent_str // "integer"  ! Default type for now
+                        
+                        if (allocated(param_map(i)%intent_str) .and. len_trim(param_map(i)%intent_str) > 0) then
+                            code = code // ", intent(" // param_map(i)%intent_str // ")"
+                        end if
+                        
+                        if (param_map(i)%is_optional) then
+                            code = code // ", optional"
+                        end if
+                        
+                        code = code // " :: " // param_map(i)%name // new_line('A')
+                    end if
+                end if
+            end do
+        end if
+        
+        ! Generate the rest of the body
+        code = code // generate_grouped_body(arena, body_indices, indent)
     end function generate_grouped_body_with_params
 
     ! Generate grouped body with context about executable statements
