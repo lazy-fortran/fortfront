@@ -24,4 +24,3 @@ A small Fortran frontend that lexes, parses, performs light semantic checks, and
 # Build and run tests
 make test
 ```
-# CI re-trigger
