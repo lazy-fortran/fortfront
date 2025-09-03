@@ -257,6 +257,9 @@ contains
         node%node_type_name = "UNKNOWN"
         node%node_kind = 0
         
+        ! PERFORMANCE FIX: Ensure arrays are allocated before access
+        call ensure_arrays_allocated(ast_arena)
+        
         ! Validate handle
         if (.not. ast_arena%validate(handle)) then
             return
@@ -290,6 +293,9 @@ contains
         
         if (.not. this%is_initialized) return
         
+        ! PERFORMANCE FIX: Ensure arrays are allocated before reset
+        call ensure_arrays_allocated(this)
+        
         ! Increment generations to invalidate all existing handles
         this%epoch = this%epoch + 1
         this%generation = this%generation + 1  ! Increment base generation
@@ -318,13 +324,17 @@ contains
         stats%total_allocations = this%total_allocations
         stats%total_validations = this%total_validations
         
-        if (this%is_initialized) then
+        if (this%is_initialized .and. allocated(this%nodes)) then
             stats%total_memory = int(storage_size(this%nodes(1)) * this%cap, int64) / 8
             if (this%cap > 0) then
                 stats%utilization = real(this%node_count) / real(this%cap)
             else
                 stats%utilization = 0.0
             end if
+        else
+            ! Arrays not allocated yet - no memory usage
+            stats%total_memory = 0
+            stats%utilization = 0.0
         end if
         
         ! Calculate allocation rate (efficiency metric)
@@ -355,6 +365,9 @@ contains
             is_valid = .false.
             return
         end if
+        
+        ! PERFORMANCE FIX: Ensure arrays are allocated before slot_gen access
+        call ensure_arrays_allocated(this)
         
         ! Check handle validity
         if (.not. is_valid_ast_handle(handle)) then
@@ -683,7 +696,7 @@ contains
         class(ast_arena_core_t), intent(in) :: this
         integer, intent(in) :: index
         integer :: gen
-        if (index >= 1 .and. index <= this%cap) then
+        if (allocated(this%slot_gen) .and. index >= 1 .and. index <= this%cap) then
             gen = this%slot_gen(index)
         else
             gen = 0
@@ -693,6 +706,8 @@ contains
     subroutine ast_arena_set_slot_gen(this, index, gen)
         class(ast_arena_core_t), intent(inout) :: this
         integer, intent(in) :: index, gen
+        ! PERFORMANCE FIX: Ensure arrays allocated before setting
+        call ensure_arrays_allocated(this)
         if (index >= 1 .and. index <= this%cap) then
             this%slot_gen(index) = gen
         end if
@@ -702,7 +717,7 @@ contains
         class(ast_arena_core_t), intent(in) :: this
         integer, intent(in) :: index
         integer :: value
-        if (index >= 1 .and. index <= this%cap) then
+        if (allocated(this%free_stack) .and. index >= 1 .and. index <= this%cap) then
             value = this%free_stack(index)
         else
             value = 0
@@ -712,6 +727,8 @@ contains
     subroutine ast_arena_set_free_stack(this, index, value)
         class(ast_arena_core_t), intent(inout) :: this
         integer, intent(in) :: index, value
+        ! PERFORMANCE FIX: Ensure arrays allocated before setting
+        call ensure_arrays_allocated(this)
         if (index >= 1 .and. index <= this%cap) then
             this%free_stack(index) = value
         end if
