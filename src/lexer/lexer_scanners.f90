@@ -438,7 +438,9 @@ contains
               'intent', 'in', 'out', 'inout', 'use', 'module', 'contains', &
               'public', 'private', 'type', 'class', 'extends', 'abstract', &
               'procedure', 'interface', 'generic', 'operator', 'assignment', 'print', 'read', 'write', 'call', &
-              'allocate', 'deallocate')
+              'allocate', 'deallocate', &
+              'select', 'case', 'default', 'where', 'elsewhere', 'endwhere', &
+              'associate', 'endassociate', 'forall', 'endforall')
             keyword = .true.
         case default
             keyword = .false.

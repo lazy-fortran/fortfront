@@ -11,7 +11,8 @@ module parser_execution_statements_module
     use parser_control_statements_module, only: parse_stop_statement, parse_goto_statement, &
                                                parse_error_stop_statement, parse_return_statement, &
                                                parse_cycle_statement, parse_exit_statement
-    use parser_control_flow_module, only: parse_do_loop
+    use parser_control_flow_module, only: parse_do_loop, parse_select_case, &
+                                          parse_where_construct, parse_associate
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL
@@ -227,6 +228,19 @@ contains
                 case ("do")
                     ! Parse do loop using control flow module
                     stmt_index = parse_do_loop(parser, arena)
+                case ("select")
+                    ! Parse select case using control flow module
+                    stmt_index = parse_select_case(parser, arena)
+                case ("where")
+                    ! Parse where construct using control flow module
+                    stmt_index = parse_where_construct(parser, arena)
+                case ("associate")
+                    ! Parse associate construct using control flow module
+                    stmt_index = parse_associate(parser, arena)
+                case ("forall")
+                    ! Parse forall construct using control flow module (not implemented yet)
+                    token = parser%consume()
+                    stmt_index = 0
                 case ("contains")
                     ! Consume 'contains' keyword and continue parsing definitions
                     token = parser%consume()
