@@ -725,7 +725,11 @@ contains
         complex_index = 0
         
         ! Only handle if type is complex
-        if (type_name /= "complex") return
+        if (type_name /= "complex") then
+            ! Not a complex type, parse normally
+            complex_index = parse_comparison(parser, arena)
+            return
+        end if
         
         ! Check for opening parenthesis
         token = parser%peek()
