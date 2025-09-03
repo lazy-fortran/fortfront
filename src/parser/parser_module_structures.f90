@@ -6,6 +6,7 @@ module parser_module_structures_module
     use ast_factory, only: push_module_structured, push_implicit_statement, &
                            push_assignment, push_identifier, push_literal
     use parser_declarations, only: parse_declaration
+    use parser_procedure_definitions_module, only: parse_function_definition, parse_subroutine_definition
     use ast_types, only: LITERAL_STRING
     ! Temporarily removed to avoid circular dependency
     ! Will be added back after refactoring is complete
@@ -148,47 +149,46 @@ contains
                 end if
             end if
 
-            ! Parse subroutine definitions for contains section (temporarily simplified)
+            ! Parse subroutine definitions for contains section
             if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "subroutine") then
-                ! Temporarily skip procedure parsing to avoid circular dependency
-                ! This will be restored after refactoring is complete
-                call skip_procedure_body(parser, "subroutine")
+                ! Parse the subroutine and add to procedure list
+                block
+                    integer :: proc_index
+                    proc_index = parse_subroutine_definition(parser, arena)
+                    if (proc_index > 0) then
+                        procedure_indices = [procedure_indices, proc_index]
+                    end if
+                end block
                 cycle
             end if
             
-            ! Parse function definitions for contains section (temporarily simplified)
+            ! Parse function definitions for contains section
             if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "function") then
-                ! Temporarily skip procedure parsing to avoid circular dependency
-                ! This will be restored after refactoring is complete
-                call skip_procedure_body(parser, "function")
+                ! Parse the function and add to procedure list
+                block
+                    integer :: proc_index
+                    proc_index = parse_function_definition(parser, arena)
+                    if (proc_index > 0) then
+                        procedure_indices = [procedure_indices, proc_index]
+                    end if
+                end block
                 cycle
             end if
             
             ! Handle comments specially - skip them without disrupting module parsing
-            if (token%kind == TK_COMMENT) then
-                token = parser%consume()  ! Skip the comment token
+            if (token%kind == TK_COMMENT .or. token%kind == TK_NEWLINE) then
+                token = parser%consume()  ! Skip comment/newline
                 cycle  ! Continue to next iteration
             end if
             
-            ! Handle newlines to avoid getting stuck
-            if (token%kind == TK_NEWLINE) then
-                token = parser%consume()  ! Skip newline
-                cycle  ! Continue to next iteration
-            end if
-            
-            ! Only advance if we haven't handled this token specifically
-            ! (declarations and contains are handled above with cycle)
             if (in_contains_section) then
-                ! Only consume tokens that are not function/subroutine keywords to prevent
-                ! interfering with multiple procedure definitions in contains section
-                if (.not. (token%kind == TK_KEYWORD .and. &
-                          (token%text == "function" .or. token%text == "subroutine"))) then
-                    token = parser%consume()  ! Advance for non-procedure tokens
+                ! Don't consume function/subroutine - let them be handled by the checks above
+                if (.not. (token%kind == TK_KEYWORD .and. (token%text == "function" .or. token%text == "subroutine"))) then
+                    token = parser%consume()
                 end if
-            else
-                ! For any unhandled token in module body, consume and continue
-                ! This prevents infinite loops with unexpected tokens
-                token = parser%consume()  ! Advance for unhandled tokens
+            else  
+                ! Default: consume unhandled token in module body
+                token = parser%consume()
             end if
         end do
 
