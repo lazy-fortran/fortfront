@@ -560,20 +560,26 @@ contains
         lhs%arena_id = rhs%arena_id
         lhs%is_initialized = rhs%is_initialized
         
-        ! Deep copy slot arrays
+        ! Deep copy slot arrays - PERFORMANCE FIX: Only copy used elements
         if (allocated(rhs%nodes)) then
             allocate(lhs%nodes(size(rhs%nodes)))
-            lhs%nodes = rhs%nodes
+            if (rhs%node_count > 0) then
+                lhs%nodes(1:rhs%node_count) = rhs%nodes(1:rhs%node_count)
+            end if
         end if
         
         if (allocated(rhs%slot_gen)) then
             allocate(lhs%slot_gen(size(rhs%slot_gen)))
-            lhs%slot_gen = rhs%slot_gen
+            if (rhs%cap > 0) then
+                lhs%slot_gen(1:rhs%cap) = rhs%slot_gen(1:rhs%cap)
+            end if
         end if
         
         if (allocated(rhs%free_stack)) then
             allocate(lhs%free_stack(size(rhs%free_stack)))
-            lhs%free_stack = rhs%free_stack
+            if (rhs%free_top > 0) then
+                lhs%free_stack(1:rhs%free_top) = rhs%free_stack(1:rhs%free_top)
+            end if
         end if
     end subroutine ast_arena_assign
 
