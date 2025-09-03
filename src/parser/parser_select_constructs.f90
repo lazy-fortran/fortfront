@@ -101,6 +101,21 @@ contains
                         if (value_token%kind == TK_KEYWORD .and. value_token%text == "default") then
                             value_token = parser%consume()  ! consume 'default'
                             
+                            ! Skip rest of current line
+                            block
+                                integer :: current_line
+                                type(token_t) :: skip_token
+                                current_line = value_token%line
+                                do while (parser%current_token <= size(parser%tokens))
+                                    skip_token = parser%peek()
+                                    if (skip_token%line == current_line) then
+                                        skip_token = parser%consume()
+                                    else
+                                        exit
+                                    end if
+                                end do
+                            end block
+                            
                             ! Parse default case body using parse_statement_body
                             body_indices = parse_statement_body(parser, arena, end_keywords)
                             
@@ -144,6 +159,29 @@ contains
                                 end do
                             end if
 
+                            ! Skip rest of current line
+                            block
+                                integer :: current_line
+                                type(token_t) :: skip_token
+                                
+                                ! Get the current line number
+                                if (parser%current_token > 1) then
+                                    current_line = parser%tokens(parser%current_token - 1)%line
+                                else
+                                    current_line = 1
+                                end if
+                                
+                                ! Skip all tokens on current line
+                                do while (parser%current_token <= size(parser%tokens))
+                                    skip_token = parser%peek()
+                                    if (skip_token%line == current_line) then
+                                        skip_token = parser%consume()
+                                    else
+                                        exit
+                                    end if
+                                end do
+                            end block
+                            
                             ! Parse case body statements using parse_statement_body
                             body_indices = parse_statement_body(parser, arena, end_keywords)
 
