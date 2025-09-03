@@ -9,6 +9,7 @@ module standardizer_declarations_core
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use error_handling, only: result_t, success_result, create_error_result
     use standardizer_types
+    use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
     implicit none
     private
 
@@ -703,6 +704,35 @@ contains
                                         end block
                                     end if
                                     
+                                    ! If get_expression_type didn't work, check for intrinsic functions
+                                    if (len_trim(var_type) == 0) then
+                                        select type (val_node => arena%entries(assign%value_index)%node)
+                                        type is (call_or_subscript_node)
+                                            block
+                                                character(len=:), allocatable :: intrinsic_sig
+                                                
+                                                if (is_intrinsic_function(val_node%name)) then
+                                                    intrinsic_sig = get_intrinsic_signature(val_node%name)
+                                                    if (len_trim(intrinsic_sig) > 0) then
+                                                        ! Parse the return type from the signature
+                                                        if (index(intrinsic_sig, "real(") == 1) then
+                                                            var_type = "real"
+                                                        else if (index(intrinsic_sig, "integer(") == 1) then
+                                                            var_type = "integer"
+                                                        else if (index(intrinsic_sig, "logical(") == 1) then
+                                                            var_type = "logical"
+                                                        else if (index(intrinsic_sig, "character(") == 1) then
+                                                            var_type = "character(len=:), allocatable"
+                                                        else
+                                                            ! Default to real for mathematical intrinsics
+                                                            var_type = "real"
+                                                        end if
+                                                    end if
+                                                end if
+                                            end block
+                                        end select
+                                    end if
+                                    
                                     ! Prefer integer for pure-integer binary expressions
                                     if (len_trim(var_type) == 0) then
                                         if (is_integer_expression(arena, assign%value_index)) then
@@ -830,7 +860,21 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
         character(len=64) :: var_type
-        var_type = "character(len=:), allocatable" ! Basic fallback
+        
+        var_type = ""  ! Default to empty (not a string concatenation)
+        
+        ! Check if the expression is actually a string concatenation
+        if (expr_index > 0 .and. expr_index <= arena%size) then
+            if (allocated(arena%entries(expr_index)%node)) then
+                select type (node => arena%entries(expr_index)%node)
+                type is (binary_op_node)
+                    ! Only string concatenation uses the // operator
+                    if (node%operator == "//") then
+                        var_type = "character(len=:), allocatable"
+                    end if
+                end select
+            end if
+        end if
     end function handle_string_concatenation
     
     function infer_type_from_binary_operation(arena, expr_index) result(var_type)
