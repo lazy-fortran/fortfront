@@ -135,8 +135,13 @@ contains
         type(ast_arena_core_t) :: ast_arena
         integer :: capacity, i
         
-        capacity = 1024  ! Default initial capacity
-        if (present(initial_capacity)) capacity = initial_capacity
+        capacity = 16  ! PERFORMANCE FIX: Start very small, grow as needed
+        if (present(initial_capacity)) then
+            capacity = initial_capacity
+        else
+            ! For simple programs, start with minimal capacity
+            capacity = 16
+        end if
         
         ! Initialize slot storage arrays
         allocate(ast_arena%nodes(capacity))
@@ -544,6 +549,39 @@ contains
     subroutine ast_arena_assign(lhs, rhs)
         class(ast_arena_core_t), intent(out) :: lhs
         type(ast_arena_core_t), intent(in) :: rhs
+        
+        ! PERFORMANCE FIX: Fast path for empty arenas (common during initialization)
+        if (rhs%node_count == 0 .and. rhs%cap > 0) then
+            ! Just copy the structure without deep copying arrays
+            lhs%generation = rhs%generation
+            lhs%size = rhs%size
+            lhs%capacity = rhs%capacity
+            lhs%cap = rhs%cap
+            lhs%free_top = rhs%free_top
+            lhs%node_count = 0  ! Explicitly empty
+            lhs%epoch = rhs%epoch
+            lhs%total_allocations = rhs%total_allocations
+            lhs%total_validations = rhs%total_validations
+            lhs%arena_id = rhs%arena_id
+            lhs%is_initialized = rhs%is_initialized
+            
+            ! Allocate empty arrays with same capacity
+            if (allocated(rhs%nodes)) then
+                allocate(lhs%nodes(size(rhs%nodes)))
+            end if
+            if (allocated(rhs%slot_gen)) then
+                allocate(lhs%slot_gen(size(rhs%slot_gen)))
+                lhs%slot_gen = 0  ! All unused
+            end if
+            if (allocated(rhs%free_stack)) then
+                allocate(lhs%free_stack(size(rhs%free_stack)))
+                ! Copy freelist for empty arena
+                if (rhs%free_top > 0) then
+                    lhs%free_stack(1:rhs%free_top) = rhs%free_stack(1:rhs%free_top)
+                end if
+            end if
+            return
+        end if
         
         ! CRITICAL FIX: Copy base class fields first (base_arena_t)
         lhs%generation = rhs%generation
