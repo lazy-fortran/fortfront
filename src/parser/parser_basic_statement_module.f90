@@ -299,7 +299,7 @@ contains
                     stmt_end = j
                     exit
                 end if
-   if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
+                if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
                     stmt_end = j - 1
                     exit
                 end if
@@ -309,11 +309,11 @@ contains
             ! Extract and parse statement tokens
             if (stmt_end >= stmt_start) then
                 allocate (stmt_tokens(stmt_end - stmt_start + 2))
-           stmt_tokens(1:stmt_end - stmt_start + 1) = parser%tokens(stmt_start:stmt_end)
+                stmt_tokens(1:stmt_end - stmt_start + 1) = parser%tokens(stmt_start:stmt_end)
                 stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
                 stmt_tokens(stmt_end - stmt_start + 2)%text = ""
-              stmt_tokens(stmt_end - stmt_start + 2)%line = parser%tokens(stmt_end)%line
-      stmt_tokens(stmt_end - stmt_start + 2)%column = parser%tokens(stmt_end)%column + 1
+                stmt_tokens(stmt_end - stmt_start + 2)%line = parser%tokens(stmt_end)%line
+                stmt_tokens(stmt_end - stmt_start + 2)%column = parser%tokens(stmt_end)%column + 1
 
                 ! Parse the statement (may return multiple indices for multi-variable declarations)
                 block
