@@ -355,10 +355,155 @@ contains
         type(parameter_info_t), intent(in) :: param_map(:)
         class(ast_node), intent(in) :: proc_node
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: indent_str, stmt_code
+        character(len=:), allocatable :: type_name
+        integer :: i, j, param_idx
+        logical :: has_params_with_attrs
+        logical :: should_skip
+        integer, allocatable :: filtered_indices(:)
+        integer :: filtered_count
+        logical :: in_contains_section
         
-        ! For now, delegate to regular grouped body
-        ! Full parameter-aware grouping would be implemented here
-        code = generate_grouped_body(arena, body_indices, indent)
+        ! Build indent string
+        indent_str = repeat("    ", indent)
+        code = ""
+        
+        ! First pass: collect parameter declarations from body to get types and attributes
+        ! Always scan body for parameter declarations (attributes might come from body, not param list)
+        if (size(param_map) > 0) then
+            do i = 1, size(body_indices)
+                if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(body_indices(i))%node)) then
+                        select type (node => arena%entries(body_indices(i))%node)
+                        type is (declaration_node)
+                            ! Check if this declaration is for a parameter
+                            param_idx = find_parameter_info(param_map, node%var_name)
+                            if (param_idx > 0) then
+                                ! Generate the declaration with parameter attributes from the declaration node
+                                type_name = node%type_name
+                                code = code // indent_str // type_name
+                                
+                                if (node%has_kind) then
+                                    code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                end if
+                                
+                                ! Use attributes from the declaration node itself
+                                if (node%has_intent) then
+                                    code = code // ", intent(" // node%intent // ")"
+                                else if (allocated(param_map(param_idx)%intent_str) .and. &
+                                    len_trim(param_map(param_idx)%intent_str) > 0) then
+                                    code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
+                                end if
+                                
+                                if (node%is_optional) then
+                                    code = code // ", optional"
+                                else if (param_map(param_idx)%is_optional) then
+                                    code = code // ", optional"
+                                end if
+                                
+                                code = code // " :: " // param_map(param_idx)%name
+                                
+                                ! Add dimensions if present
+                                if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
+                                    code = code // "("
+                                    do j = 1, size(node%dimension_indices)
+                                        if (j > 1) code = code // ", "
+                                        stmt_code = generate_code_from_arena(arena, node%dimension_indices(j))
+                                        code = code // stmt_code
+                                    end do
+                                    code = code // ")"
+                                end if
+                                
+                                code = code // new_line('A')
+                            end if
+                        type is (parameter_declaration_node)
+                            ! Check if this parameter_declaration_node is for a parameter
+                            param_idx = find_parameter_info(param_map, node%name)
+                            if (param_idx > 0) then
+                                ! Generate the declaration with attributes from parameter_declaration_node
+                                type_name = node%type_name
+                                ! Debug: print if type_name is empty
+                                if (len_trim(type_name) == 0) then
+                                    ! Skip if no type name - will be handled elsewhere
+                                    cycle
+                                end if
+                                code = code // indent_str // type_name
+                                
+                                if (node%has_kind) then
+                                    code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                end if
+                                
+                                ! Use attributes from the parameter_declaration_node itself
+                                if (len_trim(param_map(param_idx)%intent_str) > 0) then
+                                    code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
+                                end if
+                                
+                                if (param_map(param_idx)%is_optional) then
+                                    code = code // ", optional"
+                                end if
+                                
+                                code = code // " :: " // param_map(param_idx)%name
+                                
+                                ! Add dimensions if present
+                                if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
+                                    code = code // "("
+                                    do j = 1, size(node%dimension_indices)
+                                        if (j > 1) code = code // ", "
+                                        stmt_code = generate_code_from_arena(arena, node%dimension_indices(j))
+                                        code = code // stmt_code
+                                    end do
+                                    code = code // ")"
+                                end if
+                                
+                                code = code // new_line('A')
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        end if
+        
+        ! Second pass: generate body, filtering out parameter declarations
+        allocate(filtered_indices(size(body_indices)))
+        filtered_count = 0
+        
+        do i = 1, size(body_indices)
+            should_skip = .false.
+            if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(body_indices(i))%node)) then
+                    select type (node => arena%entries(body_indices(i))%node)
+                    type is (declaration_node)
+                        ! Skip parameter declarations if we're handling them separately
+                        if (size(param_map) > 0) then
+                            param_idx = find_parameter_info(param_map, node%var_name)
+                            if (param_idx > 0) then
+                                should_skip = .true.
+                            end if
+                        end if
+                    type is (parameter_declaration_node)
+                        ! Also skip parameter_declaration_node entries for parameters
+                        if (size(param_map) > 0) then
+                            param_idx = find_parameter_info(param_map, node%name)
+                            if (param_idx > 0) then
+                                should_skip = .true.
+                            end if
+                        end if
+                    end select
+                end if
+            end if
+            
+            if (.not. should_skip) then
+                filtered_count = filtered_count + 1
+                filtered_indices(filtered_count) = body_indices(i)
+            end if
+        end do
+        
+        ! Generate the rest of the body with filtered indices
+        if (filtered_count > 0) then
+            code = code // generate_grouped_body(arena, filtered_indices(1:filtered_count), indent)
+        end if
+        
+        deallocate(filtered_indices)
     end function generate_grouped_body_with_params
 
     ! Generate grouped body with context about executable statements
