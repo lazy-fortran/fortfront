@@ -1,4 +1,0 @@
-program main
-    implicit none
-    ! Original code could not be parsed
-end program main

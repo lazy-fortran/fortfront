@@ -1,9 +1,0 @@
-libdir=
-includedir=
-
-Name: json-fortran
-Description: 
-URL: https://github.com/jacobwilliams/json-fortran
-Version: 8.3.0
-Libs: -L${libdir} -ljsonfortran
-Cflags: -I${includedir}

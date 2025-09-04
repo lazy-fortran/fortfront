@@ -1,1 +1,0 @@
-/usr/bin/f95 -Wl,--dependency-file=CMakeFiles/jf_test_02.dir/link.d  -cpp -fmax-stack-var-size=524288 -fbacktrace -fno-omit-frame-pointer CMakeFiles/jf_test_02.dir/src/tests/jf_test_02.F90.o -o bin/jf_test_02  -Wl,-rpath,/home/ert/code/fortfront/cmake_test/_deps/json-fortran-build/lib lib/libjsonfortran.so.8.3.0
