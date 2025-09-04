@@ -3,6 +3,7 @@ module codegen_expressions
     use ast_core
     use ast_nodes_core
     use ast_nodes_data
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
     use ast_nodes_bounds, only: array_slice_node, range_expression_node
     use ast_nodes_misc, only: complex_literal_node
     use ast_nodes_loops, only: do_loop_node
@@ -239,6 +240,49 @@ contains
             end if
         end do
     end function generate_elements_code_from_indices
+    
+    ! Generate code for real array elements, converting integers as needed
+    function generate_real_elements_code(arena, element_indices) result(elements_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: element_indices(:)
+        character(len=:), allocatable :: elements_code, elem_code
+        type(mono_type_t) :: elem_type
+        integer :: i
+        logical :: is_integer_literal
+        
+        elements_code = ""
+        do i = 1, size(element_indices)
+            if (i > 1) elements_code = elements_code // ", "
+            if (element_indices(i) > 0) then
+                elem_code = generate_code_from_arena(arena, element_indices(i))
+                is_integer_literal = .false.
+                
+                ! Check if element is an integer literal that needs conversion
+                select type(node => arena%entries(element_indices(i))%node)
+                type is (literal_node)
+                    if (node%literal_kind == LITERAL_INTEGER) then
+                        is_integer_literal = .true.
+                    end if
+                end select
+                
+                if (is_integer_literal) then
+                    ! Convert integer to real - use simple conversion
+                    ! Check if it's just a simple integer
+                    if (index(elem_code, '.') == 0 .and. &
+                        index(elem_code, 'e') == 0 .and. &
+                        index(elem_code, 'E') == 0 .and. &
+                        index(elem_code, 'd') == 0 .and. &
+                        index(elem_code, 'D') == 0) then
+                        elements_code = elements_code // elem_code // ".0"
+                    else
+                        elements_code = elements_code // elem_code
+                    end if
+                else
+                    elements_code = elements_code // elem_code
+                end if
+            end if
+        end do
+    end function generate_real_elements_code
 
     ! Generate code for array literals
     function generate_code_array_literal(arena, node, node_index) result(code)
@@ -247,13 +291,48 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: elements_code
+        type(mono_type_t) :: array_type
+        logical :: is_real_array
+        
+        ! Check if this is a real array to handle type conversion
+        is_real_array = .false.
+        if (node%inferred_type%kind == TARRAY) then
+            if (node%inferred_type%has_args() .and. node%inferred_type%get_args_count() > 0) then
+                array_type = node%inferred_type%get_arg(1)
+                is_real_array = (array_type%kind == TREAL)
+            else
+                ! If no type info, check if any element is real
+                if (allocated(node%element_indices)) then
+                    block
+                        integer :: j
+                        do j = 1, size(node%element_indices)
+                            if (node%element_indices(j) > 0) then
+                                select type(elem_node => arena%entries(node%element_indices(j))%node)
+                                type is (literal_node)
+                                    if (elem_node%literal_kind == LITERAL_REAL) then
+                                        is_real_array = .true.
+                                        exit
+                                    end if
+                                end select
+                            end if
+                        end do
+                    end block
+                end if
+            end if
+        end if
+        
+        ! Generate elements code based on array type (for type conversion)
+        if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
+            elements_code = generate_elements_code_from_indices(arena, node%element_indices)
+        else
+            elements_code = ""
+        end if
         
         ! Handle different syntax styles
         if (allocated(node%syntax_style)) then
             if (node%syntax_style == "modern") then
                 ! Modern syntax: [1, 2, 3]
                 if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
-                    elements_code = generate_elements_code_from_indices(arena, node%element_indices)
                     code = "[" // elements_code // "]"
                 else
                     ! Empty array - needs type spec, default to integer
@@ -271,7 +350,6 @@ contains
             else
                 ! Legacy syntax: (/ 1, 2, 3 /)
                 if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
-                    elements_code = generate_elements_code_from_indices(arena, node%element_indices)
                     code = "(/ " // elements_code // " /)"
                 else
                     ! Empty array - needs type spec, default to integer
@@ -281,7 +359,6 @@ contains
         else
             ! Default to legacy syntax
             if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
-                elements_code = generate_elements_code_from_indices(arena, node%element_indices)
                 code = "(/ " // elements_code // " /)"
             else
                 code = "[integer ::]"  ! Empty array constructor with type specification
@@ -457,8 +534,8 @@ contains
                 end_code = "n"
             end if
             
-            ! Generate step expression if present
-            ! Use legacy syntax (/ /) for implied do to work with implicit typing
+            ! Generate step expression if present  
+            ! Use legacy (/ /) syntax for compatibility
             if (node%step_expr_index > 0) then
                 step_code = generate_code_from_arena(arena, node%step_expr_index)
                 if (allocated(node%var_name)) then

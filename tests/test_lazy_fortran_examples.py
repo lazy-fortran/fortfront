@@ -55,9 +55,8 @@ XFAIL_TESTS = {
     "test_comprehensive_precedence.lf": ("Operator precedence incorrect", 1240),
     "test_unary_precedence.lf": ("Unary operator precedence fails", 1240),
     
-    # Scope and semantic analysis (issue #1241)
-    "test_sem_scope.lf": ("Scope resolution produces invalid code", 1241),
-    "test_sem_mixed.lf": ("Mixed semantic constructs fail", 1241),
+    # Scope and semantic analysis (issue #1241) - test_sem_scope is fixed, test_sem_mixed still fails
+    "test_sem_mixed.lf": ("Mixed type array constructor needs type spec", 1241),
     
     # Semicolon handling (issue #1242) - semicolons work but declarations after executable statements still fail
     "test_semicolons_mixed.lf": ("Mixed declarations and executable statements fail", 1242),
