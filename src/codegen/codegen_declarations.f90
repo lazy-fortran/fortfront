@@ -728,58 +728,63 @@ contains
                     allocate(character(len=32) :: loop_vars(20))  ! Support up to 20 loop variables
                     n_vars = 0
                     
-                    ! Search for patterns like "(var=" in implied do loops
+                    
+                    ! Search for patterns like "(var=" in implied do loops (both old and new syntax)
                     pos = 1
                     do while (pos <= len(body_code))
-                        ! Find next occurrence of "= (/ ("
+                        ! Find next occurrence of either "= (/ (" or "= [("
                         start_pos = index(body_code(pos:), "= (/ (")
-                        if (start_pos == 0) exit
-                        start_pos = pos + start_pos - 1
-                        
-                        ! Find the loop variable patterns like ", i=1," or ", j=1,"
-                        end_pos = index(body_code(start_pos:), " /)")
-                        if (end_pos > 0) then
-                            end_pos = start_pos + end_pos - 1
-                            ! Extract variables from this implied do section
-                            call extract_loop_vars_from_section(body_code(start_pos:end_pos), &
-                                                               loop_vars, n_vars)
+                        if (start_pos == 0) then
+                            ! Try new syntax
+                            start_pos = index(body_code(pos:), "= [(")
+                            if (start_pos > 0) then
+                                start_pos = pos + start_pos - 1
+                                ! Find the end with "]" for new syntax
+                                end_pos = index(body_code(start_pos:), ")]")
+                                if (end_pos > 0) then
+                                    end_pos = start_pos + end_pos - 1
+                                    ! Extract variables from this implied do section
+                                    call extract_loop_vars_from_section(body_code(start_pos:end_pos), &
+                                                                       loop_vars, n_vars)
+                                end if
+                                pos = start_pos + 3  ! Move past "= [("
+                            else
+                                exit  ! No more patterns found
+                            end if
+                        else
+                            start_pos = pos + start_pos - 1
+                            ! Find the loop variable patterns for old syntax
+                            end_pos = index(body_code(start_pos:), " /)")
+                            if (end_pos > 0) then
+                                end_pos = start_pos + end_pos - 1
+                                ! Extract variables from this implied do section
+                                call extract_loop_vars_from_section(body_code(start_pos:end_pos), &
+                                                                   loop_vars, n_vars)
+                            end if
+                            pos = start_pos + 6  ! Move past "= (/ ("
                         end if
-                        pos = start_pos + 6
                     end do
                     
                     ! If we found loop variables, add declarations
                     if (n_vars > 0) then
-                        impl_pos = index(body_code, "implicit none")
-                        if (impl_pos > 0) then
-                            ! Find end of implicit none line
-                            insert_pos = impl_pos + 13  ! Length of "implicit none"
-                            do while (insert_pos <= len(body_code))
-                                if (body_code(insert_pos:insert_pos) == new_line('A')) then
-                                    exit
-                                end if
-                                insert_pos = insert_pos + 1
-                            end do
+                        ! Add loop variable declarations directly to code (where implicit none was added)
+                        do i = 1, n_vars
+                            ! Skip if already declared in body
+                            already_declared = .false.
+                            if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
+                                already_declared = .true.
+                            end if
                             
-                            if (insert_pos <= len(body_code)) then
-                                ! Build declaration line for all unique variables
-                                before_code = body_code(1:insert_pos)
-                                after_code = body_code(insert_pos+1:)
-                                
-                                ! Add declarations for all unique loop variables
-                                do i = 1, n_vars
-                                    ! Skip if already declared
-                                    already_declared = .false.
-                                    if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
-                                        already_declared = .true.
-                                    end if
-                                    
-                                    if (.not. already_declared) then
-                                        before_code = before_code // "    integer :: " // &
-                                                    trim(loop_vars(i)) // new_line('A')
-                                    end if
-                                end do
-                                
-                                body_code = before_code // after_code
+                            if (.not. already_declared) then
+                                code = code // "    integer :: " // trim(loop_vars(i)) // new_line('A')
+                            end if
+                        end do
+                    else
+                        ! No loop variables detected, but check if there's an implied do loop we missed
+                        if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
+                            ! There's an implied do but we didn't find variables - add a default i
+                            if (index(body_code, "integer :: i") == 0 .and. index(code, "integer :: i") == 0) then
+                                code = code // "    integer :: i" // new_line('A')
                             end if
                         end if
                     end if
