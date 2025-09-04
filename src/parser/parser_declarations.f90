@@ -120,6 +120,44 @@ contains
                             attr_info%has_global_dimensions = .true.
                         end if
                     end if
+                case ("intent")
+                    token = parser%consume()  ! consume 'intent'
+                    if (.not. parser%is_at_end()) then
+                        token = parser%peek()
+                        if (token%text == "(") then
+                            token = parser%consume()  ! consume '('
+                            if (.not. parser%is_at_end()) then
+                                token = parser%peek()
+                                select case (token%text)
+                                case ("in")
+                                    attr_info%intent = "in"
+                                    attr_info%has_intent = .true.
+                                    token = parser%consume()
+                                case ("out")
+                                    attr_info%intent = "out"
+                                    attr_info%has_intent = .true.
+                                    token = parser%consume()
+                                case ("inout")
+                                    attr_info%intent = "inout"
+                                    attr_info%has_intent = .true.
+                                    token = parser%consume()
+                                end select
+                                ! consume closing paren
+                                if (.not. parser%is_at_end()) then
+                                    token = parser%peek()
+                                    if (token%text == ")") then
+                                        token = parser%consume()
+                                    end if
+                                end if
+                            end if
+                        end if
+                    end if
+                case ("optional")
+                    attr_info%is_optional = .true.
+                    token = parser%consume()
+                case ("target")
+                    attr_info%is_target = .true.
+                    token = parser%consume()
                 case default
                     exit
                 end select
@@ -139,7 +177,7 @@ contains
         type(token_t) :: token
         type(type_specifier_t) :: type_spec
         type(declaration_attributes_t) :: attr_info
-        integer :: initializer_index, intent_code
+        integer :: initializer_index
 
         
         decl_index = 0
@@ -320,9 +358,6 @@ contains
                 end if
             end if
 
-            ! Convert intent to code (simplified)
-            intent_code = 0
-
             ! Create declaration node
             if (attr_info%has_global_dimensions) then
                 decl_index = push_declaration( &
@@ -333,6 +368,9 @@ contains
                     initializer_index=initializer_index, &
                     is_allocatable=attr_info%is_allocatable, &
                     is_pointer=attr_info%is_pointer, &
+                    is_target=attr_info%is_target, &
+                    intent_value=attr_info%intent, &
+                    is_optional=attr_info%is_optional, &
                     is_parameter=attr_info%is_parameter &
                 )
             else if (has_local_dimensions) then
@@ -344,6 +382,9 @@ contains
                     initializer_index=initializer_index, &
                     is_allocatable=attr_info%is_allocatable, &
                     is_pointer=attr_info%is_pointer, &
+                    is_target=attr_info%is_target, &
+                    intent_value=attr_info%intent, &
+                    is_optional=attr_info%is_optional, &
                     is_parameter=attr_info%is_parameter &
                 )
             else
@@ -354,6 +395,9 @@ contains
                 initializer_index=initializer_index, &
                 is_allocatable=attr_info%is_allocatable, &
                 is_pointer=attr_info%is_pointer, &
+                is_target=attr_info%is_target, &
+                intent_value=attr_info%intent, &
+                is_optional=attr_info%is_optional, &
                 is_parameter=attr_info%is_parameter &
             )
             end if
@@ -590,6 +634,9 @@ contains
                                     initializer_index=merge(initializer_index, 0, i==var_count), &
                                     is_allocatable=attr_info%is_allocatable, &
                                     is_pointer=attr_info%is_pointer, &
+                                    is_target=attr_info%is_target, &
+                                    intent_value=attr_info%intent, &
+                                    is_optional=attr_info%is_optional, &
                                     is_parameter=attr_info%is_parameter &
                                 )
                             end if
@@ -604,6 +651,9 @@ contains
                             initializer_index=merge(initializer_index, 0, i==var_count), &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
+                            is_target=attr_info%is_target, &
+                            intent_value=attr_info%intent, &
+                            is_optional=attr_info%is_optional, &
                             is_parameter=attr_info%is_parameter &
                         )
                     else
@@ -615,6 +665,9 @@ contains
                             initializer_index=merge(initializer_index, 0, i==var_count), &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
+                            is_target=attr_info%is_target, &
+                            intent_value=attr_info%intent, &
+                            is_optional=attr_info%is_optional, &
                             is_parameter=attr_info%is_parameter &
                         )
                     end if
