@@ -33,8 +33,7 @@ XFAIL_TESTS = {
     "test_empty_all.lf": ("Empty statements produce syntax errors", 1235),
     "test_empty_edge.lf": ("Edge case empty constructs fail", 1235),
     
-    # Constructor type issues (issue #1236)
-    "test_constructor.lf": ("Constructor codegen produces invalid Fortran", 1236),
+    # Constructor type issues (issue #1236) - NOW FIXED
     
     # Complex expression issues - issue 209 related (issue #1237)
     "test_209_all.lf": ("Complex multi-type expressions fail", 1237),

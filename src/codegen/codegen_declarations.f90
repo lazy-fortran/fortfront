@@ -4,8 +4,10 @@ module codegen_declarations
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
         derived_type_node, intent_type_to_string, module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_nodes_core, only: program_node, identifier_node, literal_node
+    use ast_nodes_core, only: program_node, identifier_node, literal_node, assignment_node, &
+        array_literal_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node, comment_node, blank_line_node
+    use ast_nodes_loops, only: do_loop_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -707,12 +709,42 @@ contains
                 code = code // "    implicit none" // new_line('A')
             end if
         end block
-
+        
         ! Generate body with proper grouping
         if (allocated(node%body_indices)) then
             body_code = generate_grouped_body_with_context(arena, node%body_indices, 1, &
                                                           context_has_executable_before_contains)
+            
+            ! Check if body contains implied do loops and add loop variable after implicit none
             if (len(body_code) > 0) then
+                if (index(body_code, "(/ (") > 0 .or. index(body_code, "(/(") > 0) then
+                    ! Body contains implied do loops - add declaration for 'i'
+                    ! Find position after implicit none
+                    block
+                        integer :: impl_pos, insert_pos
+                        character(len=:), allocatable :: before_code, after_code
+                        
+                        impl_pos = index(body_code, "implicit none")
+                        if (impl_pos > 0) then
+                            ! Find end of implicit none line
+                            insert_pos = impl_pos + 13  ! Length of "implicit none"
+                            do while (insert_pos <= len(body_code))
+                                if (body_code(insert_pos:insert_pos) == new_line('A')) then
+                                    exit
+                                end if
+                                insert_pos = insert_pos + 1
+                            end do
+                            
+                            if (insert_pos <= len(body_code)) then
+                                ! Insert integer :: i after implicit none
+                                before_code = body_code(1:insert_pos)
+                                after_code = body_code(insert_pos+1:)
+                                body_code = before_code // "    integer :: i" // new_line('A') // after_code
+                            end if
+                        end if
+                    end block
+                end if
+                
                 code = code // body_code
             end if
         end if
@@ -733,5 +765,192 @@ contains
         ! Pass context to utilities module
         code = generate_grouped_body_context(arena, body_indices, indent, has_exec_before_contains)
     end function generate_grouped_body_with_context
+
+    ! Check if a node contains implied do loops  
+    recursive function contains_implied_do(arena, node_index) result(has_implied)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        logical :: has_implied
+        integer :: k
+        
+        has_implied = .false.
+        
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+        
+        select type (node => arena%entries(node_index)%node)
+        type is (array_literal_node)
+            ! Check if this is an implied do array
+            if (node%syntax_style == "implied_do") then
+                has_implied = .true.
+                return
+            end if
+            ! Check elements
+            if (allocated(node%element_indices)) then
+                do k = 1, size(node%element_indices)
+                    has_implied = contains_implied_do(arena, node%element_indices(k))
+                    if (has_implied) return
+                end do
+            end if
+            
+        type is (assignment_node)
+            ! Check the value being assigned
+            has_implied = contains_implied_do(arena, node%value_index)
+            
+        type is (declaration_node)
+            ! Check initializer
+            if (node%has_initializer .and. node%initializer_index > 0) then
+                has_implied = contains_implied_do(arena, node%initializer_index)
+            end if
+            
+        type is (do_loop_node)
+            ! This might be an implied do inside an array constructor
+            if (allocated(node%var_name)) then
+                has_implied = .true.
+            end if
+            
+        end select
+    end function contains_implied_do
+    
+    ! Check if body contains implied do loops
+    function has_implied_do_in_body(arena, indices) result(has_implied)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: indices(:)
+        logical :: has_implied
+        integer :: i
+        
+        has_implied = .false.
+        
+        do i = 1, size(indices)
+            if (indices(i) > 0 .and. indices(i) <= arena%size) then
+                if (allocated(arena%entries(indices(i))%node)) then
+                    if (check_node_for_implied_do(arena, indices(i))) then
+                        has_implied = .true.
+                        return
+                    end if
+                end if
+            end if
+        end do
+        
+    contains
+        recursive function check_node_for_implied_do(arena, node_index) result(found)
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: node_index
+            logical :: found
+            integer :: k
+            
+            found = .false.
+            if (node_index <= 0 .or. node_index > arena%size) return
+            if (.not. allocated(arena%entries(node_index)%node)) return
+            
+            select type (node => arena%entries(node_index)%node)
+            type is (array_literal_node)
+                if (node%syntax_style == "implied_do") then
+                    found = .true.
+                    return
+                end if
+                
+            type is (assignment_node)
+                found = check_node_for_implied_do(arena, node%value_index)
+                
+            type is (declaration_node)
+                if (node%has_initializer .and. node%initializer_index > 0) then
+                    found = check_node_for_implied_do(arena, node%initializer_index)
+                end if
+                
+            end select
+        end function check_node_for_implied_do
+    end function has_implied_do_in_body
+    
+    ! Collect implied do loop variables from the AST
+    function collect_implied_do_variables(arena, indices) result(vars)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: indices(:)
+        character(len=:), allocatable :: vars(:)
+        character(len=:), allocatable :: temp_vars(:)
+        integer :: i, j, count
+        logical :: found
+        
+        count = 0
+        allocate(character(len=16) :: temp_vars(100))  ! Max 100 variables
+        
+        ! Recursively scan for implied do loops
+        do i = 1, size(indices)
+            if (indices(i) > 0 .and. indices(i) <= arena%size) then
+                if (allocated(arena%entries(indices(i))%node)) then
+                    call collect_from_node(arena, indices(i), temp_vars, count)
+                end if
+            end if
+        end do
+        
+        ! Copy unique variables to result
+        if (count > 0) then
+            allocate(character(len=16) :: vars(count))
+            do i = 1, count
+                vars(i) = temp_vars(i)
+            end do
+        end if
+        
+    contains
+        recursive subroutine collect_from_node(arena, node_index, vars_list, var_count)
+            type(ast_arena_t), intent(in) :: arena
+            integer, intent(in) :: node_index
+            character(len=*), intent(inout) :: vars_list(:)
+            integer, intent(inout) :: var_count
+            integer :: k
+            logical :: already_exists
+            
+            if (node_index <= 0 .or. node_index > arena%size) return
+            if (.not. allocated(arena%entries(node_index)%node)) return
+            
+            select type (node => arena%entries(node_index)%node)
+            type is (array_literal_node)
+                ! Check if it has implied do syntax
+                if (node%syntax_style == "implied_do") then
+                    if (allocated(node%element_indices)) then
+                        do k = 1, size(node%element_indices)
+                            call collect_from_node(arena, node%element_indices(k), vars_list, var_count)
+                        end do
+                    end if
+                end if
+                
+            type is (do_loop_node)
+                ! Check if this is an implied do loop (inside array constructor)
+                if (allocated(node%var_name)) then
+                    ! Check if variable already in list
+                    already_exists = .false.
+                    do k = 1, var_count
+                        if (vars_list(k) == node%var_name) then
+                            already_exists = .true.
+                            exit
+                        end if
+                    end do
+                    
+                    if (.not. already_exists .and. var_count < size(vars_list)) then
+                        var_count = var_count + 1
+                        vars_list(var_count) = node%var_name
+                    end if
+                end if
+                
+                ! Recursively check body
+                if (allocated(node%body_indices)) then
+                    do k = 1, size(node%body_indices)
+                        call collect_from_node(arena, node%body_indices(k), vars_list, var_count)
+                    end do
+                end if
+                
+            type is (assignment_node)
+                call collect_from_node(arena, node%value_index, vars_list, var_count)
+                
+            type is (declaration_node)
+                if (node%has_initializer .and. node%initializer_index > 0) then
+                    call collect_from_node(arena, node%initializer_index, vars_list, var_count)
+                end if
+                
+            class default
+                ! For other nodes, do nothing
+            end select
+        end subroutine collect_from_node
+    end function collect_implied_do_variables
 
 end module codegen_declarations
