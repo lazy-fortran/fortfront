@@ -313,9 +313,11 @@ contains
         is_multiline_construct = .false.
         nesting_level = 0
         
-        ! Skip leading newlines
+        ! Skip leading newlines and semicolons (semicolons act as statement separators)
         stmt_start = start_pos
-        do while (stmt_start <= size(tokens) .and. tokens(stmt_start)%kind == TK_NEWLINE)
+        do while (stmt_start <= size(tokens) .and. &
+                 (tokens(stmt_start)%kind == TK_NEWLINE .or. &
+                  (tokens(stmt_start)%kind == TK_OPERATOR .and. tokens(stmt_start)%text == ";")))
             stmt_start = stmt_start + 1
         end do
         

@@ -150,12 +150,13 @@ contains
         logical, intent(out) :: found_assignments
         integer :: unit, iostat
         character(len=256) :: line
-        logical :: found_a, found_b, found_c
+        logical :: found_a, found_b, found_c, has_errors
         
         found_assignments = .false.
         found_a = .false.
         found_b = .false.
         found_c = .false.
+        has_errors = .false.
         
         open(newunit=unit, file=output_file, status='old', iostat=iostat)
         if (iostat /= 0) return
@@ -167,10 +168,11 @@ contains
             if (index(line, 'a = 1') > 0) found_a = .true.
             if (index(line, 'b = 2') > 0) found_b = .true.
             if (index(line, 'c = 3') > 0) found_c = .true.
+            if (index(line, '!ERROR:') > 0) has_errors = .true.
         end do
         
         close(unit)
-        found_assignments = found_a .and. found_b .and. found_c
+        found_assignments = found_a .and. found_b .and. found_c .and. .not. has_errors
         
     end subroutine check_generated_assignments
 
@@ -179,13 +181,14 @@ contains
         logical, intent(out) :: found_statements
         integer :: unit, iostat
         character(len=256) :: line
-        logical :: found_i_decl, found_x_decl, found_i_assign, found_x_assign
+        logical :: found_i_decl, found_x_decl, found_i_assign, found_x_assign, has_errors
         
         found_statements = .false.
         found_i_decl = .false.
         found_x_decl = .false.
         found_i_assign = .false.
         found_x_assign = .false.
+        has_errors = .false.
         
         open(newunit=unit, file=output_file, status='old', iostat=iostat)
         if (iostat /= 0) return
@@ -198,10 +201,11 @@ contains
             if (index(line, 'real') > 0 .and. index(line, 'x') > 0) found_x_decl = .true.
             if (index(line, 'i = 42') > 0) found_i_assign = .true.
             if (index(line, 'x = 3.14') > 0) found_x_assign = .true.
+            if (index(line, '!ERROR:') > 0) has_errors = .true.
         end do
         
         close(unit)
-        found_statements = found_i_decl .and. found_x_decl .and. found_i_assign .and. found_x_assign
+        found_statements = found_i_decl .and. found_x_decl .and. found_i_assign .and. found_x_assign .and. .not. has_errors
         
     end subroutine check_generated_statements
     
@@ -210,12 +214,13 @@ contains
         logical, intent(out) :: found_mixed_content
         integer :: unit, iostat
         character(len=256) :: line
-        logical :: found_a_assign, found_b_decl, found_b_assign
+        logical :: found_a_assign, found_b_decl, found_b_assign, has_errors
         
         found_mixed_content = .false.
         found_a_assign = .false.
         found_b_decl = .false.
         found_b_assign = .false.
+        has_errors = .false.
         
         open(newunit=unit, file=output_file, status='old', iostat=iostat)
         if (iostat /= 0) return
@@ -227,10 +232,11 @@ contains
             if (index(line, 'a = 100') > 0) found_a_assign = .true.
             if (index(line, 'integer') > 0 .and. index(line, 'b') > 0) found_b_decl = .true.
             if (index(line, 'b = 200') > 0) found_b_assign = .true.
+            if (index(line, '!ERROR:') > 0) has_errors = .true.
         end do
         
         close(unit)
-        found_mixed_content = found_a_assign .and. found_b_decl .and. found_b_assign
+        found_mixed_content = found_a_assign .and. found_b_decl .and. found_b_assign .and. .not. has_errors
         
     end subroutine check_generated_mixed_content
 
