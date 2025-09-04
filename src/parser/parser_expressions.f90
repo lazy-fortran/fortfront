@@ -142,7 +142,7 @@ contains
         integer :: right_index
         type(token_t) :: op_token
 
-        expr_index = parse_term(parser, arena)
+        expr_index = parse_concatenation(parser, arena)
 
         ! Make comparison operators non-associative (Issue #216)
         ! Parse at most ONE comparison operator
@@ -153,7 +153,7 @@ contains
                  op_token%text == "<=" .or. op_token%text == ">=" .or. &
                  op_token%text == "<" .or. op_token%text == ">")) then
                 op_token = parser%consume()
-                right_index = parse_term(parser, arena)
+                right_index = parse_concatenation(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
                                              op_token%text, op_token%line, &
                                              op_token%column)
@@ -170,7 +170,7 @@ contains
         type(token_t) :: op_token
         integer :: loop_count
 
-        expr_index = parse_factor(parser, arena)
+        expr_index = parse_term(parser, arena)
         loop_count = 0
 
         do while (.not. parser%is_at_end() .and. loop_count < 1000)
@@ -178,7 +178,7 @@ contains
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == "//") then
                 op_token = parser%consume()
-                right_index = parse_factor(parser, arena)
+                right_index = parse_term(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
                                              op_token%text, op_token%line, &
                                              op_token%column)
@@ -196,7 +196,7 @@ contains
         type(token_t) :: op_token
         integer :: loop_count
 
-        expr_index = parse_concatenation(parser, arena)
+        expr_index = parse_factor(parser, arena)
         loop_count = 0
 
         do while (.not. parser%is_at_end() .and. loop_count < 1000)
@@ -205,7 +205,7 @@ contains
             if (op_token%kind == TK_OPERATOR .and. &
                 (op_token%text == "+" .or. op_token%text == "-")) then
                 op_token = parser%consume()
-                right_index = parse_concatenation(parser, arena)
+                right_index = parse_factor(parser, arena)
                 expr_index = push_binary_op(arena, expr_index, right_index, &
                                              op_token%text, op_token%line, &
                                              op_token%column)
