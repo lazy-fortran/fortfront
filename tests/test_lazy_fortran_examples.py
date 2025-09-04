@@ -12,10 +12,13 @@ from pathlib import Path
 import tempfile
 import re
 
+# Import the fortfront API wrapper
+from fortfront_api import transform_lazy_fortran_string
+
 # Repository root directory
 REPO_ROOT = Path(__file__).parent.parent
 
-# Timeout for each test
+# Timeout for each test (handled by the API now)
 TIMEOUT_SECONDS = 10
 
 # Expected failures - these will be marked with xfail
@@ -86,44 +89,26 @@ def collect_lf_files():
 def run_fortfront(lf_file):
     """Run fortfront on a .lf file and return the result."""
     try:
-        # Find fortfront binary
-        fortfront_binary = REPO_ROOT / "build" / "gfortran_D153B38149EAEE58" / "app" / "fortfront"
-        if not fortfront_binary.exists():
-            # Try alternate build directory
-            build_dir = REPO_ROOT / "build"
-            if build_dir.exists():
-                for subdir in build_dir.iterdir():
-                    app_binary = subdir / "app" / "fortfront"
-                    if app_binary.exists():
-                        fortfront_binary = app_binary
-                        break
+        # Read the .lf file content
+        lf_content = lf_file.read_text()
         
-        if not fortfront_binary.exists():
-            return False, "Fortfront binary not found"
-        
-        # Run fortfront compiler
-        result = subprocess.run(
-            [str(fortfront_binary)],
-            input=lf_file.read_text(),
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT_SECONDS,
-            cwd=REPO_ROOT
-        )
+        # Use the fortfront API to transform the code
+        success, output, error_msg = transform_lazy_fortran_string(lf_content)
         
         # Check if compilation succeeded
-        if result.returncode != 0:
-            return False, f"Compilation failed: {result.stderr}"
+        if not success:
+            return False, f"Compilation failed: {error_msg}"
         
         # Check if output is valid Fortran
-        if not result.stdout.strip():
+        if not output.strip():
             return False, "Empty output generated"
         
         # Basic validation of output
-        output = result.stdout.strip()
+        output = output.strip()
         
         # Check for basic Fortran structure
-        if not ("program" in output.lower() or "module" in output.lower() or "function" in output.lower() or "subroutine" in output.lower()):
+        if not ("program" in output.lower() or "module" in output.lower() or 
+                "function" in output.lower() or "subroutine" in output.lower()):
             return False, "Output doesn't appear to be valid Fortran"
         
         # Optionally compile the generated Fortran to validate it
@@ -131,23 +116,30 @@ def run_fortfront(lf_file):
             f.write(output.encode())
             f.flush()
             
-            # Try to compile with gfortran
-            compile_result = subprocess.run(
-                ["gfortran", "-fsyntax-only", "-ffree-form", f.name],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            os.unlink(f.name)
-            
-            if compile_result.returncode != 0:
-                return False, f"Generated Fortran compilation failed: {compile_result.stderr}"
+            try:
+                # Try to compile with gfortran if available
+                compile_result = subprocess.run(
+                    ["gfortran", "-fsyntax-only", "-ffree-form", f.name],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                os.unlink(f.name)
+                
+                if compile_result.returncode != 0:
+                    return False, f"Generated Fortran compilation failed: {compile_result.stderr}"
+            except FileNotFoundError:
+                # gfortran not available, skip validation
+                os.unlink(f.name)
+                # Still return success since fortfront compilation worked
+                pass
+            except subprocess.TimeoutExpired:
+                os.unlink(f.name)
+                return False, "Gfortran validation timeout"
         
         return True, "Success"
         
-    except subprocess.TimeoutExpired:
-        return False, f"Timeout after {TIMEOUT_SECONDS} seconds"
     except Exception as e:
         return False, f"Unexpected error: {str(e)}"
 
