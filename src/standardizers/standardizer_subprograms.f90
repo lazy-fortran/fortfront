@@ -140,8 +140,10 @@ contains
                     end if
                 end do
             end if
-            if (allocated(res_name) .and. len_trim(res_name) > 0) then
-                func_def%result_variable = trim(res_name)
+            if (allocated(res_name)) then
+                if (len_trim(res_name) > 0) then
+                    func_def%result_variable = trim(res_name)
+                end if
             end if
         end if
 
