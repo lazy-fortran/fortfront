@@ -252,11 +252,12 @@ contains
         if (allocated(node%syntax_style)) then
             if (node%syntax_style == "modern") then
                 ! Modern syntax: [1, 2, 3]
-                if (allocated(node%element_indices)) then
+                if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
                     elements_code = generate_elements_code_from_indices(arena, node%element_indices)
                     code = "[" // elements_code // "]"
                 else
-                    code = "[]"  ! Empty array
+                    ! Empty array - needs type spec, default to integer
+                    code = "[integer ::]"
                 end if
             else if (node%syntax_style == "implied_do") then
                 ! Implied do loop syntax: generate actual implied do loop
@@ -264,24 +265,26 @@ contains
                     ! The element should be a do loop node
                     code = generate_implied_do_array(arena, node%element_indices(1))
                 else
-                    code = "[]"  ! Fallback
+                    ! Empty array - needs type spec, default to integer
+                    code = "[integer ::]"
                 end if
             else
                 ! Legacy syntax: (/ 1, 2, 3 /)
-                if (allocated(node%element_indices)) then
+                if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
                     elements_code = generate_elements_code_from_indices(arena, node%element_indices)
                     code = "(/ " // elements_code // " /)"
                 else
-                    code = "(/ /)"  ! Empty array
+                    ! Empty array - needs type spec, default to integer
+                    code = "[integer ::]"
                 end if
             end if
         else
             ! Default to legacy syntax
-            if (allocated(node%element_indices)) then
+            if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
                 elements_code = generate_elements_code_from_indices(arena, node%element_indices)
                 code = "(/ " // elements_code // " /)"
             else
-                code = "(/ /)"  ! Empty array
+                code = "[integer ::]"  ! Empty array constructor with type specification
             end if
         end if
     end function generate_code_array_literal
@@ -476,7 +479,8 @@ contains
             end if
         class default
             ! Not a do loop node - fallback
-            code = "[]"
+            ! Empty array needs type specification  
+            code = "[integer ::]"
         end select
     end function generate_implied_do_array
 

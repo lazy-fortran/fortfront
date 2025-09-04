@@ -597,7 +597,7 @@ call append_debug(this, "if_statement: condition="//int_to_string(node%condition
         character(len=20) :: temp
 
         if (size(arr) == 0) then
-            str = "[]"
+            str = "[integer ::]"  ! Empty array with type spec
             return
         end if
 

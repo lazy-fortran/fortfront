@@ -29,7 +29,7 @@ XFAIL_TESTS = {
     "test_cg_slice.lf": ("Generated Fortran doesn't compile - syntax error", 1234),
     
     # Empty program/module handling issues (issue #1235)
-    "test_empty.lf": ("Empty input handling produces invalid output", 1235),
+    # test_empty.lf is now fixed - removed from xfail
     "test_empty_all.lf": ("Empty statements produce syntax errors", 1235),
     "test_empty_edge.lf": ("Edge case empty constructs fail", 1235),
     
