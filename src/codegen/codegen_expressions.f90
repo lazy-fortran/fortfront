@@ -5,6 +5,7 @@ module codegen_expressions
     use ast_nodes_data
     use ast_nodes_bounds, only: array_slice_node, range_expression_node
     use ast_nodes_misc, only: complex_literal_node
+    use ast_nodes_loops, only: do_loop_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -248,16 +249,34 @@ contains
         character(len=:), allocatable :: elements_code
         
         ! Handle different syntax styles
-        if (allocated(node%syntax_style) .and. node%syntax_style == "modern") then
-            ! Modern syntax: [1, 2, 3]
-            if (allocated(node%element_indices)) then
-                elements_code = generate_elements_code_from_indices(arena, node%element_indices)
-                code = "[" // elements_code // "]"
+        if (allocated(node%syntax_style)) then
+            if (node%syntax_style == "modern") then
+                ! Modern syntax: [1, 2, 3]
+                if (allocated(node%element_indices)) then
+                    elements_code = generate_elements_code_from_indices(arena, node%element_indices)
+                    code = "[" // elements_code // "]"
+                else
+                    code = "[]"  ! Empty array
+                end if
+            else if (node%syntax_style == "implied_do") then
+                ! Implied do loop syntax: generate actual implied do loop
+                if (allocated(node%element_indices) .and. size(node%element_indices) > 0) then
+                    ! The element should be a do loop node
+                    code = generate_implied_do_array(arena, node%element_indices(1))
+                else
+                    code = "[]"  ! Fallback
+                end if
             else
-                code = "[]"  ! Empty array
+                ! Legacy syntax: (/ 1, 2, 3 /)
+                if (allocated(node%element_indices)) then
+                    elements_code = generate_elements_code_from_indices(arena, node%element_indices)
+                    code = "(/ " // elements_code // " /)"
+                else
+                    code = "(/ /)"  ! Empty array
+                end if
             end if
         else
-            ! Legacy syntax: (/ 1, 2, 3 /)
+            ! Default to legacy syntax
             if (allocated(node%element_indices)) then
                 elements_code = generate_elements_code_from_indices(arena, node%element_indices)
                 code = "(/ " // elements_code // " /)"
@@ -403,6 +422,63 @@ contains
         ! Generate implied do code (e.g., (expr, var=start,end))
         code = "(expr, i=1,n)"  ! Basic implied do - needs variable and bounds extraction
     end function generate_code_implied_do
+    
+    ! Generate implied do array constructor from do loop node
+    function generate_implied_do_array(arena, do_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: do_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: expr_code, start_code, end_code, step_code
+        
+        ! Get the do loop node
+        select type (node => arena%entries(do_index)%node)
+        type is (do_loop_node)
+            ! Generate the expression (body)
+            if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
+                expr_code = generate_code_from_arena(arena, node%body_indices(1))
+            else
+                expr_code = "0"  ! Fallback
+            end if
+            
+            ! Generate start expression
+            if (node%start_expr_index > 0) then
+                start_code = generate_code_from_arena(arena, node%start_expr_index)
+            else
+                start_code = "1"
+            end if
+            
+            ! Generate end expression
+            if (node%end_expr_index > 0) then
+                end_code = generate_code_from_arena(arena, node%end_expr_index)
+            else
+                end_code = "n"
+            end if
+            
+            ! Generate step expression if present
+            ! Use legacy syntax (/ /) for implied do to work with implicit typing
+            if (node%step_expr_index > 0) then
+                step_code = generate_code_from_arena(arena, node%step_expr_index)
+                if (allocated(node%var_name)) then
+                    code = "(/ (" // expr_code // ", " // node%var_name // "=" // &
+                           start_code // ", " // end_code // ", " // step_code // ") /)"
+                else
+                    code = "(/ (" // expr_code // ", i=" // &
+                           start_code // ", " // end_code // ", " // step_code // ") /)"
+                end if
+            else
+                if (allocated(node%var_name)) then
+                    code = "(/ (" // expr_code // ", " // node%var_name // "=" // &
+                           start_code // ", " // end_code // ") /)"
+                else
+                    code = "(/ (" // expr_code // ", i=" // &
+                           start_code // ", " // end_code // ") /)"
+                end if
+            end if
+        class default
+            ! Not a do loop node - fallback
+            code = "[]"
+        end select
+    end function generate_implied_do_array
 
     ! Get operator precedence (higher number = higher precedence)
     function get_operator_precedence(op) result(precedence)
