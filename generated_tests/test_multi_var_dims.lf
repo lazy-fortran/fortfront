@@ -1,0 +1,14 @@
+! Test multi-variable declarations with per-variable dimensions
+integer :: a(2), b(3), c(4)
+real :: x, y(5), z(2,3)
+character(len=10) :: str1(3), str2, str3(2)
+
+a = [1, 2]
+b = [10, 20, 30]
+c = [100, 200, 300, 400]
+
+y = [1.0, 2.0, 3.0, 4.0, 5.0]
+z = reshape([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], [2, 3])
+
+str1 = ["hello", "world", "test "]
+str3 = ["abc", "def"]
