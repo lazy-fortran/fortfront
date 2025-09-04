@@ -715,15 +715,40 @@ contains
             body_code = generate_grouped_body_with_context(arena, node%body_indices, 1, &
                                                           context_has_executable_before_contains)
             
-            ! Check if body contains implied do loops and add loop variable after implicit none
+            ! Check if body contains implied do loops and add loop variables after implicit none
             if (len(body_code) > 0) then
-                if (index(body_code, "(/ (") > 0 .or. index(body_code, "(/(") > 0) then
-                    ! Body contains implied do loops - add declaration for 'i'
-                    ! Find position after implicit none
-                    block
-                        integer :: impl_pos, insert_pos
-                        character(len=:), allocatable :: before_code, after_code
+                block
+                    integer :: pos, start_pos, end_pos, impl_pos, insert_pos
+                    character(len=:), allocatable :: before_code, after_code, var_name
+                    character(len=:), allocatable :: loop_vars(:)
+                    integer :: n_vars, i, j
+                    logical :: already_declared
+                    
+                    ! Find all implied do loop variables
+                    allocate(character(len=32) :: loop_vars(20))  ! Support up to 20 loop variables
+                    n_vars = 0
+                    
+                    ! Search for patterns like "(var=" in implied do loops
+                    pos = 1
+                    do while (pos <= len(body_code))
+                        ! Find next occurrence of "= (/ ("
+                        start_pos = index(body_code(pos:), "= (/ (")
+                        if (start_pos == 0) exit
+                        start_pos = pos + start_pos - 1
                         
+                        ! Find the loop variable patterns like ", i=1," or ", j=1,"
+                        end_pos = index(body_code(start_pos:), " /)")
+                        if (end_pos > 0) then
+                            end_pos = start_pos + end_pos - 1
+                            ! Extract variables from this implied do section
+                            call extract_loop_vars_from_section(body_code(start_pos:end_pos), &
+                                                               loop_vars, n_vars)
+                        end if
+                        pos = start_pos + 6
+                    end do
+                    
+                    ! If we found loop variables, add declarations
+                    if (n_vars > 0) then
                         impl_pos = index(body_code, "implicit none")
                         if (impl_pos > 0) then
                             ! Find end of implicit none line
@@ -736,17 +761,32 @@ contains
                             end do
                             
                             if (insert_pos <= len(body_code)) then
-                                ! Insert integer :: i after implicit none
+                                ! Build declaration line for all unique variables
                                 before_code = body_code(1:insert_pos)
                                 after_code = body_code(insert_pos+1:)
-                                body_code = before_code // "    integer :: i" // new_line('A') // after_code
+                                
+                                ! Add declarations for all unique loop variables
+                                do i = 1, n_vars
+                                    ! Skip if already declared
+                                    already_declared = .false.
+                                    if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
+                                        already_declared = .true.
+                                    end if
+                                    
+                                    if (.not. already_declared) then
+                                        before_code = before_code // "    integer :: " // &
+                                                    trim(loop_vars(i)) // new_line('A')
+                                    end if
+                                end do
+                                
+                                body_code = before_code // after_code
                             end if
                         end if
-                    end block
-                end if
-                
-                code = code // body_code
+                    end if
+                end block
             end if
+                
+            code = code // body_code
         end if
 
         ! Program end
@@ -766,191 +806,63 @@ contains
         code = generate_grouped_body_context(arena, body_indices, indent, has_exec_before_contains)
     end function generate_grouped_body_with_context
 
-    ! Check if a node contains implied do loops  
-    recursive function contains_implied_do(arena, node_index) result(has_implied)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        logical :: has_implied
-        integer :: k
-        
-        has_implied = .false.
-        
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
-        
-        select type (node => arena%entries(node_index)%node)
-        type is (array_literal_node)
-            ! Check if this is an implied do array
-            if (node%syntax_style == "implied_do") then
-                has_implied = .true.
-                return
-            end if
-            ! Check elements
-            if (allocated(node%element_indices)) then
-                do k = 1, size(node%element_indices)
-                    has_implied = contains_implied_do(arena, node%element_indices(k))
-                    if (has_implied) return
-                end do
-            end if
-            
-        type is (assignment_node)
-            ! Check the value being assigned
-            has_implied = contains_implied_do(arena, node%value_index)
-            
-        type is (declaration_node)
-            ! Check initializer
-            if (node%has_initializer .and. node%initializer_index > 0) then
-                has_implied = contains_implied_do(arena, node%initializer_index)
-            end if
-            
-        type is (do_loop_node)
-            ! This might be an implied do inside an array constructor
-            if (allocated(node%var_name)) then
-                has_implied = .true.
-            end if
-            
-        end select
-    end function contains_implied_do
-    
-    ! Check if body contains implied do loops
-    function has_implied_do_in_body(arena, indices) result(has_implied)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: indices(:)
-        logical :: has_implied
+    ! Helper subroutine to extract loop variables from an implied do section
+    subroutine extract_loop_vars_from_section(section, loop_vars, n_vars)
+        character(len=*), intent(in) :: section
+        character(len=*), intent(inout) :: loop_vars(:)
+        integer, intent(inout) :: n_vars
+        integer :: pos, eq_pos, comma_pos
+        character(len=32) :: var_name
+        logical :: already_added
         integer :: i
         
-        has_implied = .false.
-        
-        do i = 1, size(indices)
-            if (indices(i) > 0 .and. indices(i) <= arena%size) then
-                if (allocated(arena%entries(indices(i))%node)) then
-                    if (check_node_for_implied_do(arena, indices(i))) then
-                        has_implied = .true.
-                        return
+        ! Look for patterns like "i=1," or "j=1," or "k=1,"
+        pos = 1
+        do while (pos < len_trim(section))
+            eq_pos = index(section(pos:), "=")
+            if (eq_pos == 0) exit
+            eq_pos = pos + eq_pos - 1
+            
+            ! Look backwards from = to find variable name
+            if (eq_pos > 1) then
+                ! Find the start of the variable name
+                i = eq_pos - 1
+                do while (i > 0)
+                    if (section(i:i) == ' ' .or. section(i:i) == ',' .or. &
+                        section(i:i) == '(') then
+                        exit
                     end if
-                end if
-            end if
-        end do
-        
-    contains
-        recursive function check_node_for_implied_do(arena, node_index) result(found)
-            type(ast_arena_t), intent(in) :: arena
-            integer, intent(in) :: node_index
-            logical :: found
-            integer :: k
-            
-            found = .false.
-            if (node_index <= 0 .or. node_index > arena%size) return
-            if (.not. allocated(arena%entries(node_index)%node)) return
-            
-            select type (node => arena%entries(node_index)%node)
-            type is (array_literal_node)
-                if (node%syntax_style == "implied_do") then
-                    found = .true.
-                    return
-                end if
+                    i = i - 1
+                end do
                 
-            type is (assignment_node)
-                found = check_node_for_implied_do(arena, node%value_index)
+                ! Extract variable name
+                var_name = adjustl(trim(section(i+1:eq_pos-1)))
                 
-            type is (declaration_node)
-                if (node%has_initializer .and. node%initializer_index > 0) then
-                    found = check_node_for_implied_do(arena, node%initializer_index)
-                end if
-                
-            end select
-        end function check_node_for_implied_do
-    end function has_implied_do_in_body
-    
-    ! Collect implied do loop variables from the AST
-    function collect_implied_do_variables(arena, indices) result(vars)
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: indices(:)
-        character(len=:), allocatable :: vars(:)
-        character(len=:), allocatable :: temp_vars(:)
-        integer :: i, j, count
-        logical :: found
-        
-        count = 0
-        allocate(character(len=16) :: temp_vars(100))  ! Max 100 variables
-        
-        ! Recursively scan for implied do loops
-        do i = 1, size(indices)
-            if (indices(i) > 0 .and. indices(i) <= arena%size) then
-                if (allocated(arena%entries(indices(i))%node)) then
-                    call collect_from_node(arena, indices(i), temp_vars, count)
-                end if
-            end if
-        end do
-        
-        ! Copy unique variables to result
-        if (count > 0) then
-            allocate(character(len=16) :: vars(count))
-            do i = 1, count
-                vars(i) = temp_vars(i)
-            end do
-        end if
-        
-    contains
-        recursive subroutine collect_from_node(arena, node_index, vars_list, var_count)
-            type(ast_arena_t), intent(in) :: arena
-            integer, intent(in) :: node_index
-            character(len=*), intent(inout) :: vars_list(:)
-            integer, intent(inout) :: var_count
-            integer :: k
-            logical :: already_exists
-            
-            if (node_index <= 0 .or. node_index > arena%size) return
-            if (.not. allocated(arena%entries(node_index)%node)) return
-            
-            select type (node => arena%entries(node_index)%node)
-            type is (array_literal_node)
-                ! Check if it has implied do syntax
-                if (node%syntax_style == "implied_do") then
-                    if (allocated(node%element_indices)) then
-                        do k = 1, size(node%element_indices)
-                            call collect_from_node(arena, node%element_indices(k), vars_list, var_count)
+                ! Check if it looks like a loop variable (single letter or simple name)
+                if (len_trim(var_name) > 0 .and. len_trim(var_name) <= 8) then
+                    ! Check if it's a number after =
+                    comma_pos = index(section(eq_pos+1:), ",")
+                    if (comma_pos > 0) then
+                        ! This looks like a loop variable
+                        ! Check if already in list
+                        already_added = .false.
+                        do i = 1, n_vars
+                            if (trim(loop_vars(i)) == trim(var_name)) then
+                                already_added = .true.
+                                exit
+                            end if
                         end do
-                    end if
-                end if
-                
-            type is (do_loop_node)
-                ! Check if this is an implied do loop (inside array constructor)
-                if (allocated(node%var_name)) then
-                    ! Check if variable already in list
-                    already_exists = .false.
-                    do k = 1, var_count
-                        if (vars_list(k) == node%var_name) then
-                            already_exists = .true.
-                            exit
+                        
+                        if (.not. already_added .and. n_vars < size(loop_vars)) then
+                            n_vars = n_vars + 1
+                            loop_vars(n_vars) = trim(var_name)
                         end if
-                    end do
-                    
-                    if (.not. already_exists .and. var_count < size(vars_list)) then
-                        var_count = var_count + 1
-                        vars_list(var_count) = node%var_name
                     end if
                 end if
-                
-                ! Recursively check body
-                if (allocated(node%body_indices)) then
-                    do k = 1, size(node%body_indices)
-                        call collect_from_node(arena, node%body_indices(k), vars_list, var_count)
-                    end do
-                end if
-                
-            type is (assignment_node)
-                call collect_from_node(arena, node%value_index, vars_list, var_count)
-                
-            type is (declaration_node)
-                if (node%has_initializer .and. node%initializer_index > 0) then
-                    call collect_from_node(arena, node%initializer_index, vars_list, var_count)
-                end if
-                
-            class default
-                ! For other nodes, do nothing
-            end select
-        end subroutine collect_from_node
-    end function collect_implied_do_variables
+            end if
+            
+            pos = eq_pos + 1
+        end do
+    end subroutine extract_loop_vars_from_section
 
 end module codegen_declarations
