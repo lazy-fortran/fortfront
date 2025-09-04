@@ -2,7 +2,7 @@
 ! This demonstrates calling FortFront API from external Fortran code
 
 program external_tool_example
-    use fortfront
+    use frontend_transformation, only: transform_lazy_fortran_string
     implicit none
     
     character(len=:), allocatable :: lazy_code
@@ -18,21 +18,14 @@ program external_tool_example
     ! Transform using FortFront
     call transform_lazy_fortran_string(lazy_code, standard_code, error_msg)
     
-    if (allocated(error_msg)) then
-        if (len_trim(error_msg) > 0) then
-            print *, 'Transformation failed with error:'
-            print *, trim(error_msg)
-        else
-            print *, 'Transformation successful!'
-            print *, 'Standard Fortran output:'
-            print *, '------------------------'
-            print '(a)', standard_code
-        end if
+    if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
+        print *, 'Transformation failed with error:'
+        print *, trim(error_msg)
     else
         print *, 'Transformation successful!'
         print *, 'Standard Fortran output:'
         print *, '------------------------'
-        print '(a)', standard_code
+        print '(a)', trim(standard_code)
     end if
     
 end program external_tool_example
