@@ -4,8 +4,10 @@ module codegen_declarations
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
         derived_type_node, intent_type_to_string, module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
-    use ast_nodes_core, only: program_node, identifier_node, literal_node
+    use ast_nodes_core, only: program_node, identifier_node, literal_node, assignment_node, &
+        array_literal_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node, comment_node, blank_line_node
+    use ast_nodes_loops, only: do_loop_node
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent
@@ -707,14 +709,84 @@ contains
                 code = code // "    implicit none" // new_line('A')
             end if
         end block
-
+        
         ! Generate body with proper grouping
         if (allocated(node%body_indices)) then
             body_code = generate_grouped_body_with_context(arena, node%body_indices, 1, &
                                                           context_has_executable_before_contains)
+            
+            ! Check if body contains implied do loops and add loop variables after implicit none
             if (len(body_code) > 0) then
-                code = code // body_code
+                block
+                    integer :: pos, start_pos, end_pos, impl_pos, insert_pos
+                    character(len=:), allocatable :: before_code, after_code, var_name
+                    character(len=:), allocatable :: loop_vars(:)
+                    integer :: n_vars, i, j
+                    logical :: already_declared
+                    
+                    ! Find all implied do loop variables
+                    allocate(character(len=32) :: loop_vars(20))  ! Support up to 20 loop variables
+                    n_vars = 0
+                    
+                    ! Search for patterns like "(var=" in implied do loops
+                    pos = 1
+                    do while (pos <= len(body_code))
+                        ! Find next occurrence of "= (/ ("
+                        start_pos = index(body_code(pos:), "= (/ (")
+                        if (start_pos == 0) exit
+                        start_pos = pos + start_pos - 1
+                        
+                        ! Find the loop variable patterns like ", i=1," or ", j=1,"
+                        end_pos = index(body_code(start_pos:), " /)")
+                        if (end_pos > 0) then
+                            end_pos = start_pos + end_pos - 1
+                            ! Extract variables from this implied do section
+                            call extract_loop_vars_from_section(body_code(start_pos:end_pos), &
+                                                               loop_vars, n_vars)
+                        end if
+                        pos = start_pos + 6
+                    end do
+                    
+                    ! If we found loop variables, add declarations
+                    if (n_vars > 0) then
+                        impl_pos = index(body_code, "implicit none")
+                        if (impl_pos > 0) then
+                            ! Find end of implicit none line
+                            insert_pos = impl_pos + 13  ! Length of "implicit none"
+                            do while (insert_pos <= len(body_code))
+                                if (body_code(insert_pos:insert_pos) == new_line('A')) then
+                                    exit
+                                end if
+                                insert_pos = insert_pos + 1
+                            end do
+                            
+                            if (insert_pos <= len(body_code)) then
+                                ! Build declaration line for all unique variables
+                                before_code = body_code(1:insert_pos)
+                                after_code = body_code(insert_pos+1:)
+                                
+                                ! Add declarations for all unique loop variables
+                                do i = 1, n_vars
+                                    ! Skip if already declared
+                                    already_declared = .false.
+                                    if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
+                                        already_declared = .true.
+                                    end if
+                                    
+                                    if (.not. already_declared) then
+                                        before_code = before_code // "    integer :: " // &
+                                                    trim(loop_vars(i)) // new_line('A')
+                                    end if
+                                end do
+                                
+                                body_code = before_code // after_code
+                            end if
+                        end if
+                    end if
+                end block
             end if
+                
+            code = code // body_code
         end if
 
         ! Program end
@@ -733,5 +805,64 @@ contains
         ! Pass context to utilities module
         code = generate_grouped_body_context(arena, body_indices, indent, has_exec_before_contains)
     end function generate_grouped_body_with_context
+
+    ! Helper subroutine to extract loop variables from an implied do section
+    subroutine extract_loop_vars_from_section(section, loop_vars, n_vars)
+        character(len=*), intent(in) :: section
+        character(len=*), intent(inout) :: loop_vars(:)
+        integer, intent(inout) :: n_vars
+        integer :: pos, eq_pos, comma_pos
+        character(len=32) :: var_name
+        logical :: already_added
+        integer :: i
+        
+        ! Look for patterns like "i=1," or "j=1," or "k=1,"
+        pos = 1
+        do while (pos < len_trim(section))
+            eq_pos = index(section(pos:), "=")
+            if (eq_pos == 0) exit
+            eq_pos = pos + eq_pos - 1
+            
+            ! Look backwards from = to find variable name
+            if (eq_pos > 1) then
+                ! Find the start of the variable name
+                i = eq_pos - 1
+                do while (i > 0)
+                    if (section(i:i) == ' ' .or. section(i:i) == ',' .or. &
+                        section(i:i) == '(') then
+                        exit
+                    end if
+                    i = i - 1
+                end do
+                
+                ! Extract variable name
+                var_name = adjustl(trim(section(i+1:eq_pos-1)))
+                
+                ! Check if it looks like a loop variable (single letter or simple name)
+                if (len_trim(var_name) > 0 .and. len_trim(var_name) <= 8) then
+                    ! Check if it's a number after =
+                    comma_pos = index(section(eq_pos+1:), ",")
+                    if (comma_pos > 0) then
+                        ! This looks like a loop variable
+                        ! Check if already in list
+                        already_added = .false.
+                        do i = 1, n_vars
+                            if (trim(loop_vars(i)) == trim(var_name)) then
+                                already_added = .true.
+                                exit
+                            end if
+                        end do
+                        
+                        if (.not. already_added .and. n_vars < size(loop_vars)) then
+                            n_vars = n_vars + 1
+                            loop_vars(n_vars) = trim(var_name)
+                        end if
+                    end if
+                end if
+            end if
+            
+            pos = eq_pos + 1
+        end do
+    end subroutine extract_loop_vars_from_section
 
 end module codegen_declarations
