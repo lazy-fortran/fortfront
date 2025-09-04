@@ -686,7 +686,9 @@ contains
         ! Add implicit none only if not already present in body
         block
             logical :: has_implicit
+            character(len=:), allocatable :: loop_var_declarations
             has_implicit = .false.
+            loop_var_declarations = ""
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
                     if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
@@ -766,25 +768,69 @@ contains
                     end do
                     
                     ! If we found loop variables, add declarations
-                    if (n_vars > 0) then
-                        ! Add loop variable declarations directly to code (where implicit none was added)
-                        do i = 1, n_vars
-                            ! Skip if already declared in body
-                            already_declared = .false.
-                            if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
-                                already_declared = .true.
+                    if (n_vars > 0 .or. (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0)) then
+                        ! Check if implicit none is in body_code
+                        impl_pos = index(body_code, "implicit none")
+                        if (impl_pos > 0) then
+                            ! Find the end of the implicit none line
+                            insert_pos = impl_pos + 13  ! Length of "implicit none"
+                            do while (insert_pos <= len(body_code))
+                                if (body_code(insert_pos:insert_pos) == new_line('A')) then
+                                    insert_pos = insert_pos + 1
+                                    exit
+                                end if
+                                insert_pos = insert_pos + 1
+                            end do
+                            
+                            ! Build declarations for loop variables
+                            before_code = body_code(1:insert_pos-1)
+                            after_code = body_code(insert_pos:)
+                            
+                            if (n_vars > 0) then
+                                do i = 1, n_vars
+                                    ! Skip if already declared
+                                    already_declared = .false.
+                                    if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
+                                        already_declared = .true.
+                                    end if
+                                    
+                                    if (.not. already_declared) then
+                                        before_code = before_code // "    integer :: " // &
+                                                     trim(loop_vars(i)) // new_line('A')
+                                    end if
+                                end do
+                            else
+                                ! Check for implied do with default i
+                                if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
+                                    if (index(body_code, "integer :: i") == 0) then
+                                        before_code = before_code // "    integer :: i" // new_line('A')
+                                    end if
+                                end if
                             end if
                             
-                            if (.not. already_declared) then
-                                code = code // "    integer :: " // trim(loop_vars(i)) // new_line('A')
-                            end if
-                        end do
-                    else
-                        ! No loop variables detected, but check if there's an implied do loop we missed
-                        if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
-                            ! There's an implied do but we didn't find variables - add a default i
-                            if (index(body_code, "integer :: i") == 0 .and. index(code, "integer :: i") == 0) then
-                                code = code // "    integer :: i" // new_line('A')
+                            body_code = before_code // after_code
+                        else
+                            ! No implicit none in body, add to code as before
+                            if (n_vars > 0) then
+                                do i = 1, n_vars
+                                    already_declared = .false.
+                                    if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
+                                        already_declared = .true.
+                                    end if
+                                    if (index(code, "integer :: " // trim(loop_vars(i))) > 0) then
+                                        already_declared = .true.
+                                    end if
+                                    
+                                    if (.not. already_declared) then
+                                        code = code // "    integer :: " // trim(loop_vars(i)) // new_line('A')
+                                    end if
+                                end do
+                            else
+                                if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
+                                    if (index(body_code, "integer :: i") == 0 .and. index(code, "integer :: i") == 0) then
+                                        code = code // "    integer :: i" // new_line('A')
+                                    end if
+                                end if
                             end if
                         end if
                     end if
