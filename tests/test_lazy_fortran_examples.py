@@ -35,10 +35,7 @@ XFAIL_TESTS = {
     
     # Constructor type issues (issue #1236) - NOW FIXED
     
-    # Complex expression issues - issue 209 related (issue #1237)
-    "test_209_all.lf": ("Complex multi-type expressions fail", 1237),
-    "test_209_complex.lf": ("Complex nested expressions fail", 1237),
-    "test_209_mixed.lf": ("Mixed type expressions fail", 1237),
+    # Complex expression issues - issue 209 related (issue #1237) - NOW FIXED
     
     # Parsing ambiguities - issue 214 (issue #1238)
     "test_issue_214_ambiguous.lf": ("Ambiguous syntax not handled", 1238),
