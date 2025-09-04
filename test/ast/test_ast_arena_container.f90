@@ -34,9 +34,7 @@ contains
         call test_container_performance(tests_passed, tests_failed)
         call test_container_memory_safety(tests_passed, tests_failed)
         call test_container_generation_tracking(tests_passed, tests_failed)
-        ! XFAIL: Temporarily disabled due to segfault - see issue #1245
-        ! call test_container_cross_arena_safety(tests_passed, tests_failed)
-        print *, "  SKIPPED: test_container_cross_arena_safety (issue #1245)"
+        call test_container_cross_arena_safety(tests_passed, tests_failed)
         call test_container_batch_operations(tests_passed, tests_failed)
         
         print *, ""
@@ -551,9 +549,9 @@ contains
     ! Test cross-arena safety
     subroutine test_container_cross_arena_safety(tests_passed, tests_failed)
         integer, intent(inout) :: tests_passed, tests_failed
-        type(ast_arena_t) :: arena1, arena2
+        type(ast_arena_t) :: arena1, arena2, arena3
         type(ast_node_arena_t) :: node
-        type(arena_handle_t) :: handle1
+        type(arena_handle_t) :: handle1, handle2, invalid_handle
         
         print *, "  Testing cross-arena safety..."
         
@@ -572,8 +570,70 @@ contains
             print *, "    ✗ Cross-arena handle accepted"
         end if
         
+        ! Test with larger arena capacity that might have different offsets
+        arena3 = create_ast_arena(1024)
+        node%node_type_name = "LARGE_TEST"
+        handle2 = arena3%insert(node)
+        
+        ! Cross-validation should still fail
+        if (.not. arena1%valid(handle2) .and. .not. arena2%valid(handle2)) then
+            tests_passed = tests_passed + 1
+            print *, "    ✓ Large arena handle rejected by smaller arenas"
+        else
+            tests_failed = tests_failed + 1
+            print *, "    ✗ Large arena handle incorrectly accepted"
+        end if
+        
+        ! Test edge case with zero offset (invalid)
+        invalid_handle%generation = arena3%generation
+        invalid_handle%offset = 0  ! Zero offset should be invalid
+        
+        if (.not. arena3%valid(invalid_handle)) then
+            tests_passed = tests_passed + 1
+            print *, "    ✓ Zero offset handle rejected"
+        else
+            tests_failed = tests_failed + 1
+            print *, "    ✗ Zero offset handle not properly rejected"
+        end if
+        
+        ! Test edge case with negative offset (invalid)
+        invalid_handle%generation = arena3%generation
+        invalid_handle%offset = -1  ! Negative offset should be invalid
+        
+        if (.not. arena3%valid(invalid_handle)) then
+            tests_passed = tests_passed + 1
+            print *, "    ✓ Negative offset handle rejected"
+        else
+            tests_failed = tests_failed + 1
+            print *, "    ✗ Negative offset handle not properly rejected"
+        end if
+        
+        ! Test with handle that has large offset (edge case for bounds check)
+        invalid_handle%generation = arena1%generation
+        invalid_handle%offset = 99999  ! Large offset that exceeds any arena size
+        
+        if (.not. arena1%valid(invalid_handle) .and. &
+            .not. arena2%valid(invalid_handle) .and. &
+            .not. arena3%valid(invalid_handle)) then
+            tests_passed = tests_passed + 1
+            print *, "    ✓ Out-of-bounds handle rejected by all arenas"
+        else
+            tests_failed = tests_failed + 1
+            print *, "    ✗ Out-of-bounds handle not properly rejected"
+        end if
+        
+        ! Test destroyed arena validation (ensure no crash on destroyed arena)
         call destroy_ast_arena(arena1)
+        if (.not. arena1%valid(handle1)) then
+            tests_passed = tests_passed + 1
+            print *, "    ✓ Destroyed arena safely rejects handles"
+        else
+            tests_failed = tests_failed + 1
+            print *, "    ✗ Destroyed arena accepted handle"
+        end if
+        
         call destroy_ast_arena(arena2)
+        call destroy_ast_arena(arena3)
     end subroutine test_container_cross_arena_safety
     
     ! Test batch operations
