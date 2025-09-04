@@ -807,6 +807,12 @@ contains
         ! Check generation - handle must match current arena generation
         if (handle%generation /= this%generation) return
         
+        ! Check if slot_gen array is allocated before accessing it
+        if (.not. allocated(this%slot_gen)) return
+        
+        ! Additional bounds check for allocated array size
+        if (handle%offset > size(this%slot_gen)) return
+        
         ! Check if slot is allocated (non-zero generation means allocated)
         if (this%slot_gen(handle%offset) > 0) then
             is_valid = .true.
