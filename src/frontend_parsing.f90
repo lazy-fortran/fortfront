@@ -339,16 +339,17 @@ contains
                 end if
                 unit_end = i
             end do
-        else if (unit_type == "subroutine" .or. unit_type == "function" .or. unit_type == "program") then
-            ! For subroutines, functions and programs, find the matching "end"
-            nesting_level = 1
+        else if (unit_type == "subroutine" .or. unit_type == "function") then
+            ! For standalone subroutines and functions, find the matching "end"
+            ! Note: We only handle standalone procedures here. 
+            ! Internal procedures are handled by the default logic below
             do i = start_pos + 1, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
                     unit_end = i - 1
                     exit
                 else if (tokens(i)%kind == TK_KEYWORD) then
                     if (tokens(i)%text == "end") then
-                        ! Check if this is "end subroutine", "end function", or "end program"
+                        ! Check if this is "end subroutine" or "end function"
                         if (i + 1 <= size(tokens)) then
                             if (tokens(i+1)%kind == TK_KEYWORD .and. tokens(i+1)%text == unit_type) then
                                 unit_end = i + 1  ! Include "end <unit_type>"
@@ -361,7 +362,7 @@ contains
                                 exit
                             end if
                         end if
-                        ! Also handle standalone "end" for backward compatibility
+                        ! Also handle standalone "end" for simple procedures
                         if (i == size(tokens) .or. (i + 1 <= size(tokens) .and. &
                             tokens(i+1)%kind /= TK_KEYWORD)) then
                             unit_end = i
