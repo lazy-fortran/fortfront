@@ -6,7 +6,8 @@ module codegen_declarations
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_core, only: program_node, identifier_node, literal_node, assignment_node, &
         array_literal_node
-    use ast_nodes_misc, only: implicit_statement_node, contains_node, comment_node, blank_line_node
+    use ast_nodes_misc, only: implicit_statement_node, contains_node, comment_node, blank_line_node, &
+        use_statement_node
     use ast_nodes_loops, only: do_loop_node
     use type_system_unified
     use string_types, only: string_t
@@ -601,8 +602,11 @@ contains
         logical :: found_contains
         logical :: has_non_trivial_body
         logical :: context_has_executable_before_contains
+        integer, allocatable :: non_use_indices(:)
+        integer :: non_use_count
 
         context_has_executable_before_contains = .false.
+        non_use_count = 0
 
         ! Check if there's a non-trivial body before contains
         has_non_trivial_body = .false.
@@ -683,38 +687,74 @@ contains
         ! Program header
         code = "program " // node%name // new_line('A')
 
-        ! Add implicit none only if not already present in body
+        ! Process use statements first, then add implicit none, then rest of body
         block
             logical :: has_implicit
+            logical :: is_use_stmt
+            character(len=:), allocatable :: use_statements_code
             character(len=:), allocatable :: loop_var_declarations
+            
             has_implicit = .false.
+            use_statements_code = ""
             loop_var_declarations = ""
+            
+            ! First pass: collect use statements and check for implicit none
             if (allocated(node%body_indices)) then
+                allocate(non_use_indices(size(node%body_indices)))
+                non_use_count = 0
+                
                 do i = 1, size(node%body_indices)
                     if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
                         if (allocated(arena%entries(node%body_indices(i))%node)) then
+                            is_use_stmt = .false.
+                            
                             select type (ib => arena%entries(node%body_indices(i))%node)
-                            ! Detect either a proper implicit statement node marked as none,
-                            ! or a literal node that already contains the text 'implicit none'.
+                            type is (use_statement_node)
+                                ! Generate use statement code
+                                is_use_stmt = .true.
+                                use_statements_code = use_statements_code // "    " // &
+                                    generate_code_from_arena(arena, node%body_indices(i)) // new_line('A')
+                                
                             type is (implicit_statement_node)
                                 if (ib%is_none) has_implicit = .true.
+                                non_use_count = non_use_count + 1
+                                non_use_indices(non_use_count) = node%body_indices(i)
+                                
                             type is (literal_node)
                                 if (allocated(ib%value)) then
                                     if (index(ib%value, 'implicit none') > 0) has_implicit = .true.
                                 end if
+                                non_use_count = non_use_count + 1
+                                non_use_indices(non_use_count) = node%body_indices(i)
+                                
+                            class default
+                                non_use_count = non_use_count + 1
+                                non_use_indices(non_use_count) = node%body_indices(i)
                             end select
+                            
+                            ! Don't add use statements to non_use_indices
+                            if (is_use_stmt) then
+                                ! Use statement already processed, skip
+                            end if
                         end if
                     end if
                 end do
             end if
+            
+            ! Add use statements first
+            if (len(use_statements_code) > 0) then
+                code = code // use_statements_code
+            end if
+            
+            ! Then add implicit none if not present
             if (.not. has_implicit) then
                 code = code // "    implicit none" // new_line('A')
             end if
         end block
         
-        ! Generate body with proper grouping
-        if (allocated(node%body_indices)) then
-            body_code = generate_grouped_body_with_context(arena, node%body_indices, 1, &
+        ! Generate rest of body (non-use statements) with proper grouping
+        if (allocated(node%body_indices) .and. non_use_count > 0) then
+            body_code = generate_grouped_body_with_context(arena, non_use_indices(1:non_use_count), 1, &
                                                           context_has_executable_before_contains)
             
             ! Check if body contains implied do loops and add loop variables after implicit none
@@ -838,6 +878,10 @@ contains
             end if
                 
             code = code // body_code
+        end if
+        
+        if (allocated(non_use_indices)) then
+            deallocate(non_use_indices)
         end if
 
         ! Program end
