@@ -8,7 +8,7 @@ module parser_declarations
     use parser_expressions_module, only: parse_comparison, parse_range
     use parser_result_types, only: parse_result_t, success_parse_result, error_parse_result
     use error_handling, only: ERROR_PARSER
-    use ast_factory, only: push_multi_declaration
+    use ast_factory, only: push_multi_declaration, push_declaration
     implicit none
     private
 
@@ -426,7 +426,7 @@ contains
     ! Parse multi-variable declaration (e.g., real :: x, y, z = 1.0)
     function parse_multi_declaration(parser, arena) result(decl_indices)
         use iso_fortran_env, only: error_unit
-        use ast_factory, only: push_multi_declaration
+        use ast_factory, only: push_multi_declaration, push_declaration
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable :: decl_indices(:)
@@ -435,7 +435,9 @@ contains
         type(type_specifier_t) :: type_spec
         type(declaration_attributes_t) :: attr_info
         character(len=64), allocatable :: var_names(:)
-        integer :: var_count, initializer_index, decl_index
+        integer, allocatable :: per_var_dims(:,:)  ! Store dimensions per variable
+        logical, allocatable :: has_dims(:)  ! Track which vars have dimensions
+        integer :: var_count, initializer_index, decl_index, i
         
         
         ! Parse type specifier
@@ -454,10 +456,14 @@ contains
             token = parser%consume()
         end if
 
-        ! Collect all variable names
+        ! Collect all variable names and their dimensions
         allocate(var_names(10))  ! Start with reasonable size
+        allocate(per_var_dims(10, 10))  ! Max 10 vars, max 10 dims each
+        allocate(has_dims(10))
         var_count = 0
         initializer_index = 0
+        per_var_dims = 0
+        has_dims = .false.
         
         do while (.not. parser%is_at_end())
             ! Get variable name
@@ -466,18 +472,47 @@ contains
             
             var_count = var_count + 1
             if (var_count > size(var_names)) then
-                ! Extend array if needed
+                ! Extend arrays if needed
                 block
                     character(len=64), allocatable :: temp_names(:)
-                    integer :: old_size
+                    integer, allocatable :: temp_dims(:,:)
+                    logical, allocatable :: temp_has(:)
+                    integer :: old_size, new_size
                     old_size = size(var_names)
-                    allocate(temp_names(old_size * 2))
+                    new_size = old_size * 2
+                    allocate(temp_names(new_size))
+                    allocate(temp_dims(new_size, 10))
+                    allocate(temp_has(new_size))
                     temp_names(1:old_size) = var_names(1:old_size)
-                    deallocate(var_names)
+                    temp_dims(1:old_size, :) = per_var_dims(1:old_size, :)
+                    temp_has(1:old_size) = has_dims(1:old_size)
+                    deallocate(var_names, per_var_dims, has_dims)
                     call move_alloc(temp_names, var_names)
+                    call move_alloc(temp_dims, per_var_dims)
+                    call move_alloc(temp_has, has_dims)
                 end block
             end if
             var_names(var_count) = token%text
+            
+            ! Check for array dimensions for this variable
+            if (.not. parser%is_at_end()) then
+                next_token = parser%peek()
+                if (next_token%text == "(") then
+                    ! This variable has dimensions
+                    token = parser%consume()  ! consume '('
+                    block
+                        integer, allocatable :: local_dims(:)
+                        integer :: j
+                        call parse_array_dimensions(parser, arena, local_dims)
+                        if (allocated(local_dims) .and. size(local_dims) > 0) then
+                            has_dims(var_count) = .true.
+                            do j = 1, min(size(local_dims), 10)
+                                per_var_dims(var_count, j) = local_dims(j)
+                            end do
+                        end if
+                    end block
+                end if
+            end if
             
             ! Check for comma or end of variables
             if (.not. parser%is_at_end()) then
@@ -510,63 +545,140 @@ contains
             return
         end if
         
-        ! Create multi-variable declaration node
-        if (type_spec%has_kind) then
-            if (attr_info%has_global_dimensions) then
-                decl_index = push_multi_declaration( &
-                    arena, &
-                    type_spec%type_name, &
-                    var_names(1:var_count), &
-                    kind_value=type_spec%kind_value, &
-                    dimension_indices=attr_info%global_dimension_indices, &
-                    initializer_index=initializer_index, &
-                    is_allocatable=attr_info%is_allocatable, &
-                    is_pointer=attr_info%is_pointer, &
-                    is_parameter=attr_info%is_parameter &
-                )
+        ! Check if we have per-variable dimensions
+        block
+            logical :: needs_separate_decls
+            integer :: num_with_dims
+            
+            num_with_dims = 0
+            do i = 1, var_count
+                if (has_dims(i)) num_with_dims = num_with_dims + 1
+            end do
+            
+            ! If we have per-variable dimensions, create separate declarations
+            needs_separate_decls = (num_with_dims > 0)
+            
+            if (needs_separate_decls) then
+                ! Create separate declaration for each variable
+                allocate(decl_indices(var_count))
+                do i = 1, var_count
+                    if (has_dims(i)) then
+                        ! Variable with dimensions
+                        block
+                            integer, allocatable :: var_dims(:)
+                            integer :: j, dim_count
+                            
+                            ! Count dimensions for this variable
+                            dim_count = 0
+                            do j = 1, 10
+                                if (per_var_dims(i, j) > 0) then
+                                    dim_count = dim_count + 1
+                                else
+                                    exit
+                                end if
+                            end do
+                            
+                            if (dim_count > 0) then
+                                allocate(var_dims(dim_count))
+                                var_dims = per_var_dims(i, 1:dim_count)
+                                
+                                decl_indices(i) = push_declaration( &
+                                    arena, &
+                                    type_spec%type_name, &
+                                    var_names(i), &
+                                    dimension_indices=var_dims, &
+                                    initializer_index=merge(initializer_index, 0, i==var_count), &
+                                    is_allocatable=attr_info%is_allocatable, &
+                                    is_pointer=attr_info%is_pointer, &
+                                    is_parameter=attr_info%is_parameter &
+                                )
+                            end if
+                        end block
+                    else if (attr_info%has_global_dimensions) then
+                        ! Variable without per-var dims but with global dims
+                        decl_indices(i) = push_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            var_names(i), &
+                            dimension_indices=attr_info%global_dimension_indices, &
+                            initializer_index=merge(initializer_index, 0, i==var_count), &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    else
+                        ! Variable without dimensions
+                        decl_indices(i) = push_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            var_names(i), &
+                            initializer_index=merge(initializer_index, 0, i==var_count), &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    end if
+                end do
             else
-                decl_index = push_multi_declaration( &
-                    arena, &
-                    type_spec%type_name, &
-                    var_names(1:var_count), &
-                    kind_value=type_spec%kind_value, &
-                    initializer_index=initializer_index, &
-                    is_allocatable=attr_info%is_allocatable, &
-                    is_pointer=attr_info%is_pointer, &
-                    is_parameter=attr_info%is_parameter &
-                )
+                ! Use original multi-declaration approach when no per-var dims
+                if (type_spec%has_kind) then
+                    if (attr_info%has_global_dimensions) then
+                        decl_index = push_multi_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            var_names(1:var_count), &
+                            kind_value=type_spec%kind_value, &
+                            dimension_indices=attr_info%global_dimension_indices, &
+                            initializer_index=initializer_index, &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    else
+                        decl_index = push_multi_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            var_names(1:var_count), &
+                            kind_value=type_spec%kind_value, &
+                            initializer_index=initializer_index, &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    end if
+                else
+                    if (attr_info%has_global_dimensions) then
+                        decl_index = push_multi_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            var_names(1:var_count), &
+                            dimension_indices=attr_info%global_dimension_indices, &
+                            initializer_index=initializer_index, &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    else
+                        decl_index = push_multi_declaration( &
+                            arena, &
+                            type_spec%type_name, &
+                            var_names(1:var_count), &
+                            initializer_index=initializer_index, &
+                            is_allocatable=attr_info%is_allocatable, &
+                            is_pointer=attr_info%is_pointer, &
+                            is_parameter=attr_info%is_parameter &
+                        )
+                    end if
+                end if
+                
+                if (decl_index > 0) then
+                    allocate(decl_indices(1))
+                    decl_indices(1) = decl_index
+                else
+                    allocate(decl_indices(0))
+                end if
             end if
-        else
-            if (attr_info%has_global_dimensions) then
-                decl_index = push_multi_declaration( &
-                    arena, &
-                    type_spec%type_name, &
-                    var_names(1:var_count), &
-                    dimension_indices=attr_info%global_dimension_indices, &
-                    initializer_index=initializer_index, &
-                    is_allocatable=attr_info%is_allocatable, &
-                    is_pointer=attr_info%is_pointer, &
-                    is_parameter=attr_info%is_parameter &
-                )
-            else
-                decl_index = push_multi_declaration( &
-                    arena, &
-                    type_spec%type_name, &
-                    var_names(1:var_count), &
-                    initializer_index=initializer_index, &
-                    is_allocatable=attr_info%is_allocatable, &
-                    is_pointer=attr_info%is_pointer, &
-                    is_parameter=attr_info%is_parameter &
-                )
-            end if
-        end if
-        
-        if (decl_index > 0) then
-            allocate(decl_indices(1))
-            decl_indices(1) = decl_index
-        else
-            allocate(decl_indices(0))
-        end if
+        end block
     end function parse_multi_declaration
 
     ! Parse derived type definition with robust error handling
