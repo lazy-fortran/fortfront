@@ -339,8 +339,41 @@ contains
                 end if
                 unit_end = i
             end do
+        else if (unit_type == "subroutine" .or. unit_type == "function") then
+            ! For standalone subroutines and functions, find the matching "end"
+            ! Note: We only handle standalone procedures here. 
+            ! Internal procedures are handled by the default logic below
+            do i = start_pos + 1, size(tokens)
+                if (tokens(i)%kind == TK_EOF) then
+                    unit_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_KEYWORD) then
+                    if (tokens(i)%text == "end") then
+                        ! Check if this is "end subroutine" or "end function"
+                        if (i + 1 <= size(tokens)) then
+                            if (tokens(i+1)%kind == TK_KEYWORD .and. tokens(i+1)%text == unit_type) then
+                                unit_end = i + 1  ! Include "end <unit_type>"
+                                ! Check if there's a name after "end <unit_type>"
+                                if (i + 2 <= size(tokens)) then
+                                    if (tokens(i+2)%kind == TK_IDENTIFIER) then
+                                        unit_end = i + 2  ! Include the name too
+                                    end if
+                                end if
+                                exit
+                            end if
+                        end if
+                        ! Also handle standalone "end" for simple procedures
+                        if (i == size(tokens) .or. (i + 1 <= size(tokens) .and. &
+                            tokens(i+1)%kind /= TK_KEYWORD)) then
+                            unit_end = i
+                            exit
+                        end if
+                    end if
+                end if
+                unit_end = i
+            end do
         else
-            ! Original logic for non-module units
+            ! Original logic for other units
             do i = start_pos, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
                     unit_end = i - 1
