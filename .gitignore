@@ -12,6 +12,14 @@ packages/*/
 /*.lf
 /*.json
 
+# CMake build artifacts
+cmake_test/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+
 # Test artifacts - prevent accidental commit of test-generated files
 test_*.md
 test_*.txt
@@ -64,3 +72,17 @@ test_old_api.o
 *.out
 logs/
 examples/external_tool_example
+
+# Binary executables (common names)
+a.out
+*.exe
+*.dll
+*.dylib
+
+# Editor and system files
+*~
+*.bak
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
