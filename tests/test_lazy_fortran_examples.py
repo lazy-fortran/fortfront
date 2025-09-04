@@ -59,8 +59,8 @@ XFAIL_TESTS = {
     "test_sem_scope.lf": ("Scope resolution produces invalid code", 1241),
     "test_sem_mixed.lf": ("Mixed semantic constructs fail", 1241),
     
-    # Semicolon handling (issue #1242)
-    "test_semicolons_mixed.lf": ("Mixed semicolon usage fails", 1242),
+    # Semicolon handling (issue #1242) - semicolons work but declarations after executable statements still fail
+    "test_semicolons_mixed.lf": ("Mixed declarations and executable statements fail", 1242),
     
     # Array slicing issues (issue #1243)
     "test_slice1.lf": ("Array slice syntax generates bad code", 1243),
