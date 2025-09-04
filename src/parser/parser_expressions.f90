@@ -5,6 +5,7 @@ module parser_expressions_module
     use ast_core
     use ast_nodes_core, only: component_access_node, identifier_node, &
                                range_subscript_node
+    use ast_nodes_loops, only: do_loop_node
     use ast_factory, only: push_binary_op, push_literal, push_identifier, &
                            push_call_or_subscript, push_array_literal, &
                            push_range_expression, &
@@ -652,9 +653,10 @@ contains
         integer :: expr_index
         
         block
-            type(token_t) :: bracket_token, current
+            type(token_t) :: bracket_token, current, next_token
             integer, allocatable :: element_indices(:), temp_indices(:)
             integer :: element_count
+            logical :: is_implied_do
 
             bracket_token = parser%consume()
             current = parser%peek()
@@ -669,10 +671,131 @@ contains
                 return
             end if
 
-            ! Parse elements using simplified logic
-            expr_index = parse_simple_array_elements(parser, arena, "]", "modern", bracket_token)
+            ! Check for implied do loop: [(expr, var=start,end)]
+            is_implied_do = .false.
+            if (current%kind == TK_OPERATOR .and. current%text == "(") then
+                ! Potential implied do - check for pattern
+                is_implied_do = .true.
+            end if
+            
+            if (is_implied_do) then
+                ! Parse implied do loop
+                expr_index = parse_implied_do_constructor(parser, arena, bracket_token)
+            else
+                ! Parse regular array elements
+                expr_index = parse_simple_array_elements(parser, arena, "]", "modern", bracket_token)
+            end if
         end block
     end function parse_modern_array_literal
+
+    ! Parse implied do constructor: [(expr, var=start,end[,step])]
+    function parse_implied_do_constructor(parser, arena, bracket_token) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: bracket_token
+        integer :: expr_index
+        
+        type(token_t) :: current
+        integer :: expr_elem_index, start_index, end_index, step_index
+        character(len=:), allocatable :: var_name
+        integer, allocatable :: element_indices(:)
+        
+        ! Consume opening parenthesis
+        current = parser%consume()  ! (
+        
+        ! Parse the expression part (e.g., i*2)
+        expr_elem_index = parse_comparison(parser, arena)
+        
+        ! Expect comma
+        current = parser%peek()
+        if (current%text /= ",") then
+            expr_index = 0
+            return
+        end if
+        current = parser%consume()
+        
+        ! Parse loop variable (e.g., i)
+        current = parser%peek()
+        if (current%kind /= TK_IDENTIFIER) then
+            expr_index = 0
+            return
+        end if
+        var_name = current%text
+        current = parser%consume()
+        
+        ! Expect '='
+        current = parser%peek()
+        if (current%text /= "=") then
+            expr_index = 0
+            return
+        end if
+        current = parser%consume()
+        
+        ! Parse start expression
+        start_index = parse_comparison(parser, arena)
+        
+        ! Expect comma
+        current = parser%peek()
+        if (current%text /= ",") then
+            expr_index = 0
+            return
+        end if
+        current = parser%consume()
+        
+        ! Parse end expression
+        end_index = parse_comparison(parser, arena)
+        
+        ! Check for optional step (comma followed by step expression)
+        step_index = 0
+        current = parser%peek()
+        if (current%text == ",") then
+            current = parser%consume()
+            step_index = parse_comparison(parser, arena)
+        end if
+        
+        ! Expect closing parenthesis
+        current = parser%peek()
+        if (current%text /= ")") then
+            expr_index = 0
+            return
+        end if
+        current = parser%consume()
+        
+        ! Expect closing bracket
+        current = parser%peek()
+        if (current%text /= "]") then
+            expr_index = 0
+            return
+        end if
+        current = parser%consume()
+        
+        ! Create do loop node for the implied do
+        block
+            type(do_loop_node) :: do_node
+            integer :: do_index
+            
+            do_node%var_name = var_name
+            do_node%start_expr_index = start_index
+            do_node%end_expr_index = end_index
+            do_node%step_expr_index = step_index
+            
+            ! The body of the implied do is the expression itself
+            allocate(do_node%body_indices(1))
+            do_node%body_indices(1) = expr_elem_index
+            
+            do_index = push_do_loop(arena, var_name, start_index, end_index, &
+                                   step_index, do_node%body_indices, &
+                                   "", bracket_token%line, bracket_token%column)
+            
+            ! Wrap in array literal with the do loop as element
+            allocate(element_indices(1))
+            element_indices(1) = do_index
+            expr_index = push_array_literal(arena, element_indices, &
+                                           bracket_token%line, bracket_token%column, &
+                                           syntax_style="implied_do")
+        end block
+        
+    end function parse_implied_do_constructor
 
     ! Simplified implied do loop parsing (placeholder for full implementation)
     function try_parse_implied_do_loop(parser, arena, temp_indices, element_count, &
