@@ -260,33 +260,34 @@ jobs:
       run: |
         Write-Host "🔧 Setting up self-contained MinGW environment..."
         
-        # Use Chocolatey for reliable MinGW installation
-        if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
-          Write-Host "Installing Chocolatey..."
-          Set-ExecutionPolicy Bypass -Scope Process -Force
-          [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-          Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-          # Skip refreshenv in PowerShell as it's not needed
-        }
+        # Use MSYS2 MinGW which is preinstalled on GitHub Actions Windows runners
+        $mingwPath = "C:\msys64\mingw64\bin"
         
-        # Install MinGW-w64 with gfortran via Chocolatey
-        Write-Host "Installing MinGW-w64 with gfortran..."
-        choco install mingw --version=11.2.0 -y --no-progress
-        # Skip refreshenv in PowerShell as it's not needed
-        
-        # Add MinGW to PATH
-        $mingwPath = "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin"
+        # Check if path exists
         if (Test-Path $mingwPath) {
           echo $mingwPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           Write-Host "✅ MinGW path added: $mingwPath"
+          
+          # Verify gfortran is available
+          $gfortranPath = Join-Path $mingwPath "gfortran.exe"
+          if (Test-Path $gfortranPath) {
+            Write-Host "✅ GFortran found at: $gfortranPath"
+          } else {
+            Write-Host "⚠️ GFortran not found, attempting to install..."
+            # Use pacman to install gfortran if not available
+            C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm mingw-w64-x86_64-gcc-fortran"
+          }
         } else {
-          # Try alternative MinGW path
-          $altPath = "C:\tools\mingw64\bin"
+          Write-Error "❌ MSYS2 MinGW installation path not found at: $mingwPath"
+          Write-Host "Checking other possible locations..."
+          
+          # Try GitHub Actions default MinGW location
+          $altPath = "C:\mingw64\bin"
           if (Test-Path $altPath) {
             echo $altPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-            Write-Host "✅ MinGW alternative path added: $altPath"
+            Write-Host "✅ Alternative MinGW path added: $altPath"
           } else {
-            Write-Error "❌ MinGW installation path not found"
+            Write-Error "❌ No MinGW installation found"
             exit 1
           }
         }
