@@ -313,7 +313,7 @@ contains
         is_multiline_construct = .false.
         nesting_level = 0
         
-        ! Skip leading newlines and semicolons
+        ! Skip leading newlines and semicolons (semicolons act as statement separators)
         stmt_start = start_pos
         do while (stmt_start <= size(tokens) .and. &
                  (tokens(stmt_start)%kind == TK_NEWLINE .or. &
