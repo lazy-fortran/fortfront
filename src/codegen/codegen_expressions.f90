@@ -535,23 +535,23 @@ contains
             end if
             
             ! Generate step expression if present  
-            ! Use [(expr, i=start, end)] without explicit type - works with implicit typing
+            ! Use legacy (/ /) syntax for compatibility
             if (node%step_expr_index > 0) then
                 step_code = generate_code_from_arena(arena, node%step_expr_index)
                 if (allocated(node%var_name)) then
-                    code = "[(" // expr_code // ", " // node%var_name // "=" // &
-                           start_code // ", " // end_code // ", " // step_code // ")]"
+                    code = "(/ (" // expr_code // ", " // node%var_name // "=" // &
+                           start_code // ", " // end_code // ", " // step_code // ") /)"
                 else
-                    code = "[(" // expr_code // ", i=" // &
-                           start_code // ", " // end_code // ", " // step_code // ")]"
+                    code = "(/ (" // expr_code // ", i=" // &
+                           start_code // ", " // end_code // ", " // step_code // ") /)"
                 end if
             else
                 if (allocated(node%var_name)) then
-                    code = "[(" // expr_code // ", " // node%var_name // "=" // &
-                           start_code // ", " // end_code // ")]"
+                    code = "(/ (" // expr_code // ", " // node%var_name // "=" // &
+                           start_code // ", " // end_code // ") /)"
                 else
-                    code = "[(" // expr_code // ", i=" // &
-                           start_code // ", " // end_code // ")]"
+                    code = "(/ (" // expr_code // ", i=" // &
+                           start_code // ", " // end_code // ") /)"
                 end if
             end if
         class default
