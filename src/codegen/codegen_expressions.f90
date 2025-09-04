@@ -568,7 +568,7 @@ contains
 
         select case (trim(op))
         case ('**')
-            precedence = 9
+            precedence = 10
         case ('*','/')
             precedence = 8
         case ('+','-')
@@ -588,7 +588,7 @@ contains
         case ('.eqv.', '.neqv.')
             precedence = 1
         case default
-            precedence = 1
+            precedence = 0
         end select
     end function get_operator_precedence
 
