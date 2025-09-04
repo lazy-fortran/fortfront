@@ -7,7 +7,7 @@ module parser_procedure_bodies_module
                            push_parameter_declaration, push_print_statement, &
                            push_subroutine_call, push_assignment, push_identifier, &
                            push_literal, push_binary_op
-    use parser_declarations, only: parse_declaration
+    use parser_declarations, only: parse_declaration, parse_multi_declaration
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER
     implicit none
     private
@@ -342,7 +342,22 @@ contains
             case ("print")
                 stmt_index = parse_simple_print_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", "double")
-                stmt_index = parse_declaration(parser, arena)
+                ! Check if this is a multi-variable declaration
+                block
+                    logical :: has_comma
+                    has_comma = parser%has_comma_in_declaration()
+                    if (has_comma) then
+                        integer, allocatable :: decl_indices(:)
+                        decl_indices = parse_multi_declaration(parser, arena)
+                        if (allocated(decl_indices) .and. size(decl_indices) > 0) then
+                            stmt_index = decl_indices(1)  ! Return first index
+                        else
+                            stmt_index = 0
+                        end if
+                    else
+                        stmt_index = parse_declaration(parser, arena)
+                    end if
+                end block
             case ("call")
                 stmt_index = parse_simple_call_statement(parser, arena)
             case ("contains")

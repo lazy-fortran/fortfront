@@ -363,6 +363,7 @@ contains
         integer, allocatable :: filtered_indices(:)
         integer :: filtered_count
         logical :: in_contains_section
+        integer :: var_idx
         
         ! Build indent string
         indent_str = repeat("    ", indent)
@@ -376,45 +377,110 @@ contains
                     if (allocated(arena%entries(body_indices(i))%node)) then
                         select type (node => arena%entries(body_indices(i))%node)
                         type is (declaration_node)
-                            ! Check if this declaration is for a parameter
-                            param_idx = find_parameter_info(param_map, node%var_name)
-                            if (param_idx > 0) then
-                                ! Generate the declaration with parameter attributes from the declaration node
-                                type_name = node%type_name
-                                code = code // indent_str // type_name
+                            ! Check if this declaration is for parameter(s)
+                            ! Handle both single and multi-declarations for parameters
+                            if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                                ! Multi-variable declaration - check each variable
+                                block
+                                    logical :: found_params, first_var
+                                    logical, allocatable :: is_param(:)
+                                    integer :: first_param_idx
                                 
-                                if (node%has_kind) then
-                                    code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
-                                end if
+                                allocate(is_param(size(node%var_names)))
+                                found_params = .false.
+                                first_param_idx = 0
                                 
-                                ! Use attributes from the declaration node itself
-                                if (node%has_intent) then
-                                    code = code // ", intent(" // node%intent // ")"
-                                else if (allocated(param_map(param_idx)%intent_str) .and. &
-                                    len_trim(param_map(param_idx)%intent_str) > 0) then
-                                    code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
-                                end if
+                                ! Check which variables are parameters
+                                do j = 1, size(node%var_names)
+                                    param_idx = find_parameter_info(param_map, trim(node%var_names(j)))
+                                    is_param(j) = (param_idx > 0)
+                                    if (param_idx > 0) then
+                                        found_params = .true.
+                                        if (first_param_idx == 0) first_param_idx = param_idx
+                                    end if
+                                end do
                                 
-                                if (node%is_optional) then
-                                    code = code // ", optional"
-                                else if (param_map(param_idx)%is_optional) then
-                                    code = code // ", optional"
-                                end if
-                                
-                                code = code // " :: " // param_map(param_idx)%name
-                                
-                                ! Add dimensions if present
-                                if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
-                                    code = code // "("
-                                    do j = 1, size(node%dimension_indices)
-                                        if (j > 1) code = code // ", "
-                                        stmt_code = generate_code_from_arena(arena, node%dimension_indices(j))
-                                        code = code // stmt_code
+                                if (found_params) then
+                                    ! Generate declaration for all parameters in this multi-declaration
+                                    type_name = node%type_name
+                                    code = code // indent_str // type_name
+                                    
+                                    if (node%has_kind) then
+                                        code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                    end if
+                                    
+                                    ! Use attributes from the declaration node
+                                    if (node%has_intent) then
+                                        code = code // ", intent(" // node%intent // ")"
+                                    else if (allocated(param_map(first_param_idx)%intent_str) .and. &
+                                        len_trim(param_map(first_param_idx)%intent_str) > 0) then
+                                        code = code // ", intent(" // param_map(first_param_idx)%intent_str // ")"
+                                    end if
+                                    
+                                    if (node%is_optional) then
+                                        code = code // ", optional"
+                                    else if (param_map(first_param_idx)%is_optional) then
+                                        code = code // ", optional"
+                                    end if
+                                    
+                                    code = code // " :: "
+                                    
+                                    ! Add all parameter names
+                                    first_var = .true.
+                                    do j = 1, size(node%var_names)
+                                        if (is_param(j)) then
+                                            if (.not. first_var) code = code // ", "
+                                            code = code // trim(node%var_names(j))
+                                            first_var = .false.
+                                        end if
                                     end do
-                                    code = code // ")"
+                                    
+                                    code = code // new_line('A')
                                 end if
                                 
-                                code = code // new_line('A')
+                                deallocate(is_param)
+                                end block
+                            else
+                                ! Single variable declaration
+                                param_idx = find_parameter_info(param_map, node%var_name)
+                                if (param_idx > 0) then
+                                    ! Generate the declaration with parameter attributes from the declaration node
+                                    type_name = node%type_name
+                                    code = code // indent_str // type_name
+                                    
+                                    if (node%has_kind) then
+                                        code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                    end if
+                                    
+                                    ! Use attributes from the declaration node itself
+                                    if (node%has_intent) then
+                                        code = code // ", intent(" // node%intent // ")"
+                                    else if (allocated(param_map(param_idx)%intent_str) .and. &
+                                        len_trim(param_map(param_idx)%intent_str) > 0) then
+                                        code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
+                                    end if
+                                    
+                                    if (node%is_optional) then
+                                        code = code // ", optional"
+                                    else if (param_map(param_idx)%is_optional) then
+                                        code = code // ", optional"
+                                    end if
+                                    
+                                    code = code // " :: " // param_map(param_idx)%name
+                                    
+                                    ! Add dimensions if present
+                                    if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
+                                        code = code // "("
+                                        do j = 1, size(node%dimension_indices)
+                                            if (j > 1) code = code // ", "
+                                            stmt_code = generate_code_from_arena(arena, node%dimension_indices(j))
+                                            code = code // stmt_code
+                                        end do
+                                        code = code // ")"
+                                    end if
+                                    
+                                    code = code // new_line('A')
+                                end if
                             end if
                         type is (parameter_declaration_node)
                             ! Check if this parameter_declaration_node is for a parameter
@@ -475,9 +541,21 @@ contains
                     type is (declaration_node)
                         ! Skip parameter declarations if we're handling them separately
                         if (size(param_map) > 0) then
-                            param_idx = find_parameter_info(param_map, node%var_name)
-                            if (param_idx > 0) then
-                                should_skip = .true.
+                            if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                                ! Check if any variable in multi-declaration is a parameter
+                                do var_idx = 1, size(node%var_names)
+                                    param_idx = find_parameter_info(param_map, trim(node%var_names(var_idx)))
+                                    if (param_idx > 0) then
+                                        should_skip = .true.
+                                        exit
+                                    end if
+                                end do
+                            else
+                                ! Single variable declaration
+                                param_idx = find_parameter_info(param_map, node%var_name)
+                                if (param_idx > 0) then
+                                    should_skip = .true.
+                                end if
                             end if
                         end if
                     type is (parameter_declaration_node)
