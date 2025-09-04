@@ -1,0 +1,9 @@
+! Test multiple loop variables in implied do constructors
+arr_i = [(i**2, i=1,5)]
+arr_j = [(j**3, j=1,4)]
+arr_k = [(2*k, k=1,10)]
+nested = [((i+j, i=1,3), j=1,2)]
+print *, "arr_i:", arr_i
+print *, "arr_j:", arr_j
+print *, "arr_k:", arr_k
+print *, "nested:", nested
