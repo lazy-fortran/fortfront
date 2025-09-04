@@ -584,6 +584,30 @@ contains
             print *, "    ✗ Large arena handle incorrectly accepted"
         end if
         
+        ! Test edge case with zero offset (invalid)
+        invalid_handle%generation = arena3%generation
+        invalid_handle%offset = 0  ! Zero offset should be invalid
+        
+        if (.not. arena3%valid(invalid_handle)) then
+            tests_passed = tests_passed + 1
+            print *, "    ✓ Zero offset handle rejected"
+        else
+            tests_failed = tests_failed + 1
+            print *, "    ✗ Zero offset handle not properly rejected"
+        end if
+        
+        ! Test edge case with negative offset (invalid)
+        invalid_handle%generation = arena3%generation
+        invalid_handle%offset = -1  ! Negative offset should be invalid
+        
+        if (.not. arena3%valid(invalid_handle)) then
+            tests_passed = tests_passed + 1
+            print *, "    ✓ Negative offset handle rejected"
+        else
+            tests_failed = tests_failed + 1
+            print *, "    ✗ Negative offset handle not properly rejected"
+        end if
+        
         ! Test with handle that has large offset (edge case for bounds check)
         invalid_handle%generation = arena1%generation
         invalid_handle%offset = 99999  ! Large offset that exceeds any arena size
@@ -598,7 +622,16 @@ contains
             print *, "    ✗ Out-of-bounds handle not properly rejected"
         end if
         
+        ! Test destroyed arena validation (ensure no crash on destroyed arena)
         call destroy_ast_arena(arena1)
+        if (.not. arena1%valid(handle1)) then
+            tests_passed = tests_passed + 1
+            print *, "    ✓ Destroyed arena safely rejects handles"
+        else
+            tests_failed = tests_failed + 1
+            print *, "    ✗ Destroyed arena accepted handle"
+        end if
+        
         call destroy_ast_arena(arena2)
         call destroy_ast_arena(arena3)
     end subroutine test_container_cross_arena_safety
