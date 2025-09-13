@@ -51,7 +51,7 @@ contains
                     
                     if (has_initializer .and. .not. has_comma) then
                         ! Single variable with initializer - use parse_declaration
-                        allocate (stmt_indices(1))
+                        if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
                         stmt_indices(1) = parse_declaration(parser, arena)
                         return
                     else
@@ -64,7 +64,7 @@ contains
         end if
 
         ! For all other statements, parse as single statement
-        allocate (stmt_indices(1))
+        if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
         stmt_index = 0
 
         ! Handle different statement types (excluding control flow to avoid circular deps)
@@ -141,7 +141,6 @@ contains
                     end select
                 end do
                 if (.not. has_meaningful) then
-                    allocate(stmt_indices(1))
                     stmt_indices(1) = 0
                     return
                 end if
