@@ -1,4 +1,4 @@
-# Repository Guidelines
+# Repository Guidelines (Agent Notes)
 
 ## Project Structure & Module Organization
 - `src/`: core Fortran sources (lexer, parser, semantic, AST, codegen).
@@ -6,17 +6,16 @@
 - `test/`: auto-discovered fpm tests, grouped by domain (e.g., `parser/`, `semantic/`).
 - `docs/` and `DOCS/`: user and internal notes.
 - `examples/`: sample tools and usage.
-- `scripts/`: helper scripts; no secrets.
-- Root build files: `fpm.toml`, `Makefile`, `CMakeLists.txt`.
-- Generated artifacts: `build/`, `fortfront_modules/`, `libfortfront.a` (do not commit).
+- Root build files: `fpm.toml`, `Makefile`.
+- Generated artifacts: `build/` (do not commit).
 
 ## Build, Test, and Development Commands
-- `make` or `make build`: fpm build with preprocessing flags.
-- `make test`: run the full test suite (fpm auto-tests).
-- `make coverage`: run tests with gcov/lcov and generate HTML in `coverage_html/`.
-- `make clean`: remove build and generated artifacts.
-- Alternative CMake: `cmake -S . -B build && cmake --build build` (no tests).
-- Install library: `make install PREFIX=/usr/local` (uses `pkg-config: fortfront`).
+- Preferred: use only `make` and `fpm`.
+- Build: `make` (equivalent to `fpm build`).
+- Test: `make test` (equivalent to `fpm test`).
+- Clean: `make clean` (equivalent to `fpm clean --all`).
+- Do not pass `-j` to `make` or `fpm`. fpm manages parallelism automatically.
+- Do not add custom compiler flags (e.g., `-cpp`, `-fmax-stack-var-size`). Use defaults.
 
 ## Coding Style & Naming Conventions
 - Fortran free-form, no implicit typing/externals (enforced in `fpm.toml`).
@@ -27,15 +26,20 @@
 ## Testing Guidelines
 - Framework: fpm auto-tests under `test/` (one executable per subdir/file).
 - Add new tests beside related code domain (e.g., `test/parser/…`).
-- Run locally: `make test`; generate coverage with `make coverage`.
-- Keep or improve coverage; add regression tests for every bugfix.
+- Run locally with `make test` only (no wrappers, no extra flags).
+- Add regression tests for every bugfix.
 
 ## Commit & Pull Request Guidelines
 - Conventional Commits (imperative, <72 chars), e.g., `feat(parser): add array slices`.
 - Scope a commit to one topic; do not commit binaries or `build/` outputs.
-- Before pushing: `make test` must pass locally; include relevant logs in the PR.
-- PRs: clear description, linked issue(s), rationale, commands to reproduce, and any screenshots/logs.
+- Before pushing: `make test` must pass locally.
+- PRs: clear description, linked issue(s), rationale, and minimal commands to reproduce.
+
+## CI & Platform Notes
+- CI runs Linux and Windows. Windows tests include CLI piping (stdin) scenarios.
+- No custom build/test scripts in CI; just `make` and `make test`.
+- Avoid any charged terminology in code or logs; keep messages neutral and technical.
 
 ## Security & Configuration Tips
-- No secrets in sources or scripts. Pin external deps via `fpm.toml`.
-- Clean stale `.mod` files if module resolution issues occur: `make clean`.
+- No secrets in sources. Pin external deps via `fpm.toml`.
+- If module resolution issues occur locally, run `make clean`.
