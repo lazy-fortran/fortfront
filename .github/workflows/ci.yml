@@ -84,6 +84,7 @@ jobs:
 
     # Code validation gate removed (redundant with test suite)
  a220b5c (chore(ci,benchmarks,docs): remove 'fraud' terminology; rename validation scripts and steps; neutralize messages)
+ 8a225a2 (chore(tests,ci): remove tautological Windows diagnostic and placeholder codegen test; drop redundant code validation gate/scripts)
 
     # No additional cleanup steps
 
