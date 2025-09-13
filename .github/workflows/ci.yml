@@ -433,7 +433,7 @@ jobs:
         RUN_SYSTEM_TESTS: '1'
       run: |
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
-        fpm test
+        fpm test c3bdc67 (ci(windows): run full test suite with RUN_SYSTEM_TESTS=1 to validate CLI piping behavior)
 
     - name: Cleanup build cache and logs (Windows)
       if: always()
