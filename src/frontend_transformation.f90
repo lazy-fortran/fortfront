@@ -355,8 +355,9 @@ contains
 
         call compiler_arena%next_phase("semantic")
         block
-            type(semantic_context_t) :: ctx
-            ctx = create_semantic_context()
+            type(semantic_context_t), allocatable :: ctx
+            allocate(ctx)
+            call create_semantic_context(ctx)
             
             ! Keep pre-standardization semantics permissive in string transform path
             ctx%strict_mode = .false.

@@ -44,7 +44,7 @@ contains
         test_count = test_count + 1
 
         ! Create scope stack
-        scopes = create_scope_stack()
+        call create_scope_stack(scopes)
 
         ! Check scope stack is initialized
         if (scopes%depth >= 0) then

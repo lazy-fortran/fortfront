@@ -105,7 +105,7 @@ contains
         end if
 
         ! Run semantic analysis
-        sem_ctx = create_semantic_context()
+        call create_semantic_context(sem_ctx)
         call analyze_program(sem_ctx, arena, root_index)
 
         
@@ -162,7 +162,7 @@ contains
         end if
 
         ! Run semantic analysis
-        sem_ctx = create_semantic_context()
+        call create_semantic_context(sem_ctx)
         call analyze_program(sem_ctx, arena, root_index)
 
         ! Find assignment node and get type info
@@ -217,7 +217,7 @@ contains
         end if
 
         ! Run semantic analysis
-        sem_ctx = create_semantic_context()
+        call create_semantic_context(sem_ctx)
         call analyze_program(sem_ctx, arena, root_index)
 
         ! Find assignment node and get type info
@@ -277,7 +277,7 @@ contains
         end if
 
         ! Run semantic analysis
-        sem_ctx = create_semantic_context()
+        call create_semantic_context(sem_ctx)
         call analyze_program(sem_ctx, arena, root_index)
 
         ! Find assignment node and get type info

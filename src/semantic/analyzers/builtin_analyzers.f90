@@ -70,7 +70,7 @@ contains
         integer, intent(in) :: node_index
         
         ! Initialize fresh semantic context for symbol collection
-        this%context = create_semantic_context()
+        call create_semantic_context(this%context)
         
         ! Create a mutable copy of arena for analysis
         ! Note: In production, we'd avoid this copy and modify analyze_program
@@ -111,7 +111,7 @@ contains
         integer, intent(in) :: node_index
         
         ! Initialize context
-        this%context = create_semantic_context()
+        call create_semantic_context(this%context)
         
         ! Create mutable copy for analysis
         block
@@ -150,7 +150,7 @@ contains
         integer, intent(in) :: node_index
         
         ! Initialize context
-        this%context = create_semantic_context()
+        call create_semantic_context(this%context)
         
         ! Create mutable copy for analysis
         block

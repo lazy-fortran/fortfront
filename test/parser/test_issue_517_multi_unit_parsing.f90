@@ -7,7 +7,7 @@ program test_issue_517_multi_unit_parsing
     
     character(len=:), allocatable :: test_code
     type(token_t), allocatable :: tokens(:)
-    character(len=1000) :: error_msg_lex, error_msg_parse
+    character(len=256) :: error_msg_lex, error_msg_parse
     type(ast_arena_t) :: arena
     integer :: prog_index, i
     logical :: test_passed

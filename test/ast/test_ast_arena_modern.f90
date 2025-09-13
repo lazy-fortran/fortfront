@@ -239,13 +239,14 @@ contains
     subroutine test_bulk_allocation()
         type(ast_arena_t) :: arena
         type(ast_node_arena_t) :: node
-        type(ast_handle_t) :: handles(1000)
+        type(ast_handle_t), allocatable :: handles(:)
         type(ast_arena_stats_t) :: stats
         integer :: i
         
         call test_start("Bulk allocation performance")
         
         arena = create_ast_arena(262144)  ! 256KB for bulk test
+        allocate(handles(1000))
         
         ! Allocate 1000 nodes
         node%node_type_name = "BULK_NODE"
@@ -268,6 +269,7 @@ contains
         end if
         
         call destroy_ast_arena(arena)
+        if (allocated(handles)) deallocate(handles)
     end subroutine test_bulk_allocation
     
     subroutine test_memory_efficiency()

@@ -30,9 +30,9 @@ module ast_nodes_data
         ! (for multi declarations)
         logical :: is_multi_declaration = .false.      ! Whether this
         ! declares multiple variables
-        integer :: kind_value                          ! Kind parameter
+        integer :: kind_value = 0                      ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
-        logical :: has_kind                            ! Whether kind was specified
+        logical :: has_kind = .false.                  ! Whether kind was specified
         character(len=:), allocatable :: intent        ! in, out, inout (for parameters)
         logical :: has_intent = .false.                ! Whether intent was specified
         logical :: is_optional = .false.               ! Whether optional attribute is present
@@ -61,9 +61,9 @@ module ast_nodes_data
     type, extends(ast_node), public :: parameter_declaration_node
         character(len=:), allocatable :: name          ! Parameter name
         character(len=:), allocatable :: type_name     ! real, integer, etc.
-        integer :: kind_value                          ! Kind parameter
+        integer :: kind_value = 0                      ! Kind parameter (default none)
         ! (e.g., 8 for real(8))
-        logical :: has_kind                            ! Whether kind was specified
+        logical :: has_kind = .false.                  ! Whether kind was specified
         integer :: intent_type = INTENT_NONE          ! INTENT_IN/OUT/INOUT
         logical :: is_optional = .false.              ! Whether parameter is optional
         ! Array dimension support

@@ -50,7 +50,7 @@ contains
     end subroutine test_uid_initialization
     
     subroutine test_uid_uniqueness()
-        type(uid_t) :: uids(1000)
+        type(uid_t), allocatable :: uids(:)
         integer :: i, j
         logical :: all_unique
         
@@ -60,6 +60,7 @@ contains
         call reset_uid_generator()
         
         ! Generate many UIDs
+        allocate(uids(1000))
         do i = 1, 1000
             uids(i) = generate_uid()
         end do
@@ -85,6 +86,7 @@ contains
         end do
         
         print *, "  UID uniqueness tests passed"
+        if (allocated(uids)) deallocate(uids)
     end subroutine test_uid_uniqueness
     
     subroutine test_uid_performance()

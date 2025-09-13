@@ -7,7 +7,7 @@ program test_frontend_semantic_minimal
     print *, "Testing semantic context creation..."
 
     ! This should not crash
-    ctx = create_semantic_context()
+    call create_semantic_context(ctx)
 
     print *, "PASS: Semantic context created successfully"
     print *, "next_var_id =", ctx%next_var_id

@@ -93,9 +93,9 @@ module type_system_unified
     
     type :: substitution_t
         integer :: count = 0
-        integer :: capacity = MAX_SUBST_SIZE
-        type(type_var_t) :: vars(MAX_SUBST_SIZE)
-        type(mono_type_t) :: types(MAX_SUBST_SIZE)
+        integer :: capacity = 0
+        type(type_var_t), allocatable :: vars(:)
+        type(mono_type_t), allocatable :: types(:)
     contains
         procedure :: add => substitution_add
         procedure :: apply => substitution_apply
@@ -106,10 +106,11 @@ module type_system_unified
 
     type :: type_env_t
         integer :: count = 0
-        integer :: capacity = MAX_ENV_SIZE
-        character(len=MAX_NAME_LEN) :: names(MAX_ENV_SIZE)
-        type(poly_type_t) :: schemes(MAX_ENV_SIZE)
+        integer :: capacity = 0
+        character(len=MAX_NAME_LEN), allocatable :: names(:)
+        type(poly_type_t), allocatable :: schemes(:)
         logical :: capacity_exceeded_reported = .false.
+        logical :: is_fixed = .false.
     contains
         procedure :: extend => type_env_extend
         procedure :: assign => type_env_assign
@@ -326,12 +327,21 @@ contains
 
         lhs%count = rhs%count
         lhs%capacity = rhs%capacity
+        if (lhs%capacity < lhs%count) lhs%capacity = lhs%count
+        if (allocated(lhs%vars)) deallocate(lhs%vars)
+        if (allocated(lhs%types)) deallocate(lhs%types)
+        if (lhs%capacity > 0) then
+            allocate(lhs%vars(lhs%capacity))
+            allocate(lhs%types(lhs%capacity))
+        end if
         
         ! Copy only used elements for efficiency
-        do i = 1, rhs%count
-            lhs%vars(i) = rhs%vars(i)
-            lhs%types(i) = rhs%types(i)
-        end do
+        if (rhs%count > 0) then
+            do i = 1, rhs%count
+                lhs%vars(i) = rhs%vars(i)
+                lhs%types(i) = rhs%types(i)
+            end do
+        end if
     end subroutine substitution_assign
 
     ! Type environment assignment
@@ -343,12 +353,27 @@ contains
         lhs%count = rhs%count
         lhs%capacity = rhs%capacity
         lhs%capacity_exceeded_reported = rhs%capacity_exceeded_reported
+        lhs%is_fixed = rhs%is_fixed
+        if (lhs%capacity <= 0) then
+            ! Try to infer capacity from source arrays if available
+            if (allocated(rhs%names)) lhs%capacity = size(rhs%names)
+            if (lhs%capacity <= 0) lhs%capacity = lhs%count
+        end if
+        if (lhs%capacity < lhs%count) lhs%capacity = lhs%count
+        if (allocated(lhs%names)) deallocate(lhs%names)
+        if (allocated(lhs%schemes)) deallocate(lhs%schemes)
+        if (lhs%capacity > 0) then
+            allocate(lhs%names(lhs%capacity))
+            allocate(lhs%schemes(lhs%capacity))
+        end if
         
         ! Copy only used elements
-        do i = 1, rhs%count
-            lhs%names(i) = rhs%names(i)
-            lhs%schemes(i) = rhs%schemes(i)
-        end do
+        if (rhs%count > 0) then
+            do i = 1, rhs%count
+                lhs%names(i) = rhs%names(i)
+                lhs%schemes(i) = rhs%schemes(i)
+            end do
+        end if
     end subroutine type_env_assign
 
     ! Mono type helper functions
@@ -492,12 +517,16 @@ contains
         type(type_var_t), intent(in) :: var
         type(mono_type_t), intent(in) :: typ
 
-        ! Check capacity
+        ! Initialize capacity lazily
+        if (this%capacity == 0) then
+            this%capacity = 64
+            allocate(this%vars(this%capacity))
+            allocate(this%types(this%capacity))
+        end if
+
+        ! Grow if needed
         if (this%count >= this%capacity) then
-            write(error_unit, *) "ERROR: Substitution capacity exceeded (", this%capacity, ")"
-            write(error_unit, *) "Consider increasing MAX_SUBST_SIZE parameter"
-            ! Return gracefully instead of stopping - skip this substitution
-            return
+            call substitution_ensure_capacity(this, this%count + 1)
         end if
 
         this%count = this%count + 1
@@ -506,14 +535,35 @@ contains
     end subroutine substitution_add
     
     subroutine substitution_ensure_capacity(this, required)
-        class(substitution_t), intent(in) :: this
+        class(substitution_t), intent(inout) :: this
         integer, intent(in) :: required
-        
-        if (required > this%capacity) then
-            write(error_unit, *) "ERROR: Required substitution capacity (", required, &
-                    ") exceeds maximum (", this%capacity, ")"
-            ! Skip capacity expansion rather than stopping
+        integer :: new_capacity, i
+
+        if (this%capacity == 0) then
+            this%capacity = max(64, required)
+            allocate(this%vars(this%capacity))
+            allocate(this%types(this%capacity))
             return
+        end if
+
+        if (required > this%capacity) then
+            new_capacity = max(this%capacity*2, required)
+            ! Reallocate and copy used elements only
+            block
+                type(type_var_t), allocatable :: new_vars(:)
+                type(mono_type_t), allocatable :: new_types(:)
+                allocate(new_vars(new_capacity))
+                allocate(new_types(new_capacity))
+                if (this%count > 0) then
+                    do i = 1, this%count
+                        new_vars(i) = this%vars(i)
+                        new_types(i) = this%types(i)
+                    end do
+                end if
+                call move_alloc(new_vars, this%vars)
+                call move_alloc(new_types, this%types)
+            end block
+            this%capacity = new_capacity
         end if
     end subroutine substitution_ensure_capacity
 
@@ -532,15 +582,37 @@ contains
         character(len=*), intent(in) :: name
         type(poly_type_t), intent(in) :: scheme
 
-        ! Check capacity
-        if (this%count >= this%capacity) then
-            if (.not. this%capacity_exceeded_reported) then
-                write(error_unit, *) "ERROR: Type environment capacity exceeded (", this%capacity, ")"
-                write(error_unit, *) "Consider increasing MAX_ENV_SIZE parameter"
-                this%capacity_exceeded_reported = .true.
+        ! Initialize capacity lazily. If user set capacity manually use it.
+        if (.not. allocated(this%names) .or. .not. allocated(this%schemes)) then
+            if (this%capacity > 0) then
+                this%is_fixed = .true.
+            else
+                this%capacity = 64
+                this%is_fixed = .false.
             end if
-            ! Skip adding binding rather than stopping (report only once)
-            return
+            allocate(this%names(this%capacity))
+            allocate(this%schemes(this%capacity))
+        else
+            ! Handle pathological zero-sized allocations defensively
+            if (size(this%names) == 0 .or. size(this%schemes) == 0) then
+                if (this%capacity <= 0) this%capacity = 64
+                call type_env_ensure_capacity(this, max(1, this%count + 1))
+            end if
+        end if
+
+        ! Capacity guard: do not exceed declared capacity
+        if (this%count >= this%capacity) then
+            if (this%is_fixed) then
+                if (.not. this%capacity_exceeded_reported) then
+                    write(error_unit, *) "ERROR: Type environment capacity exceeded (", this%capacity, ")"
+                    write(error_unit, *) "Consider increasing MAX_ENV_SIZE parameter"
+                    this%capacity_exceeded_reported = .true.
+                end if
+                return
+            else
+                ! Grow dynamically for non-fixed environments
+                call type_env_ensure_capacity(this, this%count + 1)
+            end if
         end if
         
         ! Add binding
@@ -559,14 +631,49 @@ contains
     end subroutine type_env_extend
     
     subroutine type_env_ensure_capacity(this, required)
-        class(type_env_t), intent(in) :: this
+        class(type_env_t), intent(inout) :: this
         integer, intent(in) :: required
-        
-        if (required > this%capacity) then
-            write(error_unit, *) "ERROR: Required environment capacity (", required, &
-                    ") exceeds maximum (", this%capacity, ")"
-            ! Skip capacity expansion rather than stopping
-            return
+        ! Ensure arrays exist; if not fixed, grow to meet required
+        if (.not. allocated(this%names) .or. .not. allocated(this%schemes)) then
+            if (this%capacity <= 0) then
+                this%capacity = max(64, required)
+                this%is_fixed = .false.
+            end if
+            allocate(this%names(this%capacity))
+            allocate(this%schemes(this%capacity))
+        else if (size(this%names) == 0 .or. size(this%schemes) == 0) then
+            ! Repair zero-sized arrays
+            if (this%capacity <= 0) this%capacity = max(64, required)
+            block
+                integer :: new_capacity
+                character(len=MAX_NAME_LEN), allocatable :: new_names(:)
+                type(poly_type_t), allocatable :: new_schemes(:)
+                new_capacity = max(this%capacity, required)
+                allocate(new_names(new_capacity))
+                allocate(new_schemes(new_capacity))
+                call move_alloc(new_names, this%names)
+                call move_alloc(new_schemes, this%schemes)
+                this%capacity = new_capacity
+            end block
+        else if (.not. this%is_fixed .and. required > this%capacity) then
+            ! Grow dynamically
+            block
+                integer :: new_capacity, i
+                character(len=MAX_NAME_LEN), allocatable :: new_names(:)
+                type(poly_type_t), allocatable :: new_schemes(:)
+                new_capacity = max(this%capacity*2, required)
+                allocate(new_names(new_capacity))
+                allocate(new_schemes(new_capacity))
+                if (this%count > 0) then
+                    do i = 1, this%count
+                        new_names(i) = this%names(i)
+                        new_schemes(i) = this%schemes(i)
+                    end do
+                end if
+                call move_alloc(new_names, this%names)
+                call move_alloc(new_schemes, this%schemes)
+                this%capacity = new_capacity
+            end block
         end if
     end subroutine type_env_ensure_capacity
 

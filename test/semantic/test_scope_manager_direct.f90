@@ -35,7 +35,7 @@ contains
         
         call test_start("Basic scope creation")
         
-        scope = create_scope(SCOPE_GLOBAL, "global")
+        call create_scope(scope, SCOPE_GLOBAL, "global")
         
         if (scope%scope_type == SCOPE_GLOBAL .and. &
             allocated(scope%name) .and. scope%name == "global") then
@@ -50,7 +50,7 @@ contains
         
         call test_start("Scope stack creation")
         
-        stack = create_scope_stack()
+        call create_scope_stack(stack)
         
         if (stack%depth == 1) then  ! Should have global scope
             call test_pass()
@@ -66,11 +66,11 @@ contains
         
         call test_start("Scope stack push/pop")
         
-        stack = create_scope_stack()
+        call create_scope_stack(stack)
         initial_depth = stack%depth
         
         ! Push a new scope
-        scope = create_scope(SCOPE_FUNCTION, "test")
+        call create_scope(scope, SCOPE_FUNCTION, "test")
         call stack%push(scope)
         
         if (stack%depth == initial_depth + 1) then
@@ -91,7 +91,7 @@ contains
         
         call test_start("Different scope types")
         
-        stack = create_scope_stack()
+        call create_scope_stack(stack)
         
         ! Test entering different scope types
         call stack%enter_module("test_module")
