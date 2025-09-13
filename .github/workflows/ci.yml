@@ -440,6 +440,19 @@ jobs:
           exit 1
         }
 
+    - name: Run tests (Windows)
+      shell: pwsh
+      env:
+        RUN_SYSTEM_TESTS: '1'
+      run: |
+        Write-Host "🧪 Running full test suite on Windows"
+        # Ensure FPM and MinGW are on PATH for this step
+        $env:PATH = "C:\\tools\\fpm;$env:PATH"
+        gfortran --version
+        fpm --version
+        # Run tests with the same flags used on Linux
+        fpm test --flag "-cpp -fmax-stack-var-size=65536" -j 2
+
     - name: Cleanup build cache and logs (Windows)
       if: always()
       shell: pwsh
