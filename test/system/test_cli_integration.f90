@@ -93,7 +93,7 @@ contains
         logical, intent(in) :: on_windows
         character(len=:), allocatable :: cmd
         if (on_windows) then
-            cmd = 'cmd /C "type ' // trim(in_file) // ' | ' // trim(exe) // &
+            cmd = 'cmd /C "type ' // trim(in_file) // ' | "' // trim(exe) // '"' // &
                   ' > ' // trim(out_file) // ' 2> ' // trim(err_file) // '"'
         else
             cmd = 'sh -lc "cat ' // trim(in_file) // ' | ' // trim(exe) // &
@@ -279,8 +279,7 @@ contains
         
         ! Execute with input. On Windows, prefer passing filename to avoid pipe forwarding issues via fpm.
         if (is_windows) then
-            command = 'cmd /C "' // executable_path // &
-                      ' test_input.lf > test_output.txt 2> test_error.txt"'
+            command = 'cmd /C ""' // executable_path // '" test_input.lf > test_output.txt 2> test_error.txt"'
         else
             command = build_pipe_command(executable_path, 'test_input.lf', &
                                          'test_output.txt', 'test_error.txt', .false.)
@@ -403,8 +402,7 @@ contains
 
         ! Run with an unknown flag; expect non-zero exit
         if (is_windows) then
-            command = 'cmd /C "' // executable_path // &
-                      ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt"'
+            command = 'cmd /C ""' // executable_path // '" --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt"'
         else
             command = timeout_wrapper('20') // executable_path // &
                       ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
@@ -541,8 +539,7 @@ contains
         ! Run with empty input (cross-platform)
         if (is_windows) then
             ! Use NUL on Windows to pipe empty input
-            command = 'cmd /C "type NUL | ' // executable_path // &
-                      ' > test_output3.txt 2>test_error3.txt"'
+            command = 'cmd /C "type NUL | "' // executable_path // '" > test_output3.txt 2>test_error3.txt"'
         else
             command = 'bash -lc "echo \"\" | ' // timeout_wrapper('20') // &
                       executable_path // ' > test_output3.txt 2>test_error3.txt"'
