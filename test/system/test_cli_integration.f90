@@ -23,17 +23,11 @@ program test_cli_integration
         print *, "SKIPPING: CLI system tests disabled (set RUN_SYSTEM_TESTS=1 to enable)"
         stop 0
     end if
-
-    if (is_windows) then
-        print *, "SKIPPING: CLI integration tests on Windows (shell compatibility issues)"
-        print *, "This is a known limitation and will be fixed in a future update"
-        stop 0
-    end if
     
     ! Pre-build fortfront to ensure it exists before testing
     print *, "Building fortfront executable..."
     call execute_command_line(timeout_wrapper('60') // &
-         'fpm build --flag "-cpp -fmax-stack-var-size=65536"', exitstat=test_count)
+         'fpm build', exitstat=test_count)
     if (test_count /= 0) then
         print *, "SKIPPING: Failed to build fortfront executable (exit code:", test_count, ")"
         print *, "This may indicate CI environment issues or missing build dependencies"
@@ -73,6 +67,39 @@ program test_cli_integration
     end if
     
 contains
+
+    subroutine cleanup_file(file)
+        character(len=*), intent(in) :: file
+        integer :: ec
+        if (check_if_windows()) then
+            call execute_command_line('cmd /C if exist ' // trim(file) // ' del /F /Q ' // trim(file), exitstat=ec)
+        else
+            call execute_command_line('rm -f ' // trim(file), exitstat=ec)
+        end if
+    end subroutine cleanup_file
+
+    subroutine write_text_file(path, content)
+        character(len=*), intent(in) :: path, content
+        integer :: u, ios
+        open(newunit=u, file=path, status='replace', action='write', iostat=ios)
+        if (ios == 0) then
+            write(u, '(A)', iostat=ios) content
+            close(u)
+        end if
+    end subroutine write_text_file
+
+    function build_pipe_command(exe, in_file, out_file, err_file, on_windows) result(cmd)
+        character(len=*), intent(in) :: exe, in_file, out_file, err_file
+        logical, intent(in) :: on_windows
+        character(len=:), allocatable :: cmd
+        if (on_windows) then
+            cmd = 'cmd /C "type ' // trim(in_file) // ' | ' // trim(exe) // &
+                  ' > ' // trim(out_file) // ' 2> ' // trim(err_file) // '"'
+        else
+            cmd = 'sh -lc "cat ' // trim(in_file) // ' | ' // trim(exe) // &
+                  ' > ' // trim(out_file) // ' 2> ' // trim(err_file) // '"'
+        end if
+    end function build_pipe_command
 
     function should_run_system_tests() result(run)
         logical :: run
@@ -214,9 +241,12 @@ contains
             return
         end if
         
-        ! Run: echo "print *, 'test'" | fortfront
-        command = 'echo "print *, ''test''" | ' // executable_path // ' > ' // &
-                  'test_output.txt 2>test_error.txt'
+        ! Prepare input file for cross-platform piping
+        call write_text_file('test_input.lf', 'print *, ''test''' // new_line('a'))
+        
+        ! Pipe input file into executable (cross-platform)
+        command = build_pipe_command(executable_path, 'test_input.lf', &
+                                     'test_output.txt', 'test_error.txt', is_windows)
         call execute_command_line(command, exitstat=run_status)
         
         success = (run_status == 0)
@@ -241,7 +271,9 @@ contains
 101                 close(12)
                 end if
                 ! Clean up test files
-                call execute_command_line('rm -f test_output.txt test_error.txt', exitstat=exit_code)
+                call cleanup_file('test_input.lf')
+                call cleanup_file('test_output.txt')
+                call cleanup_file('test_error.txt')
             else
                 success = .false.
             end if
@@ -271,13 +303,16 @@ contains
             return
         end if
         
-        ! Run with invalid input
-        command = 'echo "invalid fortran code @#$%" | ' // executable_path // ' > ' // &
-                  'test_output2.txt 2>test_error2.txt'
+        ! Run with invalid input (cross-platform piping)
+        call write_text_file('test_invalid.lf', 'invalid fortran code @#$%' // new_line('a'))
+        command = build_pipe_command(executable_path, 'test_invalid.lf', &
+                                     'test_output2.txt', 'test_error2.txt', is_windows)
         call execute_command_line(command, exitstat=run_status)
         
         ! Clean up test files
-        call execute_command_line('rm -f test_output2.txt test_error2.txt', exitstat=exit_code)
+        call cleanup_file('test_invalid.lf')
+        call cleanup_file('test_output2.txt')
+        call cleanup_file('test_error2.txt')
         
         ! Invalid source input should not crash; current design returns 0
         success = (run_status == 0)
@@ -306,12 +341,18 @@ contains
         end if
 
         ! Run with an unknown flag; expect non-zero exit
-        command = timeout_wrapper('20') // executable_path // &
-                  ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
+        if (is_windows) then
+            command = 'cmd /C "' // executable_path // &
+                      ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt"'
+        else
+            command = timeout_wrapper('20') // executable_path // &
+                      ' --nonexistent-flag > test_output_flag.txt 2>test_error_flag.txt'
+        end if
         call execute_command_line(command, exitstat=run_status)
 
         ! Clean up test files
-        call execute_command_line('rm -f test_output_flag.txt test_error_flag.txt', exitstat=exit_code)
+        call cleanup_file('test_output_flag.txt')
+        call cleanup_file('test_error_flag.txt')
 
         success = (run_status /= 0)
 
@@ -339,12 +380,18 @@ contains
         end if
 
         ! Run with a single dash; expect non-zero exit
-        command = timeout_wrapper('20') // executable_path // &
-                  ' - > test_output_dash.txt 2>test_error_dash.txt'
+        if (is_windows) then
+            command = 'cmd /C "' // executable_path // &
+                      ' - > test_output_dash.txt 2>test_error_dash.txt"'
+        else
+            command = timeout_wrapper('20') // executable_path // &
+                      ' - > test_output_dash.txt 2>test_error_dash.txt'
+        end if
         call execute_command_line(command, exitstat=run_status)
 
         ! Clean up test files
-        call execute_command_line('rm -f test_output_dash.txt test_error_dash.txt', exitstat=exit_code)
+        call cleanup_file('test_output_dash.txt')
+        call cleanup_file('test_error_dash.txt')
 
         success = (run_status /= 0)
 
@@ -373,9 +420,15 @@ contains
         end if
 
         ! Run with lazy function syntax which is not supported
-        command = 'bash -lc "echo \"func add(x, y) = x + y\" | ' // &
-                  timeout_wrapper('20') // executable_path // &
-                  ' > test_out_func.txt 2>test_err_func.txt"'
+        if (is_windows) then
+            call write_text_file('test_func.lf', 'func add(x, y) = x + y' // new_line('a'))
+            command = build_pipe_command(executable_path, 'test_func.lf', &
+                                         'test_out_func.txt', 'test_err_func.txt', .true.)
+        else
+            command = 'bash -lc "echo \"func add(x, y) = x + y\" | ' // &
+                      timeout_wrapper('20') // executable_path // &
+                      ' > test_out_func.txt 2>test_err_func.txt"'
+        end if
         call execute_command_line(command, exitstat=run_status)
 
         ! Expect non-zero exit code
@@ -396,7 +449,9 @@ contains
         end if
 
         ! Clean up files
-        call execute_command_line('rm -f test_out_func.txt test_err_func.txt', exitstat=exit_code)
+        call cleanup_file('test_out_func.txt')
+        call cleanup_file('test_err_func.txt')
+        call cleanup_file('test_func.lf')
 
         call test_result(success)
         if (.not. success) then
@@ -422,9 +477,15 @@ contains
             return
         end if
         
-        ! Run with empty input
-        command = 'bash -lc "echo \"\" | ' // timeout_wrapper('20') // &
-                  executable_path // ' > test_output3.txt 2>test_error3.txt"'
+        ! Run with empty input (cross-platform)
+        if (is_windows) then
+            ! Use NUL on Windows to pipe empty input
+            command = 'cmd /C "type NUL | ' // executable_path // &
+                      ' > test_output3.txt 2>test_error3.txt"'
+        else
+            command = 'bash -lc "echo \"\" | ' // timeout_wrapper('20') // &
+                      executable_path // ' > test_output3.txt 2>test_error3.txt"'
+        end if
         call execute_command_line(command, exitstat=exit_code)
         
         success = (exit_code == 0)
@@ -439,7 +500,8 @@ contains
                 end if
 200             close(11)
                 ! Clean up test files
-                call execute_command_line('rm -f test_output3.txt test_error3.txt', exitstat=exit_code)
+                call cleanup_file('test_output3.txt')
+                call cleanup_file('test_error3.txt')
             else
                 success = .false.
             end if
