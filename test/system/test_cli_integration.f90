@@ -163,8 +163,16 @@ contains
         integer :: i, exit_code, unit_num
         character(len=256) :: search_output
         character(len=50), dimension(20) :: build_patterns
+        logical :: on_windows
         
         executable_path = ""
+        on_windows = check_if_windows()
+        
+        ! On Windows, prefer invoking via fpm to avoid path/extension issues.
+        if (on_windows) then
+            executable_path = 'fpm run --target fortfront --'
+            return
+        end if
         
         ! Strategy 1: Use find command to dynamically locate fortfront executable
         call execute_command_line('find build -name "fortfront" -type f | head -1 > fortfront_search.txt', &
