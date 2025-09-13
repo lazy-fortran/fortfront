@@ -83,8 +83,6 @@ jobs:
         make test
 
     # Code validation gate removed (redundant with test suite)
- a220b5c (chore(ci,benchmarks,docs): remove 'fraud' terminology; rename validation scripts and steps; neutralize messages)
- 8a225a2 (chore(tests,ci): remove tautological Windows diagnostic and placeholder codegen test; drop redundant code validation gate/scripts)
 
     # No additional cleanup steps
 
@@ -435,13 +433,7 @@ jobs:
         RUN_SYSTEM_TESTS: '1'
       run: |
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
-<<<<<<< HEAD
-        fpm test c3bdc67 (ci(windows): run full test suite with RUN_SYSTEM_TESTS=1 to validate CLI piping behavior)
- 3179ed6 (chore(build,ci,tests,docs): remove -cpp and -fmax-stack-var-size flags from Makefile, CI, scripts, tests, and docs)
- 355a121 (chore: simplify repo — remove scripts directory usage and delete redundant scripts)
-=======
         fpm test
->>>>>>> fd0c93d (fix(ci,core): decouple JSON APIs from core; revert Windows flags)
 
     - name: Cleanup build cache and logs (Windows)
       if: always()
