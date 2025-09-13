@@ -23,7 +23,7 @@ contains
     subroutine test_context_creation()
         type(semantic_context_t) :: context
         
-        context = create_semantic_context()
+        call create_semantic_context(context)
         
         ! Verify context was created properly
         if (context%next_var_id /= 1) then
@@ -38,11 +38,11 @@ contains
     subroutine test_context_copy()
         type(semantic_context_t) :: original, copied
         
-        original = create_semantic_context()
+        call create_semantic_context(original)
         original%next_var_id = 42
         
         ! Test deep copy
-        copied = original%deep_copy()
+        call original%deep_copy(copied)
         
         if (copied%next_var_id /= original%next_var_id) then
             tests_passed = .false.
@@ -55,7 +55,7 @@ contains
     subroutine test_context_scope_operations()
         type(semantic_context_t) :: context
         
-        context = create_semantic_context()
+        call create_semantic_context(context)
         
         ! Test scope operations exist (these are basic tests)
         call context%scopes%enter_block()

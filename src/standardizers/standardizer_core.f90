@@ -5,7 +5,6 @@ module standardizer_core
     use ast_core
     use ast_factory
     use type_system_unified
-    use json_module, only: json_core, json_value, json_file
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use error_handling, only: result_t, success_result, create_error_result, &
                               ERROR_TYPE_SYSTEM
@@ -23,7 +22,7 @@ module standardizer_core
     integer, parameter :: INVALID_INTEGER = -999999
 
     public :: standardize_ast
-    public :: standardize_ast_json
+    ! JSON-based API removed
     public :: set_standardizer_type_standardization, &
               get_standardizer_type_standardization
     
@@ -84,20 +83,7 @@ contains
     end subroutine standardize_ast
 
     ! JSON interface for standardization
-    subroutine standardize_ast_json(json_file_path, output_file, error_msg)
-        character(len=*), intent(in) :: json_file_path, output_file
-        character(len=:), allocatable, intent(out) :: error_msg
-        type(json_file) :: ast_json
-        type(json_core) :: json
-        type(json_value), pointer :: root_ptr
-        type(ast_arena_t) :: arena
-        integer :: root_index
-        logical :: found
-        
-        ! Load JSON and reconstruct AST (implementation would go here)
-        ! This is a stub for the JSON interface
-        error_msg = "JSON standardization not yet implemented"
-    end subroutine standardize_ast_json
+    ! JSON standardization entry removed
 
     ! Configuration setters/getters
     subroutine set_standardizer_type_standardization(enabled)

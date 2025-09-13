@@ -94,9 +94,9 @@ module semantic_analyzer
 
 contains
 
-    ! Create a new semantic context with builtin functions
-    function create_semantic_context() result(ctx)
-        type(semantic_context_t) :: ctx
+    ! Create a new semantic context with builtin functions (avoid large return-by-value)
+    subroutine create_semantic_context(ctx)
+        type(semantic_context_t), intent(out) :: ctx
         type(poly_type_t) :: builtin_scheme
         type(mono_type_t) :: real_to_real, real_type
         
@@ -105,8 +105,13 @@ contains
         ctx%context_name = "semantic_context"
         
         ! Initialize basic components
-        ctx%scopes = create_scope_stack()
+        call create_scope_stack(ctx%scopes)
         ctx%subst%count = 0
+        ctx%subst%capacity = 64
+        if (allocated(ctx%subst%vars)) deallocate(ctx%subst%vars)
+        if (allocated(ctx%subst%types)) deallocate(ctx%subst%types)
+        allocate(ctx%subst%vars(ctx%subst%capacity))
+        allocate(ctx%subst%types(ctx%subst%capacity))
         ctx%param_tracker%count = 0
         ctx%temp_tracker = create_temp_tracker()
         ctx%errors = create_error_collection()
@@ -127,7 +132,7 @@ contains
         call ctx%scopes%define("exp", builtin_scheme)
         call ctx%scopes%define("log", builtin_scheme)
         call ctx%scopes%define("abs", builtin_scheme)
-    end function create_semantic_context
+    end subroutine create_semantic_context
 
     ! Main entry point: analyze entire program
     subroutine analyze_program(ctx, arena, root_index)
@@ -456,10 +461,10 @@ contains
         this%subst = compose_substitutions(new_subst, this%subst)
     end subroutine compose_with_subst
 
-    ! Deep copy
-    function semantic_context_deep_copy(this) result(copy)
+    ! Deep copy (use subroutine to avoid large return-by-value on stack)
+    subroutine semantic_context_deep_copy(this, copy)
         class(semantic_context_t), intent(in) :: this
-        type(semantic_context_t) :: copy
+        type(semantic_context_t), intent(out) :: copy
 
         copy%scopes = this%scopes
         copy%next_var_id = this%next_var_id
@@ -468,7 +473,7 @@ contains
         copy%temp_tracker = this%temp_tracker
         copy%errors = this%errors
         copy%strict_mode = this%strict_mode
-    end function semantic_context_deep_copy
+    end subroutine semantic_context_deep_copy
 
 
     ! Enhanced function definition semantic analysis (simplified main version)

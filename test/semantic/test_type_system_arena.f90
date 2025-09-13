@@ -259,7 +259,7 @@ contains
     
     subroutine test_bulk_allocation()
         type(type_arena_t) :: arena
-        type(mono_handle_t) :: handles(1000)
+        type(mono_handle_t), allocatable :: handles(:)
         type(arena_mono_type_t) :: mono_type
         type(type_arena_stats_t) :: stats
         integer :: i
@@ -267,6 +267,7 @@ contains
         call test_start("Bulk allocation performance")
         
         arena = create_type_arena()
+        allocate(handles(1000))
         
         ! Bulk allocate 1000 mono types
         mono_type%kind = 2  ! TINT
@@ -289,6 +290,7 @@ contains
         end if
         
         call destroy_type_arena(arena)
+        if (allocated(handles)) deallocate(handles)
     end subroutine test_bulk_allocation
     
     subroutine test_arena_reset()

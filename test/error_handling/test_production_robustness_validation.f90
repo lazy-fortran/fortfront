@@ -221,7 +221,7 @@ contains
         type(error_collection_t) :: large_collection
         type(result_t) :: temp_result
         integer :: i
-        character(len=1000) :: large_error_message
+        character(len=256) :: large_error_message
         character(len=20) :: counter
         
         write(*,*) '--- Testing Memory Exhaustion Simulation ---'

@@ -14,7 +14,7 @@ subroutine read_readme_file(content)
     implicit none
     character(len=:), allocatable, intent(out) :: content
     integer :: unit, ios
-    character(len=1000) :: line
+    character(len=256) :: line
     character(len=:), allocatable :: temp_content
     
     ! Open README.md file

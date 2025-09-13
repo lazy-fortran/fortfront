@@ -59,7 +59,7 @@ contains
         print *, "PASS: Parsing completed"
 
         ! Semantic analysis
-        sem_ctx = create_semantic_context()
+        call create_semantic_context(sem_ctx)
         call analyze_program(sem_ctx, arena, prog_index)
         print *, "PASS: Semantic analysis completed without segfault"
 

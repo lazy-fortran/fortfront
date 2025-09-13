@@ -236,13 +236,14 @@ contains
     subroutine test_bulk_operations()
         type(compiler_arena_t) :: arena
         type(arena_mono_type_t) :: test_type
-        type(mono_handle_t) :: handles(1000)
+        type(mono_handle_t), allocatable :: handles(:)
         type(compiler_arena_stats_t) :: stats
         integer :: i
         
         call test_start("Bulk operations performance")
         
         arena = create_compiler_arena(1048576)  ! 1MB for bulk test
+        allocate(handles(1000))
         
         ! Create 1000 types to test bulk performance
         test_type%kind = 2  ! TINT
@@ -267,6 +268,7 @@ contains
         end if
         
         call destroy_compiler_arena(arena)
+        if (allocated(handles)) deallocate(handles)
     end subroutine test_bulk_operations
     
     subroutine test_memory_efficiency()

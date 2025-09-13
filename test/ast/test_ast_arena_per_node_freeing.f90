@@ -443,7 +443,7 @@ contains
     subroutine test_freeing_performance()
         type(ast_arena_t) :: arena
         type(ast_node_arena_t) :: node
-        type(ast_handle_t) :: handles(1000)
+        type(ast_handle_t), allocatable :: handles(:)
         type(ast_free_result_t) :: free_result
         integer :: i
         logical :: all_freed
@@ -451,6 +451,7 @@ contains
         call test_start("Freeing performance (O(1) operations)")
         
         arena = create_ast_arena()
+        allocate(handles(1000))
         
         ! Create many nodes
         do i = 1, 1000
@@ -476,6 +477,7 @@ contains
         end if
         
         call destroy_ast_arena(arena)
+        if (allocated(handles)) deallocate(handles)
     end subroutine test_freeing_performance
     
     subroutine test_free_statistics()

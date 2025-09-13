@@ -1,7 +1,7 @@
 program test_implied_do_loops
     use frontend, only: transform_lazy_fortran_string  
     implicit none
-    character(len=1000) :: input
+    character(len=256) :: input
     character(len=:), allocatable :: output, error_msg
     
     write(*, '(A)') "=== Testing Implied Do Loop Array Constructors ==="

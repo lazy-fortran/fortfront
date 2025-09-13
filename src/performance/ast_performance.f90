@@ -515,7 +515,7 @@ contains
         type(semantic_context_t), intent(out) :: dest_ctx
         
         ! Initialize destination context
-        dest_ctx = create_semantic_context()
+        call create_semantic_context(dest_ctx)
         
         ! Copy scalar properties
         dest_ctx%next_var_id = source_ctx%next_var_id

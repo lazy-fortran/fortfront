@@ -15,7 +15,7 @@ program test_semantic_integration
 
     ! Initialize test environment
     arena = create_ast_arena()
-    context = create_semantic_context()
+    call create_semantic_context(context)
     root_node_index = 1  ! Dummy root node index
 
     ! Test 1: Basic semantic types available

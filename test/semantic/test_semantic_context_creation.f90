@@ -32,7 +32,7 @@ contains
         write (*, '(A)') "Step 1: Substitution initialized"
 
         ! Initialize hierarchical scope stack (step 2)
-        ctx%scopes = create_scope_stack()
+        call create_scope_stack(ctx%scopes)
         write (*, '(A)') "Step 2: Scope stack initialized"
 
         ! Initialize environment and next var id (step 3)

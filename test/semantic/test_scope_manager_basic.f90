@@ -30,7 +30,7 @@ contains
         test_count = test_count + 1
 
         write (*, '(A)') "Testing scope creation..."
-        scope = create_scope(SCOPE_GLOBAL, "test")
+        call create_scope(scope, SCOPE_GLOBAL, "test")
 
         if (scope%scope_type == SCOPE_GLOBAL .and. scope%name == "test") then
             pass_count = pass_count + 1
@@ -46,7 +46,7 @@ contains
         test_count = test_count + 1
 
         write (*, '(A)') "Testing scope stack creation..."
-        stack = create_scope_stack()
+        call create_scope_stack(stack)
 
         if (stack%depth == 1 .and. stack%capacity == 10) then
             pass_count = pass_count + 1
@@ -63,7 +63,7 @@ contains
         test_count = test_count + 1
 
         write (*, '(A)') "Testing scope lookup on empty scope..."
-        scope = create_scope(SCOPE_GLOBAL, "test")
+        call create_scope(scope, SCOPE_GLOBAL, "test")
 
         write (*, '(A)') "About to call scope%lookup..."
         write (*, '(A,I0)') "Scope env count: ", scope%env%count

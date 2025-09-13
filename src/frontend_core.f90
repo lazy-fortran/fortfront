@@ -222,8 +222,9 @@ contains
         character(len=*), intent(out) :: error_msg
 
         block
-            type(semantic_context_t) :: ctx
-            ctx = create_semantic_context()
+            type(semantic_context_t), allocatable :: ctx
+            allocate(ctx)
+            call create_semantic_context(ctx)
             
             ! Use permissive mode here; strictness is decided in semantic analyzer
             ! based on presence of 'implicit none' within the program unit.
@@ -246,7 +247,7 @@ contains
         type(semantic_context_t), intent(in) :: ctx
         character(len=:), allocatable :: error_msg
         integer :: i, total_errors
-        character(len=1000) :: temp_msg
+        character(len=128) :: temp_msg
         
         total_errors = ctx%errors%count
         if (total_errors == 0) then

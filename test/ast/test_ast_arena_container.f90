@@ -433,13 +433,14 @@ contains
         integer, intent(inout) :: tests_passed, tests_failed
         type(ast_arena_t) :: arena
         type(ast_node_arena_t) :: node
-        type(arena_handle_t) :: handles(1000)
+        type(arena_handle_t), allocatable :: handles(:)
         integer :: i
         real :: start_time, end_time
         
         print *, "  Testing container performance..."
         
         arena = create_ast_arena(65536)
+        allocate(handles(1000))
         
         node%node_type_name = "PERF_TEST"
         
@@ -472,6 +473,7 @@ contains
         end if
         
         call destroy_ast_arena(arena)
+        if (allocated(handles)) deallocate(handles)
     end subroutine test_container_performance
     
     ! Test memory safety features

@@ -1,7 +1,7 @@
 program test_issue_1221_explicit_program_type_inference
     use frontend, only: transform_lazy_fortran_string
     implicit none
-    character(len=1000) :: input
+    character(len=256) :: input
     character(len=:), allocatable :: output, error_msg
     logical :: success
 

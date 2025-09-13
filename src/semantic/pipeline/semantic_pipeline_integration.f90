@@ -26,7 +26,7 @@ contains
         if (present(context)) then
             local_context = context
         else
-            local_context = create_semantic_context()
+            call create_semantic_context(local_context)
         end if
         
         ! Run traditional semantic analysis first for compatibility

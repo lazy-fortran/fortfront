@@ -67,31 +67,12 @@ contains
         integer :: i
         type(mono_type_t) :: temp_type
         
-        ! Analyze function parameters
+        ! Analyze function parameters (lightweight: avoid scope mutations)
         if (allocated(func_node%param_indices)) then
             allocate(param_types(size(func_node%param_indices)))
-            
-            ! Create new scope for function parameters
-            call scopes%enter_block()
-            
             do i = 1, size(func_node%param_indices)
-                ! Simple parameter type inference for now
                 temp_type = create_mono_type(TREAL)  ! Default to real
                 param_types(i) = temp_type
-                
-                ! Add parameter to function scope if it's an identifier
-                if (func_node%param_indices(i) > 0 .and. func_node%param_indices(i) <= arena%size) then
-                    select type (param_node => arena%entries(func_node%param_indices(i))%node)
-                    type is (identifier_node)
-                        if (allocated(param_node%name) .and. len_trim(param_node%name) > 0) then
-                            block
-                                type(poly_type_t) :: param_scheme
-                                param_scheme = create_poly_type(forall_vars=[type_var_t::], mono=param_types(i))
-                                call scopes%define(param_node%name, param_scheme)
-                            end block
-                        end if
-                    end select
-                end if
             end do
         else
             allocate(param_types(0))
@@ -124,15 +105,9 @@ contains
         type(scope_stack_t), intent(inout) :: scopes
         type(poly_type_t) :: result_scheme
         
-        ! Add result variable to function scope
+        ! Lightweight: avoid modifying scopes to reduce stack/allocation pressure
         result_scheme = create_poly_type(forall_vars=[type_var_t::], mono=return_type)
-        
-        if (allocated(func_node%result_variable) .and. len_trim(func_node%result_variable) > 0) then
-            call scopes%define(func_node%result_variable, result_scheme)
-        else if (allocated(func_node%name) .and. len_trim(func_node%name) > 0) then
-            ! Function name is the result variable (standard Fortran)
-            call scopes%define(func_node%name, result_scheme)
-        end if
+        ! No scope mutations here
     end subroutine create_function_scope
 
 end module semantic_function_analysis

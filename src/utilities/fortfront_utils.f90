@@ -293,12 +293,12 @@ contains
     
     ! AST to JSON serialization
     subroutine ast_to_json(arena, root_index, json_string)
-        use ast_json, only: ast_to_json_string
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         character(len=:), allocatable, intent(out) :: json_string
         
-        json_string = ast_to_json_string(arena, root_index)
+        ! JSON functionality removed; return a minimal placeholder.
+        json_string = '{}'
     end subroutine ast_to_json
     
     ! Semantic info to JSON - actual implementation

@@ -65,7 +65,7 @@ contains
         end if
 
         ! Semantic analysis
-        sem_ctx = create_semantic_context()
+        call create_semantic_context(sem_ctx)
         call analyze_program(sem_ctx, arena, prog_index)
 
         ! Check if the condition is marked as constant with value false
@@ -119,7 +119,7 @@ contains
         end if
 
         ! Semantic analysis
-        sem_ctx = create_semantic_context()
+        call create_semantic_context(sem_ctx)
         call analyze_program(sem_ctx, arena, prog_index)
 
         ! Check if the expression is evaluated as constant false
@@ -174,7 +174,7 @@ contains
         end if
 
         ! Semantic analysis
-        sem_ctx = create_semantic_context()
+        call create_semantic_context(sem_ctx)
         call analyze_program(sem_ctx, arena, prog_index)
 
         ! Check if parameter value is propagated and condition evaluated

@@ -343,10 +343,10 @@ contains
         ! Generate basic declaration
         code = type_str
 
-        ! Add kind if present (but not for character which uses len)
-        if (node%has_kind .and. node%type_name /= "character") then
+        ! Add kind if present and valid (>0) (but not for character which uses len)
+        if (node%has_kind .and. node%kind_value > 0 .and. node%type_name /= "character") then
             code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
-        else if (node%type_name == "character" .and. node%has_kind) then
+        else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value > 0) then
             ! For character, kind_value is actually the length
             code = "character(len=" // trim(adjustl(int_to_string(node%kind_value))) // ")"
         end if
