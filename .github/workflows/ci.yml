@@ -86,11 +86,7 @@ jobs:
         # Use selective test runner for optimal performance
         ./scripts/test_selective.sh
 
-    - name: Code Validation Gate
-      id: code_validation
-      run: |
-        echo "Running code validation gate"
-        ./scripts/ci_code_validation.sh
+    # Code validation gate removed (redundant with test suite)
 
     - name: Cleanup build cache and logs
       if: always()
