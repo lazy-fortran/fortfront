@@ -60,10 +60,10 @@ module scope_manager
 contains
 
     ! Create a new scope (no parent pointer - stack handles hierarchy)
-    function create_scope(scope_type, name) result(scope)
+    subroutine create_scope(scope, scope_type, name)
+        type(scope_t), intent(out) :: scope
         integer, intent(in) :: scope_type
         character(len=*), intent(in), optional :: name
-        type(scope_t) :: scope
 
         scope%scope_type = scope_type
 
@@ -73,18 +73,20 @@ contains
             scope%name = ""
         end if
 
-        ! No parent pointer - stack handles hierarchy
-
-        ! Initialize empty environment (fixed arrays already allocated)
+        ! Initialize empty environment (allocate on heap to avoid large stack usage)
         scope%env%count = 0
-        ! capacity is already set by type definition
+        scope%env%capacity = 64
+        if (allocated(scope%env%names)) deallocate(scope%env%names)
+        if (allocated(scope%env%schemes)) deallocate(scope%env%schemes)
+        allocate(scope%env%names(scope%env%capacity))
+        allocate(scope%env%schemes(scope%env%capacity))
 
-    end function create_scope
+    end subroutine create_scope
 
-    ! Create a new scope stack with global scope
-    function create_scope_stack() result(stack)
-        type(scope_stack_t) :: stack
-        integer :: i, j
+    ! Create a new scope stack with global scope (intent(out) to avoid large return copies)
+    subroutine create_scope_stack(stack)
+        type(scope_stack_t), intent(out) :: stack
+        integer :: i
 
         ! Initialize capacity and create global scope
         stack%capacity = 10
@@ -99,14 +101,13 @@ contains
             ! env components should use default initializers (count=0, capacity=MAX_ENV_SIZE)
             ! Fixed arrays (names, schemes) don't need explicit initialization for unused elements
         end do
-        
         stack%depth = 1
         ! Initialize first scope directly without assignment to avoid massive copy
         stack%scopes(1)%scope_type = SCOPE_GLOBAL
         stack%scopes(1)%name = "global"
         ! env is already initialized by type defaults
 
-    end function create_scope_stack
+    end subroutine create_scope_stack
 
     ! Scope lookup (local only)
     subroutine scope_lookup(this, name, scheme)
@@ -147,21 +148,8 @@ contains
         character(len=*), intent(in) :: name
         type(poly_type_t), intent(in) :: scheme
 
-        ! Direct implementation to avoid type-bound procedure issues
-        ! Check capacity (fixed arrays)
-        if (this%env%count >= this%env%capacity) then
-            ! Log error and return gracefully instead of stopping
-            write(error_unit, *) "ERROR: Scope environment capacity exceeded (", this%env%count, &
-                " >= ", this%env%capacity, ")"
-            write(error_unit, *) "Consider increasing MAX_ENV_SIZE in type_system_unified"
-            ! Skip adding this binding rather than crashing
-            return
-        end if
-
-        ! Add new binding
-        this%env%count = this%env%count + 1
-        this%env%names(this%env%count) = name
-        this%env%schemes(this%env%count) = scheme
+        ! Delegate to type_env_t extend, which handles allocation and guard
+        call this%env%extend(name, scheme)
 
     end subroutine scope_define
 
@@ -188,14 +176,8 @@ contains
                         if (allocated(this%scopes(i)%name)) then
                             temp_scopes(i)%name = this%scopes(i)%name
                         end if
-                        ! Deep copy env (fixed arrays)
-                        temp_scopes(i)%env%count = this%scopes(i)%env%count
-                        temp_scopes(i)%env%capacity = this%scopes(i)%env%capacity
-                        ! Copy only used elements
-                        do j = 1, this%scopes(i)%env%count
-                            temp_scopes(i)%env%names(j) = this%scopes(i)%env%names(j)
-                            temp_scopes(i)%env%schemes(j) = this%scopes(i)%env%schemes(j)
-                        end do
+                        ! Deep copy env via assignment (allocates and copies used elements)
+                        temp_scopes(i)%env = this%scopes(i)%env
                     end do
                 end block
             end if
@@ -211,14 +193,8 @@ contains
         if (allocated(new_scope%name)) then
             this%scopes(this%depth)%name = new_scope%name
         end if
-        ! Deep copy env (fixed arrays)
-        this%scopes(this%depth)%env%count = new_scope%env%count
-        this%scopes(this%depth)%env%capacity = new_scope%env%capacity
-        ! Copy only used elements
-        do j = 1, new_scope%env%count
-            this%scopes(this%depth)%env%names(j) = new_scope%env%names(j)
-            this%scopes(this%depth)%env%schemes(j) = new_scope%env%schemes(j)
-        end do
+        ! Deep copy env via assignment (allocates and copies used elements)
+        this%scopes(this%depth)%env = new_scope%env
 
     end subroutine stack_push_scope
 
@@ -277,7 +253,7 @@ contains
         character(len=*), intent(in) :: module_name
         type(scope_t) :: new_scope
 
-        new_scope = create_scope(SCOPE_MODULE, module_name)
+        call create_scope(new_scope, SCOPE_MODULE, module_name)
         call this%push(new_scope)
 
     end subroutine stack_enter_module
@@ -288,7 +264,7 @@ contains
         character(len=*), intent(in) :: function_name
         type(scope_t) :: new_scope
 
-        new_scope = create_scope(SCOPE_FUNCTION, function_name)
+        call create_scope(new_scope, SCOPE_FUNCTION, function_name)
         call this%push(new_scope)
 
     end subroutine stack_enter_function
@@ -299,7 +275,7 @@ contains
         character(len=*), intent(in) :: subroutine_name
         type(scope_t) :: new_scope
 
-        new_scope = create_scope(SCOPE_SUBROUTINE, subroutine_name)
+        call create_scope(new_scope, SCOPE_SUBROUTINE, subroutine_name)
         call this%push(new_scope)
 
     end subroutine stack_enter_subroutine
@@ -309,7 +285,7 @@ contains
         class(scope_stack_t), intent(inout) :: this
         type(scope_t) :: new_scope
 
-        new_scope = create_scope(SCOPE_BLOCK, "")
+        call create_scope(new_scope, SCOPE_BLOCK, "")
         call this%push(new_scope)
 
     end subroutine stack_enter_block
@@ -321,9 +297,9 @@ contains
         type(scope_t) :: new_scope
 
         if (present(interface_name)) then
-            new_scope = create_scope(SCOPE_INTERFACE, interface_name)
+            call create_scope(new_scope, SCOPE_INTERFACE, interface_name)
         else
-            new_scope = create_scope(SCOPE_INTERFACE, "")
+            call create_scope(new_scope, SCOPE_INTERFACE, "")
         end if
         call this%push(new_scope)
 

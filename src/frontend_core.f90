@@ -222,8 +222,9 @@ contains
         character(len=*), intent(out) :: error_msg
 
         block
-            type(semantic_context_t) :: ctx
-            ctx = create_semantic_context()
+            type(semantic_context_t), allocatable :: ctx
+            allocate(ctx)
+            call create_semantic_context(ctx)
             
             ! Use permissive mode here; strictness is decided in semantic analyzer
             ! based on presence of 'implicit none' within the program unit.

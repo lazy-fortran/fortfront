@@ -54,7 +54,7 @@ contains
             stop 1
         end if
         
-        ctx = create_semantic_context()
+        call create_semantic_context(ctx)
         call analyze_semantics(arena, root_index)
         
         print *, "Arena size before formatting:", arena%size
@@ -125,7 +125,7 @@ contains
             stop 1
         end if
         
-        ctx = create_semantic_context()
+        call create_semantic_context(ctx)
         call analyze_semantics(arena, root_index)
         
         print *, "Arena size before formatting:", arena%size
@@ -182,7 +182,7 @@ contains
             stop 1
         end if
         
-        ctx = create_semantic_context()
+        call create_semantic_context(ctx)
         call analyze_semantics(arena, root_index)
         
         print *, "Arena size before formatting:", arena%size

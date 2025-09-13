@@ -79,7 +79,7 @@ contains
             end if
             
             ! Phase 3: Semantic analysis
-            ctx = create_semantic_context()
+            call create_semantic_context(ctx)
             call analyze_program(ctx, arena, prog_index)
             
             ! Verify type information was added
