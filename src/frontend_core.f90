@@ -246,7 +246,7 @@ contains
         type(semantic_context_t), intent(in) :: ctx
         character(len=:), allocatable :: error_msg
         integer :: i, total_errors
-        character(len=1000) :: temp_msg
+        character(len=128) :: temp_msg
         
         total_errors = ctx%errors%count
         if (total_errors == 0) then

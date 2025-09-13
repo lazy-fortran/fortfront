@@ -161,7 +161,7 @@ contains
         logical :: file_exists
         character(len=500) :: candidate_path
         integer :: i, exit_code, unit_num
-        character(len=1000) :: search_output
+        character(len=256) :: search_output
         character(len=50), dimension(20) :: build_patterns
         
         executable_path = ""
@@ -226,7 +226,7 @@ contains
     
     subroutine test_basic_io()
         integer :: exit_code, run_status
-        character(len=1000) :: output_line, err_line
+        character(len=256) :: output_line, err_line
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
         logical :: success
@@ -405,7 +405,7 @@ contains
     subroutine test_func_syntax_error_outputs_program()
         integer :: run_status, exit_code
         character(len=512) :: command
-        character(len=1000) :: line
+        character(len=256) :: line
         character(len=:), allocatable :: executable_path
         logical :: success
 
@@ -462,7 +462,7 @@ contains
     
     subroutine test_empty_input()
         integer :: exit_code
-        character(len=1000) :: output_line
+        character(len=256) :: output_line
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
         logical :: success
