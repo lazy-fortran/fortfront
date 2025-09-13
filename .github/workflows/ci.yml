@@ -86,11 +86,11 @@ jobs:
         # Use selective test runner for optimal performance
         ./scripts/test_selective.sh
 
-    - name: Fraud Prevention Validation Gate
-      id: fraud_prevention
+    - name: Code Validation Gate
+      id: code_validation
       run: |
-        echo "🛡️ Running fraud prevention validation"
-        ./scripts/ci_fraud_prevention.sh
+        echo "Running code validation gate"
+        ./scripts/ci_code_validation.sh
 
     - name: Cleanup build cache and logs
       if: always()
@@ -333,12 +333,12 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-build-
 
-    - name: Windows build validation (FRAUD RECOVERY EDITION)
+    - name: Windows build validation
       shell: pwsh  
       timeout-minutes: 10  # Extended timeout for comprehensive validation
       run: |
-        Write-Host "🛡️ Windows FRAUD RECOVERY build validation"
-        Write-Host "Addressing systematic Windows CI failures from Sprint #2"
+        Write-Host "Windows build validation"
+        Write-Host "Addressing Windows CI stability"
         
         # Explicitly add FPM to PATH for this session (CRITICAL FIX)
         $env:PATH = "C:\tools\fpm;$env:PATH"
@@ -418,15 +418,15 @@ jobs:
           }
         }
         
-        # FRAUD RECOVERY ASSESSMENT
-        Write-Host "🛡️ FRAUD RECOVERY ASSESSMENT:"
+        # Build validation assessment
+        Write-Host "Build validation assessment:"
         Write-Host "   Stage 1 (Ultra-conservative): $stage1_success"
         Write-Host "   Stage 2 (Standard): $stage2_success"
         Write-Host "   Stage 3 (Test validation): $stage3_success"
         
         # Success criteria: At least Stage 1 must succeed
         if ($stage1_success) {
-          Write-Host "✅ FRAUD RECOVERY SUCCESS: Windows build validation passed"
+          Write-Host "✅ SUCCESS: Windows build validation passed"
           if ($stage2_success) {
             Write-Host "🎆 BONUS: Standard build also successful"
           }
@@ -435,8 +435,8 @@ jobs:
           }
           exit 0
         } else {
-          Write-Host "❌ FRAUD RECOVERY FAILURE: All Windows build attempts failed"
-          Write-Host "This indicates genuine systematic Windows CI issues"
+          Write-Host "❌ FAILURE: All Windows build attempts failed"
+          Write-Host "This indicates Windows CI issues"
           exit 1
         }
 
