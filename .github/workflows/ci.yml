@@ -437,12 +437,10 @@ jobs:
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
 <<<<<<< HEAD
         fpm test c3bdc67 (ci(windows): run full test suite with RUN_SYSTEM_TESTS=1 to validate CLI piping behavior)
+ 3179ed6 (chore(build,ci,tests,docs): remove -cpp and -fmax-stack-var-size flags from Makefile, CI, scripts, tests, and docs)
 =======
-        gfortran --version
-        fpm --version
-        # Run tests
-        fpm test -j 2
->>>>>>> 3179ed6 (chore(build,ci,tests,docs): remove -cpp and -fmax-stack-var-size flags from Makefile, CI, scripts, tests, and docs)
+        make test
+>>>>>>> 355a121 (chore: simplify repo — remove scripts directory usage and delete redundant scripts)
 
     - name: Cleanup build cache and logs (Windows)
       if: always()
