@@ -6,7 +6,6 @@ license = "MIT"
 
 [dependencies]
 stdlib = "*"
-json-fortran = { git = "https://github.com/jacobwilliams/json-fortran.git", tag = "8.3.0" }
 
 [build]
 # Lock executables to explicit list to prevent accidental test binaries in app/
