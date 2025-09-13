@@ -260,22 +260,30 @@ contains
         success = (run_status == 0)
         
         if (success) then
-            ! Check if output contains expected Fortran code
+            ! Check if output contains expected Fortran code (scan file)
             open(unit=10, file='test_output.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
-                read(10, '(A)', end=100, iostat=exit_code) output_line
-                if (exit_code == 0) then
-                    success = success .and. (index(output_line, 'program main') > 0)
-                end if
+                success = .false.
+                do
+                    read(10, '(A)', end=100, iostat=exit_code) output_line
+                    if (exit_code /= 0) exit
+                    if (index(output_line, 'program main') > 0) then
+                        success = .true.
+                        exit
+                    end if
+                end do
 100             close(10)
-                ! Ensure no diagnostics leaked to stdout (stderr should be empty on success)
+                ! Ensure no diagnostics leaked to stderr (should be empty on success)
                 open(unit=12, file='test_error.txt', status='old', action='read', iostat=exit_code)
                 if (exit_code == 0) then
-                    read(12, '(A)', end=101, iostat=exit_code) err_line
-                    ! If we successfully read any content, it's a failure for clean runs
-                    if (exit_code == 0 .and. len_trim(err_line) > 0) then
-                        success = .false.
-                    end if
+                    do
+                        read(12, '(A)', end=101, iostat=exit_code) err_line
+                        if (exit_code /= 0) exit
+                        if (len_trim(err_line) > 0) then
+                            success = .false.
+                            exit
+                        end if
+                    end do
 101                 close(12)
                 end if
                 ! Clean up test files
