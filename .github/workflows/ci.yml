@@ -444,7 +444,8 @@ jobs:
         } else {
           Write-Host "fortfront.exe not found via search; tests will fallback to internal discovery"
         }
-        fpm test
+        fpm build --flag "-Wl,--stack,134217728"
+        fpm test  --flag "-Wl,--stack,134217728"
 
     - name: Cleanup build cache and logs (Windows)
       if: always()
