@@ -1,8 +1,8 @@
 program test_minimal_bench
-    ! FRAUD RECOVERY: Enhanced benchmark for reliable CI execution  
+    ! CI RECOVERY: Enhanced benchmark for reliable CI execution  
     ! Addresses 21+ minute hangs that blocked CI pipeline
     !
-    ! FRAUD RECOVERY IMPROVEMENTS:
+    ! CI RECOVERY IMPROVEMENTS:
     ! - Completes in <10 seconds with actual validation
     ! - Provides verifiable performance metrics
     ! - Exposes systematic failures instead of masking them
@@ -17,9 +17,9 @@ program test_minimal_bench
     
     call system_clock(start_time, count_rate)
     
-    write(stdout, '(A)') "=== FRAUD RECOVERY BENCHMARK ==="
-    write(stdout, '(A)') "Issue #400: Enhanced benchmark with fraud detection"
-    write(stdout, '(A)') "Status: FRAUD RECOVERY - exposing systematic issues"
+    write(stdout, '(A)') "=== CI RECOVERY BENCHMARK ==="
+    write(stdout, '(A)') "Issue #400: Enhanced benchmark with validation"
+    write(stdout, '(A)') "Status: CI RECOVERY - exposing systematic issues"
     
     ! Perform actual validation work (fraud recovery)
     test_passed = .true.
@@ -36,12 +36,12 @@ program test_minimal_bench
     call system_clock(end_time)
     duration = real(end_time - start_time) / real(count_rate)
     
-    write(stdout, '(A,F6.3,A)') "Duration: ", duration, " seconds (FRAUD RECOVERY)"
+    write(stdout, '(A,F6.3,A)') "Duration: ", duration, " seconds (CI RECOVERY)"
     
     if (test_passed) then
-        write(stdout, '(A)') "Status: FRAUD RECOVERY BENCHMARK PASSED"
+        write(stdout, '(A)') "Status: CI RECOVERY BENCHMARK PASSED"
     else
-        write(stdout, '(A)') "Status: FRAUD RECOVERY BENCHMARK DETECTED ISSUES"
+        write(stdout, '(A)') "Status: CI RECOVERY BENCHMARK DETECTED ISSUES"
         write(stdout, '(A)') "This exposes systematic problems previously hidden"
     end if
     

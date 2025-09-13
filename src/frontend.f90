@@ -7,8 +7,7 @@ module frontend
     ! Re-export core functionality
     use frontend_core, only: lex_source, analyze_semantics, emit_fortran, &
                             compile_source, compilation_options_t, &
-                            compile_from_tokens_json, compile_from_ast_json, &
-                            compile_from_semantic_json, lex_file
+                            lex_file
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t, &
                                find_program_unit_boundary, &
                                is_function_start, is_end_function, parse_program_unit, &
@@ -25,8 +24,6 @@ module frontend
     public :: lex_source, parse_tokens, parse_tokens_safe, parse_result_with_index_t, &
               analyze_semantics, emit_fortran
     public :: compile_source, compilation_options_t
-    public :: compile_from_tokens_json, compile_from_ast_json, &
-              compile_from_semantic_json
     public :: transform_lazy_fortran_string, &
               transform_lazy_fortran_string_with_format, format_options_t
     ! Debug functions for unit testing

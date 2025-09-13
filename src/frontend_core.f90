@@ -25,13 +25,10 @@ module frontend_core
                            get_standardizer_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_basic_utils, only: add_line_continuations
-    use json_reader, only: json_read_ast_from_file, json_read_semantic_from_file
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_core, only: generate_code_polymorphic, initialize_codegen
     use codegen_indent, only: set_indent_config, get_indent_config, &
                                set_line_length_config, get_line_length_config
-    use json_reader, only: json_read_tokens_from_file, json_read_ast_from_file, &
-                            json_read_semantic_from_file
     use input_validation, only: validate_basic_syntax, check_missing_then_statements, &
                                 check_incomplete_statements, check_for_fortran_content, &
                                 check_missing_end_constructs, contains_invalid_patterns, &
@@ -46,8 +43,6 @@ module frontend_core
 
     public :: lex_source, analyze_semantics, emit_fortran
     public :: compile_source, compilation_options_t
-    public :: compile_from_tokens_json, compile_from_ast_json, &
-              compile_from_semantic_json
     public :: lex_file
     public :: parse_tokens_safe, parse_result_with_index_t
 
@@ -140,164 +135,7 @@ contains
 
     end subroutine compile_source
 
-    ! Compile from tokens JSON (skip phase 1)
-    subroutine compile_from_tokens_json(tokens_json_file, options, error_msg)
-        character(len=*), intent(in) :: tokens_json_file
-        type(compilation_options_t), intent(in) :: options
-        character(len=*), intent(out) :: error_msg
-
-        type(token_t), allocatable :: tokens(:)
-        type(compiler_arena_t) :: compiler_arena
-        integer :: prog_index
-        character(len=:), allocatable :: code
-        type(path_validation_result_t) :: validation_result
-
-        error_msg = ""
-        
-        ! Validate tokens JSON file path for security
-        validation_result = validate_input_path(tokens_json_file)
-        if (.not. validation_result%is_valid()) then
-            error_msg = "Tokens JSON path validation failed: " // validation_result%get_message()
-            return
-        end if
-
-        ! Initialize unified compiler arena 
-        compiler_arena = create_compiler_arena()
-
-        ! Read tokens from JSON
-        tokens = json_read_tokens_from_file(tokens_json_file)
-
-        ! Phase 2: Parsing
-        call compiler_arena%next_phase("parser")
-        call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
-        if (error_msg /= "") return
-
-        ! Phase 3: Semantic Analysis (only for lazy fortran)
-        call compiler_arena%next_phase("semantic")
-        call run_semantic_analysis(compiler_arena%ast, prog_index, error_msg)
-        if (error_msg /= "") return
-
-        ! Phase 4: Standardization (transform dialect to standard Fortran)
-        call compiler_arena%next_phase("standardization")
-        call standardize_ast(compiler_arena%ast, prog_index)
-
-        ! Phase 5: Code Generation
-        call compiler_arena%next_phase("codegen")
-        call generate_fortran_code(compiler_arena%ast, prog_index, code)
-
-        ! Write output (only if not in compile mode - backend handles file creation)
-        call write_compiled_output(options, code, error_msg)
-
-        ! Cleanup unified compiler arena
-        call destroy_compiler_arena(compiler_arena)
-
-    end subroutine compile_from_tokens_json
-
-    ! Compile from AST JSON (skip phases 1-2)
-    subroutine compile_from_ast_json(ast_json_file, options, error_msg)
-        character(len=*), intent(in) :: ast_json_file
-        type(compilation_options_t), intent(in) :: options
-        character(len=*), intent(out) :: error_msg
-
-        type(compiler_arena_t) :: compiler_arena
-        integer :: prog_index
-        character(len=:), allocatable :: code
-        type(path_validation_result_t) :: validation_result
-
-        error_msg = ""
-        
-        ! Validate AST JSON file path for security
-        validation_result = validate_input_path(ast_json_file)
-        if (.not. validation_result%is_valid()) then
-            error_msg = "AST JSON path validation failed: " // validation_result%get_message()
-            return
-        end if
-
-        ! Initialize unified compiler arena
-        compiler_arena = create_compiler_arena()
-
-        ! Read AST from JSON using existing JSON reader
-        if (index(ast_json_file, '.json') > 0) then
-            ! Load AST from JSON file
-            prog_index = json_read_ast_from_file(ast_json_file, compiler_arena%ast)
-            if (prog_index == 0) then
-                error_msg = "Failed to load AST from JSON file"
-                return
-            end if
-        else
-            error_msg = "AST file must be a JSON file for from_json compilation"
-            return
-        end if
-
-        ! Phase 3: Semantic Analysis
-        call compiler_arena%next_phase("semantic")
-        call run_semantic_analysis(compiler_arena%ast, prog_index, error_msg)
-        if (error_msg /= "") return
-
-        ! Phase 4: Standardization
-        call compiler_arena%next_phase("standardization")
-        call standardize_ast(compiler_arena%ast, prog_index)
-
-        ! Phase 5: Code Generation
-        call compiler_arena%next_phase("codegen")
-        call generate_fortran_code(compiler_arena%ast, prog_index, code)
-
-        ! Write output (only if not in compile mode - backend handles file creation)
-        call write_compiled_output(options, code, error_msg)
-
-        ! Cleanup unified compiler arena
-        call destroy_compiler_arena(compiler_arena)
-
-    end subroutine compile_from_ast_json
-
-    ! Compile from semantic JSON (skip phases 1-3) - ANNOTATED AST TO CODEGEN
-    subroutine compile_from_semantic_json(semantic_json_file, options, error_msg)
-        character(len=*), intent(in) :: semantic_json_file
-        type(compilation_options_t), intent(in) :: options
-        character(len=*), intent(out) :: error_msg
-
-        type(compiler_arena_t) :: compiler_arena
-        integer :: prog_index
-        character(len=:), allocatable :: code
-        type(path_validation_result_t) :: validation_result
-        type(semantic_context_t) :: local_semantic_context
-
-        error_msg = ""
-        
-        ! Validate semantic JSON file path for security
-        validation_result = validate_input_path(semantic_json_file)
-        if (.not. validation_result%is_valid()) then
-            error_msg = "Semantic JSON path validation failed: " // validation_result%get_message()
-            return
-        end if
-
-        ! Initialize unified compiler arena
-        compiler_arena = create_compiler_arena()
-
-        ! Read annotated AST and semantic context from JSON
-        if (index(semantic_json_file, '.json') > 0) then
-            ! Load AST and semantic context from JSON file
-            call json_read_semantic_from_file(semantic_json_file, compiler_arena%ast, prog_index, local_semantic_context)
-            if (prog_index == 0) then
-                error_msg = "Failed to load semantic AST from JSON file"
-                return
-            end if
-        else
-            error_msg = "Semantic file must be a JSON file for from_semantic_json compilation"
-            return
-        end if
-
-        ! Phase 4: Code Generation (direct from annotated AST)
-        call compiler_arena%next_phase("codegen")
-        call generate_fortran_code(compiler_arena%ast, prog_index, code)
-
-        ! Write output (only if not in compile mode - backend handles file creation)
-        call write_compiled_output(options, code, error_msg)
-
-        ! Cleanup unified compiler arena
-        call destroy_compiler_arena(compiler_arena)
-
-    end subroutine compile_from_semantic_json
+    ! JSON-based compile entry points moved to module `frontend_json`.
 
     ! Phase 1: Lexical Analysis
     subroutine lex_file(source, tokens, error_msg)
