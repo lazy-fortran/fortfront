@@ -433,6 +433,8 @@ jobs:
         RUN_SYSTEM_TESTS: '1'
       run: |
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
+        # Increase process stack to avoid MinGW default stack overflows in test executables
+        $env:FPM_LDFLAGS = "-Wl,--stack,268435456"
         fpm test
 
     - name: Cleanup build cache and logs (Windows)
