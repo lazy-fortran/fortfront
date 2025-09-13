@@ -168,10 +168,35 @@ contains
         executable_path = ""
         on_windows = check_if_windows()
         
-        ! On Windows, prefer invoking via fpm to avoid path/extension issues.
+        ! Windows: locate built executable reliably via dir search
         if (on_windows) then
-            executable_path = 'fpm run --target fortfront --'
-            return
+            call execute_command_line('cmd /C dir /b /s build\\gfortran_*\\app\\fortfront.exe > fortfront_search_win.txt', &
+                                      exitstat=exit_code)
+            if (exit_code == 0) then
+                open(newunit=unit_num, file='fortfront_search_win.txt', status='old', action='read', iostat=exit_code)
+                if (exit_code == 0) then
+                    read(unit_num, '(A)', iostat=exit_code) search_output
+                    close(unit_num)
+                    call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', exitstat=exit_code)
+                    if (len_trim(search_output) > 0) then
+                        inquire(file=trim(search_output), exist=file_exists)
+                        if (file_exists) then
+                            executable_path = trim(search_output)
+                            return
+                        end if
+                    end if
+                end if
+            end if
+            
+            ! Fallback candidates
+            do i = 1, 1
+                candidate_path = 'app\\fortfront.exe'
+                inquire(file=candidate_path, exist=file_exists)
+                if (file_exists) then
+                    executable_path = trim(candidate_path)
+                    return
+                end if
+            end do
         end if
         
         ! Strategy 1: Use find command to dynamically locate fortfront executable
@@ -240,12 +265,6 @@ contains
         logical :: success
         
         call test_start("Basic CLI I/O")
-        if (is_windows) then
-            ! Skip strict basic I/O test on Windows due to fpm/stdin piping behavior.
-            call test_result(.true.)
-            print *, "  SKIP: Windows uses fpm wrapper; stricter check handled in other tests"
-            return
-        end if
         
         ! Find the fortfront executable
         executable_path = find_fortfront_executable()
