@@ -79,7 +79,10 @@ jobs:
 
     - name: Build and Test
       run: |
+        # Simulate Windows-limited stack on Linux to catch stack bugs
+        ulimit -s 1024 || true
         make
+        ulimit -s 1024 || true
         make test
 
     # Code validation gate removed (redundant with test suite)
@@ -433,8 +436,14 @@ jobs:
         RUN_SYSTEM_TESTS: '1'
       run: |
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
-        # Increase process stack to avoid MinGW default stack overflows in test executables
-        $env:FPM_LDFLAGS = "-Wl,--stack,268435456"
+        # Discover built fortfront.exe and pass to tests for robust CLI invocation
+        $exe = Get-ChildItem -Recurse -Filter fortfront.exe -Path . | Where-Object { $_.FullName -match "\\app\\fortfront\.exe$" } | Select-Object -First 1
+        if ($exe) {
+          Write-Host "Found fortfront.exe at: $($exe.FullName)"
+          $env:FORTFRONT_EXE = $exe.FullName
+        } else {
+          Write-Host "fortfront.exe not found via search; tests will fallback to internal discovery"
+        }
         fpm test
 
     - name: Cleanup build cache and logs (Windows)
