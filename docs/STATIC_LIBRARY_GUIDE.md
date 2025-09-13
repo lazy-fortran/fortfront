@@ -224,7 +224,7 @@ gfortran libfortfront.a source.f90  # Wrong order
 
 For large source files, increase stack size:
 ```bash
-gfortran -fmax-stack-var-size=65536 ...
+gfortran ...
 ```
 
 ## Architecture Benefits

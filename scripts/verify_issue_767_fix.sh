@@ -102,7 +102,7 @@ echo ""
 
 echo "8. Build verification (FMP system):"
 echo "   Running FMP build to verify compilation..."
-if fpm build --flag "-cpp -fmax-stack-var-size=524288" > /tmp/build_output.log 2>&1; then
+if fpm build > /tmp/build_output.log 2>&1; then
     echo "   ✓ FMP build successful - no compilation errors from renaming"
     echo "   ✓ All module dependencies resolved correctly"
 else

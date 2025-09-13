@@ -17,8 +17,8 @@ fi
 
 echo
 
-# Common FPM flags for all test runs
-FPM_FLAGS="-cpp -fmax-stack-var-size=524288"
+# Common FPM flags for all test runs (none)
+FPM_FLAGS=""
 
 # Timeout configuration (seconds)
 # Full mode can take longer but should still be bounded
@@ -48,7 +48,7 @@ echo "Running full test suite (no coverage)..."
 # Run full suite with timeout and reasonable flags
 FLAGS="-O0"
 set +e
-run_with_timeout "$TIMEOUT_FULL" fpm test --flag "$FPM_FLAGS $FLAGS" --verbose
+run_with_timeout "$TIMEOUT_FULL" fpm test --verbose
 rc=$?
 set -e
 

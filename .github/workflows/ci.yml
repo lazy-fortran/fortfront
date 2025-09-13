@@ -357,7 +357,7 @@ jobs:
           exit 1
         }
         
-        # Progressive build validation with fraud detection
+        # Progressive Windows Build Validation
         Write-Host "🎯 Progressive Windows Build Validation"
         
         # Stage 1: Ultra-conservative build
@@ -366,7 +366,7 @@ jobs:
         
         $stage1_success = $false
         try {
-          fpm build --flag "-cpp -fmax-stack-var-size=65536 -O0 -g0 -fno-backtrace" 2>&1
+          fpm build 2>&1
           Write-Host "✅ Stage 1: Ultra-conservative build successful"
           $stage1_success = $true
         } catch {
@@ -378,7 +378,7 @@ jobs:
         if ($stage1_success) {
           Write-Host "Stage 2: Standard Windows build"
           try {
-            fpm build --flag "-cpp -fmax-stack-var-size=131072 -O0" 2>&1
+            fpm build 2>&1
             Write-Host "✅ Stage 2: Standard build successful"
             $stage2_success = $true
           } catch {
@@ -395,7 +395,7 @@ jobs:
           $timeout = 60  # 60 seconds max
           $job = Start-Job -ScriptBlock {
             try {
-              & fpm test test_minimal_bench --flag "-cpp -fmax-stack-var-size=131072 -O0" 2>&1
+              & fpm test test_minimal_bench 2>&1
             } catch {
               Write-Output "Test execution failed: $_"
             }
@@ -446,8 +446,8 @@ jobs:
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
         gfortran --version
         fpm --version
-        # Run tests with the same flags used on Linux
-        fpm test --flag "-cpp -fmax-stack-var-size=65536" -j 2
+        # Run tests
+        fpm test -j 2
 
     - name: Cleanup build cache and logs (Windows)
       if: always()

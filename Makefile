@@ -12,7 +12,7 @@ all: build
 build:
 	# Ensure stray root artifacts (e.g., *.f90 from samples/tests) don't pollute builds
 	$(MAKE) -s clean-test-artifacts
-	fpm build --flag "-cpp -fmax-stack-var-size=65536"
+	fpm build
 
 # Create libfortfront.a in project root for external linking
 libfortfront.a: build
@@ -84,7 +84,7 @@ test:
 example: libfortfront.a
 	@echo "=== Building example external tool ==="
 	@mkdir -p examples
-	@gfortran -fmax-stack-var-size=65536 -I fortfront_modules/ examples/external_tool_example.f90 libfortfront.a -o examples/external_tool_example
+	@gfortran -I fortfront_modules/ examples/external_tool_example.f90 libfortfront.a -o examples/external_tool_example
 	@echo "=== Running example ===" 
 	@./examples/external_tool_example
 

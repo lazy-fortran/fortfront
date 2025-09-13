@@ -24,8 +24,8 @@ make  # Error: Cannot copy Fortran module "arena_memory.mod"
 
 ### Required Flags
 ```bash
-fpm build --flag "-cpp -fmax-stack-var-size=524288"
-fpm test --flag "-cpp -fmax-stack-var-size=524288"
+fpm build
+fpm test
 ```
 
 ### Core Architecture 

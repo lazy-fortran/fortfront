@@ -21,7 +21,7 @@ echo "Cleaned."
 
 # Step 2: Build the project with fpm
 echo -e "${YELLOW}Step 2: Building fortfront with fpm...${NC}"
-fpm build --profile release --flag "-cpp -fmax-stack-var-size=65536"
+fpm build --profile release
 if [ $? -ne 0 ]; then
     echo -e "${RED}Error: fpm build failed${NC}"
     exit 1
