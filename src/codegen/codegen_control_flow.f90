@@ -128,11 +128,16 @@ contains
             body_code = generate_grouped_body_internal(arena, node%body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code // new_line('A') // body_code
+                ! body_code ends with a newline; avoid inserting an extra blank line
+                code = code // repeat("    ", indent_level) // "end do"
+            else
+                ! Empty body: ensure end do is on the next line
+                code = code // new_line('A') // repeat("    ", indent_level) // "end do"
             end if
+        else
+            ! No body array provided
+            code = code // new_line('A') // repeat("    ", indent_level) // "end do"
         end if
-
-        ! Generate end do
-        code = code // new_line('A') // repeat("    ", indent_level) // "end do"
     end function generate_code_do_loop
 
     ! Generate code for do while loops
@@ -161,11 +166,13 @@ contains
             body_code = generate_grouped_body_internal(arena, node%body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code // new_line('A') // body_code
+                code = code // repeat("    ", indent_level) // "end do"
+            else
+                code = code // new_line('A') // repeat("    ", indent_level) // "end do"
             end if
+        else
+            code = code // new_line('A') // repeat("    ", indent_level) // "end do"
         end if
-
-        ! Generate end do
-        code = code // new_line('A') // repeat("    ", indent_level) // "end do"
     end function generate_code_do_while
 
     ! Generate code for select case statements
