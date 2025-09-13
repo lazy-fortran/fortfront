@@ -86,26 +86,12 @@ contains
     ! Create a new scope stack with global scope (intent(out) to avoid large return copies)
     subroutine create_scope_stack(stack)
         type(scope_stack_t), intent(out) :: stack
-        integer :: i
 
         ! Initialize capacity and create global scope
         stack%capacity = 10
         allocate (stack%scopes(stack%capacity))
-        
-        ! CRITICAL FIX: Initialize allocated scopes to prevent segfault
-        ! Only initialize structure-level components, not massive fixed arrays
-        ! The type_env_t fixed arrays have default initializers that should work
-        do i = 1, stack%capacity
-            stack%scopes(i)%scope_type = SCOPE_GLOBAL
-            stack%scopes(i)%name = ""
-            ! env components should use default initializers (count=0, capacity=MAX_ENV_SIZE)
-            ! Fixed arrays (names, schemes) don't need explicit initialization for unused elements
-        end do
         stack%depth = 1
-        ! Initialize first scope directly without assignment to avoid massive copy
-        stack%scopes(1)%scope_type = SCOPE_GLOBAL
-        stack%scopes(1)%name = "global"
-        ! env is already initialized by type defaults
+        call create_scope(stack%scopes(1), SCOPE_GLOBAL, "global")
 
     end subroutine create_scope_stack
 
@@ -148,8 +134,43 @@ contains
         character(len=*), intent(in) :: name
         type(poly_type_t), intent(in) :: scheme
 
-        ! Delegate to type_env_t extend, which handles allocation and guard
-        call this%env%extend(name, scheme)
+        ! Robust define with local allocation guards
+        if (.not. allocated(this%env%names) .or. .not. allocated(this%env%schemes)) then
+            if (this%env%capacity <= 0) this%env%capacity = 64
+            allocate(this%env%names(this%env%capacity))
+            allocate(this%env%schemes(this%env%capacity))
+            this%env%count = 0
+        else if (size(this%env%names) == 0 .or. size(this%env%schemes) == 0) then
+            if (this%env%capacity <= 0) this%env%capacity = 64
+            deallocate(this%env%names, this%env%schemes)
+            allocate(this%env%names(this%env%capacity))
+            allocate(this%env%schemes(this%env%capacity))
+            this%env%count = 0
+        end if
+
+        if (this%env%count >= this%env%capacity) then
+            block
+                integer :: new_capacity, j
+                character(len=128), allocatable :: new_names(:)
+                type(poly_type_t), allocatable :: new_schemes(:)
+                new_capacity = max(64, this%env%capacity*2)
+                allocate(new_names(new_capacity))
+                allocate(new_schemes(new_capacity))
+                if (this%env%count > 0) then
+                    do j = 1, this%env%count
+                        new_names(j) = this%env%names(j)
+                        new_schemes(j) = this%env%schemes(j)
+                    end do
+                end if
+                call move_alloc(new_names, this%env%names)
+                call move_alloc(new_schemes, this%env%schemes)
+                this%env%capacity = new_capacity
+            end block
+        end if
+
+        this%env%count = this%env%count + 1
+        this%env%names(this%env%count) = name
+        this%env%schemes(this%env%count) = scheme
 
     end subroutine scope_define
 
