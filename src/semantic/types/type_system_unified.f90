@@ -354,6 +354,11 @@ contains
         lhs%capacity = rhs%capacity
         lhs%capacity_exceeded_reported = rhs%capacity_exceeded_reported
         lhs%is_fixed = rhs%is_fixed
+        if (lhs%capacity <= 0) then
+            ! Try to infer capacity from source arrays if available
+            if (allocated(rhs%names)) lhs%capacity = size(rhs%names)
+            if (lhs%capacity <= 0) lhs%capacity = lhs%count
+        end if
         if (lhs%capacity < lhs%count) lhs%capacity = lhs%count
         if (allocated(lhs%names)) deallocate(lhs%names)
         if (allocated(lhs%schemes)) deallocate(lhs%schemes)
@@ -587,6 +592,12 @@ contains
             end if
             allocate(this%names(this%capacity))
             allocate(this%schemes(this%capacity))
+        else
+            ! Handle pathological zero-sized allocations defensively
+            if (size(this%names) == 0 .or. size(this%schemes) == 0) then
+                if (this%capacity <= 0) this%capacity = 64
+                call type_env_ensure_capacity(this, max(1, this%count + 1))
+            end if
         end if
 
         ! Capacity guard: do not exceed declared capacity
@@ -630,6 +641,20 @@ contains
             end if
             allocate(this%names(this%capacity))
             allocate(this%schemes(this%capacity))
+        else if (size(this%names) == 0 .or. size(this%schemes) == 0) then
+            ! Repair zero-sized arrays
+            if (this%capacity <= 0) this%capacity = max(64, required)
+            block
+                integer :: new_capacity
+                character(len=MAX_NAME_LEN), allocatable :: new_names(:)
+                type(poly_type_t), allocatable :: new_schemes(:)
+                new_capacity = max(this%capacity, required)
+                allocate(new_names(new_capacity))
+                allocate(new_schemes(new_capacity))
+                call move_alloc(new_names, this%names)
+                call move_alloc(new_schemes, this%schemes)
+                this%capacity = new_capacity
+            end block
         else if (.not. this%is_fixed .and. required > this%capacity) then
             ! Grow dynamically
             block

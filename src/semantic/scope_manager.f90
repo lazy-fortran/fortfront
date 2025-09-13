@@ -178,6 +178,7 @@ contains
                         end if
                         ! Deep copy env via assignment (allocates and copies used elements)
                         temp_scopes(i)%env = this%scopes(i)%env
+                        call temp_scopes(i)%env%ensure_capacity(max(64, temp_scopes(i)%env%count))
                     end do
                 end block
             end if
@@ -195,6 +196,7 @@ contains
         end if
         ! Deep copy env via assignment (allocates and copies used elements)
         this%scopes(this%depth)%env = new_scope%env
+        call this%scopes(this%depth)%env%ensure_capacity(max(64, this%scopes(this%depth)%env%count))
 
     end subroutine stack_push_scope
 
@@ -238,6 +240,8 @@ contains
         type(poly_type_t), intent(in) :: scheme
 
         if (this%depth > 0) then
+            ! Ensure environment arrays exist for current scope
+            call this%scopes(this%depth)%env%ensure_capacity(max(64, this%scopes(this%depth)%env%count+1))
             ! Use direct scope_define to avoid type-bound procedure issues with arrays
             call scope_define(this%scopes(this%depth), name, scheme)
         else
