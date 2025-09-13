@@ -77,23 +77,14 @@ jobs:
         fpm --version
         python3 --version
 
-    - name: Run tests
+    - name: Build and Test
       run: |
-        # Set up environment with cross-platform CPU detection
-        export OMP_NUM_THREADS=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-        export CI=true
-        echo "Using $OMP_NUM_THREADS parallel jobs"
-        # Use selective test runner for optimal performance
-        ./scripts/test_selective.sh
+        make
+        make test
 
     # Code validation gate removed (redundant with test suite)
 
-    - name: Cleanup build cache and logs
-      if: always()
-      run: |
-        echo "Pruning old fpm build cache directories and logs"
-        make prune-build-cache PRUNE_KEEP=2 || true
-        bash scripts/prune_logs.sh || true
+    # No additional cleanup steps
 
     - name: Generate coverage data (optimized)
       if: false  # coverage disabled
@@ -441,13 +432,8 @@ jobs:
       env:
         RUN_SYSTEM_TESTS: '1'
       run: |
-        Write-Host "🧪 Running full test suite on Windows"
-        # Ensure FPM and MinGW are on PATH for this step
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
-        gfortran --version
-        fpm --version
-        # Run tests
-        fpm test -j 2
+        make test
 
     - name: Cleanup build cache and logs (Windows)
       if: always()
