@@ -123,8 +123,30 @@ contains
             end block
         end if
 
-        ! If we couldn't parse it, create a placeholder with debug info
+        ! If we couldn't parse it, check for non-meaningful (blank/comment) lines first
         if (stmt_index == 0) then
+            block
+                integer :: kk
+                logical :: has_meaningful
+                has_meaningful = .false.
+                do kk = 1, size(tokens)
+                    select case (tokens(kk)%kind)
+                    case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                        cycle
+                    case default
+                        if (len_trim(tokens(kk)%text) > 0) then
+                            has_meaningful = .true.
+                            exit
+                        end if
+                    end select
+                end do
+                if (.not. has_meaningful) then
+                    allocate(stmt_indices(1))
+                    stmt_indices(1) = 0
+                    return
+                end if
+            end block
+            ! Otherwise, create a placeholder with debug info
             block
                 character(len=256) :: debug_msg
                 character(len=64) :: token_text
@@ -319,6 +341,34 @@ contains
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: k
+                        logical :: has_meaningful
+                        has_meaningful = .false.
+                        do k = 1, size(stmt_tokens)
+                            select case (stmt_tokens(k)%kind)
+                            case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                                cycle
+                            case default
+                                if (len_trim(stmt_tokens(k)%text) > 0) then
+                                    has_meaningful = .true.
+                                    exit
+                                end if
+                            end select
+                        end do
+                        if (.not. has_meaningful) then
+                            ! Advance past this blank line before cycling to avoid infinite loop
+                            if (stmt_end + 1 <= size(parser%tokens)) then
+                                if (parser%tokens(stmt_end + 1)%kind == TK_OPERATOR .and. &
+                                    parser%tokens(stmt_end + 1)%text == ";") then
+                                    parser%current_token = stmt_end + 2
+                                else
+                                    parser%current_token = stmt_end + 1
+                                end if
+                            else
+                                parser%current_token = stmt_end + 1
+                            end if
+                            deallocate(stmt_tokens)
+                            cycle
+                        end if
                         stmt_indices = parse_basic_stmt_local(stmt_tokens, arena, loop_index)
 
                         ! Add all parsed statements to body

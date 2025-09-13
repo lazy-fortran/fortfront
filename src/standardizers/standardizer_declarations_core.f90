@@ -854,9 +854,12 @@ contains
                             var_type = "real"  ! Default for mathematical expressions
                         end if
                         
-                        ! If this is a subsequent assignment to the same variable, mark as allocatable
+                        ! If this is a subsequent assignment to the same variable, only mark
+                        ! as allocatable for character strings needing deferred length
                         if (existing_idx > 0) then
-                            if (index(var_types(existing_idx), 'allocatable') == 0) then
+                            if (index(var_types(existing_idx), 'character(') == 1 .and. &
+                                index(var_types(existing_idx), 'len=:') > 0 .and. &
+                                index(var_types(existing_idx), 'allocatable') == 0) then
                                 var_types(existing_idx) = trim(var_types(existing_idx)) // ", allocatable"
                             end if
                         else
