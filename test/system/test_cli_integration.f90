@@ -26,8 +26,12 @@ program test_cli_integration
     
     ! Pre-build fortfront to ensure it exists before testing
     print *, "Building fortfront executable..."
-    call execute_command_line(timeout_wrapper('60') // &
-         'fpm build', exitstat=test_count)
+    if (is_windows) then
+        ! Ensure large stack for fortfront.exe to avoid 0xC00000FD/
+        call execute_command_line('cmd /C set FPM_LDFLAGS=-Wl,--stack,268435456 && fpm build', exitstat=test_count)
+    else
+        call execute_command_line(timeout_wrapper('60') // 'fpm build', exitstat=test_count)
+    end if
     if (test_count /= 0) then
         print *, "SKIPPING: Failed to build fortfront executable (exit code:", test_count, ")"
         print *, "This may indicate CI environment issues or missing build dependencies"
