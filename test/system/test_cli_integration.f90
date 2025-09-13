@@ -197,6 +197,9 @@ contains
                     return
                 end if
             end do
+            ! If nothing found, return empty to signal failure; do NOT fall through to POSIX find.
+            executable_path = ''
+            return
         end if
         
         ! Strategy 1: Use find command to dynamically locate fortfront executable
