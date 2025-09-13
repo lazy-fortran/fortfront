@@ -172,7 +172,7 @@ contains
         if (on_windows) then
             ! Try multiple search roots to reliably locate build sibling directories
             block
-                character(len=:), allocatable :: roots(:)
+                character(len=64), allocatable :: roots(:)
                 integer :: r
                 allocate(roots(5))
                 roots = [ character(len=16) :: '.', '..', '..\\..', '..\\..\\..', '..\\..\\..\\..' ]
