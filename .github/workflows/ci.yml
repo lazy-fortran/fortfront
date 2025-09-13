@@ -83,6 +83,7 @@ jobs:
         make test
 
     # Code validation gate removed (redundant with test suite)
+ a220b5c (chore(ci,benchmarks,docs): remove 'fraud' terminology; rename validation scripts and steps; neutralize messages)
 
     # No additional cleanup steps
 
