@@ -170,7 +170,7 @@ contains
         
         ! Windows: locate built executable reliably via dir search
         if (on_windows) then
-            call execute_command_line('cmd /C dir /b /s build\\gfortran_*\\app\\fortfront.exe > fortfront_search_win.txt', &
+            call execute_command_line('cmd /C dir /b /s app\\fortfront.exe build\\*\\app\\fortfront.exe > fortfront_search_win.txt', &
                                       exitstat=exit_code)
             if (exit_code == 0) then
                 open(newunit=unit_num, file='fortfront_search_win.txt', status='old', action='read', iostat=exit_code)
