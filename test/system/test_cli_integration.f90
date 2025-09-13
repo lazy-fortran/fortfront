@@ -170,23 +170,48 @@ contains
         
         ! Windows: locate built executable reliably via dir search
         if (on_windows) then
-            call execute_command_line('cmd /C where /R . fortfront.exe > fortfront_search_win.txt', &
-                                      exitstat=exit_code)
-            if (exit_code == 0) then
-                open(newunit=unit_num, file='fortfront_search_win.txt', status='old', action='read', iostat=exit_code)
-                if (exit_code == 0) then
-                    read(unit_num, '(A)', iostat=exit_code) search_output
-                    close(unit_num)
-                    call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', exitstat=exit_code)
-                    if (len_trim(search_output) > 0) then
-                        inquire(file=trim(search_output), exist=file_exists)
-                        if (file_exists) then
-                            executable_path = trim(search_output)
-                            return
+            ! Try multiple search roots to reliably locate build sibling directories
+            block
+                character(len=:), allocatable :: roots(:)
+                integer :: r
+                allocate(roots(5))
+                roots = [ character(len=16) :: '.', '..', '..\\..', '..\\..\\..', '..\\..\\..\\..' ]
+                do r = 1, size(roots)
+                    call execute_command_line('cmd /C where /R ' // trim(roots(r)) // ' fortfront.exe > fortfront_search_win.txt', &
+                                              exitstat=exit_code)
+                    if (exit_code == 0) then
+                        open(newunit=unit_num, file='fortfront_search_win.txt', status='old', action='read', iostat=exit_code)
+                        if (exit_code == 0) then
+                            do
+                                read(unit_num, '(A)', iostat=exit_code) search_output
+                                if (exit_code /= 0) exit
+                                if (len_trim(search_output) > 0) then
+                                    ! Prefer app\fortfront.exe path if present
+                                    if (index(adjustl(search_output), 'app\\fortfront.exe') > 0) then
+                                        inquire(file=trim(search_output), exist=file_exists)
+                                        if (file_exists) then
+                                            executable_path = trim(search_output)
+                                            exit
+                                        end if
+                                    end if
+                                end if
+                            end do
+                            rewind(unit_num)
+                            if (len(executable_path) == 0) then
+                                ! Fallback: take first found fortfront.exe
+                                read(unit_num, '(A)', iostat=exit_code) search_output
+                                if (exit_code == 0 .and. len_trim(search_output) > 0) then
+                                    inquire(file=trim(search_output), exist=file_exists)
+                                    if (file_exists) executable_path = trim(search_output)
+                                end if
+                            end if
+                            close(unit_num)
                         end if
+                        call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', exitstat=exit_code)
                     end if
-                end if
-            end if
+                    if (len(executable_path) > 0) return
+                end do
+            end block
             
             ! Fallback candidates
             do i = 1, 1
