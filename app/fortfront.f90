@@ -154,6 +154,11 @@ program fortfront_cli
     ! Always write any generated output to stdout first
     if (allocated(output_text) .and. len(output_text) > 0) then
         write(output_unit, '(A)', advance='no') output_text
+        ! Ensure a trailing newline for line-buffered environments (e.g., Windows pipes)
+        if (output_text(len(output_text):len(output_text)) /= new_line('A')) then
+            write(output_unit, '(A)') ''
+        end if
+        flush(output_unit)
     end if
 
     ! Handle errors: print diagnostics and return non-zero exit
