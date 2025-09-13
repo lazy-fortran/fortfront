@@ -433,7 +433,7 @@ jobs:
         RUN_SYSTEM_TESTS: '1'
       run: |
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
-        make test
+        fpm test
 
     - name: Cleanup build cache and logs (Windows)
       if: always()
