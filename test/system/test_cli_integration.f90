@@ -252,9 +252,14 @@ contains
         ! Prepare input file for cross-platform piping
         call write_text_file('test_input.lf', 'print *, ''test''' // new_line('a'))
         
-        ! Pipe input file into executable (cross-platform)
-        command = build_pipe_command(executable_path, 'test_input.lf', &
-                                     'test_output.txt', 'test_error.txt', is_windows)
+        ! Execute with input. On Windows, prefer passing filename to avoid pipe forwarding issues via fpm.
+        if (is_windows) then
+            command = 'cmd /C "' // executable_path // &
+                      ' test_input.lf > test_output.txt 2> test_error.txt"'
+        else
+            command = build_pipe_command(executable_path, 'test_input.lf', &
+                                         'test_output.txt', 'test_error.txt', .false.)
+        end if
         call execute_command_line(command, exitstat=run_status)
         
         success = (run_status == 0)
