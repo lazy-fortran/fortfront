@@ -430,41 +430,7 @@ jobs:
           exit 1
         }
 
-    - name: Diagnostic backtrace (Windows)
-      continue-on-error: true
-      shell: pwsh
-      run: |
-        # Attempt to capture a stack backtrace for the CLI on Windows
-        try {
-          # Ensure gdb is available
-          & C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm mingw-w64-x86_64-gdb" | Out-Host
-        } catch {
-          Write-Host "Failed to install gdb (continuing): $_"
-        }
-        
-        # Discover fortfront.exe
-        $exe = Get-ChildItem -Recurse -Filter fortfront.exe -Path . | Where-Object { $_.FullName -match "\\app\\fortfront\.exe$" } | Select-Object -First 1
-        if (-not $exe) {
-          Write-Host "fortfront.exe not found; skipping gdb diagnostic"
-        } else {
-          Write-Host "Running gdb diagnostic on: $($exe.FullName)"
-          # Prepare a simple input file
-          Set-Content -Path input_gdb_test.lf -Value "print *, 'test'" -NoNewline
-          # Use MSYS2 bash to run gdb with input redirection
-          $gdbCmd = @"
-set pagination off
-set confirm off
-run < input_gdb_test.lf
-bt 64
-quit
-"@
-          Set-Content -Path gdb_cmds.txt -Value $gdbCmd -NoNewline
-          try {
-            & C:\msys64\usr\bin\bash.exe -lc "'C:/msys64/mingw64/bin/gdb.exe' -q --batch -x gdb_cmds.txt --args '$((Get-Item $exe.FullName).FullName -replace '\\','/')'" | Out-Host
-          } catch {
-            Write-Host "gdb run failed (continuing): $_"
-          }
-        }
+    # Backtrace diagnostic temporarily removed due to workflow parse issues
 
     - name: Run tests (Windows)
       shell: pwsh
