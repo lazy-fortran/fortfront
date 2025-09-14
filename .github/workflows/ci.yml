@@ -431,6 +431,7 @@ jobs:
         }
 
     - name: Diagnostic backtrace (Windows)
+      continue-on-error: true
       shell: pwsh
       run: |
         # Attempt to capture a stack backtrace for the CLI on Windows
@@ -458,7 +459,11 @@ bt 64
 quit
 "@
           Set-Content -Path gdb_cmds.txt -Value $gdbCmd -NoNewline
-          & C:\msys64\usr\bin\bash.exe -lc "'C:/msys64/mingw64/bin/gdb.exe' -q --batch -x gdb_cmds.txt --args '$((Get-Item $exe.FullName).FullName -replace '\\','/')'" | Out-Host
+          try {
+            & C:\msys64\usr\bin\bash.exe -lc "'C:/msys64/mingw64/bin/gdb.exe' -q --batch -x gdb_cmds.txt --args '$((Get-Item $exe.FullName).FullName -replace '\\','/')'" | Out-Host
+          } catch {
+            Write-Host "gdb run failed (continuing): $_"
+          }
         }
 
     - name: Run tests (Windows)
