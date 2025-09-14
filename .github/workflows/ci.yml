@@ -79,10 +79,10 @@ jobs:
 
     - name: Build and Test
       run: |
-        # Simulate Windows-limited stack on Linux to catch stack bugs
-        ulimit -s 1024 || true
+        # Simulate a smaller Windows-like stack on Linux to catch stack bugs
+        ulimit -s 512 || true
         make
-        ulimit -s 1024 || true
+        ulimit -s 512 || true
         RUN_SYSTEM_TESTS=1 make test
 
     # Code validation gate removed (redundant with test suite)
