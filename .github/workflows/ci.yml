@@ -436,6 +436,7 @@ jobs:
       shell: pwsh
       env:
         RUN_SYSTEM_TESTS: '1'
+        FORTFRONT_TRACE: '1'
       run: |
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
         # Discover built fortfront.exe and pass to tests for robust CLI invocation

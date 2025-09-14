@@ -22,6 +22,7 @@ module frontend_transformation
     use ast_nodes_core, only: program_node
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
+    use debug_trace, only: trace_init, trace_enter, trace_leave
 
     implicit none
     private
@@ -59,6 +60,8 @@ contains
         allocate(character(len=0) :: error_msg)
         error_msg = ""
 
+        call trace_init()
+        call trace_enter('transform_lazy_fortran_string')
         ! Initialize the codegen system (idempotent)
         call initialize_codegen()
 
@@ -73,18 +76,24 @@ contains
         ! Handle empty or whitespace-only input
         if (is_empty_or_whitespace_only(input)) then
             call create_minimal_program(output)
+            call trace_leave('transform_lazy_fortran_string')
             return
         end if
 
         ! Phase 1: Lexical Analysis
+        call trace_enter('phase:lexer')
         call run_lexical_analysis(input, tokens, shared_arena, error_msg)
+        call trace_leave('phase:lexer')
         if (error_msg /= "") then
             call handle_lexical_error(input, error_msg, output, shared_arena)
+            call trace_leave('transform_lazy_fortran_string')
             return
         end if
 
         ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
+        call trace_enter('phase:syntax')
         call validate_syntax_with_reporting(input, tokens, error_msg, output, shared_arena)
+        call trace_leave('phase:syntax')
         if (error_msg /= "") return
 
         ! Check for meaningful content
@@ -94,11 +103,15 @@ contains
         end if
 
         ! Phase 2: Parsing
+        call trace_enter('phase:parser')
         call run_parsing_phase(tokens, shared_arena, prog_index, error_msg, output)
+        call trace_leave('phase:parser')
         if (error_msg /= "") return
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
+        call trace_enter('phase:final')
         call run_final_phases(shared_arena, prog_index, output, error_msg)
+        call trace_leave('phase:final')
         if (error_msg /= "") return
 
         ! Ensure error_msg is empty on successful transformation
@@ -120,6 +133,7 @@ contains
                 end if
             end block
         end if
+        call trace_leave('transform_lazy_fortran_string')
 
         ! Reuse arena: no destroy, it will be reset at next call
     end subroutine transform_lazy_fortran_string
@@ -362,7 +376,9 @@ contains
             ! Keep pre-standardization semantics permissive in string transform path
             ctx%strict_mode = .false.
             
+            call trace_enter('semantic:analyze_program')
             call analyze_program(ctx, compiler_arena%ast, prog_index)
+            call trace_leave('semantic:analyze_program')
             
             ! Check for semantic errors and provide detailed error messages
             if (has_semantic_errors(ctx)) then

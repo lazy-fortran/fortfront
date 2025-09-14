@@ -12,6 +12,7 @@ module standardizer_core
     use standardizer_module  
     use standardizer_types, only: string_result_t
     use standardizer_subprograms, only: wrap_function_in_program, wrap_subroutine_in_program
+    use debug_trace, only: trace_enter, trace_leave
     implicit none
     private
     
@@ -74,6 +75,7 @@ contains
 
         select type (node => arena%entries(root_index)%node)
         type is (program_node)
+            call trace_enter('std:program')
             ! Skip standardization for multi-unit containers
             if (node%name == "__MULTI_UNIT__") then
                 ! Standardize each unit individually
@@ -91,19 +93,26 @@ contains
             else
                 call standardize_program(arena, node, root_index)
             end if
+            call trace_leave('std:program')
         type is (function_def_node)
+            call trace_enter('std:function')
             ! Only wrap standalone functions in a program, skip if inside module
             if (.not. is_in_module) then
                 call wrap_function_in_program(arena, root_index)
             end if
+            call trace_leave('std:function')
         type is (subroutine_def_node)
+            call trace_enter('std:subroutine')
             ! Only wrap standalone subroutines in a program, skip if inside module
             if (.not. is_in_module) then
                 call wrap_subroutine_in_program(arena, root_index)
             end if
+            call trace_leave('std:subroutine')
         type is (module_node)
+            call trace_enter('std:module')
             ! Modules don't need wrapping - standardize their contents
             call standardize_module(arena, node, root_index)
+            call trace_leave('std:module')
         class default
             ! For other node types, no standardization needed yet
         end select
