@@ -379,7 +379,7 @@ contains
         type(semantic_context_t), intent(in) :: ctx
         character(len=:), allocatable :: error_msg
         integer :: i, total_errors
-        character(len=1000) :: temp_msg
+        character(len=:), allocatable :: temp_msg
         
         total_errors = ctx%errors%count
         if (total_errors == 0) then
@@ -407,6 +407,8 @@ contains
         ! Add summary if there are more errors
         if (total_errors > 3) then
             write(temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
+            ! Allocate temp buffer dynamically to avoid large stack frames on Windows
+            if (.not. allocated(temp_msg)) allocate(character(len=1024) :: temp_msg)
             error_msg = error_msg // new_line('a') // trim(temp_msg)
         end if
     end function get_detailed_semantic_errors

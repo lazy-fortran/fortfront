@@ -29,8 +29,36 @@ module standardizer_core
 
 contains
 
-    ! Main standardization entry point
-    recursive subroutine standardize_ast(arena, root_index, in_module)
+    ! Wrapper that initializes cycle guards and calls the recursive implementation.
+    subroutine standardize_ast(arena, root_index, in_module)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(inout) :: root_index
+        logical, intent(in), optional :: in_module
+        logical, allocatable :: visited(:)
+
+        if (root_index <= 0 .or. root_index > arena%size) return
+        if (.not. allocated(arena%entries(root_index)%node)) return
+
+        allocate(visited(arena%size))
+        visited = .false.
+        call standardize_ast_impl_guarded(arena, root_index, in_module, visited)
+    end subroutine standardize_ast
+
+    recursive subroutine standardize_ast_impl_guarded(arena, root_index, in_module, visited)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(inout) :: root_index
+        logical, intent(in), optional :: in_module
+        logical, intent(inout) :: visited(:)
+
+        if (root_index <= 0 .or. root_index > size(visited)) return
+        if (visited(root_index)) return
+        visited(root_index) = .true.
+
+        call standardize_ast_impl(arena, root_index, in_module)
+    end subroutine standardize_ast_impl_guarded
+
+    ! Main standardization entry point implementation (recursive)
+    recursive subroutine standardize_ast_impl(arena, root_index, in_module)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
         logical, intent(in), optional :: in_module
@@ -55,7 +83,7 @@ contains
                         do j = 1, size(node%body_indices)
                         if (node%body_indices(j) > 0 .and. &
                             node%body_indices(j) <= arena%size) then
-                            call standardize_ast(arena, node%body_indices(j))
+                            call standardize_ast_impl(arena, node%body_indices(j))
                         end if
                     end do
                     end block
@@ -80,7 +108,7 @@ contains
             ! For other node types, no standardization needed yet
         end select
 
-    end subroutine standardize_ast
+    end subroutine standardize_ast_impl
 
     ! JSON interface for standardization
     ! JSON standardization entry removed
