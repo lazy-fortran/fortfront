@@ -346,6 +346,8 @@ jobs:
     - name: Windows smoke run (fortfront --version, hello example)
       shell: pwsh
       run: |
+        # Ensure fpm is on PATH for this step too
+        $env:PATH = "C:\tools\fpm;$env:PATH"
         # Find fortfront.exe
         $ff = Get-ChildItem -Recurse -Filter fortfront.exe -Path . | Where-Object { $_.FullName -match "\\app\\fortfront\.exe$" } | Select-Object -First 1
         if ($ff) {
@@ -363,12 +365,14 @@ jobs:
         # Find hello example
         $hello = Get-ChildItem -Recurse -Filter hello.exe -Path . -ErrorAction SilentlyContinue | Select-Object -First 1
         if (-not $hello) {
-          # Try building examples explicitly if not present
-          Write-Host "hello.exe not found; attempting to build examples via fpm"
-          fpm build | Out-Host
-          $hello = Get-ChildItem -Recurse -Filter hello.exe -Path . -ErrorAction SilentlyContinue | Select-Object -First 1
-        }
-        if ($hello) {
+          Write-Host "hello.exe not found; attempting to build and run via fpm"
+          try {
+            fpm build | Out-Host
+            fpm run --example hello | Out-Host
+          } catch {
+            Write-Host "fpm example run failed: $_"
+          }
+        } else {
           Write-Host "Running example: $($hello.FullName)"
           try {
             & $hello.FullName 2>&1 | ForEach-Object { Write-Host $_ }
@@ -376,8 +380,6 @@ jobs:
           } catch {
             Write-Host "hello.exe failed: $_"
           }
-        } else {
-          Write-Host "hello.exe still not found"
         }
         
         try {
