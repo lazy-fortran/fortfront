@@ -517,6 +517,17 @@ contains
         if (.not. success) then
             print *, "  Windows pipe CLI test failed"
             print *, "  Exit code: ", run_status
+            open(unit=96, file='test_error_pipe_win.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                do
+                    read(96, '(A)', end=398, iostat=exit_code) line
+                    if (exit_code /= 0) exit
+                    if (len_trim(line) > 0) then
+                        print *, '  TRACE: ', trim(line)
+                    end if
+                end do
+398             close(96)
+            end if
         end if
     end subroutine test_basic_io_windows_pipe
     
@@ -554,6 +565,17 @@ contains
         if (.not. success) then
             print *, "  Error handling failed"
             print *, "  Exit code: ", run_status
+            open(unit=97, file='test_error2.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                do
+                    read(97, '(A)', end=298, iostat=exit_code) line
+                    if (exit_code /= 0) exit
+                    if (len_trim(line) > 0) then
+                        print *, '  TRACE: ', trim(line)
+                    end if
+                end do
+298             close(97)
+            end if
         end if
     end subroutine test_error_handling
 

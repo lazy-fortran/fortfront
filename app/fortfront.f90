@@ -1,6 +1,7 @@
 program fortfront_cli
     use iso_fortran_env, only: input_unit, output_unit, error_unit, iostat_end
     use frontend, only: transform_lazy_fortran_string
+    use debug_trace, only: trace_init, trace_enter, trace_leave
     implicit none
     
     character(len=:), allocatable :: input_text, output_text, error_msg
@@ -14,7 +15,8 @@ program fortfront_cli
     integer, parameter :: EXIT_SUCCESS = 0
     integer, parameter :: EXIT_FAILURE = 1
     logical :: from_file, show_help, show_version
-    
+    call trace_init()
+    call trace_enter('cli:main')
     ! Process command line arguments
     num_args = command_argument_count()
     show_help = .false.
@@ -76,6 +78,7 @@ program fortfront_cli
         write(output_unit, '(A)') '    fortfront input.lf        # Transpile file'
         write(output_unit, '(A)') '    cat input.lf | fortfront  # Transpile from stdin'
         write(output_unit, '(A)') '    echo "x = 5" | fortfront  # Transpile string'
+        call trace_leave('cli:main')
         stop EXIT_SUCCESS
     end if
     
@@ -84,6 +87,7 @@ program fortfront_cli
         write(output_unit, '(A)') 'fortfront 0.1.0'
         write(output_unit, '(A)') 'Lazy Fortran to Standard Fortran Transpiler'
         write(output_unit, '(A)') 'https://github.com/lazy-fortran/fortfront'
+        call trace_leave('cli:main')
         stop EXIT_SUCCESS
     end if
     
@@ -96,6 +100,7 @@ program fortfront_cli
     end if
     total_size = 0
     
+    call trace_enter('cli:read_input')
     if (from_file) then
         ! Read from file
         open(newunit=file_unit, file=filename, status='old', action='read', &
@@ -130,6 +135,7 @@ program fortfront_cli
             call append_line_to_input(buffer, input_text, total_size, capacity)
         end do
     end if
+    call trace_leave('cli:read_input')
     
     ! Trim to actual size to save memory
     if (total_size == 0) then
@@ -149,7 +155,9 @@ program fortfront_cli
     call move_alloc(temp_text, input_text)
     
     ! Transform lazy fortran to standard fortran
+    call trace_enter('cli:transform')
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
+    call trace_leave('cli:transform')
     
     ! Always write any generated output to stdout first
     if (allocated(output_text) .and. len(output_text) > 0) then
@@ -174,6 +182,8 @@ program fortfront_cli
         write(error_unit, '(A)') 'No output generated'
         error stop EXIT_FAILURE
     end if
+
+    call trace_leave('cli:main')
 
 contains
 
