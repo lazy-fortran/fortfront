@@ -437,9 +437,11 @@ jobs:
       env:
         RUN_SYSTEM_TESTS: '1'
         FORTFRONT_TRACE: '1'
-        FORTFRONT_TRACE_FILE: 'cli_trace.txt'
       run: |
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
+        # Use absolute path for trace file to ensure we can read it later
+        $traceFile = Join-Path (Get-Location) 'cli_trace.txt'
+        $env:FORTFRONT_TRACE_FILE = $traceFile
         # Discover built fortfront.exe and pass to tests for robust CLI invocation
         $exe = Get-ChildItem -Recurse -Filter fortfront.exe -Path . | Where-Object { $_.FullName -match "\\app\\fortfront\.exe$" } | Select-Object -First 1
         if ($exe) {
@@ -449,9 +451,9 @@ jobs:
           Write-Host "fortfront.exe not found via search; tests will fallback to internal discovery"
         }
         fpm test
-        if (Test-Path cli_trace.txt) {
+        if (Test-Path $traceFile) {
           Write-Host '--- CLI trace file (cli_trace.txt) ---'
-          Get-Content cli_trace.txt | ForEach-Object { Write-Host $_ }
+          Get-Content $traceFile | ForEach-Object { Write-Host $_ }
         } else {
           Write-Host 'cli_trace.txt not found'
         }
