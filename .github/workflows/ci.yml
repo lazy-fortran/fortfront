@@ -399,7 +399,7 @@ jobs:
         
         $stage1_success = $false
         try {
-          fpm build 2>&1
+          fpm build --flag "-Wl,--stack,16777216" 2>&1
           Write-Host "✅ Stage 1: Ultra-conservative build successful"
           $stage1_success = $true
         } catch {
@@ -411,7 +411,7 @@ jobs:
         if ($stage1_success) {
           Write-Host "Stage 2: Standard Windows build"
           try {
-            fpm build 2>&1
+            fpm build --flag "-Wl,--stack,16777216" 2>&1
             Write-Host "✅ Stage 2: Standard build successful"
             $stage2_success = $true
           } catch {
@@ -489,7 +489,7 @@ jobs:
         } else {
           Write-Host "fortfront.exe not found via search; tests will fallback to internal discovery"
         }
-        fpm test
+        fpm test --flag "-Wl,--stack,16777216"
         if (Test-Path $traceFile) {
           Write-Host '--- CLI trace file (cli_trace.txt) ---'
           Get-Content $traceFile | ForEach-Object { Write-Host $_ }
