@@ -342,6 +342,43 @@ jobs:
           Write-Host "❌ GFortran not available: $_"
           exit 1
         }
+
+    - name: Windows smoke run (fortfront --version, hello example)
+      shell: pwsh
+      run: |
+        # Find fortfront.exe
+        $ff = Get-ChildItem -Recurse -Filter fortfront.exe -Path . | Where-Object { $_.FullName -match "\\app\\fortfront\.exe$" } | Select-Object -First 1
+        if ($ff) {
+          Write-Host "Running: $($ff.FullName) --version"
+          try {
+            & $ff.FullName --version 2>&1 | ForEach-Object { Write-Host $_ }
+            Write-Host "fortfront --version exited: $LASTEXITCODE"
+          } catch {
+            Write-Host "fortfront --version failed: $_"
+          }
+        } else {
+          Write-Host "fortfront.exe not found for smoke run"
+        }
+
+        # Find hello example
+        $hello = Get-ChildItem -Recurse -Filter hello.exe -Path . -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $hello) {
+          # Try building examples explicitly if not present
+          Write-Host "hello.exe not found; attempting to build examples via fpm"
+          fpm build | Out-Host
+          $hello = Get-ChildItem -Recurse -Filter hello.exe -Path . -ErrorAction SilentlyContinue | Select-Object -First 1
+        }
+        if ($hello) {
+          Write-Host "Running example: $($hello.FullName)"
+          try {
+            & $hello.FullName 2>&1 | ForEach-Object { Write-Host $_ }
+            Write-Host "hello.exe exited: $LASTEXITCODE"
+          } catch {
+            Write-Host "hello.exe failed: $_"
+          }
+        } else {
+          Write-Host "hello.exe still not found"
+        }
         
         try {
           fpm --version
