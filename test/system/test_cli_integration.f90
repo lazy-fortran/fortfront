@@ -385,6 +385,18 @@ contains
             print *, "  Failed to run basic CLI command"
             print *, "  Executable path: ", executable_path
             print *, "  Exit code: ", run_status
+            ! Dump captured stderr for diagnostics (Windows and POSIX)
+            open(unit=98, file='test_error.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                do
+                    read(98, '(A)', end=199, iostat=exit_code) err_line
+                    if (exit_code /= 0) exit
+                    if (len_trim(err_line) > 0) then
+                        print *, '  TRACE: ', trim(err_line)
+                    end if
+                end do
+199             close(98)
+            end if
         end if
     end subroutine test_basic_io
 
