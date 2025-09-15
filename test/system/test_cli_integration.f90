@@ -469,7 +469,7 @@ contains
     ! Windows-only: exercise stdin pipe behavior explicitly
     subroutine test_basic_io_windows_pipe()
         integer :: run_status, exit_code
-        character(len=256) :: output_line
+        character(len=256) :: output_line, line
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
         logical :: success
@@ -534,6 +534,7 @@ contains
     subroutine test_error_handling()
         integer :: exit_code, run_status
         character(len=512) :: command
+        character(len=256) :: line
         character(len=:), allocatable :: executable_path
         logical :: success
         
