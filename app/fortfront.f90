@@ -15,17 +15,28 @@ program fortfront_cli
     integer, parameter :: EXIT_SUCCESS = 0
     integer, parameter :: EXIT_FAILURE = 1
     logical :: from_file, show_help, show_version
-    ! Ultra-early trace file support
+    ! Ultra-early trace file + stderr support
     block
-        integer :: u, s
+        integer :: u, s, se
+        character(len=8) :: tv
         character(len=512) :: tf
-        call get_environment_variable('FORTFRONT_TRACE_FILE', tf, status=s)
-        if (s == 0 .and. len_trim(tf) > 0) then
-            open(newunit=u, file=trim(tf), status='unknown', position='append', action='write', iostat=s)
-            if (s == 0) then
-                write(u, '(A)') 'CLI: start'
-                flush(u)
-                close(u)
+        logical :: do_trace
+        do_trace = .false.
+        call get_environment_variable('FORTFRONT_TRACE', tv, status=s)
+        if (s == 0) do_trace = .true.
+        if (do_trace) then
+            ! stderr
+            write(error_unit, '(A)') 'CLI: start'
+            flush(error_unit)
+            ! file
+            call get_environment_variable('FORTFRONT_TRACE_FILE', tf, status=s)
+            if (s == 0 .and. len_trim(tf) > 0) then
+                open(newunit=u, file=trim(tf), status='unknown', position='append', action='write', iostat=se)
+                if (se == 0) then
+                    write(u, '(A)') 'CLI: start'
+                    flush(u)
+                    close(u)
+                end if
             end if
         end if
     end block
