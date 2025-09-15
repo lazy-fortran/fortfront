@@ -6,6 +6,8 @@ module debug_trace
     integer, save :: depth = 0
     logical, save :: enabled = .false.
     integer, parameter :: MAX_DEPTH = 2000
+    integer, save :: file_u = -1
+    character(len=256), save :: file_name = ''
 
     public :: trace_init, trace_enter, trace_leave
 
@@ -19,6 +21,11 @@ contains
         if (stat == 0) then
             enabled = .true.
         end if
+        ! Optional: file logging
+        call get_environment_variable('FORTFRONT_TRACE_FILE', file_name, status=stat)
+        if (stat == 0 .and. len_trim(file_name) > 0) then
+            open(newunit=file_u, file=trim(file_name), status='replace', action='write')
+        end if
     end subroutine trace_init
 
     subroutine trace_enter(name)
@@ -30,14 +37,21 @@ contains
             error stop 1
         end if
         write(error_unit, '(A,I0,2X,A)') '>> depth', depth, trim(name)
+        if (file_u > 0) then
+            write(file_u, '(A,I0,2X,A)') '>> depth', depth, trim(name)
+            flush(file_u)
+        end if
     end subroutine trace_enter
 
     subroutine trace_leave(name)
         character(len=*), intent(in) :: name
         if (.not. enabled) return
         write(error_unit, '(A,I0,2X,A)') '<< depth', depth, trim(name)
+        if (file_u > 0) then
+            write(file_u, '(A,I0,2X,A)') '<< depth', depth, trim(name)
+            flush(file_u)
+        end if
         if (depth > 0) depth = depth - 1
     end subroutine trace_leave
 
 end module debug_trace
-
