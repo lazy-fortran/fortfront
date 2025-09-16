@@ -15,31 +15,21 @@ program fortfront_cli
     integer, parameter :: EXIT_SUCCESS = 0
     integer, parameter :: EXIT_FAILURE = 1
     logical :: from_file, show_help, show_version
-    ! Ultra-early trace file + stderr support
+    logical :: trace_enabled
+    character(len=:), allocatable :: trace_file_path
+    trace_enabled = .true.
+    trace_file_path = 'cli_trace.txt'
     block
-        integer :: u, s, se
+        integer :: s
         character(len=8) :: tv
         character(len=512) :: tf
-        logical :: do_trace
-        do_trace = .false.
         call get_environment_variable('FORTFRONT_TRACE', tv, status=s)
-        if (s == 0) do_trace = .true.
-        if (do_trace) then
-            ! stderr
-            write(error_unit, '(A)') 'CLI: start'
-            flush(error_unit)
-            ! file
+        if (s == 0) then
             call get_environment_variable('FORTFRONT_TRACE_FILE', tf, status=s)
-            if (s == 0 .and. len_trim(tf) > 0) then
-                open(newunit=u, file=trim(tf), status='unknown', position='append', action='write', iostat=se)
-                if (se == 0) then
-                    write(u, '(A)') 'CLI: start'
-                    flush(u)
-                    close(u)
-                end if
-            end if
+            if (s == 0 .and. len_trim(tf) > 0) trace_file_path = trim(tf)
         end if
     end block
+    call cli_trace('CLI: start')
     call trace_init()
     call trace_enter('cli:main')
     ! Process command line arguments
@@ -161,7 +151,12 @@ program fortfront_cli
         end do
     end if
     call trace_leave('cli:read_input')
-    
+    block
+        character(len=64) :: tmp_msg
+        write(tmp_msg, '("CLI: read input done (bytes=",I0,")")') total_size
+        call cli_trace(tmp_msg)
+    end block
+
     ! Trim to actual size to save memory
     if (total_size == 0) then
         allocate(character(len=0) :: temp_text, stat=alloc_stat)
@@ -181,9 +176,11 @@ program fortfront_cli
     
     ! Transform lazy fortran to standard fortran
     call trace_enter('cli:transform')
+    call cli_trace('CLI: transform begin')
     call transform_lazy_fortran_string(input_text, output_text, error_msg)
     call trace_leave('cli:transform')
-    
+    call cli_trace('CLI: transform end')
+
     ! Always write any generated output to stdout first
     if (allocated(output_text) .and. len(output_text) > 0) then
         write(output_unit, '(A)', advance='no') output_text
@@ -211,6 +208,18 @@ program fortfront_cli
     call trace_leave('cli:main')
 
 contains
+
+    subroutine cli_trace(message)
+        character(len=*), intent(in) :: message
+        integer :: unit_id, ios
+        if (.not. trace_enabled) return
+        if (.not. allocated(trace_file_path)) return
+        open(newunit=unit_id, file=trace_file_path, status='unknown', position='append', action='write', iostat=ios)
+        if (ios /= 0) return
+        write(unit_id, '(A)') trim(message)
+        flush(unit_id)
+        close(unit_id)
+    end subroutine cli_trace
 
     subroutine append_line_to_input(buffer, input_text, total_size, capacity)
         character(len=*), intent(in) :: buffer

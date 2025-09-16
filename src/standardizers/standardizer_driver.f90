@@ -19,32 +19,39 @@ contains
         integer :: top, cap
         logical :: current_inmod
         logical :: tmp_inmod
+        integer :: current_index
+        integer :: root_tracker
+        integer :: original_index
 
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
 
-        allocate(visited(arena%size)); visited = .false.
+        root_tracker = root_index
+        allocate(visited(arena%size))
+        visited = .false.
         cap = 64
         allocate(idx_stack(cap), inmod_stack(cap))
         top = 0
 
-        call push(root_index, .false.)
+        call push(root_tracker, .false.)
 
         do while (top > 0)
-            call pop(root_index, tmp_inmod)
-            if (root_index <= 0 .or. root_index > arena%size) cycle
-            if (.not. allocated(arena%entries(root_index)%node)) cycle
-            if (visited(root_index)) cycle
-            visited(root_index) = .true.
+            call pop(current_index, tmp_inmod)
+            if (current_index <= 0 .or. current_index > arena%size) cycle
+            if (.not. allocated(arena%entries(current_index)%node)) cycle
+            if (visited(current_index)) cycle
+            visited(current_index) = .true.
 
-            select type (node => arena%entries(root_index)%node)
+            select type (node => arena%entries(current_index)%node)
             type is (program_node)
                 if (node%name == "__MULTI_UNIT__") then
                     if (allocated(node%body_indices)) then
                         call push_many(node%body_indices, .false.)
                     end if
                 else
-                    call standardize_program(arena, node, root_index)
+                    original_index = current_index
+                    call standardize_program(arena, node, current_index)
+                    if (original_index == root_tracker) root_tracker = current_index
                 end if
             type is (module_node)
                 if (allocated(node%declaration_indices)) then
@@ -55,16 +62,22 @@ contains
                 end if
             type is (function_def_node)
                 if (.not. get_in_module()) then
-                    call wrap_function_in_program(arena, root_index)
+                    original_index = current_index
+                    call wrap_function_in_program(arena, current_index)
+                    if (original_index == root_tracker) root_tracker = current_index
                 end if
             type is (subroutine_def_node)
                 if (.not. get_in_module()) then
-                    call wrap_subroutine_in_program(arena, root_index)
+                    original_index = current_index
+                    call wrap_subroutine_in_program(arena, current_index)
+                    if (original_index == root_tracker) root_tracker = current_index
                 end if
             class default
                 ! no-op
             end select
         end do
+
+        root_index = root_tracker
 
     contains
 
@@ -115,5 +128,7 @@ contains
         end subroutine grow
 
     end subroutine standardize_ast_iter
+
+
 
 end module standardizer_driver

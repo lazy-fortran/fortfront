@@ -31,13 +31,11 @@ contains
 
         ! Add diagnostic output for CI debugging
         write(*,*) 'DEBUG: error_msg=', trim(error_msg)
+        write(*,*) 'DEBUG: output begins:'
+        write(*,*) output
         write(*,*) 'DEBUG: has program main=', index(output, 'program main') > 0
         write(*,*) 'DEBUG: has module m=', index(output, 'module m') > 0
         write(*,*) 'DEBUG: has function add=', index(output, 'function add') > 0
-        if (index(output, 'program main') > 0) then
-            write(*,*) 'DEBUG: Full output:'
-            write(*,*) output
-        end if
 
         if (len_trim(error_msg) > 0) then
             test_single_module_not_wrapped = .false.

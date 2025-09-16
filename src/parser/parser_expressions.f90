@@ -1,7 +1,7 @@
 module parser_expressions_module
     use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, &
-                          TK_OPERATOR, TK_KEYWORD
+                          TK_OPERATOR, TK_KEYWORD, to_lower
     use ast_core
     use ast_nodes_core, only: component_access_node, identifier_node, &
                                range_subscript_node
@@ -244,69 +244,158 @@ contains
     end function parse_factor
 
     ! Parse exponentiation (**) - right-associative
-    recursive function parse_power(parser, arena) result(expr_index)
+    function parse_power(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        integer :: right_index
+        integer, allocatable :: operands(:)
+        type(token_t), allocatable :: operators(:)
+        type(token_t), allocatable :: base_unary(:)
+        type(token_t), allocatable :: unary_ops(:)
         type(token_t) :: op_token
+        integer :: idx
 
-        expr_index = parse_unary(parser, arena)
+        call gather_unary_tokens(parser, base_unary)
+        expr_index = parse_primary(parser, arena)
+        if (expr_index <= 0) then
+            return
+        end if
 
-        ! Right-associative: a ** b ** c = a ** (b ** c)
-        if (.not. parser%is_at_end()) then
+        call push_int(operands, expr_index)
+
+        do while (.not. parser%is_at_end())
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == "**") then
                 op_token = parser%consume()
-                ! Recursive call for right-associativity  
-                right_index = parse_power(parser, arena)
-                expr_index = push_binary_op(arena, expr_index, right_index, &
-                                             op_token%text, op_token%line, &
-                                             op_token%column)
+                call push_token(operators, op_token)
+                call gather_unary_tokens(parser, unary_ops)
+                expr_index = parse_primary(parser, arena)
+                expr_index = apply_unary_stack(arena, expr_index, unary_ops)
+                if (expr_index <= 0) exit
+                call push_int(operands, expr_index)
+            else
+                exit
             end if
+        end do
+
+        if (.not. allocated(operators)) then
+            expr_index = apply_unary_stack(arena, operands(1), base_unary)
+            return
         end if
+
+        expr_index = operands(size(operands))
+        do idx = size(operands) - 1, 1, -1
+            expr_index = push_binary_op(arena, operands(idx), expr_index, &
+                operators(idx)%text, operators(idx)%line, operators(idx)%column)
+        end do
+
+        expr_index = apply_unary_stack(arena, expr_index, base_unary)
     end function parse_power
 
     ! Parse unary operators (+, -, .NOT.) - Issue #215
-    recursive function parse_unary(parser, arena) result(expr_index)
+    function parse_unary(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        type(token_t) :: op_token
+        type(token_t), allocatable :: unary_ops(:)
 
-        op_token = parser%peek()
-
-        if (op_token%kind == TK_OPERATOR .and. &
-            (op_token%text == "-" .or. op_token%text == "+" .or. &
-             op_token%text == ".not.")) then
-            ! Unary operator
-            op_token = parser%consume()
-            expr_index = parse_power(parser, arena)  ! Parse the operand
-            
-            if (expr_index > 0) then
-                if (op_token%text == "-") then
-                    ! Create unary minus as 0 - operand
-                    block
-                        integer :: zero_index
-                        zero_index = push_literal(arena, "0", LITERAL_INTEGER, &
-                                                  op_token%line, op_token%column)
-                        expr_index = push_binary_op(arena, zero_index, expr_index, "-")
-                    end block
-                else if (op_token%text == "+") then
-                    ! Unary plus - just return the operand
-                    ! expr_index already contains the operand
-                else if (op_token%text == ".not.") then
-                    ! Create logical NOT as unary operation (0 indicates unary)
-                    expr_index = push_binary_op(arena, 0, expr_index, ".not.")
-                end if
-            else
-                expr_index = 0
-            end if
-        else
-            ! No unary operator, parse primary expression  
-            expr_index = parse_primary(parser, arena)
-        end if
+        call gather_unary_tokens(parser, unary_ops)
+        expr_index = parse_primary(parser, arena)
+        expr_index = apply_unary_stack(arena, expr_index, unary_ops)
     end function parse_unary
+    subroutine gather_unary_tokens(parser, unary_ops)
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t), allocatable, intent(out) :: unary_ops(:)
+        type(token_t) :: current
+        character(len=:), allocatable :: lowered
+
+        allocate(unary_ops(0))
+
+        do while (.not. parser%is_at_end())
+            current = parser%peek()
+            if (current%kind == TK_OPERATOR) then
+                lowered = to_lower(current%text)
+                if (lowered == "-" .or. lowered == "+" .or. lowered == ".not.") then
+                    current = parser%consume()
+                    call push_token(unary_ops, current)
+                    cycle
+                end if
+            end if
+            exit
+        end do
+    end subroutine gather_unary_tokens
+
+    function apply_unary_stack(arena, expr_index, unary_ops) result(result_index)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: expr_index
+        type(token_t), allocatable, intent(in) :: unary_ops(:)
+        integer :: result_index
+        integer :: idx
+        integer :: zero_index
+        character(len=:), allocatable :: lowered
+
+        result_index = expr_index
+        if (result_index <= 0) then
+            return
+        end if
+        if (.not. allocated(unary_ops)) then
+            return
+        end if
+        if (size(unary_ops) == 0) then
+            return
+        end if
+
+        do idx = size(unary_ops), 1, -1
+            lowered = to_lower(unary_ops(idx)%text)
+            select case (lowered)
+            case ("-")
+                zero_index = push_literal(arena, "0", LITERAL_INTEGER, &
+                    unary_ops(idx)%line, unary_ops(idx)%column)
+                result_index = push_binary_op(arena, zero_index, result_index, "-")
+            case ("+")
+                cycle
+            case (".not.")
+                result_index = push_binary_op(arena, 0, result_index, ".not.")
+            end select
+        end do
+    end function apply_unary_stack
+
+    subroutine push_int(stack, value)
+        integer, allocatable, intent(inout) :: stack(:)
+        integer, intent(in) :: value
+        integer, allocatable :: new_stack(:)
+
+        if (.not. allocated(stack)) then
+            allocate(stack(1))
+            stack(1) = value
+        else
+            allocate(new_stack(size(stack)+1))
+            if (size(stack) > 0) then
+                new_stack(1:size(stack)) = stack
+            end if
+            new_stack(size(new_stack)) = value
+            call move_alloc(new_stack, stack)
+        end if
+    end subroutine push_int
+
+    subroutine push_token(stack, value)
+        type(token_t), allocatable, intent(inout) :: stack(:)
+        type(token_t), intent(in) :: value
+        type(token_t), allocatable :: new_stack(:)
+
+        if (.not. allocated(stack)) then
+            allocate(stack(1))
+            stack(1) = value
+        else
+            allocate(new_stack(size(stack)+1))
+            if (size(stack) > 0) then
+                new_stack(1:size(stack)) = stack
+            end if
+            new_stack(size(new_stack)) = value
+            call move_alloc(new_stack, stack)
+        end if
+    end subroutine push_token
+
     ! Parse primary expressions (literals, identifiers, parentheses)  
     recursive function parse_primary(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
