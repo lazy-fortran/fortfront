@@ -53,9 +53,14 @@ contains
         type(poly_type_t), intent(in) :: scheme
         integer, intent(inout) :: next_var_id
         type(mono_type_t) :: typ
+        type(poly_type_t) :: temp_scheme
 
-        ! Simplified instantiation
-        typ = create_mono_type(TVAR, var=generate_fresh_type_var_op(next_var_id))
+        if (scheme%mono_synced) then
+            temp_scheme = scheme
+            typ = temp_scheme%get_mono()
+        else
+            typ = create_mono_type(TVAR, var=generate_fresh_type_var_op(next_var_id))
+        end if
     end function instantiate_type_scheme_op
 
     ! Get common type for arithmetic operations

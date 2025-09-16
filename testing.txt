@@ -7,6 +7,22 @@ Context (what’s already done)
 - Replaced recursive standardizer traversal with an iterative driver (heap-backed work stack). Local tests (RUN_SYSTEM_TESTS=1) pass.
 - Large stack locals audited; moved suspicious ones to allocatables.
 - Windows still crashes immediately for CLI “normal” path under CI; fortfront --version works. Trace suggests failure occurs before our program body log emits in that invocation mode.
+- Converted the CST-to-AST converter, constant-folding walker, and undefined-variable checker to use explicit stacks. Linux `RUN_SYSTEM_TESTS=1 fpm test` passes with very small `ulimit -s`, confirming those paths no longer rely on deep recursion.
+- Updated the scope manager to overwrite existing bindings so iterative inference can refine symbol types without leaving stale type variables in the environment.
+- Windows CI run 17760082998 (job 50516090458) still fails: `fortfront.exe` exits with `0xC00000FD` before emitting CLI trace entries. The remaining stack depth originates from `semantic_analyzer%infer_type` and the recursive helper calls it makes while walking child expression nodes.
+
+Current status (2025-09-16)
+- Latest Windows rerun (Actions run 17760082998) reaches `fpm test` and dies during the CLI integration tests. Traces are empty, aligning with an overflow prior to the first CLI log call.
+- Local CLI integration test (`RUN_SYSTEM_TESTS=1 fpm test test_cli_integration`) now fails gracefully on Linux (exit code 1) but does not crash, providing a safe harness for regression checks while we rework inference.
+
+Immediate plan
+- [x] Refactor `semantic_analyzer%infer_type` into an iterative traversal. Approach: introduce an explicit work stack (node index + state flag) so child expressions are processed before the parent computes its type, mirroring the pattern used in `constant_transformation`. Ensure helper routines (`infer_binary_op`, `infer_function_call`, `infer_array_literal`, etc.) no longer call back into `ctx%infer` recursively; instead they should consume previously inferred child types or push additional work items as needed.
+- [x] After the refactor, stress-test locally with `ulimit -s 8` and `RUN_SYSTEM_TESTS=1 fpm test` (plus the focused CLI integration test) to confirm absence of stack overflow. (Note: compiler crashes under 8 KiB; verified successfully at 64 KiB.)
+- [ ] Once local tests pass, rerun GitHub Actions to verify the Windows job completes. Capture and review the CLI trace to ensure it now reaches the transformation phase.
+
+Follow-up tasks
+- Audit remaining semantic walkers (e.g., `process_forall_node_body`) for residual recursion and convert any deep call chains to iterative forms if CI still shows stack pressure.
+- Re-enable Windows CLI traces (remove temporary stderr instrumentation if added) after the overflow is resolved.
 
 High-level strategy
 1) Eliminate remaining recursion on hot CLI path (parser + traversal + select semantic walkers), even if typical depths are small on Linux.
@@ -77,4 +93,3 @@ Success criteria
 
 Notes
 - If a specific Windows RTL quirk remains after refactors, we will add a minimal Windows-only fallback to read stdin via a small fixed buffer loop (already present) and confirm no hidden recursion occurs before our entry point.
-

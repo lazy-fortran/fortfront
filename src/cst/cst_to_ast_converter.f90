@@ -117,7 +117,7 @@ contains
             return
         end if
         
-        ! Convert root node and all children recursively
+        ! Convert root node and all children using an explicit work stack
         call convert_node_recursive(this, cst_arena, root_cst, 0, &
                                    ast_index, conv_result)
         
@@ -155,40 +155,9 @@ contains
         end if
     end subroutine preserve_node_position
     
-    ! Process all children of CST node recursively
-    recursive subroutine convert_children_recursive(this, cst_arena, cst_node, &
-                                                   ast_index, conv_result)
-        class(cst_to_ast_converter_t), intent(inout) :: this
-        type(cst_arena_t), intent(in) :: cst_arena
-        type(cst_node_t), intent(in) :: cst_node
-        integer, intent(in) :: ast_index
-        type(conversion_result_t), intent(inout) :: conv_result
-        
-        integer :: child_ast_index, i
-        type(cst_node_t) :: child_cst
-        type(cst_handle_t) :: child_handle
-        
-        if (.not. allocated(cst_node%children)) return
-        
-        do i = 1, size(cst_node%children)
-            ! Create child handle
-            child_handle%index = cst_node%children(i)
-            child_handle%generation = cst_arena%global_generation
-            
-            ! Get child CST node
-            child_cst = cst_arena%get(child_handle)
-            if (child_cst%kind < 0) cycle  ! Skip invalid children
-            
-            ! Recursively convert child
-            call convert_node_recursive(this, cst_arena, child_cst, &
-                                       ast_index, child_ast_index, conv_result)
-            if (conv_result%result%is_failure()) return
-        end do
-    end subroutine convert_children_recursive
-    
-    ! Convert single CST node to AST node (internal recursive helper)
-    recursive subroutine convert_node_recursive(this, cst_arena, cst_node, &
-                                               parent_index, ast_index, conv_result)
+    ! Convert single CST node to AST node (iterative helper)
+    subroutine convert_node_recursive(this, cst_arena, cst_node, &
+                                     parent_index, ast_index, conv_result)
         class(cst_to_ast_converter_t), intent(inout) :: this
         type(cst_arena_t), intent(in) :: cst_arena
         type(cst_node_t), intent(in) :: cst_node
@@ -196,28 +165,117 @@ contains
         integer, intent(out) :: ast_index
         type(conversion_result_t), intent(inout) :: conv_result
         
-        class(ast_node), allocatable :: ast_node_obj
-        
-        ! Convert CST node to appropriate AST node type
-        call create_ast_node_from_cst(cst_node, ast_node_obj, conv_result)
-        if (conv_result%result%is_failure()) return
-        
-        ! Count trivia stripped
-        call count_trivia_stripped(cst_node, conv_result)
-        
-        ! Set UID for bidirectional linking
-        ast_node_obj%uid%value = cst_node%uid
-        
-        ! Preserve source positions if enabled
-        call preserve_node_position(this, cst_node, ast_node_obj)
-        
-        ! Add to AST arena
-        call this%ast_arena%push(ast_node_obj)
-        ast_index = this%ast_arena%size  ! Use current size as index
-        conv_result%nodes_converted = conv_result%nodes_converted + 1
-        
-        ! Recursively convert children
-        call convert_children_recursive(this, cst_arena, cst_node, ast_index, conv_result)
+        type(cst_handle_t), allocatable :: handle_stack(:)
+        integer, allocatable :: parent_stack(:)
+        integer :: stack_top, stack_cap
+        integer :: current_parent, current_ast
+        type(cst_handle_t) :: current_handle, child_handle
+        type(cst_node_t) :: current_node
+        integer :: root_ast
+        logical :: failed
+
+        stack_cap = 64
+        allocate(handle_stack(stack_cap))
+        allocate(parent_stack(stack_cap))
+        stack_top = 0
+        failed = .false.
+
+        call convert_single_node(cst_node, parent_index, root_ast, failed)
+        if (failed) then
+            ast_index = 0
+            return
+        end if
+
+        call push_child_nodes(cst_node, root_ast)
+
+        do while (stack_top > 0 .and. .not. failed)
+            call pop_stack(current_handle, current_parent)
+            current_node = cst_arena%get(current_handle)
+            if (current_node%kind < 0) cycle
+            call convert_single_node(current_node, current_parent, current_ast, failed)
+            if (.not. failed) call push_child_nodes(current_node, current_ast)
+        end do
+
+        ast_index = root_ast
+
+    contains
+
+        subroutine ensure_capacity(required)
+            integer, intent(in) :: required
+            type(cst_handle_t), allocatable :: tmp_handles(:)
+            integer, allocatable :: tmp_parents(:)
+            integer :: new_cap
+            if (required <= stack_cap) return
+            new_cap = max(stack_cap*2, required)
+            allocate(tmp_handles(new_cap), tmp_parents(new_cap))
+            if (stack_cap > 0) then
+                tmp_handles(1:stack_top) = handle_stack(1:stack_top)
+                tmp_parents(1:stack_top) = parent_stack(1:stack_top)
+            end if
+            call move_alloc(tmp_handles, handle_stack)
+            call move_alloc(tmp_parents, parent_stack)
+            stack_cap = new_cap
+        end subroutine ensure_capacity
+
+        subroutine push_stack(handle, parent)
+            type(cst_handle_t), intent(in) :: handle
+            integer, intent(in) :: parent
+            call ensure_capacity(stack_top + 1)
+            stack_top = stack_top + 1
+            handle_stack(stack_top) = handle
+            parent_stack(stack_top) = parent
+        end subroutine push_stack
+
+        subroutine pop_stack(handle, parent)
+            type(cst_handle_t), intent(out) :: handle
+            integer, intent(out) :: parent
+            handle = handle_stack(stack_top)
+            parent = parent_stack(stack_top)
+            stack_top = stack_top - 1
+        end subroutine pop_stack
+
+        subroutine push_child_nodes(node, parent_ast)
+            type(cst_node_t), intent(in) :: node
+            integer, intent(in) :: parent_ast
+            integer :: child_idx
+            if (.not. allocated(node%children)) return
+            do child_idx = size(node%children), 1, -1
+                child_handle%index = node%children(child_idx)
+                child_handle%generation = cst_arena%global_generation
+                call push_stack(child_handle, parent_ast)
+            end do
+        end subroutine push_child_nodes
+
+        subroutine convert_single_node(node, parent, new_ast_index, failed_local)
+            type(cst_node_t), intent(in) :: node
+            integer, intent(in) :: parent
+            integer, intent(out) :: new_ast_index
+            logical, intent(out) :: failed_local
+            class(ast_node), allocatable :: ast_node_obj
+
+            failed_local = .false.
+            new_ast_index = 0
+
+            call create_ast_node_from_cst(node, ast_node_obj, conv_result)
+            if (conv_result%result%is_failure()) then
+                failed_local = .true.
+                return
+            end if
+
+            call count_trivia_stripped(node, conv_result)
+            ast_node_obj%uid%value = node%uid
+            call preserve_node_position(this, node, ast_node_obj)
+
+            if (parent > 0) then
+                call this%ast_arena%push(ast_node_obj, parent_index=parent)
+            else
+                call this%ast_arena%push(ast_node_obj)
+            end if
+
+            new_ast_index = this%ast_arena%size
+            conv_result%nodes_converted = conv_result%nodes_converted + 1
+        end subroutine convert_single_node
+
     end subroutine convert_node_recursive
     
     ! Create identifier AST node from CST node text
