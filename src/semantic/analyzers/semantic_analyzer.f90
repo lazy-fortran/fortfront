@@ -69,6 +69,7 @@ module semantic_analyzer
         type(temp_tracker_t) :: temp_tracker  ! Track expression temporaries
         type(error_collection_t) :: errors  ! Collect semantic errors
         logical :: strict_mode = .false.  ! Default lazy mode; callers may enable strict
+        logical :: respect_implicit_none = .true.
     contains
         ! Implement required abstract procedures from semantic_context_base_t FIRST
         procedure :: get_context_name => semantic_get_context_name
@@ -126,6 +127,7 @@ contains
         ctx%temp_tracker = create_temp_tracker()
         ctx%errors = create_error_collection()
         ctx%next_var_id = 1  ! Start from 1 (main branch compatibility)
+        ctx%respect_implicit_none = .true.
         
         ! Create real -> real type for math functions
         real_type = create_mono_type(TREAL)
@@ -156,7 +158,7 @@ contains
         select type (ast => arena%entries(root_index)%node)
         type is (program_node)
             ! Only enable strict mode when implicit none is present
-            if (.not. ctx%strict_mode) then
+            if (ctx%respect_implicit_none .and. .not. ctx%strict_mode) then
                 ctx%strict_mode = check_implicit_none(arena, ast)
             end if
             call analyze_program_node_arena(ctx, arena, ast, root_index)
@@ -819,6 +821,7 @@ contains
         copy%temp_tracker = this%temp_tracker
         copy%errors = this%errors
         copy%strict_mode = this%strict_mode
+        copy%respect_implicit_none = this%respect_implicit_none
     end subroutine semantic_context_deep_copy
 
 
@@ -871,6 +874,7 @@ contains
         lhs%temp_tracker = rhs%temp_tracker
         lhs%errors = rhs%errors
         lhs%strict_mode = rhs%strict_mode
+        lhs%respect_implicit_none = rhs%respect_implicit_none
     end subroutine semantic_context_assign
 
     ! Array bounds validation (simplified)

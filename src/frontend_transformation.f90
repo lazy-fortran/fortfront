@@ -409,6 +409,7 @@ contains
             
             ! Keep pre-standardization semantics permissive in string transform path
             ctx%strict_mode = .false.
+            ctx%respect_implicit_none = .false.
             
             call trace_enter('semantic:analyze_program')
             call analyze_program(ctx, compiler_arena%ast, prog_index)
@@ -429,7 +430,7 @@ contains
         type(semantic_context_t), intent(in) :: ctx
         character(len=:), allocatable :: error_msg
         integer :: i, total_errors
-        character(len=:), allocatable :: temp_msg
+        character(len=256) :: buffer
         
         total_errors = ctx%errors%count
         if (total_errors == 0) then
@@ -438,9 +439,8 @@ contains
         end if
         
         ! Build comprehensive error message
-        temp_msg = ""
-        write(temp_msg, '(A,I0,A)') "Found ", total_errors, " semantic error(s):"
-        error_msg = trim(temp_msg)
+        write(buffer, '(A,I0,A)') "Found ", total_errors, " semantic error(s):"
+        error_msg = trim(buffer)
         
         ! Add first few error messages for details
         do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
@@ -456,10 +456,8 @@ contains
         
         ! Add summary if there are more errors
         if (total_errors > 3) then
-            write(temp_msg, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
-            ! Allocate temp buffer dynamically to avoid large stack frames on Windows
-            if (.not. allocated(temp_msg)) allocate(character(len=1024) :: temp_msg)
-            error_msg = error_msg // new_line('a') // trim(temp_msg)
+            write(buffer, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
+            error_msg = error_msg // new_line('a') // trim(buffer)
         end if
     end function get_detailed_semantic_errors
 
