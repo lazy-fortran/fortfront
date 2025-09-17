@@ -91,3 +91,99 @@
 - Keep progress logged here after each milestone (design complete, prototype merged, etc.).
 - Landing order should minimise risk: finish CFG builder before touching analyzer/standardizer layers so downstream work can assume the new API.
 - Reuse the existing explicit stacks (variable usage, call graph) as references for frame handling and guard patterns (visited sets, capacity growth).
+
+# Performance-Driven Frontend Streamlining
+
+## Rationale
+- Current command-line flow executes multiple analysis passes (legacy `analyze_program` plus pipeline analyzers, CFG builder, call graph) even when we only need a typed AST for codegen. This burns time and allocation, obscuring the core goal of a fast, portable Lazy Fortran frontend.
+- Several subsystems (dual call-graph implementations, performance analyzer plugins, verbose tracing) were added for future tools but are not required for CLI translation. They increase coupling and make it harder to optimise hot paths.
+- Dynamic string-heavy data structures and repeated arena traversals work against cache locality; we should favour SoA layouts, interned identifiers, and single-pass pipelines.
+
+## Guiding Principles
+1. **Single-Pass CLI Pipeline** – Lex → parse → HM type inference → standardise/codegen. Optional analyzers must be disable-able at build time.
+2. **Arena-Centric Data** – Keep AST/CST ownership in arenas; avoid per-pass allocations and dynamic strings where intern tables suffice.
+3. **Feature Flags** – Analyzer/CFG/call-graph tooling should be pluggable so production builds can drop them entirely.
+4. **Metrics First** – Establish timing/memory baselines before/after each change to ensure real gains.
+
+## Work Breakdown
+
+1. **Baseline & Instrumentation**
+   - [ ] Add lightweight timers around CLI stages (lexer, parser, semantics, codegen) gated by `FORTFRONT_PROFILE=1`.
+   - [ ] Capture current wall-clock and allocation counts on representative inputs (small, medium, stress) and store results in `docs/perf/baseline.md`.
+
+2. **Prune Non-Essential Analyzers From CLI Hot Path**
+   - [ ] Introduce build/runtime flag to skip control-flow, call-graph, and performance analyzers during CLI transforms.
+   - [ ] Ensure `frontend_transformation` only constructs CFG/call graphs when explicitly requested (e.g., via tooling API).
+   - [ ] Validate CLI regressions remain green after analyzers are removed from default flow.
+
+3. **Unify Call Graph Infrastructure**
+   - [ ] Merge `call_graph_builder` functionality into the leaner `call_graph_module`; delete redundant traversal/analysis layers.
+   - [ ] Replace string-based scope tracking with integer IDs referencing arena entries to cut allocation and comparisons.
+   - [ ] Rebuild tests to exercise the unified implementation.
+
+4. **Semantic Pipeline Simplification**
+   - [ ] Stop running both legacy `analyze_program` and the new pipeline; choose one extensible HM path.
+   - [ ] Profile HM inference to identify hot allocators; migrate temporary structures to arena-backed slabs.
+   - [ ] Document future hooks for fortfc/fluff so backend exports bypass unneeded formatting passes.
+
+5. **Identifier Interning & SoA Refactor**
+   - [ ] Introduce a global identifier table (string interning) so AST/semantic phases store integer handles.
+   - [ ] Audit modules that pass raw `character(:)` (e.g., variable usage, call graph) and convert them to ID-based lookups.
+   - [ ] Measure memory/time improvements post-refactor.
+
+6. **CST/AST Export Interface**
+   - [ ] Define lightweight API to expose CST/AST handles to downstream tools (fortfc/fluff) without triggering the full CLI pipeline.
+   - [ ] Provide examples/tests showing direct AST retrieval and serialization performance.
+
+7. **Documentation & Rollout**
+   - [ ] Update architecture notes with the streamlined pipeline and feature toggles.
+   - [ ] Maintain a changelog summarising perf wins and remaining bottlenecks for future sessions.
+
+## Acceptance Criteria
+- CLI translation path performs no unnecessary analyzer passes and is measurably faster (target ≥20% speedup on current benchmarks).
+- Memory usage becomes predictable (no large spikes from dynamic strings or recursive depth stacks).
+- Downstream tooling APIs can request AST/CST/analysis results independently.
+- TODO.md and `docs/perf/baseline.md` stay updated with progress logged per milestone.
+
+# Codebase Simplification Roadmap
+
+## Keep & Optimise
+- **Lexer/Parser Core** (`src/lexer/*`, `src/parser/*`, `src/frontend_parsing.f90`): central to Lazy Fortran support; continue investing in SoA data structures, iterative parsing, and token interning.
+- **Hindley–Milner Type Inference** (`src/semantic/types`, `src/semantic/semantic_analyzer.f90`): maintain as the canonical inference engine; profile and micro-optimise but preserve feature completeness.
+- **Arena Infrastructure** (`src/memory/compiler_arena.f90`, `src/ast/arena_*`): crucial for deterministic lifetime and performance; keep focused on contiguous slabs and low-overhead reset semantics.
+- **Standardiser & Codegen** (`src/standardizers/*`, `src/codegen/*`): required for CLI and future backend integrations; refactor for performance but retain behaviour.
+- **API Boundaries** (`src/interfaces/fortfront_*`): necessary for tooling integrations; ensure they expose upcoming AST/CST handles cleanly.
+
+## Simplify / Replace
+- **CFG Builder & Control Flow Analyzer** (`src/analysis/cfg_builder_*`, `src/semantic/analyzers/control_flow_analyzer_plugin.f90`): refactor into iterative, frame-based engines with optional execution. Consider merging analyser output into lightweight summaries to avoid deep recursion and per-node allocations.
+- **Call Graph Infrastructure** (`src/analysis/call_graph*.f90`, `src/analysis/call_graph_builder.f90`): unify into a single high-performance module using interned identifiers and arena indices. Drop redundant symbol tables once unified.
+- **AST Traversal Utilities** (`src/ast/traversal/*.f90`, `src/utilities/fortfront_utils.f90`): replace recursive visitors with shared iterative helpers; rationalise duplicated traversal code across modules.
+- **Semantic Pipeline** (dual path in `frontend_transformation.f90` calling both legacy analyzers and pipeline analyzers): collapse to one HM pipeline with feature toggles for optional analyses.
+- **Identifier Handling** (multiple modules storing `character(:)` names): implement global interning and propagate integer identifiers to reduce string churn.
+
+## Remove / Gate
+- **Performance Analyzer Plugin & Metrics** (`src/semantic/analyzers/control_flow_analyzer_plugin.f90`, `src/performance/*`): behind feature flags; exclude from default CLI builds to avoid overhead.
+- **Legacy Call Graph Analysis Layer** (`src/analysis/call_graph_analysis.f90` once unified implementation lands): likely redundant after unification; plan removal.
+- **Excessive Tracing & Logging** (`src/utilities/debug_trace.f90` and pervasive trace hooks): keep minimal instrumentation, but disable or compile out verbose tracing in release builds.
+- **Redundant Docs/Modules**: retire outdated TODO files or migration guides once new architecture is documented (e.g., `DOCS/AST_MIGRATION_ANALYSIS.md` if superseded).
+
+## Action Plan
+1. **Audit & Tag**
+   - [ ] Annotate modules with `! @slow-path` or similar to flag opt-in analyzers; update build system to conditionally compile.
+   - [ ] Catalogue obsolete docs/code paths for removal after refactors.
+
+2. **Iterative Refactors**
+   - [ ] Execute CFG/control-flow redesign per above Stack-Safe roadmap.
+   - [ ] Merge call graph implementations and remove legacy analysis module.
+   - [ ] Introduce identifier interning and propagate to dependent modules.
+
+3. **Pipeline Slimming**
+   - [ ] Update CLI path to skip optional analyzers; measure perf gains.
+   - [ ] Adjust APIs so fortfc/fluff can request data without triggering extra passes.
+
+4. **Cleanup & Documentation**
+   - [ ] Delete deprecated modules/docs after replacements stabilize.
+   - [ ] Record updated architecture diagrams and performance figures.
+
+## Logging
+- Update this TODO after each completed subtask with date, commit reference, and perf delta where applicable.
