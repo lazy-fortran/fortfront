@@ -51,8 +51,8 @@
 # Stack-Safe Traversal & CFG Overhaul
 
 ## Status (2025-09-18)
-- [x] Variable usage collector and expression visitor now run on explicit stacks (no recursion).
-- [x] Call graph AST traversal and cycle detection converted to iterative algorithms.
+- [x] Variable usage collector and expression visitor now run on explicit stacks (no recursion). (2025-09-18, commit 2ae3bf4, perf n/a)
+- [x] Call graph AST traversal and cycle detection converted to iterative algorithms. (2025-09-18, commit 2ae3bf4, perf n/a)
 - [ ] CFG builder (`cfg_builder_control_handlers.f90`) still recursive; design for staged frame stack pending.
 - [ ] Control-flow analyzer plugin continues to recurse through AST while building CFG snapshots.
 - [ ] Standardizer/semantic helpers (e.g., `standardize_ast`, `collect_identifiers_recursive` call proxies) need auditing for residual recursion.
@@ -189,3 +189,5 @@
 
 ## Logging
 - Update this TODO after each completed subtask with date, commit reference, and perf delta where applicable.
+- 2025-09-18 (2ae3bf4, perf n/a): Converted call graph traversal and variable usage walkers to
+  iterative stacks to eliminate recursion on analysis hot paths.
