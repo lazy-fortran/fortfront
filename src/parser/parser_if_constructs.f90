@@ -482,7 +482,28 @@ contains
                     parser%current_token = stmt_start
                     exit  ! Exit the main body parsing loop
                 end if
-                
+
+                ! After skipping leading delimiters, bail out if we hit a terminator
+                token = parser%tokens(stmt_start)
+                if (token%kind == TK_KEYWORD) then
+                    select case (token%text)
+                    case ("else", "elseif", "else if", "endif", "end if")
+                        parser%current_token = stmt_start
+                        exit  ! Let caller handle control-flow keyword
+                    case ("end")
+                        if (stmt_start + 1 <= size(parser%tokens)) then
+                            if (parser%tokens(stmt_start + 1)%kind == TK_KEYWORD .and. &
+                                parser%tokens(stmt_start + 1)%text == "if") then
+                                parser%current_token = stmt_start
+                                exit
+                            end if
+                        else
+                            parser%current_token = stmt_start
+                            exit
+                        end if
+                    end select
+                end if
+
                 stmt_end = stmt_start
 
                 ! Find end of current statement (handle multi-line properly)

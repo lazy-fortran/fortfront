@@ -325,7 +325,31 @@ contains
                          parser%tokens(stmt_start)%text == ";")
                     stmt_start = stmt_start + 1
                 end do
-                
+
+                if (stmt_start > size(parser%tokens)) then
+                    parser%current_token = stmt_start
+                    exit
+                end if
+
+                if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
+                    if (parser%tokens(stmt_start)%text == "enddo" .or. &
+                        parser%tokens(stmt_start)%text == "end do") then
+                        parser%current_token = stmt_start
+                        exit
+                    else if (parser%tokens(stmt_start)%text == "end") then
+                        if (stmt_start + 1 <= size(parser%tokens)) then
+                            if (parser%tokens(stmt_start + 1)%kind == TK_KEYWORD .and. &
+                                parser%tokens(stmt_start + 1)%text == "do") then
+                                parser%current_token = stmt_start
+                                exit
+                            end if
+                        else
+                            parser%current_token = stmt_start
+                            exit
+                        end if
+                    end if
+                end if
+
                 stmt_end = stmt_start
 
                 ! Find end of current statement (same line or semicolon boundary)
@@ -506,8 +530,27 @@ contains
                 end if
 
                 ! Parse statement until end of line (same approach as if blocks)
-                stmt_start = parser%current_token
-                stmt_end = stmt_start
+            stmt_start = parser%current_token
+            stmt_end = stmt_start
+
+            if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
+                if (parser%tokens(stmt_start)%text == "enddo" .or. &
+                    parser%tokens(stmt_start)%text == "end do") then
+                    parser%current_token = stmt_start
+                    exit
+                else if (parser%tokens(stmt_start)%text == "end") then
+                    if (stmt_start + 1 <= size(parser%tokens)) then
+                        if (parser%tokens(stmt_start + 1)%kind == TK_KEYWORD .and. &
+                            parser%tokens(stmt_start + 1)%text == "do") then
+                            parser%current_token = stmt_start
+                            exit
+                        end if
+                    else
+                        parser%current_token = stmt_start
+                        exit
+                    end if
+                end if
+            end if
 
                 ! Find end of current statement (same line)
                 do j = stmt_start, size(parser%tokens)
