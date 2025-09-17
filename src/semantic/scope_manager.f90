@@ -60,7 +60,7 @@ module scope_manager
 contains
 
     ! Create a new scope (no parent pointer - stack handles hierarchy)
-    subroutine create_scope(scope, scope_type, name)
+    recursive subroutine create_scope(scope, scope_type, name)
         type(scope_t), intent(out) :: scope
         integer, intent(in) :: scope_type
         character(len=*), intent(in), optional :: name
@@ -84,7 +84,7 @@ contains
     end subroutine create_scope
 
     ! Create a new scope stack with global scope (intent(out) to avoid large return copies)
-    subroutine create_scope_stack(stack)
+    recursive subroutine create_scope_stack(stack)
         type(scope_stack_t), intent(out) :: stack
 
         ! Initialize capacity and create global scope
@@ -96,7 +96,7 @@ contains
     end subroutine create_scope_stack
 
     ! Scope lookup (local only)
-    subroutine scope_lookup(this, name, scheme)
+    recursive subroutine scope_lookup(this, name, scheme)
         class(scope_t), intent(in) :: this
         character(len=*), intent(in) :: name
         type(poly_type_t), allocatable, intent(out) :: scheme
@@ -129,7 +129,7 @@ contains
     end subroutine scope_lookup
 
     ! Scope define (add to local scope)
-    subroutine scope_define(this, name, scheme)
+    recursive subroutine scope_define(this, name, scheme)
         class(scope_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         type(poly_type_t), intent(in) :: scheme
@@ -187,7 +187,7 @@ contains
     ! Recursive lookup removed - stack handles traversal in stack_lookup
 
     ! Stack: push a new scope using safe array extension
-    subroutine stack_push_scope(this, new_scope)
+    recursive subroutine stack_push_scope(this, new_scope)
         class(scope_stack_t), intent(inout) :: this
         type(scope_t), intent(in) :: new_scope
         type(scope_t), allocatable :: temp_scopes(:)
@@ -232,7 +232,7 @@ contains
     end subroutine stack_push_scope
 
     ! Stack: pop current scope (simple decrement)
-    subroutine stack_pop_scope(this)
+    recursive subroutine stack_pop_scope(this)
         class(scope_stack_t), intent(inout) :: this
 
         if (this%depth > 1) then
@@ -245,7 +245,7 @@ contains
     end subroutine stack_pop_scope
 
     ! Stack: lookup with hierarchical search (walk down the stack)
-    subroutine stack_lookup(this, name, scheme)
+    recursive subroutine stack_lookup(this, name, scheme)
         class(scope_stack_t), intent(in) :: this
         character(len=*), intent(in) :: name
         type(poly_type_t), allocatable, intent(out) :: scheme
@@ -265,7 +265,7 @@ contains
     end subroutine stack_lookup
 
     ! Stack: define in current scope (top of stack)
-    subroutine stack_define(this, name, scheme)
+    recursive subroutine stack_define(this, name, scheme)
         class(scope_stack_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         type(poly_type_t), intent(in) :: scheme
@@ -283,7 +283,7 @@ contains
     end subroutine stack_define
 
     ! Enter module scope
-    subroutine stack_enter_module(this, module_name)
+    recursive subroutine stack_enter_module(this, module_name)
         class(scope_stack_t), intent(inout) :: this
         character(len=*), intent(in) :: module_name
         type(scope_t) :: new_scope
@@ -294,7 +294,7 @@ contains
     end subroutine stack_enter_module
 
     ! Enter function scope
-    subroutine stack_enter_function(this, function_name)
+    recursive subroutine stack_enter_function(this, function_name)
         class(scope_stack_t), intent(inout) :: this
         character(len=*), intent(in) :: function_name
         type(scope_t) :: new_scope
@@ -305,7 +305,7 @@ contains
     end subroutine stack_enter_function
 
     ! Enter subroutine scope
-    subroutine stack_enter_subroutine(this, subroutine_name)
+    recursive subroutine stack_enter_subroutine(this, subroutine_name)
         class(scope_stack_t), intent(inout) :: this
         character(len=*), intent(in) :: subroutine_name
         type(scope_t) :: new_scope
@@ -316,7 +316,7 @@ contains
     end subroutine stack_enter_subroutine
 
     ! Enter block scope (if/do/etc)
-    subroutine stack_enter_block(this)
+    recursive subroutine stack_enter_block(this)
         class(scope_stack_t), intent(inout) :: this
         type(scope_t) :: new_scope
 
@@ -326,7 +326,7 @@ contains
     end subroutine stack_enter_block
 
     ! Enter interface scope
-    subroutine stack_enter_interface(this, interface_name)
+    recursive subroutine stack_enter_interface(this, interface_name)
         class(scope_stack_t), intent(inout) :: this
         character(len=*), intent(in), optional :: interface_name
         type(scope_t) :: new_scope
@@ -341,7 +341,7 @@ contains
     end subroutine stack_enter_interface
 
     ! Leave current scope
-    subroutine stack_leave_scope(this)
+    recursive subroutine stack_leave_scope(this)
         class(scope_stack_t), intent(inout) :: this
 
         call this%pop()
@@ -349,7 +349,7 @@ contains
     end subroutine stack_leave_scope
 
     ! Get current scope type
-    function stack_get_current_scope_type(this) result(scope_type)
+    recursive function stack_get_current_scope_type(this) result(scope_type)
         class(scope_stack_t), intent(in) :: this
         integer :: scope_type
 
@@ -362,7 +362,7 @@ contains
     end function stack_get_current_scope_type
 
     ! Deep copy a scope
-    function scope_deep_copy(this) result(copy)
+    recursive function scope_deep_copy(this) result(copy)
         class(scope_t), intent(in) :: this
         type(scope_t) :: copy
 
@@ -374,7 +374,7 @@ contains
     end function scope_deep_copy
 
     ! Assignment operator for scope_t (deep copy)
-    subroutine scope_assign(lhs, rhs)
+    recursive subroutine scope_assign(lhs, rhs)
         class(scope_t), intent(out) :: lhs
         type(scope_t), intent(in) :: rhs
 
@@ -386,7 +386,7 @@ contains
     end subroutine scope_assign
 
     ! Deep copy a scope stack
-    function scope_stack_deep_copy(this) result(copy)
+    recursive function scope_stack_deep_copy(this) result(copy)
         class(scope_stack_t), intent(in) :: this
         type(scope_stack_t) :: copy
         integer :: i
@@ -403,7 +403,7 @@ contains
     end function scope_stack_deep_copy
 
     ! Assignment operator for scope_stack_t (deep copy)
-    subroutine scope_stack_assign(lhs, rhs)
+    recursive subroutine scope_stack_assign(lhs, rhs)
         class(scope_stack_t), intent(out) :: lhs
         type(scope_stack_t), intent(in) :: rhs
         integer :: i

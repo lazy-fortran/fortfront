@@ -38,7 +38,7 @@ module control_flow_analyzer
 
 contains
 
-    subroutine analyze_control_flow(this, shared_context, arena, node_index)
+    recursive subroutine analyze_control_flow(this, shared_context, arena, node_index)
         class(control_flow_analyzer_t), intent(inout) :: this
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
@@ -50,7 +50,7 @@ contains
         this%analysis_complete = .true.
     end subroutine
 
-    function get_control_flow_results(this) result(results)
+    recursive function get_control_flow_results(this) result(results)
         class(control_flow_analyzer_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
         
@@ -64,14 +64,14 @@ contains
         end select
     end function
 
-    function get_control_flow_analyzer_name(this) result(name)
+    recursive function get_control_flow_analyzer_name(this) result(name)
         class(control_flow_analyzer_t), intent(in) :: this
         character(:), allocatable :: name
         
         name = "control_flow_analyzer"
     end function
 
-    subroutine assign_control_flow_analyzer(lhs, rhs)
+    recursive subroutine assign_control_flow_analyzer(lhs, rhs)
         class(control_flow_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
@@ -88,7 +88,7 @@ contains
     end subroutine
 
     ! Analysis methods for fluff rules
-    function find_unreachable_code(this) result(unreachable_nodes)
+    recursive function find_unreachable_code(this) result(unreachable_nodes)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, allocatable :: unreachable_nodes(:)
         
@@ -101,7 +101,7 @@ contains
         unreachable_nodes = get_unreachable_statements(this%cfg)
     end function
 
-    function find_hot_paths(this) result(hot_path_blocks)
+    recursive function find_hot_paths(this) result(hot_path_blocks)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, allocatable :: hot_path_blocks(:)
         
@@ -114,7 +114,7 @@ contains
         hot_path_blocks = identify_loop_blocks(this%cfg)
     end function
 
-    function detect_expensive_operations(this) result(expensive_ops)
+    recursive function detect_expensive_operations(this) result(expensive_ops)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, allocatable :: expensive_ops(:)
         
@@ -127,7 +127,7 @@ contains
         expensive_ops = identify_expensive_blocks(this%cfg)
     end function
 
-    function analyze_loop_complexity(this) result(complex_loops)
+    recursive function analyze_loop_complexity(this) result(complex_loops)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, allocatable :: complex_loops(:)
         
@@ -140,7 +140,7 @@ contains
         complex_loops = identify_complex_loops(this%cfg)
     end function
 
-    function get_dead_code_locations(this) result(dead_code)
+    recursive function get_dead_code_locations(this) result(dead_code)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, allocatable :: dead_code(:)
         
@@ -153,7 +153,7 @@ contains
         dead_code = this%find_unreachable_code()
     end function
 
-    function check_early_returns(this) result(early_return_blocks)
+    recursive function check_early_returns(this) result(early_return_blocks)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, allocatable :: early_return_blocks(:)
         
@@ -167,7 +167,7 @@ contains
     end function
 
     ! Helper functions for analysis
-    function identify_loop_blocks(cfg) result(loop_blocks)
+    recursive function identify_loop_blocks(cfg) result(loop_blocks)
         type(control_flow_graph_t), intent(in) :: cfg
         integer, allocatable :: loop_blocks(:)
         
@@ -190,7 +190,7 @@ contains
         loop_blocks(1:count) = temp_blocks(1:count)
     end function
 
-    function identify_expensive_blocks(cfg) result(expensive_blocks)
+    recursive function identify_expensive_blocks(cfg) result(expensive_blocks)
         type(control_flow_graph_t), intent(in) :: cfg
         integer, allocatable :: expensive_blocks(:)
         
@@ -202,7 +202,7 @@ contains
         allocate(expensive_blocks(0))
     end function
 
-    function identify_complex_loops(cfg) result(complex_loops)
+    recursive function identify_complex_loops(cfg) result(complex_loops)
         type(control_flow_graph_t), intent(in) :: cfg
         integer, allocatable :: complex_loops(:)
         
@@ -224,7 +224,7 @@ contains
         complex_loops(1:complexity_count) = temp_loops(1:complexity_count)
     end function
 
-    function identify_early_return_blocks(cfg) result(early_returns)
+    recursive function identify_early_return_blocks(cfg) result(early_returns)
         type(control_flow_graph_t), intent(in) :: cfg
         integer, allocatable :: early_returns(:)
         
@@ -247,7 +247,7 @@ contains
         early_returns(1:return_count) = temp_returns(1:return_count)
     end function
 
-    function calculate_block_complexity(cfg, block_id) result(complexity)
+    recursive function calculate_block_complexity(cfg, block_id) result(complexity)
         type(control_flow_graph_t), intent(in) :: cfg
         integer, intent(in) :: block_id
         integer :: complexity
@@ -265,7 +265,7 @@ contains
         complexity = branch_count
     end function
 
-    function get_control_flow_dependencies(this) result(deps)
+    recursive function get_control_flow_dependencies(this) result(deps)
         class(control_flow_analyzer_t), intent(in) :: this
         character(:), allocatable :: deps(:)
         

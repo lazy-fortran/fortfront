@@ -16,7 +16,7 @@ module parser_forall_module
 contains
 
     ! Parse FORALL construct
-    function parse_forall(parser, arena) result(forall_index)
+    recursive function parse_forall(parser, arena) result(forall_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: forall_index

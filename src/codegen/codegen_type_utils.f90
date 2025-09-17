@@ -10,13 +10,13 @@ module codegen_type_utils
 contains
 
     ! Get current type standardization setting
-    subroutine get_type_standardization(enabled)
+    recursive subroutine get_type_standardization(enabled)
         logical, intent(out) :: enabled
         enabled = standardize_types_enabled
     end subroutine get_type_standardization
 
     ! Set type standardization setting
-    subroutine set_type_standardization(enabled)
+    recursive subroutine set_type_standardization(enabled)
         logical, intent(in) :: enabled
         standardize_types_enabled = enabled
     end subroutine set_type_standardization

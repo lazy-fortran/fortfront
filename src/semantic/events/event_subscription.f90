@@ -38,7 +38,7 @@ module event_subscription_module
     
 contains
 
-    subroutine manager_initialize(this)
+    recursive subroutine manager_initialize(this)
         !! Initialize subscription manager
         class(subscription_manager_t), intent(inout) :: this
         
@@ -58,7 +58,7 @@ contains
         this%initialized = .true.
     end subroutine
     
-    subroutine manager_cleanup(this)
+    recursive subroutine manager_cleanup(this)
         !! Clean up subscription manager
         class(subscription_manager_t), intent(inout) :: this
         
@@ -66,7 +66,7 @@ contains
         this%initialized = .false.
     end subroutine
     
-    subroutine manager_add_subscription(this, subscription, subscription_id, &
+    recursive subroutine manager_add_subscription(this, subscription, subscription_id, &
                                        success, error_message)
         !! Add new subscription with validation
         class(subscription_manager_t), intent(inout) :: this
@@ -156,7 +156,7 @@ contains
         if (present(error_message)) error_message = ""
     end subroutine
     
-    subroutine manager_remove_subscription(this, subscription_id, success)
+    recursive subroutine manager_remove_subscription(this, subscription_id, success)
         !! Remove subscription by ID
         class(subscription_manager_t), intent(inout) :: this
         integer, intent(in) :: subscription_id
@@ -186,7 +186,7 @@ contains
         end do
     end subroutine
     
-    function manager_has_subscription(this, subscription_id) result(has_sub)
+    recursive function manager_has_subscription(this, subscription_id) result(has_sub)
         !! Check if subscription exists
         class(subscription_manager_t), intent(in) :: this
         integer, intent(in) :: subscription_id
@@ -207,7 +207,7 @@ contains
         end do
     end function
     
-    function manager_get_count(this, event_type) result(count)
+    recursive function manager_get_count(this, event_type) result(count)
         !! Get subscription count for event type
         class(subscription_manager_t), intent(in) :: this
         integer, intent(in) :: event_type
@@ -227,7 +227,7 @@ contains
         end do
     end function
     
-    subroutine manager_get_by_priority(this, event_type, ordered_ids)
+    recursive subroutine manager_get_by_priority(this, event_type, ordered_ids)
         !! Get subscriptions ordered by priority (high to low)
         class(subscription_manager_t), intent(in) :: this
         integer, intent(in) :: event_type
@@ -287,7 +287,7 @@ contains
         ordered_ids = ids
     end subroutine
     
-    subroutine manager_update_priority(this, subscription_id, new_priority, &
+    recursive subroutine manager_update_priority(this, subscription_id, new_priority, &
                                      success)
         !! Update subscription priority
         class(subscription_manager_t), intent(inout) :: this
@@ -311,7 +311,7 @@ contains
         end do
     end subroutine
     
-    subroutine manager_disable(this, subscription_id, success)
+    recursive subroutine manager_disable(this, subscription_id, success)
         !! Disable subscription
         class(subscription_manager_t), intent(inout) :: this
         integer, intent(in) :: subscription_id
@@ -333,7 +333,7 @@ contains
         end do
     end subroutine
     
-    subroutine manager_enable(this, subscription_id, success)
+    recursive subroutine manager_enable(this, subscription_id, success)
         !! Enable subscription
         class(subscription_manager_t), intent(inout) :: this
         integer, intent(in) :: subscription_id
@@ -355,7 +355,7 @@ contains
         end do
     end subroutine
     
-    function manager_is_enabled(this, subscription_id) result(enabled)
+    recursive function manager_is_enabled(this, subscription_id) result(enabled)
         !! Check if subscription is enabled
         class(subscription_manager_t), intent(in) :: this
         integer, intent(in) :: subscription_id
@@ -376,7 +376,7 @@ contains
         end do
     end function
     
-    function manager_get_priority(this, subscription_id) result(priority)
+    recursive function manager_get_priority(this, subscription_id) result(priority)
         !! Get subscription priority
         class(subscription_manager_t), intent(in) :: this
         integer, intent(in) :: subscription_id

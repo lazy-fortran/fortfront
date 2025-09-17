@@ -23,7 +23,7 @@ module parser_basic_statement_module
 contains
 
     ! Parse basic statement with support for multi-variable declarations
-    function parse_basic_statement_multi(tokens, arena, parent_index) result(stmt_indices)
+    recursive function parse_basic_statement_multi(tokens, arena, parent_index) result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -278,7 +278,7 @@ contains
 
     ! Unified function for parsing statement bodies (used by if blocks, &
     ! do while loops, etc.)
-    function parse_statement_body(parser, arena, end_keywords) result(body_indices)
+    recursive function parse_statement_body(parser, arena, end_keywords) result(body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: end_keywords(:)
@@ -362,7 +362,7 @@ contains
     end function parse_statement_body
 
     ! Helper function to determine how many tokens an expression consumes
-    function parse_expression_length(parser, arena) result(length)
+    recursive function parse_expression_length(parser, arena) result(length)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: length

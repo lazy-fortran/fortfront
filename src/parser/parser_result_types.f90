@@ -44,25 +44,25 @@ module parser_result_types
 contains
 
     ! parse_result_t methods
-    pure function parse_result_is_success(this) result(success)
+    pure recursive function parse_result_is_success(this) result(success)
         class(parse_result_t), intent(in) :: this
         logical :: success
         success = this%result%is_success()
     end function parse_result_is_success
 
-    pure function parse_result_is_failure(this) result(failure)
+    pure recursive function parse_result_is_failure(this) result(failure)
         class(parse_result_t), intent(in) :: this
         logical :: failure
         failure = this%result%is_failure()
     end function parse_result_is_failure
 
-    pure function parse_result_get_node(this) result(node_index)
+    pure recursive function parse_result_get_node(this) result(node_index)
         class(parse_result_t), intent(in) :: this
         integer :: node_index
         node_index = this%node_index
     end function parse_result_get_node
 
-    subroutine parse_result_set_error(this, message, code, component, context, suggestion)
+    recursive subroutine parse_result_set_error(this, message, code, component, context, suggestion)
         class(parse_result_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
@@ -72,7 +72,7 @@ contains
         this%node_index = 0
     end subroutine parse_result_set_error
 
-    subroutine parse_result_set_success(this, node_index)
+    recursive subroutine parse_result_set_success(this, node_index)
         class(parse_result_t), intent(inout) :: this
         integer, intent(in) :: node_index
         
@@ -81,37 +81,37 @@ contains
     end subroutine parse_result_set_success
 
     ! compile_result_t methods
-    pure function compile_result_is_success(this) result(success)
+    pure recursive function compile_result_is_success(this) result(success)
         class(compile_result_t), intent(in) :: this
         logical :: success
         success = this%result%is_success()
     end function compile_result_is_success
 
-    pure function compile_result_is_failure(this) result(failure)
+    pure recursive function compile_result_is_failure(this) result(failure)
         class(compile_result_t), intent(in) :: this
         logical :: failure
         failure = this%result%is_failure()
     end function compile_result_is_failure
 
-    pure function compile_result_get_program(this) result(program_index)
+    pure recursive function compile_result_get_program(this) result(program_index)
         class(compile_result_t), intent(in) :: this
         integer :: program_index
         program_index = this%program_index
     end function compile_result_get_program
 
-    function compile_result_has_warnings(this) result(has_warn)
+    recursive function compile_result_has_warnings(this) result(has_warn)
         class(compile_result_t), intent(in) :: this
         logical :: has_warn
         has_warn = this%warnings%get_error_count() > 0
     end function compile_result_has_warnings
 
-    function compile_result_get_warning_count(this) result(count)
+    recursive function compile_result_get_warning_count(this) result(count)
         class(compile_result_t), intent(in) :: this
         integer :: count
         count = this%warnings%get_error_count()
     end function compile_result_get_warning_count
 
-    subroutine compile_result_add_warning(this, message, code, component, context, suggestion)
+    recursive subroutine compile_result_add_warning(this, message, code, component, context, suggestion)
         class(compile_result_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
@@ -127,7 +127,7 @@ contains
                                      suggestion=suggestion)
     end subroutine compile_result_add_warning
 
-    subroutine compile_result_set_error(this, message, code, component, context, suggestion)
+    recursive subroutine compile_result_set_error(this, message, code, component, context, suggestion)
         class(compile_result_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
@@ -137,7 +137,7 @@ contains
         this%program_index = 0
     end subroutine compile_result_set_error
 
-    subroutine compile_result_set_success(this, program_index)
+    recursive subroutine compile_result_set_success(this, program_index)
         class(compile_result_t), intent(inout) :: this
         integer, intent(in) :: program_index
         
@@ -146,14 +146,14 @@ contains
     end subroutine compile_result_set_success
 
     ! Factory functions
-    function success_parse_result(node_index) result(parse_res)
+    recursive function success_parse_result(node_index) result(parse_res)
         integer, intent(in) :: node_index
         type(parse_result_t) :: parse_res
         
         call parse_res%set_success(node_index)
     end function success_parse_result
 
-    function error_parse_result(message, code, component, context, suggestion) result(parse_res)
+    recursive function error_parse_result(message, code, component, context, suggestion) result(parse_res)
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
@@ -162,7 +162,7 @@ contains
         call parse_res%set_error(message, code, component, context, suggestion)
     end function error_parse_result
 
-    function success_compile_result(program_index) result(compile_res)
+    recursive function success_compile_result(program_index) result(compile_res)
         integer, intent(in) :: program_index
         type(compile_result_t) :: compile_res
         
@@ -171,7 +171,7 @@ contains
         call compile_res%set_success(program_index)
     end function success_compile_result
 
-    function error_compile_result(message, code, component, context, suggestion) result(compile_res)
+    recursive function error_compile_result(message, code, component, context, suggestion) result(compile_res)
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
@@ -185,7 +185,7 @@ contains
     ! Error recovery strategies for continued parsing after errors
     
     ! Recover to statement boundary (newline, semicolon, or end keyword)
-    function recover_to_statement_boundary(parser) result(recovery_res)
+    recursive function recover_to_statement_boundary(parser) result(recovery_res)
         use parser_state_module, only: parser_state_t
         use lexer_core, only: TK_KEYWORD, TK_NEWLINE, TK_OPERATOR, TK_EOF
         type(parser_state_t), intent(inout) :: parser
@@ -248,7 +248,7 @@ contains
     end function recover_to_statement_boundary
 
     ! Recover to closing parenthesis, bracket, or brace
-    function recover_to_closing_paren(parser, opening_char) result(recovery_res)
+    recursive function recover_to_closing_paren(parser, opening_char) result(recovery_res)
         use parser_state_module, only: parser_state_t
         use lexer_core, only: TK_OPERATOR, TK_EOF
         type(parser_state_t), intent(inout) :: parser
@@ -326,7 +326,7 @@ contains
     end function recover_to_closing_paren
 
     ! Recover to next occurrence of specific token
-    function recover_to_next_token(parser, target_kind, target_text) result(recovery_res)
+    recursive function recover_to_next_token(parser, target_kind, target_text) result(recovery_res)
         use parser_state_module, only: parser_state_t
         use lexer_core, only: TK_EOF
         type(parser_state_t), intent(inout) :: parser
@@ -376,7 +376,7 @@ contains
     end function recover_to_next_token
 
     ! Skip to known synchronization points for robust error recovery
-    function skip_to_synchronization_point(parser) result(recovery_res)
+    recursive function skip_to_synchronization_point(parser) result(recovery_res)
         use parser_state_module, only: parser_state_t
         use lexer_core, only: TK_KEYWORD, TK_EOF
         type(parser_state_t), intent(inout) :: parser

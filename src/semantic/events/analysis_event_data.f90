@@ -105,13 +105,13 @@ module analysis_event_data
 
     ! Abstract interfaces
     abstract interface
-        function get_data_type_interface(this) result(data_type)
+        recursive function get_data_type_interface(this) result(data_type)
             import :: event_data_base_t
             class(event_data_base_t), intent(in) :: this
             character(:), allocatable :: data_type
         end function get_data_type_interface
 
-        function clone_data_interface(this) result(cloned)
+        recursive function clone_data_interface(this) result(cloned)
             import :: event_data_base_t
             class(event_data_base_t), intent(in) :: this
             class(event_data_base_t), allocatable :: cloned
@@ -126,13 +126,13 @@ module analysis_event_data
 contains
 
     ! Node entry implementations
-    function node_entry_get_data_type(this) result(data_type)
+    recursive function node_entry_get_data_type(this) result(data_type)
         class(node_entry_data_t), intent(in) :: this
         character(:), allocatable :: data_type
         data_type = "node_entry"
     end function node_entry_get_data_type
 
-    function node_entry_clone_data(this) result(cloned)
+    recursive function node_entry_clone_data(this) result(cloned)
         class(node_entry_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(node_entry_data_t) :: temp_data
@@ -141,7 +141,7 @@ contains
         allocate(cloned, source=temp_data)
     end function node_entry_clone_data
 
-    subroutine node_entry_assign(lhs, rhs)
+    recursive subroutine node_entry_assign(lhs, rhs)
         class(node_entry_data_t), intent(out) :: lhs
         type(node_entry_data_t), intent(in) :: rhs
         
@@ -153,13 +153,13 @@ contains
     end subroutine node_entry_assign
 
     ! Node exit implementations
-    function node_exit_get_data_type(this) result(data_type)
+    recursive function node_exit_get_data_type(this) result(data_type)
         class(node_exit_data_t), intent(in) :: this
         character(:), allocatable :: data_type
         data_type = "node_exit"
     end function node_exit_get_data_type
 
-    function node_exit_clone_data(this) result(cloned)
+    recursive function node_exit_clone_data(this) result(cloned)
         class(node_exit_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(node_exit_data_t) :: temp_data
@@ -168,7 +168,7 @@ contains
         allocate(cloned, source=temp_data)
     end function node_exit_clone_data
 
-    subroutine node_exit_assign(lhs, rhs)
+    recursive subroutine node_exit_assign(lhs, rhs)
         class(node_exit_data_t), intent(out) :: lhs
         type(node_exit_data_t), intent(in) :: rhs
         
@@ -180,13 +180,13 @@ contains
     end subroutine node_exit_assign
 
     ! Scope entry implementations
-    function scope_entry_get_data_type(this) result(data_type)
+    recursive function scope_entry_get_data_type(this) result(data_type)
         class(scope_entry_data_t), intent(in) :: this
         character(:), allocatable :: data_type
         data_type = "scope_entry"
     end function scope_entry_get_data_type
 
-    function scope_entry_clone_data(this) result(cloned)
+    recursive function scope_entry_clone_data(this) result(cloned)
         class(scope_entry_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(scope_entry_data_t) :: temp_data
@@ -195,7 +195,7 @@ contains
         allocate(cloned, source=temp_data)
     end function scope_entry_clone_data
 
-    subroutine scope_entry_assign(lhs, rhs)
+    recursive subroutine scope_entry_assign(lhs, rhs)
         class(scope_entry_data_t), intent(out) :: lhs
         type(scope_entry_data_t), intent(in) :: rhs
         
@@ -207,13 +207,13 @@ contains
     end subroutine scope_entry_assign
 
     ! Scope exit implementations
-    function scope_exit_get_data_type(this) result(data_type)
+    recursive function scope_exit_get_data_type(this) result(data_type)
         class(scope_exit_data_t), intent(in) :: this
         character(:), allocatable :: data_type
         data_type = "scope_exit"
     end function scope_exit_get_data_type
 
-    function scope_exit_clone_data(this) result(cloned)
+    recursive function scope_exit_clone_data(this) result(cloned)
         class(scope_exit_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(scope_exit_data_t) :: temp_data
@@ -222,7 +222,7 @@ contains
         allocate(cloned, source=temp_data)
     end function scope_exit_clone_data
 
-    subroutine scope_exit_assign(lhs, rhs)
+    recursive subroutine scope_exit_assign(lhs, rhs)
         class(scope_exit_data_t), intent(out) :: lhs
         type(scope_exit_data_t), intent(in) :: rhs
         
@@ -234,13 +234,13 @@ contains
     end subroutine scope_exit_assign
 
     ! Type inference implementations
-    function type_inference_get_data_type(this) result(data_type)
+    recursive function type_inference_get_data_type(this) result(data_type)
         class(type_inference_data_t), intent(in) :: this
         character(:), allocatable :: data_type
         data_type = "type_inference"
     end function type_inference_get_data_type
 
-    function type_inference_clone_data(this) result(cloned)
+    recursive function type_inference_clone_data(this) result(cloned)
         class(type_inference_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(type_inference_data_t) :: temp_data
@@ -249,7 +249,7 @@ contains
         allocate(cloned, source=temp_data)
     end function type_inference_clone_data
 
-    subroutine type_inference_assign(lhs, rhs)
+    recursive subroutine type_inference_assign(lhs, rhs)
         class(type_inference_data_t), intent(out) :: lhs
         type(type_inference_data_t), intent(in) :: rhs
         
@@ -263,13 +263,13 @@ contains
     end subroutine type_inference_assign
 
     ! Analysis complete implementations
-    function analysis_complete_get_data_type(this) result(data_type)
+    recursive function analysis_complete_get_data_type(this) result(data_type)
         class(analysis_complete_data_t), intent(in) :: this
         character(:), allocatable :: data_type
         data_type = "analysis_complete"
     end function analysis_complete_get_data_type
 
-    function analysis_complete_clone_data(this) result(cloned)
+    recursive function analysis_complete_clone_data(this) result(cloned)
         class(analysis_complete_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(analysis_complete_data_t) :: temp_data
@@ -278,7 +278,7 @@ contains
         allocate(cloned, source=temp_data)
     end function analysis_complete_clone_data
 
-    subroutine analysis_complete_assign(lhs, rhs)
+    recursive subroutine analysis_complete_assign(lhs, rhs)
         class(analysis_complete_data_t), intent(out) :: lhs
         type(analysis_complete_data_t), intent(in) :: rhs
         
@@ -292,13 +292,13 @@ contains
     end subroutine analysis_complete_assign
 
     ! Error detected implementations
-    function error_detected_get_data_type(this) result(data_type)
+    recursive function error_detected_get_data_type(this) result(data_type)
         class(error_detected_data_t), intent(in) :: this
         character(:), allocatable :: data_type
         data_type = "error_detected"
     end function error_detected_get_data_type
 
-    function error_detected_clone_data(this) result(cloned)
+    recursive function error_detected_clone_data(this) result(cloned)
         class(error_detected_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(error_detected_data_t) :: temp_data
@@ -307,7 +307,7 @@ contains
         allocate(cloned, source=temp_data)
     end function error_detected_clone_data
 
-    subroutine error_detected_assign(lhs, rhs)
+    recursive subroutine error_detected_assign(lhs, rhs)
         class(error_detected_data_t), intent(out) :: lhs
         type(error_detected_data_t), intent(in) :: rhs
         

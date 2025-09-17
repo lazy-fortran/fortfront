@@ -22,7 +22,7 @@ module parser_statement_utilities_module
 contains
 
     ! Statement parsing for if blocks - moved here to break circular dependency
-    function parse_statement_in_if_block(parser, arena, token) result(stmt_index)
+    recursive function parse_statement_in_if_block(parser, arena, token) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: token
@@ -72,7 +72,7 @@ contains
     end function parse_statement_in_if_block
 
     ! Simple call statement parser to break circular dependency
-    function parse_call_statement_simple(parser, arena) result(stmt_index)
+    recursive function parse_call_statement_simple(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -106,7 +106,7 @@ contains
     end function parse_call_statement_simple
 
     ! Simple assignment parser (utility function)
-    function parse_assignment_simple(parser, arena) result(assign_index)
+    recursive function parse_assignment_simple(parser, arena) result(assign_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: assign_index
@@ -116,7 +116,7 @@ contains
     end function parse_assignment_simple
 
     ! Skip unknown statement (utility function)
-    function skip_unknown_statement(parser) result(stmt_index)
+    recursive function skip_unknown_statement(parser) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         integer :: stmt_index
 
@@ -138,7 +138,7 @@ contains
 
     ! Simple if statement parser for function/subroutine bodies
     ! This avoids circular dependency with parser_control_flow_module
-    function parse_if_from_definition(parser, arena) result(if_index)
+    recursive function parse_if_from_definition(parser, arena) result(if_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: if_index
@@ -230,7 +230,7 @@ contains
 
     ! Simple associate statement parser for function/subroutine bodies
     ! This avoids circular dependency with parser_control_flow_module
-    function parse_associate_from_definition(parser, arena) result(assoc_index)
+    recursive function parse_associate_from_definition(parser, arena) result(assoc_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: assoc_index

@@ -41,7 +41,7 @@ module source_reconstruction_analyzer
 
 contains
 
-    subroutine analyze_source_reconstruction(this, shared_context, arena, node_index)
+    recursive subroutine analyze_source_reconstruction(this, shared_context, arena, node_index)
         class(source_reconstruction_analyzer_impl_t), intent(inout) :: this
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
@@ -55,7 +55,7 @@ contains
         end associate
     end subroutine
 
-    function get_source_reconstruction_results(this) result(results)
+    recursive function get_source_reconstruction_results(this) result(results)
         class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
         
@@ -67,14 +67,14 @@ contains
         end select
     end function
 
-    function get_source_reconstruction_name(this) result(name)
+    recursive function get_source_reconstruction_name(this) result(name)
         class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         character(:), allocatable :: name
         
         name = "source_reconstruction_analyzer"
     end function
 
-    subroutine assign_source_reconstruction_analyzer(lhs, rhs)
+    recursive subroutine assign_source_reconstruction_analyzer(lhs, rhs)
         use semantic_analyzer_base, only: semantic_analyzer_t
         class(source_reconstruction_analyzer_impl_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
@@ -92,7 +92,7 @@ contains
     end subroutine
 
     ! Analysis methods for fluff rules
-    function get_node_source_text(this, node_index) result(text)
+    recursive function get_node_source_text(this, node_index) result(text)
         class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: node_index
         character(:), allocatable :: text
@@ -119,7 +119,7 @@ contains
         text = "<source not available>"
     end function
 
-    function extract_text_span(this, start_line, start_col, end_line, &
+    recursive function extract_text_span(this, start_line, start_col, end_line, &
                                 end_col) result(text)
         class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: start_line, start_col, end_line, end_col
@@ -181,7 +181,7 @@ contains
         end if
     end function
 
-    function get_line_text(this, line_number) result(line_text)
+    recursive function get_line_text(this, line_number) result(line_text)
         class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: line_number
         character(:), allocatable :: line_text
@@ -200,7 +200,7 @@ contains
         line_text = context%get_line_text(line_number)
     end function
 
-    function get_context_around_node(this, node_index, context_lines) result(context)
+    recursive function get_context_around_node(this, node_index, context_lines) result(context)
         class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: node_index
         integer, intent(in) :: context_lines
@@ -231,7 +231,7 @@ contains
         context = build_context_string(this, node_line, context_lines)
     end function
 
-    function format_source_location(this, node_index) result(location_str)
+    recursive function format_source_location(this, node_index) result(location_str)
         class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: node_index
         character(:), allocatable :: location_str
@@ -256,7 +256,7 @@ contains
         location_str = "unknown"
     end function
 
-    function get_source_reconstruction_dependencies(this) result(deps)
+    recursive function get_source_reconstruction_dependencies(this) result(deps)
         class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         character(:), allocatable :: deps(:)
         
@@ -268,7 +268,7 @@ contains
     end function
 
     ! Helper subroutines
-    subroutine build_source_mapping(result, arena, root_index)
+    recursive subroutine build_source_mapping(result, arena, root_index)
         type(source_reconstruction_result_t), intent(inout) :: result
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
@@ -340,7 +340,7 @@ contains
         end associate
     end subroutine
 
-    function extract_substring(source, location) result(substring)
+    recursive function extract_substring(source, location) result(substring)
         character(*), intent(in) :: source
         type(source_location_t), intent(in) :: location
         character(:), allocatable :: substring
@@ -355,7 +355,7 @@ contains
         end if
     end function
 
-    function build_context_string(this, center_line, context_lines) result(context)
+    recursive function build_context_string(this, center_line, context_lines) result(context)
         class(source_reconstruction_analyzer_impl_t), intent(in) :: this
         integer, intent(in) :: center_line, context_lines
         character(:), allocatable :: context
@@ -377,7 +377,7 @@ contains
         end do
     end function
 
-    function count_lines_in_arena(arena) result(line_count)
+    recursive function count_lines_in_arena(arena) result(line_count)
         type(ast_arena_t), intent(in) :: arena
         integer :: line_count
         
@@ -394,7 +394,7 @@ contains
     end function
 
     ! Additional helper functions for real source mapping
-    function reconstruct_source_from_arena(arena) result(source_text)
+    recursive function reconstruct_source_from_arena(arena) result(source_text)
         type(ast_arena_t), intent(in) :: arena
         character(:), allocatable :: source_text
         
@@ -438,7 +438,7 @@ contains
         end do
     end function reconstruct_source_from_arena
 
-    subroutine append_node_to_line(entry, line)
+    recursive subroutine append_node_to_line(entry, line)
         use ast_core, only: ast_entry_t, identifier_node, literal_node
         type(ast_entry_t), intent(in) :: entry
         character(*), intent(inout) :: line
@@ -463,7 +463,7 @@ contains
         end if
     end subroutine append_node_to_line
 
-    subroutine calculate_char_positions(context, line_num, column_num, &
+    recursive subroutine calculate_char_positions(context, line_num, column_num, &
                                        entry, start_pos, end_pos)
         use ast_core, only: ast_entry_t, identifier_node, literal_node
         type(source_context_t), intent(in) :: context
@@ -493,7 +493,7 @@ contains
         if (end_pos < start_pos) end_pos = start_pos
     end subroutine calculate_char_positions
 
-    function estimate_node_length(entry) result(length)
+    recursive function estimate_node_length(entry) result(length)
         use ast_core, only: ast_entry_t, identifier_node, literal_node, &
                             program_node, assignment_node, if_node, &
                             do_loop_node, function_def_node, declaration_node
@@ -529,7 +529,7 @@ contains
         if (length <= 0) length = 1
     end function estimate_node_length
 
-    function int_to_str(value) result(str)
+    recursive function int_to_str(value) result(str)
         integer, intent(in) :: value
         character(:), allocatable :: str
         

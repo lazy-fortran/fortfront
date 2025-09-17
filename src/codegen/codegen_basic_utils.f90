@@ -8,7 +8,7 @@ module codegen_basic_utils
 contains
 
     ! Add line continuations for overly long lines
-    function add_line_continuations(input_code) result(output_code)
+    recursive function add_line_continuations(input_code) result(output_code)
         character(len=*), intent(in) :: input_code
         character(len=:), allocatable :: output_code
         integer, parameter :: CONTINUATION_INDENT = 6
@@ -69,7 +69,7 @@ contains
     end function add_line_continuations
 
     ! Helper subroutine to add continuation to a long line
-    subroutine add_line_with_continuation(input_line, output_code, max_len)
+    recursive subroutine add_line_with_continuation(input_line, output_code, max_len)
         character(len=*), intent(in) :: input_line
         character(len=:), allocatable, intent(inout) :: output_code
         integer, intent(in) :: max_len

@@ -17,7 +17,7 @@ module parser_parameter_handling_module
 contains
 
     ! Merge parameter attributes from declaration nodes into parameter nodes
-    subroutine merge_parameter_attributes(arena, param_indices, body_indices)
+    recursive subroutine merge_parameter_attributes(arena, param_indices, body_indices)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: param_indices(:)
         integer, intent(in) :: body_indices(:)
@@ -102,7 +102,7 @@ contains
     end subroutine merge_parameter_attributes
 
     ! Parse typed parameters (full implementation restored)
-    subroutine parse_typed_parameters(parser, arena, param_indices)
+    recursive subroutine parse_typed_parameters(parser, arena, param_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: param_indices(:)

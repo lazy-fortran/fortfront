@@ -102,7 +102,7 @@ module base_analyzer_mod
     
     ! Abstract interfaces
     abstract interface
-        function analyze_interface(this, ctx, arena, root_index) result(results)
+        recursive function analyze_interface(this, ctx, arena, root_index) result(results)
             import :: base_analyzer_t, semantic_context_t, ast_arena_t, &
                       analysis_results_t
             class(base_analyzer_t), intent(inout) :: this
@@ -116,7 +116,7 @@ module base_analyzer_mod
 contains
 
     ! Results type procedures
-    function results_equals(this, other) result(equal)
+    recursive function results_equals(this, other) result(equal)
         class(analysis_results_t), intent(in) :: this, other
         logical :: equal
         real, parameter :: tolerance = 1.0e-6
@@ -127,7 +127,7 @@ contains
                 abs(this%confidence_score - other%confidence_score) < tolerance
     end function results_equals
     
-    subroutine results_assign(lhs, rhs)
+    recursive subroutine results_assign(lhs, rhs)
         class(analysis_results_t), intent(out) :: lhs
         type(analysis_results_t), intent(in) :: rhs
         
@@ -139,31 +139,31 @@ contains
     end subroutine results_assign
     
     ! Base analyzer procedures
-    function analyzer_get_id(this) result(analyzer_id)
+    recursive function analyzer_get_id(this) result(analyzer_id)
         class(base_analyzer_t), intent(in) :: this
         type(analyzer_id_t) :: analyzer_id
         analyzer_id = this%id
     end function analyzer_get_id
     
-    subroutine analyzer_set_dependencies(this, dependency_ids)
+    recursive subroutine analyzer_set_dependencies(this, dependency_ids)
         class(base_analyzer_t), intent(inout) :: this
         integer, intent(in) :: dependency_ids(:)
         this%depends_on = dependency_ids
     end subroutine analyzer_set_dependencies
     
-    function analyzer_has_dependencies(this) result(has_deps)
+    recursive function analyzer_has_dependencies(this) result(has_deps)
         class(base_analyzer_t), intent(in) :: this
         logical :: has_deps
         has_deps = allocated(this%depends_on) .and. size(this%depends_on) > 0
     end function analyzer_has_dependencies
     
-    subroutine base_initialize(this)
+    recursive subroutine base_initialize(this)
         class(base_analyzer_t), intent(inout) :: this
         this%enabled = .true.
         this%priority = 0
     end subroutine
     
-    subroutine base_cleanup(this)
+    recursive subroutine base_cleanup(this)
         class(base_analyzer_t), intent(inout) :: this
         if (allocated(this%depends_on)) deallocate(this%depends_on)
     end subroutine
@@ -173,7 +173,7 @@ contains
         id = this%id%id
     end function
     
-    subroutine base_get_analysis_result(this, result)
+    recursive subroutine base_get_analysis_result(this, result)
         class(base_analyzer_t), intent(in) :: this
         character(len=*), intent(out) :: result
         result = "base_analysis_complete"
@@ -185,7 +185,7 @@ contains
     end function
     
     ! Event-aware analyzer procedures
-    subroutine analyzer_subscribe_event(this, event_type, subscription_id, &
+    recursive subroutine analyzer_subscribe_event(this, event_type, subscription_id, &
                                       success)
         class(event_aware_analyzer_t), intent(inout) :: this
         integer, intent(in) :: event_type
@@ -227,7 +227,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine analyzer_unsubscribe_event(this, subscription_id, success)
+    recursive subroutine analyzer_unsubscribe_event(this, subscription_id, success)
         class(event_aware_analyzer_t), intent(inout) :: this
         integer, intent(in) :: subscription_id
         logical, intent(out) :: success
@@ -267,7 +267,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine analyzer_emit_event(this, event_type, node_index, success)
+    recursive subroutine analyzer_emit_event(this, event_type, node_index, success)
         class(event_aware_analyzer_t), intent(inout) :: this
         integer, intent(in) :: event_type
         integer, intent(in) :: node_index
@@ -288,7 +288,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine analyzer_emit_event_data(this, event_type, node_index, &
+    recursive subroutine analyzer_emit_event_data(this, event_type, node_index, &
                                       scope_name, scope_level, success)
         class(event_aware_analyzer_t), intent(inout) :: this
         integer, intent(in) :: event_type
@@ -301,7 +301,7 @@ contains
         call this%emit_event(event_type, node_index, success)
     end subroutine
     
-    subroutine analyzer_emit_validated(this, event_type, node_index, &
+    recursive subroutine analyzer_emit_validated(this, event_type, node_index, &
                                      success, error_message)
         class(event_aware_analyzer_t), intent(inout) :: this
         integer, intent(in) :: event_type
@@ -327,7 +327,7 @@ contains
         call this%emit_event(event_type, node_index, success)
     end subroutine
     
-    subroutine analyzer_get_subscriptions(this, subscriptions)
+    recursive subroutine analyzer_get_subscriptions(this, subscriptions)
         class(event_aware_analyzer_t), intent(in) :: this
         integer, allocatable, intent(out) :: subscriptions(:)
         
@@ -357,7 +357,7 @@ contains
         end do
     end function
     
-    subroutine analyzer_set_priority(this, priority)
+    recursive subroutine analyzer_set_priority(this, priority)
         class(event_aware_analyzer_t), intent(inout) :: this
         real, intent(in) :: priority
         if (priority >= 0.0) then
@@ -370,12 +370,12 @@ contains
         priority = this%event_processing_priority
     end function
     
-    subroutine analyzer_disable_events(this)
+    recursive subroutine analyzer_disable_events(this)
         class(event_aware_analyzer_t), intent(inout) :: this
         this%event_processing_enabled = .false.
     end subroutine
     
-    subroutine analyzer_enable_events(this)
+    recursive subroutine analyzer_enable_events(this)
         class(event_aware_analyzer_t), intent(inout) :: this
         this%event_processing_enabled = .true.
     end subroutine
@@ -385,7 +385,7 @@ contains
         enabled = this%event_processing_enabled
     end function
     
-    subroutine analyzer_init_events(this, success)
+    recursive subroutine analyzer_init_events(this, success)
         class(event_aware_analyzer_t), intent(inout) :: this
         logical, intent(out) :: success
         call this%initialize()
@@ -393,7 +393,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine analyzer_activate(this, success)
+    recursive subroutine analyzer_activate(this, success)
         class(event_aware_analyzer_t), intent(inout) :: this
         logical, intent(out) :: success
         this%event_processing_enabled = .true.
@@ -401,14 +401,14 @@ contains
         success = .true.
     end subroutine
     
-    subroutine analyzer_deactivate(this, success)
+    recursive subroutine analyzer_deactivate(this, success)
         class(event_aware_analyzer_t), intent(inout) :: this
         logical, intent(out) :: success
         this%event_processing_enabled = .false.
         success = .true.
     end subroutine
     
-    subroutine analyzer_cleanup_events(this, success)
+    recursive subroutine analyzer_cleanup_events(this, success)
         class(event_aware_analyzer_t), intent(inout) :: this
         logical, intent(out) :: success
         call this%cleanup()
@@ -416,7 +416,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine analyzer_get_state(this, state)
+    recursive subroutine analyzer_get_state(this, state)
         class(event_aware_analyzer_t), intent(in) :: this
         character(len=*), intent(out) :: state
         if (this%enabled .and. this%event_processing_enabled) then
@@ -443,7 +443,7 @@ contains
         supports = .true.
     end function
     
-    subroutine handle_event(this, event, context, arena)
+    recursive subroutine handle_event(this, event, context, arena)
         !! Default event handler implementation
         class(event_aware_analyzer_t), intent(inout) :: this
         type(analysis_event_t), intent(inout) :: event
@@ -454,17 +454,17 @@ contains
     end subroutine
     
     ! Plugin lifecycle manager procedures
-    subroutine lifecycle_initialize(this)
+    recursive subroutine lifecycle_initialize(this)
         class(plugin_lifecycle_manager_t), intent(inout) :: this
         this%initialized = .true.
     end subroutine
     
-    subroutine lifecycle_cleanup(this)
+    recursive subroutine lifecycle_cleanup(this)
         class(plugin_lifecycle_manager_t), intent(inout) :: this
         this%initialized = .false.
     end subroutine
     
-    subroutine lifecycle_register(this, analyzer, success, error_msg)
+    recursive subroutine lifecycle_register(this, analyzer, success, error_msg)
         class(plugin_lifecycle_manager_t), intent(inout) :: this
         class(event_aware_analyzer_t), intent(inout) :: analyzer
         logical, intent(out) :: success
@@ -473,7 +473,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_init_plugin(this, plugin_id, success, error_msg)
+    recursive subroutine lifecycle_init_plugin(this, plugin_id, success, error_msg)
         class(plugin_lifecycle_manager_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         logical, intent(out) :: success
@@ -482,7 +482,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_cleanup_plugin(this, plugin_id, success, error_msg)
+    recursive subroutine lifecycle_cleanup_plugin(this, plugin_id, success, error_msg)
         class(plugin_lifecycle_manager_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         logical, intent(out) :: success
@@ -491,7 +491,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_notify(this, plugin_id, event, success)
+    recursive subroutine lifecycle_notify(this, plugin_id, event, success)
         class(plugin_lifecycle_manager_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         character(len=*), intent(in) :: event
@@ -499,7 +499,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine lifecycle_get_state(this, plugin_id, state)
+    recursive subroutine lifecycle_get_state(this, plugin_id, state)
         class(plugin_lifecycle_manager_t), intent(in) :: this
         integer, intent(in) :: plugin_id
         character(len=*), intent(out) :: state

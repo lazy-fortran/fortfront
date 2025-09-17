@@ -82,7 +82,7 @@ module plugin_registry_module
 contains
 
     ! Plugin validation procedures
-    subroutine validate_dependencies(this, metadata, success, error_message)
+    recursive subroutine validate_dependencies(this, metadata, success, error_message)
         class(plugin_validation_t), intent(inout) :: this
         type(plugin_metadata_t), intent(in) :: metadata
         logical, intent(out) :: success
@@ -109,17 +109,17 @@ contains
     end subroutine
     
     ! Plugin lifecycle procedures
-    subroutine lifecycle_initialize(this)
+    recursive subroutine lifecycle_initialize(this)
         class(plugin_lifecycle_t), intent(inout) :: this
         this%initialized = .true.
     end subroutine
     
-    subroutine lifecycle_cleanup(this)
+    recursive subroutine lifecycle_cleanup(this)
         class(plugin_lifecycle_t), intent(inout) :: this
         this%initialized = .false.
     end subroutine
     
-    subroutine lifecycle_validate_plugin(this, plugin_id, success, error_msg)
+    recursive subroutine lifecycle_validate_plugin(this, plugin_id, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         logical, intent(out) :: success
@@ -128,7 +128,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_initialize_plugin(this, plugin_id, success, error_msg)
+    recursive subroutine lifecycle_initialize_plugin(this, plugin_id, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         logical, intent(out) :: success
@@ -137,7 +137,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_activate_plugin(this, plugin_id, success, error_msg)
+    recursive subroutine lifecycle_activate_plugin(this, plugin_id, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         logical, intent(out) :: success
@@ -146,7 +146,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_deactivate_plugin(this, plugin_id, success, error_msg)
+    recursive subroutine lifecycle_deactivate_plugin(this, plugin_id, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         logical, intent(out) :: success
@@ -155,7 +155,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_cleanup_plugin(this, plugin_id, success, error_msg)
+    recursive subroutine lifecycle_cleanup_plugin(this, plugin_id, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         logical, intent(out) :: success
@@ -164,7 +164,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_get_plugin_state(this, plugin_id, state)
+    recursive subroutine lifecycle_get_plugin_state(this, plugin_id, state)
         class(plugin_lifecycle_t), intent(in) :: this
         integer, intent(in) :: plugin_id
         character(len=*), intent(out) :: state
@@ -183,7 +183,7 @@ contains
         operational = (plugin_id > 0)
     end function
     
-    subroutine lifecycle_init_deps(this, plugin_ids, init_order, success)
+    recursive subroutine lifecycle_init_deps(this, plugin_ids, init_order, success)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_ids(:)
         integer, allocatable, intent(out) :: init_order(:)
@@ -199,7 +199,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine lifecycle_init_error(this, plugin_id, success, error_msg)
+    recursive subroutine lifecycle_init_error(this, plugin_id, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         logical, intent(out) :: success
@@ -214,7 +214,7 @@ contains
         end if
     end subroutine
     
-    subroutine lifecycle_attempt_recovery(this, plugin_id, success, error_msg)
+    recursive subroutine lifecycle_attempt_recovery(this, plugin_id, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         logical, intent(out) :: success
@@ -239,7 +239,7 @@ contains
         end if
     end subroutine
     
-    subroutine lifecycle_transition_state(this, plugin_id, new_state, success)
+    recursive subroutine lifecycle_transition_state(this, plugin_id, new_state, success)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
         character(len=*), intent(in) :: new_state
@@ -253,21 +253,21 @@ contains
         end if
     end subroutine
     
-    subroutine lifecycle_validate_state(this, plugin_id, valid)
+    recursive subroutine lifecycle_validate_state(this, plugin_id, valid)
         class(plugin_lifecycle_t), intent(in) :: this
         integer, intent(in) :: plugin_id
         logical, intent(out) :: valid
         valid = (plugin_id > 0)
     end subroutine
     
-    subroutine lifecycle_get_state_history(this, plugin_id, history)
+    recursive subroutine lifecycle_get_state_history(this, plugin_id, history)
         class(plugin_lifecycle_t), intent(in) :: this
         integer, intent(in) :: plugin_id
         character(len=*), intent(out) :: history
         history = "REGISTERED -> VALIDATED"
     end subroutine
     
-    subroutine lifecycle_init_bulk(this, plugin_ids, successful_count, &
+    recursive subroutine lifecycle_init_bulk(this, plugin_ids, successful_count, &
                                  failed_count, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_ids(:)
@@ -281,7 +281,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_activate_bulk(this, plugin_ids, successful_count, &
+    recursive subroutine lifecycle_activate_bulk(this, plugin_ids, successful_count, &
                                      failed_count, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_ids(:)
@@ -295,7 +295,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_deactivate_bulk(this, plugin_ids, successful_count, &
+    recursive subroutine lifecycle_deactivate_bulk(this, plugin_ids, successful_count, &
                                        failed_count, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_ids(:)
@@ -309,7 +309,7 @@ contains
         error_msg = ""
     end subroutine
     
-    subroutine lifecycle_cleanup_bulk(this, plugin_ids, successful_count, &
+    recursive subroutine lifecycle_cleanup_bulk(this, plugin_ids, successful_count, &
                                     failed_count, success, error_msg)
         class(plugin_lifecycle_t), intent(inout) :: this
         integer, intent(in) :: plugin_ids(:)
@@ -324,7 +324,7 @@ contains
     end subroutine
     
     ! Plugin registry procedures
-    subroutine registry_initialize(this)
+    recursive subroutine registry_initialize(this)
         class(plugin_registry_t), intent(inout) :: this
         
         integer :: i
@@ -346,7 +346,7 @@ contains
         this%initialized = .true.
     end subroutine
     
-    subroutine registry_cleanup(this)
+    recursive subroutine registry_cleanup(this)
         class(plugin_registry_t), intent(inout) :: this
         
         integer :: i
@@ -367,7 +367,7 @@ contains
         is_init = this%initialized
     end function
     
-    subroutine registry_register_plugin(this, metadata, plugin_id, success, &
+    recursive subroutine registry_register_plugin(this, metadata, plugin_id, success, &
                                        error_message)
         class(plugin_registry_t), intent(inout) :: this
         type(plugin_metadata_t), intent(in) :: metadata
@@ -458,7 +458,7 @@ contains
                      len_trim(this%plugins(plugin_id)%name) > 0)
     end function
     
-    subroutine registry_discover_capability(this, capability, plugin_ids)
+    recursive subroutine registry_discover_capability(this, capability, plugin_ids)
         class(plugin_registry_t), intent(in) :: this
         integer, intent(in) :: capability
         integer, allocatable, intent(out) :: plugin_ids(:)
@@ -503,7 +503,7 @@ contains
         plugin_ids = temp_ids
     end subroutine
     
-    subroutine registry_discover_name(this, pattern, plugin_ids)
+    recursive subroutine registry_discover_name(this, pattern, plugin_ids)
         class(plugin_registry_t), intent(in) :: this
         character(len=*), intent(in) :: pattern
         integer, allocatable, intent(out) :: plugin_ids(:)
@@ -546,7 +546,7 @@ contains
         plugin_ids = temp_ids
     end subroutine
     
-    subroutine registry_discover_version(this, min_version, max_version, plugin_ids)
+    recursive subroutine registry_discover_version(this, min_version, max_version, plugin_ids)
         class(plugin_registry_t), intent(in) :: this
         character(len=*), intent(in) :: min_version, max_version
         integer, allocatable, intent(out) :: plugin_ids(:)
@@ -566,7 +566,7 @@ contains
         plugin_ids = temp_ids
     end subroutine
     
-    subroutine registry_enumerate_plugins(this, plugin_ids)
+    recursive subroutine registry_enumerate_plugins(this, plugin_ids)
         class(plugin_registry_t), intent(in) :: this
         integer, allocatable, intent(out) :: plugin_ids(:)
         
@@ -578,7 +578,7 @@ contains
         end do
     end subroutine
     
-    subroutine registry_validate_deps(this, metadata, success, error_msg)
+    recursive subroutine registry_validate_deps(this, metadata, success, error_msg)
         class(plugin_registry_t), intent(in) :: this
         type(plugin_metadata_t), intent(in) :: metadata
         logical, intent(out) :: success
@@ -589,7 +589,7 @@ contains
         call validator%validate_plugin_dependencies(metadata, success, error_msg)
     end subroutine
     
-    subroutine registry_get_metadata(this, plugin_id, metadata, success)
+    recursive subroutine registry_get_metadata(this, plugin_id, metadata, success)
         class(plugin_registry_t), intent(in) :: this
         integer, intent(in) :: plugin_id
         type(plugin_metadata_t), intent(out) :: metadata
@@ -603,7 +603,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine registry_get_name(this, plugin_id, name, success)
+    recursive subroutine registry_get_name(this, plugin_id, name, success)
         class(plugin_registry_t), intent(in) :: this
         integer, intent(in) :: plugin_id
         character(len=*), intent(out) :: name
@@ -618,7 +618,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine registry_get_version(this, plugin_id, version, success)
+    recursive subroutine registry_get_version(this, plugin_id, version, success)
         class(plugin_registry_t), intent(in) :: this
         integer, intent(in) :: plugin_id
         character(len=*), intent(out) :: version
@@ -633,7 +633,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine registry_get_description(this, plugin_id, description, success)
+    recursive subroutine registry_get_description(this, plugin_id, description, success)
         class(plugin_registry_t), intent(in) :: this
         integer, intent(in) :: plugin_id
         character(len=*), intent(out) :: description
@@ -648,7 +648,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine registry_update_description(this, plugin_id, new_description, &
+    recursive subroutine registry_update_description(this, plugin_id, new_description, &
                                           success)
         class(plugin_registry_t), intent(inout) :: this
         integer, intent(in) :: plugin_id
@@ -663,7 +663,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine registry_get_by_id(this, plugin_id, plugin, success)
+    recursive subroutine registry_get_by_id(this, plugin_id, plugin, success)
         class(plugin_registry_t), intent(in) :: this
         integer, intent(in) :: plugin_id
         type(plugin_metadata_t), intent(out) :: plugin
@@ -673,7 +673,7 @@ contains
     end subroutine
     
     ! Helper procedures
-    subroutine get_plugin_by_name_helper(registry, name, plugin_id)
+    recursive subroutine get_plugin_by_name_helper(registry, name, plugin_id)
         type(plugin_registry_t), intent(in) :: registry
         character(len=*), intent(in) :: name
         integer, intent(out) :: plugin_id

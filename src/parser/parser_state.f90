@@ -51,7 +51,7 @@ module parser_state_module
 contains
 
     ! Create parser state from tokens (traditional allocatable storage)
-    function create_parser_state(tokens) result(state)
+    recursive function create_parser_state(tokens) result(state)
         type(token_t), intent(in) :: tokens(:)
         type(parser_state_t) :: state
 
@@ -67,7 +67,7 @@ contains
     end function create_parser_state
 
     ! Create parser state with arena-based token storage
-    function create_parser_state_with_arena(tokens, arena) result(state)
+    recursive function create_parser_state_with_arena(tokens, arena) result(state)
         type(token_t), intent(in) :: tokens(:)
         type(arena_t), intent(in), optional :: arena
         type(parser_state_t) :: state
@@ -114,7 +114,7 @@ contains
     end function create_parser_state_with_arena
 
     ! Peek at current token without consuming it
-    function parser_peek(this) result(current_token)
+    recursive function parser_peek(this) result(current_token)
         class(parser_state_t), intent(in) :: this
         type(token_t) :: current_token
 
@@ -130,7 +130,7 @@ contains
     end function parser_peek
 
     ! Consume current token and advance
-    function parser_consume(this) result(consumed_token)
+    recursive function parser_consume(this) result(consumed_token)
         class(parser_state_t), intent(inout) :: this
         type(token_t) :: consumed_token
 
@@ -188,7 +188,7 @@ contains
     end function parser_expect
 
     ! Add error with current token context
-    subroutine parser_add_error(this, message, suggestion)
+    recursive subroutine parser_add_error(this, message, suggestion)
         class(parser_state_t), intent(inout) :: this
         character(len=*), intent(in) :: message
         character(len=*), intent(in), optional :: suggestion
@@ -205,7 +205,7 @@ contains
     end function parser_has_errors
 
     ! Get formatted error messages
-    function parser_get_error_messages(this) result(messages)
+    recursive function parser_get_error_messages(this) result(messages)
         class(parser_state_t), intent(in) :: this
         character(len=:), allocatable :: messages
         messages = this%errors%format_messages()
@@ -219,7 +219,7 @@ contains
     end function parser_uses_arena_storage
 
     ! Get memory statistics from parser state
-    function parser_get_memory_stats(this) result(stats)
+    recursive function parser_get_memory_stats(this) result(stats)
         class(parser_state_t), intent(in) :: this
         type(arena_stats_t) :: stats
         
@@ -241,7 +241,7 @@ contains
     end function parser_get_memory_stats
 
     ! Clean up parser state and advance generation
-    subroutine parser_cleanup(this)
+    recursive subroutine parser_cleanup(this)
         class(parser_state_t), intent(inout) :: this
         
         ! Advance generation to invalidate references
@@ -264,7 +264,7 @@ contains
     end subroutine parser_cleanup
 
     ! Get token at specific index
-    function parser_get_token_at_index(this, index) result(token)
+    recursive function parser_get_token_at_index(this, index) result(token)
         class(parser_state_t), intent(in) :: this
         integer, intent(in) :: index
         type(token_t) :: token
@@ -282,7 +282,7 @@ contains
     end function parser_get_token_at_index
 
     ! Get total token count
-    function parser_get_token_count(this) result(count)
+    recursive function parser_get_token_count(this) result(count)
         class(parser_state_t), intent(in) :: this
         integer :: count
         
@@ -294,7 +294,7 @@ contains
     end function parser_get_token_count
 
     ! Assignment operator for parser_state_t (deep copy)
-    subroutine parser_state_assign(lhs, rhs)
+    recursive subroutine parser_state_assign(lhs, rhs)
         class(parser_state_t), intent(out) :: lhs
         type(parser_state_t), intent(in) :: rhs
 

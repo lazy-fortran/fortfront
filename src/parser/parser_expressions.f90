@@ -76,7 +76,7 @@ module parser_expressions_module
 
 contains
 
-    subroutine build_token_view(view, parser)
+    recursive subroutine build_token_view(view, parser)
         type(token_view_t), intent(inout) :: view
         type(parser_state_t), intent(in) :: parser
         integer :: start_idx
@@ -136,7 +136,7 @@ contains
         view%count = count
     end subroutine build_token_view
 
-    function view_peek_token(view, parser) result(token)
+    recursive function view_peek_token(view, parser) result(token)
         type(token_view_t), intent(in) :: view
         type(parser_state_t), intent(in) :: parser
         type(token_t) :: token
@@ -154,7 +154,7 @@ contains
         token%column = view%column(idx)
     end function view_peek_token
 
-    function view_lower_token(view, parser, offset) result(lowered)
+    recursive function view_lower_token(view, parser, offset) result(lowered)
         type(token_view_t), intent(in) :: view
         type(parser_state_t), intent(in) :: parser
         integer, intent(in), optional :: offset
@@ -178,7 +178,7 @@ contains
         lowered = trim(view%lower(idx))
     end function view_lower_token
 
-    function view_consume_token(view, parser) result(token)
+    recursive function view_consume_token(view, parser) result(token)
         type(token_view_t), intent(in) :: view
         type(parser_state_t), intent(inout) :: parser
         type(token_t) :: token
@@ -192,7 +192,7 @@ contains
         end if
     end function view_consume_token
 
-    function view_lookahead_token(view, parser, offset) result(token)
+    recursive function view_lookahead_token(view, parser, offset) result(token)
         type(token_view_t), intent(in) :: view
         type(parser_state_t), intent(in) :: parser
         integer, intent(in) :: offset
@@ -215,13 +215,13 @@ contains
     ! STACK UTILITIES FOR PRATT PARSER
     !=================================================================================
 
-    subroutine operator_stack_clear(stack)
+    recursive subroutine operator_stack_clear(stack)
         type(operator_stack_t), intent(inout) :: stack
 
         stack%size = 0
     end subroutine operator_stack_clear
 
-    subroutine operator_stack_ensure_capacity(stack, desired)
+    recursive subroutine operator_stack_ensure_capacity(stack, desired)
         type(operator_stack_t), intent(inout) :: stack
         integer, intent(in) :: desired
         type(operator_entry_t), allocatable :: new_values(:)
@@ -243,7 +243,7 @@ contains
         call move_alloc(new_values, stack%values)
     end subroutine operator_stack_ensure_capacity
 
-    subroutine operator_stack_push(stack, entry)
+    recursive subroutine operator_stack_push(stack, entry)
         type(operator_stack_t), intent(inout) :: stack
         type(operator_entry_t), intent(in) :: entry
 
@@ -252,7 +252,7 @@ contains
         stack%values(stack%size) = entry
     end subroutine operator_stack_push
 
-    function operator_stack_pop(stack) result(entry)
+    recursive function operator_stack_pop(stack) result(entry)
         type(operator_stack_t), intent(inout) :: stack
         type(operator_entry_t) :: entry
 
@@ -265,7 +265,7 @@ contains
         stack%size = stack%size - 1
     end function operator_stack_pop
 
-    function operator_stack_peek(stack) result(entry)
+    recursive function operator_stack_peek(stack) result(entry)
         type(operator_stack_t), intent(in) :: stack
         type(operator_entry_t) :: entry
 
@@ -296,13 +296,13 @@ contains
         end do
     end function operator_stack_has_open_group
 
-    subroutine operand_stack_clear(stack)
+    recursive subroutine operand_stack_clear(stack)
         type(operand_stack_t), intent(inout) :: stack
 
         stack%size = 0
     end subroutine operand_stack_clear
 
-    subroutine operand_stack_ensure_capacity(stack, desired)
+    recursive subroutine operand_stack_ensure_capacity(stack, desired)
         type(operand_stack_t), intent(inout) :: stack
         integer, intent(in) :: desired
         integer, allocatable :: new_values(:)
@@ -324,7 +324,7 @@ contains
         call move_alloc(new_values, stack%values)
     end subroutine operand_stack_ensure_capacity
 
-    subroutine operand_stack_push(stack, value)
+    recursive subroutine operand_stack_push(stack, value)
         type(operand_stack_t), intent(inout) :: stack
         integer, intent(in) :: value
 
@@ -360,13 +360,13 @@ contains
         operand_stack_is_empty = (stack%size <= 0)
     end function operand_stack_is_empty
 
-    subroutine token_stack_clear(stack)
+    recursive subroutine token_stack_clear(stack)
         type(token_stack_t), intent(inout) :: stack
 
         stack%size = 0
     end subroutine token_stack_clear
 
-    subroutine token_stack_ensure_capacity(stack, desired)
+    recursive subroutine token_stack_ensure_capacity(stack, desired)
         type(token_stack_t), intent(inout) :: stack
         integer, intent(in) :: desired
         type(token_t), allocatable :: new_values(:)
@@ -388,7 +388,7 @@ contains
         call move_alloc(new_values, stack%values)
     end subroutine token_stack_ensure_capacity
 
-    subroutine token_stack_push(stack, value)
+    recursive subroutine token_stack_push(stack, value)
         type(token_stack_t), intent(inout) :: stack
         type(token_t), intent(in) :: value
 
@@ -397,7 +397,7 @@ contains
         stack%values(stack%size) = value
     end subroutine token_stack_push
 
-    function token_stack_pop(stack) result(token)
+    recursive function token_stack_pop(stack) result(token)
         type(token_stack_t), intent(inout) :: stack
         type(token_t) :: token
 
@@ -447,7 +447,7 @@ contains
     end function is_prefix_operator_token
 
 
-    function get_infix_operator_entry(token) result(entry)
+    recursive function get_infix_operator_entry(token) result(entry)
         type(token_t), intent(in) :: token
         type(operator_entry_t) :: entry
         character(len=:), allocatable :: lowered
@@ -509,7 +509,7 @@ contains
         end do
     end function comparison_active
 
-    function create_zero_literal(arena, reference_token) result(zero_index)
+    recursive function create_zero_literal(arena, reference_token) result(zero_index)
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: reference_token
         integer :: zero_index
@@ -518,7 +518,7 @@ contains
             reference_token%line, reference_token%column)
     end function create_zero_literal
 
-    function apply_prefix_stack(arena, prefix_stack, expr_index) result(result_index)
+    recursive function apply_prefix_stack(arena, prefix_stack, expr_index) result(result_index)
         type(ast_arena_t), intent(inout) :: arena
         type(token_stack_t), intent(inout) :: prefix_stack
         integer, intent(in) :: expr_index
@@ -550,7 +550,7 @@ contains
         end do
     end function apply_prefix_stack
 
-    subroutine reduce_single_operator(operators, operands, arena)
+    recursive subroutine reduce_single_operator(operators, operands, arena)
         type(operator_stack_t), intent(inout) :: operators
         type(operand_stack_t), intent(inout) :: operands
         type(ast_arena_t), intent(inout) :: arena
@@ -572,7 +572,7 @@ contains
             op_entry%symbol, op_entry%token%line, op_entry%token%column))
     end subroutine reduce_single_operator
 
-    subroutine reduce_operators_for_incoming(operators, operands, arena, incoming)
+    recursive subroutine reduce_operators_for_incoming(operators, operands, arena, incoming)
         type(operator_stack_t), intent(inout) :: operators
         type(operand_stack_t), intent(inout) :: operands
         type(ast_arena_t), intent(inout) :: arena
@@ -591,7 +591,7 @@ contains
         end do
     end subroutine reduce_operators_for_incoming
 
-    subroutine reduce_all_operators(operators, operands, arena)
+    recursive subroutine reduce_all_operators(operators, operands, arena)
         type(operator_stack_t), intent(inout) :: operators
         type(operand_stack_t), intent(inout) :: operands
         type(ast_arena_t), intent(inout) :: arena
@@ -601,7 +601,7 @@ contains
         end do
     end subroutine reduce_all_operators
 
-    subroutine reduce_until_group(operators, operands, arena)
+    recursive subroutine reduce_until_group(operators, operands, arena)
         type(operator_stack_t), intent(inout) :: operators
         type(operand_stack_t), intent(inout) :: operands
         type(ast_arena_t), intent(inout) :: arena
@@ -614,7 +614,7 @@ contains
         end do
     end subroutine reduce_until_group
 
-    subroutine push_group_marker(operators, token)
+    recursive subroutine push_group_marker(operators, token)
         type(operator_stack_t), intent(inout) :: operators
         type(token_t), intent(in) :: token
         type(operator_entry_t) :: entry
@@ -659,7 +659,7 @@ contains
         end if
     end function is_legacy_array_literal_start
 
-    function parse_operand_base(parser, arena, view) result(expr_index)
+    recursive function parse_operand_base(parser, arena, view) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_view_t), intent(in) :: view
@@ -850,7 +850,7 @@ contains
 
 
     ! Main expression parsing entry point with stack
-    function parse_expression(tokens, arena) result(expr_index)
+    recursive function parse_expression(tokens, arena) result(expr_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -863,7 +863,7 @@ contains
 
 
     ! Parse logical EQV/NEQV operators (lowest precedence)
-    function parse_logical_eqv(parser, arena) result(expr_index)
+    recursive function parse_logical_eqv(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -872,7 +872,7 @@ contains
     end function parse_logical_eqv
 
     ! Parse logical OR operators
-    function parse_logical_or(parser, arena) result(expr_index)
+    recursive function parse_logical_or(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -881,7 +881,7 @@ contains
     end function parse_logical_or
 
     ! Parse logical AND operators
-    function parse_logical_and(parser, arena) result(expr_index)
+    recursive function parse_logical_and(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -890,7 +890,7 @@ contains
     end function parse_logical_and
 
     ! Parse comparison operators
-    function parse_comparison(parser, arena) result(expr_index)
+    recursive function parse_comparison(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -899,7 +899,7 @@ contains
     end function parse_comparison
 
     ! Parse string concatenation operator (//) - Issue #214
-    function parse_concatenation(parser, arena) result(expr_index)
+    recursive function parse_concatenation(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -907,7 +907,7 @@ contains
         expr_index = parse_expression_with_precedence(parser, arena, PREC_CONCAT)
     end function parse_concatenation
     ! Parse addition and subtraction
-    function parse_term(parser, arena) result(expr_index)
+    recursive function parse_term(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -916,7 +916,7 @@ contains
     end function parse_term
 
     ! Parse multiplication and division
-    function parse_factor(parser, arena) result(expr_index)
+    recursive function parse_factor(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -925,7 +925,7 @@ contains
     end function parse_factor
 
     ! Parse exponentiation (**) - right-associative
-    function parse_power(parser, arena) result(expr_index)
+    recursive function parse_power(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -934,7 +934,7 @@ contains
     end function parse_power
 
     ! Parse unary operators (+, -, .NOT.) - Issue #215
-    function parse_unary(parser, arena) result(expr_index)
+    recursive function parse_unary(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -943,7 +943,7 @@ contains
     end function parse_unary
 
     ! Parse primary expressions (literals, identifiers, parentheses)  
-    function parse_primary(parser, arena) result(expr_index)
+    recursive function parse_primary(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -951,7 +951,7 @@ contains
         expr_index = parse_expression_with_precedence(parser, arena, PREC_POSTFIX)
     end function parse_primary
 
-    function parse_expression_until(parser, arena, terminators) result(expr_index)
+    recursive function parse_expression_until(parser, arena, terminators) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in), optional :: terminators(:)
@@ -975,7 +975,7 @@ contains
         end if
     end function parse_expression_until
 
-    function parse_postfix_chain(parser, arena, base_expr) result(expr_index)
+    recursive function parse_postfix_chain(parser, arena, base_expr) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr
@@ -994,7 +994,7 @@ contains
     !=================================================================================
 
     ! Parse range/slice operator (:) - lowest precedence after logical operators
-    function parse_range(parser, arena) result(expr_index)
+    recursive function parse_range(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -1070,7 +1070,7 @@ contains
 
     
     ! Simplified array element parsing 
-    function parse_simple_array_elements(parser, arena, terminator, style, start_token) &
+    recursive function parse_simple_array_elements(parser, arena, terminator, style, start_token) &
                                          result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -1132,7 +1132,7 @@ contains
     !=================================================================================
 
     ! Helper function to parse stride (third component of range expression)
-    function parse_stride_component(parser, arena) result(stride_index)
+    recursive function parse_stride_component(parser, arena) result(stride_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stride_index
@@ -1160,7 +1160,7 @@ contains
     !=================================================================================
 
     ! Parse legacy array literal: (/ ... /)
-    function parse_legacy_array_literal(parser, arena) result(expr_index)
+    recursive function parse_legacy_array_literal(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -1205,7 +1205,7 @@ contains
     end function parse_legacy_array_literal
 
     ! Parse modern array literal: [1, 2, 3] with implied do loop support
-    function parse_modern_array_literal(parser, arena, start_token) result(expr_index)
+    recursive function parse_modern_array_literal(parser, arena, start_token) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: start_token
@@ -1247,7 +1247,7 @@ contains
     end function parse_modern_array_literal
 
     ! Parse implied do constructor: [(expr, var=start,end[,step])]
-    function parse_implied_do_constructor(parser, arena, bracket_token) result(expr_index)
+    recursive function parse_implied_do_constructor(parser, arena, bracket_token) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_t), intent(in) :: bracket_token
@@ -1356,7 +1356,7 @@ contains
     end function parse_implied_do_constructor
 
     ! Simplified implied do loop parsing (placeholder for full implementation)
-    function try_parse_implied_do_loop(parser, arena, temp_indices, element_count, &
+    recursive function try_parse_implied_do_loop(parser, arena, temp_indices, element_count, &
                                        bracket_token) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -1400,7 +1400,7 @@ contains
     !=================================================================================
 
     ! Parse array indexing or function call postfix operator using parentheses: (...)
-    function parse_array_indexing_postfix(parser, arena, base_expr) result(expr_index)
+    recursive function parse_array_indexing_postfix(parser, arena, base_expr) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr
@@ -1482,7 +1482,7 @@ contains
     end function parse_array_indexing_postfix
     
     ! Parse array indexing postfix operator using square brackets: [...]
-    function parse_square_indexing_postfix(parser, arena, base_expr) result(expr_index)
+    recursive function parse_square_indexing_postfix(parser, arena, base_expr) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr
@@ -1561,7 +1561,7 @@ contains
     end function parse_square_indexing_postfix
      
     ! Parse postfix operators on an expression
-    function parse_postfix_ops(parser, arena, view, base_expr) result(expr_index)
+    recursive function parse_postfix_ops(parser, arena, view, base_expr) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(token_view_t), intent(in) :: view

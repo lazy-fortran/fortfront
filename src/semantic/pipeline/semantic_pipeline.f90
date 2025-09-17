@@ -37,7 +37,7 @@ module semantic_pipeline
 contains
     
     ! Create a new semantic pipeline
-    function create_pipeline() result(pipeline)
+    recursive function create_pipeline() result(pipeline)
         type(semantic_pipeline_t) :: pipeline
         
         pipeline%count = 0
@@ -45,13 +45,13 @@ contains
     end function create_pipeline
     
     ! Destroy semantic pipeline (alias for clear)
-    subroutine destroy_pipeline(pipeline)
+    recursive subroutine destroy_pipeline(pipeline)
         type(semantic_pipeline_t), intent(inout) :: pipeline
         call pipeline%clear()
     end subroutine destroy_pipeline
     
     ! Register analyzer (get name from analyzer itself)
-    subroutine pipeline_register_analyzer(this, analyzer)
+    recursive subroutine pipeline_register_analyzer(this, analyzer)
         class(semantic_pipeline_t), intent(inout) :: this
         class(semantic_analyzer_t), intent(in) :: analyzer
         
@@ -59,7 +59,7 @@ contains
     end subroutine pipeline_register_analyzer
     
     ! Add an analyzer to the pipeline
-    subroutine pipeline_add_analyzer(this, analyzer, name)
+    recursive subroutine pipeline_add_analyzer(this, analyzer, name)
         class(semantic_pipeline_t), intent(inout) :: this
         class(semantic_analyzer_t), intent(in) :: analyzer
         character(len=*), intent(in) :: name
@@ -97,7 +97,7 @@ contains
     end subroutine pipeline_add_analyzer
     
     ! Run analysis pipeline on AST
-    subroutine pipeline_run_analysis(this, arena, node_index, shared_context)
+    recursive subroutine pipeline_run_analysis(this, arena, node_index, shared_context)
         use semantic_context_types, only: semantic_context_base_t, &
                                          standard_context_t
         class(semantic_pipeline_t), intent(inout) :: this
@@ -128,7 +128,7 @@ contains
     end subroutine pipeline_run_analysis
     
     ! Get analyzer by index
-    function pipeline_get_analyzer(this, index) result(analyzer)
+    recursive function pipeline_get_analyzer(this, index) result(analyzer)
         class(semantic_pipeline_t), intent(in) :: this
         integer, intent(in) :: index
         class(semantic_analyzer_t), allocatable :: analyzer
@@ -141,14 +141,14 @@ contains
     end function pipeline_get_analyzer
     
     ! Get analyzer count
-    function pipeline_get_analyzer_count(this) result(count)
+    recursive function pipeline_get_analyzer_count(this) result(count)
         class(semantic_pipeline_t), intent(in) :: this
         integer :: count
         count = this%count
     end function pipeline_get_analyzer_count
     
     ! Clear pipeline
-    subroutine pipeline_clear(this)
+    recursive subroutine pipeline_clear(this)
         class(semantic_pipeline_t), intent(inout) :: this
         integer :: i
         
@@ -168,7 +168,7 @@ contains
     end subroutine pipeline_clear
     
     ! Assignment operator for pipeline
-    subroutine pipeline_assign(lhs, rhs)
+    recursive subroutine pipeline_assign(lhs, rhs)
         class(semantic_pipeline_t), intent(out) :: lhs
         type(semantic_pipeline_t), intent(in) :: rhs
         integer :: i
@@ -193,13 +193,13 @@ contains
     end subroutine pipeline_assign
     
     ! Analyzer pointer helper methods
-    function analyzer_ptr_is_allocated(this) result(is_alloc)
+    recursive function analyzer_ptr_is_allocated(this) result(is_alloc)
         class(analyzer_ptr), intent(in) :: this
         logical :: is_alloc
         is_alloc = allocated(this%analyzer)
     end function analyzer_ptr_is_allocated
     
-    subroutine analyzer_ptr_assign(lhs, rhs)
+    recursive subroutine analyzer_ptr_assign(lhs, rhs)
         class(analyzer_ptr), intent(out) :: lhs
         type(analyzer_ptr), intent(in) :: rhs
         

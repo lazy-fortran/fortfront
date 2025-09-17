@@ -40,7 +40,7 @@ module type_utils_safe
 contains
 
     ! Create a safe type variable
-    function create_safe_type_var(id, name) result(var)
+    recursive function create_safe_type_var(id, name) result(var)
         integer, intent(in) :: id
         character(len=*), intent(in), optional :: name
         type(safe_type_var_t) :: var
@@ -54,7 +54,7 @@ contains
     end function create_safe_type_var
 
     ! Create a safe monomorphic type
-    function create_safe_mono_type(kind) result(mono)
+    recursive function create_safe_mono_type(kind) result(mono)
         integer, intent(in) :: kind
         type(safe_mono_type_t) :: mono
         

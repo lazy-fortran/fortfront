@@ -14,7 +14,7 @@ module parser_io_statements_module
 contains
 
     ! Parse format specifier (common logic for write/read)
-    subroutine parse_format_specifier(parser, format_spec)
+    recursive subroutine parse_format_specifier(parser, format_spec)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: format_spec
         type(token_t) :: token
@@ -35,7 +35,7 @@ contains
     end subroutine parse_format_specifier
 
     ! Parse unit specifier (common logic for write/read)
-    function parse_unit_specifier(parser) result(unit_spec)
+    recursive function parse_unit_specifier(parser) result(unit_spec)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable :: unit_spec
         type(token_t) :: token
@@ -56,7 +56,7 @@ contains
     end function parse_unit_specifier
 
     ! Parse argument list (common logic for print/write/read)
-    subroutine parse_argument_list(parser, arena, arg_indices)
+    recursive subroutine parse_argument_list(parser, arena, arg_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: arg_indices(:)
@@ -88,7 +88,7 @@ contains
         end if
     end subroutine parse_argument_list
 
-    function parse_print_statement(parser, arena) result(print_index)
+    recursive function parse_print_statement(parser, arena) result(print_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: print_index
@@ -122,7 +122,7 @@ contains
                                            line, column)
     end function parse_print_statement
 
-    function parse_write_statement(parser, arena) result(write_index)
+    recursive function parse_write_statement(parser, arena) result(write_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: write_index
@@ -189,7 +189,7 @@ contains
                                            format_spec, line, column)
     end function parse_write_statement
 
-    function parse_read_statement(parser, arena) result(read_index)
+    recursive function parse_read_statement(parser, arena) result(read_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: read_index

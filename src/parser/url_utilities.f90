@@ -10,7 +10,7 @@ contains
     ! Examples:
     !   "https://github.com/user/repo/module.f90" -> "module"
     !   "https://example.com/path/math.f90@v1.2.3" -> "math"
-    subroutine extract_module_from_url(url, module_name, is_valid)
+    recursive subroutine extract_module_from_url(url, module_name, is_valid)
         character(*), intent(in) :: url
         character(:), allocatable, intent(out) :: module_name
         logical, intent(out) :: is_valid
@@ -68,7 +68,7 @@ contains
     end subroutine extract_module_from_url
     
     ! Simple identifier validation
-    function is_valid_identifier(name) result(valid)
+    recursive function is_valid_identifier(name) result(valid)
         character(*), intent(in) :: name
         logical :: valid
         integer :: i

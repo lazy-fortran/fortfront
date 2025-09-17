@@ -30,7 +30,7 @@ module analyzer_results
 
 contains
 
-    subroutine clear_results(results)
+    recursive subroutine clear_results(results)
         type(analyzer_results_t), intent(inout) :: results
         
         if (allocated(results%call_graph)) deallocate(results%call_graph)

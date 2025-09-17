@@ -326,7 +326,7 @@ contains
     end function parse_function_in_module
 
     ! Basic statement parsing for subroutine/function bodies (avoiding circular deps)
-    function parse_basic_statement_in_subroutine(parser, arena) result(stmt_index)
+    recursive function parse_basic_statement_in_subroutine(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -387,7 +387,7 @@ contains
     end function parse_basic_statement_in_subroutine
 
     ! Simple print statement parser for subroutine bodies
-    function parse_simple_print_statement(parser, arena) result(stmt_index)
+    recursive function parse_simple_print_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -500,7 +500,7 @@ contains
     end function parse_simple_print_statement
 
     ! Simple call statement parser for subroutine bodies
-    function parse_simple_call_statement(parser, arena) result(stmt_index)
+    recursive function parse_simple_call_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -546,7 +546,7 @@ contains
     end function parse_simple_call_statement
 
     ! Simple assignment statement parser for subroutine bodies
-    function parse_simple_assignment_statement(parser, arena) result(stmt_index)
+    recursive function parse_simple_assignment_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -588,7 +588,7 @@ contains
     end function parse_simple_assignment_statement
 
     ! Parse simple right-hand side expression (handles binary operations)
-    function parse_simple_rhs_expression(parser, arena) result(expr_index)
+    recursive function parse_simple_rhs_expression(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -654,7 +654,7 @@ contains
     end function parse_simple_rhs_expression
     
     ! Skip tokens until end of line
-    subroutine skip_to_end_of_line(parser)
+    recursive subroutine skip_to_end_of_line(parser)
         type(parser_state_t), intent(inout) :: parser
         type(token_t) :: token
         

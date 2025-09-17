@@ -21,53 +21,53 @@ module builtin_analyzer_factories
 contains
 
     ! Factory functions for each analyzer type
-    function create_symbol_analyzer() result(analyzer)
+    recursive function create_symbol_analyzer() result(analyzer)
         class(base_analyzer_t), allocatable :: analyzer
         allocate(symbol_analyzer_t :: analyzer)
     end function create_symbol_analyzer
 
-    function create_type_analyzer() result(analyzer)
+    recursive function create_type_analyzer() result(analyzer)
         class(base_analyzer_t), allocatable :: analyzer
         allocate(type_analyzer_t :: analyzer)
     end function create_type_analyzer
 
-    function create_scope_analyzer() result(analyzer)
+    recursive function create_scope_analyzer() result(analyzer)
         class(base_analyzer_t), allocatable :: analyzer
         allocate(scope_analyzer_t :: analyzer)
     end function create_scope_analyzer
 
-    function create_call_graph_analyzer() result(analyzer)
+    recursive function create_call_graph_analyzer() result(analyzer)
         class(base_analyzer_t), allocatable :: analyzer
         allocate(call_graph_analyzer_t :: analyzer)
     end function create_call_graph_analyzer
 
-    function create_control_flow_analyzer() result(analyzer)
+    recursive function create_control_flow_analyzer() result(analyzer)
         class(base_analyzer_t), allocatable :: analyzer
         allocate(control_flow_analyzer_t :: analyzer)
     end function create_control_flow_analyzer
 
-    function create_usage_tracker_analyzer() result(analyzer)
+    recursive function create_usage_tracker_analyzer() result(analyzer)
         class(base_analyzer_t), allocatable :: analyzer
         allocate(usage_tracker_analyzer_t :: analyzer)
     end function create_usage_tracker_analyzer
 
-    function create_source_reconstruction_analyzer() result(analyzer)
+    recursive function create_source_reconstruction_analyzer() result(analyzer)
         class(base_analyzer_t), allocatable :: analyzer
         allocate(source_reconstruction_analyzer_t :: analyzer)
     end function create_source_reconstruction_analyzer
 
-    function create_interface_analyzer() result(analyzer)
+    recursive function create_interface_analyzer() result(analyzer)
         class(base_analyzer_t), allocatable :: analyzer
         allocate(interface_analyzer_t :: analyzer)
     end function create_interface_analyzer
 
-    function create_simple_test_analyzer() result(analyzer)
+    recursive function create_simple_test_analyzer() result(analyzer)
         class(base_analyzer_t), allocatable :: analyzer
         allocate(simple_test_analyzer_t :: analyzer)
     end function create_simple_test_analyzer
 
     ! Register all built-in analyzer factories
-    subroutine register_builtin_factories(registry)
+    recursive subroutine register_builtin_factories(registry)
         type(analyzer_registry_t), intent(inout) :: registry
         type(analyzer_factory_t) :: factory
 

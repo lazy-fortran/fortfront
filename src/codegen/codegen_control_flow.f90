@@ -22,7 +22,7 @@ contains
 
 
     ! Generate code for if statements
-    function generate_code_if(arena, node, node_index) result(code)
+    recursive function generate_code_if(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(if_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -79,7 +79,7 @@ contains
     end function generate_code_if
 
     ! Generate code for do loops
-    function generate_code_do_loop(arena, node, node_index) result(code)
+    recursive function generate_code_do_loop(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(do_loop_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -144,7 +144,7 @@ contains
     end function generate_code_do_loop
 
     ! Generate code for do while loops
-    function generate_code_do_while(arena, node, node_index) result(code)
+    recursive function generate_code_do_while(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(do_while_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -179,7 +179,7 @@ contains
     end function generate_code_do_while
 
     ! Generate code for select case statements
-    function generate_code_select_case(arena, node, node_index) result(code)
+    recursive function generate_code_select_case(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(select_case_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -265,7 +265,7 @@ contains
     end function generate_code_select_case
 
     ! Generate code for where constructs
-    function generate_code_where(arena, node, node_index) result(code)
+    recursive function generate_code_where(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(where_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -315,7 +315,7 @@ contains
     end function generate_code_where
 
     ! Generate code for forall constructs
-    function generate_code_forall(arena, node, node_index) result(code)
+    recursive function generate_code_forall(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(forall_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -367,7 +367,7 @@ contains
     end function generate_code_forall
 
     ! Generate code for associate constructs
-    function generate_code_associate(arena, node, node_index) result(code)
+    recursive function generate_code_associate(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(associate_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -412,7 +412,7 @@ contains
     end function generate_code_associate
 
     ! Internal function to generate grouped body
-    function generate_grouped_body_internal(arena, body_indices, indent) result(code)
+    recursive function generate_grouped_body_internal(arena, body_indices, indent) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent

@@ -33,7 +33,7 @@ module call_graph_analyzer
 
 contains
 
-    subroutine analyze_call_graph(this, shared_context, arena, node_index)
+    recursive subroutine analyze_call_graph(this, shared_context, arena, node_index)
         class(call_graph_analyzer_t), intent(inout) :: this
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
@@ -45,7 +45,7 @@ contains
         this%analysis_complete = .true.
     end subroutine
 
-    function get_call_graph_results(this) result(results)
+    recursive function get_call_graph_results(this) result(results)
         class(call_graph_analyzer_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
         
@@ -59,14 +59,14 @@ contains
         end select
     end function
 
-    function get_call_graph_analyzer_name(this) result(name)
+    recursive function get_call_graph_analyzer_name(this) result(name)
         class(call_graph_analyzer_t), intent(in) :: this
         character(:), allocatable :: name
         
         name = "call_graph_analyzer"
     end function
 
-    subroutine assign_call_graph_analyzer(lhs, rhs)
+    recursive subroutine assign_call_graph_analyzer(lhs, rhs)
         class(call_graph_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
@@ -83,7 +83,7 @@ contains
     end subroutine
 
     ! Analysis methods for fluff rules
-    function find_unused_procedures(this) result(unused_procs)
+    recursive function find_unused_procedures(this) result(unused_procs)
         class(call_graph_analyzer_t), intent(in) :: this
         character(:), allocatable :: unused_procs(:)
         
@@ -96,7 +96,7 @@ contains
         unused_procs = this%call_graph%find_unused()
     end function
 
-    function find_recursive_cycles(this) result(recursive_cycles)
+    recursive function find_recursive_cycles(this) result(recursive_cycles)
         class(call_graph_analyzer_t), intent(in) :: this
         character(:), allocatable :: recursive_cycles(:)
         
@@ -110,7 +110,7 @@ contains
         allocate(character(0) :: recursive_cycles(0))
     end function
 
-    function get_call_chain_depth(this, procedure_name) result(depth)
+    recursive function get_call_chain_depth(this, procedure_name) result(depth)
         class(call_graph_analyzer_t), intent(in) :: this
         character(*), intent(in) :: procedure_name
         integer :: depth
@@ -124,7 +124,7 @@ contains
         depth = calculate_max_depth(this%call_graph, procedure_name)
     end function
 
-    function is_procedure_used(this, procedure_name) result(used)
+    recursive function is_procedure_used(this, procedure_name) result(used)
         class(call_graph_analyzer_t), intent(in) :: this
         character(*), intent(in) :: procedure_name
         logical :: used
@@ -137,7 +137,7 @@ contains
         used = this%call_graph%is_used(procedure_name)
     end function
 
-    function get_all_procedures(this) result(procedures)
+    recursive function get_all_procedures(this) result(procedures)
         class(call_graph_analyzer_t), intent(in) :: this
         type(procedure_info_t), allocatable :: procedures(:)
         
@@ -168,7 +168,7 @@ contains
         end do
     end function
 
-    function get_call_graph_dependencies(this) result(deps)
+    recursive function get_call_graph_dependencies(this) result(deps)
         class(call_graph_analyzer_t), intent(in) :: this
         character(:), allocatable :: deps(:)
         

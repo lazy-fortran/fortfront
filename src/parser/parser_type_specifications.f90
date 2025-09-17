@@ -12,7 +12,7 @@ module parser_type_specifications_module
 contains
 
     ! Helper to count letter ranges for allocation
-    subroutine count_letter_ranges(parser, count)
+    recursive subroutine count_letter_ranges(parser, count)
         type(parser_state_t), intent(inout) :: parser
         integer, intent(out) :: count
         type(token_t) :: token
@@ -54,7 +54,7 @@ contains
     end subroutine count_letter_ranges
 
     ! Helper to parse letter ranges into array
-    subroutine parse_letter_ranges(parser, letter_ranges)
+    recursive subroutine parse_letter_ranges(parser, letter_ranges)
         type(parser_state_t), intent(inout) :: parser
         character(len=64), intent(out) :: letter_ranges(:)
         type(token_t) :: token
@@ -94,7 +94,7 @@ contains
     end subroutine parse_letter_ranges
 
     ! Parse character type specification (extracted from parse_implicit_statement)
-    subroutine parse_character_type_spec(parser, length_value, has_length)
+    recursive subroutine parse_character_type_spec(parser, length_value, has_length)
         type(parser_state_t), intent(inout) :: parser
         integer, intent(out) :: length_value
         logical, intent(out) :: has_length
@@ -120,7 +120,7 @@ contains
     end subroutine parse_character_type_spec
 
     ! Parse kind specification (extracted from parse_implicit_statement)
-    subroutine parse_kind_specification(parser, kind_value, has_kind)
+    recursive subroutine parse_kind_specification(parser, kind_value, has_kind)
         type(parser_state_t), intent(inout) :: parser
         integer, intent(out) :: kind_value
         logical, intent(out) :: has_kind
@@ -138,7 +138,7 @@ contains
     end subroutine parse_kind_specification
 
     ! Check if parentheses contain type specification (extracted logic)
-    function is_type_specification(parser, type_name) result(is_type_spec)
+    recursive function is_type_specification(parser, type_name) result(is_type_spec)
         type(parser_state_t), intent(inout) :: parser
         character(len=*), intent(in) :: type_name
         logical :: is_type_spec
@@ -168,7 +168,7 @@ contains
         parser%current_token = saved_pos
     end function is_type_specification
 
-    function parse_implicit_statement(parser, arena) result(stmt_index)
+    recursive function parse_implicit_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index

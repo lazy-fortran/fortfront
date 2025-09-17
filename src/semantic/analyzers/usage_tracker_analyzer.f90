@@ -47,7 +47,7 @@ module usage_tracker_analyzer
 
 contains
 
-    subroutine analyze_variable_usage(this, shared_context, arena, node_index)
+    recursive subroutine analyze_variable_usage(this, shared_context, arena, node_index)
         class(usage_tracker_analyzer_t), intent(inout) :: this
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
@@ -69,7 +69,7 @@ contains
         this%analysis_complete = .true.
     end subroutine
 
-    function get_usage_results(this) result(results)
+    recursive function get_usage_results(this) result(results)
         class(usage_tracker_analyzer_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
         
@@ -83,14 +83,14 @@ contains
         end select
     end function
 
-    function get_usage_analyzer_name(this) result(name)
+    recursive function get_usage_analyzer_name(this) result(name)
         class(usage_tracker_analyzer_t), intent(in) :: this
         character(:), allocatable :: name
         
         name = "usage_tracker_analyzer"
     end function
 
-    subroutine assign_usage_tracker_analyzer(lhs, rhs)
+    recursive subroutine assign_usage_tracker_analyzer(lhs, rhs)
         use semantic_analyzer_base, only: semantic_analyzer_t
         class(usage_tracker_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
@@ -108,7 +108,7 @@ contains
     end subroutine
 
     ! Analysis methods for fluff rules
-    function find_unused_variables(this) result(unused_vars)
+    recursive function find_unused_variables(this) result(unused_vars)
         class(usage_tracker_analyzer_t), intent(in) :: this
         character(:), allocatable :: unused_vars(:)
         
@@ -120,7 +120,7 @@ contains
         unused_vars = this%result%unused_variables
     end function
 
-    function find_undefined_variables(this) result(undefined_vars)
+    recursive function find_undefined_variables(this) result(undefined_vars)
         class(usage_tracker_analyzer_t), intent(in) :: this
         character(:), allocatable :: undefined_vars(:)
         
@@ -132,7 +132,7 @@ contains
         undefined_vars = this%result%undefined_variables
     end function
 
-    function get_variable_usage_info(this) result(usage_info)
+    recursive function get_variable_usage_info(this) result(usage_info)
         class(usage_tracker_analyzer_t), intent(in) :: this
         type(variable_usage_info_t) :: usage_info
         
@@ -143,7 +143,7 @@ contains
         end if
     end function
 
-    function is_variable_used(this, variable_name) result(used)
+    recursive function is_variable_used(this, variable_name) result(used)
         class(usage_tracker_analyzer_t), intent(in) :: this
         character(*), intent(in) :: variable_name
         logical :: used
@@ -166,7 +166,7 @@ contains
         end if
     end function
 
-    function get_usage_locations(this, variable_name) result(locations)
+    recursive function get_usage_locations(this, variable_name) result(locations)
         class(usage_tracker_analyzer_t), intent(in) :: this
         character(*), intent(in) :: variable_name
         integer, allocatable :: locations(:)
@@ -193,7 +193,7 @@ contains
     end function
 
     ! Assignment operator for usage_analysis_result_t
-    subroutine assign_usage_result(lhs, rhs)
+    recursive subroutine assign_usage_result(lhs, rhs)
         class(usage_analysis_result_t), intent(inout) :: lhs
         type(usage_analysis_result_t), intent(in) :: rhs
         
@@ -229,7 +229,7 @@ contains
     end subroutine
 
     ! Reset analyzer state for repeated use
-    subroutine reset_usage_tracker_state(this)
+    recursive subroutine reset_usage_tracker_state(this)
         class(usage_tracker_analyzer_t), intent(inout) :: this
         
         ! Clear allocatable arrays in result
@@ -246,7 +246,7 @@ contains
     end subroutine
 
     ! Helper subroutines for analysis
-    subroutine collect_variable_usage(result, arena, root_index)
+    recursive subroutine collect_variable_usage(result, arena, root_index)
         type(usage_analysis_result_t), intent(inout) :: result
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
@@ -303,7 +303,7 @@ contains
         end do
     end subroutine
 
-    subroutine identify_unused_variables(result, arena, root_index)
+    recursive subroutine identify_unused_variables(result, arena, root_index)
         type(usage_analysis_result_t), intent(inout) :: result
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
@@ -344,7 +344,7 @@ contains
         end if
     end subroutine
 
-    subroutine identify_undefined_variables(result, arena, root_index)
+    recursive subroutine identify_undefined_variables(result, arena, root_index)
         type(usage_analysis_result_t), intent(inout) :: result
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
@@ -386,7 +386,7 @@ contains
         end block
     end subroutine
     
-    function contains_variable_usage(arena, root_index, var_name) result(found)
+    recursive function contains_variable_usage(arena, root_index, var_name) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         character(len=*), intent(in) :: var_name
@@ -402,7 +402,7 @@ contains
         end if
     end function
     
-    function contains_variable_declaration(arena, root_index, var_name) result(found)
+    recursive function contains_variable_declaration(arena, root_index, var_name) result(found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         character(len=*), intent(in) :: var_name
@@ -417,7 +417,7 @@ contains
         end if
     end function
 
-    function get_usage_dependencies(this) result(deps)
+    recursive function get_usage_dependencies(this) result(deps)
         class(usage_tracker_analyzer_t), intent(in) :: this
         character(:), allocatable :: deps(:)
         

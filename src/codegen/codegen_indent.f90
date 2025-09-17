@@ -23,37 +23,37 @@ module codegen_indent
 contains
 
     ! Get current indentation string
-    function get_indent() result(indent)
+    recursive function get_indent() result(indent)
         character(len=:), allocatable :: indent
         indent = repeat(active_indent_char, current_indent_level*active_indent_size)
     end function get_indent
 
     ! Increase indentation level
-    subroutine increase_indent()
+    recursive subroutine increase_indent()
         current_indent_level = current_indent_level + 1
     end subroutine increase_indent
 
     ! Decrease indentation level
-    subroutine decrease_indent()
+    recursive subroutine decrease_indent()
         if (current_indent_level > 0) then
             current_indent_level = current_indent_level - 1
         end if
     end subroutine decrease_indent
 
     ! Reset indentation to zero
-    subroutine reset_indent()
+    recursive subroutine reset_indent()
         current_indent_level = 0
     end subroutine reset_indent
 
     ! Add current indentation to a string
-    function with_indent(str) result(indented)
+    recursive function with_indent(str) result(indented)
         character(len=*), intent(in) :: str
         character(len=:), allocatable :: indented
         indented = get_indent()//str
     end function with_indent
 
     ! Indent all lines in a multi-line string
-    function indent_lines(text, extra_indent) result(indented)
+    recursive function indent_lines(text, extra_indent) result(indented)
         character(len=*), intent(in) :: text
         integer, intent(in), optional :: extra_indent
         character(len=:), allocatable :: indented
@@ -95,7 +95,7 @@ contains
     end function indent_lines
 
     ! Set indentation configuration
-    subroutine set_indent_config(size, char)
+    recursive subroutine set_indent_config(size, char)
         integer, intent(in) :: size
         character(len=1), intent(in) :: char
         active_indent_size = size
@@ -103,7 +103,7 @@ contains
     end subroutine set_indent_config
 
     ! Get current indentation configuration
-    subroutine get_indent_config(size, char)
+    recursive subroutine get_indent_config(size, char)
         integer, intent(out) :: size
         character(len=1), intent(out) :: char
         size = active_indent_size
@@ -111,13 +111,13 @@ contains
     end subroutine get_indent_config
 
     ! Set line length configuration
-    subroutine set_line_length_config(length)
+    recursive subroutine set_line_length_config(length)
         integer, intent(in) :: length
         active_line_length = length
     end subroutine set_line_length_config
 
     ! Get current line length configuration
-    subroutine get_line_length_config(length)
+    recursive subroutine get_line_length_config(length)
         integer, intent(out) :: length
         length = active_line_length
     end subroutine get_line_length_config

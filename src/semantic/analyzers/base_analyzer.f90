@@ -40,7 +40,7 @@ module base_analyzer
     end type base_analyzer_t
 
     abstract interface
-        function analyze_interface(this, ctx, arena, root_index) result(results)
+        recursive function analyze_interface(this, ctx, arena, root_index) result(results)
             import :: base_analyzer_t, semantic_context_t, ast_arena_t, &
                       analysis_results_t
             class(base_analyzer_t), intent(inout) :: this
@@ -53,7 +53,7 @@ module base_analyzer
 
 contains
 
-    function results_equals(this, other) result(equal)
+    recursive function results_equals(this, other) result(equal)
         class(analysis_results_t), intent(in) :: this, other
         logical :: equal
         real, parameter :: tolerance = 1.0e-6
@@ -64,7 +64,7 @@ contains
                 abs(this%confidence_score - other%confidence_score) < tolerance
     end function results_equals
 
-    subroutine results_assign(lhs, rhs)
+    recursive subroutine results_assign(lhs, rhs)
         class(analysis_results_t), intent(out) :: lhs
         type(analysis_results_t), intent(in) :: rhs
 
@@ -75,19 +75,19 @@ contains
         lhs%confidence_score = rhs%confidence_score
     end subroutine results_assign
 
-    function analyzer_get_id(this) result(analyzer_id)
+    recursive function analyzer_get_id(this) result(analyzer_id)
         class(base_analyzer_t), intent(in) :: this
         type(analyzer_id_t) :: analyzer_id
         analyzer_id = this%id
     end function analyzer_get_id
 
-    subroutine analyzer_set_dependencies(this, dependency_ids)
+    recursive subroutine analyzer_set_dependencies(this, dependency_ids)
         class(base_analyzer_t), intent(inout) :: this
         integer, intent(in) :: dependency_ids(:)
         this%depends_on = dependency_ids
     end subroutine analyzer_set_dependencies
 
-    function analyzer_has_dependencies(this) result(has_deps)
+    recursive function analyzer_has_dependencies(this) result(has_deps)
         class(base_analyzer_t), intent(in) :: this
         logical :: has_deps
         has_deps = allocated(this%depends_on) .and. size(this%depends_on) > 0

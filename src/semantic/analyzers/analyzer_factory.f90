@@ -9,7 +9,7 @@ module analyzer_factory
 
     ! Abstract factory interface for creating analyzers
     abstract interface
-        function analyzer_creator_interface() result(analyzer)
+        recursive function analyzer_creator_interface() result(analyzer)
             import :: base_analyzer_t
             class(base_analyzer_t), allocatable :: analyzer
         end function analyzer_creator_interface
@@ -46,7 +46,7 @@ module analyzer_factory
 contains
 
     ! Factory methods
-    function factory_create_analyzer(this) result(analyzer)
+    recursive function factory_create_analyzer(this) result(analyzer)
         class(analyzer_factory_t), intent(in) :: this
         class(base_analyzer_t), allocatable :: analyzer
         
@@ -58,7 +58,7 @@ contains
         end if
     end function factory_create_analyzer
 
-    function factory_is_valid(this) result(valid)
+    recursive function factory_is_valid(this) result(valid)
         class(analyzer_factory_t), intent(in) :: this
         logical :: valid
         
@@ -66,7 +66,7 @@ contains
     end function factory_is_valid
 
     ! Registry methods
-    subroutine register_factory(this, name, factory)
+    recursive subroutine register_factory(this, name, factory)
         class(analyzer_registry_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         type(analyzer_factory_t), intent(in) :: factory
@@ -89,7 +89,7 @@ contains
         this%factories(this%count) = factory
     end subroutine register_factory
 
-    function create_analyzer(this, name) result(analyzer)
+    recursive function create_analyzer(this, name) result(analyzer)
         class(analyzer_registry_t), intent(in) :: this
         character(len=*), intent(in) :: name
         class(base_analyzer_t), allocatable :: analyzer
@@ -107,7 +107,7 @@ contains
         ! Don't allocate analyzer on error - leave unallocated
     end function create_analyzer
 
-    function is_registered(this, name) result(registered)
+    recursive function is_registered(this, name) result(registered)
         class(analyzer_registry_t), intent(in) :: this
         character(len=*), intent(in) :: name
         logical :: registered
@@ -122,7 +122,7 @@ contains
         end do
     end function is_registered
 
-    function get_factory_names(this) result(names)
+    recursive function get_factory_names(this) result(names)
         class(analyzer_registry_t), intent(in) :: this
         character(len=32), allocatable :: names(:)
         
@@ -134,7 +134,7 @@ contains
         end if
     end function get_factory_names
 
-    subroutine clear(this)
+    recursive subroutine clear(this)
         class(analyzer_registry_t), intent(inout) :: this
         
         if (allocated(this%names)) deallocate(this%names)
@@ -143,7 +143,7 @@ contains
         this%capacity = 0
     end subroutine clear
 
-    subroutine expand_capacity(this)
+    recursive subroutine expand_capacity(this)
         class(analyzer_registry_t), intent(inout) :: this
         character(len=32), allocatable :: temp_names(:)
         type(analyzer_factory_t), allocatable :: temp_factories(:)
@@ -178,14 +178,14 @@ contains
     end subroutine expand_capacity
 
     ! Global registry functions
-    function create_global_registry() result(registry)
+    recursive function create_global_registry() result(registry)
         type(analyzer_registry_t) :: registry
         ! Initialize empty registry
         registry%count = 0
         registry%capacity = 0
     end function create_global_registry
 
-    function get_global_registry() result(registry)
+    recursive function get_global_registry() result(registry)
         type(analyzer_registry_t), pointer :: registry
         registry => global_registry
     end function get_global_registry

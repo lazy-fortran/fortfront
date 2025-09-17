@@ -38,7 +38,7 @@ module event_dispatcher_module
     
 contains
 
-    subroutine dispatcher_initialize(this)
+    recursive subroutine dispatcher_initialize(this)
         !! Initialize event dispatcher with clean state
         class(event_dispatcher_t), intent(inout) :: this
         
@@ -60,7 +60,7 @@ contains
         this%thread_safe_mode = .false.
     end subroutine
     
-    subroutine dispatcher_cleanup(this)
+    recursive subroutine dispatcher_cleanup(this)
         !! Clean up dispatcher resources
         class(event_dispatcher_t), intent(inout) :: this
         
@@ -68,7 +68,7 @@ contains
         this%initialized = .false.
     end subroutine
     
-    subroutine dispatcher_subscribe(this, event_type, analyzer_id, &
+    recursive subroutine dispatcher_subscribe(this, event_type, analyzer_id, &
                                   subscription_id, success)
         !! Subscribe analyzer to event type
         class(event_dispatcher_t), intent(inout) :: this
@@ -81,7 +81,7 @@ contains
                                         1.0, subscription_id, success)
     end subroutine
     
-    subroutine dispatcher_subscribe_priority(this, event_type, analyzer_id, &
+    recursive subroutine dispatcher_subscribe_priority(this, event_type, analyzer_id, &
                                            priority, subscription_id, &
                                            success)
         !! Subscribe with explicit priority
@@ -143,7 +143,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine dispatcher_unsubscribe(this, subscription_id, success)
+    recursive subroutine dispatcher_unsubscribe(this, subscription_id, success)
         !! Remove subscription by ID
         class(event_dispatcher_t), intent(inout) :: this
         integer, intent(in) :: subscription_id
@@ -185,7 +185,7 @@ contains
         end do
     end subroutine
     
-    subroutine dispatcher_dispatch(this, event, success)
+    recursive subroutine dispatcher_dispatch(this, event, success)
         !! Dispatch event to all subscribers in priority order
         class(event_dispatcher_t), intent(inout) :: this
         type(analysis_event_t), intent(inout) :: event
@@ -212,7 +212,7 @@ contains
         success = .true.
     end subroutine
     
-    subroutine dispatcher_dispatch_batch(this, events, success)
+    recursive subroutine dispatcher_dispatch_batch(this, events, success)
         !! Dispatch multiple events efficiently
         class(event_dispatcher_t), intent(inout) :: this
         type(analysis_event_t), intent(inout) :: events(:)
@@ -229,7 +229,7 @@ contains
         end do
     end subroutine
     
-    subroutine dispatcher_emit_and_dispatch(this, event, success)
+    recursive subroutine dispatcher_emit_and_dispatch(this, event, success)
         !! Emit and immediately dispatch event
         class(event_dispatcher_t), intent(inout) :: this
         type(analysis_event_t), intent(inout) :: event
@@ -249,7 +249,7 @@ contains
         call this%dispatch(event, success)
     end subroutine
     
-    subroutine dispatcher_dispatch_errors(this, event, success, error_message)
+    recursive subroutine dispatcher_dispatch_errors(this, event, success, error_message)
         !! Dispatch with comprehensive error handling
         class(event_dispatcher_t), intent(inout) :: this
         type(analysis_event_t), intent(inout) :: event
@@ -274,7 +274,7 @@ contains
         end if
     end subroutine
     
-    subroutine dispatcher_batch_performance(this, events, success)
+    recursive subroutine dispatcher_batch_performance(this, events, success)
         !! High-performance batch dispatch
         class(event_dispatcher_t), intent(inout) :: this
         type(analysis_event_t), intent(inout) :: events(:)
@@ -284,7 +284,7 @@ contains
         call this%dispatch_batch(events, success)
     end subroutine
     
-    subroutine dispatcher_sequence(this, events, success)
+    recursive subroutine dispatcher_sequence(this, events, success)
         !! Dispatch events in sequence with state consistency
         class(event_dispatcher_t), intent(inout) :: this
         type(analysis_event_t), intent(inout) :: events(:)
@@ -294,7 +294,7 @@ contains
         call this%dispatch_batch(events, success)
     end subroutine
     
-    subroutine dispatcher_get_subscribers(this, event_type, subscriber_ids)
+    recursive subroutine dispatcher_get_subscribers(this, event_type, subscriber_ids)
         !! Get list of subscribers for event type
         class(event_dispatcher_t), intent(in) :: this
         integer, intent(in) :: event_type

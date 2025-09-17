@@ -41,7 +41,7 @@ module parser_declarations
 contains
 
     ! Parse type specifier (e.g., "integer(kind=8)", "character(len=*)")
-    function parse_type_specifier(parser) result(type_spec)
+    recursive function parse_type_specifier(parser) result(type_spec)
         type(parser_state_t), intent(inout) :: parser
         type(type_specifier_t) :: type_spec
 
@@ -77,7 +77,7 @@ contains
     end function parse_type_specifier
 
     ! Parse declaration attributes like allocatable, pointer, intent, etc.
-    subroutine parse_declaration_attributes(parser, arena, attr_info)
+    recursive subroutine parse_declaration_attributes(parser, arena, attr_info)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(declaration_attributes_t), intent(out) :: attr_info
@@ -168,7 +168,7 @@ contains
     end subroutine parse_declaration_attributes
 
     ! Parse single-variable declaration (e.g., real :: x)
-    function parse_declaration(parser, arena) result(decl_index)
+    recursive function parse_declaration(parser, arena) result(decl_index)
         use ast_factory, only: push_declaration
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -405,7 +405,7 @@ contains
     end function parse_declaration
 
     ! Result-based declaration parser with structured error handling
-    function parse_declaration_with_result(parser, arena) result(parse_res)
+    recursive function parse_declaration_with_result(parser, arena) result(parse_res)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         type(parse_result_t) :: parse_res
@@ -422,7 +422,7 @@ contains
     end function parse_declaration_with_result
 
     ! Parse array dimensions (e.g., (:), (10), (1:n))
-    subroutine parse_array_dimensions(parser, arena, dimension_indices)
+    recursive subroutine parse_array_dimensions(parser, arena, dimension_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: dimension_indices(:)
@@ -468,7 +468,7 @@ contains
     end subroutine parse_array_dimensions
 
     ! Parse multi-variable declaration (e.g., real :: x, y, z = 1.0)
-    function parse_multi_declaration(parser, arena) result(decl_indices)
+    recursive function parse_multi_declaration(parser, arena) result(decl_indices)
         use iso_fortran_env, only: error_unit
         use ast_factory, only: push_multi_declaration, push_declaration
         type(parser_state_t), intent(inout) :: parser
@@ -745,7 +745,7 @@ contains
     end function parse_multi_declaration
 
     ! Parse derived type definition with robust error handling
-    function parse_derived_type_def(parser, arena) result(type_index)
+    recursive function parse_derived_type_def(parser, arena) result(type_index)
         use ast_factory, only: push_derived_type
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -842,7 +842,7 @@ contains
     end function parse_derived_type_def
 
     ! Parse derived type component with robust error handling and loop prevention
-    function parse_derived_type_component(parser, arena) result(comp_index)
+    recursive function parse_derived_type_component(parser, arena) result(comp_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: comp_index
@@ -886,7 +886,7 @@ contains
     ! Helper function to detect and convert complex literals
     ! When we have a complex type declaration with initializer like (1.0, 2.0),
     ! we need to parse it as a complex literal, not just take the first value
-    function handle_complex_initializer(parser, arena, type_name) result(complex_index)
+    recursive function handle_complex_initializer(parser, arena, type_name) result(complex_index)
         use ast_factory, only: push_complex_literal
         use parser_expressions_module, only: parse_comparison
         type(parser_state_t), intent(inout) :: parser

@@ -57,7 +57,7 @@ module control_flow_analyzer_plugin
 contains
 
     ! Initialize the control flow analyzer
-    subroutine initialize_analyzer(this, name)
+    recursive subroutine initialize_analyzer(this, name)
         class(control_flow_analyzer_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         
@@ -83,7 +83,7 @@ contains
     end subroutine initialize_analyzer
 
     ! Main analysis function
-    function analyze_control_flow(this, ctx, arena, root_index) result(results)
+    recursive function analyze_control_flow(this, ctx, arena, root_index) result(results)
         class(control_flow_analyzer_t), intent(inout) :: this
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -127,7 +127,7 @@ contains
     end function analyze_control_flow
 
     ! Build CFG from AST
-    subroutine build_cfg_from_ast(this, arena, root_index)
+    recursive subroutine build_cfg_from_ast(this, arena, root_index)
         class(control_flow_analyzer_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
@@ -204,7 +204,7 @@ contains
     end subroutine traverse_ast_for_cfg
 
     ! Add CFG blocks for a node
-    subroutine add_cfg_blocks_for_node(this, arena, node, block_id)
+    recursive subroutine add_cfg_blocks_for_node(this, arena, node, block_id)
         class(control_flow_analyzer_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         class(ast_node), intent(in) :: node
@@ -218,7 +218,7 @@ contains
     end subroutine add_cfg_blocks_for_node
 
     ! Connect CFG blocks with edges
-    subroutine connect_cfg_blocks(this, from_block, to_block, edge_type, condition)
+    recursive subroutine connect_cfg_blocks(this, from_block, to_block, edge_type, condition)
         class(control_flow_analyzer_t), intent(inout) :: this
         integer, intent(in) :: from_block, to_block, edge_type
         character(len=*), intent(in), optional :: condition
@@ -231,7 +231,7 @@ contains
     end subroutine connect_cfg_blocks
 
     ! Handle if statement CFG construction
-    subroutine handle_if_statement(this, arena, if_stmt, node_index, parent_block_id)
+    recursive subroutine handle_if_statement(this, arena, if_stmt, node_index, parent_block_id)
         class(control_flow_analyzer_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         type(if_node), intent(in) :: if_stmt
@@ -277,7 +277,7 @@ contains
     end subroutine handle_if_statement
 
     ! Handle do loop CFG construction  
-    subroutine handle_do_loop(this, arena, do_stmt, node_index, parent_block_id)
+    recursive subroutine handle_do_loop(this, arena, do_stmt, node_index, parent_block_id)
         class(control_flow_analyzer_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         type(do_loop_node), intent(in) :: do_stmt
@@ -316,7 +316,7 @@ contains
     end subroutine handle_do_loop
 
     ! Handle do while loop CFG construction
-    subroutine handle_do_while(this, arena, do_while_stmt, node_index, parent_block_id)
+    recursive subroutine handle_do_while(this, arena, do_while_stmt, node_index, parent_block_id)
         class(control_flow_analyzer_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         type(do_while_node), intent(in) :: do_while_stmt
@@ -347,7 +347,7 @@ contains
     end subroutine handle_do_while
 
     ! Add statement to existing block
-    subroutine add_statement_to_block(this, block_id, stmt_index)
+    recursive subroutine add_statement_to_block(this, block_id, stmt_index)
         class(control_flow_analyzer_t), intent(inout) :: this
         integer, intent(in) :: block_id, stmt_index
         integer, allocatable :: temp_stmts(:)
@@ -372,7 +372,7 @@ contains
     end subroutine add_statement_to_block
 
     ! Analyze performance characteristics
-    subroutine analyze_performance_characteristics(this, arena)
+    recursive subroutine analyze_performance_characteristics(this, arena)
         class(control_flow_analyzer_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         
@@ -395,7 +395,7 @@ contains
     end subroutine analyze_performance_characteristics
 
     ! Detect hot paths in CFG
-    subroutine detect_hot_paths(this)
+    recursive subroutine detect_hot_paths(this)
         class(control_flow_analyzer_t), intent(inout) :: this
         integer :: i, hot_count
         integer, allocatable :: temp_hot_paths(:)
@@ -429,7 +429,7 @@ contains
     end subroutine detect_hot_paths
 
     ! Check if block is in a loop
-    function is_block_in_loop(this, block_id) result(in_loop)
+    recursive function is_block_in_loop(this, block_id) result(in_loop)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, intent(in) :: block_id
         logical :: in_loop
@@ -449,7 +449,7 @@ contains
     end function is_block_in_loop
 
     ! Detect expensive operations
-    subroutine detect_expensive_operations(this, arena)
+    recursive subroutine detect_expensive_operations(this, arena)
         class(control_flow_analyzer_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         integer :: i, j, expensive_count
@@ -495,7 +495,7 @@ contains
     end subroutine detect_expensive_operations
 
     ! Check if operation is expensive
-    function is_expensive_operation(this, arena, node_index) result(is_expensive)
+    recursive function is_expensive_operation(this, arena, node_index) result(is_expensive)
         class(control_flow_analyzer_t), intent(in) :: this
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
@@ -522,7 +522,7 @@ contains
     end function is_expensive_operation
 
     ! Calculate loop complexity scores
-    subroutine calculate_loop_complexity(this)
+    recursive subroutine calculate_loop_complexity(this)
         class(control_flow_analyzer_t), intent(inout) :: this
         integer :: i, complexity_count, loop_depth
         real, allocatable :: temp_complexity(:)
@@ -559,7 +559,7 @@ contains
     end subroutine calculate_loop_complexity
 
     ! Get loop depth for a block
-    function get_loop_depth_for_block(this, block_id) result(depth)
+    recursive function get_loop_depth_for_block(this, block_id) result(depth)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, intent(in) :: block_id
         integer :: depth, i
@@ -579,7 +579,7 @@ contains
     end function get_loop_depth_for_block
 
     ! Detect performance antipatterns
-    subroutine detect_performance_antipatterns(this, arena)
+    recursive subroutine detect_performance_antipatterns(this, arena)
         class(control_flow_analyzer_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         
@@ -594,14 +594,14 @@ contains
     ! Public API functions for fluff P-series rules
 
     ! Get control flow graph
-    function get_control_flow_graph(this) result(cfg)
+    recursive function get_control_flow_graph(this) result(cfg)
         class(control_flow_analyzer_t), intent(in) :: this
         type(control_flow_graph_t) :: cfg
         cfg = this%cfg
     end function get_control_flow_graph
 
     ! Get hot paths (P001)
-    function get_hot_paths(this) result(hot_paths)
+    recursive function get_hot_paths(this) result(hot_paths)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, allocatable :: hot_paths(:)
         
@@ -614,7 +614,7 @@ contains
     end function get_hot_paths
 
     ! Get expensive operations (P002)
-    function get_expensive_ops(this) result(expensive_ops)
+    recursive function get_expensive_ops(this) result(expensive_ops)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, allocatable :: expensive_ops(:)
         
@@ -627,7 +627,7 @@ contains
     end function get_expensive_ops
 
     ! Analyze loop complexity (P003)
-    function analyze_loop_complexity(this) result(complexity_scores)
+    recursive function analyze_loop_complexity(this) result(complexity_scores)
         class(control_flow_analyzer_t), intent(in) :: this
         real, allocatable :: complexity_scores(:)
         
@@ -640,7 +640,7 @@ contains
     end function analyze_loop_complexity
 
     ! Detect antipatterns (P007)
-    function detect_antipatterns(this) result(antipatterns)
+    recursive function detect_antipatterns(this) result(antipatterns)
         class(control_flow_analyzer_t), intent(in) :: this
         integer, allocatable :: antipatterns(:)
         
@@ -653,7 +653,7 @@ contains
     end function detect_antipatterns
 
     ! Cleanup analyzer resources
-    subroutine cleanup_analyzer(this)
+    recursive subroutine cleanup_analyzer(this)
         class(control_flow_analyzer_t), intent(inout) :: this
         
         ! Deallocate performance metrics

@@ -28,7 +28,7 @@ module parser_execution_statements_module
 contains
 
     ! Helper subroutine to parse call arguments
-    subroutine parse_call_arguments(parser, arena, arg_indices)
+    recursive subroutine parse_call_arguments(parser, arena, arg_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: arg_indices(:)
@@ -69,7 +69,7 @@ contains
         end do
     end subroutine parse_call_arguments
 
-    function parse_call_statement(parser, arena) result(stmt_index)
+    recursive function parse_call_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -109,7 +109,7 @@ contains
         end if
     end function parse_call_statement
 
-    function parse_program_statement(parser, arena) result(prog_index)
+    recursive function parse_program_statement(parser, arena) result(prog_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: prog_index
@@ -156,7 +156,7 @@ contains
 
     ! Parse the body of a program until 'end program'
     ! Simplified approach that handles the basic case
-    subroutine parse_program_body(parser, arena, body_indices)
+    recursive subroutine parse_program_body(parser, arena, body_indices)
         use iso_fortran_env, only: error_unit
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -287,7 +287,7 @@ contains
     end subroutine parse_program_body
 
     ! Parse a simple if statement (minimal implementation to avoid circular dependencies)
-    function parse_simple_if(parser, arena) result(if_index)
+    recursive function parse_simple_if(parser, arena) result(if_index)
         use parser_expressions_module, only: parse_expression
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -396,7 +396,7 @@ contains
     end function parse_simple_if
     
     ! Parse a statement in an if body
-    subroutine parse_if_body_statement(parser, arena, body_indices)
+    recursive subroutine parse_if_body_statement(parser, arena, body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: body_indices(:)
@@ -431,7 +431,7 @@ contains
     end subroutine parse_if_body_statement
 
     ! Parse a simple assignment statement or multi-variable assignment
-    subroutine parse_assignment_statement(parser, arena, stmt_index)
+    recursive subroutine parse_assignment_statement(parser, arena, stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -528,7 +528,7 @@ contains
     end subroutine parse_assignment_statement
 
     ! Parse a simple variable declaration
-    subroutine parse_simple_declaration(parser, arena, stmt_index)
+    recursive subroutine parse_simple_declaration(parser, arena, stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -565,7 +565,7 @@ contains
     end subroutine parse_simple_declaration
 
     ! Parse a simple implicit statement
-    subroutine parse_simple_implicit(parser, arena, stmt_index)
+    recursive subroutine parse_simple_implicit(parser, arena, stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -597,7 +597,7 @@ contains
     end subroutine parse_simple_implicit
 
     ! Handle single vs multi-variable declarations (duplicate of dispatcher logic)
-    subroutine handle_variable_declaration(parser, arena, stmt_index)
+    recursive subroutine handle_variable_declaration(parser, arena, stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -631,7 +631,7 @@ contains
     end subroutine handle_variable_declaration
 
     ! Handle type definitions and derived type variable declarations
-    subroutine handle_type_declaration(parser, arena, stmt_index)
+    recursive subroutine handle_type_declaration(parser, arena, stmt_index)
         use parser_declarations, only: parse_derived_type_def
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
@@ -713,7 +713,7 @@ contains
     end function is_multi_var_assignment
 
     ! Parse multi-variable assignment like "a, b, c = 1, 2, 3"
-    subroutine parse_multi_variable_assignment(parser, arena, stmt_index)
+    recursive subroutine parse_multi_variable_assignment(parser, arena, stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -827,7 +827,7 @@ contains
     end subroutine parse_multi_variable_assignment
 
     ! Helper function to determine literal type from token kind
-    function get_literal_type_from_token_kind(token_kind, token_text) result(literal_type)
+    recursive function get_literal_type_from_token_kind(token_kind, token_text) result(literal_type)
         integer, intent(in) :: token_kind
         character(len=*), intent(in) :: token_text
         integer :: literal_type

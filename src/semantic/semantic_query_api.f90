@@ -100,7 +100,7 @@ contains
     ! Create semantic query interface - WARNING: causes deep copies (issue #196)
     ! This function is retained for compatibility but should be avoided in production.
     ! Use direct query functions instead to avoid memory issues.
-    function create_semantic_query(arena, context) result(query)
+    recursive function create_semantic_query(arena, context) result(query)
         type(ast_arena_t), intent(in) :: arena
         type(semantic_context_t), intent(in) :: context
         type(semantic_query_t) :: query
@@ -111,7 +111,7 @@ contains
     end function create_semantic_query
 
     ! Get variable information by name
-    function query_get_variable_info(this, var_name, var_info) result(success)
+    recursive function query_get_variable_info(this, var_name, var_info) result(success)
         class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: var_name
         type(variable_info_t), intent(out) :: var_info
@@ -151,7 +151,7 @@ contains
     end function query_get_variable_info
 
     ! Get function information by name
-    function query_get_function_info(this, func_name, func_info) result(success)
+    recursive function query_get_function_info(this, func_name, func_info) result(success)
         class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: func_name
         type(function_info_t), intent(out) :: func_info
@@ -189,7 +189,7 @@ contains
     end function query_get_function_info
 
     ! Get type information by variable name
-    function query_get_type_info_by_name(this, name, type_info) result(success)
+    recursive function query_get_type_info_by_name(this, name, type_info) result(success)
         class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         type(type_info_t), intent(out) :: type_info
@@ -211,7 +211,7 @@ contains
     end function query_get_type_info_by_name
 
     ! Get type information by AST node index
-    function query_get_type_info_by_node(this, node_index, type_info) result(success)
+    recursive function query_get_type_info_by_node(this, node_index, type_info) result(success)
         class(semantic_query_t), intent(inout) :: this
         integer, intent(in) :: node_index
         type(type_info_t), intent(out) :: type_info
@@ -231,7 +231,7 @@ contains
     end function query_get_type_info_by_node
 
     ! Get current scope information
-    function query_get_current_scope_info(this, scope_info) result(success)
+    recursive function query_get_current_scope_info(this, scope_info) result(success)
         class(semantic_query_t), intent(inout) :: this
         type(scope_info_t), intent(out) :: scope_info
         logical :: success
@@ -254,7 +254,7 @@ contains
     end function query_get_current_scope_info
 
     ! Check if variable is visible in current scope
-    function query_is_variable_visible(this, var_name) result(visible)
+    recursive function query_is_variable_visible(this, var_name) result(visible)
         class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: var_name
         logical :: visible
@@ -265,7 +265,7 @@ contains
     end function query_is_variable_visible
 
     ! Check if symbol is defined
-    function query_is_symbol_defined(this, symbol_name) result(defined)
+    recursive function query_is_symbol_defined(this, symbol_name) result(defined)
         class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: symbol_name
         logical :: defined
@@ -285,7 +285,7 @@ contains
     end function query_is_symbol_defined
 
     ! Get symbol type (variable, function, etc.)
-    function query_get_symbol_type(this, symbol_name) result(symbol_type)
+    recursive function query_get_symbol_type(this, symbol_name) result(symbol_type)
         class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: symbol_name
         integer :: symbol_type
@@ -344,7 +344,7 @@ contains
         end select
     end function get_type_name
 
-    function get_array_rank(mono_type) result(rank)
+    recursive function get_array_rank(mono_type) result(rank)
         type(mono_type_t), intent(in) :: mono_type
         integer :: rank
         
@@ -364,7 +364,7 @@ contains
         end if
     end function get_array_rank
 
-    function get_current_scope_name(scopes) result(name)
+    recursive function get_current_scope_name(scopes) result(name)
         type(scope_stack_t), intent(in) :: scopes
         character(len=:), allocatable :: name
         
@@ -379,7 +379,7 @@ contains
         end if
     end function get_current_scope_name
 
-    function get_parent_scope_name(scopes) result(name)
+    recursive function get_parent_scope_name(scopes) result(name)
         type(scope_stack_t), intent(in) :: scopes
         character(len=:), allocatable :: name
         
@@ -394,7 +394,7 @@ contains
         end if
     end function get_parent_scope_name
 
-    function get_parameter_intent(tracker, param_name) result(intent_str)
+    recursive function get_parameter_intent(tracker, param_name) result(intent_str)
         type(parameter_tracker_t), intent(in) :: tracker
         character(len=*), intent(in) :: param_name
         character(len=:), allocatable :: intent_str
@@ -402,7 +402,7 @@ contains
         intent_str = tracker%get_parameter_intent(param_name)
     end function get_parameter_intent
 
-    subroutine extract_function_signature(func_type, func_info)
+    recursive subroutine extract_function_signature(func_type, func_info)
         type(mono_type_t), intent(in) :: func_type
         type(function_info_t), intent(inout) :: func_info
         
@@ -433,7 +433,7 @@ contains
         end if
     end subroutine extract_function_signature
 
-    subroutine extract_type_info(mono_type, type_info)
+    recursive subroutine extract_type_info(mono_type, type_info)
         type(mono_type_t), intent(in) :: mono_type
         type(type_info_t), intent(out) :: type_info
         
@@ -456,7 +456,7 @@ contains
     ! Issue #14 required APIs
     
     ! Get all symbols in current scope
-    function query_get_symbols_in_scope(this, scope_type, symbols) result(success)
+    recursive function query_get_symbols_in_scope(this, scope_type, symbols) result(success)
         class(semantic_query_t), intent(inout) :: this
         integer, intent(in) :: scope_type
         type(symbol_info_t), allocatable, intent(out) :: symbols(:)
@@ -505,7 +505,7 @@ contains
     end function query_get_symbols_in_scope
     
     ! Check if variable is used anywhere in scope
-    function query_is_variable_used(this, var_name, scope_type) result(used)
+    recursive function query_is_variable_used(this, var_name, scope_type) result(used)
         class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: scope_type
@@ -517,7 +517,7 @@ contains
     end function query_is_variable_used
     
     ! Get all unused variables in scope
-    function query_get_unused_variables(this, scope_type, unused_vars) result(success)
+    recursive function query_get_unused_variables(this, scope_type, unused_vars) result(success)
         class(semantic_query_t), intent(inout) :: this
         integer, intent(in) :: scope_type
         character(len=:), allocatable, intent(out) :: unused_vars(:)
@@ -559,7 +559,7 @@ contains
     end function query_get_unused_variables
     
     ! Get resolved type for identifier
-    function query_get_identifier_type(this, identifier_name, type_info) result(success)
+    recursive function query_get_identifier_type(this, identifier_name, type_info) result(success)
         class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: identifier_name
         type(mono_type_t), optional, intent(out) :: type_info
@@ -579,7 +579,7 @@ contains
     end function query_get_identifier_type
     
     ! Check if identifier is defined (alias for is_symbol_defined)
-    function query_is_identifier_defined(this, identifier_name) result(defined)
+    recursive function query_is_identifier_defined(this, identifier_name) result(defined)
         class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: identifier_name
         logical :: defined
@@ -588,7 +588,7 @@ contains
     end function query_is_identifier_defined
     
     ! Helper function to check if name is a parameter
-    function is_parameter_name(tracker, param_name) result(is_param)
+    recursive function is_parameter_name(tracker, param_name) result(is_param)
         type(parameter_tracker_t), intent(in) :: tracker
         character(len=*), intent(in) :: param_name
         logical :: is_param
@@ -608,7 +608,7 @@ contains
     ! - Safe to use with any size arena
     
     ! Direct function to check if identifier is defined (issue #196)
-    function is_identifier_defined_direct(arena, context, &
+    recursive function is_identifier_defined_direct(arena, context, &
                                            identifier_name) result(defined)
         type(ast_arena_t), intent(in) :: arena
         type(semantic_context_t), intent(inout) :: context
@@ -630,7 +630,7 @@ contains
     end function is_identifier_defined_direct
     
     ! Direct function to get unused variables (issue #196)  
-    function get_unused_variables_direct(arena, context, scope_type, &
+    recursive function get_unused_variables_direct(arena, context, scope_type, &
                                           unused_vars) result(success)
         type(ast_arena_t), intent(in) :: arena
         type(semantic_context_t), intent(inout) :: context
@@ -667,7 +667,7 @@ contains
     end function get_unused_variables_direct
     
     ! Direct function to get symbols in scope (issue #196)
-    function get_symbols_in_scope_direct(arena, context, scope_type, &
+    recursive function get_symbols_in_scope_direct(arena, context, scope_type, &
                                           symbols) result(success)
         type(ast_arena_t), intent(in) :: arena
         type(semantic_context_t), intent(inout) :: context

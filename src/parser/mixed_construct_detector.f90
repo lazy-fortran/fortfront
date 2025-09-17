@@ -22,7 +22,7 @@ module mixed_construct_detector
 contains
 
     ! Main detection routine
-    subroutine detect_mixed_constructs(tokens, result)
+    recursive subroutine detect_mixed_constructs(tokens, result)
         type(token_t), intent(in) :: tokens(:)
         type(mixed_construct_result_t), intent(out) :: result
         
@@ -96,7 +96,7 @@ contains
     end subroutine detect_mixed_constructs
 
     ! Check if token sequence represents a top-level declaration
-    function is_top_level_declaration(tokens, start_pos) result(is_declaration)
+    recursive function is_top_level_declaration(tokens, start_pos) result(is_declaration)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         logical :: is_declaration
@@ -122,7 +122,7 @@ contains
     end function is_top_level_declaration
 
     ! Check if token sequence represents explicit program unit
-    function is_explicit_program_unit(tokens, start_pos) result(is_program_unit)
+    recursive function is_explicit_program_unit(tokens, start_pos) result(is_program_unit)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         logical :: is_program_unit
@@ -141,7 +141,7 @@ contains
     end function is_explicit_program_unit
 
     ! Find the end of a declaration construct
-    subroutine find_declaration_range(tokens, start_pos, end_pos)
+    recursive subroutine find_declaration_range(tokens, start_pos, end_pos)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         integer, intent(out) :: end_pos
@@ -195,7 +195,7 @@ contains
     end subroutine find_declaration_range
 
     ! Find the end of a program unit construct
-    subroutine find_program_unit_range(tokens, start_pos, end_pos)
+    recursive subroutine find_program_unit_range(tokens, start_pos, end_pos)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_pos
         integer, intent(out) :: end_pos

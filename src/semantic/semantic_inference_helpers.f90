@@ -29,7 +29,7 @@ module semantic_inference_helpers
 contains
 
     ! Process if node branches and return control type
-    subroutine process_if_node_branches(node, control_type)
+    recursive subroutine process_if_node_branches(node, control_type)
         type(if_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
         
@@ -38,7 +38,7 @@ contains
     end subroutine process_if_node_branches
 
     ! Process do while body
-    subroutine process_do_while_node_body(node, control_type)
+    recursive subroutine process_do_while_node_body(node, control_type)
         type(do_while_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
         
@@ -47,7 +47,7 @@ contains
     end subroutine process_do_while_node_body
 
     ! Process where construct clauses
-    subroutine process_where_node_clauses(node, control_type)
+    recursive subroutine process_where_node_clauses(node, control_type)
         type(where_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
         
@@ -56,7 +56,7 @@ contains
     end subroutine process_where_node_clauses
 
     ! Process where statement
-    subroutine process_where_stmt_node(node, control_type)
+    recursive subroutine process_where_stmt_node(node, control_type)
         type(where_stmt_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
         
@@ -65,7 +65,7 @@ contains
     end subroutine process_where_stmt_node
 
     ! Process forall construct body
-    subroutine process_forall_node_body(node, int_scheme, control_type)
+    recursive subroutine process_forall_node_body(node, int_scheme, control_type)
         type(forall_node), intent(in) :: node
         type(poly_type_t), intent(out) :: int_scheme
         type(mono_type_t), intent(out) :: control_type
@@ -79,7 +79,7 @@ contains
     end subroutine process_forall_node_body
 
     ! Process select case blocks
-    subroutine process_select_case_blocks(node, control_type)
+    recursive subroutine process_select_case_blocks(node, control_type)
         type(select_case_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
         
@@ -88,7 +88,7 @@ contains
     end subroutine process_select_case_blocks
 
     ! Process associate construct body
-    subroutine process_associate_node_body(node, control_type)
+    recursive subroutine process_associate_node_body(node, control_type)
         type(associate_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
         
@@ -97,7 +97,7 @@ contains
     end subroutine process_associate_node_body
 
     ! Process stop node code
-    subroutine process_stop_node_code(node, control_type)
+    recursive subroutine process_stop_node_code(node, control_type)
         type(stop_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
         
@@ -106,7 +106,7 @@ contains
     end subroutine process_stop_node_code
 
     ! Process declaration and return type
-    subroutine process_declaration_variables(decl, var_type)
+    recursive subroutine process_declaration_variables(decl, var_type)
         type(declaration_node), intent(in) :: decl
         type(mono_type_t), intent(out) :: var_type
         integer :: var_type_kind
@@ -145,7 +145,7 @@ contains
     end subroutine process_declaration_variables
 
     ! Check if program has implicit none statement
-    function check_implicit_none(arena, prog) result(has_implicit)
+    recursive function check_implicit_none(arena, prog) result(has_implicit)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
         logical :: has_implicit

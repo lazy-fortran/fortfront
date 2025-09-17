@@ -31,7 +31,7 @@ module codegen_declarations
 contains
 
     ! Generate code for function definitions
-    function generate_code_function_def(arena, node, node_index) result(code)
+    recursive function generate_code_function_def(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -162,7 +162,7 @@ contains
     end function generate_code_function_def
 
     ! Generate code for subroutine definitions
-    function generate_code_subroutine_def(arena, node, node_index) result(code)
+    recursive function generate_code_subroutine_def(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(subroutine_def_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -283,7 +283,7 @@ contains
     end function generate_code_subroutine_def
 
     ! Generate code for declarations
-    function generate_code_declaration(arena, node, node_index) result(code)
+    recursive function generate_code_declaration(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(declaration_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -441,7 +441,7 @@ contains
     end function generate_code_declaration
 
     ! Generate code for parameter declarations
-    function generate_code_parameter_declaration(arena, node, node_index) result(code)
+    recursive function generate_code_parameter_declaration(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(parameter_declaration_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -489,7 +489,7 @@ contains
     end function generate_code_parameter_declaration
 
     ! Generate code for modules
-    function generate_code_module(arena, node, node_index) result(code)
+    recursive function generate_code_module(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(module_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -564,7 +564,7 @@ contains
     end function generate_code_module
 
     ! Generate code for derived types
-    function generate_code_derived_type(arena, node, node_index) result(code)
+    recursive function generate_code_derived_type(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(derived_type_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -591,7 +591,7 @@ contains
     end function generate_code_derived_type
 
     ! Generate code for program nodes
-    function generate_code_program(arena, node, node_index) result(code)
+    recursive function generate_code_program(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -890,7 +890,7 @@ contains
 
 
     ! Generate grouped body with context
-    function generate_grouped_body_with_context(arena, body_indices, indent, has_exec_before_contains) result(code)
+    recursive function generate_grouped_body_with_context(arena, body_indices, indent, has_exec_before_contains) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent
@@ -902,7 +902,7 @@ contains
     end function generate_grouped_body_with_context
 
     ! Helper subroutine to extract loop variables from an implied do section
-    subroutine extract_loop_vars_from_section(section, loop_vars, n_vars)
+    recursive subroutine extract_loop_vars_from_section(section, loop_vars, n_vars)
         character(len=*), intent(in) :: section
         character(len=*), intent(inout) :: loop_vars(:)
         integer, intent(inout) :: n_vars

@@ -64,7 +64,7 @@ contains
     end function is_assignable
 
     ! Check if a type is numeric (integer or real)
-    function is_numeric_type(typ) result(is_numeric)
+    recursive function is_numeric_type(typ) result(is_numeric)
         type(mono_type_t), intent(in) :: typ
         logical :: is_numeric
 
@@ -73,7 +73,7 @@ contains
     end function is_numeric_type
 
     ! Check if two types are compatible (for operations)
-    function is_compatible(type1, type2, level) result(compatible)
+    recursive function is_compatible(type1, type2, level) result(compatible)
         type(mono_type_t), intent(in) :: type1, type2
         integer, intent(out) :: level
         logical :: compatible
@@ -105,7 +105,7 @@ contains
     end function is_compatible
 
     ! Get the common type for two compatible types
-    function get_common_type(type1, type2) result(common_type)
+    recursive function get_common_type(type1, type2) result(common_type)
         type(mono_type_t), intent(in) :: type1, type2
         type(mono_type_t) :: common_type
         integer :: compat_level
@@ -137,7 +137,7 @@ contains
     end function get_common_type
 
     ! Check argument types match parameter types
-    function check_argument_types(arg_types, param_types, allow_promotion) result(match)
+    recursive function check_argument_types(arg_types, param_types, allow_promotion) result(match)
         type(mono_type_t), intent(in) :: arg_types(:), param_types(:)
         logical, intent(in) :: allow_promotion
         logical :: match
@@ -162,7 +162,7 @@ contains
     end function check_argument_types
 
     ! Check array conformance
-    function check_array_conformance(array1, array2) result(conformant)
+    recursive function check_array_conformance(array1, array2) result(conformant)
         type(mono_type_t), intent(in) :: array1, array2
         logical :: conformant
 
@@ -188,7 +188,7 @@ contains
     end function check_array_conformance
 
     ! Generate type error message
-    function type_error(expected, actual, context) result(msg)
+    recursive function type_error(expected, actual, context) result(msg)
         type(mono_type_t), intent(in) :: expected, actual
         character(len=*), intent(in) :: context
         character(len=:), allocatable :: msg
