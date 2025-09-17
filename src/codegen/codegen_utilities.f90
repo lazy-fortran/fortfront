@@ -364,6 +364,9 @@ contains
         integer :: filtered_count
         logical :: in_contains_section
         integer :: var_idx
+        logical :: append_kind
+        logical :: append_kind_single
+        logical :: append_kind_param
         
         ! Build indent string
         indent_str = repeat("    ", indent)
@@ -385,6 +388,7 @@ contains
                                     logical :: found_params, first_var
                                     logical, allocatable :: is_param(:)
                                     integer :: first_param_idx
+                                    logical :: append_kind
                                 
                                 allocate(is_param(size(node%var_names)))
                                 found_params = .false.
@@ -402,10 +406,14 @@ contains
                                 
                                 if (found_params) then
                                     ! Generate declaration for all parameters in this multi-declaration
-                                    type_name = node%type_name
+                                    type_name = trim(node%type_name)
+                                    append_kind = node%has_kind
+                                    if (type_name == 'real' .and. .not. append_kind) then
+                                        type_name = 'real(8)'
+                                    end if
                                     code = code // indent_str // type_name
                                     
-                                    if (node%has_kind) then
+                                    if (append_kind) then
                                         code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                     end if
                                     
@@ -445,10 +453,14 @@ contains
                                 param_idx = find_parameter_info(param_map, node%var_name)
                                 if (param_idx > 0) then
                                     ! Generate the declaration with parameter attributes from the declaration node
-                                    type_name = node%type_name
+                                    type_name = trim(node%type_name)
+                                    append_kind_single = node%has_kind
+                                    if (type_name == 'real' .and. .not. append_kind_single) then
+                                        type_name = 'real(8)'
+                                    end if
                                     code = code // indent_str // type_name
                                     
-                                    if (node%has_kind) then
+                                    if (append_kind_single) then
                                         code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                     end if
                                     
@@ -487,7 +499,11 @@ contains
                             param_idx = find_parameter_info(param_map, node%name)
                             if (param_idx > 0) then
                                 ! Generate the declaration with attributes from parameter_declaration_node
-                                type_name = node%type_name
+                                type_name = trim(node%type_name)
+                                append_kind_param = node%has_kind
+                                if (type_name == 'real' .and. .not. append_kind_param) then
+                                    type_name = 'real(8)'
+                                end if
                                 ! Debug: print if type_name is empty
                                 if (len_trim(type_name) == 0) then
                                     ! Skip if no type name - will be handled elsewhere
@@ -495,7 +511,7 @@ contains
                                 end if
                                 code = code // indent_str // type_name
                                 
-                                if (node%has_kind) then
+                                if (append_kind_param) then
                                     code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
                                 end if
                                 

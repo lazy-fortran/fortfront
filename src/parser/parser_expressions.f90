@@ -33,6 +33,7 @@ module parser_expressions_module
 
     integer, parameter :: MAX_OPERATOR_LEN = 16
     integer, parameter :: STACK_DEFAULT_CAPACITY = 32
+    integer, parameter :: PREFIX_MARKER_KIND = -999
 
     type :: operator_entry_t
         character(len=MAX_OPERATOR_LEN) :: symbol = ""
@@ -527,7 +528,10 @@ contains
         integer :: zero_index
 
         result_index = expr_index
-        do while (.not. token_stack_is_empty(prefix_stack))
+        do while (prefix_stack%size > 0)
+            token = prefix_stack%values(prefix_stack%size)
+            if (token%kind == PREFIX_MARKER_KIND) exit
+
             token = token_stack_pop(prefix_stack)
             lowered = to_lower(token%text)
             select case (lowered)
@@ -689,7 +693,7 @@ contains
             lowered = view_lower_token(view, parser)
             if (lowered == "[") then
                 token = view_consume_token(view, parser)
-                expr_index = parse_modern_array_literal(parser, arena)
+                expr_index = parse_modern_array_literal(parser, arena, token)
             else if (token_is_boolean_literal(token)) then
                 token = view_consume_token(view, parser)
                 expr_index = parse_boolean_literal(token, arena)
@@ -751,6 +755,19 @@ contains
                     if (operator_stack_has_open_group(operators)) then
                         call reduce_until_group(operators, operands, arena)
                         op_entry = operator_stack_pop(operators)
+                        if (prefix_stack%size > 0) then
+                            if (prefix_stack%values(prefix_stack%size)%kind == PREFIX_MARKER_KIND) then
+                                block
+                                    type(token_t) :: discarded_marker
+                                    discarded_marker = token_stack_pop(prefix_stack)
+                                end block
+                                if (.not. operand_stack_is_empty(operands)) then
+                                    current_index = operand_stack_pop(operands)
+                                    current_index = apply_prefix_stack(arena, prefix_stack, current_index)
+                                    call operand_stack_push(operands, current_index)
+                                end if
+                            end if
+                        end if
                         token = view_consume_token(view, parser)
                         expect_operand = .false.
                         cycle
@@ -778,6 +795,14 @@ contains
                 end if
 
                 if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                    block
+                        type(token_t) :: marker
+                        marker%text = ""
+                        marker%kind = PREFIX_MARKER_KIND
+                        marker%line = token%line
+                        marker%column = token%column
+                        call token_stack_push(prefix_stack, marker)
+                    end block
                     call push_group_marker(operators, view_consume_token(view, parser))
                     expect_operand = .true.
                     cycle
@@ -1077,7 +1102,7 @@ contains
             else
                 temp_indices(element_count) = parse_unary(parser, arena)
             end if
-            
+
             if (temp_indices(element_count) <= 0) then
                 expr_index = 0
                 return
@@ -1180,18 +1205,18 @@ contains
     end function parse_legacy_array_literal
 
     ! Parse modern array literal: [1, 2, 3] with implied do loop support
-    function parse_modern_array_literal(parser, arena) result(expr_index)
+    function parse_modern_array_literal(parser, arena, start_token) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: start_token
         integer :: expr_index
         
         block
-            type(token_t) :: bracket_token, current, next_token
+            type(token_t) :: current, next_token
             integer, allocatable :: element_indices(:), temp_indices(:)
             integer :: element_count
             logical :: is_implied_do
 
-            bracket_token = parser%consume()
             current = parser%peek()
             
             ! Check for empty array []
@@ -1199,7 +1224,7 @@ contains
                 current = parser%consume()
                 allocate (element_indices(0))
                 expr_index = push_array_literal(arena, element_indices, &
-                                                bracket_token%line, bracket_token%column, &
+                                                start_token%line, start_token%column, &
                                                 syntax_style="modern")
                 return
             end if
@@ -1213,10 +1238,10 @@ contains
             
             if (is_implied_do) then
                 ! Parse implied do loop
-                expr_index = parse_implied_do_constructor(parser, arena, bracket_token)
+                expr_index = parse_implied_do_constructor(parser, arena, start_token)
             else
                 ! Parse regular array elements
-                expr_index = parse_simple_array_elements(parser, arena, "]", "modern", bracket_token)
+                expr_index = parse_simple_array_elements(parser, arena, "]", "modern", start_token)
             end if
         end block
     end function parse_modern_array_literal

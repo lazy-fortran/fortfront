@@ -1,5 +1,16 @@
 # Pratt Parser Modernization
 
+## Integration Status (2025)
+
+- The iterative Pratt engine now powers every expression entry-point exposed through
+  `frontend_parsing::parse_tokens`; the old recursive dispatcher has been removed.
+- `frontend_transformation` shares a single token buffer between syntax validation and
+  parsing, eliminating the historical rescan step and reducing allocation churn.
+- CLI transforms (`transform_lazy_fortran_string`) and the high-level `frontend` API run on
+  the Pratt implementation by default with no compatibility shims.
+- Legacy helpers hosted in `parser_core` have been culled; downstream code now consumes the
+  consolidated exports from `parser_expressions_module` and definition modules directly.
+
 ## Operator Table
 
 | Symbol                                      | Fixity    | Associativity | Precedence | Handler |
@@ -128,8 +139,11 @@ expr_index = pop_operand()
 - `parse_primary` delegates to dedicated `parse_primary_atom` + postfix chain.
 - `parse_unary` simply harvests prefix stack then calls `parse_primary`.
 
-## Open Questions
+## Validation Notes
 
-- Should colon allow chained ranges (`a:b:c:d`) beyond stride? Proposal: treat subsequent colon after stride as new range anchored to previous result to preserve backwards compatibility.
-- Investigate whether existing semantic passes rely on zero literal inserted for unary minus; consider introducing dedicated unary node for clarity.
-- Confirm whether arena slabs can expose raw byte buffers for SoA allocation without additional copies.
+- Range chaining beyond a single stride remains disabled intentionally; additional
+  requirements will be addressed in a dedicated RFC if the need surfaces.
+- Unary minus continues to lower into a binary subtraction during standardization; semantic
+  invariants were audited and no regressions were observed under the Pratt pipeline.
+- The current arena slabs already expose contiguous buffers for the SoA token view; no extra
+  copies are performed during parsing.

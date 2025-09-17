@@ -1,3 +1,16 @@
+# Current Work: Declaration Standardizer Bugfix
+
+## Status
+- [x] Preserve `intent`/kind attributes when standardizer regenerates declarations (currently loses `real(8)` on dummy args).
+- [x] Skip auto-generated declarations for parameters collected during assignment inference (still emitting duplicates).
+- [x] Normalize existing parameter declarations (multi-variable and single) before new declarations are inserted.
+
+## Immediate Plan
+1. ✅ Track parameter names (and their intent/optional metadata) when traversing subprogram bodies, and propagate that context into `collect_assignment_vars`/`add_variable` so parameters never get re-added.
+2. ✅ Update `create_declaration_nodes` to short-circuit if the candidate name is a parameter, and add tight unit coverage around `test_multi_param_intent` to confirm kind specifiers survive.
+3. ✅ Extend `standardize_subprograms` handling to normalize multi-variable parameter declarations in situ (set `intent`, upgrade `real`→`real(8)` when enabled) before the declaration generator runs.
+4. ✅ Once logic is stable, remove debug logging, run full `make test`, and re-check CLI transformations on sample inputs.
+
 # Expression Parser Modernization (2025 Roadmap)
 
 ## Goals

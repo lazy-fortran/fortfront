@@ -92,7 +92,7 @@ contains
 
         ! Generate loop variable
         if (allocated(node%var_name)) then
-            var_code = node%var_name
+            var_code = trim(adjustl(node%var_name))
         else
             var_code = ""
         end if
@@ -100,18 +100,21 @@ contains
         ! Generate loop bounds
         if (node%start_expr_index > 0) then
             start_code = generate_code_from_arena(arena, node%start_expr_index)
+            start_code = trim(adjustl(start_code))
         else
             start_code = ""
         end if
 
         if (node%end_expr_index > 0) then
             end_code = generate_code_from_arena(arena, node%end_expr_index)
+            end_code = trim(adjustl(end_code))
         else
             end_code = ""
         end if
 
         if (node%step_expr_index > 0) then
             step_code = generate_code_from_arena(arena, node%step_expr_index)
+            step_code = trim(adjustl(step_code))
         else
             step_code = ""
         end if

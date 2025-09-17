@@ -303,7 +303,48 @@ contains
                                 end if
                             end do
 
-                            if (is_param_decl) then
+                            if (stmt%is_multi_declaration .and. &
+                                allocated(stmt%var_names)) then
+                                block
+                                    logical :: matched_multi
+                                    integer :: pidx, k
+                                    character(len=8) :: stmt_intent
+
+                                    matched_multi = .false.
+                                    stmt_intent = ""
+                                    do j = 1, size(stmt%var_names)
+                                        pidx = 0
+                                        do k = 1, n_params
+                                            if (trim(stmt%var_names(j)) == trim(param_names(k))) then
+                                                pidx = k
+                                                exit
+                                            end if
+                                        end do
+                                        if (pidx > 0) then
+                                            matched_multi = .true.
+                                            if (len_trim(fn_param_intent(pidx)) == 0) then
+                                                fn_param_intent(pidx) = "in"
+                                            end if
+                                            if (fn_param_optional(pidx)) stmt%is_optional = .true.
+                                            if (len_trim(stmt_intent) == 0) stmt_intent = fn_param_intent(pidx)
+                                            param_names_found(pidx) = func_def%body_indices(i)
+                                        end if
+                                    end do
+                                    if (matched_multi) then
+                                        if (stmt%type_name == "real") then
+                                            if (standardizer_type_standardization_enabled) then
+                                                stmt%type_name = "real"
+                                                stmt%has_kind = .true.
+                                                stmt%kind_value = 8
+                                            end if
+                                        end if
+                                        if (len_trim(stmt_intent) == 0) stmt_intent = "in"
+                                        stmt%intent = stmt_intent
+                                        stmt%has_intent = .true.
+                                        arena%entries(func_def%body_indices(i))%node = stmt
+                                    end if
+                                end block
+                            else if (is_param_decl) then
                                 ! Update the declaration to have intent(in) and preserve/enhance type
                                 if (stmt%type_name == "real") then
                                     if (standardizer_type_standardization_enabled) then
@@ -535,7 +576,48 @@ contains
                                 end if
                             end do
 
-                            if (is_param_decl) then
+                            if (stmt%is_multi_declaration .and. &
+                                allocated(stmt%var_names)) then
+                                block
+                                    logical :: matched_multi
+                                    integer :: pidx, k
+                                    character(len=8) :: stmt_intent
+
+                                    matched_multi = .false.
+                                    stmt_intent = ""
+                                    do j = 1, size(stmt%var_names)
+                                        pidx = 0
+                                        do k = 1, n_params
+                                            if (trim(stmt%var_names(j)) == trim(param_names(k))) then
+                                                pidx = k
+                                                exit
+                                            end if
+                                        end do
+                                        if (pidx > 0) then
+                                            matched_multi = .true.
+                                            if (len_trim(sb_param_intent(pidx)) == 0) then
+                                                sb_param_intent(pidx) = "inout"
+                                            end if
+                                            if (sb_param_optional(pidx)) stmt%is_optional = .true.
+                                            if (len_trim(stmt_intent) == 0) stmt_intent = sb_param_intent(pidx)
+                                            param_names_found(pidx) = sub_def%body_indices(i)
+                                        end if
+                                    end do
+                                    if (matched_multi) then
+                                        if (stmt%type_name == "real") then
+                                            if (standardizer_type_standardization_enabled) then
+                                                stmt%type_name = "real"
+                                                stmt%has_kind = .true.
+                                                stmt%kind_value = 8
+                                            end if
+                                        end if
+                                        if (len_trim(stmt_intent) == 0) stmt_intent = "inout"
+                                        stmt%intent = stmt_intent
+                                        stmt%has_intent = .true.
+                                        arena%entries(sub_def%body_indices(i))%node = stmt
+                                    end if
+                                end block
+                            else if (is_param_decl) then
                                 ! Update the declaration to have appropriate intent and preserve/enhance type
                                 if (stmt%type_name == "real") then
                                     if (standardizer_type_standardization_enabled) then
@@ -546,16 +628,13 @@ contains
                                 ! Keep integer, logical, character as-is
                                 end if
                                 ! Default to intent(inout) for subroutine parameters
-                                if (.not. stmt%has_intent) then
                                 if (len_trim(sb_param_intent(param_idx)) > 0) then
                                     stmt%intent = sb_param_intent(param_idx)
-                                    stmt%has_intent = .true.
                                 else
                                     stmt%intent = "inout"
-                                    stmt%has_intent = .true.
                                 end if
+                                stmt%has_intent = .true.
                                 if (sb_param_optional(param_idx)) stmt%is_optional = .true.
-                                end if
                                 param_names_found(param_idx) = sub_def%body_indices(i)
                                 ! Update in arena
                                 arena%entries(sub_def%body_indices(i))%node = stmt

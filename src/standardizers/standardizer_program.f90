@@ -49,12 +49,16 @@ contains
         ! Standardize existing declarations (e.g., real -> real(8))
         call standardize_declarations(arena, prog)
 
+
         ! First, mark allocatable needs and split multi-declarations as needed
         call mark_allocatable_for_array_reassignments(arena, prog, prog_index)
         call mark_allocatable_for_string_length_changes(arena, prog)
 
         ! Then insert implicit none and any missing variable declarations
         call insert_variable_declarations(arena, prog, prog_index)
+
+        ! Re-run declaration standardization to cover newly inserted declarations
+        call standardize_declarations(arena, prog)
 
         ! Check if we need to insert a contains statement
         if (has_functions .or. has_subroutines) then
