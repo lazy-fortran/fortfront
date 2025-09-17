@@ -109,8 +109,8 @@
 
 1. **Baseline & Instrumentation**
    - [x] Add lightweight timers around CLI stages (lexer, parser, semantics, codegen) gated by `FORTFRONT_PROFILE=1`.
-   - [ ] Capture current wall-clock and allocation counts on representative inputs (small, medium, stress) and store results in `docs/perf/baseline.md`.
-   - _2025-09-18_: `FORTFRONT_PROFILE` instrumentation added in `src/frontend_transformation.f90`; next action is to run benchmarks and record baselines.
+   - [x] Capture current wall-clock timings on representative inputs (small, medium, stress) and store results in `docs/perf/baseline.md`.
+   - _2025-09-18_: Baseline timings recorded (see table) using new profiling flag; allocation tracking remains future work.
 
 2. **Prune Non-Essential Analyzers From CLI Hot Path**
    - [ ] Introduce build/runtime flag to skip control-flow, call-graph, and performance analyzers during CLI transforms.
