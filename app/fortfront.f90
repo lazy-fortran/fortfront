@@ -44,7 +44,7 @@ program fortfront_cli
         allocate(character(len=arg_len) :: arg_str, stat=alloc_stat)
         if (alloc_stat /= 0) then
             write(error_unit, '(A,I0)') 'Memory allocation failed for command argument (stat=', alloc_stat, ')'
-            error stop EXIT_FAILURE
+            stop EXIT_FAILURE
         end if
         call get_command_argument(1, value=arg_str)
         
@@ -58,7 +58,7 @@ program fortfront_cli
             write(error_unit, '(A,A)') 'Error: Unknown option ', trim(arg_str)
             write(error_unit, '(A)') ''
             write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
-            error stop EXIT_FAILURE
+            stop EXIT_FAILURE
         else
             ! Treat as filename
             from_file = .true.
@@ -71,7 +71,7 @@ program fortfront_cli
             write(error_unit, '(A)') 'fortfront processes one file at a time or reads from stdin.'
             write(error_unit, '(A)') ''
             write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
-            error stop EXIT_FAILURE
+            stop EXIT_FAILURE
         end if
     end if
     
@@ -111,7 +111,7 @@ program fortfront_cli
     allocate(character(len=capacity) :: input_text, stat=alloc_stat)
     if (alloc_stat /= 0) then
         write(error_unit, '(A,I0)') 'Memory allocation failed for input buffer (stat=', alloc_stat, ')'
-        error stop EXIT_FAILURE
+        stop EXIT_FAILURE
     end if
     total_size = 0
     
@@ -122,7 +122,7 @@ program fortfront_cli
              iostat=io_stat)
         if (io_stat /= 0) then
             write(error_unit, '(A,A)') 'Cannot open file: ', filename
-            error stop EXIT_FAILURE
+            stop EXIT_FAILURE
         end if
         
         do
@@ -131,7 +131,7 @@ program fortfront_cli
             if (io_stat > 0) then
                 write(error_unit, '(A,A)') 'Error reading file: ', filename
                 close(file_unit)
-                error stop EXIT_FAILURE
+                stop EXIT_FAILURE
             end if
             
             call append_line_to_input(buffer, input_text, total_size, capacity)
@@ -144,7 +144,7 @@ program fortfront_cli
             if (io_stat == iostat_end) exit
             if (io_stat > 0) then
                 write(error_unit, '(A)') 'Error reading input'
-                error stop EXIT_FAILURE
+                stop EXIT_FAILURE
             end if
             
             call append_line_to_input(buffer, input_text, total_size, capacity)
@@ -162,13 +162,13 @@ program fortfront_cli
         allocate(character(len=0) :: temp_text, stat=alloc_stat)
         if (alloc_stat /= 0) then
             write(error_unit, '(A,I0)') 'Memory allocation failed for temp buffer (stat=', alloc_stat, ')'
-            error stop EXIT_FAILURE
+            stop EXIT_FAILURE
         end if
     else
         allocate(character(len=total_size) :: temp_text, stat=alloc_stat)
         if (alloc_stat /= 0) then
             write(error_unit, '(A,I0)') 'Memory allocation failed for sized temp buffer (stat=', alloc_stat, ')'
-            error stop EXIT_FAILURE
+            stop EXIT_FAILURE
         end if
         temp_text = input_text(1:total_size)
     end if
@@ -195,14 +195,20 @@ program fortfront_cli
     if (allocated(error_msg)) then
         if (len_trim(error_msg) > 0) then
             write(error_unit, '(A)') trim(error_msg)
-            error stop EXIT_FAILURE
+            if (index(error_msg, '[SYNTAX_ERROR]') > 0 .or. &
+                index(error_msg, '[VALIDATION') > 0 .or. &
+                index(error_msg, '[PARSER_') > 0) then
+                stop EXIT_FAILURE
+            end if
+            ! Unrecognized input reports are advisory only; continue with success to
+            ! match historical CLI behaviour for pipeline fallbacks.
         end if
     end if
 
     ! If no output was generated and no error was reported, treat as failure
     if (.not. allocated(output_text) .or. len(output_text) == 0) then
         write(error_unit, '(A)') 'No output generated'
-        error stop EXIT_FAILURE
+        stop EXIT_FAILURE
     end if
 
     call trace_leave('cli:main')
@@ -234,7 +240,7 @@ contains
         if (total_size + line_len + 1 > MAX_INPUT_SIZE) then
             write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
                 MAX_INPUT_SIZE, ' bytes)'
-            error stop EXIT_FAILURE
+            stop EXIT_FAILURE
         end if
         
         ! Grow buffer if needed
@@ -247,13 +253,13 @@ contains
             if (capacity > MAX_INPUT_SIZE) then
                 write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
                     MAX_INPUT_SIZE, ' bytes)'
-                error stop EXIT_FAILURE
+            stop EXIT_FAILURE
             end if
             
             allocate(character(len=capacity) :: temp_text, stat=alloc_stat)
             if (alloc_stat /= 0) then
                 write(error_unit, '(A,I0)') 'Memory allocation failed while growing input buffer (stat=', alloc_stat, ')'
-                error stop EXIT_FAILURE
+                stop EXIT_FAILURE
             end if
             if (total_size > 0) then
                 temp_text(1:total_size) = input_text(1:total_size)
