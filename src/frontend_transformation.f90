@@ -1,12 +1,11 @@
 module frontend_transformation
-    use iso_fortran_env, only: error_unit
+    use iso_fortran_env, only: error_unit, real64
     ! fortfront - Transformation functions module
     ! Contains string-based transformation functionality
 
     use lexer_core, only: token_t, tokenize_core, TK_EOF, TK_KEYWORD, &
                            TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
                            TK_NUMBER, TK_STRING, TK_UNKNOWN
-    use iso_fortran_env, only: error_unit
     use compiler_arena, only: compiler_arena_t, create_compiler_arena, destroy_compiler_arena
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                    analyze_program, has_semantic_errors
@@ -59,9 +58,36 @@ contains
         logical :: debug_transform
         character(len=8) :: debug_flag
         integer :: env_status
+        character(len=16) :: profile_flag
+        integer :: profile_status
+        logical :: profile_enabled
+        logical :: profile_flushed
+        integer :: profile_rate
+        integer :: profile_tick_prev
+        integer :: profile_tick_curr
+        integer :: profile_count
+        character(len=48) :: profile_names(16)
+        real(real64) :: profile_ms(16)
 
         allocate(character(len=0) :: error_msg)
         error_msg = ""
+
+        profile_enabled = .false.
+        profile_flushed = .false.
+        profile_count = 0
+        profile_names = ''
+        profile_ms = 0.0_real64
+        profile_rate = 1
+        profile_tick_prev = 0
+        profile_tick_curr = 0
+        call get_environment_variable('FORTFRONT_PROFILE', profile_flag, status=profile_status)
+        if (profile_status == 0 .and. len_trim(profile_flag) > 0) then
+            profile_enabled = .true.
+            call system_clock(count_rate=profile_rate)
+            if (profile_rate <= 0) profile_rate = 1
+            call system_clock(profile_tick_prev)
+            profile_tick_curr = profile_tick_prev
+        end if
 
         call trace_init()
         call trace_enter('transform_lazy_fortran_string')
@@ -83,6 +109,7 @@ contains
         if (is_empty_or_whitespace_only(input)) then
             call create_minimal_program(output)
             call trace_leave('transform_lazy_fortran_string')
+            call flush_profile()
             return
         end if
 
@@ -90,9 +117,11 @@ contains
         call trace_enter('phase:lexer')
         call run_lexical_analysis(input, tokens, shared_arena, error_msg)
         call trace_leave('phase:lexer')
+        call profile_record('phase:lexer')
         if (error_msg /= "") then
             call handle_lexical_error(input, error_msg, output, shared_arena)
             call trace_leave('transform_lazy_fortran_string')
+            call flush_profile()
             return
         end if
 
@@ -100,11 +129,16 @@ contains
         call trace_enter('phase:syntax')
         call validate_syntax_with_reporting(input, tokens, error_msg, output, shared_arena)
         call trace_leave('phase:syntax')
-        if (error_msg /= "") return
+        call profile_record('phase:syntax')
+        if (error_msg /= "") then
+            call flush_profile()
+            return
+        end if
 
         ! Check for meaningful content
         if (not_meaningful_for_parsing(tokens)) then
             call create_minimal_program(output)
+            call flush_profile()
             return
         end if
 
@@ -121,7 +155,11 @@ contains
             end if
         end if
         call trace_leave('phase:parser')
-        if (error_msg /= "") return
+        call profile_record('phase:parser')
+        if (error_msg /= "") then
+            call flush_profile()
+            return
+        end if
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call trace_enter('phase:final')
@@ -146,7 +184,11 @@ contains
             end if
         end if
         call trace_leave('phase:final')
-        if (error_msg /= "") return
+        call profile_record('phase:final')
+        if (error_msg /= "") then
+            call flush_profile()
+            return
+        end if
 
         ! Ensure error_msg is empty on successful transformation
         error_msg = ""
@@ -168,8 +210,41 @@ contains
             end block
         end if
         call trace_leave('transform_lazy_fortran_string')
+        call profile_record('post-processing')
+        call flush_profile()
 
         ! Reuse arena: no destroy, it will be reset at next call
+    contains
+        subroutine profile_record(stage_name)
+            character(len=*), intent(in) :: stage_name
+            real(real64) :: duration
+
+            if (.not. profile_enabled) return
+            call system_clock(profile_tick_curr)
+            duration = real(profile_tick_curr - profile_tick_prev, real64) * 1000.0_real64 / real(profile_rate, real64)
+            if (profile_count < size(profile_names)) then
+                profile_count = profile_count + 1
+                profile_names(profile_count) = stage_name
+                profile_ms(profile_count) = duration
+            end if
+            profile_tick_prev = profile_tick_curr
+        end subroutine profile_record
+
+        subroutine flush_profile()
+            integer :: i
+            real(real64) :: total_ms
+
+            if (.not. profile_enabled) return
+            if (profile_flushed) return
+            profile_flushed = .true.
+            write(error_unit, '(A)') 'PROFILE SUMMARY (ms):'
+            total_ms = 0.0_real64
+            do i = 1, profile_count
+                write(error_unit, '(2X,A,1X,F8.3)') trim(profile_names(i)), profile_ms(i)
+                total_ms = total_ms + profile_ms(i)
+            end do
+            write(error_unit, '(2X,A,1X,F8.3)') 'total', total_ms
+        end subroutine flush_profile
     end subroutine transform_lazy_fortran_string
 
     ! String-based transformation function with formatting options
