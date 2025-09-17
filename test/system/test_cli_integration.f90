@@ -26,7 +26,12 @@ program test_cli_integration
     
     ! Pre-build fortfront to ensure it exists before testing
     print *, "Building fortfront executable..."
-    call execute_command_line(timeout_wrapper('60') // 'fpm build', exitstat=test_count)
+    block
+        character(len=:), allocatable :: build_command
+        build_command = timeout_wrapper('60') // 'fpm build'
+        if (is_windows) build_command = build_command // ' --flag "-Wl,--stack,16777216"'
+        call execute_command_line(build_command, exitstat=test_count)
+    end block
     if (test_count /= 0) then
         print *, "SKIPPING: Failed to build fortfront executable (exit code:", test_count, ")"
         print *, "This may indicate CI environment issues or missing build dependencies"
