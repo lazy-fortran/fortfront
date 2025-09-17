@@ -19,7 +19,11 @@ contains
         if (enabled) return
         call get_environment_variable('FORTFRONT_TRACE', val, status=stat)
         if (stat == 0) then
-            enabled = .true.
+            ! The Windows CRT stack grows conservatively when piping; disable
+            ! tracing there to avoid spurious stack overflows in CI.
+            if (.not. is_windows_platform()) then
+                enabled = .true.
+            end if
         end if
         ! Optional: file logging
         call get_environment_variable('FORTFRONT_TRACE_FILE', file_name, status=stat)
@@ -27,6 +31,18 @@ contains
             open(newunit=file_u, file=trim(file_name), status='replace', action='write')
         end if
     end subroutine trace_init
+
+    logical function is_windows_platform()
+        character(len=16) :: os_name
+        integer :: stat
+        call get_environment_variable('OS', os_name, status=stat)
+        if (stat == 0) then
+            is_windows_platform = index(os_name, 'Windows') > 0
+            return
+        end if
+        call get_environment_variable('WINDIR', os_name, status=stat)
+        is_windows_platform = (stat == 0)
+    end function is_windows_platform
 
     subroutine trace_enter(name)
         character(len=*), intent(in) :: name
