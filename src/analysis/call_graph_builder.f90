@@ -82,213 +82,202 @@ contains
     end function build_call_graph
 
     ! Recursive traversal for call graph construction
-    recursive subroutine traverse_for_calls(builder, arena, node_index, current_scope)
+    subroutine traverse_for_calls(builder, arena, node_index, current_scope)
         type(call_graph_builder_t), intent(inout) :: builder
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: current_scope
-        
+
+        type :: builder_stack_item_t
+            integer :: node_index = 0
+            character(len=256) :: scope = ""
+        end type builder_stack_item_t
+
+        type(builder_stack_item_t), allocatable :: stack(:)
+        type(builder_stack_item_t) :: item
         character(len=:), allocatable :: node_type
         character(len=256) :: new_scope
-        integer :: i
-        
+        integer, allocatable :: children(:)
+        integer :: top, capacity, i
+
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
-        node_type = arena%entries(node_index)%node_type
-        
-        
-        
-        select case (node_type)
-        case ("program")
-            ! Handle program node
-            select type (node => arena%entries(node_index)%node)
-            type is (program_node)
-                call builder%graph%add_proc(node%name, node_index, &
-                                           node%line, node%column, is_main=.true.)
-                call add_to_symbol_table(builder, node%name, node%name, "")
-                new_scope = node%name
-                
-                ! Traverse body
-                if (allocated(node%body_indices)) then
-                    do i = 1, size(node%body_indices)
-                        call traverse_for_calls(builder, arena, &
-                                               node%body_indices(i), new_scope)
-                    end do
-                end if
-            end select
-            
-        case ("function_def")
-            ! Handle function definition
-            select type (node => arena%entries(node_index)%node)
-            type is (function_def_node)
-                ! Build scope name for nested procedures
-                if (len_trim(current_scope) > 0) then
-                    new_scope = trim(current_scope) // "::" // node%name
-                else
+
+        capacity = 128
+        allocate(stack(capacity))
+        top = 1
+        stack(top)%node_index = node_index
+        stack(top)%scope = current_scope
+
+        do while (top > 0)
+            item = stack(top)
+            top = top - 1
+
+            if (item%node_index <= 0 .or. item%node_index > arena%size) cycle
+            if (.not. allocated(arena%entries(item%node_index)%node)) cycle
+
+            node_type = arena%entries(item%node_index)%node_type
+
+            select case (node_type)
+            case ("program")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (program_node)
+                    call builder%graph%add_proc(node%name, item%node_index, &
+                                               node%line, node%column, is_main=.true.)
+                    call add_to_symbol_table(builder, node%name, node%name, "")
                     new_scope = node%name
-                end if
-                
-                call builder%graph%add_proc(new_scope, node_index, &
-                                           node%line, node%column)
-                call add_to_symbol_table(builder, node%name, new_scope, current_scope)
-                
-                
-                ! Traverse body (includes nested procedures in contains section)
-                if (allocated(node%body_indices)) then
-                    do i = 1, size(node%body_indices)
-                        call traverse_for_calls(builder, arena, &
-                                               node%body_indices(i), new_scope)
-                    end do
-                else
-                    ! If no body_indices, try to get all children and traverse them
-                    ! This handles cases where the function body structure is different
-                    call traverse_children_for_calls(builder, arena, node_index, new_scope)
-                end if
-            end select
-            
-        case ("subroutine_def")
-            ! Handle subroutine definition
-            select type (node => arena%entries(node_index)%node)
-            type is (subroutine_def_node)
-                ! Build scope name for nested procedures
-                if (len_trim(current_scope) > 0) then
-                    new_scope = trim(current_scope) // "::" // node%name
-                else
+                    if (allocated(node%body_indices)) then
+                        do i = size(node%body_indices), 1, -1
+                            call push(node%body_indices(i), new_scope)
+                        end do
+                    end if
+                end select
+
+            case ("function_def")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (function_def_node)
+                    if (len_trim(item%scope) > 0) then
+                        new_scope = trim(item%scope) // "::" // node%name
+                    else
+                        new_scope = node%name
+                    end if
+                    call builder%graph%add_proc(new_scope, item%node_index, &
+                                               node%line, node%column)
+                    call add_to_symbol_table(builder, node%name, new_scope, item%scope)
+                    if (allocated(node%body_indices)) then
+                        do i = size(node%body_indices), 1, -1
+                            call push(node%body_indices(i), new_scope)
+                        end do
+                    else
+                        call push_children(item%node_index, new_scope)
+                    end if
+                end select
+
+            case ("subroutine_def")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (subroutine_def_node)
+                    if (len_trim(item%scope) > 0) then
+                        new_scope = trim(item%scope) // "::" // node%name
+                    else
+                        new_scope = node%name
+                    end if
+                    call builder%graph%add_proc(new_scope, item%node_index, &
+                                               node%line, node%column)
+                    call add_to_symbol_table(builder, node%name, new_scope, item%scope)
+                    if (allocated(node%body_indices)) then
+                        do i = size(node%body_indices), 1, -1
+                            call push(node%body_indices(i), new_scope)
+                        end do
+                    else
+                        call push_children(item%node_index, new_scope)
+                    end if
+                end select
+
+            case ("subroutine_call")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (subroutine_call_node)
+                    if (len_trim(item%scope) > 0) then
+                        block
+                            character(len=256) :: resolved_name
+                            resolved_name = resolve_procedure_name( &
+                                builder, node%name, item%scope)
+                            call builder%graph%add_call_edge(item%scope, resolved_name, &
+                                item%node_index, node%line, node%column)
+                        end block
+                    end if
+                end select
+
+            case ("call_or_subscript")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (call_or_subscript_node)
+                    if (len_trim(item%scope) > 0 .and. .not. node%is_array_access) then
+                        block
+                            character(len=256) :: resolved_name
+                            resolved_name = resolve_procedure_name( &
+                                builder, node%name, item%scope)
+                            call builder%graph%add_call_edge(item%scope, resolved_name, &
+                                item%node_index, node%line, node%column)
+                        end block
+                    end if
+                end select
+
+            case ("assignment")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (assignment_node)
+                    call push(node%value_index, item%scope)
+                    call push(node%target_index, item%scope)
+                end select
+
+            case ("binary_op")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (binary_op_node)
+                    call push(node%right_index, item%scope)
+                    call push(node%left_index, item%scope)
+                end select
+
+            case ("module", "module_node")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (module_node)
                     new_scope = node%name
-                end if
-                
-                call builder%graph%add_proc(new_scope, node_index, &
-                                           node%line, node%column)
-                call add_to_symbol_table(builder, node%name, new_scope, current_scope)
-                
-                ! Traverse body (includes nested procedures in contains section)
-                if (allocated(node%body_indices)) then
-                    do i = 1, size(node%body_indices)
-                        call traverse_for_calls(builder, arena, &
-                                               node%body_indices(i), new_scope)
-                    end do
-                else
-                    ! If no body_indices, try to get all children and traverse them
-                    ! This handles cases where the subroutine body structure is different
-                    call traverse_children_for_calls(builder, arena, node_index, new_scope)
-                end if
+                    if (allocated(node%procedure_indices)) then
+                        do i = size(node%procedure_indices), 1, -1
+                            call push(node%procedure_indices(i), new_scope)
+                        end do
+                    end if
+                    if (allocated(node%declaration_indices)) then
+                        do i = size(node%declaration_indices), 1, -1
+                            call push(node%declaration_indices(i), new_scope)
+                        end do
+                    end if
+                    call push_children(item%node_index, new_scope)
+                end select
+
+            case ("contains", "contains_section", "contains_node")
+                call push_children(item%node_index, item%scope)
+
+            case default
+                call push_children(item%node_index, item%scope)
             end select
-            
-        case ("subroutine_call")
-            ! Handle subroutine call
-            select type (node => arena%entries(node_index)%node)
-            type is (subroutine_call_node)
-                if (len_trim(current_scope) > 0) then
-                    block
-                        character(len=256) :: resolved_name
-                        ! Resolve the procedure name using symbol table
-                        resolved_name = resolve_procedure_name(builder, node%name, current_scope)
-                        call builder%graph%add_call_edge(current_scope, resolved_name, &
-                                                       node_index, node%line, node%column)
-                    end block
-                end if
-            end select
-            
-        case ("call_or_subscript")
-            ! Handle function call (check disambiguation flag)
-            select type (node => arena%entries(node_index)%node)
-            type is (call_or_subscript_node)
-                
-                ! Only treat as function call if NOT flagged as array access
-                if (len_trim(current_scope) > 0 .and. .not. node%is_array_access) then
-                    block
-                        character(len=256) :: resolved_name
-                        ! Resolve the procedure name using symbol table
-                        resolved_name = resolve_procedure_name(builder, node%name, current_scope)
-                        call builder%graph%add_call_edge(current_scope, resolved_name, &
-                                                       node_index, node%line, node%column)
-                    end block
-                end if
-            end select
-            
-        case ("assignment")
-            ! Handle assignment nodes - traverse both target and value
-            select type (node => arena%entries(node_index)%node)
-            type is (assignment_node)
-                ! Visit target and value expressions
-                call traverse_for_calls(builder, arena, node%target_index, current_scope)
-                call traverse_for_calls(builder, arena, node%value_index, current_scope)
-            end select
-            
-        case ("binary_op")
-            ! Handle binary operation nodes - traverse both operands
-            select type (node => arena%entries(node_index)%node)
-            type is (binary_op_node)
-                ! Visit left and right operands
-                call traverse_for_calls(builder, arena, node%left_index, current_scope)
-                call traverse_for_calls(builder, arena, node%right_index, current_scope)
-            end select
-            
-        case ("module", "module_node")
-            ! Handle module node
-            select type (node => arena%entries(node_index)%node)
-            type is (module_node)
-                ! Set module scope for procedures
-                new_scope = node%name
-                
-                ! Visit module declarations
-                if (allocated(node%declaration_indices)) then
-                    do i = 1, size(node%declaration_indices)
-                        call traverse_for_calls(builder, arena, &
-                                               node%declaration_indices(i), new_scope)
-                    end do
-                end if
-                
-                ! Visit module procedures with module scope
-                if (allocated(node%procedure_indices)) then
-                    do i = 1, size(node%procedure_indices)
-                        call traverse_for_calls(builder, arena, &
-                                               node%procedure_indices(i), new_scope)
-                    end do
-                end if
-                
-                ! WORKAROUND: Parser doesn't properly link module procedures
-                ! Also traverse all children to find floating function definitions
-                call traverse_children_for_calls(builder, arena, node_index, new_scope)
-            end select
-            
-        case ("contains", "contains_section", "contains_node")
-            ! Handle contains section - traverse all contained procedures in the current scope
-            select type (node => arena%entries(node_index)%node)
-            type is (contains_node)
-                ! Contains node found - traverse all children in current scope
-                call traverse_children_for_calls(builder, arena, node_index, current_scope)
-            class default
-                ! Unknown contains-related node type - still traverse children
-                call traverse_children_for_calls(builder, arena, node_index, current_scope)
-            end select
-            
-        case default
-            ! For other node types, just traverse children
-            call traverse_children_for_calls(builder, arena, node_index, current_scope)
-        end select
+        end do
+
+    contains
+        subroutine ensure_capacity()
+            type(builder_stack_item_t), allocatable :: tmp(:)
+
+            if (.not. allocated(stack)) then
+                capacity = 128
+                allocate(stack(capacity))
+            else if (top >= capacity) then
+                capacity = capacity * 2
+                allocate(tmp(capacity))
+                tmp(1:top) = stack(1:top)
+                call move_alloc(tmp, stack)
+            end if
+        end subroutine ensure_capacity
+
+        subroutine push(idx, scope_value)
+            integer, intent(in) :: idx
+            character(len=*), intent(in) :: scope_value
+
+            if (idx <= 0) return
+            call ensure_capacity()
+            top = top + 1
+            stack(top)%node_index = idx
+            stack(top)%scope = scope_value
+        end subroutine push
+
+        subroutine push_children(parent_index, scope_value)
+            integer, intent(in) :: parent_index
+            character(len=*), intent(in) :: scope_value
+
+            children = arena%get_children(parent_index)
+            if (allocated(children)) then
+                do i = size(children), 1, -1
+                    call push(children(i), scope_value)
+                end do
+            end if
+        end subroutine push_children
     end subroutine traverse_for_calls
-    
-    ! Helper to traverse all children of a node
-    subroutine traverse_children_for_calls(builder, arena, node_index, current_scope)
-        type(call_graph_builder_t), intent(inout) :: builder
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(len=*), intent(in) :: current_scope
-        
-        integer, allocatable :: children(:)
-        integer :: i
-        
-        ! Get children indices based on node type
-        children = arena%get_children(node_index)
-        
-        if (allocated(children)) then
-            do i = 1, size(children)
-                call traverse_for_calls(builder, arena, children(i), current_scope)
-            end do
-        end if
-    end subroutine traverse_children_for_calls
 
     ! Add a procedure to the symbol table
     subroutine add_to_symbol_table(builder, simple_name, full_name, scope)
@@ -300,7 +289,8 @@ contains
         ! Expand table if needed
         if (builder%symbol_count >= size(builder%symbol_table)) then
             allocate(temp_table(size(builder%symbol_table) * 2))
-            temp_table(1:builder%symbol_count) = builder%symbol_table(1:builder%symbol_count)
+            temp_table(1:builder%symbol_count) = &
+                builder%symbol_table(1:builder%symbol_count)
             call move_alloc(temp_table, builder%symbol_table)
         end if
         
@@ -312,7 +302,8 @@ contains
     end subroutine add_to_symbol_table
     
     ! Resolve a procedure name to its fully qualified name
-    function resolve_procedure_name(builder, simple_name, calling_scope) result(resolved_name)
+    function resolve_procedure_name(builder, simple_name, calling_scope) &
+            result(resolved_name)
         type(call_graph_builder_t), intent(in) :: builder
         character(len=*), intent(in) :: simple_name
         character(len=*), intent(in) :: calling_scope
@@ -405,8 +396,10 @@ contains
                 inferred_full_name = trim(caller_scope) // "::" // callee_name
                 
                 ! Add inferred procedure to symbol table and graph
-                call add_to_symbol_table(builder, callee_name, inferred_full_name, caller_scope)
-                call builder%graph%add_proc(inferred_full_name, 0, 0, 0)  ! No source location available
+                call add_to_symbol_table(builder, callee_name, inferred_full_name, &
+                    caller_scope)
+                ! No source location available
+                call builder%graph%add_proc(inferred_full_name, 0, 0, 0)
             end if
         end do
     end subroutine handle_missing_nested_procedures
@@ -453,6 +446,9 @@ contains
                 ! and that procedure exists in the current scope, it's likely recursive
                 block
                     character(len=256) :: parent_scope
+                    character(len=256) :: parent_scope_trim
+                    character(len=256) :: simple_name_trim
+                    character(len=256) :: callee_trim
                     logical :: should_be_recursive
                     
                     ! Get parent scope
@@ -464,24 +460,29 @@ contains
                         parent_scope = ""
                     end if
                     
+                    parent_scope_trim = trim(parent_scope)
+                    simple_name_trim = trim(simple_name)
                     should_be_recursive = .false.
                     
                     ! Check if parent scope calls this procedure by simple name
                     do j = 1, builder%graph%call_count
-                        if (trim(builder%graph%calls(j)%caller) == trim(parent_scope) .and. &
-                            trim(builder%graph%calls(j)%callee) == trim(simple_name)) then
-                            should_be_recursive = .true.
-                            exit
+                        if (trim(builder%graph%calls(j)%caller) == parent_scope_trim) then
+                            callee_trim = trim(builder%graph%calls(j)%callee)
+                            if (callee_trim == simple_name_trim) then
+                                should_be_recursive = .true.
+                                exit
+                            end if
                         end if
                     end do
                     
                     ! Add recursive call if pattern suggests recursion
                     ! ONLY if the function is actually marked as recursive in Fortran
-                    if (should_be_recursive .and. index(simple_name, "factorial") > 0) then
+                    if (should_be_recursive .and. &
+                        index(simple_name, "factorial") > 0) then
                         ! This is a temporary fix specifically for factorial - 
                         ! a proper fix would check the AST for 'recursive' keyword
-                        call builder%graph%add_call_edge(proc_name, simple_name, &
-                                                       0, 0, 0)  ! No source location available
+                        ! No source location available
+                        call builder%graph%add_call_edge(proc_name, simple_name, 0, 0, 0)
                     end if
                 end block
             end if
