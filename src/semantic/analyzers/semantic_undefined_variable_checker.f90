@@ -15,18 +15,6 @@ module semantic_undefined_variable_checker
 
     public :: check_undefined_variables_generic
 
-    ! Generic interface to work with any context type that has scopes and errors
-    abstract interface
-        subroutine check_undefined_vars_interface(scopes, errors, strict_mode, arena, prog_index)
-            import :: scope_stack_t, error_collection_t, ast_arena_t
-            type(scope_stack_t), intent(inout) :: scopes
-            type(error_collection_t), intent(inout) :: errors  
-            logical, intent(in) :: strict_mode
-            type(ast_arena_t), intent(inout) :: arena
-            integer, intent(in) :: prog_index
-        end subroutine
-    end interface
-
 contains
 
     ! Generic implementation that works with any context type
