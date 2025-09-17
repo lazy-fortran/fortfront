@@ -394,7 +394,7 @@ jobs:
 
         try {
           Write-Host "Running fpm build"
-          fpm build 2>&1 | ForEach-Object { Write-Host $_ }
+          fpm build --flag "-Wl,--stack,16777216" 2>&1 | ForEach-Object { Write-Host $_ }
         } catch {
           Write-Host "❌ Windows build failed: $_"
           exit 1
