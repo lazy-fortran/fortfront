@@ -34,6 +34,19 @@ module frontend_transformation
     type(compiler_arena_t), save :: shared_arena
     logical, save :: shared_arena_initialized = .false.
 
+    ! Profiling support (optional runtime instrumentation)
+    type :: profile_state_t
+        logical :: enabled = .false.
+        logical :: flushed = .false.
+        integer :: rate = 1
+        integer :: count = 0
+        character(len=64) :: names(64)
+        real(real64) :: durations(64)
+        integer :: stack_top = 0
+        character(len=64) :: stack_names(32)
+        integer :: stack_ticks(32)
+    end type profile_state_t
+
     ! Formatting options for code generation
     type :: format_options_t
         integer :: indent_size = 4
@@ -44,6 +57,89 @@ module frontend_transformation
     end type format_options_t
 
 contains
+
+    subroutine profile_state_init(state)
+        type(profile_state_t), intent(inout) :: state
+        character(len=16) :: flag
+        integer :: status
+
+        state%enabled = .false.
+        state%flushed = .false.
+        state%rate = 1
+        state%count = 0
+        state%names = ''
+        state%durations = 0.0_real64
+        state%stack_top = 0
+        state%stack_names = ''
+        state%stack_ticks = 0
+
+        call get_environment_variable('FORTFRONT_PROFILE', flag, status=status)
+        if (status == 0 .and. len_trim(flag) > 0) then
+            state%enabled = .true.
+            call system_clock(count_rate=state%rate)
+            if (state%rate <= 0) state%rate = 1
+        end if
+    end subroutine profile_state_init
+
+    subroutine profile_stage_begin(state, name)
+        type(profile_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: name
+
+        if (.not. state%enabled) return
+        if (state%stack_top >= size(state%stack_names)) return
+        state%stack_top = state%stack_top + 1
+        state%stack_names(state%stack_top) = name
+        call system_clock(state%stack_ticks(state%stack_top))
+    end subroutine profile_stage_begin
+
+    subroutine profile_stage_end(state, name)
+        type(profile_state_t), intent(inout) :: state
+        character(len=*), intent(in), optional :: name
+        integer :: start_tick
+        real(real64) :: delta
+
+        if (.not. state%enabled) return
+        if (state%stack_top <= 0) return
+        start_tick = state%stack_ticks(state%stack_top)
+        call system_clock(state%stack_ticks(state%stack_top))
+        delta = real(state%stack_ticks(state%stack_top) - start_tick, real64) * 1000.0_real64 / real(state%rate, real64)
+        if (state%count < size(state%names)) then
+            state%count = state%count + 1
+            if (present(name)) then
+                state%names(state%count) = name
+            else
+                state%names(state%count) = state%stack_names(state%stack_top)
+            end if
+            state%durations(state%count) = delta
+        end if
+        state%stack_top = state%stack_top - 1
+    end subroutine profile_stage_end
+
+    subroutine profile_stage_record(state, name)
+        type(profile_state_t), intent(inout) :: state
+        character(len=*), intent(in) :: name
+
+        if (.not. state%enabled) return
+        call profile_stage_begin(state, name)
+        call profile_stage_end(state, name)
+    end subroutine profile_stage_record
+
+    subroutine profile_state_flush(state)
+        type(profile_state_t), intent(inout) :: state
+        integer :: i
+        real(real64) :: total
+
+        if (.not. state%enabled) return
+        if (state%flushed) return
+        state%flushed = .true.
+        total = 0.0_real64
+        write(error_unit, '(A)') 'PROFILE SUMMARY (ms):'
+        do i = 1, state%count
+            write(error_unit, '(2X,A,1X,F10.3)') trim(state%names(i)), state%durations(i)
+            total = total + state%durations(i)
+        end do
+        write(error_unit, '(2X,A,1X,F10.3)') 'total', total
+    end subroutine profile_state_flush
 
     ! String-based transformation function for CLI usage
     subroutine transform_lazy_fortran_string(input, output, error_msg)
@@ -58,36 +154,12 @@ contains
         logical :: debug_transform
         character(len=8) :: debug_flag
         integer :: env_status
-        character(len=16) :: profile_flag
-        integer :: profile_status
-        logical :: profile_enabled
-        logical :: profile_flushed
-        integer :: profile_rate
-        integer :: profile_tick_prev
-        integer :: profile_tick_curr
-        integer :: profile_count
-        character(len=48) :: profile_names(16)
-        real(real64) :: profile_ms(16)
+        type(profile_state_t) :: profile
 
         allocate(character(len=0) :: error_msg)
         error_msg = ""
 
-        profile_enabled = .false.
-        profile_flushed = .false.
-        profile_count = 0
-        profile_names = ''
-        profile_ms = 0.0_real64
-        profile_rate = 1
-        profile_tick_prev = 0
-        profile_tick_curr = 0
-        call get_environment_variable('FORTFRONT_PROFILE', profile_flag, status=profile_status)
-        if (profile_status == 0 .and. len_trim(profile_flag) > 0) then
-            profile_enabled = .true.
-            call system_clock(count_rate=profile_rate)
-            if (profile_rate <= 0) profile_rate = 1
-            call system_clock(profile_tick_prev)
-            profile_tick_curr = profile_tick_prev
-        end if
+        call profile_state_init(profile)
 
         call trace_init()
         call trace_enter('transform_lazy_fortran_string')
@@ -98,6 +170,8 @@ contains
         call initialize_codegen()
 
         ! Obtain the shared compiler arena and reset for a clean run
+        call profile_stage_begin(profile, 'setup')
+
         if (.not. shared_arena_initialized) then
             shared_arena = create_compiler_arena()
             shared_arena_initialized = .true.
@@ -109,42 +183,49 @@ contains
         if (is_empty_or_whitespace_only(input)) then
             call create_minimal_program(output)
             call trace_leave('transform_lazy_fortran_string')
-            call flush_profile()
+            call profile_stage_end(profile, 'setup')
+            call profile_state_flush(profile)
             return
         end if
 
+        call profile_stage_end(profile, 'setup')
+
         ! Phase 1: Lexical Analysis
         call trace_enter('phase:lexer')
-        call run_lexical_analysis(input, tokens, shared_arena, error_msg)
+        call profile_stage_begin(profile, 'phase:lexer')
+        call run_lexical_analysis(input, tokens, shared_arena, error_msg, profile)
+        call profile_stage_end(profile, 'phase:lexer')
         call trace_leave('phase:lexer')
-        call profile_record('phase:lexer')
         if (error_msg /= "") then
             call handle_lexical_error(input, error_msg, output, shared_arena)
             call trace_leave('transform_lazy_fortran_string')
-            call flush_profile()
+            call profile_state_flush(profile)
             return
         end if
 
         ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
         call trace_enter('phase:syntax')
+        call profile_stage_begin(profile, 'phase:syntax')
         call validate_syntax_with_reporting(input, tokens, error_msg, output, shared_arena)
+        call profile_stage_end(profile, 'phase:syntax')
         call trace_leave('phase:syntax')
-        call profile_record('phase:syntax')
         if (error_msg /= "") then
-            call flush_profile()
+            call profile_state_flush(profile)
             return
         end if
 
         ! Check for meaningful content
         if (not_meaningful_for_parsing(tokens)) then
             call create_minimal_program(output)
-            call flush_profile()
+            call profile_state_flush(profile)
             return
         end if
 
         ! Phase 2: Parsing
         call trace_enter('phase:parser')
-        call run_parsing_phase(tokens, shared_arena, prog_index, error_msg, output)
+        call profile_stage_begin(profile, 'phase:parser')
+        call run_parsing_phase(tokens, shared_arena, prog_index, error_msg, output, profile)
+        call profile_stage_end(profile, 'phase:parser')
         if (debug_transform) then
             write(error_unit, '(A,I0)') 'DEBUG transform: prog_index after parsing = ', prog_index
             if (allocated(output)) then
@@ -155,15 +236,16 @@ contains
             end if
         end if
         call trace_leave('phase:parser')
-        call profile_record('phase:parser')
         if (error_msg /= "") then
-            call flush_profile()
+            call profile_state_flush(profile)
             return
         end if
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call trace_enter('phase:final')
-        call run_final_phases(shared_arena, prog_index, output, error_msg)
+        call profile_stage_begin(profile, 'phase:final')
+        call run_final_phases(shared_arena, prog_index, output, error_msg, profile)
+        call profile_stage_end(profile, 'phase:final')
         if (debug_transform) then
             write(error_unit, '(A,I0)') 'DEBUG transform: prog_index after final = ', prog_index
             write(error_unit, '(A)') 'DEBUG transform: final output:'
@@ -184,9 +266,8 @@ contains
             end if
         end if
         call trace_leave('phase:final')
-        call profile_record('phase:final')
         if (error_msg /= "") then
-            call flush_profile()
+            call profile_state_flush(profile)
             return
         end if
 
@@ -210,41 +291,10 @@ contains
             end block
         end if
         call trace_leave('transform_lazy_fortran_string')
-        call profile_record('post-processing')
-        call flush_profile()
+        call profile_stage_record(profile, 'post-processing')
+        call profile_state_flush(profile)
 
         ! Reuse arena: no destroy, it will be reset at next call
-    contains
-        subroutine profile_record(stage_name)
-            character(len=*), intent(in) :: stage_name
-            real(real64) :: duration
-
-            if (.not. profile_enabled) return
-            call system_clock(profile_tick_curr)
-            duration = real(profile_tick_curr - profile_tick_prev, real64) * 1000.0_real64 / real(profile_rate, real64)
-            if (profile_count < size(profile_names)) then
-                profile_count = profile_count + 1
-                profile_names(profile_count) = stage_name
-                profile_ms(profile_count) = duration
-            end if
-            profile_tick_prev = profile_tick_curr
-        end subroutine profile_record
-
-        subroutine flush_profile()
-            integer :: i
-            real(real64) :: total_ms
-
-            if (.not. profile_enabled) return
-            if (profile_flushed) return
-            profile_flushed = .true.
-            write(error_unit, '(A)') 'PROFILE SUMMARY (ms):'
-            total_ms = 0.0_real64
-            do i = 1, profile_count
-                write(error_unit, '(2X,A,1X,F8.3)') trim(profile_names(i)), profile_ms(i)
-                total_ms = total_ms + profile_ms(i)
-            end do
-            write(error_unit, '(2X,A,1X,F8.3)') 'total', total_ms
-        end subroutine flush_profile
     end subroutine transform_lazy_fortran_string
 
     ! String-based transformation function with formatting options
@@ -292,14 +342,17 @@ contains
     end subroutine create_minimal_program
 
     ! Run lexical analysis
-    subroutine run_lexical_analysis(input, tokens, compiler_arena, error_msg)
+    subroutine run_lexical_analysis(input, tokens, compiler_arena, error_msg, profile)
         character(len=*), intent(in) :: input
         type(token_t), allocatable, intent(out) :: tokens(:)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         character(len=:), allocatable, intent(inout) :: error_msg
+        type(profile_state_t), intent(inout), optional :: profile
 
         call compiler_arena%next_phase("lexer")
+        if (present(profile)) call profile_stage_begin(profile, 'lex:tokenize')
         call lex_source(input, tokens, error_msg)
+        if (present(profile)) call profile_stage_end(profile, 'lex:tokenize')
     end subroutine run_lexical_analysis
 
     ! Handle lexical error
@@ -361,16 +414,19 @@ contains
     end function not_meaningful_for_parsing
 
     ! Run parsing phase
-    subroutine run_parsing_phase(tokens, compiler_arena, prog_index, error_msg, output)
+    subroutine run_parsing_phase(tokens, compiler_arena, prog_index, error_msg, output, profile)
         type(token_t), intent(in) :: tokens(:)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(out) :: prog_index
         character(len=:), allocatable, intent(inout) :: error_msg
         character(len=:), allocatable, intent(out) :: output
+        type(profile_state_t), intent(inout), optional :: profile
 
         ! Phase 2: Parsing with enhanced error recovery
         call compiler_arena%next_phase("parser")
+        if (present(profile)) call profile_stage_begin(profile, 'parser:parse_tokens')
         call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
+        if (present(profile)) call profile_stage_end(profile, 'parser:parse_tokens')
         
         ! Enhanced error handling - don't stop at first parsing issue
         if (error_msg /= "" .and. index(error_msg, "Cannot open") == 0) then
@@ -444,18 +500,23 @@ contains
     end subroutine handle_invalid_program_index
 
     ! Run final phases (semantic, standardization, codegen)
-    subroutine run_final_phases(compiler_arena, prog_index, output, error_msg)
+    subroutine run_final_phases(compiler_arena, prog_index, output, error_msg, profile)
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
         character(len=:), allocatable, intent(out) :: output
         character(len=:), allocatable, intent(inout) :: error_msg
+        type(profile_state_t), intent(inout), optional :: profile
 
         ! Phase 3: Semantic Analysis
+        if (present(profile)) call profile_stage_begin(profile, 'final:semantic')
         call run_semantic_analysis_phase(compiler_arena, prog_index, error_msg)
+        if (present(profile)) call profile_stage_end(profile, 'final:semantic')
         if (allocated(error_msg) .and. len(error_msg) > 0) then
             ! CRITICAL FIX for Issue #1120: Generate output even with semantic errors
             ! Continue to code generation to provide useful output to user
+            if (present(profile)) call profile_stage_begin(profile, 'final:codegen')
             call run_code_generation_phase(compiler_arena, prog_index, output)
+            if (present(profile)) call profile_stage_end(profile, 'final:codegen')
             ! If code generation fails, provide minimal program
             if (.not. allocated(output) .or. len(output) == 0) then
                 call create_minimal_program(output)
@@ -464,10 +525,14 @@ contains
         end if
 
         ! Phase 4: Standardization
+        if (present(profile)) call profile_stage_begin(profile, 'final:standardize')
         call run_standardization_phase(compiler_arena, prog_index)
+        if (present(profile)) call profile_stage_end(profile, 'final:standardize')
 
         ! Phase 5: Code Generation
+        if (present(profile)) call profile_stage_begin(profile, 'final:codegen')
         call run_code_generation_phase(compiler_arena, prog_index, output)
+        if (present(profile)) call profile_stage_end(profile, 'final:codegen')
     end subroutine run_final_phases
 
     ! Run semantic analysis phase
