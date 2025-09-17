@@ -22,7 +22,8 @@
 ## Work Breakdown
 
 1. **Legacy Audit & Removal**
-   - [ ] Scan parser, standardizer, and utilities for unused recursive helpers (`parse_*`, `traverse_*`, legacy validation shims).
+   - [x] Scan parser, standardizer, and utilities for unused recursive helpers (`parse_*`, `traverse_*`, legacy validation shims). (2025-09-18, commit d9a59db, perf n/a)
+     Audit found no unused helpers in parser/standardizer/utilities; removed stale semantic interfaces exposed by the scan.
    - [ ] Drop stale tests/docs covering removed behaviour; replace with canonical SOT parser expectations.
 
 2. **Iterative Pratt Core**
@@ -110,7 +111,7 @@
 1. **Baseline & Instrumentation**
    - [x] Add lightweight timers around CLI stages (setup, lexer, parser, semantics, codegen) gated by `FORTFRONT_PROFILE=1` with nested stage support.
    - [x] Capture current wall-clock timings on representative inputs (small, medium, stress) and store results in `docs/perf/baseline.md`.
-   - _2025-09-18_: Baseline timings recorded; note that `setup` currently dominates and should be profiled further after analyzer pruning. Allocation tracking remains future work.
+   - _2025-09-18_: Baseline timings recorded; setup time is dominated by arena creation/reset. Allocation tracking remains future work.
 
 2. **Prune Non-Essential Analyzers From CLI Hot Path**
    - [ ] Introduce build/runtime flag to skip control-flow, call-graph, and performance analyzers during CLI transforms.
