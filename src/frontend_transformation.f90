@@ -130,21 +130,24 @@ contains
     subroutine profile_state_flush(state)
         type(profile_state_t), intent(inout) :: state
         integer :: i
-        real(real64) :: total
+        real(real64) :: total_real
         integer :: tick_now
+        integer :: millis
 
         if (.not. state%enabled) return
         if (state%flushed) return
         state%flushed = .true.
-        total = 0.0_real64
+        total_real = 0.0_real64
         write(error_unit, '(A)') 'PROFILE SUMMARY (ms):'
         do i = 1, state%count
-            write(error_unit, '(2X,A,1X,F10.3)') trim(state%names(i)), state%durations(i)
-            total = total + state%durations(i)
+            millis = nint(state%durations(i))
+            write(error_unit, '(2X,A,1X,I0)') trim(state%names(i)), millis
+            total_real = total_real + state%durations(i)
         end do
         call system_clock(tick_now)
-        total = real(tick_now - state%tick_start, real64) * 1000.0_real64 / real(state%rate, real64)
-        write(error_unit, '(2X,A,1X,F10.3)') 'total', total
+        total_real = real(tick_now - state%tick_start, real64) * 1000.0_real64 / real(state%rate, real64)
+        millis = nint(total_real)
+        write(error_unit, '(2X,A,1X,I0)') 'total', millis
     end subroutine profile_state_flush
 
     ! String-based transformation function for CLI usage
