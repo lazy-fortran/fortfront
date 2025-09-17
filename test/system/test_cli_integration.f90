@@ -28,6 +28,15 @@ program test_cli_integration
     print *, "Building fortfront executable..."
     block
         character(len=:), allocatable :: build_command
+        integer :: clean_status
+
+        ! Ensure we do not reuse a cached executable without the stack flag
+        if (is_windows) then
+            call execute_command_line('cmd /C if exist build rmdir /S /Q build', exitstat=clean_status)
+        else
+            call execute_command_line('rm -rf build', exitstat=clean_status)
+        end if
+
         build_command = timeout_wrapper('60') // 'fpm build'
         if (is_windows) build_command = build_command // ' --flag "-Wl,--stack,16777216"'
         call execute_command_line(build_command, exitstat=test_count)
