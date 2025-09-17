@@ -390,82 +390,21 @@ jobs:
           exit 1
         }
         
-        # Progressive Windows Build Validation
-        Write-Host "🎯 Progressive Windows Build Validation"
-        
-        # Stage 1: Ultra-conservative build
-        Write-Host "Stage 1: Ultra-conservative build (FRAUD RECOVERY)"
-        $env:OMP_NUM_THREADS = "1"  # Single-threaded for maximum stability
-        
-        $stage1_success = $false
+        Write-Host "🎯 Windows build and test"
+
         try {
-          fpm build --flag "-Wl,--stack,16777216" 2>&1
-          Write-Host "✅ Stage 1: Ultra-conservative build successful"
-          $stage1_success = $true
+          Write-Host "Running fpm build"
+          fpm build 2>&1 | ForEach-Object { Write-Host $_ }
         } catch {
-          Write-Host "❌ Stage 1: Ultra-conservative build failed: $_"
+          Write-Host "❌ Windows build failed: $_"
+          exit 1
         }
-        
-        # Stage 2: Standard build (only if Stage 1 succeeded)
-        $stage2_success = $false
-        if ($stage1_success) {
-          Write-Host "Stage 2: Standard Windows build"
-          try {
-            fpm build --flag "-Wl,--stack,16777216" 2>&1
-            Write-Host "✅ Stage 2: Standard build successful"
-            $stage2_success = $true
-          } catch {
-            Write-Host "⚠️  Stage 2: Standard build failed, but Stage 1 succeeded"
-          }
-        }
-        
-        # Stage 3: Basic test validation (only if build succeeded)
-        $stage3_success = $false
-        if ($stage1_success -or $stage2_success) {
-          Write-Host "Stage 3: Basic test validation"
-          
-          # Try a simple diagnostic test with extended timeout
-          $timeout = 60  # 60 seconds max
-          $job = Start-Job -ScriptBlock {
-            try {
-              & fpm test test_minimal_bench 2>&1
-            } catch {
-              Write-Output "Test execution failed: $_"
-            }
-          }
-          
-          if (Wait-Job $job -Timeout $timeout) {
-            $result = Receive-Job $job
-            Remove-Job $job
-            Write-Host "✅ Stage 3: Basic test completed"
-            Write-Host $result
-            $stage3_success = $true
-          } else {
-            Stop-Job $job
-            Remove-Job $job
-            Write-Host "⚠️  Stage 3: Test timed out (expected in some cases)"
-          }
-        }
-        
-        # Build validation assessment
-        Write-Host "Build validation assessment:"
-        Write-Host "   Stage 1 (Ultra-conservative): $stage1_success"
-        Write-Host "   Stage 2 (Standard): $stage2_success"
-        Write-Host "   Stage 3 (Test validation): $stage3_success"
-        
-        # Success criteria: At least Stage 1 must succeed
-        if ($stage1_success) {
-          Write-Host "✅ SUCCESS: Windows build validation passed"
-          if ($stage2_success) {
-            Write-Host "🎆 BONUS: Standard build also successful"
-          }
-          if ($stage3_success) {
-            Write-Host "🎆 BONUS: Test validation also successful"
-          }
-          exit 0
-        } else {
-          Write-Host "❌ FAILURE: All Windows build attempts failed"
-          Write-Host "This indicates Windows CI issues"
+
+        try {
+          Write-Host "Running fpm test"
+          fpm test --flag "-Wl,--stack,16777216" 2>&1 | ForEach-Object { Write-Host $_ }
+        } catch {
+          Write-Host "❌ Windows tests failed: $_"
           exit 1
         }
 
