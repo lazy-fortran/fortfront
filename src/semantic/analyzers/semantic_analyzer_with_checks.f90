@@ -9,7 +9,7 @@ module semantic_analyzer_with_checks
 contains
     
     ! Analyze with additional validation checks
-    recursive subroutine analyze_with_checks(ctx, arena, root_index)
+    subroutine analyze_with_checks(ctx, arena, root_index)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index

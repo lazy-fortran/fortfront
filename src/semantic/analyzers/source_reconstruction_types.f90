@@ -99,13 +99,13 @@ module source_reconstruction_types
 
     ! Abstract interfaces
     abstract interface
-        recursive function strategy_name_interface(this) result(name)
+        function strategy_name_interface(this) result(name)
             import :: source_strategy_t
             class(source_strategy_t), intent(in) :: this
             character(:), allocatable :: name
         end function
 
-        recursive function reconstruct_interface(this, context, location, node_index) &
+        function reconstruct_interface(this, context, location, node_index) &
                  result(source_text)
             import :: source_strategy_t, source_context_t, source_location_t
             class(source_strategy_t), intent(in) :: this
@@ -159,7 +159,7 @@ module source_reconstruction_types
 contains
 
     ! Complete implementations - Issue #1085 resolution
-    recursive subroutine initialize_source(this, source_text)
+    subroutine initialize_source(this, source_text)
         class(source_context_t), intent(inout) :: this
         character(len=*), intent(in) :: source_text
         
@@ -195,7 +195,7 @@ contains
         end do
     end subroutine initialize_source
 
-    recursive function get_line_text_from_context(this, line_number) result(line_text)
+    function get_line_text_from_context(this, line_number) result(line_text)
         class(source_context_t), intent(in) :: this
         integer, intent(in) :: line_number
         character(:), allocatable :: line_text
@@ -225,7 +225,7 @@ contains
         end if
     end function get_line_text_from_context
 
-    recursive function extract_range_from_context(this, start_pos, end_pos) result(text)
+    function extract_range_from_context(this, start_pos, end_pos) result(text)
         class(source_context_t), intent(in) :: this
         integer, intent(in) :: start_pos, end_pos
         character(:), allocatable :: text
@@ -257,7 +257,7 @@ contains
         end if
     end function extract_range_from_context
 
-    recursive function extract_range_from_location(this, location) result(text)
+    function extract_range_from_location(this, location) result(text)
         class(source_context_t), intent(in) :: this
         type(source_location_t), intent(in) :: location
         character(:), allocatable :: text
@@ -265,13 +265,13 @@ contains
         text = extract_range_from_context(this, location%start_char, location%end_char)
     end function extract_range_from_location
 
-    recursive function get_exact_strategy_name(this) result(name)
+    function get_exact_strategy_name(this) result(name)
         class(exact_source_strategy_t), intent(in) :: this
         character(:), allocatable :: name
         name = "exact_source"
     end function get_exact_strategy_name
 
-    recursive function reconstruct_exact_source(this, context, location, node_index) result(source_text)
+    function reconstruct_exact_source(this, context, location, node_index) result(source_text)
         class(exact_source_strategy_t), intent(in) :: this
         type(source_context_t), intent(in) :: context
         type(source_location_t), intent(in) :: location
@@ -288,13 +288,13 @@ contains
         end if
     end function reconstruct_exact_source
 
-    recursive function get_generated_strategy_name(this) result(name)
+    function get_generated_strategy_name(this) result(name)
         class(generated_source_strategy_t), intent(in) :: this
         character(:), allocatable :: name
         name = "generated_source"
     end function get_generated_strategy_name
 
-    recursive function reconstruct_generated_source(this, context, location, node_index) result(source_text)
+    function reconstruct_generated_source(this, context, location, node_index) result(source_text)
         class(generated_source_strategy_t), intent(in) :: this
         type(source_context_t), intent(in) :: context
         type(source_location_t), intent(in) :: location
@@ -317,7 +317,7 @@ contains
         end if
     end function reconstruct_generated_source
 
-    recursive subroutine reconstruct_node_with_arena(this, context, location, arena, node_index, source_text)
+    subroutine reconstruct_node_with_arena(this, context, location, arena, node_index, source_text)
         class(generated_source_strategy_t), intent(in) :: this
         type(source_context_t), intent(in) :: context
         type(source_location_t), intent(in) :: location
@@ -337,7 +337,7 @@ contains
     end subroutine reconstruct_node_with_arena
 
     ! Registry methods - complete implementations
-    recursive subroutine register_strategy(this, node_type, strategy)
+    subroutine register_strategy(this, node_type, strategy)
         class(node_registry_t), intent(inout) :: this
         character(len=*), intent(in) :: node_type
         class(source_strategy_t), intent(in) :: strategy
@@ -364,7 +364,7 @@ contains
         allocate(this%entries(this%count)%strategy, source=strategy)
     end subroutine register_strategy
 
-    recursive function has_strategy(this, node_type) result(found)
+    function has_strategy(this, node_type) result(found)
         class(node_registry_t), intent(in) :: this
         character(len=*), intent(in) :: node_type
         logical :: found
@@ -383,7 +383,7 @@ contains
         end do
     end function has_strategy
 
-    recursive function get_strategy(this, node_type) result(strategy)
+    function get_strategy(this, node_type) result(strategy)
         class(node_registry_t), intent(in) :: this
         character(len=*), intent(in) :: node_type
         class(source_strategy_t), pointer :: strategy
@@ -395,7 +395,7 @@ contains
     end function get_strategy
 
     ! Dispatcher methods - placeholder implementations
-    recursive subroutine initialize_default_strategies(this)
+    subroutine initialize_default_strategies(this)
         class(strategy_dispatcher_t), intent(inout) :: this
         
         ! Initialize registry with default strategies
@@ -404,7 +404,7 @@ contains
         if (allocated(this%registry%entries)) deallocate(this%registry%entries)
     end subroutine initialize_default_strategies
 
-    recursive function dispatch_reconstruct_node(this, context, location, node_index) result(source_text)
+    function dispatch_reconstruct_node(this, context, location, node_index) result(source_text)
         class(strategy_dispatcher_t), intent(in) :: this
         type(source_context_t), intent(in) :: context
         type(source_location_t), intent(in) :: location
@@ -428,7 +428,7 @@ contains
     end function dispatch_reconstruct_node
 
     ! Quality assessment methods - complete implementations
-    recursive subroutine initialize_quality(this)
+    subroutine initialize_quality(this)
         class(reconstruction_quality_t), intent(inout) :: this
         this%total_nodes = 0
         this%exact_matches = 0
@@ -436,25 +436,25 @@ contains
         this%failed_reconstructions = 0
     end subroutine initialize_quality
 
-    recursive subroutine record_exact_match(this)
+    subroutine record_exact_match(this)
         class(reconstruction_quality_t), intent(inout) :: this
         this%exact_matches = this%exact_matches + 1
         this%total_nodes = this%total_nodes + 1
     end subroutine record_exact_match
 
-    recursive subroutine record_generated_fallback(this)
+    subroutine record_generated_fallback(this)
         class(reconstruction_quality_t), intent(inout) :: this
         this%generated_fallbacks = this%generated_fallbacks + 1
         this%total_nodes = this%total_nodes + 1
     end subroutine record_generated_fallback
 
-    recursive subroutine record_failed_reconstruction(this)
+    subroutine record_failed_reconstruction(this)
         class(reconstruction_quality_t), intent(inout) :: this
         this%failed_reconstructions = this%failed_reconstructions + 1
         this%total_nodes = this%total_nodes + 1
     end subroutine record_failed_reconstruction
 
-    recursive function get_accuracy(this) result(accuracy)
+    function get_accuracy(this) result(accuracy)
         class(reconstruction_quality_t), intent(in) :: this
         real :: accuracy
         
@@ -466,13 +466,13 @@ contains
     end function get_accuracy
 
     ! Result type methods - placeholder implementations
-    recursive function source_reconstruction_get_result_type(this) result(type_name)
+    function source_reconstruction_get_result_type(this) result(type_name)
         class(source_reconstruction_result_t), intent(in) :: this
         character(:), allocatable :: type_name
         type_name = "source_reconstruction"
     end function source_reconstruction_get_result_type
 
-    recursive function source_reconstruction_clone_result(this) result(clone)
+    function source_reconstruction_clone_result(this) result(clone)
         class(source_reconstruction_result_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: clone
         type(source_reconstruction_result_t), allocatable :: typed_clone
@@ -481,13 +481,13 @@ contains
         call move_alloc(typed_clone, clone)
     end function source_reconstruction_clone_result
 
-    recursive subroutine source_reconstruction_merge_results(this, other)
+    subroutine source_reconstruction_merge_results(this, other)
         class(source_reconstruction_result_t), intent(inout) :: this
         class(semantic_result_base_t), intent(in) :: other
         ! Placeholder implementation
     end subroutine source_reconstruction_merge_results
 
-    recursive subroutine source_reconstruction_result_assign(this, rhs)
+    subroutine source_reconstruction_result_assign(this, rhs)
         class(source_reconstruction_result_t), intent(inout) :: this
         type(source_reconstruction_result_t), intent(in) :: rhs
         this%original_source = rhs%original_source
@@ -497,7 +497,7 @@ contains
     end subroutine source_reconstruction_result_assign
 
     ! Base implementations for source_reconstruction_analyzer_t
-    recursive subroutine analyze_source_reconstruction_base(this, shared_context, arena, node_index)
+    subroutine analyze_source_reconstruction_base(this, shared_context, arena, node_index)
         class(source_reconstruction_analyzer_t), intent(inout) :: this
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
@@ -507,20 +507,20 @@ contains
         end associate
     end subroutine analyze_source_reconstruction_base
 
-    recursive function get_source_reconstruction_results_base(this) result(results)
+    function get_source_reconstruction_results_base(this) result(results)
         class(source_reconstruction_analyzer_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
         ! Base implementation - to be overridden
         allocate(source_reconstruction_result_t :: results)
     end function get_source_reconstruction_results_base
 
-    recursive function get_source_reconstruction_name_base(this) result(name)
+    function get_source_reconstruction_name_base(this) result(name)
         class(source_reconstruction_analyzer_t), intent(in) :: this
         character(:), allocatable :: name
         name = "source_reconstruction_analyzer_base"
     end function get_source_reconstruction_name_base
 
-    recursive subroutine assign_source_reconstruction_analyzer_base(lhs, rhs)
+    subroutine assign_source_reconstruction_analyzer_base(lhs, rhs)
         class(source_reconstruction_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         ! Base implementation - to be overridden
@@ -528,7 +528,7 @@ contains
         end associate
     end subroutine assign_source_reconstruction_analyzer_base
 
-    recursive function get_source_reconstruction_dependencies_base(this) result(deps)
+    function get_source_reconstruction_dependencies_base(this) result(deps)
         class(source_reconstruction_analyzer_t), intent(in) :: this
         character(:), allocatable :: deps(:)
         allocate(character(len=0) :: deps(0))
@@ -537,7 +537,7 @@ contains
     end function get_source_reconstruction_dependencies_base
 
     ! Base analysis method implementations
-    recursive function get_node_source_text_base(this, node_index) result(text)
+    function get_node_source_text_base(this, node_index) result(text)
         class(source_reconstruction_analyzer_t), intent(in) :: this
         integer, intent(in) :: node_index
         character(:), allocatable :: text
@@ -546,7 +546,7 @@ contains
         end associate
     end function get_node_source_text_base
 
-    recursive function extract_text_span_base(this, start_line, start_col, end_line, end_col) result(text)
+    function extract_text_span_base(this, start_line, start_col, end_line, end_col) result(text)
         class(source_reconstruction_analyzer_t), intent(in) :: this
         integer, intent(in) :: start_line, start_col, end_line, end_col
         character(:), allocatable :: text
@@ -579,7 +579,7 @@ contains
         end if
     end function extract_text_span_base
 
-    recursive function get_line_text_base(this, line_number) result(line_text)
+    function get_line_text_base(this, line_number) result(line_text)
         class(source_reconstruction_analyzer_t), intent(in) :: this
         integer, intent(in) :: line_number
         character(:), allocatable :: line_text
@@ -627,7 +627,7 @@ contains
         end if
     end function get_line_text_base
 
-    recursive function get_context_around_node_base(this, node_index, context_lines) result(context)
+    function get_context_around_node_base(this, node_index, context_lines) result(context)
         class(source_reconstruction_analyzer_t), intent(in) :: this
         integer, intent(in) :: node_index, context_lines
         character(:), allocatable :: context
@@ -636,7 +636,7 @@ contains
         end associate
     end function get_context_around_node_base
 
-    recursive function format_source_location_base(this, node_index) result(location_str)
+    function format_source_location_base(this, node_index) result(location_str)
         class(source_reconstruction_analyzer_t), intent(in) :: this
         integer, intent(in) :: node_index
         character(:), allocatable :: location_str

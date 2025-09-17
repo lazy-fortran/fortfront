@@ -20,7 +20,7 @@ module semantic_analyzer_base
     
     ! Abstract interfaces for analyzer methods
     abstract interface
-        recursive subroutine analyze_interface(this, shared_context, arena, node_index)
+        subroutine analyze_interface(this, shared_context, arena, node_index)
             import :: semantic_analyzer_t, ast_arena_t, semantic_context_base_t
             class(semantic_analyzer_t), intent(inout) :: this
             class(semantic_context_base_t), intent(in) :: shared_context
@@ -28,25 +28,25 @@ module semantic_analyzer_base
             integer, intent(in) :: node_index
         end subroutine analyze_interface
         
-        recursive function get_results_interface(this) result(results)
+        function get_results_interface(this) result(results)
             import :: semantic_analyzer_t, semantic_result_base_t
             class(semantic_analyzer_t), intent(in) :: this
             class(semantic_result_base_t), allocatable :: results
         end function get_results_interface
         
-        recursive function get_name_interface(this) result(name)
+        function get_name_interface(this) result(name)
             import :: semantic_analyzer_t
             class(semantic_analyzer_t), intent(in) :: this
             character(:), allocatable :: name
         end function get_name_interface
         
-        recursive subroutine assign_interface(lhs, rhs)
+        subroutine assign_interface(lhs, rhs)
             import :: semantic_analyzer_t
             class(semantic_analyzer_t), intent(out) :: lhs
             class(semantic_analyzer_t), intent(in) :: rhs
         end subroutine assign_interface
         
-        recursive function get_dependencies_interface(this) result(deps)
+        function get_dependencies_interface(this) result(deps)
             import :: semantic_analyzer_t
             class(semantic_analyzer_t), intent(in) :: this
             character(:), allocatable :: deps(:)

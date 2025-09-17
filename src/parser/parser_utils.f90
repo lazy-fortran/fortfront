@@ -9,7 +9,7 @@ module parser_utils
 contains
 
     ! Analyze declaration structure to determine if single or multi-variable
-    recursive subroutine analyze_declaration_structure(parser, has_initializer, has_comma)
+    subroutine analyze_declaration_structure(parser, has_initializer, has_comma)
         use iso_fortran_env, only: error_unit
         type(parser_state_t), intent(inout) :: parser
         logical, intent(out) :: has_initializer, has_comma
@@ -38,7 +38,7 @@ contains
     end subroutine analyze_declaration_structure
 
     ! Core token scanning logic (kept under 50 lines per CLAUDE.md)
-    recursive subroutine scan_tokens(tokens, lookahead_pos, has_initializer, has_comma)
+    subroutine scan_tokens(tokens, lookahead_pos, has_initializer, has_comma)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(inout) :: lookahead_pos
         logical, intent(inout) :: has_initializer, has_comma
@@ -76,7 +76,7 @@ contains
     end subroutine scan_tokens
 
     ! Process individual token (kept under 50 lines per CLAUDE.md)
-    recursive subroutine process_token(token, pos, seen_colon, in_brackets, in_attr, &
+    subroutine process_token(token, pos, seen_colon, in_brackets, in_attr, &
                            bracket_depth, var_count, has_init, has_comma, should_exit)
         type(token_t), intent(in) :: token
         integer, intent(in) :: pos
@@ -102,7 +102,7 @@ contains
     end subroutine process_token
 
     ! Process operator tokens
-    recursive subroutine process_operator(token, seen_colon, in_brackets, in_attr, &
+    subroutine process_operator(token, seen_colon, in_brackets, in_attr, &
                               bracket_depth, var_count, has_init, has_comma)
         type(token_t), intent(in) :: token
         logical, intent(inout) :: seen_colon, in_brackets, in_attr

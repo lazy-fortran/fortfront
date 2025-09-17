@@ -70,7 +70,7 @@ module interface_analyzer
 
 contains
 
-    recursive subroutine analyze_interfaces(this, shared_context, arena, node_index)
+    subroutine analyze_interfaces(this, shared_context, arena, node_index)
         class(interface_analyzer_t), intent(inout) :: this
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
@@ -85,7 +85,7 @@ contains
         this%analysis_complete = .true.
     end subroutine
 
-    recursive function get_interface_results(this) result(results)
+    function get_interface_results(this) result(results)
         class(interface_analyzer_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
         
@@ -97,14 +97,14 @@ contains
         end select
     end function
 
-    recursive function get_interface_analyzer_name(this) result(name)
+    function get_interface_analyzer_name(this) result(name)
         class(interface_analyzer_t), intent(in) :: this
         character(:), allocatable :: name
         
         name = "interface_analyzer"
     end function
 
-    recursive subroutine assign_interface_analyzer(lhs, rhs)
+    subroutine assign_interface_analyzer(lhs, rhs)
         use semantic_analyzer_base, only: semantic_analyzer_t
         class(interface_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
@@ -122,7 +122,7 @@ contains
     end subroutine
 
     ! Analysis methods for fluff rules
-    recursive function extract_interface_signature(this, proc_node_index, arena) result(signature)
+    function extract_interface_signature(this, proc_node_index, arena) result(signature)
         class(interface_analyzer_t), intent(in) :: this
         integer, intent(in) :: proc_node_index
         type(ast_arena_t), intent(in) :: arena
@@ -132,7 +132,7 @@ contains
         call extract_signature_from_node(signature, arena, proc_node_index)
     end function
 
-    recursive function compare_interfaces(this, sig1, sig2) result(are_compatible)
+    function compare_interfaces(this, sig1, sig2) result(are_compatible)
         class(interface_analyzer_t), intent(in) :: this
         type(interface_signature_t), intent(in) :: sig1, sig2
         logical :: are_compatible
@@ -164,7 +164,7 @@ contains
         are_compatible = .true.
     end function
 
-    recursive function find_interface_mismatches(this) result(mismatches)
+    function find_interface_mismatches(this) result(mismatches)
         class(interface_analyzer_t), intent(in) :: this
         character(:), allocatable :: mismatches(:)
         
@@ -176,7 +176,7 @@ contains
         mismatches = this%result%mismatched_procedures
     end function
 
-    recursive function check_parameter_consistency(this, proc_name) result(consistent)
+    function check_parameter_consistency(this, proc_name) result(consistent)
         class(interface_analyzer_t), intent(in) :: this
         character(*), intent(in) :: proc_name
         logical :: consistent
@@ -200,7 +200,7 @@ contains
         end if
     end function
 
-    recursive function validate_procedure_attributes(this, proc_name) result(valid)
+    function validate_procedure_attributes(this, proc_name) result(valid)
         class(interface_analyzer_t), intent(in) :: this
         character(*), intent(in) :: proc_name
         logical :: valid
@@ -231,7 +231,7 @@ contains
     end function
 
     ! Helper subroutines
-    recursive subroutine extract_all_signatures(result, arena, root_index)
+    subroutine extract_all_signatures(result, arena, root_index)
         type(interface_comparison_result_t), intent(inout) :: result
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
@@ -270,7 +270,7 @@ contains
         result%signature_count = signature_count
     end subroutine
 
-    recursive subroutine extract_signature_from_node(signature, arena, node_index)
+    subroutine extract_signature_from_node(signature, arena, node_index)
         use ast_nodes_data, only: parameter_declaration_node, INTENT_IN, INTENT_OUT, &
                                   INTENT_INOUT, INTENT_NONE
         type(interface_signature_t), intent(out) :: signature
@@ -337,7 +337,7 @@ contains
     end subroutine
 
     ! Extract parameter details from parameter declaration nodes
-    recursive subroutine extract_parameters_from_indices(parameters, arena, param_indices)
+    subroutine extract_parameters_from_indices(parameters, arena, param_indices)
         use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
                                   INTENT_IN, INTENT_OUT, INTENT_INOUT, INTENT_NONE
         type(parameter_info_t), intent(out) :: parameters(:)
@@ -358,7 +358,7 @@ contains
     end subroutine
 
     ! Extract information from a single parameter node
-    recursive subroutine extract_single_parameter(param_info, arena, node_index)
+    subroutine extract_single_parameter(param_info, arena, node_index)
         use ast_nodes_data, only: parameter_declaration_node, declaration_node, &
                                   INTENT_IN, INTENT_OUT, INTENT_INOUT, INTENT_NONE
         type(parameter_info_t), intent(out) :: param_info
@@ -449,7 +449,7 @@ contains
         end select
     end subroutine
 
-    recursive subroutine find_signature_mismatches(result)
+    subroutine find_signature_mismatches(result)
         type(interface_comparison_result_t), intent(inout) :: result
         
         integer :: i, j, mismatch_count
@@ -497,7 +497,7 @@ contains
     end subroutine
 
     ! Helper functions
-    recursive function is_procedure_node_type(arena, node_index) result(is_proc)
+    function is_procedure_node_type(arena, node_index) result(is_proc)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         logical :: is_proc
@@ -513,7 +513,7 @@ contains
         end select
     end function
 
-    recursive function parameters_compatible(param1, param2) result(compatible)
+    function parameters_compatible(param1, param2) result(compatible)
         type(parameter_info_t), intent(in) :: param1, param2
         logical :: compatible
         
@@ -541,7 +541,7 @@ contains
         end if
     end function
 
-    recursive function signatures_match(sig1, sig2) result(match)
+    function signatures_match(sig1, sig2) result(match)
         type(interface_signature_t), intent(in) :: sig1, sig2
         logical :: match
         
@@ -573,7 +573,7 @@ contains
         match = .true.
     end function
 
-    recursive function get_interface_dependencies(this) result(deps)
+    function get_interface_dependencies(this) result(deps)
         class(interface_analyzer_t), intent(in) :: this
         character(:), allocatable :: deps(:)
         
@@ -585,7 +585,7 @@ contains
     end function
 
     ! Interface comparison result type implementations
-    recursive function interface_get_result_type(this) result(result_type)
+    function interface_get_result_type(this) result(result_type)
         class(interface_comparison_result_t), intent(in) :: this
         character(:), allocatable :: result_type
         result_type = "interface_comparison"
@@ -593,7 +593,7 @@ contains
         end associate
     end function
 
-    recursive function interface_clone_result(this) result(clone)
+    function interface_clone_result(this) result(clone)
         class(interface_comparison_result_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: clone
         type(interface_comparison_result_t), allocatable :: interface_clone
@@ -619,7 +619,7 @@ contains
         call move_alloc(interface_clone, clone)
     end function
 
-    recursive subroutine interface_merge_results(this, other)
+    subroutine interface_merge_results(this, other)
         class(interface_comparison_result_t), intent(inout) :: this
         class(semantic_result_base_t), intent(in) :: other
         
@@ -641,7 +641,7 @@ contains
         end select
     end subroutine
 
-    recursive subroutine interface_result_assign(lhs, rhs)
+    subroutine interface_result_assign(lhs, rhs)
         class(interface_comparison_result_t), intent(inout) :: lhs
         class(interface_comparison_result_t), intent(in) :: rhs
         

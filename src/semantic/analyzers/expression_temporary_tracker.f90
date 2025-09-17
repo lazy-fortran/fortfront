@@ -44,7 +44,7 @@ module expression_temporary_tracker_module
 contains
 
     ! Create a new temporary tracker
-    recursive function create_temp_tracker() result(tracker)
+    function create_temp_tracker() result(tracker)
         type(temp_tracker_t) :: tracker
         allocate(tracker%temporaries(0))
         allocate(tracker%expr_to_temps(tracker%max_expressions, 10))
@@ -55,7 +55,7 @@ contains
     end function create_temp_tracker
 
     ! Allocate a new temporary variable
-    recursive function allocate_temporary(tracker, type_info, size_bytes, created_at_node) &
+    function allocate_temporary(tracker, type_info, size_bytes, created_at_node) &
              result(temp_id)
         type(temp_tracker_t), intent(inout) :: tracker
         character(len=*), intent(in) :: type_info
@@ -112,7 +112,7 @@ contains
     end function allocate_temporary
 
     ! Release a temporary variable
-    recursive subroutine release_temporary(tracker, temp_id, released_at_node)
+    subroutine release_temporary(tracker, temp_id, released_at_node)
         type(temp_tracker_t), intent(inout) :: tracker
         integer, intent(in) :: temp_id
         integer, intent(in) :: released_at_node
@@ -132,7 +132,7 @@ contains
     end subroutine release_temporary
 
     ! Get information about a temporary
-    recursive function get_temporary_info(tracker, temp_id) result(info)
+    function get_temporary_info(tracker, temp_id) result(info)
         type(temp_tracker_t), intent(in) :: tracker
         integer, intent(in) :: temp_id
         type(temp_info_t) :: info
@@ -153,7 +153,7 @@ contains
     end function get_temporary_info
 
     ! Get list of temporaries for an expression node
-    recursive function get_temporaries_for_expression(tracker, expr_node_id) result(temp_ids)
+    function get_temporaries_for_expression(tracker, expr_node_id) result(temp_ids)
         type(temp_tracker_t), intent(in) :: tracker
         integer, intent(in) :: expr_node_id
         integer, allocatable :: temp_ids(:)
@@ -183,7 +183,7 @@ contains
     end function get_temporaries_for_expression
 
     ! Mark temporaries used by an expression
-    recursive subroutine mark_expression_temporaries(tracker, expr_node_id, temp_ids)
+    subroutine mark_expression_temporaries(tracker, expr_node_id, temp_ids)
         type(temp_tracker_t), intent(inout) :: tracker
         integer, intent(in) :: expr_node_id
         integer, intent(in) :: temp_ids(:)
@@ -203,7 +203,7 @@ contains
     end subroutine mark_expression_temporaries
 
     ! Tracker methods
-    recursive function tracker_allocate_temporary(this, type_info, size_bytes, &
+    function tracker_allocate_temporary(this, type_info, size_bytes, &
                                       created_at_node) result(temp_id)
         class(temp_tracker_t), intent(inout) :: this
         character(len=*), intent(in) :: type_info
@@ -214,7 +214,7 @@ contains
         temp_id = allocate_temporary(this, type_info, size_bytes, created_at_node)
     end function tracker_allocate_temporary
 
-    recursive subroutine tracker_release_temporary(this, temp_id, released_at_node)
+    subroutine tracker_release_temporary(this, temp_id, released_at_node)
         class(temp_tracker_t), intent(inout) :: this
         integer, intent(in) :: temp_id
         integer, intent(in) :: released_at_node
@@ -222,7 +222,7 @@ contains
         call release_temporary(this, temp_id, released_at_node)
     end subroutine tracker_release_temporary
 
-    recursive function tracker_get_temporary_info(this, temp_id) result(info)
+    function tracker_get_temporary_info(this, temp_id) result(info)
         class(temp_tracker_t), intent(in) :: this
         integer, intent(in) :: temp_id
         type(temp_info_t) :: info
@@ -230,7 +230,7 @@ contains
         info = get_temporary_info(this, temp_id)
     end function tracker_get_temporary_info
 
-    recursive function tracker_get_temporaries_for_expression(this, expr_node_id) &
+    function tracker_get_temporaries_for_expression(this, expr_node_id) &
              result(temp_ids)
         class(temp_tracker_t), intent(in) :: this
         integer, intent(in) :: expr_node_id
@@ -239,7 +239,7 @@ contains
         temp_ids = get_temporaries_for_expression(this, expr_node_id)
     end function tracker_get_temporaries_for_expression
 
-    recursive subroutine tracker_mark_expression_temporaries(this, expr_node_id, temp_ids)
+    subroutine tracker_mark_expression_temporaries(this, expr_node_id, temp_ids)
         class(temp_tracker_t), intent(inout) :: this
         integer, intent(in) :: expr_node_id
         integer, intent(in) :: temp_ids(:)
@@ -247,19 +247,19 @@ contains
         call mark_expression_temporaries(this, expr_node_id, temp_ids)
     end subroutine tracker_mark_expression_temporaries
 
-    recursive function tracker_get_active_count(this) result(count)
+    function tracker_get_active_count(this) result(count)
         class(temp_tracker_t), intent(in) :: this
         integer :: count
         count = this%active_count
     end function tracker_get_active_count
 
-    recursive function tracker_get_total_count(this) result(count)
+    function tracker_get_total_count(this) result(count)
         class(temp_tracker_t), intent(in) :: this
         integer :: count
         count = this%total_allocated
     end function tracker_get_total_count
 
-    recursive function tracker_find_reusable_temporary(this, type_info, size_bytes) &
+    function tracker_find_reusable_temporary(this, type_info, size_bytes) &
              result(temp_id)
         class(temp_tracker_t), intent(in) :: this
         character(len=*), intent(in) :: type_info
@@ -288,7 +288,7 @@ contains
     end function tracker_find_reusable_temporary
 
     ! Deep copy for temp_tracker_t
-    recursive subroutine temp_tracker_deep_copy(dst, src)
+    subroutine temp_tracker_deep_copy(dst, src)
         class(temp_tracker_t), intent(out) :: dst
         class(temp_tracker_t), intent(in) :: src
 
@@ -326,7 +326,7 @@ contains
     end subroutine temp_tracker_deep_copy
 
     ! Assignment operator
-    recursive subroutine temp_tracker_assign(dst, src)
+    subroutine temp_tracker_assign(dst, src)
         class(temp_tracker_t), intent(out) :: dst
         class(temp_tracker_t), intent(in) :: src
         call temp_tracker_deep_copy(dst, src)

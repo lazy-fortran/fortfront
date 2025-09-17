@@ -135,7 +135,7 @@ module type_system_unified
 contains
 
     ! Initialize global arena if needed
-    recursive subroutine ensure_arena_initialized()
+    subroutine ensure_arena_initialized()
         if (.not. arena_initialized) then
             global_arena = create_type_arena(65536)  ! 64KB for types
             arena_initialized = .true.
@@ -143,7 +143,7 @@ contains
     end subroutine ensure_arena_initialized
 
     ! Create type variable (compatibility function)
-    recursive function create_type_var(id, name) result(tv)
+    function create_type_var(id, name) result(tv)
         integer, intent(in) :: id
         character(len=*), intent(in), optional :: name
         type(type_var_t) :: tv
@@ -157,7 +157,7 @@ contains
     end function create_type_var
 
     ! Create monomorphic type (compatibility function)
-    recursive function create_mono_type(kind, var, args, char_size, array_size) result(mt)
+    function create_mono_type(kind, var, args, char_size, array_size) result(mt)
         integer, intent(in) :: kind
         type(type_var_t), intent(in), optional :: var
         type(mono_type_t), intent(in), optional :: args(:)
@@ -210,7 +210,7 @@ contains
     end function create_mono_type
 
     ! Create polymorphic type (compatibility function)
-    recursive function create_poly_type(forall_vars, mono) result(pt)
+    function create_poly_type(forall_vars, mono) result(pt)
         type(type_var_t), intent(in) :: forall_vars(:)
         type(mono_type_t), intent(in) :: mono
         type(poly_type_t) :: pt
@@ -241,7 +241,7 @@ contains
     end function create_poly_type
 
     ! Create function type (compatibility function)
-    recursive function create_fun_type(arg_type, result_type) result(fun_type)
+    function create_fun_type(arg_type, result_type) result(fun_type)
         type(mono_type_t), intent(in) :: arg_type, result_type
         type(mono_type_t) :: fun_type
 
@@ -253,7 +253,7 @@ contains
     end function create_fun_type
 
     ! Compose substitutions (stub for now)
-    recursive function compose_substitutions(s1, s2) result(composed)
+    function compose_substitutions(s1, s2) result(composed)
         type(substitution_t), intent(in) :: s1, s2
         type(substitution_t) :: composed
 
@@ -263,7 +263,7 @@ contains
     end function compose_substitutions
 
     ! Occurs check (stub for now)
-    recursive function occurs_check(var, typ) result(occurs)
+    function occurs_check(var, typ) result(occurs)
         type(type_var_t), intent(in) :: var
         type(mono_type_t), intent(in) :: typ
         logical :: occurs
@@ -273,7 +273,7 @@ contains
     end function occurs_check
 
     ! Free type variables (stub for now)
-    recursive subroutine free_type_vars(typ, vars)
+    subroutine free_type_vars(typ, vars)
         type(mono_type_t), intent(in) :: typ
         type(type_var_t), allocatable, intent(out) :: vars(:)
 
@@ -282,7 +282,7 @@ contains
     end subroutine free_type_vars
 
     ! Type variable assignment
-    recursive subroutine type_var_assign(lhs, rhs)
+    subroutine type_var_assign(lhs, rhs)
         class(type_var_t), intent(out) :: lhs
         type(type_var_t), intent(in) :: rhs
 
@@ -291,7 +291,7 @@ contains
     end subroutine type_var_assign
 
     ! Mono type assignment
-    recursive subroutine mono_type_assign(lhs, rhs)
+    subroutine mono_type_assign(lhs, rhs)
         class(mono_type_t), intent(out) :: lhs
         type(mono_type_t), intent(in) :: rhs
 
@@ -306,7 +306,7 @@ contains
     end subroutine mono_type_assign
 
     ! Poly type assignment  
-    recursive subroutine poly_type_assign(lhs, rhs)
+    subroutine poly_type_assign(lhs, rhs)
         class(poly_type_t), intent(out) :: lhs
         type(poly_type_t), intent(in) :: rhs
 
@@ -320,7 +320,7 @@ contains
     end subroutine poly_type_assign
 
     ! Substitution assignment
-    recursive subroutine substitution_assign(lhs, rhs)
+    subroutine substitution_assign(lhs, rhs)
         class(substitution_t), intent(out) :: lhs
         type(substitution_t), intent(in) :: rhs
         integer :: i
@@ -345,7 +345,7 @@ contains
     end subroutine substitution_assign
 
     ! Type environment assignment
-    recursive subroutine type_env_assign(lhs, rhs)
+    subroutine type_env_assign(lhs, rhs)
         class(type_env_t), intent(out) :: lhs
         type(type_env_t), intent(in) :: rhs
         integer :: i
@@ -377,7 +377,7 @@ contains
     end subroutine type_env_assign
 
     ! Mono type helper functions
-    recursive function mono_type_to_string(this) result(str)
+    function mono_type_to_string(this) result(str)
         class(mono_type_t), intent(in) :: this
         character(len=64) :: str
 
@@ -414,7 +414,7 @@ contains
         end select
     end function mono_type_to_string
 
-    recursive function mono_type_get_kind(this) result(kind)
+    function mono_type_get_kind(this) result(kind)
         class(mono_type_t), intent(in) :: this
         integer :: kind
 
@@ -422,7 +422,7 @@ contains
         kind = this%kind
     end function mono_type_get_kind
 
-    recursive function mono_type_get_size(this) result(size)
+    function mono_type_get_size(this) result(size)
         class(mono_type_t), intent(in) :: this
         integer :: size
 
@@ -430,7 +430,7 @@ contains
         size = this%size
     end function mono_type_get_size
 
-    recursive function mono_type_get_alloc_info(this) result(alloc_info)
+    function mono_type_get_alloc_info(this) result(alloc_info)
         class(mono_type_t), intent(in) :: this
         type(allocation_info_t) :: alloc_info
 
@@ -439,7 +439,7 @@ contains
     end function mono_type_get_alloc_info
 
     ! Sync cached values from arena (called when needed)
-    recursive subroutine mono_type_sync_from_arena(this)
+    subroutine mono_type_sync_from_arena(this)
         class(mono_type_t), intent(inout) :: this
         type(arena_mono_type_t) :: arena_type
 
@@ -456,7 +456,7 @@ contains
     end subroutine mono_type_sync_from_arena
 
     ! Check if mono type has arguments
-    recursive function mono_type_has_args(this) result(has_args)
+    function mono_type_has_args(this) result(has_args)
         class(mono_type_t), intent(in) :: this
         logical :: has_args
 
@@ -470,7 +470,7 @@ contains
     end function mono_type_has_args
 
     ! Get argument count
-    recursive function mono_type_get_args_count(this) result(count)
+    function mono_type_get_args_count(this) result(count)
         class(mono_type_t), intent(in) :: this
         integer :: count
 
@@ -486,7 +486,7 @@ contains
     end function mono_type_get_args_count
 
     ! Get specific argument by index
-    recursive function mono_type_get_arg(this, index) result(arg_type)
+    function mono_type_get_arg(this, index) result(arg_type)
         class(mono_type_t), intent(in) :: this
         integer, intent(in) :: index
         type(mono_type_t) :: arg_type
@@ -512,7 +512,7 @@ contains
     end function mono_type_get_arg
 
     ! Substitution helper functions
-    recursive subroutine substitution_add(this, var, typ)
+    subroutine substitution_add(this, var, typ)
         class(substitution_t), intent(inout) :: this
         type(type_var_t), intent(in) :: var
         type(mono_type_t), intent(in) :: typ
@@ -534,7 +534,7 @@ contains
         this%types(this%count) = typ
     end subroutine substitution_add
     
-    recursive subroutine substitution_ensure_capacity(this, required)
+    subroutine substitution_ensure_capacity(this, required)
         class(substitution_t), intent(inout) :: this
         integer, intent(in) :: required
         integer :: new_capacity, i
@@ -567,7 +567,7 @@ contains
         end if
     end subroutine substitution_ensure_capacity
 
-    recursive subroutine substitution_apply(this, input, output)
+    subroutine substitution_apply(this, input, output)
         class(substitution_t), intent(in) :: this
         type(mono_type_t), intent(in) :: input
         type(mono_type_t), intent(out) :: output
@@ -577,7 +577,7 @@ contains
     end subroutine substitution_apply
 
     ! Type environment helper functions
-    recursive subroutine type_env_extend(this, name, scheme)
+    subroutine type_env_extend(this, name, scheme)
         class(type_env_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         type(poly_type_t), intent(in) :: scheme
@@ -630,7 +630,7 @@ contains
         this%schemes(this%count) = scheme
     end subroutine type_env_extend
     
-    recursive subroutine type_env_ensure_capacity(this, required)
+    subroutine type_env_ensure_capacity(this, required)
         class(type_env_t), intent(inout) :: this
         integer, intent(in) :: required
         ! Ensure arrays exist; if not fixed, grow to meet required
@@ -678,19 +678,19 @@ contains
     end subroutine type_env_ensure_capacity
 
     ! Public wrapper functions for compatibility with type_checker
-    recursive function type_has_args(typ) result(has_args)
+    function type_has_args(typ) result(has_args)
         type(mono_type_t), intent(in) :: typ
         logical :: has_args
         has_args = typ%has_args()
     end function type_has_args
 
-    recursive function type_get_args_count(typ) result(count)
+    function type_get_args_count(typ) result(count)
         type(mono_type_t), intent(in) :: typ
         integer :: count
         count = typ%get_args_count()
     end function type_get_args_count
 
-    recursive function type_get_arg(typ, index) result(arg_type)
+    function type_get_arg(typ, index) result(arg_type)
         type(mono_type_t), intent(in) :: typ
         integer, intent(in) :: index
         type(mono_type_t) :: arg_type
@@ -698,19 +698,19 @@ contains
     end function type_get_arg
 
     ! Additional semantic analyzer compatibility functions
-    recursive function type_args_allocated(typ) result(allocated)
+    function type_args_allocated(typ) result(allocated)
         type(mono_type_t), intent(in) :: typ
         logical :: allocated
         allocated = typ%has_args()
     end function type_args_allocated
 
-    recursive function type_args_size(typ) result(size)
+    function type_args_size(typ) result(size)
         type(mono_type_t), intent(in) :: typ
         integer :: size
         size = typ%get_args_count()
     end function type_args_size
 
-    recursive function type_args_element(typ, index) result(element_type)
+    function type_args_element(typ, index) result(element_type)
         type(mono_type_t), intent(in) :: typ
         integer, intent(in) :: index
         type(mono_type_t) :: element_type
@@ -718,7 +718,7 @@ contains
     end function type_args_element
 
     ! Poly type mono sync function
-    recursive subroutine poly_type_sync_mono(this)
+    subroutine poly_type_sync_mono(this)
         class(poly_type_t), intent(inout) :: this
         type(arena_poly_type_t) :: arena_poly
         type(arena_mono_type_t) :: arena_mono
@@ -741,7 +741,7 @@ contains
     end subroutine poly_type_sync_mono
 
     ! Get mono type from poly type
-    recursive function poly_type_get_mono(this) result(mono)
+    function poly_type_get_mono(this) result(mono)
         class(poly_type_t), intent(inout) :: this
         type(mono_type_t) :: mono
 

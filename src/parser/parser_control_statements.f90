@@ -14,7 +14,7 @@ module parser_control_statements_module
 
 contains
 
-    recursive function parse_stop_statement(parser, arena) result(stop_index)
+    function parse_stop_statement(parser, arena) result(stop_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stop_index
@@ -53,7 +53,7 @@ contains
         end if
     end function parse_stop_statement
 
-    recursive function parse_return_statement(parser, arena, parent_index) result(return_index)
+    function parse_return_statement(parser, arena, parent_index) result(return_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -73,7 +73,7 @@ contains
                                    parent_index=parent_index)
     end function parse_return_statement
 
-    recursive function parse_end_statement(parser, arena, parent_index) result(end_index)
+    function parse_end_statement(parser, arena, parent_index) result(end_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -93,7 +93,7 @@ contains
                                        parent_index=parent_index)
     end function parse_end_statement
 
-    recursive function parse_goto_statement(parser, arena) result(goto_index)
+    function parse_goto_statement(parser, arena) result(goto_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: goto_index
@@ -137,7 +137,7 @@ contains
         goto_index = push_goto(arena, label, line=line, column=column)
     end function parse_goto_statement
 
-    recursive function parse_error_stop_statement(parser, arena) result(error_stop_index)
+    function parse_error_stop_statement(parser, arena) result(error_stop_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: error_stop_index
@@ -185,7 +185,7 @@ contains
                                           line=line, column=column)
     end function parse_error_stop_statement
 
-    recursive function parse_cycle_statement(parser, arena) result(cycle_index)
+    function parse_cycle_statement(parser, arena) result(cycle_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: cycle_index
@@ -218,7 +218,7 @@ contains
         end if
     end function parse_cycle_statement
 
-    recursive function parse_exit_statement(parser, arena) result(exit_index)
+    function parse_exit_statement(parser, arena) result(exit_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: exit_index

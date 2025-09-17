@@ -26,7 +26,7 @@ module codegen_core
 contains
 
     ! Main entry point for code generation from AST arena
-    recursive function codegen_core_generate_arena(arena, node_index) result(code)
+    function codegen_core_generate_arena(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
@@ -148,7 +148,7 @@ contains
         end if
     end function codegen_core_generate_arena
 
-    recursive function normalize_line_spacing(text) result(clean)
+    function normalize_line_spacing(text) result(clean)
         character(len=*), intent(in) :: text
         character(len=:), allocatable :: clean
         character(len=:), allocatable :: buffer
@@ -237,7 +237,7 @@ contains
         clean = replace_all(clean, ' )', ')')
     end function normalize_line_spacing
 
-    recursive function replace_all(text, pattern, replacement) result(out)
+    function replace_all(text, pattern, replacement) result(out)
         character(len=*), intent(in) :: text
         character(len=*), intent(in) :: pattern
         character(len=*), intent(in) :: replacement
@@ -268,7 +268,7 @@ contains
     end function replace_all
 
     ! Polymorphic code generator (same as codegen_core_generate_arena)
-    recursive function generate_code_polymorphic(arena, node_index) result(code)
+    function generate_code_polymorphic(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
@@ -276,7 +276,7 @@ contains
         code = codegen_core_generate_arena(arena, node_index)
     end function generate_code_polymorphic
 
-    recursive subroutine safe_codegen_core_generate_arena(arena, node_index, code)
+    subroutine safe_codegen_core_generate_arena(arena, node_index, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable, intent(out) :: code
@@ -298,12 +298,12 @@ contains
     end subroutine safe_codegen_core_generate_arena
 
     ! Initialize the codegen system by setting up dependency injection
-    recursive subroutine initialize_codegen()
+    subroutine initialize_codegen()
         call set_arena_generator(codegen_core_generate_arena)
     end subroutine initialize_codegen
 
     ! Generate code for mixed construct containers
-    recursive function generate_code_mixed_construct_container(arena, node, node_index) result(code)
+    function generate_code_mixed_construct_container(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(mixed_construct_container_node), intent(in) :: node
         integer, intent(in) :: node_index

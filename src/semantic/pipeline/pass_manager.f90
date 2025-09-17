@@ -33,7 +33,7 @@ module pass_manager
 
 contains
 
-    recursive subroutine manager_add_analyzer(this, analyzer)
+    subroutine manager_add_analyzer(this, analyzer)
         class(pass_manager_t), intent(inout) :: this
         class(base_analyzer_t), intent(in) :: analyzer
 
@@ -49,7 +49,7 @@ contains
         allocate(this%analyzers(this%num_analyzers)%analyzer, source=analyzer)
     end subroutine manager_add_analyzer
 
-    recursive subroutine manager_execute_passes(this, ctx, arena, root_index)
+    subroutine manager_execute_passes(this, ctx, arena, root_index)
         class(pass_manager_t), intent(inout) :: this
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -146,7 +146,7 @@ contains
         end do
     end subroutine manager_execute_passes
 
-    recursive function manager_get_execution_order(this) result(order)
+    function manager_get_execution_order(this) result(order)
         class(pass_manager_t), intent(in) :: this
         integer, allocatable :: order(:)
 
@@ -157,7 +157,7 @@ contains
         end if
     end function manager_get_execution_order
 
-    recursive subroutine manager_resolve_dependencies(this)
+    subroutine manager_resolve_dependencies(this)
         class(pass_manager_t), intent(inout) :: this
         logical, allocatable :: visited(:), in_stack(:)
         integer :: i, j, dep_id, order_count
@@ -229,7 +229,7 @@ contains
 
     end subroutine manager_resolve_dependencies
 
-    recursive subroutine manager_expand_analyzers(this)
+    subroutine manager_expand_analyzers(this)
         class(pass_manager_t), intent(inout) :: this
         type(analyzer_wrapper_t), allocatable :: temp(:)
         integer :: old_size
@@ -242,7 +242,7 @@ contains
         this%analyzers = temp
     end subroutine manager_expand_analyzers
 
-    recursive function manager_get_analyzer_call_count(this, analyzer_name) result(call_count)
+    function manager_get_analyzer_call_count(this, analyzer_name) result(call_count)
         class(pass_manager_t), intent(in) :: this
         character(len=*), intent(in) :: analyzer_name
         integer :: call_count

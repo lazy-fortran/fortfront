@@ -33,17 +33,17 @@ module plugin_metadata_module
     
 contains
 
-    recursive subroutine metadata_initialize(this)
+    subroutine metadata_initialize(this)
         class(metadata_manager_t), intent(inout) :: this
         this%initialized = .true.
     end subroutine
     
-    recursive subroutine metadata_cleanup(this)
+    subroutine metadata_cleanup(this)
         class(metadata_manager_t), intent(inout) :: this
         this%initialized = .false.
     end subroutine
     
-    recursive subroutine metadata_validate(this, metadata, valid, error_msg)
+    subroutine metadata_validate(this, metadata, valid, error_msg)
         class(metadata_manager_t), intent(in) :: this
         type(plugin_metadata_t), intent(in) :: metadata
         logical, intent(out) :: valid
@@ -97,7 +97,7 @@ contains
         compatible = (trim(required_version) == trim(available_version))
     end function
     
-    recursive subroutine metadata_parse_version(this, version_string, major, minor, &
+    subroutine metadata_parse_version(this, version_string, major, minor, &
                                        patch, success)
         class(metadata_manager_t), intent(in) :: this
         character(len=*), intent(in) :: version_string
@@ -138,7 +138,7 @@ contains
         success = .true.
     end subroutine
     
-    recursive subroutine metadata_format(this, metadata, formatted_string)
+    subroutine metadata_format(this, metadata, formatted_string)
         class(metadata_manager_t), intent(in) :: this
         type(plugin_metadata_t), intent(in) :: metadata
         character(len=*), intent(out) :: formatted_string

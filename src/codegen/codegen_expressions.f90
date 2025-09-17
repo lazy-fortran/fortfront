@@ -36,7 +36,7 @@ module codegen_expressions
 contains
 
     ! Generate code for literal nodes
-    recursive function generate_code_literal(node) result(code)
+    function generate_code_literal(node) result(code)
         type(literal_node), intent(in) :: node
         character(len=:), allocatable :: code
         logical :: standardize_types_enabled
@@ -76,7 +76,7 @@ contains
     end function generate_code_literal
 
     ! Generate code for identifier nodes
-    recursive function generate_code_identifier(node) result(code)
+    function generate_code_identifier(node) result(code)
         type(identifier_node), intent(in) :: node
         character(len=:), allocatable :: code
 
@@ -89,7 +89,7 @@ contains
     end function generate_code_identifier
 
     ! Generate code for binary operations
-    recursive function generate_code_binary_op(arena, node, node_index) result(code)
+    function generate_code_binary_op(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(binary_op_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -156,7 +156,7 @@ contains
     end function generate_code_binary_op
 
     ! Generate code for component access
-    recursive function generate_code_component_access(arena, node, node_index) result(code)
+    function generate_code_component_access(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(component_access_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -167,7 +167,7 @@ contains
     end function generate_code_component_access
 
     ! Generate code for range subscripts
-    recursive function generate_code_range_subscript(arena, node, node_index) result(code)
+    function generate_code_range_subscript(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(range_subscript_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -208,7 +208,7 @@ contains
     end function generate_code_range_subscript
 
     ! Generate code for call or subscript nodes
-    recursive function generate_code_call_or_subscript(arena, node, node_index) result(code)
+    function generate_code_call_or_subscript(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(call_or_subscript_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -238,7 +238,7 @@ contains
     end function generate_code_call_or_subscript
 
     ! Helper function to generate comma-separated element code from indices
-    recursive function generate_elements_code_from_indices(arena, element_indices) result(elements_code)
+    function generate_elements_code_from_indices(arena, element_indices) result(elements_code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: element_indices(:)
         character(len=:), allocatable :: elements_code
@@ -256,7 +256,7 @@ contains
     end function generate_elements_code_from_indices
     
     ! Generate code for real array elements, converting integers as needed
-    recursive function generate_real_elements_code(arena, element_indices) result(elements_code)
+    function generate_real_elements_code(arena, element_indices) result(elements_code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: element_indices(:)
         character(len=:), allocatable :: elements_code, elem_code
@@ -300,7 +300,7 @@ contains
     end function generate_real_elements_code
 
     ! Generate code for array literals
-    recursive function generate_code_array_literal(arena, node, node_index) result(code)
+    function generate_code_array_literal(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(array_literal_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -382,7 +382,7 @@ contains
     end function generate_code_array_literal
 
     ! Generate code for complex literal nodes (e.g., (1.0, 2.0))
-    recursive function generate_code_complex_literal(arena, node, node_index) result(code)
+    function generate_code_complex_literal(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(complex_literal_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -412,7 +412,7 @@ contains
     end function generate_code_complex_literal
 
     ! CRITICAL FIX: Generate proper range expression code (e.g. 1:3, :5, 2:, ::2)
-    recursive function generate_code_range_expression(arena, node, node_index) result(code)
+    function generate_code_range_expression(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         class(*), intent(in) :: node
         integer, intent(in) :: node_index
@@ -456,7 +456,7 @@ contains
         end select
     end function generate_code_range_expression
 
-    recursive function generate_code_array_bounds(arena, node, node_index) result(code)
+    function generate_code_array_bounds(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         class(*), intent(in) :: node
         integer, intent(in) :: node_index
@@ -465,7 +465,7 @@ contains
         code = "1:"  ! Basic bounds - needs proper dimension analysis
     end function generate_code_array_bounds
 
-    recursive function generate_code_array_slice(arena, node, node_index) result(code)
+    function generate_code_array_slice(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         class(*), intent(in) :: node
         integer, intent(in) :: node_index
@@ -504,7 +504,7 @@ contains
         end select
     end function generate_code_array_slice
 
-    recursive function generate_code_array_operation(arena, node, node_index) result(code)
+    function generate_code_array_operation(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         class(*), intent(in) :: node
         integer, intent(in) :: node_index
@@ -513,7 +513,7 @@ contains
         code = "array_op"  ! Basic operation - needs proper element-wise processing
     end function generate_code_array_operation
 
-    recursive function generate_code_implied_do(arena, node, node_index) result(code)
+    function generate_code_implied_do(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         class(*), intent(in) :: node
         integer, intent(in) :: node_index
@@ -523,7 +523,7 @@ contains
     end function generate_code_implied_do
     
     ! Generate implied do array constructor from do loop node
-    recursive function generate_implied_do_array(arena, do_index) result(code)
+    function generate_implied_do_array(arena, do_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: do_index
         character(len=:), allocatable :: code
@@ -585,7 +585,7 @@ contains
     end function generate_implied_do_array
 
     ! Get operator precedence (higher number = higher precedence)
-    recursive function get_operator_precedence(op) result(precedence)
+    function get_operator_precedence(op) result(precedence)
         character(len=*), intent(in) :: op
         integer :: precedence
 
@@ -616,7 +616,7 @@ contains
     end function get_operator_precedence
 
     ! Check if parentheses are needed
-    recursive function needs_parentheses(parent_op, child_op, is_left) result(needs_parens)
+    function needs_parentheses(parent_op, child_op, is_left) result(needs_parens)
         character(len=*), intent(in) :: parent_op, child_op
         logical, intent(in) :: is_left
         logical :: needs_parens
@@ -660,7 +660,7 @@ contains
     end function needs_parentheses
 
     ! Get operator for a node index if it's a binary operation; empty otherwise
-    recursive function get_node_operator(arena, node_index) result(op)
+    function get_node_operator(arena, node_index) result(op)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: op
@@ -680,7 +680,7 @@ contains
     end function get_node_operator
 
     ! Convert integer to string
-    recursive function int_to_string(n) result(str)
+    function int_to_string(n) result(str)
         integer, intent(in) :: n
         character(len=:), allocatable :: str
         character(len=32) :: buffer
@@ -690,7 +690,7 @@ contains
     end function int_to_string
 
     ! Check if we have string concatenation (both operands are string literals)
-    recursive function is_string_concatenation(left_code, right_code) result(is_string)
+    function is_string_concatenation(left_code, right_code) result(is_string)
         character(len=*), intent(in) :: left_code, right_code
         logical :: is_string
         
@@ -699,7 +699,7 @@ contains
     end function is_string_concatenation
 
     ! Check if a code fragment is a string literal
-    recursive function is_string_literal(code) result(is_string)
+    function is_string_literal(code) result(is_string)
         character(len=*), intent(in) :: code
         logical :: is_string
         character(len=:), allocatable :: trimmed_code

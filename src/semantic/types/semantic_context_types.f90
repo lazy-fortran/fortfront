@@ -52,13 +52,13 @@ module semantic_context_types
 
     ! Abstract interfaces
     abstract interface
-        recursive function get_context_name_interface(this) result(name)
+        function get_context_name_interface(this) result(name)
             import :: semantic_context_base_t
             class(semantic_context_base_t), intent(in) :: this
             character(:), allocatable :: name
         end function get_context_name_interface
 
-        recursive function clone_context_interface(this) result(cloned)
+        function clone_context_interface(this) result(cloned)
             import :: semantic_context_base_t
             class(semantic_context_base_t), intent(in) :: this
             class(semantic_context_base_t), allocatable :: cloned
@@ -70,13 +70,13 @@ module semantic_context_types
 contains
 
     ! Standard context implementations
-    recursive function standard_get_context_name(this) result(name)
+    function standard_get_context_name(this) result(name)
         class(standard_context_t), intent(in) :: this
         character(:), allocatable :: name
         name = "standard_context"
     end function standard_get_context_name
 
-    recursive function standard_clone_context(this) result(cloned)
+    function standard_clone_context(this) result(cloned)
         class(standard_context_t), intent(in) :: this
         class(semantic_context_base_t), allocatable :: cloned
         type(standard_context_t) :: temp_context
@@ -91,7 +91,7 @@ contains
         allocate(cloned, source=temp_context)
     end function standard_clone_context
 
-    recursive subroutine standard_context_assign(lhs, rhs)
+    subroutine standard_context_assign(lhs, rhs)
         class(standard_context_t), intent(out) :: lhs
         type(standard_context_t), intent(in) :: rhs
         
@@ -104,13 +104,13 @@ contains
     end subroutine standard_context_assign
 
     ! Symbol context implementations
-    recursive function symbol_get_context_name(this) result(name)
+    function symbol_get_context_name(this) result(name)
         class(symbol_context_t), intent(in) :: this
         character(:), allocatable :: name
         name = "symbol_context"
     end function symbol_get_context_name
 
-    recursive function symbol_clone_context(this) result(cloned)
+    function symbol_clone_context(this) result(cloned)
         class(symbol_context_t), intent(in) :: this
         class(semantic_context_base_t), allocatable :: cloned
         type(symbol_context_t) :: temp_context
@@ -124,7 +124,7 @@ contains
         allocate(cloned, source=temp_context)
     end function symbol_clone_context
 
-    recursive subroutine symbol_context_assign(lhs, rhs)
+    subroutine symbol_context_assign(lhs, rhs)
         class(symbol_context_t), intent(out) :: lhs
         type(symbol_context_t), intent(in) :: rhs
         
@@ -136,13 +136,13 @@ contains
     end subroutine symbol_context_assign
 
     ! Type context implementations
-    recursive function type_get_context_name(this) result(name)
+    function type_get_context_name(this) result(name)
         class(type_context_t), intent(in) :: this
         character(:), allocatable :: name
         name = "type_context"
     end function type_get_context_name
 
-    recursive function type_clone_context(this) result(cloned)
+    function type_clone_context(this) result(cloned)
         class(type_context_t), intent(in) :: this
         class(semantic_context_base_t), allocatable :: cloned
         type(type_context_t) :: temp_context
@@ -156,7 +156,7 @@ contains
         allocate(cloned, source=temp_context)
     end function type_clone_context
 
-    recursive subroutine type_context_assign(lhs, rhs)
+    subroutine type_context_assign(lhs, rhs)
         class(type_context_t), intent(out) :: lhs
         type(type_context_t), intent(in) :: rhs
         

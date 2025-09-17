@@ -23,7 +23,7 @@ module parameter_tracker
 contains
 
     ! Add a parameter to the tracker
-    recursive subroutine add_parameter(this, name, intent, is_optional)
+    subroutine add_parameter(this, name, intent, is_optional)
         class(parameter_tracker_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         character(len=*), intent(in), optional :: intent
@@ -63,7 +63,7 @@ contains
     end subroutine add_parameter
     
     ! Get intent attribute for a parameter
-    recursive function get_parameter_intent(this, name) result(intent)
+    function get_parameter_intent(this, name) result(intent)
         class(parameter_tracker_t), intent(in) :: this
         character(len=*), intent(in) :: name
         character(len=:), allocatable :: intent
@@ -82,7 +82,7 @@ contains
     end function get_parameter_intent
     
     ! Check if a variable is a parameter
-    recursive function is_parameter(this, name) result(is_param)
+    function is_parameter(this, name) result(is_param)
         class(parameter_tracker_t), intent(in) :: this
         character(len=*), intent(in) :: name
         logical :: is_param
@@ -101,7 +101,7 @@ contains
     end function is_parameter
     
     ! Clear all parameters
-    recursive subroutine clear(this)
+    subroutine clear(this)
         class(parameter_tracker_t), intent(inout) :: this
         
         if (allocated(this%params)) then

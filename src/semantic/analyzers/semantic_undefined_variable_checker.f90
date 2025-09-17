@@ -17,7 +17,7 @@ module semantic_undefined_variable_checker
 
     ! Generic interface to work with any context type that has scopes and errors
     abstract interface
-        recursive subroutine check_undefined_vars_interface(scopes, errors, strict_mode, arena, prog_index)
+        subroutine check_undefined_vars_interface(scopes, errors, strict_mode, arena, prog_index)
             import :: scope_stack_t, error_collection_t, ast_arena_t
             type(scope_stack_t), intent(inout) :: scopes
             type(error_collection_t), intent(inout) :: errors  
@@ -30,7 +30,7 @@ module semantic_undefined_variable_checker
 contains
 
     ! Generic implementation that works with any context type
-    recursive subroutine check_undefined_variables_generic(scopes, errors, strict_mode, arena, prog_index)
+    subroutine check_undefined_variables_generic(scopes, errors, strict_mode, arena, prog_index)
         type(scope_stack_t), intent(inout) :: scopes
         type(error_collection_t), intent(inout) :: errors
         logical, intent(in) :: strict_mode
@@ -45,7 +45,7 @@ contains
     end subroutine check_undefined_variables_generic
     
     ! Recursive helper to traverse AST and detect undefined variables
-    recursive subroutine traverse_for_undefined_variables(scopes, errors, arena, node_index)
+    subroutine traverse_for_undefined_variables(scopes, errors, arena, node_index)
         type(scope_stack_t), intent(inout) :: scopes
         type(error_collection_t), intent(inout) :: errors
         type(ast_arena_t), intent(inout) :: arena
@@ -140,7 +140,7 @@ contains
 
     contains
 
-        recursive subroutine push(idx)
+        subroutine push(idx)
             integer, intent(in) :: idx
             type(node_stack_entry), allocatable :: temp(:)
             if (idx <= 0) return
@@ -194,7 +194,7 @@ contains
     end function is_declared_in_arena
 
     ! Helper: define a symbol in scope using declaration type from arena
-    recursive subroutine define_from_arena(scopes, arena, name)
+    subroutine define_from_arena(scopes, arena, name)
         type(scope_stack_t), intent(inout) :: scopes
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name

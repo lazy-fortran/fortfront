@@ -101,7 +101,7 @@ module type_system_arena
 contains
 
     ! Create a new type arena
-    recursive function create_type_arena(chunk_size) result(type_arena)
+    function create_type_arena(chunk_size) result(type_arena)
         integer, intent(in), optional :: chunk_size
         type(type_arena_t) :: type_arena
 
@@ -117,7 +117,7 @@ contains
     end function create_type_arena
 
     ! Destroy type arena and free all memory
-    recursive subroutine destroy_type_arena(type_arena)
+    subroutine destroy_type_arena(type_arena)
         type(type_arena_t), intent(inout) :: type_arena
 
         call destroy_arena(type_arena%arena)
@@ -128,7 +128,7 @@ contains
     end subroutine destroy_type_arena
 
     ! Store monomorphic type in arena
-    recursive function store_mono_type(arena, mono_type) result(handle)
+    function store_mono_type(arena, mono_type) result(handle)
         type(type_arena_t), intent(inout) :: arena
         type(arena_mono_type_t), intent(in) :: mono_type
         type(mono_handle_t) :: handle
@@ -140,7 +140,7 @@ contains
     end function store_mono_type
 
     ! Store polymorphic type in arena
-    recursive function store_poly_type(arena, poly_type) result(handle)
+    function store_poly_type(arena, poly_type) result(handle)
         type(type_arena_t), intent(inout) :: arena
         type(arena_poly_type_t), intent(in) :: poly_type
         type(poly_handle_t) :: handle
@@ -152,7 +152,7 @@ contains
     end function store_poly_type
 
     ! Store type argument array in arena
-    recursive function store_type_args(arena, args) result(handle)
+    function store_type_args(arena, args) result(handle)
         type(type_arena_t), intent(inout) :: arena
         type(mono_handle_t), intent(in) :: args(:)
         type(args_handle_t) :: handle
@@ -164,7 +164,7 @@ contains
     end function store_type_args
 
     ! Get monomorphic type from arena
-    recursive function get_mono_type(arena, handle) result(mono_type)
+    function get_mono_type(arena, handle) result(mono_type)
         type(type_arena_t), intent(in) :: arena
         type(mono_handle_t), intent(in) :: handle
         type(arena_mono_type_t) :: mono_type
@@ -177,7 +177,7 @@ contains
     end function get_mono_type
 
     ! Get polymorphic type from arena
-    recursive function get_poly_type(arena, handle) result(poly_type)
+    function get_poly_type(arena, handle) result(poly_type)
         type(type_arena_t), intent(in) :: arena
         type(poly_handle_t), intent(in) :: handle
         type(arena_poly_type_t) :: poly_type
@@ -190,7 +190,7 @@ contains
     end function get_poly_type
 
     ! Get type argument array from arena
-    recursive subroutine get_type_args(arena, handle, args)
+    subroutine get_type_args(arena, handle, args)
         type(type_arena_t), intent(in) :: arena
         type(args_handle_t), intent(in) :: handle
         type(mono_handle_t), intent(out), allocatable :: args(:)
@@ -204,7 +204,7 @@ contains
     end subroutine get_type_args
 
     ! Allocate space for monomorphic type
-    recursive function type_arena_allocate_mono(this) result(handle)
+    function type_arena_allocate_mono(this) result(handle)
         class(type_arena_t), intent(inout) :: this
         type(mono_handle_t) :: handle
 
@@ -219,7 +219,7 @@ contains
     end function type_arena_allocate_mono
 
     ! Allocate space for polymorphic type
-    recursive function type_arena_allocate_poly(this) result(handle)
+    function type_arena_allocate_poly(this) result(handle)
         class(type_arena_t), intent(inout) :: this
         type(poly_handle_t) :: handle
 
@@ -234,7 +234,7 @@ contains
     end function type_arena_allocate_poly
 
     ! Allocate space for type argument array
-    recursive function type_arena_allocate_args(this, count) result(handle)
+    function type_arena_allocate_args(this, count) result(handle)
         class(type_arena_t), intent(inout) :: this
         integer, intent(in) :: count
         type(args_handle_t) :: handle
@@ -256,7 +256,7 @@ contains
     end function type_arena_allocate_args
 
     ! Get monomorphic type from arena
-    recursive subroutine type_arena_get_mono(this, handle, mono_type)
+    subroutine type_arena_get_mono(this, handle, mono_type)
         class(type_arena_t), intent(in) :: this
         type(mono_handle_t), intent(in) :: handle
         type(arena_mono_type_t), intent(out) :: mono_type
@@ -272,7 +272,7 @@ contains
     end subroutine type_arena_get_mono
 
     ! Get polymorphic type from arena
-    recursive subroutine type_arena_get_poly(this, handle, poly_type)
+    subroutine type_arena_get_poly(this, handle, poly_type)
         class(type_arena_t), intent(in) :: this
         type(poly_handle_t), intent(in) :: handle
         type(arena_poly_type_t), intent(out) :: poly_type
@@ -288,7 +288,7 @@ contains
     end subroutine type_arena_get_poly
 
     ! Get type argument array from arena
-    recursive subroutine type_arena_get_args(this, handle, args)
+    subroutine type_arena_get_args(this, handle, args)
         class(type_arena_t), intent(in) :: this
         type(args_handle_t), intent(in) :: handle
         type(mono_handle_t), intent(out) :: args(:)
@@ -305,7 +305,7 @@ contains
     end subroutine type_arena_get_args
 
     ! Set monomorphic type in arena
-    recursive subroutine type_arena_set_mono(this, handle, mono_type)
+    subroutine type_arena_set_mono(this, handle, mono_type)
         class(type_arena_t), intent(inout) :: this
         type(mono_handle_t), intent(in) :: handle
         type(arena_mono_type_t), intent(in) :: mono_type
@@ -317,7 +317,7 @@ contains
     end subroutine type_arena_set_mono
 
     ! Set polymorphic type in arena
-    recursive subroutine type_arena_set_poly(this, handle, poly_type)
+    subroutine type_arena_set_poly(this, handle, poly_type)
         class(type_arena_t), intent(inout) :: this
         type(poly_handle_t), intent(in) :: handle
         type(arena_poly_type_t), intent(in) :: poly_type
@@ -329,7 +329,7 @@ contains
     end subroutine type_arena_set_poly
 
     ! Set type argument array in arena
-    recursive subroutine type_arena_set_args(this, handle, args)
+    subroutine type_arena_set_args(this, handle, args)
         class(type_arena_t), intent(inout) :: this
         type(args_handle_t), intent(in) :: handle
         type(mono_handle_t), intent(in) :: args(:)
@@ -344,7 +344,7 @@ contains
     end subroutine type_arena_set_args
 
     ! Validate monomorphic type handle
-    recursive function type_arena_validate_mono(this, handle) result(valid)
+    function type_arena_validate_mono(this, handle) result(valid)
         class(type_arena_t), intent(in) :: this
         type(mono_handle_t), intent(in) :: handle
         logical :: valid
@@ -353,7 +353,7 @@ contains
     end function type_arena_validate_mono
 
     ! Validate polymorphic type handle
-    recursive function type_arena_validate_poly(this, handle) result(valid)
+    function type_arena_validate_poly(this, handle) result(valid)
         class(type_arena_t), intent(in) :: this
         type(poly_handle_t), intent(in) :: handle
         logical :: valid
@@ -362,7 +362,7 @@ contains
     end function type_arena_validate_poly
 
     ! Validate type argument array handle
-    recursive function type_arena_validate_args(this, handle) result(valid)
+    function type_arena_validate_args(this, handle) result(valid)
         class(type_arena_t), intent(in) :: this
         type(args_handle_t), intent(in) :: handle
         logical :: valid
@@ -372,7 +372,7 @@ contains
     end function type_arena_validate_args
 
     ! Get type arena statistics
-    recursive function type_arena_get_stats(this) result(stats)
+    function type_arena_get_stats(this) result(stats)
         class(type_arena_t), intent(in) :: this
         type(type_arena_stats_t) :: stats
         type(arena_stats_t) :: arena_stats
@@ -387,7 +387,7 @@ contains
     end function type_arena_get_stats
 
     ! Reset type arena for reuse
-    recursive subroutine type_arena_reset(this)
+    subroutine type_arena_reset(this)
         class(type_arena_t), intent(inout) :: this
 
         call this%arena%reset()
@@ -397,19 +397,19 @@ contains
     end subroutine type_arena_reset
 
     ! Create null handles
-    pure recursive function null_mono_handle() result(handle)
+    pure function null_mono_handle() result(handle)
         type(mono_handle_t) :: handle
         handle%handle = null_handle()
         handle%type_id = 0
     end function null_mono_handle
 
-    pure recursive function null_poly_handle() result(handle)
+    pure function null_poly_handle() result(handle)
         type(poly_handle_t) :: handle
         handle%handle = null_handle()
         handle%type_id = 0
     end function null_poly_handle
 
-    pure recursive function null_args_handle() result(handle)
+    pure function null_args_handle() result(handle)
         type(args_handle_t) :: handle
         handle%handle = null_handle()
         handle%count = 0
@@ -417,19 +417,19 @@ contains
     end function null_args_handle
 
     ! Check if handles are valid
-    pure recursive function is_valid_mono_handle(handle) result(valid)
+    pure function is_valid_mono_handle(handle) result(valid)
         type(mono_handle_t), intent(in) :: handle
         logical :: valid
         valid = is_valid_handle(handle%handle) .and. handle%type_id > 0
     end function is_valid_mono_handle
 
-    pure recursive function is_valid_poly_handle(handle) result(valid)
+    pure function is_valid_poly_handle(handle) result(valid)
         type(poly_handle_t), intent(in) :: handle
         logical :: valid
         valid = is_valid_handle(handle%handle) .and. handle%type_id > 0
     end function is_valid_poly_handle
 
-    pure recursive function is_valid_args_handle(handle) result(valid)
+    pure function is_valid_args_handle(handle) result(valid)
         type(args_handle_t), intent(in) :: handle
         logical :: valid
         valid = is_valid_handle(handle%handle) .and. &
@@ -437,7 +437,7 @@ contains
     end function is_valid_args_handle
 
     ! Deep copy assignment operator to prevent double free
-    recursive subroutine type_arena_assign(lhs, rhs)
+    subroutine type_arena_assign(lhs, rhs)
         class(type_arena_t), intent(out) :: lhs
         type(type_arena_t), intent(in) :: rhs
         
@@ -456,7 +456,7 @@ contains
     ! ============================================================================
     
     ! Insert item into type arena (base interface)
-    recursive function type_arena_insert(this, item) result(handle)
+    function type_arena_insert(this, item) result(handle)
         class(type_arena_t), intent(inout) :: this
         class(*), intent(in) :: item
         type(arena_handle_t) :: handle
@@ -500,7 +500,7 @@ contains
     end function type_arena_insert
     
     ! Get item from type arena (base interface)
-    recursive function type_arena_get(this, handle) result(item)
+    function type_arena_get(this, handle) result(item)
         class(type_arena_t), intent(in) :: this
         type(arena_handle_t), intent(in) :: handle
         class(*), pointer :: item
@@ -518,7 +518,7 @@ contains
     end function type_arena_get
     
     ! Validate handle in type arena (base interface)
-    recursive function type_arena_valid(this, handle) result(is_valid)
+    function type_arena_valid(this, handle) result(is_valid)
         class(type_arena_t), intent(in) :: this
         type(arena_handle_t), intent(in) :: handle
         logical :: is_valid
@@ -528,7 +528,7 @@ contains
     end function type_arena_valid
     
     ! Free item in type arena (base interface)
-    recursive subroutine type_arena_free(this, handle)
+    subroutine type_arena_free(this, handle)
         class(type_arena_t), intent(inout) :: this
         type(arena_handle_t), intent(in) :: handle
         
@@ -541,7 +541,7 @@ contains
     end subroutine type_arena_free
     
     ! Create checkpoint for type arena
-    recursive function type_arena_checkpoint(this) result(checkpoint)
+    function type_arena_checkpoint(this) result(checkpoint)
         class(type_arena_t), intent(in) :: this
         type(arena_checkpoint_t) :: checkpoint
         type(arena_stats_t) :: stats
@@ -557,7 +557,7 @@ contains
     end function type_arena_checkpoint
     
     ! Rollback type arena to checkpoint
-    recursive subroutine type_arena_rollback(this, checkpoint)
+    subroutine type_arena_rollback(this, checkpoint)
         class(type_arena_t), intent(inout) :: this
         type(arena_checkpoint_t), intent(in) :: checkpoint
         

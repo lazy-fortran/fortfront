@@ -22,7 +22,7 @@ module parser_array_constructs_module
 contains
 
     ! Local implementation to avoid circular dependency
-    recursive function parse_basic_stmt_local(tokens, arena, parent_index) result(stmt_indices)
+    function parse_basic_stmt_local(tokens, arena, parent_index) result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -176,7 +176,7 @@ contains
     end function parse_basic_stmt_local
     
     ! Parse WHERE construct (enhanced version)
-    recursive function parse_where_construct(parser, arena) result(where_index)
+    function parse_where_construct(parser, arena) result(where_index)
         use parser_if_constructs_module, only: parse_if_condition
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena

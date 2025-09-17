@@ -20,7 +20,7 @@ module semantic_function_analysis
 contains
 
     ! Helper function to infer type from usage context (enhanced type inference)
-    recursive function infer_type_from_usage_context(var_name, next_var_id) result(typ)
+    function infer_type_from_usage_context(var_name, next_var_id) result(typ)
         character(len=*), intent(in) :: var_name
         integer, intent(inout) :: next_var_id
         type(mono_type_t) :: typ
@@ -58,7 +58,7 @@ contains
     end function infer_type_from_usage_context
 
     ! Analyze function parameters and extract their types
-    recursive subroutine analyze_function_parameters(arena, func_node, param_types, scopes, next_var_id)
+    subroutine analyze_function_parameters(arena, func_node, param_types, scopes, next_var_id)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(in) :: func_node
         type(mono_type_t), allocatable, intent(out) :: param_types(:)
@@ -80,7 +80,7 @@ contains
     end subroutine analyze_function_parameters
 
     ! Determine function return type based on name and result variable
-    recursive function determine_function_return_type(func_node, next_var_id) result(return_type)
+    function determine_function_return_type(func_node, next_var_id) result(return_type)
         type(function_def_node), intent(in) :: func_node
         integer, intent(inout) :: next_var_id
         type(mono_type_t) :: return_type
@@ -99,7 +99,7 @@ contains
     end function determine_function_return_type
 
     ! Create function scope with result variable
-    recursive subroutine create_function_scope(func_node, return_type, scopes)
+    subroutine create_function_scope(func_node, return_type, scopes)
         type(function_def_node), intent(in) :: func_node
         type(mono_type_t), intent(in) :: return_type
         type(scope_stack_t), intent(inout) :: scopes

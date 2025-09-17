@@ -19,7 +19,7 @@ module semantic_assignment_inference
 contains
 
     ! Process assignment inference with scope and error handling
-    recursive subroutine process_assignment_inference(arena, assignment, assignment_index, &
+    subroutine process_assignment_inference(arena, assignment, assignment_index, &
                                            lhs_index, expr_typ, &
                                            scopes, errors, strict_mode, next_var_id)
         type(ast_arena_t), intent(inout) :: arena
@@ -73,7 +73,7 @@ contains
     end subroutine process_assignment_inference
 
     ! Local helper: best-effort define symbol from any declaration present in the arena
-    recursive subroutine ensure_declared_from_arena_local(scopes, arena, name)
+    subroutine ensure_declared_from_arena_local(scopes, arena, name)
         use ast_nodes_data, only: declaration_node
         use semantic_inference_helpers, only: process_declaration_variables
         type(scope_stack_t), intent(inout) :: scopes
@@ -110,7 +110,7 @@ contains
     end subroutine ensure_declared_from_arena_local
 
     ! Handle character allocation detection for string concatenation
-    recursive subroutine handle_character_allocation(arena, assignment, expr_typ, var_name)
+    subroutine handle_character_allocation(arena, assignment, expr_typ, var_name)
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
         type(mono_type_t), intent(inout) :: expr_typ

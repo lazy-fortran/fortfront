@@ -110,19 +110,19 @@ module semantic_result_types
 
     ! Abstract interfaces
     abstract interface
-        recursive function get_result_type_interface(this) result(type_name)
+        function get_result_type_interface(this) result(type_name)
             import :: semantic_result_base_t
             class(semantic_result_base_t), intent(in) :: this
             character(:), allocatable :: type_name
         end function get_result_type_interface
 
-        recursive function clone_result_interface(this) result(cloned)
+        function clone_result_interface(this) result(cloned)
             import :: semantic_result_base_t
             class(semantic_result_base_t), intent(in) :: this
             class(semantic_result_base_t), allocatable :: cloned
         end function clone_result_interface
 
-        recursive subroutine merge_results_interface(this, other)
+        subroutine merge_results_interface(this, other)
             import :: semantic_result_base_t
             class(semantic_result_base_t), intent(inout) :: this
             class(semantic_result_base_t), intent(in) :: other
@@ -134,13 +134,13 @@ module semantic_result_types
 contains
 
     ! Symbol result implementations
-    recursive function symbol_get_result_type(this) result(type_name)
+    function symbol_get_result_type(this) result(type_name)
         class(symbol_result_t), intent(in) :: this
         character(:), allocatable :: type_name
         type_name = "symbol_result"
     end function symbol_get_result_type
 
-    recursive function symbol_clone_result(this) result(cloned)
+    function symbol_clone_result(this) result(cloned)
         class(symbol_result_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: cloned
         type(symbol_result_t) :: temp_result
@@ -149,7 +149,7 @@ contains
         allocate(cloned, source=temp_result)
     end function symbol_clone_result
 
-    recursive subroutine symbol_merge_results(this, other)
+    subroutine symbol_merge_results(this, other)
         class(symbol_result_t), intent(inout) :: this
         class(semantic_result_base_t), intent(in) :: other
         
@@ -165,7 +165,7 @@ contains
         end select
     end subroutine symbol_merge_results
 
-    recursive subroutine symbol_result_assign(lhs, rhs)
+    subroutine symbol_result_assign(lhs, rhs)
         class(symbol_result_t), intent(out) :: lhs
         type(symbol_result_t), intent(in) :: rhs
         
@@ -181,13 +181,13 @@ contains
     end subroutine symbol_result_assign
 
     ! Type result implementations  
-    recursive function type_get_result_type(this) result(type_name)
+    function type_get_result_type(this) result(type_name)
         class(type_result_t), intent(in) :: this
         character(:), allocatable :: type_name
         type_name = "type_result"
     end function type_get_result_type
 
-    recursive function type_clone_result(this) result(cloned)
+    function type_clone_result(this) result(cloned)
         class(type_result_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: cloned
         type(type_result_t) :: temp_result
@@ -196,7 +196,7 @@ contains
         allocate(cloned, source=temp_result)
     end function type_clone_result
 
-    recursive subroutine type_merge_results(this, other)
+    subroutine type_merge_results(this, other)
         class(type_result_t), intent(inout) :: this
         class(semantic_result_base_t), intent(in) :: other
         
@@ -211,7 +211,7 @@ contains
         end select
     end subroutine type_merge_results
 
-    recursive subroutine type_result_assign(lhs, rhs)
+    subroutine type_result_assign(lhs, rhs)
         class(type_result_t), intent(out) :: lhs
         type(type_result_t), intent(in) :: rhs
         
@@ -227,13 +227,13 @@ contains
     end subroutine type_result_assign
 
     ! Scope result implementations
-    recursive function scope_get_result_type(this) result(type_name)
+    function scope_get_result_type(this) result(type_name)
         class(scope_result_t), intent(in) :: this
         character(:), allocatable :: type_name
         type_name = "scope_result"
     end function scope_get_result_type
 
-    recursive function scope_clone_result(this) result(cloned)
+    function scope_clone_result(this) result(cloned)
         class(scope_result_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: cloned
         type(scope_result_t) :: temp_result
@@ -242,7 +242,7 @@ contains
         allocate(cloned, source=temp_result)
     end function scope_clone_result
 
-    recursive subroutine scope_merge_results(this, other)
+    subroutine scope_merge_results(this, other)
         class(scope_result_t), intent(inout) :: this
         class(semantic_result_base_t), intent(in) :: other
         
@@ -255,7 +255,7 @@ contains
         end select
     end subroutine scope_merge_results
 
-    recursive subroutine scope_result_assign(lhs, rhs)
+    subroutine scope_result_assign(lhs, rhs)
         class(scope_result_t), intent(out) :: lhs
         type(scope_result_t), intent(in) :: rhs
         
@@ -270,13 +270,13 @@ contains
     end subroutine scope_result_assign
 
     ! Usage result implementations
-    recursive function usage_get_result_type(this) result(type_name)
+    function usage_get_result_type(this) result(type_name)
         class(usage_result_t), intent(in) :: this
         character(:), allocatable :: type_name
         type_name = "usage_result"
     end function usage_get_result_type
 
-    recursive function usage_clone_result(this) result(cloned)
+    function usage_clone_result(this) result(cloned)
         class(usage_result_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: cloned
         type(usage_result_t) :: temp_result
@@ -285,7 +285,7 @@ contains
         allocate(cloned, source=temp_result)
     end function usage_clone_result
 
-    recursive subroutine usage_merge_results(this, other)
+    subroutine usage_merge_results(this, other)
         class(usage_result_t), intent(inout) :: this
         class(semantic_result_base_t), intent(in) :: other
         
@@ -300,7 +300,7 @@ contains
         end select
     end subroutine usage_merge_results
 
-    recursive subroutine usage_result_assign(lhs, rhs)
+    subroutine usage_result_assign(lhs, rhs)
         class(usage_result_t), intent(out) :: lhs
         type(usage_result_t), intent(in) :: rhs
         
@@ -315,13 +315,13 @@ contains
     end subroutine usage_result_assign
 
     ! Control flow result implementations
-    recursive function control_flow_get_result_type(this) result(type_name)
+    function control_flow_get_result_type(this) result(type_name)
         class(control_flow_result_t), intent(in) :: this
         character(:), allocatable :: type_name
         type_name = "control_flow_result"
     end function control_flow_get_result_type
 
-    recursive function control_flow_clone_result(this) result(cloned)
+    function control_flow_clone_result(this) result(cloned)
         class(control_flow_result_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: cloned
         type(control_flow_result_t) :: temp_result
@@ -330,7 +330,7 @@ contains
         allocate(cloned, source=temp_result)
     end function control_flow_clone_result
 
-    recursive subroutine control_flow_merge_results(this, other)
+    subroutine control_flow_merge_results(this, other)
         class(control_flow_result_t), intent(inout) :: this
         class(semantic_result_base_t), intent(in) :: other
         
@@ -344,7 +344,7 @@ contains
         end select
     end subroutine control_flow_merge_results
 
-    recursive subroutine control_flow_result_assign(lhs, rhs)
+    subroutine control_flow_result_assign(lhs, rhs)
         class(control_flow_result_t), intent(out) :: lhs
         type(control_flow_result_t), intent(in) :: rhs
         
@@ -359,13 +359,13 @@ contains
     end subroutine control_flow_result_assign
 
     ! Call graph result implementations
-    recursive function call_graph_get_result_type(this) result(type_name)
+    function call_graph_get_result_type(this) result(type_name)
         class(call_graph_result_t), intent(in) :: this
         character(:), allocatable :: type_name
         type_name = "call_graph_result"
     end function call_graph_get_result_type
 
-    recursive function call_graph_clone_result(this) result(cloned)
+    function call_graph_clone_result(this) result(cloned)
         class(call_graph_result_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: cloned
         type(call_graph_result_t) :: temp_result
@@ -374,7 +374,7 @@ contains
         allocate(cloned, source=temp_result)
     end function call_graph_clone_result
 
-    recursive subroutine call_graph_merge_results(this, other)
+    subroutine call_graph_merge_results(this, other)
         class(call_graph_result_t), intent(inout) :: this
         class(semantic_result_base_t), intent(in) :: other
         
@@ -389,7 +389,7 @@ contains
         end select
     end subroutine call_graph_merge_results
 
-    recursive subroutine call_graph_result_assign(lhs, rhs)
+    subroutine call_graph_result_assign(lhs, rhs)
         class(call_graph_result_t), intent(out) :: lhs
         type(call_graph_result_t), intent(in) :: rhs
         
@@ -404,7 +404,7 @@ contains
     end subroutine call_graph_result_assign
 
     ! Test result implementations
-    recursive function test_get_result_type(this) result(type_name)
+    function test_get_result_type(this) result(type_name)
         class(test_result_t), intent(in) :: this
         character(:), allocatable :: type_name
         
@@ -413,7 +413,7 @@ contains
         end associate
     end function test_get_result_type
 
-    recursive function test_clone_result(this) result(cloned)
+    function test_clone_result(this) result(cloned)
         class(test_result_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: cloned
         
@@ -424,7 +424,7 @@ contains
         end select
     end function test_clone_result
 
-    recursive subroutine test_merge_results(this, other)
+    subroutine test_merge_results(this, other)
         class(test_result_t), intent(inout) :: this
         class(semantic_result_base_t), intent(in) :: other
         
@@ -436,7 +436,7 @@ contains
         end select
     end subroutine test_merge_results
 
-    recursive subroutine test_result_assign(lhs, rhs)
+    subroutine test_result_assign(lhs, rhs)
         class(test_result_t), intent(out) :: lhs
         type(test_result_t), intent(in) :: rhs
         

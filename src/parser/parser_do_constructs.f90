@@ -22,7 +22,7 @@ module parser_do_constructs_module
 contains
 
     ! Local implementation to avoid circular dependency
-    recursive function parse_basic_stmt_local(tokens, arena, parent_index) result(stmt_indices)
+    function parse_basic_stmt_local(tokens, arena, parent_index) result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -196,7 +196,7 @@ contains
         stmt_indices(1) = stmt_index
     end function parse_basic_stmt_local
 
-    recursive function parse_do_loop(parser, arena) result(loop_index)
+    function parse_do_loop(parser, arena) result(loop_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: loop_index
@@ -456,7 +456,7 @@ contains
 
     end function parse_do_loop
 
-    recursive function parse_do_while(parser, arena) result(loop_index)
+    function parse_do_while(parser, arena) result(loop_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: loop_index
@@ -473,7 +473,7 @@ contains
     end function parse_do_while
 
     ! Helper function for parsing do while from do token
-    recursive function parse_do_while_from_do(parser, arena, line, column) result(loop_index)
+    function parse_do_while_from_do(parser, arena, line, column) result(loop_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: line, column

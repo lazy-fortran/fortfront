@@ -23,7 +23,7 @@ contains
     end function int_to_str
 
     ! Helper functions for validate_array_bounds
-    recursive subroutine validate_array_bounds(arena, slice_node, result)
+    subroutine validate_array_bounds(arena, slice_node, result)
         type(ast_arena_t), intent(in) :: arena
         type(array_slice_node), intent(in) :: slice_node
         logical, intent(out) :: result
@@ -31,7 +31,7 @@ contains
         result = .true.  ! Always valid for now
     end subroutine validate_array_bounds
 
-    recursive subroutine check_shape_conformance(lhs_shape, rhs_shape, result)
+    subroutine check_shape_conformance(lhs_shape, rhs_shape, result)
         integer, intent(in) :: lhs_shape(:), rhs_shape(:)
         logical, intent(out) :: result
         
@@ -39,7 +39,7 @@ contains
     end subroutine check_shape_conformance
 
     ! Helper: Update identifier type throughout arena
-    recursive subroutine update_identifier_type_in_arena(arena, name, new_type)
+    subroutine update_identifier_type_in_arena(arena, name, new_type)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         type(mono_type_t), intent(in) :: new_type

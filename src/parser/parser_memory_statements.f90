@@ -13,7 +13,7 @@ module parser_memory_statements_module
 contains
 
     ! Helper subroutine to parse allocate variable with optional dimensions
-    recursive subroutine parse_allocate_variable(parser, arena, var_indices, shape_indices)
+    subroutine parse_allocate_variable(parser, arena, var_indices, shape_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: var_indices(:)
@@ -55,7 +55,7 @@ contains
     end subroutine parse_allocate_variable
 
     ! Parse allocate parameters (stat, errmsg, source, mold)
-    recursive subroutine parse_allocate_params(parser, arena, param_name, &
+    subroutine parse_allocate_params(parser, arena, param_name, &
                                      stat_var_index, errmsg_var_index, &
                                      source_expr_index, mold_expr_index)
         type(parser_state_t), intent(inout) :: parser
@@ -82,7 +82,7 @@ contains
         end if
     end subroutine parse_allocate_params
 
-    recursive function parse_allocate_statement(parser, arena) result(allocate_index)
+    function parse_allocate_statement(parser, arena) result(allocate_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: allocate_index
@@ -170,7 +170,7 @@ contains
                                        line, column)
     end function parse_allocate_statement
 
-    recursive function parse_deallocate_statement(parser, arena) result(deallocate_index)
+    function parse_deallocate_statement(parser, arena) result(deallocate_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: deallocate_index

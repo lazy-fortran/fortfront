@@ -14,7 +14,7 @@ module parser_import_resolution_module
 contains
 
     ! Parse comma-separated list of identifiers (for only clause)
-    recursive subroutine parse_identifier_list(parser, identifier_list)
+    subroutine parse_identifier_list(parser, identifier_list)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: identifier_list(:)
         character(len=:), allocatable :: temp_list(:)
@@ -78,7 +78,7 @@ contains
         deallocate(temp_list)
     end subroutine parse_identifier_list
 
-    recursive function parse_use_statement(parser, arena) result(stmt_index)
+    function parse_use_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -172,7 +172,7 @@ contains
                                         has_only, line, column, url_spec=url_spec)
     end function parse_use_statement
 
-    recursive function parse_include_statement(parser, arena) result(stmt_index)
+    function parse_include_statement(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index

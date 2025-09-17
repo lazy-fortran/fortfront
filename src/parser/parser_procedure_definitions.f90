@@ -13,7 +13,7 @@ module parser_procedure_definitions_module
 
 contains
 
-    recursive function parse_function_definition(parser, arena) result(func_index)
+    function parse_function_definition(parser, arena) result(func_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: func_index
@@ -194,7 +194,7 @@ contains
                                        line, column, result_variable=result_variable_name)
     end function parse_function_definition
 
-    recursive function parse_subroutine_definition(parser, arena) result(sub_index)
+    function parse_subroutine_definition(parser, arena) result(sub_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: sub_index
@@ -335,7 +335,7 @@ contains
                                         line, column)
     end function parse_subroutine_definition
 
-    recursive function parse_interface_block(parser, arena) result(interface_index)
+    function parse_interface_block(parser, arena) result(interface_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: interface_index

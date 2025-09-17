@@ -5,7 +5,7 @@ module codegen_arena_interface
 
     ! Interface for code generation from arena
     abstract interface
-        recursive function arena_generator_interface(arena, node_index) result(code)
+        function arena_generator_interface(arena, node_index) result(code)
             import :: ast_arena_t
             type(ast_arena_t), intent(in) :: arena
             integer, intent(in) :: node_index
@@ -21,13 +21,13 @@ module codegen_arena_interface
 contains
 
     ! Set the arena generator implementation
-    recursive subroutine set_arena_generator(generator)
+    subroutine set_arena_generator(generator)
         procedure(arena_generator_interface) :: generator
         arena_generator => generator
     end subroutine set_arena_generator
 
     ! Main dispatcher function
-    recursive function generate_code_from_arena(arena, node_index) result(code)
+    function generate_code_from_arena(arena, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code

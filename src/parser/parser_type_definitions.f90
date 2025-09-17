@@ -12,7 +12,7 @@ module parser_type_definitions_module
 contains
 
     ! Parse derived type parameters inside parentheses
-    recursive subroutine parse_derived_type_parameters(parser, arena, param_indices)
+    subroutine parse_derived_type_parameters(parser, arena, param_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(out) :: param_indices(:)
@@ -44,7 +44,7 @@ contains
         end do
     end subroutine parse_derived_type_parameters
 
-    recursive function parse_derived_type(parser, arena) result(type_index)
+    function parse_derived_type(parser, arena) result(type_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: type_index

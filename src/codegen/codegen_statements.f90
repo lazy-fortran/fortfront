@@ -29,7 +29,7 @@ module codegen_statements
 
 contains
     ! Generate code for assignment statements
-    recursive function generate_code_assignment(arena, node, node_index) result(code)
+    function generate_code_assignment(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(assignment_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -59,7 +59,7 @@ contains
     end function generate_code_assignment
 
     ! Generate code for subroutine calls
-    recursive function generate_code_subroutine_call(arena, node, node_index) result(code)
+    function generate_code_subroutine_call(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(subroutine_call_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -85,7 +85,7 @@ contains
     end function generate_code_subroutine_call
 
     ! Generate code for print statements
-    recursive function generate_code_print_statement(arena, node, node_index) result(code)
+    function generate_code_print_statement(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(print_statement_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -118,7 +118,7 @@ contains
     end function generate_code_print_statement
 
     ! Generate code for write statements
-    recursive function generate_code_write_statement(arena, node, node_index) result(code)
+    function generate_code_write_statement(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(write_statement_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -160,7 +160,7 @@ contains
     end function generate_code_write_statement
 
     ! Generate code for read statements
-    recursive function generate_code_read_statement(arena, node, node_index) result(code)
+    function generate_code_read_statement(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(read_statement_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -171,7 +171,7 @@ contains
     end function generate_code_read_statement
 
     ! Generate code for termination statements
-    recursive function generate_code_termination(arena, node, node_index) result(code)
+    function generate_code_termination(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(stop_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -188,7 +188,7 @@ contains
     end function generate_code_termination
 
     ! Generate code for return statements
-    recursive function generate_code_return(arena, node, node_index) result(code)
+    function generate_code_return(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(return_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -198,7 +198,7 @@ contains
     end function generate_code_return
 
     ! Generate code for goto statements
-    recursive function generate_code_goto(arena, node, node_index) result(code)
+    function generate_code_goto(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(goto_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -209,7 +209,7 @@ contains
     end function generate_code_goto
 
     ! Generate code for error termination statements
-    recursive function generate_code_error_termination(arena, node, node_index) result(code)
+    function generate_code_error_termination(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(error_stop_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -226,7 +226,7 @@ contains
     end function generate_code_error_termination
 
     ! Generate code for cycle statements
-    recursive function generate_code_cycle(arena, node, node_index) result(code)
+    function generate_code_cycle(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(cycle_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -237,7 +237,7 @@ contains
     end function generate_code_cycle
 
     ! Generate code for exit statements
-    recursive function generate_code_exit(arena, node, node_index) result(code)
+    function generate_code_exit(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(exit_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -248,7 +248,7 @@ contains
     end function generate_code_exit
 
     ! Generate code for use statements
-    recursive function generate_code_use_statement(node) result(code)
+    function generate_code_use_statement(node) result(code)
         type(use_statement_node), intent(in) :: node
         character(len=:), allocatable :: code
         character(len=:), allocatable :: only_clause, rename_clause
@@ -311,7 +311,7 @@ contains
     end function generate_code_use_statement
 
     ! Generate code for implicit statements
-    recursive function generate_code_implicit_statement(node) result(code)
+    function generate_code_implicit_statement(node) result(code)
         type(implicit_statement_node), intent(in) :: node
         character(len=:), allocatable :: code
 
@@ -320,7 +320,7 @@ contains
     end function generate_code_implicit_statement
 
     ! Generate code for comment nodes
-    recursive function generate_code_comment(node) result(code)
+    function generate_code_comment(node) result(code)
         type(comment_node), intent(in) :: node
         character(len=:), allocatable :: code
 
@@ -332,7 +332,7 @@ contains
     end function generate_code_comment
 
     ! Generate code for blank line nodes
-    recursive function generate_code_blank_line(node) result(code)
+    function generate_code_blank_line(node) result(code)
         type(blank_line_node), intent(in) :: node
         character(len=:), allocatable :: code
         integer :: i
@@ -347,7 +347,7 @@ contains
     ! generate_code_from_arena is provided as an interface at the module level
 
     ! Generate code for allocate statements
-    recursive function generate_code_allocate_statement(arena, node, node_index) result(code)
+    function generate_code_allocate_statement(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(allocate_statement_node), intent(in) :: node
         integer, intent(in) :: node_index
@@ -404,7 +404,7 @@ contains
     end function generate_code_allocate_statement
 
     ! Generate code for deallocate statements
-    recursive function generate_code_deallocate_statement(arena, node, node_index) result(code)
+    function generate_code_deallocate_statement(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
         type(deallocate_statement_node), intent(in) :: node
         integer, intent(in) :: node_index

@@ -48,7 +48,7 @@ module mock_analyzers
 
 contains
 
-    recursive function mock_analyze(this, ctx, arena, root_index) result(results)
+    function mock_analyze(this, ctx, arena, root_index) result(results)
         class(mock_analyzer_t), intent(inout) :: this
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -63,7 +63,7 @@ contains
         results%confidence_score = 1.0
     end function mock_analyze
 
-    recursive function convergent_analyze(this, ctx, arena, root_index) result(results)
+    function convergent_analyze(this, ctx, arena, root_index) result(results)
         class(convergent_analyzer_t), intent(inout) :: this
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -78,7 +78,7 @@ contains
         results%confidence_score = real(this%call_count) / real(this%convergence_pass)
     end function convergent_analyze
 
-    recursive function infinite_analyze(this, ctx, arena, root_index) result(results)
+    function infinite_analyze(this, ctx, arena, root_index) result(results)
         class(infinite_analyzer_t), intent(inout) :: this
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -93,7 +93,7 @@ contains
         results%confidence_score = 0.5
     end function infinite_analyze
 
-    recursive function ordered_analyze(this, ctx, arena, root_index) result(results)
+    function ordered_analyze(this, ctx, arena, root_index) result(results)
         class(ordered_analyzer_t), intent(inout) :: this
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -120,7 +120,7 @@ contains
         results%confidence_score = 1.0
     end function ordered_analyze
 
-    recursive function get_ordered_execution_log(this) result(log)
+    function get_ordered_execution_log(this) result(log)
         class(ordered_analyzer_t), intent(in) :: this
         integer, allocatable :: log(:)
 
@@ -134,7 +134,7 @@ contains
 
     ! Helper functions for test infrastructure
 
-    recursive function create_test_results() result(results)
+    function create_test_results() result(results)
         type(analysis_results_t) :: results
         results%converged = .true.
         results%iteration_count = 1
@@ -143,7 +143,7 @@ contains
         results%confidence_score = 0.95
     end function create_test_results
 
-    recursive function create_stable_results() result(results)
+    function create_stable_results() result(results)
         type(analysis_results_t) :: results
         results%converged = .true.
         results%iteration_count = 1
@@ -152,7 +152,7 @@ contains
         results%confidence_score = 1.0
     end function create_stable_results
 
-    recursive function create_initial_results() result(results)
+    function create_initial_results() result(results)
         type(analysis_results_t) :: results
         results%converged = .false.
         results%iteration_count = 1
@@ -161,7 +161,7 @@ contains
         results%confidence_score = 0.3
     end function create_initial_results
 
-    recursive function create_intermediate_results() result(results)
+    function create_intermediate_results() result(results)
         type(analysis_results_t) :: results
         results%converged = .false.
         results%iteration_count = 2
@@ -170,7 +170,7 @@ contains
         results%confidence_score = 0.7
     end function create_intermediate_results
 
-    recursive function create_changing_results(iteration) result(results)
+    function create_changing_results(iteration) result(results)
         integer, intent(in) :: iteration
         type(analysis_results_t) :: results
         results%converged = .false.
@@ -180,7 +180,7 @@ contains
         results%confidence_score = 0.5 + real(iteration) * 0.1
     end function create_changing_results
 
-    recursive function create_precise_results(value) result(results)
+    function create_precise_results(value) result(results)
         real, intent(in) :: value
         type(analysis_results_t) :: results
         results%converged = .true.
@@ -190,7 +190,7 @@ contains
         results%confidence_score = value
     end function create_precise_results
 
-    recursive function create_test_results_variant(variant) result(results)
+    function create_test_results_variant(variant) result(results)
         integer, intent(in) :: variant
         type(analysis_results_t) :: results
         results%converged = .true.
@@ -200,7 +200,7 @@ contains
         results%confidence_score = 0.8 + real(variant) * 0.05
     end function create_test_results_variant
 
-    recursive function create_large_test_results(size_factor) result(results)
+    function create_large_test_results(size_factor) result(results)
         integer, intent(in) :: size_factor
         type(analysis_results_t) :: results
         results%converged = .true.
@@ -210,13 +210,13 @@ contains
         results%confidence_score = 0.9
     end function create_large_test_results
 
-    recursive function results_equal(r1, r2) result(equal)
+    function results_equal(r1, r2) result(equal)
         type(analysis_results_t), intent(in) :: r1, r2
         logical :: equal
         equal = r1 == r2
     end function results_equal
 
-    recursive function get_memory_usage() result(memory_kb)
+    function get_memory_usage() result(memory_kb)
         integer :: memory_kb
         ! Simplified memory usage - in real implementation would query system
         memory_kb = 1000

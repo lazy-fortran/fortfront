@@ -23,7 +23,7 @@ module parser_if_constructs_module
 contains
 
     ! Local implementation to avoid circular dependency
-    recursive function parse_basic_stmt_local(tokens, arena, parent_index) result(stmt_indices)
+    function parse_basic_stmt_local(tokens, arena, parent_index) result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -185,7 +185,7 @@ contains
     end function parse_basic_stmt_local
 
     ! Parse if statement
-    recursive function parse_if(parser, arena, parent_index) result(if_index)
+    function parse_if(parser, arena, parent_index) result(if_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -352,7 +352,7 @@ contains
     end function parse_if
 
     ! Parse if condition (handles parentheses if present)
-    recursive function parse_if_condition(parser, arena) result(condition_index)
+    function parse_if_condition(parser, arena) result(condition_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: condition_index
@@ -417,7 +417,7 @@ contains
     end function parse_if_condition
 
     ! Parse if/elseif/else body statements
-    recursive function parse_if_body(parser, arena, parent_index) result(body_indices)
+    function parse_if_body(parser, arena, parent_index) result(body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
@@ -679,7 +679,7 @@ contains
     end function parse_if_body
 
     ! Parse elseif block
-    recursive function parse_elseif_block(parser, arena) result(elseif_indices)
+    function parse_elseif_block(parser, arena) result(elseif_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: elseif_indices(2) ! condition_index, body_indices_start

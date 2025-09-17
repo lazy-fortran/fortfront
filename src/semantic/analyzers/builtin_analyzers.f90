@@ -63,7 +63,7 @@ module builtin_analyzers
 contains
 
     ! Symbol analyzer implementation
-    recursive subroutine analyze_symbols(this, shared_context, arena, node_index)
+    subroutine analyze_symbols(this, shared_context, arena, node_index)
         class(symbol_analyzer_t), intent(inout) :: this
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
@@ -82,7 +82,7 @@ contains
         end block
     end subroutine
 
-    recursive function get_symbol_results(this) result(results)
+    function get_symbol_results(this) result(results)
         class(symbol_analyzer_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
         
@@ -96,7 +96,7 @@ contains
         end select
     end function
 
-    recursive function get_symbol_analyzer_name(this) result(name)
+    function get_symbol_analyzer_name(this) result(name)
         class(symbol_analyzer_t), intent(in) :: this
         character(:), allocatable :: name
         
@@ -104,7 +104,7 @@ contains
     end function
 
     ! Type analyzer implementation
-    recursive subroutine analyze_types(this, shared_context, arena, node_index)
+    subroutine analyze_types(this, shared_context, arena, node_index)
         class(type_analyzer_t), intent(inout) :: this
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
@@ -121,7 +121,7 @@ contains
         end block
     end subroutine
 
-    recursive function get_type_results(this) result(results)
+    function get_type_results(this) result(results)
         class(type_analyzer_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
         
@@ -135,7 +135,7 @@ contains
         end select
     end function
 
-    recursive function get_type_analyzer_name(this) result(name)
+    function get_type_analyzer_name(this) result(name)
         class(type_analyzer_t), intent(in) :: this
         character(:), allocatable :: name
         
@@ -143,7 +143,7 @@ contains
     end function
 
     ! Scope analyzer implementation  
-    recursive subroutine analyze_scopes(this, shared_context, arena, node_index)
+    subroutine analyze_scopes(this, shared_context, arena, node_index)
         class(scope_analyzer_t), intent(inout) :: this
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
@@ -160,7 +160,7 @@ contains
         end block
     end subroutine
 
-    recursive function get_scope_results(this) result(results)
+    function get_scope_results(this) result(results)
         class(scope_analyzer_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
         
@@ -172,7 +172,7 @@ contains
         end select
     end function
 
-    recursive function get_scope_analyzer_name(this) result(name)
+    function get_scope_analyzer_name(this) result(name)
         class(scope_analyzer_t), intent(in) :: this
         character(:), allocatable :: name
         
@@ -180,7 +180,7 @@ contains
     end function
 
     ! Assignment operators for deep copy
-    recursive subroutine assign_symbol_analyzer(lhs, rhs)
+    subroutine assign_symbol_analyzer(lhs, rhs)
         class(symbol_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
@@ -193,7 +193,7 @@ contains
         end select
     end subroutine
 
-    recursive subroutine assign_type_analyzer(lhs, rhs)
+    subroutine assign_type_analyzer(lhs, rhs)
         class(type_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
@@ -206,7 +206,7 @@ contains
         end select
     end subroutine
 
-    recursive subroutine assign_scope_analyzer(lhs, rhs)
+    subroutine assign_scope_analyzer(lhs, rhs)
         class(scope_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
         
@@ -220,7 +220,7 @@ contains
     end subroutine
 
     ! Dependency functions for builtin analyzers
-    recursive function get_symbol_dependencies(this) result(deps)
+    function get_symbol_dependencies(this) result(deps)
         class(symbol_analyzer_t), intent(in) :: this
         character(:), allocatable :: deps(:)
         
@@ -231,7 +231,7 @@ contains
         end associate
     end function
 
-    recursive function get_type_dependencies(this) result(deps)
+    function get_type_dependencies(this) result(deps)
         class(type_analyzer_t), intent(in) :: this
         character(:), allocatable :: deps(:)
         
@@ -243,7 +243,7 @@ contains
         end associate
     end function
 
-    recursive function get_scope_dependencies(this) result(deps)
+    function get_scope_dependencies(this) result(deps)
         class(scope_analyzer_t), intent(in) :: this
         character(:), allocatable :: deps(:)
         

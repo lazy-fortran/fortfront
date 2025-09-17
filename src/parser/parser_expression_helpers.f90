@@ -16,7 +16,7 @@ contains
 
 
     ! Parse number literal tokens
-    recursive function parse_number_literal(current_token, arena) result(expr_index)
+    function parse_number_literal(current_token, arena) result(expr_index)
         type(token_t), intent(in) :: current_token
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -33,7 +33,7 @@ contains
     end function parse_number_literal
 
     ! Parse string literal tokens
-    recursive function parse_string_literal(current_token, arena) result(expr_index)
+    function parse_string_literal(current_token, arena) result(expr_index)
         type(token_t), intent(in) :: current_token
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -43,7 +43,7 @@ contains
     end function parse_string_literal
 
     ! Parse boolean literal tokens
-    recursive function parse_boolean_literal(current_token, arena) result(expr_index)
+    function parse_boolean_literal(current_token, arena) result(expr_index)
         type(token_t), intent(in) :: current_token
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
@@ -53,7 +53,7 @@ contains
     end function parse_boolean_literal
 
     ! Parse component access postfix operator (%)
-    recursive function parse_component_access_postfix(parser, arena, base_expr, op_token) result(expr_index)
+    function parse_component_access_postfix(parser, arena, base_expr, op_token) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr

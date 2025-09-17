@@ -9,7 +9,7 @@ module constant_transformation
     
 contains
     
-    recursive subroutine fold_constants_in_arena(arena)
+    subroutine fold_constants_in_arena(arena)
         type(ast_arena_t), intent(inout) :: arena
         integer :: i
         
@@ -19,7 +19,7 @@ contains
         end do
     end subroutine fold_constants_in_arena
     
-    recursive subroutine fold_node_constants(arena, node_index)
+    subroutine fold_node_constants(arena, node_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
 
@@ -94,7 +94,7 @@ contains
 
     contains
 
-        recursive subroutine push(idx, processed)
+        subroutine push(idx, processed)
             integer, intent(in) :: idx
             logical, intent(in) :: processed
             type(stack_entry), allocatable :: temp(:)
@@ -110,7 +110,7 @@ contains
             stack(top)%processed = processed
         end subroutine push
 
-        recursive subroutine push_array(indices)
+        subroutine push_array(indices)
             integer, intent(in) :: indices(:)
             integer :: j
             if (size(indices) <= 0) return
@@ -119,7 +119,7 @@ contains
             end do
         end subroutine push_array
 
-        recursive function pop() result(entry)
+        function pop() result(entry)
             type(stack_entry) :: entry
             if (top <= 0) then
                 entry%idx = 0
@@ -132,7 +132,7 @@ contains
 
     end subroutine fold_node_constants
     
-    recursive subroutine fold_literal_node(node)
+    subroutine fold_literal_node(node)
         type(literal_node), intent(inout) :: node
         integer :: read_status
         
@@ -163,7 +163,7 @@ contains
         end if
     end subroutine fold_literal_node
     
-    recursive subroutine fold_binary_op_node(arena, node)
+    subroutine fold_binary_op_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(binary_op_node), intent(inout) :: node
         
@@ -198,7 +198,7 @@ contains
         end associate
     end subroutine fold_binary_op_node
     
-    recursive subroutine fold_comparison_gt(node, left, right)
+    subroutine fold_comparison_gt(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
         
@@ -215,7 +215,7 @@ contains
         end if
     end subroutine fold_comparison_gt
     
-    recursive subroutine fold_comparison_lt(node, left, right)
+    subroutine fold_comparison_lt(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
         
@@ -232,7 +232,7 @@ contains
         end if
     end subroutine fold_comparison_lt
     
-    recursive subroutine fold_comparison_ge(node, left, right)
+    subroutine fold_comparison_ge(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
         
@@ -249,7 +249,7 @@ contains
         end if
     end subroutine fold_comparison_ge
     
-    recursive subroutine fold_comparison_le(node, left, right)
+    subroutine fold_comparison_le(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
         
@@ -266,7 +266,7 @@ contains
         end if
     end subroutine fold_comparison_le
     
-    recursive subroutine fold_comparison_eq(node, left, right)
+    subroutine fold_comparison_eq(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
         
@@ -289,7 +289,7 @@ contains
         end if
     end subroutine fold_comparison_eq
     
-    recursive subroutine fold_comparison_ne(node, left, right)
+    subroutine fold_comparison_ne(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
         
@@ -312,7 +312,7 @@ contains
         end if
     end subroutine fold_comparison_ne
     
-    recursive subroutine fold_if_node(arena, node)
+    subroutine fold_if_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(if_node), intent(inout) :: node
         
@@ -322,7 +322,7 @@ contains
         end if
     end subroutine fold_if_node
     
-    recursive subroutine fold_declaration_node(arena, node)
+    subroutine fold_declaration_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(declaration_node), intent(inout) :: node
         
@@ -347,7 +347,7 @@ contains
         end if
     end subroutine fold_declaration_node
     
-    recursive subroutine fold_identifier_node(arena, node)
+    subroutine fold_identifier_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(identifier_node), intent(inout) :: node
         integer :: i

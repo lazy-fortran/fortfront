@@ -17,7 +17,7 @@ module parser_module_structures_module
 
 contains
 
-    recursive function parse_module(parser, arena) result(module_index)
+    function parse_module(parser, arena) result(module_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: module_index
@@ -198,7 +198,7 @@ contains
     end function parse_module
     
     ! Parse a simple implicit statement in module context
-    recursive subroutine parse_simple_implicit_in_module(parser, arena, stmt_index)
+    subroutine parse_simple_implicit_in_module(parser, arena, stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -230,7 +230,7 @@ contains
     end subroutine parse_simple_implicit_in_module
 
     ! Temporary helper to skip procedure bodies during refactoring
-    recursive subroutine skip_procedure_body(parser, proc_type)
+    subroutine skip_procedure_body(parser, proc_type)
         type(parser_state_t), intent(inout) :: parser
         character(len=*), intent(in) :: proc_type
         type(token_t) :: token

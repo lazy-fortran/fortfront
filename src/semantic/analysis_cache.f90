@@ -26,7 +26,7 @@ module analysis_cache
 
 contains
 
-    recursive subroutine cache_store_results(this, analyzer_name, pass_num, results)
+    subroutine cache_store_results(this, analyzer_name, pass_num, results)
         class(analysis_cache_t), intent(inout) :: this
         character(len=*), intent(in) :: analyzer_name
         integer, intent(in) :: pass_num
@@ -71,7 +71,7 @@ contains
         this%size = max(this%size, free_slot)
     end subroutine cache_store_results
 
-    recursive subroutine cache_retrieve_results(this, analyzer_name, pass_num, results, &
+    subroutine cache_retrieve_results(this, analyzer_name, pass_num, results, &
                                       success)
         class(analysis_cache_t), intent(in) :: this
         character(len=*), intent(in) :: analyzer_name
@@ -97,7 +97,7 @@ contains
         end do
     end subroutine cache_retrieve_results
 
-    recursive subroutine cache_invalidate(this, analyzer_name)
+    subroutine cache_invalidate(this, analyzer_name)
         class(analysis_cache_t), intent(inout) :: this
         character(len=*), intent(in) :: analyzer_name
         integer :: i
@@ -114,7 +114,7 @@ contains
         end do
     end subroutine cache_invalidate
 
-    recursive subroutine cache_clear_all(this)
+    subroutine cache_clear_all(this)
         class(analysis_cache_t), intent(inout) :: this
         integer :: i
 
@@ -128,7 +128,7 @@ contains
         this%size = 0
     end subroutine cache_clear_all
 
-    recursive subroutine cache_expand_capacity(this)
+    subroutine cache_expand_capacity(this)
         class(analysis_cache_t), intent(inout) :: this
         type(cache_entry_t), allocatable :: temp_entries(:)
         integer :: old_capacity

@@ -15,7 +15,7 @@ module semantic_binary_operations
 contains
 
     ! Calculate string concatenation result type
-    recursive function infer_string_concatenation(left_typ, right_typ) result(typ)
+    function infer_string_concatenation(left_typ, right_typ) result(typ)
         type(mono_type_t), intent(in) :: left_typ, right_typ
         type(mono_type_t) :: typ
         integer :: left_size, right_size, total_size
@@ -54,7 +54,7 @@ contains
     end function infer_string_concatenation
 
     ! Infer comparison operation result type
-    recursive function infer_comparison_operation(left_typ, right_typ) result(typ)
+    function infer_comparison_operation(left_typ, right_typ) result(typ)
         type(mono_type_t), intent(in) :: left_typ, right_typ
         type(mono_type_t) :: typ
         
@@ -63,7 +63,7 @@ contains
     end function infer_comparison_operation
 
     ! Infer logical operation result type
-    recursive function infer_logical_operation() result(typ)
+    function infer_logical_operation() result(typ)
         type(mono_type_t) :: typ
         
         ! Logical operators always return logical

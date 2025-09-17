@@ -15,7 +15,7 @@ module semantic_pipeline_integration
 contains
     
     ! Run semantic analysis using pipeline
-    recursive subroutine analyze_semantics_with_pipeline(pipeline, arena, node_index, context)
+    subroutine analyze_semantics_with_pipeline(pipeline, arena, node_index, context)
         type(semantic_pipeline_t), intent(inout) :: pipeline
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
@@ -42,7 +42,7 @@ contains
     end subroutine analyze_semantics_with_pipeline
     
     ! Create default semantic analysis pipeline
-    recursive subroutine create_default_semantic_pipeline(pipeline)
+    subroutine create_default_semantic_pipeline(pipeline)
         type(semantic_pipeline_t), intent(out) :: pipeline
         type(symbol_analyzer_t) :: symbol_analyzer
         type(type_analyzer_t) :: type_analyzer

@@ -43,7 +43,7 @@ contains
 
 
     ! Convert integer to string
-    recursive function int_to_string(num) result(str)
+    function int_to_string(num) result(str)
         integer, intent(in) :: num
         character(len=:), allocatable :: str
         character(len=32) :: buffer
@@ -52,7 +52,7 @@ contains
     end function int_to_string
 
     ! Find node index in arena
-    recursive function find_node_index_in_arena(arena, target_node) result(index)
+    function find_node_index_in_arena(arena, target_node) result(index)
         type(ast_arena_t), intent(in) :: arena
         class(ast_node), intent(in) :: target_node
         integer :: index
@@ -70,7 +70,7 @@ contains
     end function find_node_index_in_arena
 
     ! Check if two nodes are the same
-    recursive function same_node(node1, node2) result(is_same)
+    function same_node(node1, node2) result(is_same)
         class(ast_node), intent(in) :: node1, node2
         logical :: is_same
 
@@ -98,7 +98,7 @@ contains
     end function same_node
 
     ! Check if two declarations can be grouped
-    recursive function can_group_declarations(node1, node2) result(can_group)
+    function can_group_declarations(node1, node2) result(can_group)
         type(declaration_node), intent(in) :: node1, node2
         logical :: can_group
 
@@ -141,7 +141,7 @@ contains
     end function can_group_declarations
 
     ! Check if two parameter declarations can be grouped
-    recursive function can_group_parameters(node1, node2) result(can_group)
+    function can_group_parameters(node1, node2) result(can_group)
         type(parameter_declaration_node), intent(in) :: node1, node2
         logical :: can_group
 
@@ -156,7 +156,7 @@ contains
     end function can_group_parameters
 
     ! Check if declarations can be grouped considering parameter mapping
-    recursive function can_group_declarations_with_params(node1, node2, param_map) result(can_group)
+    function can_group_declarations_with_params(node1, node2, param_map) result(can_group)
         type(declaration_node), intent(in) :: node1, node2
         type(parameter_info_t), intent(in) :: param_map(:)
         logical :: can_group
@@ -206,7 +206,7 @@ contains
     end function can_group_declarations_with_params
 
     ! Build parameter name with dimensions
-    recursive function build_param_name_with_dims(arena, param_node) result(name_with_dims)
+    function build_param_name_with_dims(arena, param_node) result(name_with_dims)
         type(ast_arena_t), intent(in) :: arena
         type(parameter_declaration_node), intent(in) :: param_node
         character(len=:), allocatable :: name_with_dims
@@ -219,7 +219,7 @@ contains
     end function build_param_name_with_dims
 
     ! Generate grouped declaration statement
-    recursive function generate_grouped_declaration(type_name, kind_value, has_kind, &
+    function generate_grouped_declaration(type_name, kind_value, has_kind, &
                                           intent, var_list, is_optional) result(stmt)
         character(len=*), intent(in) :: type_name
         integer, intent(in) :: kind_value
@@ -247,7 +247,7 @@ contains
     end function generate_grouped_declaration
 
     ! Generate grouped body statements
-    recursive function generate_grouped_body(arena, body_indices, indent) result(code)
+    function generate_grouped_body(arena, body_indices, indent) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent
@@ -348,7 +348,7 @@ contains
     end function generate_grouped_body
 
     ! Generate grouped body with parameter mapping
-    recursive function generate_grouped_body_with_params(arena, body_indices, indent, param_map, proc_node) result(code)
+    function generate_grouped_body_with_params(arena, body_indices, indent, param_map, proc_node) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent
@@ -601,7 +601,7 @@ contains
     end function generate_grouped_body_with_params
 
     ! Generate grouped body with context about executable statements
-    recursive function generate_grouped_body_context(arena, body_indices, indent, has_exec_before_contains) result(code)
+    function generate_grouped_body_context(arena, body_indices, indent, has_exec_before_contains) result(code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent
@@ -619,7 +619,7 @@ contains
     end function generate_grouped_body_context
 
     ! Process grouped declarations
-    recursive subroutine process_grouped_declarations(arena, body_indices, i, indent_str, code)
+    subroutine process_grouped_declarations(arena, body_indices, i, indent_str, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(inout) :: i
@@ -698,7 +698,7 @@ contains
     end subroutine process_grouped_declarations
 
     ! Process grouped parameter declarations
-    recursive subroutine process_grouped_parameters(arena, body_indices, i, indent_str, code)
+    subroutine process_grouped_parameters(arena, body_indices, i, indent_str, code)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(inout) :: i
@@ -757,7 +757,7 @@ contains
     end subroutine process_grouped_parameters
 
     ! Find parameter information by name
-    recursive function find_parameter_info(param_map, var_name) result(param_idx)
+    function find_parameter_info(param_map, var_name) result(param_idx)
         type(parameter_info_t), intent(in) :: param_map(:)
         character(len=*), intent(in) :: var_name
         integer :: param_idx
@@ -775,7 +775,7 @@ contains
     end function find_parameter_info
 
     ! Check if a variable name is a function parameter
-    recursive function is_function_parameter(var_name, arena, proc_node) result(is_param)
+    function is_function_parameter(var_name, arena, proc_node) result(is_param)
         character(len=*), intent(in) :: var_name
         type(ast_arena_t), intent(in) :: arena
         class(ast_node), intent(in) :: proc_node
@@ -824,7 +824,7 @@ contains
     end function is_function_parameter
 
     ! Check if a name is in parameter names array
-    recursive function is_parameter_name(var_name, param_names) result(is_param)
+    function is_parameter_name(var_name, param_names) result(is_param)
         character(len=*), intent(in) :: var_name
         character(len=*), intent(in) :: param_names(:)
         logical :: is_param

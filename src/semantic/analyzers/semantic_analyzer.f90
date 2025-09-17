@@ -106,7 +106,7 @@ module semantic_analyzer
 contains
 
     ! Create a new semantic context with builtin functions (avoid large return-by-value)
-    recursive subroutine create_semantic_context(ctx)
+    subroutine create_semantic_context(ctx)
         type(semantic_context_t), intent(out) :: ctx
         type(poly_type_t) :: builtin_scheme
         type(mono_type_t) :: real_to_real, real_type
@@ -147,7 +147,7 @@ contains
     end subroutine create_semantic_context
 
     ! Main entry point: analyze entire program
-    recursive subroutine analyze_program(ctx, arena, root_index)
+    subroutine analyze_program(ctx, arena, root_index)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: root_index
@@ -172,7 +172,7 @@ contains
     end subroutine analyze_program
 
     ! Analyze a program node with arena-based AST  
-    recursive subroutine analyze_program_node_arena(ctx, arena, prog, prog_index)
+    subroutine analyze_program_node_arena(ctx, arena, prog, prog_index)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(program_node), intent(inout) :: prog
@@ -220,7 +220,7 @@ contains
     end subroutine analyze_program_node_arena
 
     ! Infer type and store in AST node
-    recursive subroutine infer_and_store_type(ctx, arena, node_index)
+    subroutine infer_and_store_type(ctx, arena, node_index)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
@@ -236,7 +236,7 @@ contains
     end subroutine infer_and_store_type
 
     ! Simplified type inference entry point
-    recursive function infer_statement_type(this, arena, stmt_index) result(typ)
+    function infer_statement_type(this, arena, stmt_index) result(typ)
         class(semantic_context_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: stmt_index
@@ -245,7 +245,7 @@ contains
         typ = this%infer(arena, stmt_index)
     end function infer_statement_type
 
-    recursive function infer_type(this, arena, expr_index) result(typ)
+    function infer_type(this, arena, expr_index) result(typ)
         class(semantic_context_t), intent(inout) :: this
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: expr_index
@@ -286,7 +286,7 @@ contains
 
     contains
 
-        recursive subroutine ensure_capacity(required)
+        subroutine ensure_capacity(required)
             integer, intent(in) :: required
             type(infer_frame_t), allocatable :: new_stack(:)
             integer :: new_capacity
@@ -300,7 +300,7 @@ contains
             stack_capacity = new_capacity
         end subroutine ensure_capacity
 
-        recursive subroutine push_frame_local(f)
+        subroutine push_frame_local(f)
             type(infer_frame_t), intent(in) :: f
 
             call ensure_capacity(stack_size + 1)
@@ -308,7 +308,7 @@ contains
             stack(stack_size) = f
         end subroutine push_frame_local
 
-        recursive subroutine push_pre(index)
+        subroutine push_pre(index)
             integer, intent(in) :: index
             type(infer_frame_t) :: new_frame
 
@@ -321,14 +321,14 @@ contains
             call push_frame_local(new_frame)
         end subroutine push_pre
 
-        recursive subroutine push_child(index)
+        subroutine push_child(index)
             integer, intent(in) :: index
 
             if (index <= 0) return
             call push_pre(index)
         end subroutine push_child
 
-        recursive subroutine handle_previsit(current)
+        subroutine handle_previsit(current)
             type(infer_frame_t), intent(in) :: current
             type(infer_frame_t) :: post_frame
             integer :: node_index
@@ -551,7 +551,7 @@ contains
             end select
         end subroutine handle_previsit
 
-        recursive subroutine handle_postvisit(current)
+        subroutine handle_postvisit(current)
             type(infer_frame_t), intent(inout) :: current
             integer :: node_index
             type(mono_type_t) :: node_type
@@ -617,7 +617,7 @@ contains
             if (allocated(current%param_types)) deallocate(current%param_types)
         end subroutine handle_postvisit
 
-        recursive subroutine handle_association(current)
+        subroutine handle_association(current)
             type(infer_frame_t), intent(in) :: current
             integer :: parent_index
             integer :: assoc_index
@@ -642,7 +642,7 @@ contains
             end select
         end subroutine handle_association
 
-        recursive subroutine finalize_node(node_idx, raw_type)
+        subroutine finalize_node(node_idx, raw_type)
             integer, intent(in) :: node_idx
             type(mono_type_t), intent(in) :: raw_type
             type(mono_type_t) :: final_type
@@ -656,14 +656,14 @@ contains
             call set_node_inferred_type(arena, node_idx, final_type)
         end subroutine finalize_node
 
-        recursive function get_node_type(idx) result(res_type)
+        function get_node_type(idx) result(res_type)
             integer, intent(in) :: idx
             type(mono_type_t) :: res_type
 
             res_type = get_inferred_type_from_arena(this, arena, idx)
         end function get_node_type
 
-        recursive subroutine handle_declaration(node, node_index)
+        subroutine handle_declaration(node, node_index)
             type(declaration_node), intent(in) :: node
             integer, intent(in) :: node_index
             type(mono_type_t) :: decl_type
@@ -682,7 +682,7 @@ contains
             call finalize_node(node_index, decl_type)
         end subroutine handle_declaration
 
-        recursive function build_function_type(frame) result(fun_type)
+        function build_function_type(frame) result(fun_type)
             type(infer_frame_t), intent(in) :: frame
             type(mono_type_t) :: fun_type
             type(mono_type_t) :: return_type
@@ -714,7 +714,7 @@ contains
 
     end function infer_type
 
-    recursive subroutine set_node_inferred_type(arena, index, typ)
+    subroutine set_node_inferred_type(arena, index, typ)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: index
         type(mono_type_t), intent(in) :: typ
@@ -724,7 +724,7 @@ contains
         arena%entries(index)%node%inferred_type = typ
     end subroutine set_node_inferred_type
 
-    recursive function get_inferred_type_from_arena(ctx, arena, index) result(typ)
+    function get_inferred_type_from_arena(ctx, arena, index) result(typ)
         class(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: index
@@ -743,7 +743,7 @@ contains
 
 
     ! Type unification (simplified)
-    recursive subroutine unify_types(this, t1, t2)
+    subroutine unify_types(this, t1, t2)
         class(semantic_context_t), intent(inout) :: this
         type(mono_type_t), intent(in) :: t1, t2
 
@@ -751,7 +751,7 @@ contains
     end subroutine unify_types
 
     ! Instantiate type scheme (using extracted module)
-    recursive function instantiate_type_scheme(this, scheme) result(typ)
+    function instantiate_type_scheme(this, scheme) result(typ)
         class(semantic_context_t), intent(inout) :: this
         type(poly_type_t), intent(in) :: scheme
         type(mono_type_t) :: typ
@@ -760,7 +760,7 @@ contains
     end function instantiate_type_scheme
 
     ! Generalize type (using extracted module)
-    recursive function generalize_type(this, typ) result(scheme)
+    function generalize_type(this, typ) result(scheme)
         class(semantic_context_t), intent(in) :: this
         type(mono_type_t), intent(in) :: typ
         type(poly_type_t) :: scheme
@@ -769,7 +769,7 @@ contains
     end function generalize_type
 
     ! Generate fresh type variable (using extracted module)
-    recursive function generate_fresh_type_var(this) result(tv)
+    function generate_fresh_type_var(this) result(tv)
         class(semantic_context_t), intent(inout) :: this
         type(type_var_t) :: tv
 
@@ -777,7 +777,7 @@ contains
     end function generate_fresh_type_var
 
     ! Apply current substitution to type (using extracted module)
-    recursive function apply_current_substitution(this, typ) result(result_type)
+    function apply_current_substitution(this, typ) result(result_type)
         class(semantic_context_t), intent(in) :: this
         type(mono_type_t), intent(in) :: typ
         type(mono_type_t) :: result_type
@@ -786,7 +786,7 @@ contains
     end function apply_current_substitution
 
     ! Get builtin function type
-    recursive function get_builtin_function_type(this, name) result(typ)
+    function get_builtin_function_type(this, name) result(typ)
         class(semantic_context_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         type(mono_type_t) :: typ
@@ -802,7 +802,7 @@ contains
     end function get_builtin_function_type
 
     ! Compose with substitution
-    recursive subroutine compose_with_subst(this, new_subst)
+    subroutine compose_with_subst(this, new_subst)
         class(semantic_context_t), intent(inout) :: this
         type(substitution_t), intent(in) :: new_subst
 
@@ -810,7 +810,7 @@ contains
     end subroutine compose_with_subst
 
     ! Deep copy (use subroutine to avoid large return-by-value on stack)
-    recursive subroutine semantic_context_deep_copy(this, copy)
+    subroutine semantic_context_deep_copy(this, copy)
         class(semantic_context_t), intent(in) :: this
         type(semantic_context_t), intent(out) :: copy
 
@@ -826,7 +826,7 @@ contains
 
 
     ! Enhanced function definition semantic analysis (simplified main version)
-    recursive function infer_function_definition(ctx, arena, func_node, func_index) result(typ)
+    function infer_function_definition(ctx, arena, func_node, func_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(in) :: func_node
@@ -863,7 +863,7 @@ contains
     end function infer_function_definition
 
     ! Assignment operator
-    recursive subroutine semantic_context_assign(lhs, rhs)
+    subroutine semantic_context_assign(lhs, rhs)
         class(semantic_context_t), intent(inout) :: lhs
         type(semantic_context_t), intent(in) :: rhs
 
@@ -878,7 +878,7 @@ contains
     end subroutine semantic_context_assign
 
     ! Array bounds validation (simplified)
-    recursive subroutine validate_array_access_bounds(ctx, arena, slice_node)
+    subroutine validate_array_access_bounds(ctx, arena, slice_node)
         class(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(in) :: slice_node
@@ -887,7 +887,7 @@ contains
     end subroutine validate_array_access_bounds
 
     ! Array shape conformance checking
-    recursive subroutine check_array_shape_conformance(ctx, lhs_type, rhs_type, is_conformant)
+    subroutine check_array_shape_conformance(ctx, lhs_type, rhs_type, is_conformant)
         class(semantic_context_t), intent(inout) :: ctx
         type(mono_type_t), intent(in) :: lhs_type, rhs_type
         logical, intent(out) :: is_conformant
@@ -896,7 +896,7 @@ contains
         is_conformant = (lhs_type%kind == TARRAY .and. rhs_type%kind == TARRAY)
     end subroutine check_array_shape_conformance
 
-    recursive function semantic_context_has_errors(this) result(has_errors)
+    function semantic_context_has_errors(this) result(has_errors)
         class(semantic_context_t), intent(in) :: this
         logical :: has_errors
         has_errors = this%errors%has_errors()
@@ -905,7 +905,7 @@ contains
 
 
     ! Infer type of literal
-    recursive function infer_literal(ctx, lit) result(typ)
+    function infer_literal(ctx, lit) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(literal_node), intent(in) :: lit
         type(mono_type_t) :: typ
@@ -931,7 +931,7 @@ contains
     end function infer_literal
 
     ! Infer type of identifier
-    recursive function infer_identifier(ctx, ident) result(typ)
+    function infer_identifier(ctx, ident) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(identifier_node), intent(in) :: ident
         type(mono_type_t) :: typ
@@ -982,7 +982,7 @@ contains
     end function infer_identifier
 
     ! Infer type of binary operation (simplified using extracted modules)
-    recursive function infer_binary_op(ctx, arena, binop, binop_index) result(typ)
+    function infer_binary_op(ctx, arena, binop, binop_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(binary_op_node), intent(in) :: binop
@@ -1021,7 +1021,7 @@ contains
     end function infer_binary_op
 
     ! Infer type of function call (simplified)
-    recursive function infer_function_call(ctx, arena, call_node) result(typ)
+    function infer_function_call(ctx, arena, call_node) result(typ)
         use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
         use iso_fortran_env, only: error_unit
         type(semantic_context_t), intent(inout) :: ctx
@@ -1090,7 +1090,7 @@ contains
     end function infer_function_call
 
     ! Infer type of array slice
-    recursive function infer_array_slice(ctx, arena, slice_node) result(typ)
+    function infer_array_slice(ctx, arena, slice_node) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(in) :: slice_node
@@ -1101,7 +1101,7 @@ contains
     end function infer_array_slice
 
     ! Infer type of assignment (simplified using extracted module)
-    recursive function infer_assignment(ctx, arena, assignment, assignment_index) result(typ)
+    function infer_assignment(ctx, arena, assignment, assignment_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
@@ -1130,7 +1130,7 @@ contains
     end function infer_assignment
 
     ! Best-effort: if a declaration for the given name exists in the arena, define it in scope
-    recursive subroutine ensure_declared_from_arena(ctx, arena, name)
+    subroutine ensure_declared_from_arena(ctx, arena, name)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
@@ -1166,7 +1166,7 @@ contains
 
 
     ! Infer type of array literal with type promotion
-    recursive function infer_array_literal(ctx, arena, array_lit, array_index) result(typ)
+    function infer_array_literal(ctx, arena, array_lit, array_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(array_literal_node), intent(in) :: array_lit
@@ -1275,7 +1275,7 @@ contains
     end function infer_array_literal
 
     ! Infer type of implied do loop (simplified)
-    recursive function infer_implied_do_loop(ctx, arena, do_loop, do_index) result(typ)
+    function infer_implied_do_loop(ctx, arena, do_loop, do_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(do_loop_node), intent(in) :: do_loop
@@ -1291,7 +1291,7 @@ contains
 
 
 
-    recursive function has_semantic_errors(ctx) result(has_errors)
+    function has_semantic_errors(ctx) result(has_errors)
         type(semantic_context_t), intent(in) :: ctx
         logical :: has_errors
         has_errors = ctx%errors%has_errors()
@@ -1304,14 +1304,14 @@ contains
     ! Implementation of required abstract procedures from semantic_context_base_t
     
     ! Get context name
-    recursive function semantic_get_context_name(this) result(name)
+    function semantic_get_context_name(this) result(name)
         class(semantic_context_t), intent(in) :: this
         character(:), allocatable :: name
         name = "semantic_context"
     end function semantic_get_context_name
     
     ! Clone context (simplified implementation)  
-    recursive function semantic_clone_context(this) result(cloned)
+    function semantic_clone_context(this) result(cloned)
         class(semantic_context_t), intent(in) :: this
         class(semantic_context_base_t), allocatable :: cloned
         type(semantic_context_t) :: temp_context

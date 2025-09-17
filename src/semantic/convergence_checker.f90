@@ -21,7 +21,7 @@ module convergence_checker
 
 contains
 
-    recursive subroutine checker_record_state(this, results)
+    subroutine checker_record_state(this, results)
         class(convergence_checker_t), intent(inout) :: this
         type(analysis_results_t), intent(in) :: results
 
@@ -32,7 +32,7 @@ contains
         this%iteration_count = this%iteration_count + 1
     end subroutine checker_record_state
 
-    recursive function checker_has_converged(this, current_results) result(converged)
+    function checker_has_converged(this, current_results) result(converged)
         class(convergence_checker_t), intent(inout) :: this
         type(analysis_results_t), intent(in) :: current_results
         logical :: converged
@@ -66,7 +66,7 @@ contains
         end if
     end function checker_has_converged
 
-    recursive subroutine checker_reset(this)
+    subroutine checker_reset(this)
         class(convergence_checker_t), intent(inout) :: this
         if (allocated(this%previous_state)) then
             deallocate(this%previous_state)
@@ -74,13 +74,13 @@ contains
         this%iteration_count = 0
     end subroutine checker_reset
 
-    recursive subroutine checker_set_tolerance(this, tolerance)
+    subroutine checker_set_tolerance(this, tolerance)
         class(convergence_checker_t), intent(inout) :: this
         real, intent(in) :: tolerance
         this%tolerance = tolerance
     end subroutine checker_set_tolerance
 
-    recursive subroutine checker_set_max_iterations(this, max_iterations)
+    subroutine checker_set_max_iterations(this, max_iterations)
         class(convergence_checker_t), intent(inout) :: this
         integer, intent(in) :: max_iterations
         this%max_iterations = max_iterations

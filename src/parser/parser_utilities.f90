@@ -16,7 +16,7 @@ module parser_utilities
 contains
 
     ! Parse comma-separated list of identifiers (for only clause)
-    recursive subroutine parse_identifier_list(parser, identifier_list)
+    subroutine parse_identifier_list(parser, identifier_list)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: identifier_list(:)
         character(len=:), allocatable :: temp_list(:)
@@ -81,7 +81,7 @@ contains
     end subroutine parse_identifier_list
 
     ! Helper to count letter ranges for allocation
-    recursive subroutine count_letter_ranges(parser, count)
+    subroutine count_letter_ranges(parser, count)
         type(parser_state_t), intent(inout) :: parser
         integer, intent(out) :: count
         type(token_t) :: token
@@ -122,7 +122,7 @@ contains
     end subroutine count_letter_ranges
 
     ! Parse letter ranges for implicit statements (e.g., a-c, i-n)
-    recursive subroutine parse_letter_ranges(parser, letter_ranges)
+    subroutine parse_letter_ranges(parser, letter_ranges)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: letter_ranges(:)
         integer :: count, i
@@ -171,7 +171,7 @@ contains
     end subroutine parse_letter_ranges
 
     ! Parse character type specification like character(len=20)
-    recursive subroutine parse_character_type_spec(parser, length_value, has_length)
+    subroutine parse_character_type_spec(parser, length_value, has_length)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: length_value
         logical, intent(out) :: has_length
@@ -212,7 +212,7 @@ contains
     end subroutine parse_character_type_spec
 
     ! Parse kind specification like integer(kind=int32)
-    recursive subroutine parse_kind_specification(parser, kind_value, has_kind)
+    subroutine parse_kind_specification(parser, kind_value, has_kind)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: kind_value
         logical, intent(out) :: has_kind
@@ -240,7 +240,7 @@ contains
     end subroutine parse_kind_specification
 
     ! Check if current token sequence represents a type specification
-    recursive function is_type_specification(parser, type_name) result(is_type_spec)
+    function is_type_specification(parser, type_name) result(is_type_spec)
         type(parser_state_t), intent(inout) :: parser
         character(len=:), allocatable, intent(out) :: type_name
         logical :: is_type_spec
@@ -278,7 +278,7 @@ contains
     end function is_type_specification
 
     ! Skip to end of current line
-    recursive subroutine skip_to_end_of_line(parser)
+    subroutine skip_to_end_of_line(parser)
         type(parser_state_t), intent(inout) :: parser
         type(token_t) :: token
         

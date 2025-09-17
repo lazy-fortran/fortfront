@@ -38,7 +38,7 @@ module parser_dispatcher_module
 contains
 
     ! Parse a statement by dispatching to appropriate parsing module
-    recursive function parse_statement_dispatcher(tokens, arena) result(stmt_index)
+    function parse_statement_dispatcher(tokens, arena) result(stmt_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -129,7 +129,7 @@ contains
     end function parse_statement_dispatcher
 
     ! Parse type declaration or derived type definition
-    recursive function parse_type_or_declaration(parser, arena) result(stmt_index)
+    function parse_type_or_declaration(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -207,7 +207,7 @@ contains
     end function parse_type_or_declaration
 
     ! Parse assignment or expression
-    recursive function parse_assignment_or_expression(parser, arena) result(stmt_index)
+    function parse_assignment_or_expression(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -253,7 +253,7 @@ contains
     end function parse_assignment_or_expression
 
     ! Parse function definition or expression
-    recursive function parse_function_or_expression(parser, arena) result(stmt_index)
+    function parse_function_or_expression(parser, arena) result(stmt_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -276,7 +276,7 @@ contains
     end function parse_function_or_expression
 
     ! Parse as expression
-    recursive function parse_as_expression(tokens, arena) result(stmt_index)
+    function parse_as_expression(tokens, arena) result(stmt_index)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
@@ -348,7 +348,7 @@ contains
 
 
     ! Parse a comment token
-    recursive function parse_comment(parser, arena) result(comment_index)
+    function parse_comment(parser, arena) result(comment_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: comment_index
@@ -362,7 +362,7 @@ contains
     end function parse_comment
 
     ! Parse a blank line (newline token)
-    recursive function parse_blank_line(parser, arena) result(blank_index)
+    function parse_blank_line(parser, arena) result(blank_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: blank_index
@@ -386,7 +386,7 @@ contains
     end function parse_blank_line
 
     ! Get additional indices from multi-declaration parsing
-    recursive function get_additional_indices() result(indices)
+    function get_additional_indices() result(indices)
         integer, allocatable :: indices(:)
         
         if (allocated(additional_indices)) then
@@ -398,7 +398,7 @@ contains
     end function get_additional_indices
     
     ! Clear additional indices after use
-    recursive subroutine clear_additional_indices()
+    subroutine clear_additional_indices()
         if (allocated(additional_indices)) then
             deallocate(additional_indices)
         end if
@@ -449,7 +449,7 @@ contains
     end function is_multi_var_assignment_dispatcher
 
     ! Parse multi-variable assignment like "a, b, c = 1, 2, 3" (dispatcher version)
-    recursive subroutine parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
+    subroutine parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
         use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_KEYWORD, TK_NEWLINE
         use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
         type(parser_state_t), intent(inout) :: parser
@@ -565,7 +565,7 @@ contains
     end subroutine parse_multi_variable_assignment_dispatcher
 
     ! Helper function to determine literal type from token kind (dispatcher version)
-    recursive function get_literal_type_from_token_kind_dispatcher(token_kind, token_text) result(literal_type)
+    function get_literal_type_from_token_kind_dispatcher(token_kind, token_text) result(literal_type)
         use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_OPERATOR, TK_KEYWORD
         use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
         integer, intent(in) :: token_kind

@@ -24,7 +24,7 @@ module parser_select_constructs_module
 
 contains
 
-    recursive function parse_select_case(parser, arena) result(select_index)
+    function parse_select_case(parser, arena) result(select_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: select_index

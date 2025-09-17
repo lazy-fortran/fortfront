@@ -43,18 +43,18 @@ module plugin_validation_module
     
 contains
 
-    recursive subroutine validator_initialize(this)
+    subroutine validator_initialize(this)
         class(plugin_validator_t), intent(inout) :: this
         this%initialized = .true.
         this%strict_mode = .true.
     end subroutine
     
-    recursive subroutine validator_cleanup(this)
+    subroutine validator_cleanup(this)
         class(plugin_validator_t), intent(inout) :: this
         this%initialized = .false.
     end subroutine
     
-    recursive subroutine validator_validate_plugin(this, metadata, result)
+    subroutine validator_validate_plugin(this, metadata, result)
         class(plugin_validator_t), intent(in) :: this
         type(plugin_metadata_t), intent(in) :: metadata
         type(validation_result_t), intent(out) :: result
@@ -100,7 +100,7 @@ contains
         end if
     end subroutine
     
-    recursive subroutine validator_validate_interface(this, plugin_id, result)
+    subroutine validator_validate_interface(this, plugin_id, result)
         class(plugin_validator_t), intent(in) :: this
         integer, intent(in) :: plugin_id
         type(validation_result_t), intent(out) :: result
@@ -122,7 +122,7 @@ contains
         ! Real implementation would check method signatures, etc.
     end subroutine
     
-    recursive subroutine validator_validate_dependencies(this, dependencies, result)
+    subroutine validator_validate_dependencies(this, dependencies, result)
         class(plugin_validator_t), intent(in) :: this
         integer, intent(in) :: dependencies(:)
         type(validation_result_t), intent(out) :: result
@@ -159,7 +159,7 @@ contains
         end do
     end subroutine
     
-    recursive subroutine validator_validate_version(this, version, result)
+    subroutine validator_validate_version(this, version, result)
         class(plugin_validator_t), intent(in) :: this
         character(len=*), intent(in) :: version
         type(validation_result_t), intent(out) :: result
@@ -206,7 +206,7 @@ contains
         end if
     end subroutine
     
-    recursive subroutine validator_validate_capabilities(this, capabilities, result)
+    subroutine validator_validate_capabilities(this, capabilities, result)
         class(plugin_validator_t), intent(in) :: this
         integer, intent(in) :: capabilities(:)
         type(validation_result_t), intent(out) :: result
@@ -243,7 +243,7 @@ contains
         end do
     end subroutine
     
-    recursive subroutine validator_validate_configuration(this, config_data, result)
+    subroutine validator_validate_configuration(this, config_data, result)
         class(plugin_validator_t), intent(in) :: this
         character(len=*), intent(in) :: config_data
         type(validation_result_t), intent(out) :: result
@@ -262,7 +262,7 @@ contains
         end if
     end subroutine
     
-    recursive subroutine validator_check_circular(this, dependencies, result)
+    subroutine validator_check_circular(this, dependencies, result)
         class(plugin_validator_t), intent(in) :: this
         integer, intent(in) :: dependencies(:)
         type(validation_result_t), intent(out) :: result
@@ -289,7 +289,7 @@ contains
         end do
     end subroutine
     
-    recursive subroutine validator_validate_name(this, name, result)
+    subroutine validator_validate_name(this, name, result)
         class(plugin_validator_t), intent(in) :: this
         character(len=*), intent(in) :: name
         type(validation_result_t), intent(out) :: result
@@ -336,7 +336,7 @@ contains
         end if
     end subroutine
     
-    recursive subroutine validator_set_strict_mode(this, strict)
+    subroutine validator_set_strict_mode(this, strict)
         class(plugin_validator_t), intent(inout) :: this
         logical, intent(in) :: strict
         this%strict_mode = strict

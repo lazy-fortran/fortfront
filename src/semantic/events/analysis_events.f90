@@ -51,7 +51,7 @@ module semantic_events
     
     ! Event handler interface
     abstract interface
-        recursive subroutine event_handler_interface(event, context, arena)
+        subroutine event_handler_interface(event, context, arena)
             import :: analysis_event_t, semantic_context_base_t, ast_arena_t
             type(analysis_event_t), intent(inout) :: event
             class(semantic_context_base_t), intent(inout) :: context
@@ -68,7 +68,7 @@ module semantic_events
     
 contains
 
-    recursive subroutine validate_event(event, is_valid, error_message)
+    subroutine validate_event(event, is_valid, error_message)
         !! Validate event data integrity and consistency
         type(analysis_event_t), intent(in) :: event
         logical, intent(out) :: is_valid
@@ -100,7 +100,7 @@ contains
         end if
     end subroutine
     
-    recursive subroutine serialize_event(event, serialized_data, success)
+    subroutine serialize_event(event, serialized_data, success)
         !! Serialize event to string format for debugging and persistence
         type(analysis_event_t), intent(in) :: event
         character(len=*), intent(out) :: serialized_data
@@ -134,7 +134,7 @@ contains
         end if
     end subroutine
     
-    recursive subroutine deserialize_event(serialized_data, event, success)
+    subroutine deserialize_event(serialized_data, event, success)
         !! Deserialize event from string format
         character(len=*), intent(in) :: serialized_data
         type(analysis_event_t), intent(out) :: event
@@ -198,7 +198,7 @@ contains
         end do
     end subroutine
     
-    recursive function create_type_inference_event_data(node_index, successful, &
+    function create_type_inference_event_data(node_index, successful, &
                                             error_msg, confidence) result(data)
         !! Create type inference event data payload
         integer, intent(in) :: node_index
@@ -213,7 +213,7 @@ contains
         data%confidence_level = confidence
     end function
     
-    recursive function create_scope_event_data(scope_name, level, entering, &
+    function create_scope_event_data(scope_name, level, entering, &
                                    parent_index) result(data)
         !! Create scope event data payload
         character(len=*), intent(in) :: scope_name

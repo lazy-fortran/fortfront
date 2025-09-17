@@ -19,7 +19,7 @@ module semantic_type_operations
 contains
 
     ! Generate fresh type variable (standalone version)
-    recursive function generate_fresh_type_var_op(next_var_id) result(tv)
+    function generate_fresh_type_var_op(next_var_id) result(tv)
         integer, intent(inout) :: next_var_id
         type(type_var_t) :: tv
 
@@ -28,7 +28,7 @@ contains
     end function generate_fresh_type_var_op
 
     ! Apply substitution to type (standalone version)
-    recursive function apply_substitution_to_type(typ, subst) result(result_type)
+    function apply_substitution_to_type(typ, subst) result(result_type)
         type(mono_type_t), intent(in) :: typ
         type(substitution_t), intent(in) :: subst
         type(mono_type_t) :: result_type
@@ -38,7 +38,7 @@ contains
     end function apply_substitution_to_type
 
     ! Generalize type (standalone version)
-    recursive function generalize_type_op(typ) result(scheme)
+    function generalize_type_op(typ) result(scheme)
         type(mono_type_t), intent(in) :: typ
         type(poly_type_t) :: scheme
         type(type_var_t), allocatable :: free_vars(:)
@@ -49,7 +49,7 @@ contains
     end function generalize_type_op
 
     ! Instantiate type scheme (standalone version)
-    recursive function instantiate_type_scheme_op(scheme, next_var_id) result(typ)
+    function instantiate_type_scheme_op(scheme, next_var_id) result(typ)
         type(poly_type_t), intent(in) :: scheme
         integer, intent(inout) :: next_var_id
         type(mono_type_t) :: typ
@@ -64,7 +64,7 @@ contains
     end function instantiate_type_scheme_op
 
     ! Get common type for arithmetic operations
-    recursive function get_common_type(left_typ, right_typ) result(typ)
+    function get_common_type(left_typ, right_typ) result(typ)
         type(mono_type_t), intent(in) :: left_typ, right_typ
         type(mono_type_t) :: typ
         
