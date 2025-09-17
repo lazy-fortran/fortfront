@@ -10,6 +10,7 @@ program test_expression_iterative
     all_passed = all_passed .and. test_deep_unary_minus_chain()
     all_passed = all_passed .and. test_logical_not_chain()
     all_passed = all_passed .and. test_mixed_precedence_output()
+    all_passed = all_passed .and. test_extreme_parentheses_depth()
 
     if (all_passed) then
         print *, "All expression parsing tests passed!"
@@ -235,8 +236,9 @@ contains
         character(len=:), allocatable :: input_file, output_file
         character(len=256) :: error_msg
         type(compilation_options_t) :: options
-        integer :: unit, iostat
+        integer :: unit, iostat, i
         character(len=256) :: line
+        character(len=:), allocatable :: collapsed
         logical :: found_expr
 
         print *, "Testing mixed precedence expression..."
@@ -273,11 +275,14 @@ contains
             if (iostat /= 0) exit
             if (index(trim(line), 'value =') > 0) then
                 found_expr = .true.
-                if (index(line, '0 - 2**2') == 0) then
-                    print *, '  FAIL: Unary minus did not expand before exponentiation'
-                    test_mixed_precedence_output = .false.
-                else if (index(line, '+ 3') == 0) then
-                    print *, '  FAIL: Mixed precedence expression missing addition'
+                collapsed = ''
+                do i = 1, len_trim(line)
+                    if (line(i:i) /= ' ' .and. line(i:i) /= char(9)) then
+                        collapsed = collapsed // line(i:i)
+                    end if
+                end do
+                if (index(collapsed, 'value=(0-2)**2+3') == 0) then
+                    print *, '  FAIL: Mixed precedence expression not normalized as expected'
                     test_mixed_precedence_output = .false.
                 end if
             end if
@@ -291,5 +296,67 @@ contains
             print *, '  PASS: Mixed precedence expression uses expected ordering'
         end if
     end function test_mixed_precedence_output
+
+    logical function test_extreme_parentheses_depth()
+        integer, parameter :: depth = 4096
+        character(len=:), allocatable :: input_file, output_file
+        character(len=256) :: error_msg
+        type(compilation_options_t) :: options
+        integer :: unit, iostat, i
+        integer :: paren_group
+
+        print *, "Testing extreme parentheses nesting (depth =", depth, ')'
+        test_extreme_parentheses_depth = .true.
+        input_file = 'test_expression_iterative_extreme.lf'
+        output_file = 'test_expression_iterative_extreme_out.f90'
+
+        open(newunit=unit, file=input_file, status='replace', action='write')
+        write(unit, '(a)') 'program test_extreme_nesting'
+        write(unit, '(a)') '    implicit none'
+        write(unit, '(a)') '    real :: value'
+        write(unit, '(a)', advance='no') '    value = '
+        paren_group = 0
+        do i = 1, depth
+            write(unit, '(a)', advance='no') '('
+            paren_group = paren_group + 1
+            if (mod(paren_group, 64) == 0) then
+                write(unit, '(a)') '&'
+                write(unit, '(a)', advance='no') '    & '
+                paren_group = 0
+            end if
+        end do
+        write(unit, '(a)', advance='no') '1.0'
+        paren_group = 0
+        do i = 1, depth
+            if (paren_group == 0 .and. i > 1 .and. i < depth) then
+                write(unit, '(a)') '&'
+                write(unit, '(a)', advance='no') '    & '
+            end if
+            write(unit, '(a)', advance='no') ')'
+            paren_group = mod(paren_group + 1, 64)
+        end do
+        write(unit, '(a)') ''
+        write(unit, '(a)') '    print *, value'
+        write(unit, '(a)') 'end program test_extreme_nesting'
+        close(unit)
+
+        options%output_file = output_file
+        call compile_source(input_file, options, error_msg)
+        if (len_trim(error_msg) > 0) then
+            print *, '  FAIL: Compilation error for extreme nesting:', trim(error_msg)
+            test_extreme_parentheses_depth = .false.
+            return
+        end if
+
+        open(newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        if (iostat /= 0) then
+            print *, '  FAIL: Could not open generated file for extreme nesting'
+            test_extreme_parentheses_depth = .false.
+            return
+        end if
+        close(unit)
+
+        print *, '  PASS: Extreme parentheses nesting parsed successfully'
+    end function test_extreme_parentheses_depth
 
 end program test_expression_iterative

@@ -25,6 +25,8 @@
 
 Convert the active slice of `token_t` into structure-of-arrays buffers before entering the Pratt loop.
 
+> **Status:** Operator tables and the stack-driven Pratt core are implemented. The Pratt engine now pre-builds a SoA token view for the hot path, while keeping the authoritative storage in `parser%tokens` for downstream consumers.
+
 ```fortran
 character(len=max_text), allocatable :: token_text(:)
 integer, allocatable :: token_kind(:)
@@ -131,4 +133,3 @@ expr_index = pop_operand()
 - Should colon allow chained ranges (`a:b:c:d`) beyond stride? Proposal: treat subsequent colon after stride as new range anchored to previous result to preserve backwards compatibility.
 - Investigate whether existing semantic passes rely on zero literal inserted for unary minus; consider introducing dedicated unary node for clarity.
 - Confirm whether arena slabs can expose raw byte buffers for SoA allocation without additional copies.
-
