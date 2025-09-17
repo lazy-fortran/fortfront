@@ -40,6 +40,7 @@ module frontend_transformation
         logical :: flushed = .false.
         integer :: rate = 1
         integer :: count = 0
+        integer :: tick_start = 0
         character(len=64) :: names(64)
         real(real64) :: durations(64)
         integer :: stack_top = 0
@@ -67,6 +68,7 @@ contains
         state%flushed = .false.
         state%rate = 1
         state%count = 0
+        state%tick_start = 0
         state%names = ''
         state%durations = 0.0_real64
         state%stack_top = 0
@@ -78,6 +80,7 @@ contains
             state%enabled = .true.
             call system_clock(count_rate=state%rate)
             if (state%rate <= 0) state%rate = 1
+            call system_clock(state%tick_start)
         end if
     end subroutine profile_state_init
 
@@ -128,6 +131,7 @@ contains
         type(profile_state_t), intent(inout) :: state
         integer :: i
         real(real64) :: total
+        integer :: tick_now
 
         if (.not. state%enabled) return
         if (state%flushed) return
@@ -135,10 +139,12 @@ contains
         total = 0.0_real64
         write(error_unit, '(A)') 'PROFILE SUMMARY (ms):'
         do i = 1, state%count
-            write(error_unit, '(2X,A,1X,F10.3)') trim(state%names(i)), state%durations(i)
+            write(error_unit, '(2X,A,1X,F12.6)') trim(state%names(i)), state%durations(i)
             total = total + state%durations(i)
         end do
-        write(error_unit, '(2X,A,1X,F10.3)') 'total', total
+        call system_clock(tick_now)
+        total = real(tick_now - state%tick_start, real64) * 1000.0_real64 / real(state%rate, real64)
+        write(error_unit, '(2X,A,1X,F12.6)') 'total', total
     end subroutine profile_state_flush
 
     ! String-based transformation function for CLI usage
@@ -161,40 +167,44 @@ contains
 
         call profile_state_init(profile)
 
+        call profile_stage_begin(profile, 'setup:trace_init')
         call trace_init()
+        call profile_stage_end(profile, 'setup:trace_init')
+
+        call profile_stage_begin(profile, 'setup:trace_enter')
         call trace_enter('transform_lazy_fortran_string')
+        call profile_stage_end(profile, 'setup:trace_enter')
         ! Initialize the codegen system (idempotent)
         debug_transform = .false.
+        call profile_stage_begin(profile, 'setup:env_debug_flag')
         call get_environment_variable('FORTFRONT_DEBUG_TRANSFORM', debug_flag, status=env_status)
+        call profile_stage_end(profile, 'setup:env_debug_flag')
         if (env_status == 0) debug_transform = .true.
+        call profile_stage_begin(profile, 'setup:initialize_codegen')
         call initialize_codegen()
+        call profile_stage_end(profile, 'setup:initialize_codegen')
 
         ! Obtain the shared compiler arena and reset for a clean run
-        call profile_stage_begin(profile, 'setup')
-
+        call profile_stage_begin(profile, 'setup:arena')
         if (.not. shared_arena_initialized) then
             shared_arena = create_compiler_arena()
             shared_arena_initialized = .true.
         else
             call shared_arena%reset()
         end if
+        call profile_stage_end(profile, 'setup:arena')
 
         ! Handle empty or whitespace-only input
         if (is_empty_or_whitespace_only(input)) then
             call create_minimal_program(output)
             call trace_leave('transform_lazy_fortran_string')
-            call profile_stage_end(profile, 'setup')
             call profile_state_flush(profile)
             return
         end if
 
-        call profile_stage_end(profile, 'setup')
-
         ! Phase 1: Lexical Analysis
         call trace_enter('phase:lexer')
-        call profile_stage_begin(profile, 'phase:lexer')
         call run_lexical_analysis(input, tokens, shared_arena, error_msg, profile)
-        call profile_stage_end(profile, 'phase:lexer')
         call trace_leave('phase:lexer')
         if (error_msg /= "") then
             call handle_lexical_error(input, error_msg, output, shared_arena)
@@ -223,9 +233,7 @@ contains
 
         ! Phase 2: Parsing
         call trace_enter('phase:parser')
-        call profile_stage_begin(profile, 'phase:parser')
         call run_parsing_phase(tokens, shared_arena, prog_index, error_msg, output, profile)
-        call profile_stage_end(profile, 'phase:parser')
         if (debug_transform) then
             write(error_unit, '(A,I0)') 'DEBUG transform: prog_index after parsing = ', prog_index
             if (allocated(output)) then
@@ -243,9 +251,7 @@ contains
 
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call trace_enter('phase:final')
-        call profile_stage_begin(profile, 'phase:final')
         call run_final_phases(shared_arena, prog_index, output, error_msg, profile)
-        call profile_stage_end(profile, 'phase:final')
         if (debug_transform) then
             write(error_unit, '(A,I0)') 'DEBUG transform: prog_index after final = ', prog_index
             write(error_unit, '(A)') 'DEBUG transform: final output:'

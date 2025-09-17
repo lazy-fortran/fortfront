@@ -2,14 +2,14 @@
 
 Environment: local fpm build (default profile), `FORTFRONT_PROFILE=1`
 
-| Input | Description | setup (ms) | lex:tokenize (ms) | syntax (ms) | parse (ms) | semantic (ms) | standardize (ms) | codegen (ms) | total (ms) |
-|-------|-------------|-----------:|------------------:|------------:|-----------:|--------------:|-----------------:|-------------:|-----------:|
-| inline snippet | `program p; x = 1` (stdin) | 105 | 0 | 0 | 0 | 0 | 0 | 0 | 105 |
-| test_semicolons_simple.lf | small multi-statement sample | 109 | 0 | 0 | 0 | 0 | 0 | 0 | 109 |
-| test_expression_iterative_extreme.lf | deep-nesting stress | 105 | 5 | 4 | 8 | 1 | 0 | 0 | 137 |
+| Input | Description | setup:arena (ms) | lex:tokenize (ms) | phase:syntax (ms) | parser:parse_tokens (ms) | final:semantic (ms) | total (ms) |
+|-------|-------------|-----------------:|------------------:|------------------:|------------------------:|--------------------:|-----------:|
+| inline snippet | `program p; x = 1` (stdin) | 109.000000 | 0.000000 | 0.000000 | 0.000000 | 1.000000 | 108.000000 |
+| test_semicolons_simple.lf | small multi-statement sample | 110.000000 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 110.000000 |
+| test_expression_iterative_extreme.lf | deep-nesting stress | 110.000000 | 5.000000 | 3.000000 | 8.000000 | 0.000000 | 126.000000 |
 
 Notes:
-- Setup includes arena reset, environment checks, and trace initialization.
-- `lex:tokenize` measures the direct `tokenize_core` call; other lexer overhead remains in `setup`.
-- Values <1 ms show as 0.000 due to timer resolution; repeated runs can be averaged for higher precision.
-- Future runs should append to this table to track improvements.
+- `setup:*` captures trace initialization, env queries, codegen initialization, and arena reset (currently dominating cost).
+- `total` is measured from entry to exit; sub-stage times may not sum to total because only selected stages are recorded.
+- Values are rendered with microsecond precision (milliseconds with six decimals) using the high-resolution `system_clock` counter.
+- Future improvements should aim to shrink the setup cost and expose additional sub-stages as needed.
