@@ -71,6 +71,7 @@ module parser_expressions_module
     public :: parse_expression
     public :: parse_range, parse_logical_eqv, parse_logical_or, parse_logical_and, parse_comparison
     public :: parse_concatenation, parse_term, parse_factor, parse_power, parse_unary, parse_primary
+    public :: parse_expression_until, parse_postfix_chain
 
 contains
 
@@ -1027,6 +1028,44 @@ contains
 
         expr_index = parse_expression_with_precedence(parser, arena, PREC_POSTFIX)
     end function parse_primary
+
+    function parse_expression_until(parser, arena, terminators) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in), optional :: terminators(:)
+        integer :: expr_index
+        character(len=MAX_OPERATOR_LEN), allocatable :: local_terms(:)
+
+        if (present(terminators)) then
+            if (size(terminators) > 0) then
+                allocate(character(len=MAX_OPERATOR_LEN) :: local_terms(size(terminators)))
+                local_terms = terminators
+                expr_index = parse_expression_with_precedence(parser, arena, &
+                    PREC_RANGE + 1, local_terms)
+                deallocate(local_terms)
+            else
+                expr_index = parse_expression_with_precedence(parser, arena, &
+                    PREC_RANGE + 1)
+            end if
+        else
+            expr_index = parse_expression_with_precedence(parser, arena, &
+                PREC_RANGE + 1)
+        end if
+    end function parse_expression_until
+
+    function parse_postfix_chain(parser, arena, base_expr) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: base_expr
+        integer :: expr_index
+        type(token_view_t) :: view
+
+        expr_index = base_expr
+        if (expr_index <= 0) return
+
+        call build_token_view(view, parser)
+        expr_index = parse_postfix_ops(parser, arena, view, expr_index)
+    end function parse_postfix_chain
 
     !=================================================================================
     ! RANGE EXPRESSION PARSING SECTION

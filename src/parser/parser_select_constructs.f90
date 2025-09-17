@@ -4,7 +4,7 @@ module parser_select_constructs_module
     use lexer_core
     use ast_types, only: LITERAL_STRING
     use parser_state_module
-    use parser_expressions_module, only: parse_primary, parse_expression
+    use parser_expressions_module, only: parse_primary, parse_expression_until
     use parser_io_statements_module, only: parse_print_statement, parse_write_statement, &
                                            parse_read_statement
     use parser_control_statements_module, only: parse_cycle_statement, parse_exit_statement, &
@@ -57,23 +57,18 @@ contains
         end if
 
         ! Parse expression to match
-        expr_index = parse_expression(parser%tokens(parser%current_token:), arena)
+        expr_index = parse_expression_until(parser, arena, [")"])
         if (expr_index <= 0) then
-            ! Error: expected expression in select case
             select_index = 0
             return
         end if
 
-        ! Advance parser past the expression
-        ! For now, assume expression consumes tokens until ')'
-        do while (parser%current_token <= size(parser%tokens))
-            rparen_token = parser%peek()
-            if (rparen_token%kind == TK_OPERATOR .and. rparen_token%text == ")") then
-                rparen_token = parser%consume()
-                exit
-            end if
-            parser%current_token = parser%current_token + 1
-        end do
+        rparen_token = parser%peek()
+        if (rparen_token%kind /= TK_OPERATOR .or. rparen_token%text /= ")") then
+            select_index = 0
+            return
+        end if
+        rparen_token = parser%consume()
 
         ! Parse case blocks
         allocate (case_indices(0))

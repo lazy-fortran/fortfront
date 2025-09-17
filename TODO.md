@@ -25,7 +25,7 @@
 
 4. **Verification & Performance**
    - [x] Expand deep-expression regression tests (Windows + low-stack Linux) to guard against regressions.
-   - [ ] Run full `RUN_SYSTEM_TESTS=1` suites; capture perf baselines.
+   - [x] Run full `RUN_SYSTEM_TESTS=1` suites; capture perf baselines.
    - [ ] Document final architecture in `DOCS/` and remove obsolete notes.
 
 ## Acceptance Criteria
