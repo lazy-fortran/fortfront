@@ -4,9 +4,9 @@ Environment: local fpm build (default profile), `FORTFRONT_PROFILE=1`
 
 | Input | Description | setup:arena (ms) | lex:tokenize (ms) | phase:syntax (ms) | parser:parse_tokens (ms) | final:semantic (ms) | total (ms) |
 |-------|-------------|-----------------:|------------------:|------------------:|------------------------:|--------------------:|-----------:|
-| inline snippet | `program p; x = 1` (stdin) | 109.000000 | 0.000000 | 0.000000 | 0.000000 | 1.000000 | 108.000000 |
-| test_semicolons_simple.lf | small multi-statement sample | 110.000000 | 0.000000 | 0.000000 | 0.000000 | 0.000000 | 110.000000 |
-| test_expression_iterative_extreme.lf | deep-nesting stress | 110.000000 | 5.000000 | 3.000000 | 8.000000 | 0.000000 | 126.000000 |
+| inline snippet | `program p; x = 1` (stdin) | 109.000 | 0.000 | 0.000 | 0.000 | 1.000 | 108.000 |
+| test_semicolons_simple.lf | small multi-statement sample | 110.000 | 0.000 | 0.000 | 0.000 | 0.000 | 110.000 |
+| test_expression_iterative_extreme.lf | deep-nesting stress | 110.000 | 5.000 | 3.000 | 8.000 | 0.000 | 126.000 |
 
 Notes:
 - `setup:*` captures trace initialization, env queries, codegen initialization, and arena reset (currently dominating cost).

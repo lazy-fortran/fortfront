@@ -1,5 +1,5 @@
 module frontend_transformation
-    use iso_fortran_env, only: error_unit, real64
+    use iso_fortran_env, only: error_unit, real64, compiler_version
     ! fortfront - Transformation functions module
     ! Contains string-based transformation functionality
 
@@ -139,12 +139,12 @@ contains
         total = 0.0_real64
         write(error_unit, '(A)') 'PROFILE SUMMARY (ms):'
         do i = 1, state%count
-            write(error_unit, '(2X,A,1X,F12.6)') trim(state%names(i)), state%durations(i)
+            write(error_unit, '(2X,A,1X,F10.3)') trim(state%names(i)), state%durations(i)
             total = total + state%durations(i)
         end do
         call system_clock(tick_now)
         total = real(tick_now - state%tick_start, real64) * 1000.0_real64 / real(state%rate, real64)
-        write(error_unit, '(2X,A,1X,F12.6)') 'total', total
+        write(error_unit, '(2X,A,1X,F10.3)') 'total', total
     end subroutine profile_state_flush
 
     ! String-based transformation function for CLI usage
@@ -185,14 +185,16 @@ contains
         call profile_stage_end(profile, 'setup:initialize_codegen')
 
         ! Obtain the shared compiler arena and reset for a clean run
-        call profile_stage_begin(profile, 'setup:arena')
         if (.not. shared_arena_initialized) then
+            call profile_stage_begin(profile, 'setup:arena:create')
             shared_arena = create_compiler_arena()
             shared_arena_initialized = .true.
+            call profile_stage_end(profile, 'setup:arena:create')
         else
+            call profile_stage_begin(profile, 'setup:arena:reset')
             call shared_arena%reset()
+            call profile_stage_end(profile, 'setup:arena:reset')
         end if
-        call profile_stage_end(profile, 'setup:arena')
 
         ! Handle empty or whitespace-only input
         if (is_empty_or_whitespace_only(input)) then
