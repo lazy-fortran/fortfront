@@ -4,6 +4,7 @@ program test_gcc_15_2_1_compatibility
     ! instead of allocatable components that cause crashes
     
     use type_system_unified
+    use identifier_table, only: identifier_table_t, identifier_table_init
     use iso_fortran_env, only: int64
     implicit none
     
@@ -81,6 +82,7 @@ contains
     
     subroutine test_type_env_basic()
         type(type_env_t) :: env1, env2
+        type(identifier_table_t), target :: table
         type(poly_type_t) :: scheme
         type(mono_type_t) :: mono
         
@@ -89,7 +91,10 @@ contains
         ! Create a simple type scheme
         mono = create_mono_type(TINT)
         scheme = create_poly_type([type_var_t::], mono)
-        
+
+        call identifier_table_init(table)
+        env1%identifiers => table
+
         ! Add to environment
         call env1%extend("x", scheme)
         call env1%extend("y", scheme)
@@ -180,6 +185,7 @@ contains
     
     subroutine test_large_type_env()
         type(type_env_t) :: env
+        type(identifier_table_t), target :: table
         type(poly_type_t) :: scheme
         type(mono_type_t) :: mono
         integer :: i
@@ -189,7 +195,10 @@ contains
         
         mono = create_mono_type(TINT)
         scheme = create_poly_type([type_var_t::], mono)
-        
+
+        call identifier_table_init(table)
+        env%identifiers => table
+
         ! Add many environment entries
         do i = 1, 100
             write(var_name, '("var", I0)') i
