@@ -9,6 +9,7 @@ module frontend_parsing
     use ast_nodes_core, only: program_node
     use ast_nodes_data, only: module_node
     use ast_factory, only: push_program
+    use iso_fortran_env, only: error_unit
     use frontend_utilities, only: int_to_str
     use mixed_construct_detector, only: detect_mixed_constructs, mixed_construct_result_t
     use error_handling, only: result_t
@@ -75,9 +76,16 @@ contains
         logical :: has_explicit_program
         integer, allocatable :: unit_indices(:)
         integer :: i, unit_start, unit_end, unit_index, unit_count
+        character(len=8) :: debug_flag
+        integer :: debug_status
+        logical :: debug_units
+        character(len=:), allocatable :: start_text, end_text
 
         error_msg = ""
         prog_index = 0
+
+        call get_environment_variable('FORTFRONT_DEBUG_DUMP_AST', debug_flag, status=debug_status)
+        debug_units = (debug_status == 0 .and. len_trim(debug_flag) > 0)
 
         ! Check for mixed constructs first (Issue #511)
         call detect_mixed_constructs(tokens, mixed_result)
@@ -104,6 +112,15 @@ contains
                 call process_program_unit(tokens, unit_start, unit_end, arena, &
                                         unit_index, has_explicit_program)
                 
+                if (debug_units) then
+                    start_text = ''
+                    end_text = ''
+                    if (unit_start >= 1 .and. unit_start <= size(tokens)) start_text = tokens(unit_start)%text
+                    if (unit_end >= 1 .and. unit_end <= size(tokens)) end_text = tokens(unit_end)%text
+                    write(error_unit, '(A,3I6,2X,A,1X,A)') &
+                        'DEBUG parse unit bounds:', unit_start, unit_end, unit_index, &
+                        trim(start_text), trim(end_text)
+                end if
                 if (unit_index > 0) then
                     unit_count = unit_count + 1
                     unit_indices = [unit_indices, unit_index]
@@ -291,6 +308,7 @@ contains
         integer :: i, nesting_level
         character(len=:), allocatable :: unit_type
         logical :: in_module_contains
+        logical :: preceded_by_end
         
         unit_start = start_pos
         unit_end = start_pos
@@ -378,11 +396,19 @@ contains
                 if (tokens(i)%kind == TK_EOF) then
                     unit_end = i - 1
                     exit
-                else if (i > start_pos .and. is_program_unit_start(tokens, i)) then
-                    unit_end = i - 1
-                    exit
                 else
-                    unit_end = i
+                    preceded_by_end = .false.
+                    if (i > 1) then
+                        if (tokens(i-1)%kind == TK_KEYWORD .and. tokens(i-1)%text == "end") then
+                            preceded_by_end = .true.
+                        end if
+                    end if
+                    if (i > start_pos .and. is_program_unit_start(tokens, i) .and. .not. preceded_by_end) then
+                        unit_end = i - 1
+                        exit
+                    else
+                        unit_end = i
+                    end if
                 end if
             end do
         end if

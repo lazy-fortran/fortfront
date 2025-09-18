@@ -319,42 +319,74 @@ contains
     end function calculate_loop_size
     
     ! Get integer value from a literal node
-    recursive function get_integer_literal_value(arena, expr_idx) result(value)
+    function get_integer_literal_value(arena, expr_idx) result(value)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_idx
         integer :: value
-        
-        value = INVALID_INTEGER  ! Error value
-        
-        if (expr_idx <= 0 .or. expr_idx > arena%size) then
-            return
-        end if
-        if (.not. allocated(arena%entries(expr_idx)%node)) then
-            return
-        end if
-        
-        select type (node => arena%entries(expr_idx)%node)
-        type is (literal_node)
-            ! Try using literal_kind instead of literal_type
-            if (node%literal_kind == LITERAL_INTEGER .and. allocated(node%value)) then
-                block
-                    integer :: iostat
-                    read(node%value, *, iostat=iostat) value
-                    if (iostat /= 0) then
+
+        type stack_entry
+            integer :: idx = 0
+            logical :: processed = .false.
+        end type stack_entry
+
+        type(stack_entry), allocatable :: stack(:)
+        integer, allocatable :: results(:)
+        integer :: capacity, top
+        type(stack_entry) :: current
+        integer :: idx
+        integer :: left_val, right_val
+        integer :: iostat
+
+        value = INVALID_INTEGER
+        if (expr_idx <= 0 .or. expr_idx > arena%size) return
+
+        if (.not. allocated(arena%entries(expr_idx)%node)) return
+
+        allocate(results(arena%size))
+        results = INVALID_INTEGER
+        capacity = 64
+        allocate(stack(capacity))
+        top = 0
+
+        call push(expr_idx, .false.)
+
+        do while (top > 0)
+            current = pop()
+            idx = current%idx
+
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+
+            if (.not. current%processed) then
+                call push(idx, .true.)
+                select type (node => arena%entries(idx)%node)
+                type is (binary_op_node)
+                    if (allocated(node%operator)) then
+                        call push(node%right_index, .false.)
+                        call push(node%left_index, .false.)
+                    end if
+                class default
+                    ! literals handled in processed branch
+                end select
+            else
+                select type (node => arena%entries(idx)%node)
+                type is (literal_node)
+                    if (node%literal_kind == LITERAL_INTEGER .and. allocated(node%value)) then
+                        read(node%value, *, iostat=iostat) value
+                        if (iostat /= 0) value = INVALID_INTEGER
+                    else
                         value = INVALID_INTEGER
                     end if
-                end block
-            end if
-        type is (binary_op_node)
-            ! Handle simple binary operations for compile-time constants
-            if (allocated(node%operator)) then
-                if (node%left_index > 0 .and. node%right_index > 0) then
-                    block
-                        integer :: left_val, right_val
-                        left_val = get_integer_literal_value(arena, node%left_index)
-                        right_val = get_integer_literal_value(arena, node%right_index)
-                        if (left_val /= INVALID_INTEGER .and. &
-                            right_val /= INVALID_INTEGER) then
+                type is (binary_op_node)
+                    value = INVALID_INTEGER
+                    if (allocated(node%operator)) then
+                        left_val = INVALID_INTEGER
+                        right_val = INVALID_INTEGER
+                        if (node%left_index > 0 .and. node%left_index <= arena%size) &
+                            left_val = results(node%left_index)
+                        if (node%right_index > 0 .and. node%right_index <= arena%size) &
+                            right_val = results(node%right_index)
+                        if (left_val /= INVALID_INTEGER .and. right_val /= INVALID_INTEGER) then
                             select case(node%operator)
                             case("-")
                                 value = left_val - right_val
@@ -366,11 +398,44 @@ contains
                                 if (right_val /= 0) value = left_val / right_val
                             end select
                         end if
-                    end block
-                end if
+                    end if
+                class default
+                    value = INVALID_INTEGER
+                end select
+                results(idx) = value
             end if
-        class default
-        end select
+        end do
+
+        value = results(expr_idx)
+
+    contains
+
+        subroutine push(i, processed)
+            integer, intent(in) :: i
+            logical, intent(in) :: processed
+            type(stack_entry), allocatable :: tmp(:)
+            if (top >= capacity) then
+                allocate(tmp(capacity*2))
+                if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
+                call move_alloc(tmp, stack)
+                capacity = size(stack)
+            end if
+            top = top + 1
+            stack(top)%idx = i
+            stack(top)%processed = processed
+        end subroutine push
+
+        function pop() result(entry)
+            type(stack_entry) :: entry
+            if (top <= 0) then
+                entry%idx = 0
+                entry%processed = .false.
+            else
+                entry = stack(top)
+                top = top - 1
+            end if
+        end function pop
+
     end function get_integer_literal_value
     
     ! Get array variable type declaration from an array expression

@@ -51,107 +51,107 @@ contains
 
     ! Visit all expression nodes with a visitor function
     subroutine visit_expression_nodes(arena, root_index, visitor, user_data)
+        use ast_nodes_control, only: associate_node
+        use ast_nodes_bounds, only: array_slice_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         type(expression_visitor_t), intent(in) :: visitor
         class(*), intent(inout), optional :: user_data
-        
-        if (.not. associated(visitor%visit)) return
-        
-        call visit_nodes_recursive(arena, root_index, visitor, user_data)
-    end subroutine visit_expression_nodes
 
-    ! Recursively visit nodes
-    recursive subroutine visit_nodes_recursive(arena, node_index, visitor, user_data)
-        use ast_nodes_control, only: associate_node
-        use ast_nodes_bounds, only: array_slice_node
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        type(expression_visitor_t), intent(in) :: visitor
-        class(*), intent(inout), optional :: user_data
-        
+        type :: visit_stack_item_t
+            integer :: node_index = 0
+        end type visit_stack_item_t
+
+        type(visit_stack_item_t), allocatable :: stack(:)
         character(len=:), allocatable :: node_type
-        integer :: i
-        
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
-        
-        node_type = arena%entries(node_index)%node_type
-        
-        ! Visit this node
-        call visitor%visit(arena, node_index, node_type, user_data)
-        
-        ! Recursively visit children (same logic as collect_identifiers_recursive)
-        select case (node_type)
-        case ("binary_op")
-            select type (node => arena%entries(node_index)%node)
-            type is (binary_op_node)
-                if (node%left_index > 0) then
-                    call visit_nodes_recursive(arena, node%left_index, visitor, user_data)
-                end if
-                if (node%right_index > 0) then
-                    call visit_nodes_recursive(arena, node%right_index, visitor, user_data)
-                end if
-            end select
-        case ("call_or_subscript")
-            select type (node => arena%entries(node_index)%node)
-            type is (call_or_subscript_node)
-                ! The function/array name is stored as a string, not an index
-                ! so we only visit the arguments/subscripts
-                if (allocated(node%arg_indices)) then
-                    do i = 1, size(node%arg_indices)
-                        if (node%arg_indices(i) > 0) then
-                            call visit_nodes_recursive(arena, node%arg_indices(i), visitor, user_data)
-                        end if
-                    end do
-                end if
-            end select
-        case ("array_slice")
-            select type (node => arena%entries(node_index)%node)
-            type is (array_slice_node)
-                ! Process array name
-                if (node%array_index > 0) then
-                    call visit_nodes_recursive(arena, node%array_index, visitor, user_data)
-                end if
-                
-                ! Process slice bounds
-                do i = 1, node%num_dimensions
-                    if (node%bounds_indices(i) > 0) then
-                        call visit_nodes_recursive(arena, node%bounds_indices(i), visitor, user_data)
+        integer :: top, i, capacity
+        integer :: current_index
+
+        if (.not. associated(visitor%visit)) return
+        if (root_index <= 0 .or. root_index > arena%size) return
+        if (.not. allocated(arena%entries(root_index)%node)) return
+
+        capacity = 128
+        allocate(stack(capacity))
+        top = 1
+        stack(top)%node_index = root_index
+
+        do while (top > 0)
+            current_index = stack(top)%node_index
+            top = top - 1
+
+            if (current_index <= 0 .or. current_index > arena%size) cycle
+            if (.not. allocated(arena%entries(current_index)%node)) cycle
+
+            node_type = arena%entries(current_index)%node_type
+            call visitor%visit(arena, current_index, node_type, user_data)
+
+            select case (node_type)
+            case ("binary_op")
+                select type (node => arena%entries(current_index)%node)
+                type is (binary_op_node)
+                    call push(node%right_index)
+                    call push(node%left_index)
+                end select
+
+            case ("call_or_subscript")
+                select type (node => arena%entries(current_index)%node)
+                type is (call_or_subscript_node)
+                    if (allocated(node%arg_indices)) then
+                        do i = size(node%arg_indices), 1, -1
+                            call push(node%arg_indices(i))
+                        end do
                     end if
-                end do
-            end select
-        case ("component_access")
-            select type (node => arena%entries(node_index)%node)
-            type is (component_access_node)
-                ! Process the base expression (structure/derived type)
-                if (node%base_expr_index > 0) then
-                    call visit_nodes_recursive(arena, node%base_expr_index, visitor, user_data)
-                end if
-            end select
-        case ("associate")
-            select type (node => arena%entries(node_index)%node)
-            type is (associate_node)
-                ! Visit association expressions
-                if (allocated(node%associations)) then
-                    do i = 1, size(node%associations)
-                        if (node%associations(i)%expr_index > 0) then
-                            call visit_nodes_recursive(arena, node%associations(i)%expr_index, visitor, user_data)
-                        end if
+                end select
+
+            case ("array_slice")
+                select type (node => arena%entries(current_index)%node)
+                type is (array_slice_node)
+                    do i = node%num_dimensions, 1, -1
+                        call push(node%bounds_indices(i))
                     end do
-                end if
-                
-                ! Visit body statements
-                if (allocated(node%body_indices)) then
-                    do i = 1, size(node%body_indices)
-                        if (node%body_indices(i) > 0) then
-                            call visit_nodes_recursive(arena, node%body_indices(i), visitor, user_data)
-                        end if
-                    end do
-                end if
+                    call push(node%array_index)
+                end select
+
+            case ("component_access")
+                select type (node => arena%entries(current_index)%node)
+                type is (component_access_node)
+                    call push(node%base_expr_index)
+                end select
+
+            case ("associate")
+                select type (node => arena%entries(current_index)%node)
+                type is (associate_node)
+                    if (allocated(node%body_indices)) then
+                        do i = size(node%body_indices), 1, -1
+                            call push(node%body_indices(i))
+                        end do
+                    end if
+                    if (allocated(node%associations)) then
+                        do i = size(node%associations), 1, -1
+                            call push(node%associations(i)%expr_index)
+                        end do
+                    end if
+                end select
             end select
-        end select
-    end subroutine visit_nodes_recursive
+        end do
+
+    contains
+        subroutine push(idx)
+            integer, intent(in) :: idx
+            type(visit_stack_item_t), allocatable :: tmp(:)
+
+            if (idx <= 0) return
+            if (top + 1 > capacity) then
+                capacity = capacity * 2
+                allocate(tmp(capacity))
+                tmp(1:top) = stack(1:top)
+                call move_alloc(tmp, stack)
+            end if
+            top = top + 1
+            stack(top)%node_index = idx
+        end subroutine push
+    end subroutine visit_expression_nodes
 
     ! Check if a specific variable is used in an expression
     function is_variable_used_in_expression(arena, expr_index, var_name) result(used)

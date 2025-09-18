@@ -128,8 +128,8 @@ contains
                 read(unit, '(a)', iostat=iostat) line
                 if (iostat /= 0) exit
                 ! Check for allocate statement with size parameter
-                if (index(line, 'allocate(dyn_arr(size))') > 0 .or. &
-                    index(line, 'allocate(dyn_arr(100))') > 0) then
+                if (contains_without_spaces(line, 'allocate(dyn_arr(size))') .or. &
+                    contains_without_spaces(line, 'allocate(dyn_arr(100))')) then
                     found_allocate_with_param = .true.
                     exit
                 end if
@@ -212,5 +212,18 @@ contains
         call execute_command_line('rm -f ' // input_file // ' ' // output_file, &
                                   exitstat=iostat)
     end function test_multidim_array_with_params
-    
+
+    logical function contains_without_spaces(text, pattern)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        character(len=:), allocatable :: compressed
+        integer :: i
+
+        compressed = ''
+        do i = 1, len_trim(text)
+            if (text(i:i) /= ' ') compressed = compressed // text(i:i)
+        end do
+        contains_without_spaces = index(compressed, pattern) > 0
+    end function contains_without_spaces
+
 end program test_issue_935

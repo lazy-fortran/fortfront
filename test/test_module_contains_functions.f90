@@ -70,7 +70,7 @@ contains
             error stop 1
         end if
         
-        if (index(output_code, 'c = a + b') == 0) then
+        if (.not. contains_without_spaces(output_code, 'c=a+b')) then
             print *, "FAIL: Function body 'c = a + b' missing from output"
             error stop 1
         end if
@@ -135,7 +135,7 @@ contains
             error stop 1
         end if
         
-        if (index(output_code, 'temp = x') == 0) then
+        if (.not. contains_without_spaces(output_code, 'temp=x')) then
             print *, "FAIL: Subroutine body missing from output"
             error stop 1
         end if
@@ -196,7 +196,7 @@ contains
         end if
         
         ! Check for function body - allow either with or without spaces around *
-        if (index(output_code, 'res = x*x') == 0 .and. index(output_code, 'res = x * x') == 0) then
+        if (.not. contains_without_spaces(output_code, 'res=x*x')) then
             print *, "FAIL: Function body missing from output"
             error stop 1
         end if
@@ -209,4 +209,18 @@ contains
         print *, "[PASS] Module with multiple procedures"
     end subroutine test_module_with_multiple_procedures
     
+    logical function contains_without_spaces(text, pattern)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        character(len=:), allocatable :: compressed
+        integer :: i
+
+        compressed = ''
+        do i = 1, len_trim(text)
+            if (text(i:i) /= ' ') compressed = compressed // text(i:i)
+        end do
+        contains_without_spaces = index(compressed, pattern) > 0
+    end function contains_without_spaces
+
 end program test_module_contains_functions
+

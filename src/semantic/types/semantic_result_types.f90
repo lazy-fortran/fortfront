@@ -70,19 +70,6 @@ module semantic_result_types
         generic :: assignment(=) => assign
     end type usage_result_t
 
-    ! Control flow analysis results
-    type, extends(semantic_result_base_t), public :: control_flow_result_t
-        integer :: basic_blocks = 0
-        integer :: unreachable_blocks = 0
-        logical :: has_infinite_loops = .false.
-    contains
-        procedure :: get_result_type => control_flow_get_result_type
-        procedure :: clone_result => control_flow_clone_result
-        procedure :: merge_results => control_flow_merge_results
-        procedure :: assign => control_flow_result_assign
-        generic :: assignment(=) => assign
-    end type control_flow_result_t
-
     ! Call graph analysis results
     type, extends(semantic_result_base_t), public :: call_graph_result_t
         integer :: procedures_found = 0
@@ -313,50 +300,6 @@ contains
         lhs%unused_variables = rhs%unused_variables
         lhs%undefined_variables = rhs%undefined_variables
     end subroutine usage_result_assign
-
-    ! Control flow result implementations
-    function control_flow_get_result_type(this) result(type_name)
-        class(control_flow_result_t), intent(in) :: this
-        character(:), allocatable :: type_name
-        type_name = "control_flow_result"
-    end function control_flow_get_result_type
-
-    function control_flow_clone_result(this) result(cloned)
-        class(control_flow_result_t), intent(in) :: this
-        class(semantic_result_base_t), allocatable :: cloned
-        type(control_flow_result_t) :: temp_result
-        
-        temp_result = this
-        allocate(cloned, source=temp_result)
-    end function control_flow_clone_result
-
-    subroutine control_flow_merge_results(this, other)
-        class(control_flow_result_t), intent(inout) :: this
-        class(semantic_result_base_t), intent(in) :: other
-        
-        select type (other_result => other)
-        type is (control_flow_result_t)
-            this%basic_blocks = this%basic_blocks + other_result%basic_blocks
-            this%unreachable_blocks = this%unreachable_blocks + &
-                                     other_result%unreachable_blocks
-            this%has_infinite_loops = this%has_infinite_loops .or. &
-                                     other_result%has_infinite_loops
-        end select
-    end subroutine control_flow_merge_results
-
-    subroutine control_flow_result_assign(lhs, rhs)
-        class(control_flow_result_t), intent(out) :: lhs
-        type(control_flow_result_t), intent(in) :: rhs
-        
-        lhs%result_id = rhs%result_id
-        lhs%result_type_name = rhs%result_type_name
-        lhs%has_errors = rhs%has_errors
-        lhs%has_warnings = rhs%has_warnings
-        lhs%summary = rhs%summary
-        lhs%basic_blocks = rhs%basic_blocks
-        lhs%unreachable_blocks = rhs%unreachable_blocks
-        lhs%has_infinite_loops = rhs%has_infinite_loops
-    end subroutine control_flow_result_assign
 
     ! Call graph result implementations
     function call_graph_get_result_type(this) result(type_name)

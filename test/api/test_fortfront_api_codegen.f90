@@ -30,6 +30,19 @@ program test_fortfront_api_codegen
     end if
     
 contains
+
+    logical function contains_without_spaces(text, pattern)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        character(len=:), allocatable :: compressed
+        integer :: i
+
+        compressed = ''
+        do i = 1, len_trim(text)
+            if (text(i:i) /= ' ') compressed = compressed // text(i:i)
+        end do
+        contains_without_spaces = index(compressed, pattern) > 0
+    end function contains_without_spaces
     
     logical function test_basic_codegen()
         test_basic_codegen = .true.
@@ -76,7 +89,7 @@ contains
             end if
             
             ! Should contain assignment
-            if (index(code, 'x = 42') == 0) then
+            if (.not. contains_without_spaces(code, 'x=42')) then
                 print *, '  FAIL: Generated code missing assignment'
                 test_basic_codegen = .false.
                 return
@@ -281,7 +294,7 @@ contains
             end if
             
             ! Check array assignment
-            if (index(code, 'arr =') == 0) then
+            if (.not. contains_without_spaces(code, 'arr=')) then
                 print *, '  FAIL: Missing array assignment'
                 test_array_codegen = .false.
                 return

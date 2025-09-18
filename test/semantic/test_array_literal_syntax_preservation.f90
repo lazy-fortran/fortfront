@@ -27,6 +27,19 @@ program test_array_literal_syntax_preservation
 
 contains
 
+    logical function contains_without_spaces(text, pattern)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        character(len=:), allocatable :: compressed
+        integer :: i
+
+        compressed = ''
+        do i = 1, len_trim(text)
+            if (text(i:i) /= ' ') compressed = compressed // text(i:i)
+        end do
+        contains_without_spaces = index(compressed, pattern) > 0
+    end function contains_without_spaces
+
     function test_modern_array_syntax_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
@@ -72,7 +85,7 @@ contains
         print *, result
         
         ! Should preserve modern syntax - should NOT convert to (/ ... /)
-        if (index(result, "[1, 2, 3, 4]") == 0 .and. index(result, "[1,2,3,4]") == 0) then
+        if (.not. contains_without_spaces(result, "[1,2,3,4]")) then
             print *, "ERROR in ", test_name, ": Modern array syntax not preserved"
             print *, "Expected to contain: [1, 2, 3, 4] or [1,2,3,4]"
             print *, "Got result:"
@@ -81,7 +94,7 @@ contains
         end if
         
         ! Should NOT convert to legacy syntax
-        if (index(result, "(/ 1, 2, 3, 4 /)") > 0 .or. index(result, "(/1,2,3,4/)") > 0) then
+        if (contains_without_spaces(result, "(/1,2,3,4/)")) then
             print *, "ERROR in ", test_name, ": Modern syntax incorrectly converted to legacy"
             print *, "Got result:"
             print *, result
@@ -137,7 +150,7 @@ contains
         print *, result
         
         ! Should preserve legacy syntax - should NOT convert to [...] 
-        if (index(result, "(/ 1, 2, 3, 4 /)") == 0 .and. index(result, "(/1,2,3,4/)") == 0) then
+        if (.not. contains_without_spaces(result, "(/1,2,3,4/)")) then
             print *, "ERROR in ", test_name, ": Legacy array syntax not preserved"
             print *, "Expected to contain: (/ 1, 2, 3, 4 /) or (/1,2,3,4/)"
             print *, "Got result:"
@@ -146,7 +159,7 @@ contains
         end if
         
         ! Should NOT convert to modern syntax
-        if (index(result, "[1, 2, 3, 4]") > 0 .or. index(result, "[1,2,3,4]") > 0) then
+        if (contains_without_spaces(result, "[1,2,3,4]")) then
             print *, "ERROR in ", test_name, ": Legacy syntax incorrectly converted to modern"
             print *, "Got result:"
             print *, result
@@ -203,8 +216,8 @@ contains
         print *, result
         
         ! Both syntaxes should be preserved independently
-        if ((index(result, "[1, 2, 3]") == 0 .and. index(result, "[1,2,3]") == 0) .or. &
-            (index(result, "(/ 4, 5, 6 /)") == 0 .and. index(result, "(/4,5,6/)") == 0)) then
+        if (.not. contains_without_spaces(result, "[1,2,3]") .or. &
+            .not. contains_without_spaces(result, "(/4,5,6/)")) then
             print *, "ERROR in ", test_name, ": Mixed array syntax not preserved"
             print *, "Expected both [1,2,3] and (/4,5,6/) formats"
             print *, "Got result:"

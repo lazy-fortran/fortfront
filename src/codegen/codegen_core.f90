@@ -142,7 +142,130 @@ contains
             ! Unknown node type
             code = "! Unknown node type"
         end select
+
+        if (len(code) > 0) then
+            code = normalize_line_spacing(code)
+        end if
     end function codegen_core_generate_arena
+
+    function normalize_line_spacing(text) result(clean)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: clean
+        character(len=:), allocatable :: buffer
+        integer :: len_text
+        integer :: i
+        character :: ch
+        logical :: leading
+        logical :: in_string
+        character :: string_delim
+        integer :: space_run
+
+        len_text = len(text)
+        if (len_text == 0) then
+            clean = text
+            return
+        end if
+
+        buffer = ''
+        leading = .true.
+        in_string = .false.
+        string_delim = ' '
+        space_run = 0
+
+        i = 1
+        do while (i <= len_text)
+            ch = text(i:i)
+
+            if (in_string) then
+                buffer = buffer // ch
+                if (ch == string_delim) then
+                    if (i < len_text) then
+                        if (text(i+1:i+1) == string_delim) then
+                            buffer = buffer // string_delim
+                            i = i + 1
+                        else
+                            in_string = .false.
+                        end if
+                    else
+                        in_string = .false.
+                    end if
+                end if
+                if (ch == new_line('A')) then
+                    leading = .true.
+                    space_run = 0
+                    in_string = .false.
+                end if
+            else if (ch == ' ') then
+                if (leading) then
+                    buffer = buffer // ' '
+                else
+                    space_run = space_run + 1
+                end if
+            else if (ch == '''' .or. ch == '"') then
+                if (space_run > 0) then
+                    buffer = buffer // ' '
+                    space_run = 0
+                end if
+                buffer = buffer // ch
+                in_string = .true.
+                string_delim = ch
+                leading = .false.
+            else
+                if (space_run > 0) then
+                    buffer = buffer // ' '
+                    space_run = 0
+                end if
+                buffer = buffer // ch
+                if (ch == new_line('A')) then
+                    leading = .true.
+                else
+                    leading = .false.
+                end if
+            end if
+
+            i = i + 1
+        end do
+
+        if (space_run > 0 .and. .not. leading) buffer = buffer // ' '
+        clean = buffer
+        clean = replace_all(clean, ' * ', '*')
+        clean = replace_all(clean, ' / ', '/')
+        clean = replace_all(clean, ' ** ', '**')
+        clean = replace_all(clean, '* ', '*')
+        clean = replace_all(clean, '/ ', '/')
+        clean = replace_all(clean, ' ,', ',')
+        clean = replace_all(clean, ' )', ')')
+    end function normalize_line_spacing
+
+    function replace_all(text, pattern, replacement) result(out)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        character(len=*), intent(in) :: replacement
+        character(len=:), allocatable :: out
+        character(len=:), allocatable :: buffer
+        integer :: start, pos, pat_len
+
+        if (len(pattern) == 0) then
+            out = text
+            return
+        end if
+
+        buffer = ''
+        start = 1
+        pat_len = len(pattern)
+
+        do
+            pos = index(text(start:), pattern)
+            if (pos == 0) exit
+            pos = pos + start - 1
+            if (pos > start) buffer = buffer // text(start:pos-1)
+            buffer = buffer // replacement
+            start = pos + pat_len
+        end do
+
+        if (start <= len(text)) buffer = buffer // text(start:)
+        out = buffer
+    end function replace_all
 
     ! Polymorphic code generator (same as codegen_core_generate_arena)
     function generate_code_polymorphic(arena, node_index) result(code)

@@ -63,153 +63,225 @@ contains
     end subroutine mark_allocatable_for_array_reassignments
     
     ! Count assignments to variables (helper for array reassignment detection)
-    recursive subroutine count_variable_assignments(arena, stmt_index, assigned_vars, &
-                                                    assignment_counts, var_count)
+    subroutine count_variable_assignments(arena, stmt_index, assigned_vars, &
+                                          assignment_counts, var_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(inout) :: assigned_vars(:)
         integer, intent(inout) :: assignment_counts(:)
         integer, intent(inout) :: var_count
+
+        type node_stack_entry
+            integer :: idx = 0
+        end type node_stack_entry
+
+        type(node_stack_entry), allocatable :: stack(:)
+        integer :: top, capacity
+        integer :: current_index
         integer :: i, var_idx
-        
-        if (stmt_index <= 0 .or. stmt_index > arena%size) return
-        if (.not. allocated(arena%entries(stmt_index)%node)) return
-        
-        select type (stmt => arena%entries(stmt_index)%node)
-        type is (assignment_node)
-            ! Count all assignments to identifiers; allocation need decided later
-            if (stmt%target_index > 0 .and. stmt%target_index <= arena%size) then
-                if (allocated(arena%entries(stmt%target_index)%node)) then
-                    select type (target => arena%entries(stmt%target_index)%node)
-                    type is (identifier_node)
-                        ! Find or add variable to tracking
-                        var_idx = 0
-                        do i = 1, var_count
-                            if (trim(assigned_vars(i)) == trim(target%name)) then
-                                var_idx = i
-                                exit
+
+        capacity = 64
+        allocate(stack(capacity))
+        top = 0
+
+        call push(stmt_index)
+
+        do while (top > 0)
+            current_index = pop()
+
+            if (current_index <= 0 .or. current_index > arena%size) cycle
+            if (.not. allocated(arena%entries(current_index)%node)) cycle
+
+            select type (stmt => arena%entries(current_index)%node)
+            type is (assignment_node)
+                if (stmt%target_index > 0 .and. stmt%target_index <= arena%size) then
+                    if (allocated(arena%entries(stmt%target_index)%node)) then
+                        select type (target => arena%entries(stmt%target_index)%node)
+                        type is (identifier_node)
+                            var_idx = 0
+                            do i = 1, var_count
+                                if (trim(assigned_vars(i)) == trim(target%name)) then
+                                    var_idx = i
+                                    exit
+                                end if
+                            end do
+
+                            if (var_idx == 0) then
+                                if (var_count < size(assigned_vars)) then
+                                    var_count = var_count + 1
+                                    assigned_vars(var_count) = target%name
+                                    assignment_counts(var_count) = 1
+                                end if
+                            else
+                                assignment_counts(var_idx) = assignment_counts(var_idx) + 1
                             end if
-                        end do
-                        
-                        if (var_idx == 0) then
-                            if (var_count < size(assigned_vars)) then
-                                var_count = var_count + 1
-                                assigned_vars(var_count) = target%name
-                                assignment_counts(var_count) = 1
-                            end if
-                        else
-                            assignment_counts(var_idx) = assignment_counts(var_idx) + 1
-                        end if
-                    end select
+                        end select
+                    end if
                 end if
+            type is (do_loop_node)
+                if (allocated(stmt%body_indices)) then
+                    call push_many(stmt%body_indices)
+                end if
+            type is (if_node)
+                if (allocated(stmt%else_body_indices)) then
+                    call push_many(stmt%else_body_indices)
+                end if
+                if (allocated(stmt%then_body_indices)) then
+                    call push_many(stmt%then_body_indices)
+                end if
+            class default
+                cycle
+            end select
+        end do
+
+    contains
+
+        subroutine push(idx)
+            integer, intent(in) :: idx
+            type(node_stack_entry), allocatable :: tmp(:)
+            if (idx <= 0) return
+            if (top >= capacity) then
+                allocate(tmp(capacity*2))
+                if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
+                call move_alloc(tmp, stack)
+                capacity = size(stack)
             end if
-        type is (do_loop_node)
-            ! Recursively count in loop body
-            if (allocated(stmt%body_indices)) then
-                do i = 1, size(stmt%body_indices)
-                    call count_variable_assignments(arena, stmt%body_indices(i), &
-                                                   assigned_vars, assignment_counts, var_count)
-                end do
+            top = top + 1
+            stack(top)%idx = idx
+        end subroutine push
+
+        subroutine push_many(indices)
+            integer, intent(in) :: indices(:)
+            integer :: j
+            do j = size(indices), 1, -1
+                call push(indices(j))
+            end do
+        end subroutine push_many
+
+        integer function pop()
+            if (top <= 0) then
+                pop = 0
+            else
+                pop = stack(top)%idx
+                top = top - 1
             end if
-        type is (if_node)
-            ! Recursively count in if branches
-            if (allocated(stmt%then_body_indices)) then
-                do i = 1, size(stmt%then_body_indices)
-                    call count_variable_assignments(arena, stmt%then_body_indices(i), &
-                                                   assigned_vars, assignment_counts, var_count)
-                end do
-            end if
-            if (allocated(stmt%else_body_indices)) then
-                do i = 1, size(stmt%else_body_indices)
-                    call count_variable_assignments(arena, stmt%else_body_indices(i), &
-                                                   assigned_vars, assignment_counts, var_count)
-                end do
-            end if
-        end select
+        end function pop
+
     end subroutine count_variable_assignments
     
     ! Mark declarations as allocatable for variables with multiple array assignments
-    recursive subroutine mark_declarations_allocatable(arena, stmt_index, assigned_vars, &
-                                                      assignment_counts, var_count, prog_index)
+    subroutine mark_declarations_allocatable(arena, stmt_index, assigned_vars, &
+                                            assignment_counts, var_count, prog_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(in) :: assigned_vars(:)
         integer, intent(in) :: assignment_counts(:)
         integer, intent(in) :: var_count
         integer, intent(in) :: prog_index
+
+        type node_stack_entry
+            integer :: idx = 0
+        end type node_stack_entry
+
+        type(node_stack_entry), allocatable :: stack(:)
+        integer :: top, capacity
+        integer :: current_index
         integer :: i, var_idx
         logical :: needs_split
-        
-        if (stmt_index <= 0 .or. stmt_index > arena%size) return
-        if (.not. allocated(arena%entries(stmt_index)%node)) return
-        
-        select type (stmt => arena%entries(stmt_index)%node)
-        type is (declaration_node)
-            ! Check if this is a multi-variable declaration that needs allocatable
-            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
-                call handle_multi_variable_declaration_allocatable(arena, stmt_index, &
-                    assigned_vars, assignment_counts, var_count, prog_index, needs_split)
-                
-                if (needs_split) then
-                    call split_multi_variable_declaration(arena, stmt_index, &
-                        assigned_vars, assignment_counts, var_count, prog_index)
-                end if
-            else
-                ! Single variable declaration
-                do i = 1, var_count
-                    if (trim(assigned_vars(i)) == trim(stmt%var_name)) then
-                        ! Mark allocatable if variable is assigned more than once or is a procedure parameter
-                        ! But only for arrays and character types - scalars cannot be allocatable
-                        if (assignment_counts(i) >= 2 .or. is_procedure_parameter(arena, stmt_index)) then
-                            ! Only mark allocatable for arrays or character types
-                            ! Check both explicit type name and inferred type
-                            if (stmt%is_array) then
-                                ! Arrays can be allocatable
-                                stmt%is_allocatable = .true.
-                                if (allocated(stmt%dimension_indices)) then
-                                    ! Change fixed dimensions to deferred shape
-                                    deallocate(stmt%dimension_indices)
-                                    allocate(stmt%dimension_indices(1))
-                                    stmt%dimension_indices(1) = 0  ! Deferred shape
-                                end if
-                                ! Update the arena
-                                arena%entries(stmt_index)%node = stmt
-                            else if ((allocated(stmt%type_name) .and. trim(stmt%type_name) == "character") .or. &
-                                     (stmt%inferred_type%kind == TCHAR)) then
-                                ! Character strings can be allocatable
-                                stmt%is_allocatable = .true.
-                                ! Update the arena
-                                arena%entries(stmt_index)%node = stmt
-                            end if
-                            ! Do NOT mark scalars of numeric types (integer, real, etc.) as allocatable
-                        end if
-                        exit
+
+        capacity = 64
+        allocate(stack(capacity))
+        top = 0
+
+        call push(stmt_index)
+
+        do while (top > 0)
+            current_index = pop()
+
+            if (current_index <= 0 .or. current_index > arena%size) cycle
+            if (.not. allocated(arena%entries(current_index)%node)) cycle
+
+            select type (stmt => arena%entries(current_index)%node)
+            type is (declaration_node)
+                if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                    call handle_multi_variable_declaration_allocatable(arena, current_index, &
+                        assigned_vars, assignment_counts, var_count, prog_index, needs_split)
+
+                    if (needs_split) then
+                        call split_multi_variable_declaration(arena, current_index, &
+                            assigned_vars, assignment_counts, var_count, prog_index)
                     end if
-                end do
+                else
+                    do i = 1, var_count
+                        if (trim(assigned_vars(i)) == trim(stmt%var_name)) then
+                            if (assignment_counts(i) >= 2 .or. is_procedure_parameter(arena, current_index)) then
+                                if (stmt%is_array) then
+                                    stmt%is_allocatable = .true.
+                                    if (allocated(stmt%dimension_indices)) then
+                                        deallocate(stmt%dimension_indices)
+                                        allocate(stmt%dimension_indices(1))
+                                        stmt%dimension_indices(1) = 0
+                                    end if
+                                    arena%entries(current_index)%node = stmt
+                                else if ((allocated(stmt%type_name) .and. trim(stmt%type_name) == "character") .or. &
+                                         (stmt%inferred_type%kind == TCHAR)) then
+                                    stmt%is_allocatable = .true.
+                                    arena%entries(current_index)%node = stmt
+                                end if
+                            end if
+                            exit
+                        end if
+                    end do
+                end if
+            type is (do_loop_node)
+                if (allocated(stmt%body_indices)) then
+                    call push_many(stmt%body_indices)
+                end if
+            type is (if_node)
+                if (allocated(stmt%else_body_indices)) then
+                    call push_many(stmt%else_body_indices)
+                end if
+                if (allocated(stmt%then_body_indices)) then
+                    call push_many(stmt%then_body_indices)
+                end if
+            class default
+                cycle
+            end select
+        end do
+
+    contains
+
+        subroutine push(idx)
+            integer, intent(in) :: idx
+            type(node_stack_entry), allocatable :: tmp(:)
+            if (idx <= 0) return
+            if (top >= capacity) then
+                allocate(tmp(capacity*2))
+                if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
+                call move_alloc(tmp, stack)
+                capacity = size(stack)
             end if
-        type is (do_loop_node)
-            ! Recursively process loop body
-            if (allocated(stmt%body_indices)) then
-                do i = 1, size(stmt%body_indices)
-                    call mark_declarations_allocatable(arena, stmt%body_indices(i), &
-                        assigned_vars, assignment_counts, var_count, prog_index)
-                end do
+            top = top + 1
+            stack(top)%idx = idx
+        end subroutine push
+
+        subroutine push_many(indices)
+            integer, intent(in) :: indices(:)
+            integer :: j
+            do j = size(indices), 1, -1
+                call push(indices(j))
+            end do
+        end subroutine push_many
+
+        integer function pop()
+            if (top <= 0) then
+                pop = 0
+            else
+                pop = stack(top)%idx
+                top = top - 1
             end if
-        type is (if_node)
-            ! Recursively process if branches
-            if (allocated(stmt%then_body_indices)) then
-                do i = 1, size(stmt%then_body_indices)
-                    call mark_declarations_allocatable(arena, stmt%then_body_indices(i), &
-                        assigned_vars, assignment_counts, var_count, prog_index)
-                end do
-            end if
-            if (allocated(stmt%else_body_indices)) then
-                do i = 1, size(stmt%else_body_indices)
-                    call mark_declarations_allocatable(arena, stmt%else_body_indices(i), &
-                        assigned_vars, assignment_counts, var_count, prog_index)
-                end do
-            end if
-        end select
+        end function pop
+
     end subroutine mark_declarations_allocatable
     
     ! Handle multi-variable declarations for allocatable marking
@@ -598,64 +670,110 @@ contains
     end subroutine mark_allocatable_for_string_length_changes
     
     ! Recursively collect variables that need allocatable strings
-    recursive subroutine collect_string_vars_needing_allocatable(arena, stmt_index, &
-                                                               var_list, var_count)
+    subroutine collect_string_vars_needing_allocatable(arena, stmt_index, &
+                                                       var_list, var_count)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(inout) :: var_list(:)
         integer, intent(inout) :: var_count
-        character(len=:), allocatable :: var_name
-        integer :: i, j
-        
-        if (stmt_index <= 0 .or. stmt_index > arena%size) return
-        if (.not. allocated(arena%entries(stmt_index)%node)) return
-        
-        select type (stmt => arena%entries(stmt_index)%node)
-        type is (assignment_node)
-            ! Check if assignment target has needs_allocatable_string flag
-            if (stmt%target_index > 0 .and. stmt%target_index <= arena%size) then
-                if (allocated(arena%entries(stmt%target_index)%node)) then
-                    select type (target => arena%entries(stmt%target_index)%node)
-                    type is (identifier_node)
-                        if (target%inferred_type%kind > 0) then
-                            if (target%inferred_type%alloc_info%needs_allocatable_string) then
-                                var_name = target%name
-                                ! Add to list if not already present
-                                do j = 1, var_count
-                                    if (trim(var_list(j)) == trim(var_name)) return  ! Already in list
-                                end do
-                                if (var_count < size(var_list)) then
-                                    var_count = var_count + 1
-                                    var_list(var_count) = var_name
+
+        type node_stack_entry
+            integer :: idx = 0
+        end type node_stack_entry
+
+        type(node_stack_entry), allocatable :: stack(:)
+        integer :: top, capacity
+        integer :: current_index
+        integer :: j
+        logical :: exists
+
+        capacity = 64
+        allocate(stack(capacity))
+        top = 0
+
+        call push(stmt_index)
+
+        do while (top > 0)
+            current_index = pop()
+
+            if (current_index <= 0 .or. current_index > arena%size) cycle
+            if (.not. allocated(arena%entries(current_index)%node)) cycle
+
+            select type (stmt => arena%entries(current_index)%node)
+            type is (assignment_node)
+                if (stmt%target_index > 0 .and. stmt%target_index <= arena%size) then
+                    if (allocated(arena%entries(stmt%target_index)%node)) then
+                        select type (target => arena%entries(stmt%target_index)%node)
+                        type is (identifier_node)
+                            if (target%inferred_type%kind > 0) then
+                                if (target%inferred_type%alloc_info%needs_allocatable_string) then
+                                    exists = .false.
+                                    do j = 1, var_count
+                                        if (trim(var_list(j)) == trim(target%name)) then
+                                            exists = .true.
+                                            exit
+                                        end if
+                                    end do
+                                    if (.not. exists) then
+                                        if (var_count < size(var_list)) then
+                                            var_count = var_count + 1
+                                            var_list(var_count) = target%name
+                                        end if
+                                    end if
                                 end if
                             end if
-                        end if
-                    end select
+                        end select
+                    end if
                 end if
+            type is (do_loop_node)
+                if (allocated(stmt%body_indices)) then
+                    call push_many(stmt%body_indices)
+                end if
+            type is (if_node)
+                if (allocated(stmt%else_body_indices)) then
+                    call push_many(stmt%else_body_indices)
+                end if
+                if (allocated(stmt%then_body_indices)) then
+                    call push_many(stmt%then_body_indices)
+                end if
+            class default
+                cycle
+            end select
+        end do
+
+    contains
+
+        subroutine push(idx)
+            integer, intent(in) :: idx
+            type(node_stack_entry), allocatable :: tmp(:)
+            if (idx <= 0) return
+            if (top >= capacity) then
+                allocate(tmp(capacity*2))
+                if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
+                call move_alloc(tmp, stack)
+                capacity = size(stack)
             end if
-        type is (do_loop_node)
-            ! Recursively process loop body
-            if (allocated(stmt%body_indices)) then
-                do i = 1, size(stmt%body_indices)
-                    call collect_string_vars_needing_allocatable(arena, stmt%body_indices(i), &
-                                                                var_list, var_count)
-                end do
+            top = top + 1
+            stack(top)%idx = idx
+        end subroutine push
+
+        subroutine push_many(indices)
+            integer, intent(in) :: indices(:)
+            integer :: k
+            do k = size(indices), 1, -1
+                call push(indices(k))
+            end do
+        end subroutine push_many
+
+        integer function pop()
+            if (top <= 0) then
+                pop = 0
+            else
+                pop = stack(top)%idx
+                top = top - 1
             end if
-        type is (if_node)
-            ! Recursively process if branches
-            if (allocated(stmt%then_body_indices)) then
-                do i = 1, size(stmt%then_body_indices)
-                    call collect_string_vars_needing_allocatable(arena, stmt%then_body_indices(i), &
-                                                                var_list, var_count)
-                end do
-            end if
-            if (allocated(stmt%else_body_indices)) then
-                do i = 1, size(stmt%else_body_indices)
-                    call collect_string_vars_needing_allocatable(arena, stmt%else_body_indices(i), &
-                                                                var_list, var_count)
-                end do
-            end if
-        end select
+        end function pop
+
     end subroutine collect_string_vars_needing_allocatable
 
 end module standardizer_allocatable

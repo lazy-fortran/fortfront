@@ -20,6 +20,8 @@ program test_lazy_standard_fortran
     ! Test 3: Program with control flow
     call test_control_flow()
     
+    call test_module_debug()
+    
     print *, "All lazy standard Fortran tests passed!"
     
 contains
@@ -215,6 +217,40 @@ contains
         print *, "    ✓ Control flow"
     end subroutine test_control_flow
     
+    subroutine test_module_debug()
+        logical :: ok
+        print *, '  Testing module transformation...'
+        source_code = 'module m' // new_line('a') // &
+                     '  implicit none' // new_line('a') // &
+                     'contains' // new_line('a') // &
+                     '  function add(a,b) result(c)' // new_line('a') // &
+                     '    integer :: a,b,c' // new_line('a') // &
+                     '    c = a + b' // new_line('a') // &
+                     '  end function add' // new_line('a') // &
+                     'end module m'
+        call transform_lazy_fortran_string(source_code, formatted_code, error_msg)
+        ok = .true.
+        if (len_trim(error_msg) > 0) then
+            print *, 'FAIL: module transform error:', trim(error_msg)
+            ok = .false.
+        end if
+        if (index(formatted_code, 'module m') == 0) then
+            print *, 'FAIL: module header missing'
+            ok = .false.
+        end if
+        if (index(formatted_code, 'function add') == 0) then
+            print *, 'FAIL: function body missing'
+            ok = .false.
+        end if
+        if (ok) then
+            print *, '    ✓ Module transformation'
+        else
+            print *, 'Generated code:'
+            print *, formatted_code
+            stop 1
+        end if
+    end subroutine test_module_debug
+
     recursive subroutine debug_ast_structure(arena, node_index, depth)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index, depth

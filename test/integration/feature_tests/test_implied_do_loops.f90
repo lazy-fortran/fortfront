@@ -24,7 +24,7 @@ contains
         end if
         
         ! The generated code should use legacy (/ /) syntax for compatibility
-        if (index(output, "(/ (i, i=1, 5) /)") > 0) then
+        if (contains_without_spaces(output, "(/(i,i=1,5)/)")) then
             print *, "  PASS: Simple implied do loop"
         else
             print *, "  FAIL: Simple implied do loop - Expected (/ (i, i=1, 5) /) syntax"
@@ -42,7 +42,7 @@ contains
             error stop 1
         end if
         
-        if (index(output, "sum((/ (i*2, i=1, 10) /))") > 0) then
+        if (contains_without_spaces(output, "sum((/(i*2,i=1,10)/))")) then
             print *, "  PASS: Implied do with expression"
         else
             print *, "  FAIL: Implied do with expression - Expected sum((/ (i*2, i=1, 10) /))"
@@ -60,7 +60,7 @@ contains
             error stop 1
         end if
         
-        if (index(output, "(/ (sqrt(real(i)), i=1, 5) /)") > 0) then
+        if (contains_without_spaces(output, "(/(sqrt(real(i)),i=1,5)/)")) then
             print *, "  PASS: Nested functions with implied do"
         else
             print *, "  FAIL: Nested functions with implied do - Expected legacy syntax"
@@ -69,4 +69,17 @@ contains
         end if
     end subroutine test_nested_function_with_implied_do
     
+    logical function contains_without_spaces(text, pattern)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        character(len=:), allocatable :: compressed
+        integer :: i
+
+        compressed = ''
+        do i = 1, len_trim(text)
+            if (text(i:i) /= ' ') compressed = compressed // text(i:i)
+        end do
+        contains_without_spaces = index(compressed, pattern) > 0
+    end function contains_without_spaces
+
 end program test_implied_do_loops

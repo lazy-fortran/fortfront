@@ -19,24 +19,117 @@ contains
         end do
     end subroutine fold_constants_in_arena
     
-    recursive subroutine fold_node_constants(arena, node_index)
+    subroutine fold_node_constants(arena, node_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
-        
-        if (node_index <= 0 .or. node_index > arena%size) return
-        
-        select type(node => arena%entries(node_index)%node)
-        type is (literal_node)
-            call fold_literal_node(node)
-        type is (binary_op_node)
-            call fold_binary_op_node(arena, node)
-        type is (if_node)
-            call fold_if_node(arena, node)
-        type is (declaration_node)
-            call fold_declaration_node(arena, node)
-        type is (identifier_node)
-            call fold_identifier_node(arena, node)
-        end select
+
+        type stack_entry
+            integer :: idx = 0
+            logical :: processed = .false.
+        end type stack_entry
+
+        type(stack_entry), allocatable :: stack(:)
+        integer :: top, capacity
+        type(stack_entry) :: current
+
+        capacity = 64
+        allocate(stack(capacity))
+        top = 0
+
+        call push(node_index, .false.)
+
+        do while (top > 0)
+            current = pop()
+            if (current%idx <= 0 .or. current%idx > arena%size) cycle
+            if (.not. allocated(arena%entries(current%idx)%node)) cycle
+
+            if (.not. current%processed) then
+                ! Schedule node for processing after its children
+                call push(current%idx, .true.)
+                select type(node => arena%entries(current%idx)%node)
+                type is (binary_op_node)
+                    call push(node%right_index, .false.)
+                    call push(node%left_index, .false.)
+                type is (if_node)
+                    call push(node%condition_index, .false.)
+                    if (allocated(node%then_body_indices)) then
+                        call push_array(node%then_body_indices)
+                    end if
+                    if (allocated(node%else_body_indices)) then
+                        call push_array(node%else_body_indices)
+                    end if
+                type is (declaration_node)
+                    call push(node%initializer_index, .false.)
+                type is (array_literal_node)
+                    if (allocated(node%element_indices)) then
+                        call push_array(node%element_indices)
+                    end if
+                type is (assignment_node)
+                    call push(node%target_index, .false.)
+                    call push(node%value_index, .false.)
+                type is (call_or_subscript_node)
+                    if (allocated(node%arg_indices)) then
+                        call push_array(node%arg_indices)
+                    end if
+                class default
+                    cycle
+                end select
+            else
+                select type(node => arena%entries(current%idx)%node)
+                type is (literal_node)
+                    call fold_literal_node(node)
+                type is (binary_op_node)
+                    call fold_binary_op_node(arena, node)
+                type is (if_node)
+                    call fold_if_node(arena, node)
+                type is (declaration_node)
+                    call fold_declaration_node(arena, node)
+                type is (identifier_node)
+                    call fold_identifier_node(arena, node)
+                class default
+                    cycle
+                end select
+            end if
+        end do
+
+    contains
+
+        subroutine push(idx, processed)
+            integer, intent(in) :: idx
+            logical, intent(in) :: processed
+            type(stack_entry), allocatable :: temp(:)
+            if (idx <= 0) return
+            if (top >= capacity) then
+                allocate(temp(capacity*2))
+                if (capacity > 0) temp(1:capacity) = stack(1:capacity)
+                call move_alloc(temp, stack)
+                capacity = size(stack)
+            end if
+            top = top + 1
+            stack(top)%idx = idx
+            stack(top)%processed = processed
+        end subroutine push
+
+        subroutine push_array(indices)
+            integer, intent(in) :: indices(:)
+            integer :: j
+            if (size(indices) <= 0) return
+            do j = size(indices), 1, -1
+                call push(indices(j), .false.)
+            end do
+        end subroutine push_array
+
+        function pop() result(entry)
+            type(stack_entry) :: entry
+            if (top <= 0) then
+                entry%idx = 0
+                entry%processed = .false.
+            else
+                entry = stack(top)
+                top = top - 1
+            end if
+        end function pop
+
     end subroutine fold_node_constants
     
     subroutine fold_literal_node(node)

@@ -79,7 +79,6 @@ module fortfront
     
     ! Re-export semantic analyzer functionality
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
-    use expression_temporary_tracker_module, only: temp_info_t
     
     ! Re-export lexer token type
     use lexer_core, only: token_t, tokenize_core
@@ -123,22 +122,6 @@ module fortfront
                                cg_is_procedure_used => is_procedure_used
     use call_graph_builder_module, only: build_call_graph
     
-    ! Re-export control flow graph functionality
-    use control_flow_graph_module, only: control_flow_graph_t, basic_block_t, cfg_edge_t, &
-                                       create_control_flow_graph, add_basic_block, add_cfg_edge, &
-                                       find_reachable_blocks, find_unreachable_code, &
-                                       get_entry_block, get_exit_blocks, get_all_blocks, &
-                                       get_block_predecessors, get_block_successors, &
-                                       is_block_reachable, get_unreachable_statements, &
-                                       print_cfg, cfg_to_dot, &
-                                       EDGE_UNCONDITIONAL, EDGE_TRUE_BRANCH, EDGE_FALSE_BRANCH, &
-                                       EDGE_LOOP_BACK, EDGE_BREAK, EDGE_CONTINUE, &
-                                       EDGE_RETURN, EDGE_EXCEPTION
-    use cfg_builder_module, only: build_control_flow_graph
-    
-    ! Re-export control flow analyzer plugin for performance analysis (issue #194)
-    use control_flow_analyzer_plugin, only: control_flow_analyzer_t
-    
     ! Variable usage tracking for issue #16
     use variable_usage_tracker_module, only: variable_usage_info_t, expression_visitor_t, &
         create_variable_usage_info, get_variables_in_expression, &
@@ -176,7 +159,7 @@ module fortfront
     
     ! Re-export types from fortfront_types  
     use fortfront_types, only: symbol_info_t, symbol_reference_t, scope_info_t, &
-                              expression_temp_info_t, source_location_t, source_range_t, &
+                              source_location_t, source_range_t, &
                               type_info_t, diagnostic_t, function_signature_t, &
                               DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO, DIAGNOSTIC_HINT, &
                               NODE_PROGRAM, NODE_FUNCTION_DEF, NODE_ASSIGNMENT, NODE_BINARY_OP, &
@@ -193,20 +176,32 @@ module fortfront
                               NODE_CONTAINS, NODE_FORMAT_DESCRIPTOR, NODE_COMMENT, &
                               NODE_IMPLICIT_STATEMENT, NODE_UNKNOWN
     
-    ! Re-export advanced procedures from fortfront_advanced  
-    ! NOTE: Most advanced functions temporarily disabled due to API incompatibility
-    use fortfront_advanced, only: build_call_graph_from_arena, get_unused_procedures, &
-                                 get_procedure_callers, get_procedure_callees, &
-                                 is_procedure_used, get_all_procedures_in_graph, &
-                                 get_call_edges, get_recursive_cycles, &
-                                 build_cfg_from_arena, get_unreachable_code_from_cfg, &
-                                 get_cfg_entry_block, get_cfg_exit_blocks, &
-                                 get_cfg_all_blocks, get_cfg_block_predecessors, &
-                                 get_cfg_block_successors, is_cfg_block_reachable, &
-                                 get_cfg_unreachable_statements, print_control_flow_graph, &
-                                 export_cfg_to_dot
-    
+    ! Call graph and control-flow utilities (lean re-export)
+    use call_graph_builder_module, only: build_call_graph_from_arena => build_call_graph
+    use call_graph_module, only: call_graph_t, call_edge_t, &
+         get_unused_procedures => find_unused_procedures, &
+         get_procedure_callers => get_callers, &
+         get_procedure_callees => get_callees, &
+         is_procedure_used, &
+         get_all_procedures_in_graph => get_all_procedures, &
+         get_recursive_cycles => find_recursive_cycles
+
     implicit none
     public
+
+contains
+
+    function get_call_edges(graph) result(edges)
+        type(call_graph_t), intent(in) :: graph
+        type(call_edge_t), allocatable :: edges(:)
+
+        if (allocated(graph%calls) .and. graph%call_count > 0) then
+            allocate(edges(graph%call_count))
+            edges = graph%calls(1:graph%call_count)
+        else
+            allocate(edges(0))
+        end if
+    end function get_call_edges
+
 
 end module fortfront

@@ -14,7 +14,7 @@ contains
     ! Local implementation of standardize_ast for module context
     ! This handles AST nodes within a module - simplified version that
     ! doesn't need to handle top-level programs or module wrapping
-    recursive subroutine standardize_ast(arena, root_index, in_module)
+    subroutine standardize_ast(arena, root_index, in_module)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
         logical, intent(in), optional :: in_module

@@ -59,14 +59,12 @@ contains
             read(unit, '(a)', iostat=iostat) line
             if (iostat /= 0) exit
 
-            if (index(trim(line), 'a**b**c') > 0) then
+            if (contains_without_spaces(line, 'a**b**c')) then
                 saw_chain = .true.
             end if
 
             ! Wrong grouping would look like (a**b)**c with or without spaces
-            if (index(line, '(a**b) ** c') > 0 .or. &
-                index(line, '(a ** b) ** c') > 0 .or. &
-                index(line, '(a**b)**c') > 0) then
+            if (contains_without_spaces(line, '(a**b)**c')) then
                 print *, '  FAIL: Found incorrect left-associative grouping: ', trim(line)
                 saw_wrong_grouping = .true.
             end if
@@ -86,5 +84,17 @@ contains
 
     end function test_exponentiation_right_associative
 
-end program test_issue_960_operator_precedence
+    logical function contains_without_spaces(text, pattern)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        character(len=:), allocatable :: compressed
+        integer :: i
 
+        compressed = ''
+        do i = 1, len_trim(text)
+            if (text(i:i) /= ' ') compressed = compressed // text(i:i)
+        end do
+        contains_without_spaces = index(compressed, pattern) > 0
+    end function contains_without_spaces
+
+end program test_issue_960_operator_precedence

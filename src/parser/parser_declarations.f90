@@ -481,7 +481,9 @@ contains
         character(len=64), allocatable :: var_names(:)
         integer, allocatable :: per_var_dims(:,:)  ! Store dimensions per variable
         logical, allocatable :: has_dims(:)  ! Track which vars have dimensions
-        integer :: var_count, initializer_index, decl_index, i
+        integer, allocatable :: init_indices(:)
+        integer :: var_count, decl_index, i
+        logical :: has_any_initializer
         
         
         ! Parse type specifier
@@ -504,10 +506,12 @@ contains
         allocate(var_names(10))  ! Start with reasonable size
         allocate(per_var_dims(10, 10))  ! Max 10 vars, max 10 dims each
         allocate(has_dims(10))
+        allocate(init_indices(10))
         var_count = 0
-        initializer_index = 0
+        has_any_initializer = .false.
         per_var_dims = 0
         has_dims = .false.
+        init_indices = 0
         
         do while (.not. parser%is_at_end())
             ! Get variable name
@@ -521,23 +525,34 @@ contains
                     character(len=64), allocatable :: temp_names(:)
                     integer, allocatable :: temp_dims(:,:)
                     logical, allocatable :: temp_has(:)
+                    integer, allocatable :: temp_init(:)
                     integer :: old_size, new_size
                     old_size = size(var_names)
                     new_size = old_size * 2
                     allocate(temp_names(new_size))
                     allocate(temp_dims(new_size, 10))
                     allocate(temp_has(new_size))
+                    allocate(temp_init(new_size))
+                    temp_names = ''
+                    temp_dims = 0
+                    temp_has = .false.
+                    temp_init = 0
                     temp_names(1:old_size) = var_names(1:old_size)
                     temp_dims(1:old_size, :) = per_var_dims(1:old_size, :)
                     temp_has(1:old_size) = has_dims(1:old_size)
-                    deallocate(var_names, per_var_dims, has_dims)
+                    temp_init(1:old_size) = init_indices(1:old_size)
+                    deallocate(var_names, per_var_dims, has_dims, init_indices)
                     call move_alloc(temp_names, var_names)
                     call move_alloc(temp_dims, per_var_dims)
                     call move_alloc(temp_has, has_dims)
+                    call move_alloc(temp_init, init_indices)
                 end block
             end if
             var_names(var_count) = token%text
-            
+            init_indices(var_count) = 0
+            has_dims(var_count) = .false.
+            per_var_dims(var_count, :) = 0
+
             ! Check for array dimensions for this variable
             if (.not. parser%is_at_end()) then
                 next_token = parser%peek()
@@ -558,30 +573,29 @@ contains
                 end if
             end if
             
+            ! Check for initializer for this variable
+            if (.not. parser%is_at_end()) then
+                next_token = parser%peek()
+                if (next_token%text == "=" .or. next_token%text == "=>") then
+                    next_token = parser%consume()
+                    if (type_spec%type_name == "complex") then
+                        init_indices(var_count) = handle_complex_initializer(parser, arena, type_spec%type_name)
+                    else
+                        init_indices(var_count) = parse_comparison(parser, arena)
+                    end if
+                    if (init_indices(var_count) > 0) has_any_initializer = .true.
+                end if
+            end if
+
             ! Check for comma or end of variables
             if (.not. parser%is_at_end()) then
                 next_token = parser%peek()
                 if (next_token%text == ",") then
-                    ! Consume comma and continue
                     next_token = parser%consume()
                     cycle
-                else if (next_token%text == "=" .or. next_token%text == "=>") then
-                    ! Initialization found - consume and parse
-                    next_token = parser%consume()
-                    ! Special handling for complex type initializers
-                    if (type_spec%type_name == "complex") then
-                        initializer_index = handle_complex_initializer(parser, arena, type_spec%type_name)
-                    else
-                        initializer_index = parse_comparison(parser, arena)
-                    end if
-                    exit
-                else
-                    ! End of variable list
-                    exit
                 end if
-            else
-                exit
             end if
+            exit
         end do
         
         if (var_count == 0) then
@@ -600,7 +614,7 @@ contains
             end do
             
             ! If we have per-variable dimensions, create separate declarations
-            needs_separate_decls = (num_with_dims > 0)
+            needs_separate_decls = (num_with_dims > 0) .or. has_any_initializer
             
             if (needs_separate_decls) then
                 ! Create separate declaration for each variable
@@ -631,7 +645,7 @@ contains
                                     type_spec%type_name, &
                                     var_names(i), &
                                     dimension_indices=var_dims, &
-                                    initializer_index=merge(initializer_index, 0, i==var_count), &
+                                    initializer_index=init_indices(i), &
                                     is_allocatable=attr_info%is_allocatable, &
                                     is_pointer=attr_info%is_pointer, &
                                     is_target=attr_info%is_target, &
@@ -648,7 +662,7 @@ contains
                             type_spec%type_name, &
                             var_names(i), &
                             dimension_indices=attr_info%global_dimension_indices, &
-                            initializer_index=merge(initializer_index, 0, i==var_count), &
+                            initializer_index=init_indices(i), &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
                             is_target=attr_info%is_target, &
@@ -662,7 +676,7 @@ contains
                             arena, &
                             type_spec%type_name, &
                             var_names(i), &
-                            initializer_index=merge(initializer_index, 0, i==var_count), &
+                            initializer_index=init_indices(i), &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
                             is_target=attr_info%is_target, &
@@ -682,7 +696,6 @@ contains
                             var_names(1:var_count), &
                             kind_value=type_spec%kind_value, &
                             dimension_indices=attr_info%global_dimension_indices, &
-                            initializer_index=initializer_index, &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
                             is_parameter=attr_info%is_parameter &
@@ -693,7 +706,6 @@ contains
                             type_spec%type_name, &
                             var_names(1:var_count), &
                             kind_value=type_spec%kind_value, &
-                            initializer_index=initializer_index, &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
                             is_parameter=attr_info%is_parameter &
@@ -706,7 +718,6 @@ contains
                             type_spec%type_name, &
                             var_names(1:var_count), &
                             dimension_indices=attr_info%global_dimension_indices, &
-                            initializer_index=initializer_index, &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
                             is_parameter=attr_info%is_parameter &
@@ -716,7 +727,6 @@ contains
                             arena, &
                             type_spec%type_name, &
                             var_names(1:var_count), &
-                            initializer_index=initializer_index, &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
                             is_parameter=attr_info%is_parameter &

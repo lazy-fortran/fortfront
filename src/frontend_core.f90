@@ -98,39 +98,43 @@ contains
         ! Phase 1: Lexical Analysis
         call compiler_arena%next_phase("lexer")
         call lex_file(source, tokens, error_msg)
-        if (error_msg /= "") return
-        ! Debug tokens output disabled - implement later if needed
+        if (error_msg /= "") then
+            call destroy_compiler_arena(compiler_arena)
+            return
+        end if
 
         ! Phase 2: Parsing
         call compiler_arena%next_phase("parser")
         call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
-        if (error_msg /= "") return
-        ! Debug AST output disabled - implement later if needed
+        if (error_msg /= "") then
+            call destroy_compiler_arena(compiler_arena)
+            return
+        end if
 
         ! Phase 3: Semantic Analysis (only for lazy fortran)
         call compiler_arena%next_phase("semantic")
         ! Use the version with INTENT checking
         call run_semantic_analysis(compiler_arena%ast, prog_index, error_msg)
-        if (error_msg /= "") return
-        ! Debug semantic output disabled - implement later if needed
+        if (error_msg /= "") then
+            call destroy_compiler_arena(compiler_arena)
+            return
+        end if
 
         ! Phase 4: Standardization (transform dialect to standard Fortran)
         call compiler_arena%next_phase("standardization")
         call standardize_ast(compiler_arena%ast, prog_index)
-        ! Debug standardize output disabled - implement later if needed
 
         ! Phase 5: Standard Fortran Code Generation
         call compiler_arena%next_phase("codegen")
-        ! CRITICAL FIX: Initialize codegen system before generating code
         call initialize_codegen()
         code = generate_code_from_arena(compiler_arena%ast, prog_index)
 
-        ! Debug codegen output disabled - implement later if needed
-
-        ! Write output
         call write_compiled_output(options, code, error_msg)
+        if (error_msg /= "") then
+            call destroy_compiler_arena(compiler_arena)
+            return
+        end if
 
-        ! Cleanup unified compiler arena
         call destroy_compiler_arena(compiler_arena)
 
     end subroutine compile_source

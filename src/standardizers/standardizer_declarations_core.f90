@@ -629,9 +629,9 @@ contains
     end function has_explicit_declaration
 
     ! Collect variables from statement
-    recursive subroutine collect_statement_vars(arena, stmt_index, var_names, &
-                                                var_types, var_declared, var_count, &
-                                                function_names, func_count)
+    subroutine collect_statement_vars(arena, stmt_index, var_names, &
+                                      var_types, var_declared, var_count, &
+                                      function_names, func_count)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: stmt_index
         character(len=64), intent(inout) :: var_names(:)
@@ -640,102 +640,98 @@ contains
         integer, intent(inout) :: var_count
         character(len=64), intent(in) :: function_names(:)
         integer, intent(in) :: func_count
-        integer :: i
 
-        if (stmt_index <= 0 .or. stmt_index > arena%size) return
-        if (.not. allocated(arena%entries(stmt_index)%node)) return
+        type stack_entry
+            integer :: idx = 0
+        end type stack_entry
 
-        select type (stmt => arena%entries(stmt_index)%node)
-        type is (declaration_node)
-            ! Mark variables as already declared - don't generate implicit declarations
-            if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
-                ! Handle multi-variable declaration - mark ALL variables as declared
-                do i = 1, size(stmt%var_names)
-                    call mark_variable_declared(stmt%var_names(i), var_names, &
+        type(stack_entry), allocatable :: stack(:)
+        integer :: capacity, top
+        integer :: current_index
+        integer :: j
+
+        capacity = 128
+        allocate(stack(capacity))
+        top = 0
+
+        call push(stmt_index)
+
+        do while (top > 0)
+            current_index = pop()
+            if (current_index <= 0 .or. current_index > arena%size) cycle
+            if (.not. allocated(arena%entries(current_index)%node)) cycle
+
+            select type (stmt => arena%entries(current_index)%node)
+            type is (declaration_node)
+                if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                    do j = 1, size(stmt%var_names)
+                        call mark_variable_declared(stmt%var_names(j), var_names, &
+                                                   var_declared, var_count)
+                    end do
+                else
+                    call mark_variable_declared(stmt%var_name, var_names, &
                                                var_declared, var_count)
-                end do
-                
-            else
-                ! Handle single variable declaration
-                call mark_variable_declared(stmt%var_name, var_names, &
-                                           var_declared, var_count)
-                
-                ! CRITICAL FIX for Issue #684: If this single declaration should have been
-                ! part of a multi-variable declaration, mark other variables of same type as declared
-                block
-                    integer :: j
                     do j = 1, var_count
                         if (.not. var_declared(j) .and. trim(var_types(j)) == trim(stmt%type_name)) then
-                            ! Mark this variable as declared to prevent duplicate implicit declarations
                             var_declared(j) = .true.
                         end if
                     end do
-                end block
+                end if
+            type is (assignment_node)
+                call collect_assignment_vars(arena, current_index, var_names, &
+                                             var_types, var_declared, var_count, &
+                                             function_names, func_count)
+            type is (do_loop_node)
+                call add_variable(stmt%var_name, "integer", var_names, var_types, &
+                                  var_declared, var_count, function_names, func_count)
+                if (allocated(stmt%body_indices)) call push_many(stmt%body_indices)
+            type is (do_while_node)
+                if (allocated(stmt%body_indices)) call push_many(stmt%body_indices)
+            type is (if_node)
+                if (allocated(stmt%else_body_indices)) call push_many(stmt%else_body_indices)
+                if (allocated(stmt%then_body_indices)) call push_many(stmt%then_body_indices)
+            type is (select_case_node)
+                if (stmt%selector_index > 0) call push(stmt%selector_index)
+                if (allocated(stmt%case_indices)) call push_many(stmt%case_indices)
+                if (stmt%default_index > 0) call push(stmt%default_index)
+            class default
+                ! other nodes handled elsewhere as needed
+            end select
+        end do
+
+    contains
+
+        subroutine push(idx)
+            integer, intent(in) :: idx
+            type(stack_entry), allocatable :: tmp(:)
+            if (idx <= 0) return
+            if (top >= capacity) then
+                allocate(tmp(capacity*2))
+                if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
+                call move_alloc(tmp, stack)
+                capacity = size(stack)
             end if
-        type is (assignment_node)
-            call collect_assignment_vars(arena, stmt_index, var_names, &
-                                          var_types, var_declared, var_count, &
-                                         function_names, func_count)
-        type is (do_loop_node)
-            ! Collect loop variable
-            call add_variable(stmt%var_name, "integer", var_names, var_types, &
-                              var_declared, var_count, &
-                              function_names, func_count)
-            ! Collect variables from body
-            if (allocated(stmt%body_indices)) then
-                do i = 1, size(stmt%body_indices)
-                    call collect_statement_vars(arena, stmt%body_indices(i), &
-                                        var_names, var_types, var_declared, var_count, &
-                                                function_names, func_count)
-                end do
+            top = top + 1
+            stack(top)%idx = idx
+        end subroutine push
+
+        subroutine push_many(indices)
+            integer, intent(in) :: indices(:)
+            integer :: k
+            do k = size(indices), 1, -1
+                call push(indices(k))
+            end do
+        end subroutine push_many
+
+        integer function pop()
+            if (top <= 0) then
+                pop = 0
+            else
+                pop = stack(top)%idx
+                top = top - 1
             end if
-        type is (do_while_node)
-            ! Collect variables from body
-            if (allocated(stmt%body_indices)) then
-                do i = 1, size(stmt%body_indices)
-                    call collect_statement_vars(arena, stmt%body_indices(i), &
-                                        var_names, var_types, var_declared, var_count, &
-                                                function_names, func_count)
-                end do
-            end if
-        type is (if_node)
-            ! Collect variables from then and else branches
-            if (allocated(stmt%then_body_indices)) then
-                do i = 1, size(stmt%then_body_indices)
-                    call collect_statement_vars(arena, stmt%then_body_indices(i), &
-                                        var_names, var_types, var_declared, var_count, &
-                                                function_names, func_count)
-                end do
-            end if
-            if (allocated(stmt%else_body_indices)) then
-                do i = 1, size(stmt%else_body_indices)
-                    call collect_statement_vars(arena, stmt%else_body_indices(i), &
-                                        var_names, var_types, var_declared, var_count, &
-                                                function_names, func_count)
-                end do
-            end if
-        type is (select_case_node)
-            ! Collect variables from selector expression
-            if (stmt%selector_index > 0) then
-                call collect_statement_vars(arena, stmt%selector_index, &
-                                    var_names, var_types, var_declared, var_count, &
-                                            function_names, func_count)
-            end if
-            ! Collect variables from case blocks
-            if (allocated(stmt%case_indices)) then
-                do i = 1, size(stmt%case_indices)
-                    call collect_statement_vars(arena, stmt%case_indices(i), &
-                                        var_names, var_types, var_declared, var_count, &
-                                                function_names, func_count)
-                end do
-            end if
-            ! Collect variables from default case
-            if (stmt%default_index > 0) then
-                call collect_statement_vars(arena, stmt%default_index, &
-                                    var_names, var_types, var_declared, var_count, &
-                                            function_names, func_count)
-            end if
-        end select
+        end function pop
+
     end subroutine collect_statement_vars
 
     ! Collect variables from assignment  
@@ -854,9 +850,12 @@ contains
                             var_type = "real"  ! Default for mathematical expressions
                         end if
                         
-                        ! If this is a subsequent assignment to the same variable, mark as allocatable
+                        ! If this is a subsequent assignment to the same variable, only mark
+                        ! as allocatable for character strings needing deferred length
                         if (existing_idx > 0) then
-                            if (index(var_types(existing_idx), 'allocatable') == 0) then
+                            if (index(var_types(existing_idx), 'character(') == 1 .and. &
+                                index(var_types(existing_idx), 'len=:') > 0 .and. &
+                                index(var_types(existing_idx), 'allocatable') == 0) then
                                 var_types(existing_idx) = trim(var_types(existing_idx)) // ", allocatable"
                             end if
                         else
@@ -984,32 +983,100 @@ contains
     end function infer_type_from_binary_operation
 
     ! Heuristic: determine if expression consists of integer-only operations
-    recursive logical function is_integer_expression(arena, idx) result(is_int)
+    logical function is_integer_expression(arena, idx) result(is_int)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: idx
+        integer, allocatable :: node_stack(:)
+        integer :: top, cap
+        integer :: current
+        logical :: ok
+
         is_int = .false.
         if (idx <= 0 .or. idx > arena%size) return
         if (.not. allocated(arena%entries(idx)%node)) return
-        select type (node => arena%entries(idx)%node)
-        type is (literal_node)
-            is_int = (node%literal_kind == LITERAL_INTEGER)
-        type is (identifier_node)
-            if (node%inferred_type%kind > 0) then
-                is_int = (node%inferred_type%kind == TINT)
-            else
-                is_int = .true.
-            end if
-        type is (binary_op_node)
-            ! Division may promote to real; conservatively mark real for '/'
-            if (trim(node%operator) == "/") then
+
+        cap = 16
+        allocate(node_stack(cap))
+        top = 0
+
+        call push(idx)
+        is_int = .true.
+
+loop_nodes: do while (top > 0)
+            current = node_stack(top)
+            top = top - 1
+
+            if (current <= 0 .or. current > arena%size) then
                 is_int = .false.
-            else
-                is_int = is_integer_expression(arena, node%left_index) .and. &
-                         is_integer_expression(arena, node%right_index)
+                exit loop_nodes
             end if
-        class default
-            is_int = .false.
-        end select
+            if (.not. allocated(arena%entries(current)%node)) then
+                is_int = .false.
+                exit loop_nodes
+            end if
+
+            select type (node => arena%entries(current)%node)
+            type is (literal_node)
+                if (node%literal_kind /= LITERAL_INTEGER) then
+                    is_int = .false.
+                    exit loop_nodes
+                end if
+            type is (identifier_node)
+                if (node%inferred_type%kind > 0) then
+                    if (node%inferred_type%kind /= TINT) then
+                        is_int = .false.
+                        exit loop_nodes
+                    end if
+                end if
+            type is (binary_op_node)
+                if (trim(node%operator) == "/") then
+                    is_int = .false.
+                    exit loop_nodes
+                end if
+                ok = push_if_valid(node%left_index)
+                if (.not. ok) then
+                    is_int = .false.
+                    exit loop_nodes
+                end if
+                ok = push_if_valid(node%right_index)
+                if (.not. ok) then
+                    is_int = .false.
+                    exit loop_nodes
+                end if
+            class default
+                is_int = .false.
+                exit loop_nodes
+            end select
+        end do loop_nodes
+
+        if (allocated(node_stack)) deallocate(node_stack)
+
+    contains
+
+        subroutine push(index)
+            integer, intent(in) :: index
+            if (top >= cap) call grow_stack()
+            top = top + 1
+            node_stack(top) = index
+        end subroutine push
+
+        logical function push_if_valid(index) result(success)
+            integer, intent(in) :: index
+            success = .false.
+            if (index <= 0 .or. index > arena%size) return
+            if (.not. allocated(arena%entries(index)%node)) return
+            call push(index)
+            success = .true.
+        end function push_if_valid
+
+        subroutine grow_stack()
+            integer, allocatable :: tmp(:)
+            allocate(tmp(cap * 2))
+            tmp(1:cap) = node_stack(1:cap)
+            call move_alloc(tmp, node_stack)
+            cap = cap * 2
+        end subroutine grow_stack
+
     end function is_integer_expression
     
     ! Collect identifier variable - stub implementation

@@ -51,7 +51,7 @@ contains
                     
                     if (has_initializer .and. .not. has_comma) then
                         ! Single variable with initializer - use parse_declaration
-                        allocate (stmt_indices(1))
+                        if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
                         stmt_indices(1) = parse_declaration(parser, arena)
                         return
                     else
@@ -64,7 +64,7 @@ contains
         end if
 
         ! For all other statements, parse as single statement
-        allocate (stmt_indices(1))
+        if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
         stmt_index = 0
 
         ! Handle different statement types (excluding control flow to avoid circular deps)
@@ -123,30 +123,73 @@ contains
             end block
         end if
 
-        ! If we couldn't parse it, create a placeholder with debug info
+        ! If we couldn't parse it, check for non-meaningful (blank/comment) lines first
         if (stmt_index == 0) then
             block
+                integer :: kk
+                logical :: has_meaningful
+                has_meaningful = .false.
+                do kk = 1, size(tokens)
+                    select case (tokens(kk)%kind)
+                    case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                        cycle
+                    case default
+                        if (len_trim(tokens(kk)%text) > 0) then
+                            has_meaningful = .true.
+                            exit
+                        end if
+                    end select
+                end do
+                if (.not. has_meaningful) then
+                    stmt_indices(1) = 0
+                    return
+                end if
+            end block
+            ! Otherwise, create a placeholder with debug info
+            block
+                logical :: is_terminator
+                character(len=:), allocatable :: lowered
                 character(len=256) :: debug_msg
                 character(len=64) :: token_text
                 integer :: debug_len, i
 
-                debug_msg = "! Unparsed: "
-                debug_len = len_trim(debug_msg)
-
-                ! Add first few tokens for debugging
-                do i = 1, min(3, size(tokens))
-                    if (tokens(i)%kind == TK_EOF) exit
-                    if (len_trim(tokens(i)%text) > 0) then
-                        token_text = trim(tokens(i)%text)
-                        if (debug_len + len_trim(token_text) + 1 < 250) then
-                            debug_msg = debug_msg(1:debug_len)//" "//trim(token_text)
-                            debug_len = len_trim(debug_msg)
+                is_terminator = .false.
+                if (first_token%kind == TK_KEYWORD) then
+                    lowered = to_lower(first_token%text)
+                    select case (lowered)
+                    case ("end")
+                        if (size(tokens) >= 2) then
+                            select case (to_lower(tokens(2)%text))
+                            case ("do", "while")
+                                is_terminator = .true.
+                            end select
+                        else
+                            is_terminator = .true.
                         end if
-                    end if
-                end do
+                    case ("enddo", "endwhile")
+                        is_terminator = .true.
+                    end select
+                end if
 
-                stmt_index = push_literal(arena, trim(debug_msg), LITERAL_STRING, &
-                                          first_token%line, first_token%column)
+                if (.not. is_terminator) then
+                    debug_msg = "! Unparsed: "
+                    debug_len = len_trim(debug_msg)
+
+                    ! Add first few tokens for debugging
+                    do i = 1, min(3, size(tokens))
+                        if (tokens(i)%kind == TK_EOF) exit
+                        if (len_trim(tokens(i)%text) > 0) then
+                            token_text = trim(tokens(i)%text)
+                            if (debug_len + len_trim(token_text) + 1 < 250) then
+                                debug_msg = debug_msg(1:debug_len)//" "//trim(token_text)
+                                debug_len = len_trim(debug_msg)
+                            end if
+                        end if
+                    end do
+
+                    stmt_index = push_literal(arena, trim(debug_msg), LITERAL_STRING, &
+                                              first_token%line, first_token%column)
+                end if
             end block
         end if
 
@@ -282,7 +325,31 @@ contains
                          parser%tokens(stmt_start)%text == ";")
                     stmt_start = stmt_start + 1
                 end do
-                
+
+                if (stmt_start > size(parser%tokens)) then
+                    parser%current_token = stmt_start
+                    exit
+                end if
+
+                if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
+                    if (parser%tokens(stmt_start)%text == "enddo" .or. &
+                        parser%tokens(stmt_start)%text == "end do") then
+                        parser%current_token = stmt_start
+                        exit
+                    else if (parser%tokens(stmt_start)%text == "end") then
+                        if (stmt_start + 1 <= size(parser%tokens)) then
+                            if (parser%tokens(stmt_start + 1)%kind == TK_KEYWORD .and. &
+                                parser%tokens(stmt_start + 1)%text == "do") then
+                                parser%current_token = stmt_start
+                                exit
+                            end if
+                        else
+                            parser%current_token = stmt_start
+                            exit
+                        end if
+                    end if
+                end if
+
                 stmt_end = stmt_start
 
                 ! Find end of current statement (same line or semicolon boundary)
@@ -319,6 +386,34 @@ contains
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: k
+                        logical :: has_meaningful
+                        has_meaningful = .false.
+                        do k = 1, size(stmt_tokens)
+                            select case (stmt_tokens(k)%kind)
+                            case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                                cycle
+                            case default
+                                if (len_trim(stmt_tokens(k)%text) > 0) then
+                                    has_meaningful = .true.
+                                    exit
+                                end if
+                            end select
+                        end do
+                        if (.not. has_meaningful) then
+                            ! Advance past this blank line before cycling to avoid infinite loop
+                            if (stmt_end + 1 <= size(parser%tokens)) then
+                                if (parser%tokens(stmt_end + 1)%kind == TK_OPERATOR .and. &
+                                    parser%tokens(stmt_end + 1)%text == ";") then
+                                    parser%current_token = stmt_end + 2
+                                else
+                                    parser%current_token = stmt_end + 1
+                                end if
+                            else
+                                parser%current_token = stmt_end + 1
+                            end if
+                            deallocate(stmt_tokens)
+                            cycle
+                        end if
                         stmt_indices = parse_basic_stmt_local(stmt_tokens, arena, loop_index)
 
                         ! Add all parsed statements to body
@@ -435,8 +530,27 @@ contains
                 end if
 
                 ! Parse statement until end of line (same approach as if blocks)
-                stmt_start = parser%current_token
-                stmt_end = stmt_start
+            stmt_start = parser%current_token
+            stmt_end = stmt_start
+
+            if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
+                if (parser%tokens(stmt_start)%text == "enddo" .or. &
+                    parser%tokens(stmt_start)%text == "end do") then
+                    parser%current_token = stmt_start
+                    exit
+                else if (parser%tokens(stmt_start)%text == "end") then
+                    if (stmt_start + 1 <= size(parser%tokens)) then
+                        if (parser%tokens(stmt_start + 1)%kind == TK_KEYWORD .and. &
+                            parser%tokens(stmt_start + 1)%text == "do") then
+                            parser%current_token = stmt_start
+                            exit
+                        end if
+                    else
+                        parser%current_token = stmt_start
+                        exit
+                    end if
+                end if
+            end if
 
                 ! Find end of current statement (same line)
                 do j = stmt_start, size(parser%tokens)
