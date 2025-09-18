@@ -42,17 +42,6 @@ module fortfront_types
         integer :: symbol_count = 0
     end type scope_info_t
     
-    ! Expression temporary information
-    type :: expression_temp_info_t
-        integer :: temp_id = -1
-        character(len=:), allocatable :: type_name
-        integer :: size_bytes = 0
-        integer :: created_at_node = 0
-        integer :: released_at_node = -1
-        logical :: is_active = .false.
-        logical :: is_reusable = .true.
-    end type expression_temp_info_t
-    
     ! Node type constants for type queries
     integer, parameter :: NODE_PROGRAM = 1
     integer, parameter :: NODE_FUNCTION_DEF = 2

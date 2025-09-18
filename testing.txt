@@ -17,6 +17,7 @@ Current status (2025-09-18)
 - Core AST traversal helpers (`traverse_preorder`/`traverse_postorder`) now use explicit stacks (commit f5d10d3), eliminating recursion from traversal hot paths.
 - Removed legacy `call_graph_analysis`/`fortfront_advanced` re-export modules in favour of direct APIs (commit 8faf2a1) to keep the surface lean; deleted the redundant call-graph demo and exhaustive test suites.
 - Inlined control-flow re-exports directly in `fortfront` (commit 550501f) so only the streamlined CFG builder remains on the hot path.
+- Retired the semantic analyzer/pipeline plugin system and associated tests/docs (commit db29f53) to maintain a minimal, single-path frontend.
 
 Immediate plan
 - [ ] Instrument remaining CLI phases (standardizer/analysis) with trace depth counters to pinpoint residual recursion on Windows.

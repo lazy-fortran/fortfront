@@ -197,3 +197,5 @@
   `fortfront` to keep the surface lean.
 - 2025-09-18 (550501f, perf n/a): Dropped `control_flow_analysis` wrapper; control-flow utilities now
   map straight to core CFG primitives.
+- 2025-09-18 (db29f53, perf n/a): Removed semantic analyzer/pipeline infrastructure and related docs/tests
+  to keep the frontend focused on the single-pass HM path.

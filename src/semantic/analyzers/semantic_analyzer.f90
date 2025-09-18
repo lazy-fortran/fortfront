@@ -45,8 +45,7 @@ module semantic_analyzer
     use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 range_expression_node, get_array_slice_node
-    use parameter_tracker
-    use expression_temporary_tracker_module
+    ! Removed legacy parameter/temp trackers for lean build
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: error_collection_t, create_error_collection, result_t, &
                                create_error_result, ERROR_SEMANTIC
@@ -65,8 +64,6 @@ module semantic_analyzer
         type(scope_stack_t) :: scopes  ! Hierarchical scope management
         integer :: next_var_id = 0
         type(substitution_t) :: subst
-        type(parameter_tracker_t) :: param_tracker  ! Track parameter attributes
-        type(temp_tracker_t) :: temp_tracker  ! Track expression temporaries
         type(error_collection_t) :: errors  ! Collect semantic errors
         logical :: strict_mode = .false.  ! Default lazy mode; callers may enable strict
         logical :: respect_implicit_none = .true.
@@ -123,8 +120,7 @@ contains
         if (allocated(ctx%subst%types)) deallocate(ctx%subst%types)
         allocate(ctx%subst%vars(ctx%subst%capacity))
         allocate(ctx%subst%types(ctx%subst%capacity))
-        ctx%param_tracker%count = 0
-        ctx%temp_tracker = create_temp_tracker()
+        ! No parameter/temporary tracking in lean build
         ctx%errors = create_error_collection()
         ctx%next_var_id = 1  ! Start from 1 (main branch compatibility)
         ctx%respect_implicit_none = .true.
@@ -817,8 +813,7 @@ contains
         copy%scopes = this%scopes
         copy%next_var_id = this%next_var_id
         copy%subst = this%subst
-        copy%param_tracker = this%param_tracker
-        copy%temp_tracker = this%temp_tracker
+        ! Tracking fields removed in lean build
         copy%errors = this%errors
         copy%strict_mode = this%strict_mode
         copy%respect_implicit_none = this%respect_implicit_none
@@ -870,8 +865,7 @@ contains
         lhs%scopes = rhs%scopes
         lhs%next_var_id = rhs%next_var_id
         lhs%subst = rhs%subst
-        lhs%param_tracker = rhs%param_tracker
-        lhs%temp_tracker = rhs%temp_tracker
+        ! Tracking fields removed in lean build
         lhs%errors = rhs%errors
         lhs%strict_mode = rhs%strict_mode
         lhs%respect_implicit_none = rhs%respect_implicit_none
@@ -1322,8 +1316,7 @@ contains
         temp_context%scopes = this%scopes
         temp_context%next_var_id = this%next_var_id
         temp_context%subst = this%subst
-        temp_context%param_tracker = this%param_tracker
-        temp_context%temp_tracker = this%temp_tracker
+        ! Tracking fields removed in lean build
         temp_context%errors = this%errors
         temp_context%strict_mode = this%strict_mode
         

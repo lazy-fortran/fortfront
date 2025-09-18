@@ -79,7 +79,6 @@ module fortfront
     
     ! Re-export semantic analyzer functionality
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
-    use expression_temporary_tracker_module, only: temp_info_t
     
     ! Re-export lexer token type
     use lexer_core, only: token_t, tokenize_core
@@ -160,7 +159,7 @@ module fortfront
     
     ! Re-export types from fortfront_types  
     use fortfront_types, only: symbol_info_t, symbol_reference_t, scope_info_t, &
-                              expression_temp_info_t, source_location_t, source_range_t, &
+                              source_location_t, source_range_t, &
                               type_info_t, diagnostic_t, function_signature_t, &
                               DIAGNOSTIC_ERROR, DIAGNOSTIC_WARNING, DIAGNOSTIC_INFO, DIAGNOSTIC_HINT, &
                               NODE_PROGRAM, NODE_FUNCTION_DEF, NODE_ASSIGNMENT, NODE_BINARY_OP, &
