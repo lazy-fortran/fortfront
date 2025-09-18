@@ -67,21 +67,12 @@ contains
         call assert_procedure(graph, '__MULTI_UNIT__::inner')
         call assert_procedure(graph, 'main')
 
-        if (.not. edge_exists(graph, '__MULTI_UNIT__::driver', '__MULTI_UNIT__::outer') .and. &
-            .not. edge_exists(graph, '__MULTI_UNIT__::driver', 'outer')) then
-            call report_failure('Missing call edge in call graph', &
-                '__MULTI_UNIT__::driver -> outer')
-        end if
-        if (.not. edge_exists(graph, '__MULTI_UNIT__::outer', '__MULTI_UNIT__::helper') .and. &
-            .not. edge_exists(graph, '__MULTI_UNIT__::outer', 'helper')) then
-            call report_failure('Missing call edge in call graph', &
-                '__MULTI_UNIT__::outer -> helper')
-        end if
-        if (.not. edge_exists(graph, '__MULTI_UNIT__::outer', '__MULTI_UNIT__::inner') .and. &
-            .not. edge_exists(graph, '__MULTI_UNIT__::outer', 'inner')) then
-            call report_failure('Missing call edge in call graph', &
-                '__MULTI_UNIT__::outer -> inner')
-        end if
+        call assert_unique_procedures(graph)
+        call assert_no_cycles(graph)
+
+        call assert_edge(graph, '__MULTI_UNIT__::driver', '__MULTI_UNIT__::outer')
+        call assert_edge(graph, '__MULTI_UNIT__::outer', '__MULTI_UNIT__::helper')
+        call assert_edge(graph, '__MULTI_UNIT__::outer', '__MULTI_UNIT__::inner')
     end subroutine test_internal_procedures
 
     subroutine test_module_and_program_scopes()
@@ -130,16 +121,11 @@ contains
         call assert_procedure(graph, 'math_mod::helper')
         call assert_procedure(graph, '__MULTI_UNIT__::run')
 
-        if (.not. edge_exists(graph, 'math_mod::compute', 'math_mod::helper') .and. &
-            .not. edge_exists(graph, 'math_mod::compute', 'helper')) then
-            call report_failure('Missing call edge in call graph', &
-                'math_mod::compute -> helper')
-        end if
-        if (.not. edge_exists(graph, '__MULTI_UNIT__::run', 'math_mod::compute') .and. &
-            .not. edge_exists(graph, '__MULTI_UNIT__::run', 'compute')) then
-            call report_failure('Missing call edge in call graph', &
-                '__MULTI_UNIT__::run -> compute')
-        end if
+        call assert_edge(graph, 'math_mod::compute', 'math_mod::helper')
+        call assert_edge(graph, '__MULTI_UNIT__::run', 'math_mod::compute')
+
+        call assert_unique_procedures(graph)
+        call assert_no_cycles(graph)
     end subroutine test_module_and_program_scopes
 
     subroutine assert_procedure(graph, expected)
@@ -202,5 +188,31 @@ contains
         end if
         all_tests_passed = .false.
     end subroutine report_failure
+
+    subroutine assert_unique_procedures(graph)
+        type(call_graph_t), intent(in) :: graph
+        integer :: i
+        integer :: j
+
+        do i = 1, graph%proc_count
+            do j = i + 1, graph%proc_count
+                if (trim(graph%procedures(i)%name) == trim(graph%procedures(j)%name)) then
+                    call report_failure('Duplicate procedure detected', &
+                        trim(graph%procedures(i)%name))
+                    return
+                end if
+            end do
+        end do
+    end subroutine assert_unique_procedures
+
+    subroutine assert_no_cycles(graph)
+        type(call_graph_t), intent(in) :: graph
+        character(len=:), allocatable :: cycles(:)
+
+        cycles = get_recursive_cycles(graph)
+        if (size(cycles) > 0) then
+            call report_failure('Unexpected recursive cycle', cycles(1))
+        end if
+    end subroutine assert_no_cycles
 
 end program test_call_graph_consolidation
