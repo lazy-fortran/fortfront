@@ -310,7 +310,7 @@ contains
             token = parser%consume()  ! consume '('
             ! Create a token array from current position for expression parser
             block
-                type(token_t), allocatable :: expr_tokens(:)
+                type(token_t), allocatable, target :: expr_tokens(:)
                 integer :: start_pos, end_pos, paren_depth
                 
                 start_pos = parser%current_token
@@ -465,7 +465,7 @@ contains
                     ! Complex LHS: parse expression up to '=' (handles subscripts/slices)
                     block
                         integer :: start_pos, pos, paren_depth, left_end
-                        type(token_t), allocatable :: lhs_tokens(:)
+                        type(token_t), allocatable, target :: lhs_tokens(:)
                         type(parser_state_t) :: lhs_parser
                         integer :: lhs_len
 

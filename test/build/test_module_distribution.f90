@@ -91,7 +91,7 @@ contains
             "fortfront_external_interface", &
             "frontend                    ", &
             "lexer_core                  ", &
-            "parser_core                 ", &
+            "parser_expressions_module   ", &
             "semantic_analyzer           ", &
             "codegen_core                ", &
             "ast_core                    ", &
@@ -154,7 +154,7 @@ contains
         
         ! Check key dependency chains
         inquire(file='fortfront_modules/lexer_core.mod', exist=lex_exists)
-        inquire(file='fortfront_modules/parser_core.mod', exist=parse_exists)
+        inquire(file='fortfront_modules/parser_expressions_module.mod', exist=parse_exists)
         inquire(file='fortfront_modules/ast_core.mod', exist=ast_exists)
         inquire(file='fortfront_modules/semantic_analyzer.mod', exist=sem_exists)
         

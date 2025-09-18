@@ -262,7 +262,7 @@ contains
     ! Resize tokens array
     subroutine resize_tokens(tokens)
         type(token_t), allocatable, intent(inout) :: tokens(:)
-        type(token_t), allocatable :: temp(:)
+        type(token_t), allocatable, target :: temp(:)
         integer :: old_size, new_size
         
         old_size = size(tokens)
@@ -277,7 +277,7 @@ contains
     subroutine resize_tokens_to_count(tokens, count)
         type(token_t), allocatable, intent(inout) :: tokens(:)
         integer, intent(in) :: count
-        type(token_t), allocatable :: temp(:)
+        type(token_t), allocatable, target :: temp(:)
         
         if (count <= 0) then
             deallocate(tokens)

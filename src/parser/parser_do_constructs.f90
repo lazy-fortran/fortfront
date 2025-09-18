@@ -105,7 +105,7 @@ contains
                     target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column, parent_index)
                     ! Get remaining tokens for expression parsing
                     block
-                        type(token_t), allocatable :: expr_tokens(:)
+                        type(token_t), allocatable, target :: expr_tokens(:)
                         integer :: remaining_count
                         remaining_count = size(tokens) - parser%current_token + 1
                         if (remaining_count > 0) then
@@ -281,7 +281,7 @@ contains
             integer, allocatable :: body_indices(:)
             integer :: stmt_index
             integer :: body_count, stmt_start, stmt_end, j
-            type(token_t), allocatable :: stmt_tokens(:)
+            type(token_t), allocatable, target :: stmt_tokens(:)
 
             allocate (body_indices(0))
             body_count = 0
@@ -510,7 +510,7 @@ contains
             type(token_t) :: token
             integer :: stmt_count, stmt_index
             integer :: stmt_start, stmt_end, j
-            type(token_t), allocatable :: stmt_tokens(:)
+            type(token_t), allocatable, target :: stmt_tokens(:)
 
             allocate (temp_body_indices(0))
             stmt_count = 0

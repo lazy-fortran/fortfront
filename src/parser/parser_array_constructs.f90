@@ -105,7 +105,7 @@ contains
                     target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column, parent_index)
                     ! Get remaining tokens for expression parsing
                     block
-                        type(token_t), allocatable :: expr_tokens(:)
+                        type(token_t), allocatable, target :: expr_tokens(:)
                         integer :: remaining_count
                         remaining_count = size(tokens) - parser%current_token + 1
                         if (remaining_count > 0) then
@@ -216,7 +216,7 @@ contains
                 ! Single-line WHERE - parse single statement
                 block
                     integer :: stmt_index
-                    type(token_t), allocatable :: remaining_tokens(:)
+                    type(token_t), allocatable, target :: remaining_tokens(:)
                     integer, allocatable :: stmt_indices(:)
                     integer :: j, n
                     
@@ -287,7 +287,7 @@ contains
                         
                         ! Parse statement in ELSEWHERE block
                         block
-                            type(token_t), allocatable :: stmt_tokens(:)
+                            type(token_t), allocatable, target :: stmt_tokens(:)
                             integer, allocatable :: stmt_indices(:)
                             integer :: j, n, k
                             
@@ -334,7 +334,7 @@ contains
             
             ! Parse statement in WHERE block
             block
-                type(token_t), allocatable :: stmt_tokens(:)
+                type(token_t), allocatable, target :: stmt_tokens(:)
                 integer, allocatable :: stmt_indices(:)
                 integer :: j, n, k
                 
@@ -552,7 +552,7 @@ contains
             ! Parse a single statement by trying to identify its end
             block
                 integer :: stmt_start, stmt_end, j
-                type(token_t), allocatable :: stmt_tokens(:)
+                type(token_t), allocatable, target :: stmt_tokens(:)
                 integer, allocatable :: stmt_indices(:)
                 
                 stmt_start = parser%current_token

@@ -7,7 +7,6 @@ module frontend_core
                            TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
                            TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_core, only: parse_expression, parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                            get_additional_indices, clear_additional_indices
     use parser_control_flow_module, only: parse_do_loop, parse_do_while, &
@@ -69,7 +68,7 @@ contains
         character(len=*), intent(out) :: error_msg
 
         ! Local variables
-        type(token_t), allocatable :: tokens(:)
+        type(token_t), allocatable, target :: tokens(:)
         type(compiler_arena_t) :: compiler_arena
         integer :: prog_index
         character(len=:), allocatable :: code, source

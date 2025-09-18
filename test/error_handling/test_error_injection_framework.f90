@@ -97,7 +97,7 @@ contains
         parse_result = error_parse_result( &
             'Unexpected token in expression', &
             ERROR_PARSER, &
-            component='parser_core', &
+            component='parser_expressions_module', &
             context='parse_expression', &
             suggestion='Check for missing operators or parentheses' &
         )
@@ -136,7 +136,7 @@ contains
         compile_result = error_compile_result( &
             'Multiple syntax errors detected', &
             ERROR_PARSER, &
-            component='parser_core', &
+            component='parser_expressions_module', &
             context='parse_program', &
             suggestion='Fix syntax errors and retry compilation' &
         )

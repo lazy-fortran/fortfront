@@ -153,7 +153,7 @@ contains
 
                     if (left_end >= parser%current_token - 1) then
                         block
-                            type(token_t), allocatable :: lhs_tokens(:)
+                            type(token_t), allocatable, target :: lhs_tokens(:)
                             integer :: lhs_len
                             ! Construct LHS token stream: id_token + tokens up to left_end
                             lhs_len = 1 + max(0, left_end - (parser%current_token) + 1) + 1  ! +EOF
@@ -183,7 +183,7 @@ contains
 
                         ! Parse RHS from remaining tokens on this line
                         block
-                            type(token_t), allocatable :: rhs_tokens(:)
+                            type(token_t), allocatable, target :: rhs_tokens(:)
                             integer :: remaining_count
                             remaining_count = size(tokens) - parser%current_token + 1
                             if (remaining_count > 0) then
@@ -204,7 +204,7 @@ contains
                     target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column, parent_index)
                     ! Get remaining tokens for expression parsing
                     block
-                        type(token_t), allocatable :: expr_tokens(:)
+                        type(token_t), allocatable, target :: expr_tokens(:)
                         integer :: remaining_count
                         remaining_count = size(tokens) - parser%current_token + 1
                         if (remaining_count > 0) then
@@ -287,7 +287,7 @@ contains
         type(token_t) :: token
         integer :: stmt_count, stmt_index
         integer :: stmt_start, stmt_end, j
-        type(token_t), allocatable :: stmt_tokens(:)
+        type(token_t), allocatable, target :: stmt_tokens(:)
         logical :: found_end
 
         allocate (body_indices(0))
