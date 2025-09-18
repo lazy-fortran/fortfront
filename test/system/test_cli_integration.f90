@@ -30,11 +30,16 @@ program test_cli_integration
         character(len=:), allocatable :: build_command
         integer :: clean_status
 
-        ! Ensure we do not reuse a cached executable without the stack flag
+        ! Ensure we do not reuse a cached executable without the stack flag.
+        ! Only remove previously built CLI binaries so test artifacts remain intact
         if (is_windows) then
-            call execute_command_line('cmd /C if exist build rmdir /S /Q build', exitstat=clean_status)
+            call execute_command_line( &
+                'cmd /C if exist build (for /d %d in (build\gfortran_*) do ' // &
+                'if exist "%d\app" rmdir /S /Q "%d\app")', exitstat=clean_status)
         else
-            call execute_command_line('rm -rf build', exitstat=clean_status)
+            call execute_command_line( &
+                'sh -lc ''if [ -d build ]; then find build -maxdepth 2 -type d -name app -exec rm -rf {} +; fi''', &
+                exitstat=clean_status)
         end if
 
         build_command = timeout_wrapper('60') // 'fpm build'
