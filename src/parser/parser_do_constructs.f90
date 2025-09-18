@@ -94,31 +94,69 @@ contains
             end select
         else if (first_token%kind == TK_IDENTIFIER) then
             block
-                type(token_t) :: id_token, op_token
+                integer :: eq_pos, pos, lhs_size, rhs_size
+                integer :: paren_depth, bracket_depth
                 integer :: target_index, value_index
+                type(token_t), allocatable, target :: lhs_tokens(:)
+                type(token_t), allocatable, target :: rhs_tokens(:)
+                type(parser_state_t) :: lhs_parser
 
-                id_token = parser%consume()
-                op_token = parser%peek()
-
-                if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
-                    op_token = parser%consume()  ! consume '='
-                    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column, parent_index)
-                    ! Get remaining tokens for expression parsing
-                    block
-                        type(token_t), allocatable, target :: expr_tokens(:)
-                        integer :: remaining_count
-                        remaining_count = size(tokens) - parser%current_token + 1
-                        if (remaining_count > 0) then
-                            allocate (expr_tokens(remaining_count))
-                            expr_tokens = tokens(parser%current_token:)
-                            value_index = parse_expression(expr_tokens, arena)
-                            if (value_index > 0) then
-                                stmt_index = push_assignment(arena, target_index, value_index, &
-                                                             id_token%line, id_token%column, &
-                                                             parent_index)
+                eq_pos = 0
+                paren_depth = 0
+                bracket_depth = 0
+                do pos = 2, size(tokens)
+                    select case (tokens(pos)%kind)
+                    case (TK_OPERATOR)
+                        select case (tokens(pos)%text)
+                        case ("(")
+                            paren_depth = paren_depth + 1
+                        case (")")
+                            if (paren_depth > 0) paren_depth = paren_depth - 1
+                        case ("[")
+                            bracket_depth = bracket_depth + 1
+                        case ("]")
+                            if (bracket_depth > 0) bracket_depth = bracket_depth - 1
+                        case ("=")
+                            if (paren_depth == 0 .and. bracket_depth == 0) then
+                                eq_pos = pos
+                                exit
                             end if
-                        end if
-                    end block
+                        end select
+                    case (TK_NEWLINE, TK_EOF)
+                        exit
+                    end select
+                end do
+
+                if (eq_pos > 0) then
+                    lhs_size = eq_pos - 1
+                    rhs_size = size(tokens) - eq_pos
+                    target_index = 0
+                    value_index = 0
+
+                    if (lhs_size > 0) then
+                        allocate (lhs_tokens(lhs_size + 1))
+                        lhs_tokens(1:lhs_size) = tokens(1:eq_pos - 1)
+                        lhs_tokens(lhs_size + 1)%kind = TK_EOF
+                        lhs_tokens(lhs_size + 1)%text = ""
+                        lhs_tokens(lhs_size + 1)%line = tokens(eq_pos)%line
+                        lhs_tokens(lhs_size + 1)%column = tokens(eq_pos)%column
+                        lhs_parser = create_parser_state(lhs_tokens)
+                        target_index = parse_range(lhs_parser, arena)
+                        deallocate (lhs_tokens)
+                    end if
+
+                    if (rhs_size > 0) then
+                        allocate (rhs_tokens(rhs_size))
+                        rhs_tokens = tokens(eq_pos + 1:)
+                        value_index = parse_expression(rhs_tokens, arena)
+                        deallocate (rhs_tokens)
+                    end if
+
+                    if (target_index > 0 .and. value_index > 0) then
+                        stmt_index = push_assignment(arena, target_index, value_index, &
+                                                     first_token%line, first_token%column, &
+                                                     parent_index)
+                    end if
                 end if
             end block
         end if
