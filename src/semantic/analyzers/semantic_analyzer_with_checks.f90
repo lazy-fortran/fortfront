@@ -1,3 +1,4 @@
+! @slow-path
 module semantic_analyzer_with_checks
     ! Enhanced semantic analyzer with validation checks
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program

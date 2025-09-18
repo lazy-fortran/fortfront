@@ -158,7 +158,7 @@
 
 ## Action Plan
 1. **Audit & Tag**
-   - [ ] Annotate modules with `! @slow-path` or similar to flag opt-in analyzers; update build system to conditionally compile.
+   - [x] Annotate modules with `! @slow-path` or similar to flag opt-in analyzers; update build system to conditionally compile.
    - [ ] Catalogue obsolete docs/code paths for removal after refactors.
 
 2. **Iterative Refactors**
@@ -167,8 +167,8 @@
    - [ ] Introduce identifier interning and propagate to dependent modules.
 
 3. **Pipeline Slimming**
-   - [ ] Update CLI path to skip optional analyzers; measure perf gains.
-   - [ ] Adjust APIs so fortfc/fluff can request data without triggering extra passes.
+   - [x] Update CLI path to skip optional analyzers; measure perf gains.
+   - [x] Adjust APIs so fortfc/fluff can request data without triggering extra passes.
 
 4. **Cleanup & Documentation**
    - [ ] Delete deprecated modules/docs after replacements stabilize.
@@ -194,3 +194,5 @@
   regression coverage, and updated docs/tests accordingly.
 - 2025-09-19 (local, perf n/a): Normalized character addition during semantic inference to emit `//`, ensuring
   string precedence regression passes alongside the Pratt parser fixes.
+- 2025-09-18 (local, perf n/a): Annotated slow-path analyzers and introduced CLI/runtime gating for optional
+  passes. Added API hooks for optional analysis retrieval.

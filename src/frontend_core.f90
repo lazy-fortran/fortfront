@@ -36,6 +36,10 @@ module frontend_core
     use path_validation, only: validate_input_path, validate_output_path, path_validation_result_t
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t
     use frontend_utilities, only: write_output_file, int_to_str
+    use slow_path_config, only: initialize_slow_path_from_env, set_slow_path_enabled, &
+                                is_slow_path_enabled
+    use slow_path_analyzers, only: clear_slow_path_results, &
+                                   run_slow_path_analyzers
 
     implicit none
     private
@@ -52,6 +56,8 @@ module frontend_core
         logical :: debug_semantic = .false.
         logical :: debug_standardize = .false.
         logical :: debug_codegen = .false.
+        logical :: slow_path_override = .false.
+        logical :: slow_path_enabled = .false.
         character(len=:), allocatable :: output_file
     contains
         procedure :: deep_copy => compilation_options_deep_copy
@@ -79,6 +85,12 @@ contains
         write(error_unit, '(A)') "INFO [frontend_core]: Starting compilation of " // input_file
 
         error_msg = ""
+
+        call initialize_slow_path_from_env()
+        call clear_slow_path_results()
+        if (options%slow_path_override) then
+            call set_slow_path_enabled(options%slow_path_enabled)
+        end if
         
         ! Validate input file path for security
         validation_result = validate_input_path(input_file)
@@ -236,9 +248,14 @@ contains
             call analyze_program(ctx, arena, prog_index)
             
             ! Check for semantic errors and provide detailed error messages
+            call clear_slow_path_results()
             if (has_semantic_errors(ctx)) then
                 error_msg = get_detailed_semantic_errors(ctx)
                 return
+            end if
+
+            if (is_slow_path_enabled()) then
+                call run_slow_path_analyzers(arena, prog_index)
             end if
         end block
         
@@ -355,6 +372,8 @@ contains
         copy%debug_semantic = this%debug_semantic
         copy%debug_standardize = this%debug_standardize
         copy%debug_codegen = this%debug_codegen
+        copy%slow_path_override = this%slow_path_override
+        copy%slow_path_enabled = this%slow_path_enabled
 
         if (allocated(this%output_file)) then
             copy%output_file = this%output_file
@@ -370,6 +389,8 @@ contains
         lhs%debug_semantic = rhs%debug_semantic
         lhs%debug_standardize = rhs%debug_standardize
         lhs%debug_codegen = rhs%debug_codegen
+        lhs%slow_path_override = rhs%slow_path_override
+        lhs%slow_path_enabled = rhs%slow_path_enabled
 
         if (allocated(rhs%output_file)) then
             lhs%output_file = rhs%output_file

@@ -1,3 +1,4 @@
+! @slow-path
 module conditional_evaluation_module
     use iso_fortran_env, only: error_unit
     use ast_core
