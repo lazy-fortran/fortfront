@@ -7,6 +7,7 @@ module frontend_transformation
                            TK_COMMENT, TK_NEWLINE, TK_OPERATOR, TK_IDENTIFIER, &
                            TK_NUMBER, TK_STRING, TK_UNKNOWN
     use compiler_arena, only: compiler_arena_t, create_compiler_arena, destroy_compiler_arena
+    use ast_arena_modern, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                    analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
@@ -652,9 +653,39 @@ contains
         character(len=:), allocatable, intent(out) :: output
 
         call compiler_arena%next_phase("codegen")
+        call maybe_dump_program_overview(compiler_arena%ast, prog_index)
         output = generate_code_from_arena(compiler_arena%ast, prog_index)
         output = add_line_continuations(output)
     end subroutine run_code_generation_phase
+
+    subroutine maybe_dump_program_overview(arena, prog_index)
+        use iso_fortran_env, only: error_unit
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: prog_index
+        character(len=8) :: flag
+        integer :: status
+        integer :: i
+
+        call get_environment_variable('FORTFRONT_DEBUG_DUMP_AST', flag, status=status)
+        if (status /= 0) return
+        if (len_trim(flag) == 0) return
+
+        write(error_unit, '(A)') 'DEBUG AST: program overview'
+        write(error_unit, '(A,I0)') '  root index: ', prog_index
+        do i = 1, min(arena%size, size(arena%entries))
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (node => arena%entries(i)%node)
+            type is (program_node)
+                if (allocated(node%body_indices)) then
+                    write(error_unit, '(A,I0,2X,A,2X,I0)') &
+                        '  program idx', i, trim(node%name), size(node%body_indices)
+                else
+                    write(error_unit, '(A,I0,2X,A,2X,A)') &
+                        '  program idx', i, trim(node%name), 'no body'
+                end if
+            end select
+        end do
+    end subroutine maybe_dump_program_overview
 
     ! Save current configuration
     subroutine save_current_configuration(saved_size, saved_char, saved_line_length, &

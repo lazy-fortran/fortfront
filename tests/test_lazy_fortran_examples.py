@@ -40,11 +40,6 @@ XFAIL_TESTS = {
     "test_209_complex.lf": ("Complex nested expressions fail - allocatable conversion has formatting issues", 1237),
     "test_209_mixed.lf": ("Mixed type expressions fail - partial support only", 1237),
     
-    # Pratt parser integration follow-up (issue #1240)
-    "test_comparison_associativity.lf": ("CLI emits duplicate program definitions after Pratt parsing", 1240),
-    "test_comprehensive_precedence.lf": ("CLI emits duplicate program definitions after Pratt parsing", 1240),
-    "test_unary_precedence.lf": ("CLI emits duplicate program definitions after Pratt parsing", 1240),
-    
     # Parsing ambiguities - issue 214 (issue #1238)
     "test_issue_214_ambiguous.lf": ("Ambiguous syntax not handled", 1238),
     "test_issue_214_correct.lf": ("Expected parsing fails", 1238),
@@ -55,6 +50,9 @@ XFAIL_TESTS = {
     "test_issue_508_multicomment.lf": ("Multiple comments fail", 1239),
     "test_issue_508_nocomment.lf": ("Comment removal breaks code", 1239),
     
+    # Expression precedence fallback (issue #1240)
+    "test_comprehensive_precedence.lf": ("String/numeric precedence lowering still incorrect", 1240),
+
     # Scope and semantic analysis (issue #1241) - test_sem_scope is fixed, test_sem_mixed still fails
     "test_sem_mixed.lf": ("Mixed type array constructor needs type spec", 1241),
     
