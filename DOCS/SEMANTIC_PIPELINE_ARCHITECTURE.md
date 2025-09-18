@@ -1,118 +1,58 @@
-# Semantic Pipeline Architecture Improvements
+# Semantic Pipeline Architecture (2025)
 
-## Issue #288: Dependency Injection Violation Fix
+## Current Responsibilities
+- The semantic layer runs on top of the Pratt pipeline output and keeps a lean
+  focus on type inference, shape checks, and implicit typing enforcement.
+- `semantic_analyzer::analyze_program` is the single entry point. It receives an
+  `ast_arena_t` plus the root program index and returns updates in place; no
+  control-flow graph builders are involved in the fast path.
+- The pipeline only escalates to strict mode when `implicit none` is present,
+  mirroring the historical lazy Fortran defaults.
 
-### Problem Resolved
+## Phase Breakdown
+1. **Context setup** – `create_semantic_context` builds a scope stack, installs
+   intrinsic bindings, and allocates the substitution table used by Hindley–
+   Milner inference.
+2. **Program walk** – `analyze_program_node_arena` iterates the program body
+   using a lightweight stack (`infer_frame_t`) that records traversal state
+   without resorting to recursion.
+3. **Statement inference** – Specialized analyzers in
+   `semantic_assignment_inference`, `semantic_binary_operations`, and
+   `semantic_function_analysis` infer or refine types, emitting diagnostics via
+   `semantic_context_t%errors` when inference fails.
+4. **Array safety checks** – `validate_array_bounds` and
+   `check_shape_conformance` run after inference to guard against inconsistent
+   dimensions introduced during transformation.
+5. **Post-processing** – Constant folding (`constant_transformation`) and
+   optional arena compaction execute once per traversal; they operate on the same
+   arena produced by the Pratt parser.
 
-The semantic pipeline previously violated dependency injection and inversion of control principles through hard-coded type dependencies.
+## Interaction with Call Graph and Tooling
+- The semantic pass no longer orchestrates CFG builders. Instead the optional
+  call graph walks reuse the finalized arena via
+  `call_graph_builder_module::build_call_graph` after semantics completes.
+- Tooling that needs type data (e.g. `fortfront_types`, variable usage trackers)
+  queries `semantic_context_t` helpers such as `get_type_for_node` and
+  `update_identifier_type_in_arena` rather than re-running analysis.
+- Because semantic updates happen in place, downstream passes observe the latest
+  substitutions without extra copying; arena indices remain stable for the call
+  graph and variable usage modules.
 
-**Before (Problematic Code):**
-```fortran
-select type(a => analyzer)
-type is (symbol_analyzer_t)
-    allocate(symbol_analyzer_t :: temp_analyzers(...)%analyzer)
-type is (type_analyzer_t)
-    allocate(type_analyzer_t :: temp_analyzers(...)%analyzer)
-[... 9 more hard-coded types]
-class default
-    error stop "Unknown analyzer type in register_analyzer"
-end select
-```
+## Diagnostics and Error Reporting
+- Errors accumulate inside `semantic_context_t%errors` so callers can emit or
+  serialize diagnostics without aborting the run.
+- Each analyzer validates indices before touching arena entries, preventing
+  malformed ASTs from crashing the pass.
+- Standardization and code generation read the diagnostic collection to decide
+  whether to continue emitting Fortran code.
 
-### Architectural Violations Fixed
-
-1. ❌ **Hard-coded Dependencies**: Pipeline knew about every analyzer type
-2. ❌ **Violation of Open/Closed Principle**: Could not add analyzers without modifying pipeline
-3. ❌ **Tight Coupling**: Pipeline coupled to concrete analyzer implementations
-4. ❌ **Scalability Issues**: Adding new analyzers required core changes
-
-### Solution Implemented
-
-**After (Clean Architecture):**
-```fortran
-! Use polymorphic allocation instead of hard-coded types
-! This removes the dependency injection violation while maintaining compatibility
-allocate(temp_analyzers(this%analyzer_count + 1)%analyzer, source=analyzer)
-```
-
-### Benefits Achieved
-
-#### 1. **Eliminated Hard-coded Dependencies**
-- **Before**: Pipeline imported 9+ analyzer modules
-- **After**: Pipeline only imports base `semantic_analyzer_t` interface
-- **Improvement**: 90% reduction in compilation dependencies
-
-#### 2. **Open/Closed Principle Compliance**
-- **Before**: Adding analyzer required modifying pipeline `select type` block
-- **After**: New analyzers can be added without any pipeline changes
-- **Improvement**: True extensibility achieved
-
-#### 3. **Loose Coupling**
-- **Before**: Pipeline tightly coupled to all analyzer implementations
-- **After**: Pipeline only depends on abstract interface
-- **Improvement**: Proper separation of concerns
-
-#### 4. **Polymorphic Allocation**
-- **Mechanism**: `allocate(..., source=analyzer)` 
-- **Benefit**: Fortran runtime handles type-specific allocation automatically
-- **Result**: Type-safe without hard-coded type knowledge
-
-## Technical Implementation
-
-### Core Change
-```fortran
-! Old approach: Hard-coded type matching
-select type(a => analyzer)
-type is (specific_analyzer_t)
-    allocate(specific_analyzer_t :: target)
-end select
-
-! New approach: Polymorphic allocation
-allocate(target, source=analyzer)
-```
-
-### Compilation Impact
-- **Dependencies Removed**: 9 analyzer modules no longer imported
-- **Build Performance**: Faster compilation due to reduced dependencies
-- **Interface Clarity**: Clear separation between pipeline and analyzers
-
-### Extensibility Benefits
-- **Plugin Architecture**: External modules can define new analyzers
-- **Testing**: Easy to inject mock analyzers for testing
-- **Modularity**: Analyzers completely independent of pipeline
-
-## Future Enhancements
-
-### Potential Next Steps
-1. **Factory Registry** (for dynamic analyzer creation by name)
-2. **Configuration-driven Pipeline** (load analyzers from configuration)
-3. **Plugin System** (external analyzer modules)
-4. **Performance Optimization** (analyzer prioritization and caching)
-
-### Backward Compatibility
-- ✅ **Interface Preserved**: All existing analyzer registration works
-- ✅ **Functionality Maintained**: No behavioral changes
-- ✅ **Performance**: Equal or better performance
-- ✅ **API Stability**: No breaking changes
-
-## Architecture Quality Metrics
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Pipeline Dependencies | 9+ modules | 1 interface | 89% reduction |
-| Coupling | Tight | Loose | Major improvement |
-| Extensibility | Hard-coded only | Open for extension | 100% improvement |
-| Open/Closed Compliance | Violated | Compliant | Fixed violation |
-| Code Maintainability | Low | High | Significant improvement |
-
-## Conclusion
-
-This architectural fix represents a fundamental improvement in code quality:
-
-1. **Eliminates anti-pattern**: No more hard-coded type dependencies
-2. **Enables extensibility**: True plugin architecture foundation
-3. **Improves maintainability**: Clean separation of concerns
-4. **Reduces coupling**: Pipeline independent of analyzer implementations
-5. **Preserves compatibility**: Zero breaking changes
-
-The semantic pipeline now follows proper dependency injection principles and provides a solid foundation for future extensibility.
+## Remaining Work
+- Nested procedure scoping still depends on post-walk fixups in
+  `call_graph_builder_module`; unscoped procedure bodies can hide free variables
+  from the analyzer.
+- Large array constructors allocate temporary buffers during shape checks. A
+  dedicated scratch allocator would shrink the final hotspot visible in perf
+  traces.
+- Strict semantic mode is toggled inside the context today. Future work should
+  thread explicit strictness flags through `frontend_transformation` so callers
+  can opt in earlier.
