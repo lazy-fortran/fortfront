@@ -4,10 +4,9 @@ This directory contains curated examples of lazy Fortran (.lf) files that demons
 
 ## Current Status
 As of September 2025 the Pratt-based expression parser drives fortfront.
-The precedence regression samples now compile end-to-end without duplicate
-`program` output (issue #1240 resolved). Remaining known gaps align with the
-examples marked as expected failures in `tests/test_lazy_fortran_examples.py`
-(issues #1234-#1243).
+The precedence regression samples now compile end-to-end, and the remaining
+known gaps align with the examples marked as expected failures in
+`tests/test_lazy_fortran_examples.py` (issues #1234-#1243).
 
 ## Testing Examples
 Run the test suite on all examples:
@@ -32,10 +31,9 @@ These examples are validated end-to-end:
 - `test_std_do.lf` - Do-loop generation
 
 ### Expression Regression Suite
-- `test_comparison_associativity.lf` and `test_unary_precedence.lf` exercise the
-  Pratt parser and now pass end-to-end.
-- `test_comprehensive_precedence.lf` highlights the remaining precedence lowering
-  gap for mixed string/numeric operators (issue #1240).
+- `test_comparison_associativity.lf`, `test_unary_precedence.lf`, and
+  `test_comprehensive_precedence.lf` cover the Pratt parser precedence matrix
+  and now pass end-to-end.
 
 ### Example Categories
 

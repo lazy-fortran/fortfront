@@ -24,7 +24,7 @@
 1. **Legacy Audit & Removal**
    - [x] Scan parser, standardizer, and utilities for unused recursive helpers (`parse_*`, `traverse_*`, legacy validation shims). (2025-09-18, commit d9a59db, perf n/a)
      Audit found no unused helpers in parser/standardizer/utilities; removed stale semantic interfaces exposed by the scan.
-   - [x] Drop stale tests/docs covering removed behaviour; replace with canonical SOT parser expectations (example README + precedence regression coverage refreshed after Pratt duplicate-program fix).
+   - [x] Drop stale tests/docs covering removed behaviour; replace with canonical SOT parser expectations (example README + precedence regression coverage refreshed after Pratt string concatenation fix).
 
 2. **Iterative Pratt Core**
    - [x] Design operator tables (binding powers, prefix/infix handlers).
@@ -192,3 +192,5 @@
   and normalized symbol metadata to reflect the lean context.
 - 2025-09-19 (local, perf n/a): Fixed Pratt parser duplicate-program emission in CLI, restored precedence
   regression coverage, and updated docs/tests accordingly.
+- 2025-09-19 (local, perf n/a): Normalized character addition during semantic inference to emit `//`, ensuring
+  string precedence regression passes alongside the Pratt parser fixes.

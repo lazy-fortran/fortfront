@@ -989,6 +989,17 @@ contains
         right_typ = get_inferred_type_from_arena(ctx, arena, binop%right_index)
 
         ! Dispatch to appropriate operation handler
+        if (binop%operator == "+") then
+            if (left_typ%kind == TCHAR .and. right_typ%kind == TCHAR) then
+                typ = infer_string_concatenation(left_typ, right_typ)
+                call ctx%unify(left_typ, create_mono_type(TCHAR))
+                call ctx%unify(right_typ, create_mono_type(TCHAR))
+                call rewrite_binary_operator(arena, binop_index, "//")
+                call set_node_inferred_type(arena, binop_index, typ)
+                return
+            end if
+        end if
+
         if (binop%operator == "//") then
             typ = infer_string_concatenation(left_typ, right_typ)
             call ctx%unify(left_typ, create_mono_type(TCHAR))
@@ -1013,6 +1024,21 @@ contains
         ! Store inferred type in node
         call set_node_inferred_type(arena, binop_index, typ)
     end function infer_binary_op
+
+    subroutine rewrite_binary_operator(arena, node_index, new_operator)
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: node_index
+        character(len=*), intent(in) :: new_operator
+
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        select type (node => arena%entries(node_index)%node)
+        type is (binary_op_node)
+            node%operator = new_operator
+            arena%entries(node_index)%node = node
+        end select
+    end subroutine rewrite_binary_operator
 
     ! Infer type of function call (simplified)
     function infer_function_call(ctx, arena, call_node) result(typ)
