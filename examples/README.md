@@ -8,7 +8,7 @@ The Pratt AST output matches the precedence regression suite, but the
 CLI still emits duplicate `program` blocks for those samples, so
 `gfortran -fsyntax-only` fails. The remaining known gaps align with the
 examples marked as expected failures in `tests/test_lazy_fortran_examples.py`
-(issues #1234–#1243).
+(issues #1234-#1243).
 
 ## Testing Examples
 Run the test suite on all examples:
