@@ -71,8 +71,9 @@ gcc myapp.c $(pkg-config --cflags --libs fortfront)
 
 ## Documentation
 
-- [Static Library Integration](docs/STATIC_LIBRARY_INTEGRATION.md)
-- API Reference in `docs/` folder
+- Pratt pipeline reference: `DOCS/PRATT_PIPELINE_ARCHITECTURE.md`
+- Semantic pipeline overview: `DOCS/SEMANTIC_PIPELINE_ARCHITECTURE.md`
+- Additional guides live in `docs/` alongside feature-specific notes.
 
 ## Contributing
 

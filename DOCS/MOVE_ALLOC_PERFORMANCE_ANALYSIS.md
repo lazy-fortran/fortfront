@@ -38,17 +38,7 @@ temp_dims = new_dims
 
 **Performance Impact**: O(n) copying where O(1) move should occur
 
-#### Pattern 2: Temporary Buffer Management
-**Location**: `cfg_builder.f90:798`, `control_flow_graph.f90:139,178,323`
-
-```fortran
-! Manual cleanup after growth
-deallocate(temp_buffer)
-```
-
-**Analysis**: These appear to be legitimate cleanup operations, not move_alloc candidates
-
-#### Pattern 3: Mixed Allocation Patterns
+#### Pattern 2: Mixed Allocation Patterns
 **Location**: Various modules with inconsistent patterns
 
 Some modules correctly use `move_alloc`, others use manual copying for identical operations.
