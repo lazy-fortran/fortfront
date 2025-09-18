@@ -166,7 +166,7 @@
 
 ## Remove / Gate
 - **Performance Analyzer Plugin & Metrics** (`src/semantic/analyzers/control_flow_analyzer_plugin.f90`, `src/performance/*`): behind feature flags; exclude from default CLI builds to avoid overhead.
-- **Legacy Call Graph Analysis Layer** (`src/analysis/call_graph_analysis.f90` once unified implementation lands): likely redundant after unification; plan removal.
+- [x] Legacy Call Graph Analysis layer removed (2025-09-18, commit 8faf2a1); fortfront now re-exports call graph APIs directly without intermediary modules.
 - **Excessive Tracing & Logging** (`src/utilities/debug_trace.f90` and pervasive trace hooks): keep minimal instrumentation, but disable or compile out verbose tracing in release builds.
 - **Redundant Docs/Modules**: retire outdated TODO files or migration guides once new architecture is documented (e.g., `DOCS/AST_MIGRATION_ANALYSIS.md` if superseded).
 

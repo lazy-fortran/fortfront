@@ -193,20 +193,37 @@ module fortfront
                               NODE_CONTAINS, NODE_FORMAT_DESCRIPTOR, NODE_COMMENT, &
                               NODE_IMPLICIT_STATEMENT, NODE_UNKNOWN
     
-    ! Re-export advanced procedures from fortfront_advanced  
-    ! NOTE: Most advanced functions temporarily disabled due to API incompatibility
-    use fortfront_advanced, only: build_call_graph_from_arena, get_unused_procedures, &
-                                 get_procedure_callers, get_procedure_callees, &
-                                 is_procedure_used, get_all_procedures_in_graph, &
-                                 get_call_edges, get_recursive_cycles, &
-                                 build_cfg_from_arena, get_unreachable_code_from_cfg, &
-                                 get_cfg_entry_block, get_cfg_exit_blocks, &
-                                 get_cfg_all_blocks, get_cfg_block_predecessors, &
-                                 get_cfg_block_successors, is_cfg_block_reachable, &
-                                 get_cfg_unreachable_statements, print_control_flow_graph, &
-                                 export_cfg_to_dot
-    
+    ! Call graph and control-flow utilities (lean re-export)
+    use call_graph_builder_module, only: build_call_graph_from_arena => build_call_graph
+    use call_graph_module, only: call_graph_t, call_edge_t, &
+         get_unused_procedures => find_unused_procedures, &
+         get_procedure_callers => get_callers, &
+         get_procedure_callees => get_callees, &
+         is_procedure_used, &
+         get_all_procedures_in_graph => get_all_procedures, &
+         get_recursive_cycles => find_recursive_cycles
+    use control_flow_analysis, only: build_cfg_from_arena, get_unreachable_code_from_cfg, &
+                                     get_cfg_entry_block, get_cfg_exit_blocks, &
+                                     get_cfg_all_blocks, get_cfg_block_predecessors, &
+                                     get_cfg_block_successors, is_cfg_block_reachable, &
+                                     get_cfg_unreachable_statements, print_control_flow_graph, &
+                                     export_cfg_to_dot
+
     implicit none
     public
+
+contains
+
+    function get_call_edges(graph) result(edges)
+        type(call_graph_t), intent(in) :: graph
+        type(call_edge_t), allocatable :: edges(:)
+
+        if (allocated(graph%calls) .and. graph%call_count > 0) then
+            allocate(edges(graph%call_count))
+            edges = graph%calls(1:graph%call_count)
+        else
+            allocate(edges(0))
+        end if
+    end function get_call_edges
 
 end module fortfront
