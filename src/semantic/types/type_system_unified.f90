@@ -4,7 +4,10 @@ module type_system_unified
     
     use iso_fortran_env, only: error_unit
     use type_system_arena
-    use error_handling, only: result_t, create_error_result, success_result, ERROR_MEMORY
+    use error_handling, only: result_t, create_error_result, &
+        success_result, ERROR_MEMORY
+    use identifier_table, only: identifier_table_t, identifier_id_kind, &
+        identifier_table_intern, identifier_table_find
     implicit none
     private
 
@@ -89,7 +92,6 @@ module type_system_unified
     integer, parameter :: MAX_SUBST_SIZE = 512
     ! Increase environment capacity to better handle larger inputs (Issue #1046)
     integer, parameter :: MAX_ENV_SIZE = 4096
-    integer, parameter :: MAX_NAME_LEN = 128
     
     type :: substitution_t
         integer :: count = 0
@@ -107,8 +109,9 @@ module type_system_unified
     type :: type_env_t
         integer :: count = 0
         integer :: capacity = 0
-        character(len=MAX_NAME_LEN), allocatable :: names(:)
+        integer(identifier_id_kind), allocatable :: name_ids(:)
         type(poly_type_t), allocatable :: schemes(:)
+        type(identifier_table_t), pointer :: identifiers => null()
         logical :: capacity_exceeded_reported = .false.
         logical :: is_fixed = .false.
     contains
@@ -356,21 +359,27 @@ contains
         lhs%is_fixed = rhs%is_fixed
         if (lhs%capacity <= 0) then
             ! Try to infer capacity from source arrays if available
-            if (allocated(rhs%names)) lhs%capacity = size(rhs%names)
+            if (allocated(rhs%name_ids)) lhs%capacity = size(rhs%name_ids)
             if (lhs%capacity <= 0) lhs%capacity = lhs%count
         end if
         if (lhs%capacity < lhs%count) lhs%capacity = lhs%count
-        if (allocated(lhs%names)) deallocate(lhs%names)
+        if (allocated(lhs%name_ids)) deallocate(lhs%name_ids)
         if (allocated(lhs%schemes)) deallocate(lhs%schemes)
         if (lhs%capacity > 0) then
-            allocate(lhs%names(lhs%capacity))
+            allocate(lhs%name_ids(lhs%capacity))
             allocate(lhs%schemes(lhs%capacity))
         end if
-        
+
+        if (associated(rhs%identifiers)) then
+            lhs%identifiers => rhs%identifiers
+        else
+            nullify(lhs%identifiers)
+        end if
+
         ! Copy only used elements
         if (rhs%count > 0) then
             do i = 1, rhs%count
-                lhs%names(i) = rhs%names(i)
+                lhs%name_ids(i) = rhs%name_ids(i)
                 lhs%schemes(i) = rhs%schemes(i)
             end do
         end if
@@ -581,20 +590,27 @@ contains
         class(type_env_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         type(poly_type_t), intent(in) :: scheme
+        integer(identifier_id_kind) :: name_id
+
+        if (.not. associated(this%identifiers)) then
+            write(error_unit, '(A)') &
+                'ERROR: type_env_t missing identifier table; skipping insert'
+            return
+        end if
 
         ! Initialize capacity lazily. If user set capacity manually use it.
-        if (.not. allocated(this%names) .or. .not. allocated(this%schemes)) then
+        if (.not. allocated(this%name_ids) .or. .not. allocated(this%schemes)) then
             if (this%capacity > 0) then
                 this%is_fixed = .true.
             else
                 this%capacity = 64
                 this%is_fixed = .false.
             end if
-            allocate(this%names(this%capacity))
+            allocate(this%name_ids(this%capacity))
             allocate(this%schemes(this%capacity))
         else
             ! Handle pathological zero-sized allocations defensively
-            if (size(this%names) == 0 .or. size(this%schemes) == 0) then
+            if (size(this%name_ids) == 0 .or. size(this%schemes) == 0) then
                 if (this%capacity <= 0) this%capacity = 64
                 call type_env_ensure_capacity(this, max(1, this%count + 1))
             end if
@@ -604,8 +620,10 @@ contains
         if (this%count >= this%capacity) then
             if (this%is_fixed) then
                 if (.not. this%capacity_exceeded_reported) then
-                    write(error_unit, *) "ERROR: Type environment capacity exceeded (", this%capacity, ")"
-                    write(error_unit, *) "Consider increasing MAX_ENV_SIZE parameter"
+                    write(error_unit, *) &
+                        'ERROR: Type environment capacity exceeded (', &
+                        this%capacity, ')'
+                    write(error_unit, *) 'Consider increasing MAX_ENV_SIZE parameter'
                     this%capacity_exceeded_reported = .true.
                 end if
                 return
@@ -614,19 +632,25 @@ contains
                 call type_env_ensure_capacity(this, this%count + 1)
             end if
         end if
-        
+
         ! Add binding
-        this%count = this%count + 1
-        
-        ! Check name length and handle appropriately
-        if (len(name) > MAX_NAME_LEN) then
-            write(error_unit, *) "ERROR: Name too long (", len(name), " > ", MAX_NAME_LEN, ")"
-            ! Truncate name and continue rather than stopping
-            this%names(this%count) = name(1:MAX_NAME_LEN)
-        else
-            this%names(this%count) = name
+        name_id = identifier_table_intern(this%identifiers, name)
+
+        ! Replace existing entry if name already present
+        if (this%count > 0) then
+            block
+                integer :: idx
+                do idx = 1, this%count
+                    if (this%name_ids(idx) == name_id) then
+                        this%schemes(idx) = scheme
+                        return
+                    end if
+                end do
+            end block
         end if
-        
+
+        this%count = this%count + 1
+        this%name_ids(this%count) = name_id
         this%schemes(this%count) = scheme
     end subroutine type_env_extend
     
@@ -634,24 +658,24 @@ contains
         class(type_env_t), intent(inout) :: this
         integer, intent(in) :: required
         ! Ensure arrays exist; if not fixed, grow to meet required
-        if (.not. allocated(this%names) .or. .not. allocated(this%schemes)) then
+        if (.not. allocated(this%name_ids) .or. .not. allocated(this%schemes)) then
             if (this%capacity <= 0) then
                 this%capacity = max(64, required)
                 this%is_fixed = .false.
             end if
-            allocate(this%names(this%capacity))
+            allocate(this%name_ids(this%capacity))
             allocate(this%schemes(this%capacity))
-        else if (size(this%names) == 0 .or. size(this%schemes) == 0) then
+        else if (size(this%name_ids) == 0 .or. size(this%schemes) == 0) then
             ! Repair zero-sized arrays
             if (this%capacity <= 0) this%capacity = max(64, required)
             block
                 integer :: new_capacity
-                character(len=MAX_NAME_LEN), allocatable :: new_names(:)
+                integer(identifier_id_kind), allocatable :: new_ids(:)
                 type(poly_type_t), allocatable :: new_schemes(:)
                 new_capacity = max(this%capacity, required)
-                allocate(new_names(new_capacity))
+                allocate(new_ids(new_capacity))
                 allocate(new_schemes(new_capacity))
-                call move_alloc(new_names, this%names)
+                call move_alloc(new_ids, this%name_ids)
                 call move_alloc(new_schemes, this%schemes)
                 this%capacity = new_capacity
             end block
@@ -659,18 +683,18 @@ contains
             ! Grow dynamically
             block
                 integer :: new_capacity, i
-                character(len=MAX_NAME_LEN), allocatable :: new_names(:)
+                integer(identifier_id_kind), allocatable :: new_ids(:)
                 type(poly_type_t), allocatable :: new_schemes(:)
                 new_capacity = max(this%capacity*2, required)
-                allocate(new_names(new_capacity))
+                allocate(new_ids(new_capacity))
                 allocate(new_schemes(new_capacity))
                 if (this%count > 0) then
                     do i = 1, this%count
-                        new_names(i) = this%names(i)
+                        new_ids(i) = this%name_ids(i)
                         new_schemes(i) = this%schemes(i)
                     end do
                 end if
-                call move_alloc(new_names, this%names)
+                call move_alloc(new_ids, this%name_ids)
                 call move_alloc(new_schemes, this%schemes)
                 this%capacity = new_capacity
             end block

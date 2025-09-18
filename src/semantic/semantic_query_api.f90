@@ -9,6 +9,7 @@ module semantic_query_api
                              SCOPE_INTERFACE
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
+    use identifier_table, only: identifier_table_get
     use fortfront_types, only: symbol_info_t, symbol_reference_t
     use ast_core
     use ast_nodes_core, only: identifier_node
@@ -480,7 +481,10 @@ contains
         allocate(symbols(count))
         
         do i = 1, count
-            symbols(i)%name = this%context%scopes%scopes(target_depth)%env%names(i)
+            symbols(i)%name = identifier_table_get(
+                this%context%scopes%identifier_storage,
+                this%context%scopes%scopes(target_depth)%env%name_ids(i)
+            )
             symbols(i)%type_info = this%context%instantiate( &
                 this%context%scopes%scopes(target_depth)%env%schemes(i))
             symbols(i)%is_parameter = .false.
@@ -592,7 +596,10 @@ contains
         allocate(symbols(count))
         
         do i = 1, count
-            symbols(i)%name = context%scopes%scopes(target_depth)%env%names(i)
+            symbols(i)%name = identifier_table_get(
+                context%scopes%identifier_storage,
+                context%scopes%scopes(target_depth)%env%name_ids(i)
+            )
             symbols(i)%type_info = context%instantiate( &
                 context%scopes%scopes(target_depth)%env%schemes(i))
             symbols(i)%is_parameter = .false.
