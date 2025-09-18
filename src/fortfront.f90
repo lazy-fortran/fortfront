@@ -202,12 +202,11 @@ module fortfront
          is_procedure_used, &
          get_all_procedures_in_graph => get_all_procedures, &
          get_recursive_cycles => find_recursive_cycles
-    use control_flow_analysis, only: build_cfg_from_arena, get_unreachable_code_from_cfg, &
-                                     get_cfg_entry_block, get_cfg_exit_blocks, &
-                                     get_cfg_all_blocks, get_cfg_block_predecessors, &
-                                     get_cfg_block_successors, is_cfg_block_reachable, &
-                                     get_cfg_unreachable_statements, print_control_flow_graph, &
-                                     export_cfg_to_dot
+    use cfg_builder_module, only: build_control_flow_graph
+    use control_flow_graph_module, only: control_flow_graph_t, basic_block_t, cfg_edge_t, &
+        find_unreachable_code, get_entry_block, get_exit_blocks, get_all_blocks, &
+        get_block_predecessors, get_block_successors, is_block_reachable, &
+        get_unreachable_statements, print_cfg, cfg_to_dot
 
     implicit none
     public
@@ -225,5 +224,84 @@ contains
             allocate(edges(0))
         end if
     end function get_call_edges
+
+    function build_cfg_from_arena(arena, root_index) result(cfg)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: root_index
+        type(control_flow_graph_t) :: cfg
+
+        cfg = build_control_flow_graph(arena, root_index)
+    end function build_cfg_from_arena
+
+    function get_unreachable_code_from_cfg(cfg) result(block_ids)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, allocatable :: block_ids(:)
+
+        block_ids = find_unreachable_code(cfg)
+    end function get_unreachable_code_from_cfg
+
+    function get_cfg_entry_block(cfg) result(block_id)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer :: block_id
+
+        block_id = get_entry_block(cfg)
+    end function get_cfg_entry_block
+
+    function get_cfg_exit_blocks(cfg) result(block_ids)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, allocatable :: block_ids(:)
+
+        block_ids = get_exit_blocks(cfg)
+    end function get_cfg_exit_blocks
+
+    function get_cfg_all_blocks(cfg) result(block_ids)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, allocatable :: block_ids(:)
+
+        block_ids = get_all_blocks(cfg)
+    end function get_cfg_all_blocks
+
+    function get_cfg_block_predecessors(cfg, block_id) result(pred_ids)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, intent(in) :: block_id
+        integer, allocatable :: pred_ids(:)
+
+        pred_ids = get_block_predecessors(cfg, block_id)
+    end function get_cfg_block_predecessors
+
+    function get_cfg_block_successors(cfg, block_id) result(succ_ids)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, intent(in) :: block_id
+        integer, allocatable :: succ_ids(:)
+
+        succ_ids = get_block_successors(cfg, block_id)
+    end function get_cfg_block_successors
+
+    logical function is_cfg_block_reachable(cfg, block_id)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, intent(in) :: block_id
+
+        is_cfg_block_reachable = is_block_reachable(cfg, block_id)
+    end function is_cfg_block_reachable
+
+    function get_cfg_unreachable_statements(cfg) result(stmt_indices)
+        type(control_flow_graph_t), intent(in) :: cfg
+        integer, allocatable :: stmt_indices(:)
+
+        stmt_indices = get_unreachable_statements(cfg)
+    end function get_cfg_unreachable_statements
+
+    subroutine print_control_flow_graph(cfg)
+        type(control_flow_graph_t), intent(in) :: cfg
+
+        call print_cfg(cfg)
+    end subroutine print_control_flow_graph
+
+    function export_cfg_to_dot(cfg) result(dot_string)
+        type(control_flow_graph_t), intent(in) :: cfg
+        character(len=:), allocatable :: dot_string
+
+        dot_string = cfg_to_dot(cfg)
+    end function export_cfg_to_dot
 
 end module fortfront

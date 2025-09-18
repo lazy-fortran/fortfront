@@ -194,3 +194,7 @@
   iterative stacks to eliminate recursion on analysis hot paths.
 - 2025-09-18 (ec9c94d, perf n/a): Added cfg frame stack scaffolding to prepare control-flow builder
   for iterative execution; procedure nodes now scheduled via explicit frames.
+- 2025-09-18 (2593977, perf n/a): Removed legacy call-graph demo/tests and routed APIs directly through
+  `fortfront` to keep the surface lean.
+- 2025-09-18 (550501f, perf n/a): Dropped `control_flow_analysis` wrapper; control-flow utilities now
+  map straight to core CFG primitives.
