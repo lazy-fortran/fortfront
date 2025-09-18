@@ -53,6 +53,7 @@
 ## Status (2025-09-18)
 - [x] Variable usage collector and expression visitor now run on explicit stacks (no recursion). (2025-09-18, commit 2ae3bf4, perf n/a)
 - [x] Call graph AST traversal and cycle detection converted to iterative algorithms. (2025-09-18, commit 2ae3bf4, perf n/a)
+- [x] AST traversal helpers (`traverse_preorder`/`traverse_postorder`) rewritten to explicit stack walkers; existing public entry points now iterate internally. (2025-09-18, commit f5d10d3, perf n/a)
 - [ ] CFG builder (`cfg_builder_control_handlers.f90`) still recursive; design for staged frame stack pending.
 - [ ] Control-flow analyzer plugin continues to recurse through AST while building CFG snapshots.
 - [ ] Standardizer/semantic helpers (e.g., `standardize_ast`, `collect_identifiers_recursive` call proxies) need auditing for residual recursion.
@@ -60,7 +61,7 @@
 ## Challenges
 - CFG handlers mutate shared builder state (`builder%current_block_id`, buffered statements, block IDs) mid-call; iterative rewrite requires explicit frame records capturing pending continuations, temporary IDs, and branch metadata.
 - Control-flow analyzer currently assumes recursive CFG construction; refactor must expose an iterative API without breaking existing analyzer contracts.
-- Remaining semantic/standardizer utilities reuse AST traversal helpers that still rely on `traverse_preorder` recursion; must introduce stack-based alternatives and retire recursive entry points.
+- Remaining semantic/standardizer utilities reuse AST traversal helpers that still rely on `traverse_preorder` recursion; must introduce stack-based alternatives and retire recursive entry points. (Updated: core traversal helpers now iterative as of 2025-09-18, commit f5d10d3; dependent modules pending.)
 
 ## Plan of Record
 1. **Design Iterative CFG Frame Model**
@@ -80,7 +81,7 @@
 
 4. **Audit Remaining Semantic/Standardizer Recursion**
    - [ ] Identify and replace recursive helpers in standardizer modules (`standardize_ast`, declaration walkers) with the shared stack utilities.
-   - [ ] Migrate AST traversal call sites to iterative variants (optionally move legacy recursive procedures behind compatibility wrappers slated for removal).
+   - [x] Migrate AST traversal call sites to iterative variants (optionally move legacy recursive procedures behind compatibility wrappers slated for removal). (2025-09-18, commit f5d10d3, perf n/a)
    - [ ] Update docs/tests to reflect the new traversal utilities and deprecate recursive entry points.
 
 5. **Validation & Rollout**
