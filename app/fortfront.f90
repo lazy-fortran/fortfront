@@ -2,6 +2,7 @@ program fortfront_cli
     use iso_fortran_env, only: input_unit, output_unit, error_unit, iostat_end
     use frontend, only: transform_lazy_fortran_string
     use debug_trace, only: trace_init, trace_enter, trace_leave
+    use slow_path_config, only: initialize_slow_path_from_env, set_slow_path_enabled
     implicit none
     
     character(len=:), allocatable :: input_text, output_text, error_msg
@@ -9,7 +10,7 @@ program fortfront_cli
     character(len=4096) :: buffer
     integer :: io_stat, total_size, capacity, file_unit
     integer :: alloc_stat
-    integer :: num_args, arg_len
+    integer :: num_args, arg_len, i
     integer, parameter :: MAX_INPUT_SIZE = 10485760  ! 10MB safety limit
     integer, parameter :: INITIAL_CAPACITY = 8192
     integer, parameter :: EXIT_SUCCESS = 0
@@ -17,6 +18,7 @@ program fortfront_cli
     logical :: from_file, show_help, show_version
     logical :: trace_enabled
     character(len=:), allocatable :: trace_file_path
+    logical :: slow_path_override, slow_path_value
     trace_enabled = .true.
     trace_file_path = 'cli_trace.txt'
     block
@@ -37,42 +39,62 @@ program fortfront_cli
     show_help = .false.
     show_version = .false.
     from_file = .false.
-    
+    slow_path_override = .false.
+    slow_path_value = .false.
+    call initialize_slow_path_from_env()
+
     ! Handle command line arguments
     if (num_args > 0) then
-        call get_command_argument(1, length=arg_len)
-        allocate(character(len=arg_len) :: arg_str, stat=alloc_stat)
-        if (alloc_stat /= 0) then
-            write(error_unit, '(A,I0)') 'Memory allocation failed for command argument (stat=', alloc_stat, ')'
-            stop EXIT_FAILURE
-        end if
-        call get_command_argument(1, value=arg_str)
-        
-        if (arg_str == "--help" .or. arg_str == "-h") then
-            show_help = .true.
-        else if (arg_str == "--version" .or. arg_str == "-v") then
-            show_version = .true.
-        else if ((len(arg_str) >= 2 .and. arg_str(1:2) == "--") .or. &
-                 (len(arg_str) >= 1 .and. arg_str(1:1) == "-")) then
-            ! Unknown flag - provide helpful error
-            write(error_unit, '(A,A)') 'Error: Unknown option ', trim(arg_str)
-            write(error_unit, '(A)') ''
-            write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
-            stop EXIT_FAILURE
-        else
-            ! Treat as filename
-            from_file = .true.
-            filename = arg_str
-        end if
-        
-        ! Check for multiple arguments (not supported)
-        if (num_args > 1 .and. .not. show_help .and. .not. show_version) then
-            write(error_unit, '(A)') 'Error: Multiple arguments not supported.'
-            write(error_unit, '(A)') 'fortfront processes one file at a time or reads from stdin.'
-            write(error_unit, '(A)') ''
-            write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
-            stop EXIT_FAILURE
-        end if
+        do i = 1, num_args
+            call get_command_argument(i, length=arg_len)
+            allocate(character(len=arg_len) :: arg_str, stat=alloc_stat)
+            if (alloc_stat /= 0) then
+                write(error_unit, '(A,I0)') 'Memory allocation failed for command argument (stat=', alloc_stat, ')'
+                stop EXIT_FAILURE
+            end if
+            call get_command_argument(i, value=arg_str)
+
+            select case (trim(arg_str))
+            case ('--help', '-h')
+                show_help = .true.
+            case ('--version', '-v')
+                show_version = .true.
+            case ('--enable-slow-path')
+                slow_path_override = .true.
+                slow_path_value = .true.
+            case ('--disable-slow-path')
+                slow_path_override = .true.
+                slow_path_value = .false.
+            case default
+                if ((len(arg_str) >= 1 .and. arg_str(1:1) == '-')) then
+                    write(error_unit, '(A,A)') 'Error: Unknown option ', trim(arg_str)
+                    write(error_unit, '(A)') ''
+                    write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
+                    stop EXIT_FAILURE
+                end if
+
+                if (from_file) then
+                    write(error_unit, '(A)') 'Error: Multiple input files not supported.'
+                    write(error_unit, '(A)') 'fortfront processes one file at a time or reads from stdin.'
+                    write(error_unit, '(A)') ''
+                    write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
+                    stop EXIT_FAILURE
+                end if
+
+                from_file = .true.
+                filename = arg_str
+            end select
+
+            deallocate(arg_str, stat=alloc_stat)
+            if (alloc_stat /= 0) then
+                write(error_unit, '(A,I0)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
+                stop EXIT_FAILURE
+            end if
+        end do
+    end if
+
+    if (slow_path_override) then
+        call set_slow_path_enabled(slow_path_value)
     end if
     
     ! Handle help option
@@ -88,6 +110,8 @@ program fortfront_cli
         write(output_unit, '(A)') 'OPTIONS:'
         write(output_unit, '(A)') '    -h, --help     Show this help message'
         write(output_unit, '(A)') '    -v, --version  Show version information'
+        write(output_unit, '(A)') '    --enable-slow-path   Enable optional analyzer passes'
+        write(output_unit, '(A)') '    --disable-slow-path  Disable optional analyzer passes'
         write(output_unit, '(A)') ''
         write(output_unit, '(A)') 'EXAMPLES:'
         write(output_unit, '(A)') '    fortfront input.lf        # Transpile file'

@@ -23,6 +23,8 @@ module frontend_transformation
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
     use debug_trace, only: trace_init, trace_enter, trace_leave
+    use slow_path_config, only: initialize_slow_path_from_env, is_slow_path_enabled
+    use slow_path_analyzers, only: clear_slow_path_results, run_slow_path_analyzers
 
     implicit none
     private
@@ -170,6 +172,8 @@ contains
         error_msg = ""
 
         call profile_state_init(profile)
+        call initialize_slow_path_from_env()
+        call clear_slow_path_results()
 
         call profile_stage_begin(profile, 'setup:trace_init')
         call trace_init()
@@ -534,6 +538,10 @@ contains
                 call create_minimal_program(output)
             end if
             return  ! Error message already set, output generated
+        end if
+
+        if (is_slow_path_enabled()) then
+            call run_slow_path_analyzers(compiler_arena%ast, prog_index)
         end if
 
         ! Phase 4: Standardization

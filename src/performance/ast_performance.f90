@@ -13,6 +13,7 @@
 !> @author Generated with Claude Code
 !> @version 1.0
 !> @since Issue #15 - Performance optimization implementation
+! @slow-path
 module ast_performance_module
     use iso_fortran_env, only: error_unit
     use ast_core

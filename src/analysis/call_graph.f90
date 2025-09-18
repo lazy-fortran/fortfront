@@ -1,3 +1,4 @@
+! @slow-path
 module call_graph_module
     use, intrinsic :: iso_fortran_env, only: error_unit
     use ast_core, only: ast_arena_t, program_node, assignment_node, &
