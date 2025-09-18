@@ -82,7 +82,7 @@
 4. **Audit Remaining Semantic/Standardizer Recursion**
    - [ ] Identify and replace recursive helpers in standardizer modules (`standardize_ast`, declaration walkers) with the shared stack utilities.
    - [x] Migrate AST traversal call sites to iterative variants (optionally move legacy recursive procedures behind compatibility wrappers slated for removal). (2025-09-18, commit f5d10d3, perf n/a)
-   - [ ] Update docs/tests to reflect the new traversal utilities and deprecate recursive entry points.
+   - [ ] Update docs/tests to reflect the new traversal utilities and deprecate recursive entry points (call-graph demo/tests already culled in 8faf2a1).
 
 5. **Validation & Rollout**
    - [ ] Maintain tests green after each stage (`make test`, `RUN_SYSTEM_TESTS=1 fpm test`); add Windows-focused pipeline runs before merging.
