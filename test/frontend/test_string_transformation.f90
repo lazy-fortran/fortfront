@@ -50,7 +50,20 @@ program test_string_transformation
     end if
     
 contains
-    
+
+    logical function contains_without_spaces(text, pattern)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        character(len=:), allocatable :: compressed
+        integer :: i
+
+        compressed = ''
+        do i = 1, len_trim(text)
+            if (text(i:i) /= ' ') compressed = compressed // text(i:i)
+        end do
+        contains_without_spaces = index(compressed, pattern) > 0
+    end function contains_without_spaces
+
     subroutine test_hello_world()
         character(len=:), allocatable :: output, error_msg
         logical :: success
@@ -152,8 +165,8 @@ contains
         
         ! Expect no errors and both assignments preserved in output
         success = (len_trim(error_msg) == 0) .and. &
-                  (index(output, "s = 'a' // 'b'") > 0) .and. &
-                  (index(output, "t = s // 'c'") > 0)
+                  contains_without_spaces(output, "s='a'//'b'") .and. &
+                  contains_without_spaces(output, "t=s//'c'")
         
         call test_result(success)
         if (.not. success) then
@@ -178,7 +191,7 @@ contains
         
         ! Ensure integer declaration remains and character handling applies only to strings
         success = (len_trim(error_msg) == 0) .and. &
-                  (index(output, "integer :: n") > 0)
+                  contains_without_spaces(output, "integer::n")
         
         call test_result(success)
         if (.not. success) then
@@ -232,10 +245,10 @@ contains
         call transform_lazy_fortran_string(input, output, error_msg)
         
         success = (len_trim(error_msg) == 0) .and. &
-                  (index(output, "result = ") > 0) .and. &
-                  (index(output, "integer :: x") > 0) .and. &
+                  contains_without_spaces(output, "result=(x*2+y)/3.0d0") .and. &
+                  contains_without_spaces(output, "integer::x") .and. &
                   (index(output, "real") > 0) .and. &
-                  (index(output, "real(8) :: result") > 0)
+                  contains_without_spaces(output, "real(8)::result")
         
         call test_result(success)
         if (.not. success) then

@@ -52,7 +52,7 @@ contains
                     
                     if (has_initializer .and. .not. has_comma) then
                         ! Single variable with initializer - use parse_declaration
-                        allocate (stmt_indices(1))
+                        if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
                         stmt_indices(1) = parse_declaration(parser, arena)
                         return
                     else
@@ -65,7 +65,7 @@ contains
         end if
 
         ! For all other statements, parse as single statement
-        allocate (stmt_indices(1))
+        if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
         stmt_index = 0
 
         ! Handle different statement types (excluding control flow to avoid circular deps)
@@ -133,27 +133,51 @@ contains
         ! If we couldn't parse it, create a placeholder with debug info
         if (stmt_index == 0) then
             block
+                logical :: is_terminator
+                character(len=:), allocatable :: lowered
                 character(len=256) :: debug_msg
                 character(len=64) :: token_text
                 integer :: debug_len, i
 
-                debug_msg = "! Unparsed: "
-                debug_len = len_trim(debug_msg)
-
-                ! Add first few tokens for debugging
-                do i = 1, min(3, size(tokens))
-                    if (tokens(i)%kind == TK_EOF) exit
-                    if (len_trim(tokens(i)%text) > 0) then
-                        token_text = trim(tokens(i)%text)
-                        if (debug_len + len_trim(token_text) + 1 < 250) then
-                            debug_msg = debug_msg(1:debug_len)//" "//trim(token_text)
-                            debug_len = len_trim(debug_msg)
+                is_terminator = .false.
+                if (first_token%kind == TK_KEYWORD) then
+                    lowered = to_lower(first_token%text)
+                    select case (lowered)
+                    case ("else", "elseif")
+                        is_terminator = .true.
+                    case ("end")
+                        if (size(tokens) >= 2) then
+                            select case (to_lower(tokens(2)%text))
+                            case ("if", "do", "select", "where", "forall")
+                                is_terminator = .true.
+                            end select
+                        else
+                            is_terminator = .true.
                         end if
-                    end if
-                end do
+                    case ("endif", "enddo", "endselect")
+                        is_terminator = .true.
+                    end select
+                end if
 
-                stmt_index = push_literal(arena, trim(debug_msg), LITERAL_STRING, &
-                                          first_token%line, first_token%column)
+                if (.not. is_terminator) then
+                    debug_msg = "! Unparsed: "
+                    debug_len = len_trim(debug_msg)
+
+                    ! Add first few tokens for debugging
+                    do i = 1, min(3, size(tokens))
+                        if (tokens(i)%kind == TK_EOF) exit
+                        if (len_trim(tokens(i)%text) > 0) then
+                            token_text = trim(tokens(i)%text)
+                            if (debug_len + len_trim(token_text) + 1 < 250) then
+                                debug_msg = debug_msg(1:debug_len)//" "//trim(token_text)
+                                debug_len = len_trim(debug_msg)
+                            end if
+                        end if
+                    end do
+
+                    stmt_index = push_literal(arena, trim(debug_msg), LITERAL_STRING, &
+                                              first_token%line, first_token%column)
+                end if
             end block
         end if
 
@@ -458,7 +482,28 @@ contains
                     parser%current_token = stmt_start
                     exit  ! Exit the main body parsing loop
                 end if
-                
+
+                ! After skipping leading delimiters, bail out if we hit a terminator
+                token = parser%tokens(stmt_start)
+                if (token%kind == TK_KEYWORD) then
+                    select case (token%text)
+                    case ("else", "elseif", "else if", "endif", "end if")
+                        parser%current_token = stmt_start
+                        exit  ! Let caller handle control-flow keyword
+                    case ("end")
+                        if (stmt_start + 1 <= size(parser%tokens)) then
+                            if (parser%tokens(stmt_start + 1)%kind == TK_KEYWORD .and. &
+                                parser%tokens(stmt_start + 1)%text == "if") then
+                                parser%current_token = stmt_start
+                                exit
+                            end if
+                        else
+                            parser%current_token = stmt_start
+                            exit
+                        end if
+                    end select
+                end if
+
                 stmt_end = stmt_start
 
                 ! Find end of current statement (handle multi-line properly)

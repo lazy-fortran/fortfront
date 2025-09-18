@@ -15,18 +15,6 @@ module semantic_undefined_variable_checker
 
     public :: check_undefined_variables_generic
 
-    ! Generic interface to work with any context type that has scopes and errors
-    abstract interface
-        subroutine check_undefined_vars_interface(scopes, errors, strict_mode, arena, prog_index)
-            import :: scope_stack_t, error_collection_t, ast_arena_t
-            type(scope_stack_t), intent(inout) :: scopes
-            type(error_collection_t), intent(inout) :: errors  
-            logical, intent(in) :: strict_mode
-            type(ast_arena_t), intent(inout) :: arena
-            integer, intent(in) :: prog_index
-        end subroutine
-    end interface
-
 contains
 
     ! Generic implementation that works with any context type
@@ -45,96 +33,124 @@ contains
     end subroutine check_undefined_variables_generic
     
     ! Recursive helper to traverse AST and detect undefined variables
-    recursive subroutine traverse_for_undefined_variables(scopes, errors, arena, node_index)
+    subroutine traverse_for_undefined_variables(scopes, errors, arena, node_index)
         type(scope_stack_t), intent(inout) :: scopes
         type(error_collection_t), intent(inout) :: errors
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
+
+        type node_stack_entry
+            integer :: idx = 0
+        end type node_stack_entry
+
+        type(node_stack_entry), allocatable :: stack(:)
+        integer :: top, capacity
         type(poly_type_t), allocatable :: scheme
         type(result_t) :: error_result
-        integer :: i
-        
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
-        
-        select type (node => arena%entries(node_index)%node)
-        type is (identifier_node)
-            ! Skip empty/unallocated identifiers
-            if (.not. allocated(node%name) .or. len_trim(node%name) == 0) return
-            
-            ! Check if identifier is defined in scope
-            call scopes%lookup(node%name, scheme)
-            if (.not. allocated(scheme)) then
-                ! Best-effort: if declared somewhere in program, treat as declared
-                if (is_declared_in_arena(arena, node%name)) then
-                    call define_from_arena(scopes, arena, node%name)
-                    return
+        integer :: current_index, i
+
+        capacity = 64
+        allocate(stack(capacity))
+        top = 0
+
+        call push(node_index)
+
+        do while (top > 0)
+            current_index = pop()
+            if (current_index <= 0 .or. current_index > arena%size) cycle
+            if (.not. allocated(arena%entries(current_index)%node)) cycle
+
+            select type (node => arena%entries(current_index)%node)
+            type is (identifier_node)
+                if (.not. allocated(node%name) .or. len_trim(node%name) == 0) cycle
+                call scopes%lookup(node%name, scheme)
+                if (.not. allocated(scheme)) then
+                    if (is_declared_in_arena(arena, node%name)) then
+                        call define_from_arena(scopes, arena, node%name)
+                        cycle
+                    end if
+                    error_result = create_error_result( &
+                        "Undefined variable '" // node%name // "'", &
+                        ERROR_SEMANTIC, &
+                        component="semantic_analyzer", &
+                        context="check_undefined_variables", &
+                        suggestion="Declare the variable before using it or remove 'implicit none'" &
+                    )
+                    call errors%add_result(error_result)
                 end if
-                ! Undefined variable found - create semantic error
-                error_result = create_error_result( &
-                    "Undefined variable '" // node%name // "'", &
-                    ERROR_SEMANTIC, &
-                    component="semantic_analyzer", &
-                    context="check_undefined_variables", &
-                    suggestion="Declare the variable before using it or remove 'implicit none'" &
-                )
-                call errors%add_result(error_result)
+
+            type is (program_node)
+                if (allocated(node%body_indices)) then
+                    do i = size(node%body_indices), 1, -1
+                        call push(node%body_indices(i))
+                    end do
+                end if
+
+            type is (binary_op_node)
+                call push(node%right_index)
+                call push(node%left_index)
+
+            type is (assignment_node)
+                call push(node%value_index)
+                call push(node%target_index)
+
+            type is (call_or_subscript_node)
+                if (allocated(node%arg_indices)) then
+                    do i = size(node%arg_indices), 1, -1
+                        call push(node%arg_indices(i))
+                    end do
+                end if
+
+            type is (array_literal_node)
+                if (allocated(node%element_indices)) then
+                    do i = size(node%element_indices), 1, -1
+                        call push(node%element_indices(i))
+                    end do
+                end if
+
+            type is (if_node)
+                if (allocated(node%else_body_indices)) then
+                    do i = size(node%else_body_indices), 1, -1
+                        call push(node%else_body_indices(i))
+                    end do
+                end if
+                if (allocated(node%then_body_indices)) then
+                    do i = size(node%then_body_indices), 1, -1
+                        call push(node%then_body_indices(i))
+                    end do
+                end if
+                call push(node%condition_index)
+
+            class default
+                cycle
+            end select
+        end do
+
+    contains
+
+        subroutine push(idx)
+            integer, intent(in) :: idx
+            type(node_stack_entry), allocatable :: temp(:)
+            if (idx <= 0) return
+            if (top >= capacity) then
+                allocate(temp(capacity*2))
+                if (capacity > 0) temp(1:capacity) = stack(1:capacity)
+                call move_alloc(temp, stack)
+                capacity = size(stack)
             end if
-            
-        type is (program_node)
-            ! Traverse program body
-            if (allocated(node%body_indices)) then
-                do i = 1, size(node%body_indices)
-                    call traverse_for_undefined_variables(scopes, errors, arena, node%body_indices(i))
-                end do
+            top = top + 1
+            stack(top)%idx = idx
+        end subroutine push
+
+        integer function pop()
+            if (top <= 0) then
+                pop = 0
+            else
+                pop = stack(top)%idx
+                top = top - 1
             end if
-            
-        type is (binary_op_node)
-            ! Traverse both operands
-            call traverse_for_undefined_variables(scopes, errors, arena, node%left_index)
-            call traverse_for_undefined_variables(scopes, errors, arena, node%right_index)
-            
-        type is (assignment_node)
-            ! Traverse both sides of assignment
-            call traverse_for_undefined_variables(scopes, errors, arena, node%target_index)
-            call traverse_for_undefined_variables(scopes, errors, arena, node%value_index)
-            
-        type is (call_or_subscript_node)
-            ! Traverse function arguments
-            if (allocated(node%arg_indices)) then
-                do i = 1, size(node%arg_indices)
-                    call traverse_for_undefined_variables(scopes, errors, arena, node%arg_indices(i))
-                end do
-            end if
-            
-        type is (array_literal_node)
-            ! Traverse array elements
-            if (allocated(node%element_indices)) then
-                do i = 1, size(node%element_indices)
-                    call traverse_for_undefined_variables(scopes, errors, arena, node%element_indices(i))
-                end do
-            end if
-            
-        type is (if_node)
-            ! Traverse if statement condition and branches
-            if (node%condition_index > 0) then
-                call traverse_for_undefined_variables(scopes, errors, arena, node%condition_index)
-            end if
-            if (allocated(node%then_body_indices)) then
-                do i = 1, size(node%then_body_indices)
-                    call traverse_for_undefined_variables(scopes, errors, arena, node%then_body_indices(i))
-                end do
-            end if
-            if (allocated(node%else_body_indices)) then
-                do i = 1, size(node%else_body_indices)
-                    call traverse_for_undefined_variables(scopes, errors, arena, node%else_body_indices(i))
-                end do
-            end if
-            
-        class default
-            ! For other node types, no traversal needed or implement as needed
-            continue
-        end select
+        end function pop
+
     end subroutine traverse_for_undefined_variables
 
     ! Helper: check if a name is declared by any declaration_node in the arena

@@ -26,7 +26,26 @@ program test_cli_integration
     
     ! Pre-build fortfront to ensure it exists before testing
     print *, "Building fortfront executable..."
-    call execute_command_line(timeout_wrapper('60') // 'fpm build', exitstat=test_count)
+    block
+        character(len=:), allocatable :: build_command
+        integer :: clean_status
+
+        ! Ensure we do not reuse a cached executable without the stack flag.
+        ! Only remove previously built CLI binaries so test artifacts remain intact
+        if (is_windows) then
+            call execute_command_line( &
+                'cmd /C if exist build (for /d %d in (build\gfortran_*) do ' // &
+                'if exist "%d\app" rmdir /S /Q "%d\app")', exitstat=clean_status)
+        else
+            call execute_command_line( &
+                'sh -lc ''if [ -d build ]; then find build -maxdepth 2 -type d -name app -exec rm -rf {} +; fi''', &
+                exitstat=clean_status)
+        end if
+
+        build_command = timeout_wrapper('60') // 'fpm build'
+        if (is_windows) build_command = build_command // ' --flag "-Wl,--stack,16777216"'
+        call execute_command_line(build_command, exitstat=test_count)
+    end block
     if (test_count /= 0) then
         print *, "SKIPPING: Failed to build fortfront executable (exit code:", test_count, ")"
         print *, "This may indicate CI environment issues or missing build dependencies"
@@ -37,6 +56,11 @@ program test_cli_integration
     
     ! Test 1: Basic CLI I/O works
     call test_basic_io()
+    
+    ! Test 1b (Linux-only): Basic CLI I/O with CRLF to mimic Windows text input
+    if (.not. is_windows) then
+        call test_basic_io_crlf()
+    end if
     
     ! Test 2: Error handling works
     call test_error_handling()
@@ -52,6 +76,11 @@ program test_cli_integration
 
     ! Test 3: Empty input handling
     call test_empty_input()
+
+    ! Windows-only: also exercise pipe-based stdin to detect pipe-specific issues
+    if (is_windows) then
+        call test_basic_io_windows_pipe()
+    end if
     
     print *, ""
     print *, "=== Test Summary ==="
@@ -371,12 +400,172 @@ contains
             print *, "  Failed to run basic CLI command"
             print *, "  Executable path: ", executable_path
             print *, "  Exit code: ", run_status
+            ! Dump captured stderr for diagnostics (Windows and POSIX)
+            open(unit=98, file='test_error.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                do
+                    read(98, '(A)', end=199, iostat=exit_code) err_line
+                    if (exit_code /= 0) exit
+                    if (len_trim(err_line) > 0) then
+                        print *, '  TRACE: ', trim(err_line)
+                    end if
+                end do
+199             close(98)
+            end if
         end if
     end subroutine test_basic_io
+
+    ! POSIX-only: simulate Windows-style CRLF input through stdin piping
+    subroutine test_basic_io_crlf()
+        integer :: exit_code, run_status
+        character(len=256) :: output_line, err_line
+        character(len=512) :: command
+        character(len=:), allocatable :: executable_path
+        logical :: success
+
+        if (is_windows) return
+
+        call test_start("Basic CLI I/O (CRLF via stdin)")
+
+        ! Find the fortfront executable
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+
+        ! Prepare a CRLF-ended input file (convert from LF)
+        call write_text_file('test_input_crlf_src.lf', 'print *, ''test''' // new_line('a'))
+        call execute_command_line('bash -lc "sed ''s/$/\\r/'' test_input_crlf_src.lf > test_input_crlf.lf"', &
+                                  exitstat=exit_code)
+        if (exit_code /= 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Failed to prepare CRLF test input"
+            return
+        end if
+
+        ! Pipe CRLF input to the executable
+        command = build_pipe_command(executable_path, 'test_input_crlf.lf', &
+                                     'test_output_crlf.txt', 'test_error_crlf.txt', .false.)
+        call execute_command_line(command, exitstat=run_status)
+
+        success = (run_status == 0)
+
+        if (success) then
+            ! Verify expected output and empty stderr
+            open(unit=14, file='test_output_crlf.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                success = .false.
+                do
+                    read(14, '(A)', end=110, iostat=exit_code) output_line
+                    if (exit_code /= 0) exit
+                    if (index(output_line, 'program main') > 0) then
+                        success = .true.
+                        exit
+                    end if
+                end do
+110             close(14)
+
+                open(unit=15, file='test_error_crlf.txt', status='old', action='read', iostat=exit_code)
+                if (exit_code == 0) then
+                    do
+                        read(15, '(A)', end=111, iostat=exit_code) err_line
+                        if (exit_code /= 0) exit
+                        if (len_trim(err_line) > 0) then
+                            success = .false.
+                            exit
+                        end if
+                    end do
+111                 close(15)
+                end if
+            else
+                success = .false.
+            end if
+        end if
+
+        ! Cleanup
+        call cleanup_file('test_input_crlf_src.lf')
+        call cleanup_file('test_input_crlf.lf')
+        call cleanup_file('test_output_crlf.txt')
+        call cleanup_file('test_error_crlf.txt')
+
+        call test_result(success)
+        if (.not. success) then
+            print *, "  CRLF stdin handling failed"
+            print *, "  Exit code: ", run_status
+        end if
+    end subroutine test_basic_io_crlf
+
+    ! Windows-only: exercise stdin pipe behavior explicitly
+    subroutine test_basic_io_windows_pipe()
+        integer :: run_status, exit_code
+        character(len=256) :: output_line, line
+        character(len=512) :: command
+        character(len=:), allocatable :: executable_path
+        logical :: success
+
+        if (.not. is_windows) return
+
+        call test_start("Basic CLI I/O (Windows pipe)")
+
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+
+        call write_text_file('test_input_pipe_win.lf', 'print *, ''test''' // new_line('a'))
+        command = build_pipe_command(executable_path, 'test_input_pipe_win.lf', &
+                                     'test_output_pipe_win.txt', 'test_error_pipe_win.txt', .true.)
+        call execute_command_line(command, exitstat=run_status)
+
+        success = (run_status == 0)
+        if (success) then
+            open(unit=16, file='test_output_pipe_win.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                success = .false.
+                do
+                    read(16, '(A)', end=120, iostat=exit_code) output_line
+                    if (exit_code /= 0) exit
+                    if (len_trim(output_line) > 0) then
+                        success = .true.
+                        exit
+                    end if
+                end do
+120             close(16)
+            else
+                success = .false.
+            end if
+        end if
+
+        call cleanup_file('test_input_pipe_win.lf')
+        call cleanup_file('test_output_pipe_win.txt')
+        call cleanup_file('test_error_pipe_win.txt')
+
+        call test_result(success)
+        if (.not. success) then
+            print *, "  Windows pipe CLI test failed"
+            print *, "  Exit code: ", run_status
+            open(unit=96, file='test_error_pipe_win.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                do
+                    read(96, '(A)', end=398, iostat=exit_code) line
+                    if (exit_code /= 0) exit
+                    if (len_trim(line) > 0) then
+                        print *, '  TRACE: ', trim(line)
+                    end if
+                end do
+398             close(96)
+            end if
+        end if
+    end subroutine test_basic_io_windows_pipe
     
     subroutine test_error_handling()
         integer :: exit_code, run_status
         character(len=512) :: command
+        character(len=256) :: line
         character(len=:), allocatable :: executable_path
         logical :: success
         
@@ -408,6 +597,17 @@ contains
         if (.not. success) then
             print *, "  Error handling failed"
             print *, "  Exit code: ", run_status
+            open(unit=97, file='test_error2.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                do
+                    read(97, '(A)', end=298, iostat=exit_code) line
+                    if (exit_code /= 0) exit
+                    if (len_trim(line) > 0) then
+                        print *, '  TRACE: ', trim(line)
+                    end if
+                end do
+298             close(97)
+            end if
         end if
     end subroutine test_error_handling
 
@@ -467,8 +667,7 @@ contains
 
         ! Run with a single dash; expect non-zero exit
         if (is_windows) then
-            command = 'cmd /C "' // executable_path // &
-                      ' - > test_output_dash.txt 2>test_error_dash.txt"'
+            command = 'cmd /C ""' // executable_path // '" - > test_output_dash.txt 2>test_error_dash.txt"'
         else
             command = timeout_wrapper('20') // executable_path // &
                       ' - > test_output_dash.txt 2>test_error_dash.txt'

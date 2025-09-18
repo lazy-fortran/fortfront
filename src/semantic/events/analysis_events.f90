@@ -49,16 +49,6 @@ module semantic_events
         integer :: parent_scope_index = 0
     end type
     
-    ! Event handler interface
-    abstract interface
-        subroutine event_handler_interface(event, context, arena)
-            import :: analysis_event_t, semantic_context_base_t, ast_arena_t
-            type(analysis_event_t), intent(inout) :: event
-            class(semantic_context_base_t), intent(inout) :: context
-            type(ast_arena_t), intent(inout) :: arena
-        end subroutine
-    end interface
-    
     ! Public procedures
     public :: validate_event
     public :: serialize_event

@@ -61,13 +61,13 @@ contains
             if (iostat /= 0) exit
             
             ! Check for correct precedence (remove any trailing whitespace/line endings)
-            if (index(trim(line), '3.14d0*r**2') > 0) then
+            if (contains_without_spaces(line, '3.14d0*r**2')) then
                 has_correct_precedence = .true.
                 print *, '  OK: Found correct precedence: ', trim(line)
             end if
             
             ! Check for wrong grouping that indicates the bug
-            if (index(trim(line), '(3.14d0*r) ** 2') > 0) then
+            if (contains_without_spaces(line, '(3.14d0*r)**2')) then
                 print *, '  FAIL: Found incorrect grouping: ', trim(line)
                 test_exponentiation_precedence = .false.
                 close(unit)
@@ -82,5 +82,18 @@ contains
         end if
         
     end function test_exponentiation_precedence
-    
+
+    logical function contains_without_spaces(text, pattern)
+        character(len=*), intent(in) :: text
+        character(len=*), intent(in) :: pattern
+        character(len=:), allocatable :: compressed
+        integer :: i
+
+        compressed = ''
+        do i = 1, len_trim(text)
+            if (text(i:i) /= ' ') compressed = compressed // text(i:i)
+        end do
+        contains_without_spaces = index(compressed, pattern) > 0
+    end function contains_without_spaces
+
 end program test_issue_212_exponentiation_precedence

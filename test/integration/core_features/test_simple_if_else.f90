@@ -32,6 +32,7 @@ program test_simple_if_else
         print *, "LEXING ERROR: ", error_msg
         stop 1
     end if
+
     
     arena = create_ast_arena()
     call parse_tokens(tokens, arena, prog_index, error_msg)

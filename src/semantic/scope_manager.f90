@@ -168,6 +168,16 @@ contains
             end block
         end if
 
+        block
+            integer :: j
+            do j = 1, this%env%count
+                if (this%env%names(j) == name) then
+                    this%env%schemes(j) = scheme
+                    return
+                end if
+            end do
+        end block
+
         this%env%count = this%env%count + 1
         this%env%names(this%env%count) = name
         this%env%schemes(this%env%count) = scheme

@@ -79,10 +79,10 @@ jobs:
 
     - name: Build and Test
       run: |
-        # Simulate Windows-limited stack on Linux to catch stack bugs
-        ulimit -s 1024 || true
+        # Simulate a smaller Windows-like stack on Linux to catch stack bugs
+        ulimit -s 512 || true
         make
-        ulimit -s 1024 || true
+        ulimit -s 512 || true
         RUN_SYSTEM_TESTS=1 make test
 
     # Code validation gate removed (redundant with test suite)
@@ -342,6 +342,45 @@ jobs:
           Write-Host "❌ GFortran not available: $_"
           exit 1
         }
+
+    - name: Windows smoke run (fortfront --version, hello example)
+      shell: pwsh
+      run: |
+        # Ensure fpm is on PATH for this step too
+        $env:PATH = "C:\tools\fpm;$env:PATH"
+        # Find fortfront.exe
+        $ff = Get-ChildItem -Recurse -Filter fortfront.exe -Path . | Where-Object { $_.FullName -match "\\app\\fortfront\.exe$" } | Select-Object -First 1
+        if ($ff) {
+          Write-Host "Running: $($ff.FullName) --version"
+          try {
+            & $ff.FullName --version 2>&1 | ForEach-Object { Write-Host $_ }
+            Write-Host "fortfront --version exited: $LASTEXITCODE"
+          } catch {
+            Write-Host "fortfront --version failed: $_"
+          }
+        } else {
+          Write-Host "fortfront.exe not found for smoke run"
+        }
+
+        # Find hello example
+        $hello = Get-ChildItem -Recurse -Filter hello.exe -Path . -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $hello) {
+          Write-Host "hello.exe not found; attempting to build and run via fpm"
+          try {
+            fpm build | Out-Host
+            fpm run --example hello | Out-Host
+          } catch {
+            Write-Host "fpm example run failed: $_"
+          }
+        } else {
+          Write-Host "Running example: $($hello.FullName)"
+          try {
+            & $hello.FullName 2>&1 | ForEach-Object { Write-Host $_ }
+            Write-Host "hello.exe exited: $LASTEXITCODE"
+          } catch {
+            Write-Host "hello.exe failed: $_"
+          }
+        }
         
         try {
           fpm --version
@@ -351,91 +390,36 @@ jobs:
           exit 1
         }
         
-        # Progressive Windows Build Validation
-        Write-Host "🎯 Progressive Windows Build Validation"
-        
-        # Stage 1: Ultra-conservative build
-        Write-Host "Stage 1: Ultra-conservative build (FRAUD RECOVERY)"
-        $env:OMP_NUM_THREADS = "1"  # Single-threaded for maximum stability
-        
-        $stage1_success = $false
+        Write-Host "🎯 Windows build and test"
+
         try {
-          fpm build 2>&1
-          Write-Host "✅ Stage 1: Ultra-conservative build successful"
-          $stage1_success = $true
+          Write-Host "Running fpm build"
+          fpm build --flag "-Wl,--stack,16777216" 2>&1 | ForEach-Object { Write-Host $_ }
         } catch {
-          Write-Host "❌ Stage 1: Ultra-conservative build failed: $_"
-        }
-        
-        # Stage 2: Standard build (only if Stage 1 succeeded)
-        $stage2_success = $false
-        if ($stage1_success) {
-          Write-Host "Stage 2: Standard Windows build"
-          try {
-            fpm build 2>&1
-            Write-Host "✅ Stage 2: Standard build successful"
-            $stage2_success = $true
-          } catch {
-            Write-Host "⚠️  Stage 2: Standard build failed, but Stage 1 succeeded"
-          }
-        }
-        
-        # Stage 3: Basic test validation (only if build succeeded)
-        $stage3_success = $false
-        if ($stage1_success -or $stage2_success) {
-          Write-Host "Stage 3: Basic test validation"
-          
-          # Try a simple diagnostic test with extended timeout
-          $timeout = 60  # 60 seconds max
-          $job = Start-Job -ScriptBlock {
-            try {
-              & fpm test test_minimal_bench 2>&1
-            } catch {
-              Write-Output "Test execution failed: $_"
-            }
-          }
-          
-          if (Wait-Job $job -Timeout $timeout) {
-            $result = Receive-Job $job
-            Remove-Job $job
-            Write-Host "✅ Stage 3: Basic test completed"
-            Write-Host $result
-            $stage3_success = $true
-          } else {
-            Stop-Job $job
-            Remove-Job $job
-            Write-Host "⚠️  Stage 3: Test timed out (expected in some cases)"
-          }
-        }
-        
-        # Build validation assessment
-        Write-Host "Build validation assessment:"
-        Write-Host "   Stage 1 (Ultra-conservative): $stage1_success"
-        Write-Host "   Stage 2 (Standard): $stage2_success"
-        Write-Host "   Stage 3 (Test validation): $stage3_success"
-        
-        # Success criteria: At least Stage 1 must succeed
-        if ($stage1_success) {
-          Write-Host "✅ SUCCESS: Windows build validation passed"
-          if ($stage2_success) {
-            Write-Host "🎆 BONUS: Standard build also successful"
-          }
-          if ($stage3_success) {
-            Write-Host "🎆 BONUS: Test validation also successful"
-          }
-          exit 0
-        } else {
-          Write-Host "❌ FAILURE: All Windows build attempts failed"
-          Write-Host "This indicates Windows CI issues"
+          Write-Host "❌ Windows build failed: $_"
           exit 1
         }
+
+        try {
+          Write-Host "Running fpm test"
+          fpm test --flag "-Wl,--stack,16777216" 2>&1 | ForEach-Object { Write-Host $_ }
+        } catch {
+          Write-Host "❌ Windows tests failed: $_"
+          exit 1
+        }
+
+    # Backtrace diagnostic temporarily removed due to workflow parse issues
 
     - name: Run tests (Windows)
       shell: pwsh
       env:
         RUN_SYSTEM_TESTS: '1'
+        FORTFRONT_TRACE: '1'
       run: |
         $env:PATH = "C:\\tools\\fpm;$env:PATH"
+        # Use absolute path for trace file to ensure we can read it later
+        $traceFile = Join-Path (Get-Location) 'cli_trace.txt'
+        $env:FORTFRONT_TRACE_FILE = $traceFile
         # Discover built fortfront.exe and pass to tests for robust CLI invocation
         $exe = Get-ChildItem -Recurse -Filter fortfront.exe -Path . | Where-Object { $_.FullName -match "\\app\\fortfront\.exe$" } | Select-Object -First 1
         if ($exe) {
@@ -444,7 +428,13 @@ jobs:
         } else {
           Write-Host "fortfront.exe not found via search; tests will fallback to internal discovery"
         }
-        fpm test
+        fpm test --flag "-Wl,--stack,16777216"
+        if (Test-Path $traceFile) {
+          Write-Host '--- CLI trace file (cli_trace.txt) ---'
+          Get-Content $traceFile | ForEach-Object { Write-Host $_ }
+        } else {
+          Write-Host 'cli_trace.txt not found'
+        }
 
     - name: Cleanup build cache and logs (Windows)
       if: always()

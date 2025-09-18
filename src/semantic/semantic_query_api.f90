@@ -9,7 +9,6 @@ module semantic_query_api
                              SCOPE_INTERFACE
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
-    use parameter_tracker, only: parameter_tracker_t
     use fortfront_types, only: symbol_info_t, symbol_reference_t
     use ast_core
     use ast_nodes_core, only: identifier_node
@@ -24,7 +23,7 @@ module semantic_query_api
     public :: SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, SYMBOL_UNKNOWN
     
     ! Direct query functions to avoid semantic_query_t instantiation (issue #196)
-    public :: is_identifier_defined_direct, get_unused_variables_direct
+    public :: is_identifier_defined_direct
     public :: get_symbols_in_scope_direct
 
     ! Symbol types
@@ -89,8 +88,6 @@ module semantic_query_api
         procedure :: get_symbol_type => query_get_symbol_type
         ! APIs from issue #14
         procedure :: get_symbols_in_scope => query_get_symbols_in_scope
-        procedure :: is_variable_used => query_is_variable_used
-        procedure :: get_unused_variables => query_get_unused_variables
         procedure :: get_identifier_type => query_get_identifier_type
         procedure :: is_identifier_defined => query_is_identifier_defined
     end type semantic_query_t
@@ -145,7 +142,7 @@ contains
         var_info%scope_name = get_current_scope_name(this%context%scopes)
         
         ! Check for parameter intent
-        var_info%intent = get_parameter_intent(this%context%param_tracker, var_name)
+        var_info%intent = ""
         
         success = .true.
     end function query_get_variable_info
@@ -394,14 +391,6 @@ contains
         end if
     end function get_parent_scope_name
 
-    function get_parameter_intent(tracker, param_name) result(intent_str)
-        type(parameter_tracker_t), intent(in) :: tracker
-        character(len=*), intent(in) :: param_name
-        character(len=:), allocatable :: intent_str
-        
-        intent_str = tracker%get_parameter_intent(param_name)
-    end function get_parameter_intent
-
     subroutine extract_function_signature(func_type, func_info)
         type(mono_type_t), intent(in) :: func_type
         type(function_info_t), intent(inout) :: func_info
@@ -494,69 +483,14 @@ contains
             symbols(i)%name = this%context%scopes%scopes(target_depth)%env%names(i)
             symbols(i)%type_info = this%context%instantiate( &
                 this%context%scopes%scopes(target_depth)%env%schemes(i))
-            symbols(i)%is_parameter = is_parameter_name( &
-                this%context%param_tracker, symbols(i)%name)
-            ! Check if symbol is used by searching for references
-            ! Basic usage tracking - assume defined symbols are used
-            symbols(i)%is_used = this%is_symbol_defined(symbols(i)%name)
+            symbols(i)%is_parameter = .false.
+            symbols(i)%is_used = .false.
+            symbols(i)%is_defined = .true.
+            symbols(i)%scope_level = target_depth
         end do
         
         success = .true.
     end function query_get_symbols_in_scope
-    
-    ! Check if variable is used anywhere in scope
-    function query_is_variable_used(this, var_name, scope_type) result(used)
-        class(semantic_query_t), intent(inout) :: this
-        character(len=*), intent(in) :: var_name
-        integer, intent(in) :: scope_type
-        logical :: used
-        
-        ! Check if variable is referenced in the semantic context
-        ! Basic usage check - return true if symbol is defined
-        used = this%is_symbol_defined(var_name)
-    end function query_is_variable_used
-    
-    ! Get all unused variables in scope
-    function query_get_unused_variables(this, scope_type, unused_vars) result(success)
-        class(semantic_query_t), intent(inout) :: this
-        integer, intent(in) :: scope_type
-        character(len=:), allocatable, intent(out) :: unused_vars(:)
-        logical :: success
-        type(symbol_info_t), allocatable :: all_symbols(:)
-        integer :: i, unused_count
-        
-        success = .false.
-        
-        ! Get all symbols in scope
-        if (.not. this%get_symbols_in_scope(scope_type, all_symbols)) return
-        
-        if (size(all_symbols) == 0) then
-            allocate(character(len=1) :: unused_vars(0))
-            success = .true.
-            return
-        end if
-        
-        ! Count unused variables
-        unused_count = 0
-        do i = 1, size(all_symbols)
-            if (.not. this%is_variable_used(all_symbols(i)%name, scope_type)) then
-                unused_count = unused_count + 1
-            end if
-        end do
-        
-        ! Allocate and populate unused variables array
-        allocate(character(len=256) :: unused_vars(unused_count))
-        unused_count = 0
-        
-        do i = 1, size(all_symbols)
-            if (.not. this%is_variable_used(all_symbols(i)%name, scope_type)) then
-                unused_count = unused_count + 1
-                unused_vars(unused_count) = all_symbols(i)%name
-            end if
-        end do
-        
-        success = .true.
-    end function query_get_unused_variables
     
     ! Get resolved type for identifier
     function query_get_identifier_type(this, identifier_name, type_info) result(success)
@@ -587,15 +521,6 @@ contains
         defined = this%is_symbol_defined(identifier_name)
     end function query_is_identifier_defined
     
-    ! Helper function to check if name is a parameter
-    function is_parameter_name(tracker, param_name) result(is_param)
-        type(parameter_tracker_t), intent(in) :: tracker
-        character(len=*), intent(in) :: param_name
-        logical :: is_param
-        
-        is_param = tracker%is_parameter(param_name)
-    end function is_parameter_name
-
     ! ===== DIRECT QUERY FUNCTIONS (RECOMMENDED APPROACH) =====
     ! These functions provide the recommended way to query semantic information.
     ! They avoid the deep copy issues of semantic_query_t and should be used
@@ -628,43 +553,6 @@ contains
         builtin_type = context%get_builtin_function_type(identifier_name)
         defined = (builtin_type%kind /= 0)
     end function is_identifier_defined_direct
-    
-    ! Direct function to get unused variables (issue #196)  
-    function get_unused_variables_direct(arena, context, scope_type, &
-                                          unused_vars) result(success)
-        type(ast_arena_t), intent(in) :: arena
-        type(semantic_context_t), intent(inout) :: context
-        integer, intent(in) :: scope_type
-        character(len=:), allocatable, intent(out) :: unused_vars(:)
-        logical :: success
-        type(symbol_info_t), allocatable :: all_symbols(:)
-        integer :: i, unused_count
-        
-        success = .false.
-        
-        ! Get all symbols in scope
-        if (.not. get_symbols_in_scope_direct(arena, context, scope_type, &
-                                               all_symbols)) return
-        
-        if (size(all_symbols) == 0) then
-            allocate(character(len=1) :: unused_vars(0))
-            success = .true.
-            return
-        end if
-        
-        ! For now, assume all variables are unused (usage tracking not implemented yet)
-        ! This matches the behavior of the semantic_query_t version
-        unused_count = size(all_symbols)
-        
-        ! Allocate and populate unused variables array
-        allocate(character(len=256) :: unused_vars(unused_count))
-        
-        do i = 1, unused_count
-            unused_vars(i) = all_symbols(i)%name
-        end do
-        
-        success = .true.
-    end function get_unused_variables_direct
     
     ! Direct function to get symbols in scope (issue #196)
     function get_symbols_in_scope_direct(arena, context, scope_type, &
@@ -707,11 +595,10 @@ contains
             symbols(i)%name = context%scopes%scopes(target_depth)%env%names(i)
             symbols(i)%type_info = context%instantiate( &
                 context%scopes%scopes(target_depth)%env%schemes(i))
-            symbols(i)%is_parameter = is_parameter_name( &
-                context%param_tracker, symbols(i)%name)
-            ! Check if symbol is used by searching for references
-            ! Basic usage tracking - assume defined symbols are used
-            symbols(i)%is_used = this%is_symbol_defined(symbols(i)%name)
+            symbols(i)%is_parameter = .false.
+            symbols(i)%is_used = .false.
+            symbols(i)%is_defined = .true.
+            symbols(i)%scope_level = target_depth
         end do
         
         success = .true.

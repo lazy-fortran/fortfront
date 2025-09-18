@@ -133,12 +133,20 @@ contains
             if (left_paren) left_code = "(" // left_code // ")"
             if (right_paren) right_code = "(" // right_code // ")"
 
+            if (trim(fortran_operator) == '.not.' .and. len_trim(left_code) == 0) then
+                if (len_trim(right_code) > 0) then
+                    code = trim(fortran_operator) // ' ' // right_code
+                else
+                    code = trim(fortran_operator)
+                end if
+                return
+            end if
+
             select case (trim(fortran_operator))
             case ('*','/','**')
-                ! For multiplication, division, and exponentiation, no spaces per style/tests
+                ! Maintain compact form for high-precedence arithmetic
                 code = left_code // fortran_operator // right_code
             case default
-                ! For all other operators, include spaces around
                 code = left_code // " " // fortran_operator // " " // right_code
             end select
         else
@@ -170,6 +178,7 @@ contains
         ! Base expression (e.g., array or variable name)
         if (node%base_expr_index > 0) then
             base_code = generate_code_from_arena(arena, node%base_expr_index)
+            base_code = trim(adjustl(base_code))
         else
             base_code = ""
         end if
@@ -177,6 +186,7 @@ contains
         ! Start index (optional)
         if (node%start_index > 0) then
             start_code = generate_code_from_arena(arena, node%start_index)
+            start_code = trim(adjustl(start_code))
         else
             start_code = ""
         end if
@@ -184,6 +194,7 @@ contains
         ! End index (optional)
         if (node%end_index > 0) then
             end_code = generate_code_from_arena(arena, node%end_index)
+            end_code = trim(adjustl(end_code))
         else
             end_code = ""
         end if
@@ -203,10 +214,11 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: args_code
+        character(len=:), allocatable :: arg_code
         integer :: i
 
         if (allocated(node%name)) then
-            code = node%name
+            code = trim(node%name)
         else
             code = "unknown"
         end if
@@ -217,7 +229,8 @@ contains
             do i = 1, size(node%arg_indices)
                 if (i > 1) args_code = args_code // ", "
                 if (node%arg_indices(i) > 0) then
-                    args_code = args_code // generate_code_from_arena(arena, node%arg_indices(i))
+                    arg_code = generate_code_from_arena(arena, node%arg_indices(i))
+                    args_code = args_code // trim(arg_code)
                 end if
             end do
             code = code // "(" // args_code // ")"
@@ -229,14 +242,15 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: element_indices(:)
         character(len=:), allocatable :: elements_code
+        character(len=:), allocatable :: element_code
         integer :: i
         
         elements_code = ""
         do i = 1, size(element_indices)
             if (i > 1) elements_code = elements_code // ", "
             if (element_indices(i) > 0) then
-                elements_code = elements_code // &
-                    generate_code_from_arena(arena, element_indices(i))
+                element_code = generate_code_from_arena(arena, element_indices(i))
+                elements_code = elements_code // trim(element_code)
             end if
         end do
     end function generate_elements_code_from_indices
@@ -255,6 +269,7 @@ contains
             if (i > 1) elements_code = elements_code // ", "
             if (element_indices(i) > 0) then
                 elem_code = generate_code_from_arena(arena, element_indices(i))
+                elem_code = trim(elem_code)
                 is_integer_literal = .false.
                 
                 ! Check if element is an integer literal that needs conversion
@@ -409,6 +424,7 @@ contains
             ! Generate start expression
             if (range_node%start_index > 0 .and. range_node%start_index <= arena%size) then
                 start_code = generate_code_from_arena(arena, range_node%start_index)
+                start_code = trim(adjustl(start_code))
             else
                 start_code = ""  ! Implicit start (e.g., :5)
             end if
@@ -416,6 +432,7 @@ contains
             ! Generate end expression  
             if (range_node%end_index > 0 .and. range_node%end_index <= arena%size) then
                 end_code = generate_code_from_arena(arena, range_node%end_index)
+                end_code = trim(adjustl(end_code))
             else
                 end_code = ""  ! Implicit end (e.g., 2:)
             end if
@@ -423,6 +440,7 @@ contains
             ! Generate stride expression (optional)
             if (range_node%stride_index > 0 .and. range_node%stride_index <= arena%size) then
                 stride_code = generate_code_from_arena(arena, range_node%stride_index)
+                stride_code = trim(adjustl(stride_code))
             else
                 stride_code = ""  ! No stride
             end if
@@ -461,6 +479,7 @@ contains
             ! Generate the array part (e.g., 'name' in name(1:3))
             if (slice_node%array_index > 0 .and. slice_node%array_index <= arena%size) then
                 array_code = generate_code_from_arena(arena, slice_node%array_index)
+                array_code = trim(adjustl(array_code))
             else
                 array_code = "unknown_array"
             end if
@@ -471,7 +490,7 @@ contains
                 if (i > 1) bounds_code = bounds_code // ", "
                 if (slice_node%bounds_indices(i) > 0 .and. &
                     slice_node%bounds_indices(i) <= arena%size) then
-                    bounds_code = bounds_code // generate_code_from_arena(arena, slice_node%bounds_indices(i))
+                    bounds_code = bounds_code // trim(adjustl(generate_code_from_arena(arena, slice_node%bounds_indices(i))))
                 else
                     bounds_code = bounds_code // ":"  ! Default to full range if bounds missing
                 end if
@@ -516,6 +535,7 @@ contains
             ! Generate the expression (body)
             if (allocated(node%body_indices) .and. size(node%body_indices) > 0) then
                 expr_code = generate_code_from_arena(arena, node%body_indices(1))
+                expr_code = trim(expr_code)
             else
                 expr_code = "0"  ! Fallback
             end if
@@ -523,6 +543,7 @@ contains
             ! Generate start expression
             if (node%start_expr_index > 0) then
                 start_code = generate_code_from_arena(arena, node%start_expr_index)
+                start_code = trim(start_code)
             else
                 start_code = "1"
             end if
@@ -530,6 +551,7 @@ contains
             ! Generate end expression
             if (node%end_expr_index > 0) then
                 end_code = generate_code_from_arena(arena, node%end_expr_index)
+                end_code = trim(end_code)
             else
                 end_code = "n"
             end if
@@ -538,6 +560,7 @@ contains
             ! Use legacy (/ /) syntax for compatibility
             if (node%step_expr_index > 0) then
                 step_code = generate_code_from_arena(arena, node%step_expr_index)
+                step_code = trim(step_code)
                 if (allocated(node%var_name)) then
                     code = "(/ (" // expr_code // ", " // node%var_name // "=" // &
                            start_code // ", " // end_code // ", " // step_code // ") /)"

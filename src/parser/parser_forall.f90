@@ -3,7 +3,7 @@ module parser_forall_module
     use iso_fortran_env, only: error_unit
     use lexer_core
     use parser_state_module
-    use parser_expressions_module, only: parse_expression, parse_range
+    use parser_expressions_module, only: parse_expression, parse_expression_until, parse_range, parse_postfix_chain
     use parser_utils, only: analyze_declaration_structure
     use ast_core
     use ast_factory, only: push_forall, push_assignment, push_identifier
@@ -83,14 +83,13 @@ contains
             end if
             token = parser%consume()
             
-            ! Parse lower bound expression
-            triplets(triplet_count)%lower_expr_index = &
-                parse_expression(parser%tokens(parser%current_token:), arena)
-            
-            ! Skip tokens consumed by expression parsing
-            call skip_to_operator(parser, ":")
-            
-            ! Expect ':'
+            ! Parse lower bound expression (stop before colon, comma, or closing paren)
+            block
+                character(len=1), dimension(3) :: lower_terms
+                lower_terms = [":", ",", ")"]
+                triplets(triplet_count)%lower_expr_index = parse_expression_until(parser, arena, lower_terms)
+            end block
+
             token = parser%peek()
             if (token%kind /= TK_OPERATOR .or. token%text /= ":") then
                 deallocate(triplets)
@@ -98,48 +97,52 @@ contains
                 return
             end if
             token = parser%consume()
-            
-            ! Parse upper bound expression
-            triplets(triplet_count)%upper_expr_index = &
-                parse_expression(parser%tokens(parser%current_token:), arena)
-            
-            ! Check for optional stride
-            call skip_to_next_delimiter(parser)
+
+            ! Parse upper bound expression (stop before stride, comma, or closing paren)
+            block
+                character(len=1), dimension(3) :: upper_terms
+                upper_terms = [":", ",", ")"]
+                triplets(triplet_count)%upper_expr_index = parse_expression_until(parser, arena, upper_terms)
+            end block
+
+            if (triplets(triplet_count)%upper_expr_index <= 0) then
+                deallocate(triplets)
+                deallocate(body_indices)
+                return
+            end if
+
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ":") then
                 token = parser%consume()
-                triplets(triplet_count)%stride_expr_index = &
-                    parse_expression(parser%tokens(parser%current_token:), arena)
-                call skip_to_next_delimiter(parser)
+                block
+                    character(len=1), dimension(2) :: stride_terms
+                    stride_terms = [",", ")"]
+                    triplets(triplet_count)%stride_expr_index = parse_expression_until(parser, arena, stride_terms)
+                end block
             else
                 triplets(triplet_count)%stride_expr_index = 0
             end if
-            
+
             ! Check for comma (more triplets) or mask condition
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
                 token = parser%consume()
-                ! Check if this is another triplet or a mask
                 token = parser%peek()
                 if (token%kind == TK_IDENTIFIER) then
-                    ! Look ahead to see if it's a triplet (has '=') or mask
                     if (parser%current_token + 1 <= size(parser%tokens)) then
                         if (parser%tokens(parser%current_token + 1)%kind == TK_OPERATOR .and. &
                             parser%tokens(parser%current_token + 1)%text == "=") then
-                            cycle  ! It's another triplet
-                        else
-                            ! It's a mask condition
-                            mask_index = parse_expression(parser%tokens(parser%current_token:), arena)
-                            call skip_to_operator(parser, ")")
-                            exit
+                            cycle
                         end if
                     end if
-                else
-                    ! It's a mask condition (not starting with identifier)
-                    mask_index = parse_expression(parser%tokens(parser%current_token:), arena)
-                    call skip_to_operator(parser, ")")
-                    exit
                 end if
+
+                block
+                    character(len=1), dimension(1) :: mask_terms
+                    mask_terms = [")"]
+                    mask_index = parse_expression_until(parser, arena, mask_terms)
+                end block
+                exit
             else if (token%kind == TK_OPERATOR .and. token%text == ")") then
                 exit
             end if
@@ -168,40 +171,22 @@ contains
             ! Parse single statement (usually an assignment)
             block
                 integer :: stmt_index, target_index, value_index
-                type(token_t) :: id_token, eq_token
-                
-                ! Parse assignment: identifier = expression
+                type(token_t) :: id_token, next_token
+
                 id_token = parser%peek()
                 if (id_token%kind == TK_IDENTIFIER) then
                     id_token = parser%consume()
-                    
-                    eq_token = parser%peek()
-                    if (eq_token%kind == TK_OPERATOR .and. eq_token%text == "=") then
-                        eq_token = parser%consume()
-                        
-                        ! Create target (can be array element)
-                        target_index = push_identifier(arena, id_token%text, &
-                                                      id_token%line, id_token%column)
-                        
-                        ! Check for array subscript
-                        token = parser%peek()
-                        if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                            ! Parse array reference
-                            target_index = parse_expression(parser%tokens(parser%current_token-1:), arena)
-                            ! Adjust parser position
-                            do while (.not. parser%is_at_end())
-                                token = parser%peek()
-                                if (token%kind == TK_OPERATOR .and. token%text == "=") then
-                                    token = parser%consume()
-                                    exit
-                                end if
-                                token = parser%consume()
-                            end do
-                        end if
-                        
-                        ! Parse value expression
+
+                    target_index = push_identifier(arena, id_token%text, &
+                                                  id_token%line, id_token%column)
+                    target_index = parse_postfix_chain(parser, arena, target_index)
+
+                    next_token = parser%peek()
+                    if (next_token%kind == TK_OPERATOR .and. next_token%text == "=") then
+                        next_token = parser%consume()
+
                         value_index = parse_range(parser, arena)
-                        
+
                         if (value_index > 0) then
                             stmt_index = push_assignment(arena, target_index, value_index, &
                                                         id_token%line, id_token%column)
@@ -358,62 +343,5 @@ contains
         
     end function parse_forall
     
-    ! Helper subroutine to skip tokens until we find a specific operator
-    subroutine skip_to_operator(parser, op)
-        type(parser_state_t), intent(inout) :: parser
-        character(len=*), intent(in) :: op
-        type(token_t) :: token
-        integer :: depth
-        
-        depth = 0
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-            
-            if (token%kind == TK_OPERATOR) then
-                if (token%text == "(") then
-                    depth = depth + 1
-                else if (token%text == ")") then
-                    depth = depth - 1
-                else if (token%text == op .and. depth == 0) then
-                    return
-                end if
-            else if (token%kind == TK_EOF) then
-                return
-            end if
-            
-            token = parser%consume()
-        end do
-    end subroutine skip_to_operator
-    
-    ! Helper subroutine to skip to next delimiter (comma, colon, or paren)
-    subroutine skip_to_next_delimiter(parser)
-        type(parser_state_t), intent(inout) :: parser
-        type(token_t) :: token
-        integer :: depth
-        
-        depth = 0
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-            
-            if (token%kind == TK_OPERATOR) then
-                if (token%text == "(") then
-                    depth = depth + 1
-                    token = parser%consume()
-                else if (token%text == ")") then
-                    if (depth == 0) return
-                    depth = depth - 1
-                    token = parser%consume()
-                else if ((token%text == "," .or. token%text == ":") .and. depth == 0) then
-                    return
-                else
-                    token = parser%consume()
-                end if
-            else if (token%kind == TK_EOF) then
-                return
-            else
-                token = parser%consume()
-            end if
-        end do
-    end subroutine skip_to_next_delimiter
-
 end module parser_forall_module
+

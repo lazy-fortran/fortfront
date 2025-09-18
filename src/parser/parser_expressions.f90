@@ -1,7 +1,7 @@
 module parser_expressions_module
     use iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_NUMBER, TK_STRING, TK_IDENTIFIER, &
-                          TK_OPERATOR, TK_KEYWORD
+                          TK_OPERATOR, TK_KEYWORD, to_lower
     use ast_core
     use ast_nodes_core, only: component_access_node, identifier_node, &
                                range_subscript_node
@@ -18,12 +18,831 @@ module parser_expressions_module
     implicit none
     private
 
+    ! Pratt parser precedence levels (lower number = lower precedence)
+    integer, parameter :: PREC_RANGE = 10
+    integer, parameter :: PREC_LOGICAL_EQV = 20
+    integer, parameter :: PREC_LOGICAL_OR = 30
+    integer, parameter :: PREC_LOGICAL_AND = 40
+    integer, parameter :: PREC_COMPARISON = 50
+    integer, parameter :: PREC_CONCAT = 60
+    integer, parameter :: PREC_TERM = 70
+    integer, parameter :: PREC_FACTOR = 80
+    integer, parameter :: PREC_POWER = 90
+    integer, parameter :: PREC_UNARY = 95
+    integer, parameter :: PREC_POSTFIX = 110
+
+    integer, parameter :: MAX_OPERATOR_LEN = 16
+    integer, parameter :: STACK_DEFAULT_CAPACITY = 32
+    integer, parameter :: PREFIX_MARKER_KIND = -999
+
+    type :: operator_entry_t
+        character(len=MAX_OPERATOR_LEN) :: symbol = ""
+        integer :: precedence = 0
+        logical :: right_associative = .false.
+        logical :: is_group = .false.
+        type(token_t) :: token
+    end type operator_entry_t
+
+    type :: operator_stack_t
+        type(operator_entry_t), allocatable :: values(:)
+        integer :: size = 0
+    end type operator_stack_t
+
+    type :: operand_stack_t
+        integer, allocatable :: values(:)
+        integer :: size = 0
+    end type operand_stack_t
+
+    type :: token_stack_t
+        type(token_t), allocatable :: values(:)
+        integer :: size = 0
+    end type token_stack_t
+
+    type :: token_view_t
+        character(len=:), allocatable :: text(:)
+        character(len=:), allocatable :: lower(:)
+        integer, allocatable :: kind(:)
+        integer, allocatable :: line(:)
+        integer, allocatable :: column(:)
+        integer :: base_index = 1
+        integer :: count = 0
+    end type token_view_t
+
     ! Public expression parsing interface
     public :: parse_expression
     public :: parse_range, parse_logical_eqv, parse_logical_or, parse_logical_and, parse_comparison
     public :: parse_concatenation, parse_term, parse_factor, parse_power, parse_unary, parse_primary
+    public :: parse_expression_until, parse_postfix_chain
 
 contains
+
+    subroutine build_token_view(view, parser)
+        type(token_view_t), intent(inout) :: view
+        type(parser_state_t), intent(in) :: parser
+        integer :: start_idx
+        integer :: end_idx
+        integer :: count
+        integer :: idx
+        integer :: max_len
+        type(token_t) :: token
+
+        if (.not. allocated(parser%tokens)) then
+            view%count = 0
+            view%base_index = parser%current_token
+            if (allocated(view%text)) deallocate(view%text)
+            if (allocated(view%lower)) deallocate(view%lower)
+            if (allocated(view%kind)) deallocate(view%kind)
+            if (allocated(view%line)) deallocate(view%line)
+            if (allocated(view%column)) deallocate(view%column)
+            return
+        end if
+
+        start_idx = max(parser%current_token, 1)
+        end_idx = size(parser%tokens)
+        count = end_idx - start_idx + 1
+        if (count < 1) then
+            count = 1
+        end if
+
+        max_len = 1
+        do idx = start_idx, end_idx
+            token = parser%tokens(idx)
+            max_len = max(max_len, len_trim(token%text))
+        end do
+        if (max_len < 1) max_len = 1
+
+        if (allocated(view%text)) deallocate(view%text)
+        if (allocated(view%lower)) deallocate(view%lower)
+        if (allocated(view%kind)) deallocate(view%kind)
+        if (allocated(view%line)) deallocate(view%line)
+        if (allocated(view%column)) deallocate(view%column)
+
+        allocate(character(len=max_len) :: view%text(count))
+        allocate(character(len=max_len) :: view%lower(count))
+        allocate(view%kind(count))
+        allocate(view%line(count))
+        allocate(view%column(count))
+
+        do idx = 1, count
+            token = parser%tokens(start_idx + idx - 1)
+            view%text(idx) = token%text
+            view%lower(idx) = to_lower(token%text)
+            view%kind(idx) = token%kind
+            view%line(idx) = token%line
+            view%column(idx) = token%column
+        end do
+
+        view%base_index = start_idx
+        view%count = count
+    end subroutine build_token_view
+
+    function view_peek_token(view, parser) result(token)
+        type(token_view_t), intent(in) :: view
+        type(parser_state_t), intent(in) :: parser
+        type(token_t) :: token
+        integer :: idx
+
+        idx = parser%current_token - view%base_index + 1
+        if (idx < 1 .or. idx > view%count) then
+            token = parser%peek()
+            return
+        end if
+
+        token%text = view%text(idx)
+        token%kind = view%kind(idx)
+        token%line = view%line(idx)
+        token%column = view%column(idx)
+    end function view_peek_token
+
+    function view_lower_token(view, parser, offset) result(lowered)
+        type(token_view_t), intent(in) :: view
+        type(parser_state_t), intent(in) :: parser
+        integer, intent(in), optional :: offset
+        character(len=:), allocatable :: lowered
+        integer :: idx
+        integer :: off
+
+        off = 0
+        if (present(offset)) off = offset
+        idx = parser%current_token - view%base_index + 1 + off
+
+        if (idx < 1 .or. idx > view%count) then
+            block
+                type(token_t) :: fallback_token
+                fallback_token = view_peek_token(view, parser)
+                lowered = to_lower(fallback_token%text)
+            end block
+            return
+        end if
+
+        lowered = trim(view%lower(idx))
+    end function view_lower_token
+
+    function view_consume_token(view, parser) result(token)
+        type(token_view_t), intent(in) :: view
+        type(parser_state_t), intent(inout) :: parser
+        type(token_t) :: token
+
+        token = view_peek_token(view, parser)
+        if (.not. parser%is_at_end()) then
+            block
+                type(token_t) :: discarded_token
+                discarded_token = parser%consume()
+            end block
+        end if
+    end function view_consume_token
+
+    function view_lookahead_token(view, parser, offset) result(token)
+        type(token_view_t), intent(in) :: view
+        type(parser_state_t), intent(in) :: parser
+        integer, intent(in) :: offset
+        type(token_t) :: token
+        integer :: idx
+
+        idx = parser%current_token - view%base_index + 1 + offset
+        if (idx < 1 .or. idx > view%count) then
+            token = parser%peek()
+            return
+        end if
+
+        token%text = view%text(idx)
+        token%kind = view%kind(idx)
+        token%line = view%line(idx)
+        token%column = view%column(idx)
+    end function view_lookahead_token
+
+    !=================================================================================
+    ! STACK UTILITIES FOR PRATT PARSER
+    !=================================================================================
+
+    subroutine operator_stack_clear(stack)
+        type(operator_stack_t), intent(inout) :: stack
+
+        stack%size = 0
+    end subroutine operator_stack_clear
+
+    subroutine operator_stack_ensure_capacity(stack, desired)
+        type(operator_stack_t), intent(inout) :: stack
+        integer, intent(in) :: desired
+        type(operator_entry_t), allocatable :: new_values(:)
+        integer :: new_capacity
+
+        if (.not. allocated(stack%values)) then
+            allocate(stack%values(max(STACK_DEFAULT_CAPACITY, desired)))
+            stack%size = 0
+            return
+        end if
+
+        if (size(stack%values) >= desired) return
+
+        new_capacity = max(size(stack%values) * 2, desired)
+        allocate(new_values(new_capacity))
+        if (stack%size > 0) then
+            new_values(1:stack%size) = stack%values(1:stack%size)
+        end if
+        call move_alloc(new_values, stack%values)
+    end subroutine operator_stack_ensure_capacity
+
+    subroutine operator_stack_push(stack, entry)
+        type(operator_stack_t), intent(inout) :: stack
+        type(operator_entry_t), intent(in) :: entry
+
+        call operator_stack_ensure_capacity(stack, stack%size + 1)
+        stack%size = stack%size + 1
+        stack%values(stack%size) = entry
+    end subroutine operator_stack_push
+
+    function operator_stack_pop(stack) result(entry)
+        type(operator_stack_t), intent(inout) :: stack
+        type(operator_entry_t) :: entry
+
+        if (stack%size <= 0) then
+            entry = operator_entry_t()
+            return
+        end if
+
+        entry = stack%values(stack%size)
+        stack%size = stack%size - 1
+    end function operator_stack_pop
+
+    function operator_stack_peek(stack) result(entry)
+        type(operator_stack_t), intent(in) :: stack
+        type(operator_entry_t) :: entry
+
+        if (stack%size <= 0) then
+            entry = operator_entry_t()
+        else
+            entry = stack%values(stack%size)
+        end if
+    end function operator_stack_peek
+
+    logical function operator_stack_is_empty(stack)
+        type(operator_stack_t), intent(in) :: stack
+        operator_stack_is_empty = (stack%size <= 0)
+    end function operator_stack_is_empty
+
+    logical function operator_stack_has_open_group(stack)
+        type(operator_stack_t), intent(in) :: stack
+        integer :: idx
+
+        operator_stack_has_open_group = .false.
+        if (.not. allocated(stack%values)) return
+
+        do idx = stack%size, 1, -1
+            if (stack%values(idx)%is_group) then
+                operator_stack_has_open_group = .true.
+                return
+            end if
+        end do
+    end function operator_stack_has_open_group
+
+    subroutine operand_stack_clear(stack)
+        type(operand_stack_t), intent(inout) :: stack
+
+        stack%size = 0
+    end subroutine operand_stack_clear
+
+    subroutine operand_stack_ensure_capacity(stack, desired)
+        type(operand_stack_t), intent(inout) :: stack
+        integer, intent(in) :: desired
+        integer, allocatable :: new_values(:)
+        integer :: new_capacity
+
+        if (.not. allocated(stack%values)) then
+            allocate(stack%values(max(STACK_DEFAULT_CAPACITY, desired)))
+            stack%size = 0
+            return
+        end if
+
+        if (size(stack%values) >= desired) return
+
+        new_capacity = max(size(stack%values) * 2, desired)
+        allocate(new_values(new_capacity))
+        if (stack%size > 0) then
+            new_values(1:stack%size) = stack%values(1:stack%size)
+        end if
+        call move_alloc(new_values, stack%values)
+    end subroutine operand_stack_ensure_capacity
+
+    subroutine operand_stack_push(stack, value)
+        type(operand_stack_t), intent(inout) :: stack
+        integer, intent(in) :: value
+
+        call operand_stack_ensure_capacity(stack, stack%size + 1)
+        stack%size = stack%size + 1
+        stack%values(stack%size) = value
+    end subroutine operand_stack_push
+
+    integer function operand_stack_pop(stack)
+        type(operand_stack_t), intent(inout) :: stack
+
+        if (stack%size <= 0) then
+            operand_stack_pop = 0
+            return
+        end if
+
+        operand_stack_pop = stack%values(stack%size)
+        stack%size = stack%size - 1
+    end function operand_stack_pop
+
+    integer function operand_stack_peek(stack)
+        type(operand_stack_t), intent(in) :: stack
+
+        if (stack%size <= 0) then
+            operand_stack_peek = 0
+        else
+            operand_stack_peek = stack%values(stack%size)
+        end if
+    end function operand_stack_peek
+
+    logical function operand_stack_is_empty(stack)
+        type(operand_stack_t), intent(in) :: stack
+        operand_stack_is_empty = (stack%size <= 0)
+    end function operand_stack_is_empty
+
+    subroutine token_stack_clear(stack)
+        type(token_stack_t), intent(inout) :: stack
+
+        stack%size = 0
+    end subroutine token_stack_clear
+
+    subroutine token_stack_ensure_capacity(stack, desired)
+        type(token_stack_t), intent(inout) :: stack
+        integer, intent(in) :: desired
+        type(token_t), allocatable :: new_values(:)
+        integer :: new_capacity
+
+        if (.not. allocated(stack%values)) then
+            allocate(stack%values(max(STACK_DEFAULT_CAPACITY, desired)))
+            stack%size = 0
+            return
+        end if
+
+        if (size(stack%values) >= desired) return
+
+        new_capacity = max(size(stack%values) * 2, desired)
+        allocate(new_values(new_capacity))
+        if (stack%size > 0) then
+            new_values(1:stack%size) = stack%values(1:stack%size)
+        end if
+        call move_alloc(new_values, stack%values)
+    end subroutine token_stack_ensure_capacity
+
+    subroutine token_stack_push(stack, value)
+        type(token_stack_t), intent(inout) :: stack
+        type(token_t), intent(in) :: value
+
+        call token_stack_ensure_capacity(stack, stack%size + 1)
+        stack%size = stack%size + 1
+        stack%values(stack%size) = value
+    end subroutine token_stack_push
+
+    function token_stack_pop(stack) result(token)
+        type(token_stack_t), intent(inout) :: stack
+        type(token_t) :: token
+
+        if (stack%size <= 0) then
+            token%text = ""
+            token%line = 0
+            token%column = 0
+            token%kind = 0
+            return
+        end if
+
+        token = stack%values(stack%size)
+        stack%size = stack%size - 1
+    end function token_stack_pop
+
+    logical function token_stack_is_empty(stack)
+        type(token_stack_t), intent(in) :: stack
+        token_stack_is_empty = (stack%size <= 0)
+    end function token_stack_is_empty
+
+    logical function token_matches(token, text)
+        type(token_t), intent(in) :: token
+        character(len=*), intent(in) :: text
+        token_matches = trim(token%text) == trim(text)
+    end function token_matches
+
+    logical function token_is_boolean_literal(token)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        lowered = to_lower(token%text)
+        token_is_boolean_literal = (lowered == ".true." .or. lowered == ".false." .or. &
+            lowered == "true" .or. lowered == "false")
+    end function token_is_boolean_literal
+
+    logical function is_prefix_operator_token(token)
+        type(token_t), intent(in) :: token
+        character(len=:), allocatable :: lowered
+
+        if (token%kind /= TK_OPERATOR) then
+            is_prefix_operator_token = .false.
+            return
+        end if
+
+        lowered = to_lower(token%text)
+        is_prefix_operator_token = (lowered == "+" .or. lowered == "-" .or. lowered == ".not.")
+    end function is_prefix_operator_token
+
+
+    function get_infix_operator_entry(token) result(entry)
+        type(token_t), intent(in) :: token
+        type(operator_entry_t) :: entry
+        character(len=:), allocatable :: lowered
+
+        entry = operator_entry_t()
+        if (token%kind /= TK_OPERATOR) return
+
+        lowered = to_lower(token%text)
+
+        select case (lowered)
+        case (".eqv.", ".neqv.")
+            entry%symbol = token%text
+            entry%precedence = PREC_LOGICAL_EQV
+        case (".or.")
+            entry%symbol = token%text
+            entry%precedence = PREC_LOGICAL_OR
+        case (".and.")
+            entry%symbol = token%text
+            entry%precedence = PREC_LOGICAL_AND
+        case ("==", "/=", "<=", ">=", "<", ">")
+            entry%symbol = token%text
+            entry%precedence = PREC_COMPARISON
+        case ("//")
+            entry%symbol = token%text
+            entry%precedence = PREC_CONCAT
+        case ("+", "-")
+            entry%symbol = token%text
+            entry%precedence = PREC_TERM
+        case ("*", "/")
+            entry%symbol = token%text
+            entry%precedence = PREC_FACTOR
+        case ("**")
+            entry%symbol = token%text
+            entry%precedence = PREC_POWER
+            entry%right_associative = .true.
+        case default
+            ! Not an infix operator handled here
+            return
+        end select
+
+        entry%token = token
+    end function get_infix_operator_entry
+
+    logical function comparison_active(stack)
+        type(operator_stack_t), intent(in) :: stack
+        integer :: idx
+
+        comparison_active = .false.
+        if (.not. allocated(stack%values)) return
+
+        do idx = stack%size, 1, -1
+            if (stack%values(idx)%is_group) then
+                return
+            end if
+            if (stack%values(idx)%precedence == PREC_COMPARISON) then
+                comparison_active = .true.
+                return
+            end if
+        end do
+    end function comparison_active
+
+    function create_zero_literal(arena, reference_token) result(zero_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: reference_token
+        integer :: zero_index
+
+        zero_index = push_literal(arena, "0", LITERAL_INTEGER, &
+            reference_token%line, reference_token%column)
+    end function create_zero_literal
+
+    function apply_prefix_stack(arena, prefix_stack, expr_index) result(result_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_stack_t), intent(inout) :: prefix_stack
+        integer, intent(in) :: expr_index
+        integer :: result_index
+        type(token_t) :: token
+        character(len=:), allocatable :: lowered
+        integer :: zero_index
+
+        result_index = expr_index
+        do while (prefix_stack%size > 0)
+            token = prefix_stack%values(prefix_stack%size)
+            if (token%kind == PREFIX_MARKER_KIND) exit
+
+            token = token_stack_pop(prefix_stack)
+            lowered = to_lower(token%text)
+            select case (lowered)
+            case ("-")
+                zero_index = create_zero_literal(arena, token)
+                result_index = push_binary_op(arena, zero_index, result_index, &
+                    token%text, token%line, token%column)
+            case ("+")
+                cycle
+            case (".not.")
+                result_index = push_binary_op(arena, 0, result_index, token%text, &
+                    token%line, token%column)
+            case default
+                cycle
+            end select
+        end do
+    end function apply_prefix_stack
+
+    subroutine reduce_single_operator(operators, operands, arena)
+        type(operator_stack_t), intent(inout) :: operators
+        type(operand_stack_t), intent(inout) :: operands
+        type(ast_arena_t), intent(inout) :: arena
+        type(operator_entry_t) :: op_entry
+        integer :: right_index, left_index
+
+        op_entry = operator_stack_pop(operators)
+        if (op_entry%is_group) return
+
+        right_index = operand_stack_pop(operands)
+        left_index = operand_stack_pop(operands)
+
+        if (right_index <= 0 .or. left_index < 0) then
+            call operand_stack_push(operands, 0)
+            return
+        end if
+
+        call operand_stack_push(operands, push_binary_op(arena, left_index, right_index, &
+            op_entry%symbol, op_entry%token%line, op_entry%token%column))
+    end subroutine reduce_single_operator
+
+    subroutine reduce_operators_for_incoming(operators, operands, arena, incoming)
+        type(operator_stack_t), intent(inout) :: operators
+        type(operand_stack_t), intent(inout) :: operands
+        type(ast_arena_t), intent(inout) :: arena
+        type(operator_entry_t), intent(in) :: incoming
+        type(operator_entry_t) :: top_entry
+
+        do while (.not. operator_stack_is_empty(operators))
+            top_entry = operator_stack_peek(operators)
+            if (top_entry%is_group) exit
+            if (top_entry%precedence < incoming%precedence) exit
+            if (top_entry%precedence == incoming%precedence) then
+                if (incoming%right_associative) exit
+                if (incoming%precedence == PREC_COMPARISON) exit
+            end if
+            call reduce_single_operator(operators, operands, arena)
+        end do
+    end subroutine reduce_operators_for_incoming
+
+    subroutine reduce_all_operators(operators, operands, arena)
+        type(operator_stack_t), intent(inout) :: operators
+        type(operand_stack_t), intent(inout) :: operands
+        type(ast_arena_t), intent(inout) :: arena
+
+        do while (.not. operator_stack_is_empty(operators))
+            call reduce_single_operator(operators, operands, arena)
+        end do
+    end subroutine reduce_all_operators
+
+    subroutine reduce_until_group(operators, operands, arena)
+        type(operator_stack_t), intent(inout) :: operators
+        type(operand_stack_t), intent(inout) :: operands
+        type(ast_arena_t), intent(inout) :: arena
+        type(operator_entry_t) :: top_entry
+
+        do while (.not. operator_stack_is_empty(operators))
+            top_entry = operator_stack_peek(operators)
+            if (top_entry%is_group) exit
+            call reduce_single_operator(operators, operands, arena)
+        end do
+    end subroutine reduce_until_group
+
+    subroutine push_group_marker(operators, token)
+        type(operator_stack_t), intent(inout) :: operators
+        type(token_t), intent(in) :: token
+        type(operator_entry_t) :: entry
+
+        entry = operator_entry_t(symbol="(", precedence=0, is_group=.true., token=token)
+        call operator_stack_push(operators, entry)
+    end subroutine push_group_marker
+
+    logical function token_is_terminator(token, terminators)
+        type(token_t), intent(in) :: token
+        character(len=*), intent(in), optional :: terminators(:)
+        integer :: idx
+
+        if (.not. present(terminators)) then
+            token_is_terminator = .false.
+            return
+        end if
+
+        token_is_terminator = .false.
+        do idx = 1, size(terminators)
+            if (trim(token%text) == trim(terminators(idx))) then
+                token_is_terminator = .true.
+                return
+            end if
+        end do
+    end function token_is_terminator
+
+    logical function is_legacy_array_literal_start(parser, view)
+        type(parser_state_t), intent(in) :: parser
+        type(token_view_t), intent(in) :: view
+        type(token_t) :: current
+        type(token_t) :: next_token
+
+        is_legacy_array_literal_start = .false.
+        current = view_peek_token(view, parser)
+        if (current%kind /= TK_OPERATOR) return
+        if (trim(current%text) /= "(") return
+
+        next_token = view_lookahead_token(view, parser, 1)
+        if (next_token%kind == TK_OPERATOR .and. trim(next_token%text) == "/") then
+            is_legacy_array_literal_start = .true.
+        end if
+    end function is_legacy_array_literal_start
+
+    function parse_operand_base(parser, arena, view) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        type(token_view_t), intent(in) :: view
+        integer :: expr_index
+        type(token_t) :: token
+        character(len=:), allocatable :: lowered
+
+        expr_index = 0
+        token = view_peek_token(view, parser)
+
+        select case (token%kind)
+        case (TK_NUMBER)
+            token = view_consume_token(view, parser)
+            expr_index = parse_number_literal(token, arena)
+
+        case (TK_STRING)
+            token = view_consume_token(view, parser)
+            expr_index = parse_string_literal(token, arena)
+
+        case (TK_IDENTIFIER)
+            token = view_consume_token(view, parser)
+            lowered = to_lower(token%text)
+            if (lowered == "true" .or. lowered == "false") then
+                expr_index = push_literal(arena, token%text, LITERAL_LOGICAL, &
+                    token%line, token%column)
+            else
+                expr_index = push_identifier(arena, token%text, token%line, token%column)
+            end if
+
+        case (TK_OPERATOR)
+            lowered = view_lower_token(view, parser)
+            if (lowered == "[") then
+                token = view_consume_token(view, parser)
+                expr_index = parse_modern_array_literal(parser, arena, token)
+            else if (token_is_boolean_literal(token)) then
+                token = view_consume_token(view, parser)
+                expr_index = parse_boolean_literal(token, arena)
+            else
+                ! Defer handling of parentheses to Pratt core; do not consume here
+                expr_index = 0
+            end if
+
+        case (TK_KEYWORD)
+            token = view_consume_token(view, parser)
+            lowered = to_lower(token%text)
+            if (lowered == ".true." .or. lowered == ".false.") then
+                expr_index = parse_boolean_literal(token, arena)
+            else
+                expr_index = push_identifier(arena, token%text, token%line, token%column)
+            end if
+
+        case default
+            expr_index = push_literal(arena, &
+                "!ERROR: Unexpected token '"//trim(token%text)//"'", &
+                LITERAL_STRING, token%line, token%column)
+            token = view_consume_token(view, parser)
+        end select
+    end function parse_operand_base
+
+    recursive function parse_expression_with_precedence(parser, arena, minimum_precedence, &
+            terminators) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: minimum_precedence
+        character(len=*), intent(in), optional :: terminators(:)
+        integer :: expr_index
+
+        type(operator_stack_t) :: operators
+        type(operand_stack_t) :: operands
+        type(token_stack_t) :: prefix_stack
+        type(token_view_t) :: view
+        logical :: expect_operand
+        type(token_t) :: token
+        type(operator_entry_t) :: op_entry
+        integer :: current_index
+        integer :: lower_index
+
+        call operator_stack_clear(operators)
+        call operand_stack_clear(operands)
+        call token_stack_clear(prefix_stack)
+        call build_token_view(view, parser)
+
+        expr_index = 0
+        expect_operand = .true.
+
+        main_loop: do while (.true.)
+            token = view_peek_token(view, parser)
+
+            if (token%kind == TK_EOF) exit main_loop
+
+            if (.not. expect_operand) then
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == ")") then
+                    if (operator_stack_has_open_group(operators)) then
+                        call reduce_until_group(operators, operands, arena)
+                        op_entry = operator_stack_pop(operators)
+                        if (prefix_stack%size > 0) then
+                            if (prefix_stack%values(prefix_stack%size)%kind == PREFIX_MARKER_KIND) then
+                                block
+                                    type(token_t) :: discarded_marker
+                                    discarded_marker = token_stack_pop(prefix_stack)
+                                end block
+                                if (.not. operand_stack_is_empty(operands)) then
+                                    current_index = operand_stack_pop(operands)
+                                    current_index = apply_prefix_stack(arena, prefix_stack, current_index)
+                                    call operand_stack_push(operands, current_index)
+                                end if
+                            end if
+                        end if
+                        token = view_consume_token(view, parser)
+                        expect_operand = .false.
+                        cycle
+                    else
+                        exit main_loop
+                    end if
+                end if
+            end if
+
+            if (token_is_terminator(token, terminators)) exit main_loop
+
+            if (expect_operand) then
+                if (is_prefix_operator_token(token)) then
+                    call token_stack_push(prefix_stack, view_consume_token(view, parser))
+                    cycle
+                end if
+
+                if (is_legacy_array_literal_start(parser, view)) then
+                    current_index = parse_legacy_array_literal(parser, arena)
+                    current_index = apply_prefix_stack(arena, prefix_stack, current_index)
+                    current_index = parse_postfix_ops(parser, arena, view, current_index)
+                    call operand_stack_push(operands, current_index)
+                    expect_operand = .false.
+                    cycle
+                end if
+
+                if (token%kind == TK_OPERATOR .and. trim(token%text) == "(") then
+                    block
+                        type(token_t) :: marker
+                        marker%text = ""
+                        marker%kind = PREFIX_MARKER_KIND
+                        marker%line = token%line
+                        marker%column = token%column
+                        call token_stack_push(prefix_stack, marker)
+                    end block
+                    call push_group_marker(operators, view_consume_token(view, parser))
+                    expect_operand = .true.
+                    cycle
+                end if
+
+                current_index = parse_operand_base(parser, arena, view)
+                if (current_index > 0) then
+                    current_index = apply_prefix_stack(arena, prefix_stack, current_index)
+                    current_index = parse_postfix_ops(parser, arena, view, current_index)
+                    call operand_stack_push(operands, current_index)
+                else
+                    call token_stack_clear(prefix_stack)
+                end if
+                expect_operand = .false.
+                cycle
+            else
+                op_entry = get_infix_operator_entry(token)
+                if (op_entry%symbol == "") exit main_loop
+
+                if (op_entry%precedence < minimum_precedence) exit main_loop
+
+                if (op_entry%precedence == PREC_COMPARISON .and. comparison_active(operators)) exit main_loop
+
+                call reduce_operators_for_incoming(operators, operands, arena, op_entry)
+                call operator_stack_push(operators, op_entry)
+                token = view_consume_token(view, parser)
+                expect_operand = .true.
+                cycle
+            end if
+        end do main_loop
+
+        call reduce_all_operators(operators, operands, arena)
+        expr_index = operand_stack_pop(operands)
+    end function parse_expression_with_precedence
+
+
+
+
+
+
 
     !=================================================================================
     ! MAIN ENTRY POINT
@@ -48,30 +867,8 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        integer :: right_index
-        type(token_t) :: op_token
-        integer :: loop_count
 
-        expr_index = parse_logical_or(parser, arena)
-        loop_count = 0
-
-        do while (.not. parser%is_at_end() .and. loop_count < 1000)
-            loop_count = loop_count + 1
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. &
-                (op_token%text == ".eqv." .or. op_token%text == ".neqv.")) then
-                op_token = parser%consume()
-                right_index = parse_logical_or(parser, arena)
-                if (right_index > 0) then
-                    expr_index = push_binary_op(arena, expr_index, right_index, &
-                        op_token%text)
-                else
-                    exit
-                end if
-            else
-                exit
-            end if
-        end do
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_LOGICAL_EQV)
     end function parse_logical_eqv
 
     ! Parse logical OR operators
@@ -79,29 +876,8 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        integer :: right_index
-        type(token_t) :: op_token
-        integer :: loop_count
 
-        expr_index = parse_logical_and(parser, arena)
-        loop_count = 0
-
-        do while (.not. parser%is_at_end() .and. loop_count < 1000)
-            loop_count = loop_count + 1
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == ".or.") then
-                op_token = parser%consume()
-                right_index = parse_logical_and(parser, arena)
-                if (right_index > 0) then
-                    expr_index = push_binary_op(arena, expr_index, right_index, &
-                        op_token%text)
-                else
-                    exit
-                end if
-            else
-                exit
-            end if
-        end do
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_LOGICAL_OR)
     end function parse_logical_or
 
     ! Parse logical AND operators
@@ -109,29 +885,8 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        integer :: right_index
-        type(token_t) :: op_token
-        integer :: loop_count
 
-        expr_index = parse_comparison(parser, arena)
-        loop_count = 0
-
-        do while (.not. parser%is_at_end() .and. loop_count < 1000)
-            loop_count = loop_count + 1
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == ".and.") then
-                op_token = parser%consume()
-                right_index = parse_comparison(parser, arena)
-                if (right_index > 0) then
-                    expr_index = push_binary_op(arena, expr_index, right_index, &
-                        op_token%text)
-                else
-                    exit
-                end if
-            else
-                exit
-            end if
-        end do
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_LOGICAL_AND)
     end function parse_logical_and
 
     ! Parse comparison operators
@@ -139,26 +894,8 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        integer :: right_index
-        type(token_t) :: op_token
 
-        expr_index = parse_concatenation(parser, arena)
-
-        ! Make comparison operators non-associative (Issue #216)
-        ! Parse at most ONE comparison operator
-        if (.not. parser%is_at_end()) then
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. &
-                (op_token%text == "==" .or. op_token%text == "/=" .or. &
-                 op_token%text == "<=" .or. op_token%text == ">=" .or. &
-                 op_token%text == "<" .or. op_token%text == ">")) then
-                op_token = parser%consume()
-                right_index = parse_concatenation(parser, arena)
-                expr_index = push_binary_op(arena, expr_index, right_index, &
-                                             op_token%text, op_token%line, &
-                                             op_token%column)
-            end if
-        end if
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_COMPARISON)
     end function parse_comparison
 
     ! Parse string concatenation operator (//) - Issue #214
@@ -166,53 +903,16 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        integer :: right_index
-        type(token_t) :: op_token
-        integer :: loop_count
 
-        expr_index = parse_term(parser, arena)
-        loop_count = 0
-
-        do while (.not. parser%is_at_end() .and. loop_count < 1000)
-            loop_count = loop_count + 1
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == "//") then
-                op_token = parser%consume()
-                right_index = parse_term(parser, arena)
-                expr_index = push_binary_op(arena, expr_index, right_index, &
-                                             op_token%text, op_token%line, &
-                                             op_token%column)
-            else
-                exit
-            end if
-        end do
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_CONCAT)
     end function parse_concatenation
     ! Parse addition and subtraction
     function parse_term(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        integer :: right_index
-        type(token_t) :: op_token
-        integer :: loop_count
 
-        expr_index = parse_factor(parser, arena)
-        loop_count = 0
-
-        do while (.not. parser%is_at_end() .and. loop_count < 1000)
-            loop_count = loop_count + 1
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. &
-                (op_token%text == "+" .or. op_token%text == "-")) then
-                op_token = parser%consume()
-                right_index = parse_factor(parser, arena)
-                expr_index = push_binary_op(arena, expr_index, right_index, &
-                                             op_token%text, op_token%line, &
-                                             op_token%column)
-            else
-                exit
-            end if
-        end do
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_TERM)
     end function parse_term
 
     ! Parse multiplication and division
@@ -220,200 +920,74 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        integer :: right_index
-        type(token_t) :: op_token
-        integer :: loop_count
 
-        expr_index = parse_power(parser, arena)
-        loop_count = 0
-
-        do while (.not. parser%is_at_end() .and. loop_count < 1000)
-            loop_count = loop_count + 1
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. &
-                (op_token%text == "*" .or. op_token%text == "/")) then
-                op_token = parser%consume()
-                right_index = parse_power(parser, arena)
-                expr_index = push_binary_op(arena, expr_index, right_index, &
-                                             op_token%text, op_token%line, &
-                                             op_token%column)
-            else
-                exit
-            end if
-        end do
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_FACTOR)
     end function parse_factor
 
     ! Parse exponentiation (**) - right-associative
-    recursive function parse_power(parser, arena) result(expr_index)
+    function parse_power(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        integer :: right_index
-        type(token_t) :: op_token
 
-        expr_index = parse_unary(parser, arena)
-
-        ! Right-associative: a ** b ** c = a ** (b ** c)
-        if (.not. parser%is_at_end()) then
-            op_token = parser%peek()
-            if (op_token%kind == TK_OPERATOR .and. op_token%text == "**") then
-                op_token = parser%consume()
-                ! Recursive call for right-associativity  
-                right_index = parse_power(parser, arena)
-                expr_index = push_binary_op(arena, expr_index, right_index, &
-                                             op_token%text, op_token%line, &
-                                             op_token%column)
-            end if
-        end if
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_POWER)
     end function parse_power
 
     ! Parse unary operators (+, -, .NOT.) - Issue #215
-    recursive function parse_unary(parser, arena) result(expr_index)
+    function parse_unary(parser, arena) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        type(token_t) :: op_token
 
-        op_token = parser%peek()
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_UNARY)
+    end function parse_unary
 
-        if (op_token%kind == TK_OPERATOR .and. &
-            (op_token%text == "-" .or. op_token%text == "+" .or. &
-             op_token%text == ".not.")) then
-            ! Unary operator
-            op_token = parser%consume()
-            expr_index = parse_power(parser, arena)  ! Parse the operand
-            
-            if (expr_index > 0) then
-                if (op_token%text == "-") then
-                    ! Create unary minus as 0 - operand
-                    block
-                        integer :: zero_index
-                        zero_index = push_literal(arena, "0", LITERAL_INTEGER, &
-                                                  op_token%line, op_token%column)
-                        expr_index = push_binary_op(arena, zero_index, expr_index, "-")
-                    end block
-                else if (op_token%text == "+") then
-                    ! Unary plus - just return the operand
-                    ! expr_index already contains the operand
-                else if (op_token%text == ".not.") then
-                    ! Create logical NOT as unary operation (0 indicates unary)
-                    expr_index = push_binary_op(arena, 0, expr_index, ".not.")
-                end if
+    ! Parse primary expressions (literals, identifiers, parentheses)  
+    function parse_primary(parser, arena) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: expr_index
+
+        expr_index = parse_expression_with_precedence(parser, arena, PREC_POSTFIX)
+    end function parse_primary
+
+    function parse_expression_until(parser, arena, terminators) result(expr_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        character(len=*), intent(in), optional :: terminators(:)
+        integer :: expr_index
+        character(len=MAX_OPERATOR_LEN), allocatable :: local_terms(:)
+
+        if (present(terminators)) then
+            if (size(terminators) > 0) then
+                allocate(character(len=MAX_OPERATOR_LEN) :: local_terms(size(terminators)))
+                local_terms = terminators
+                expr_index = parse_expression_with_precedence(parser, arena, &
+                    PREC_RANGE + 1, local_terms)
+                deallocate(local_terms)
             else
-                expr_index = 0
+                expr_index = parse_expression_with_precedence(parser, arena, &
+                    PREC_RANGE + 1)
             end if
         else
-            ! No unary operator, parse primary expression  
-            expr_index = parse_primary(parser, arena)
+            expr_index = parse_expression_with_precedence(parser, arena, &
+                PREC_RANGE + 1)
         end if
-    end function parse_unary
-    ! Parse primary expressions (literals, identifiers, parentheses)  
-    recursive function parse_primary(parser, arena) result(expr_index)
+    end function parse_expression_until
+
+    function parse_postfix_chain(parser, arena, base_expr) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        integer, intent(in) :: base_expr
         integer :: expr_index
-        type(token_t) :: current
+        type(token_view_t) :: view
 
-        current = parser%peek()
+        expr_index = base_expr
+        if (expr_index <= 0) return
 
-        select case (current%kind)
-        case (TK_EOF)
-            ! End of file reached - return invalid expression index
-            expr_index = 0
-            return
-            
-        case (TK_NUMBER)
-            ! Parse number literal
-            current = parser%consume()
-            expr_index = parse_number_literal(current, arena)
-
-        case (TK_STRING)
-            ! Parse string literal
-            current = parser%consume()
-            expr_index = parse_string_literal(current, arena)
-
-        case (TK_IDENTIFIER)
-            ! Parse identifier or function call
-            current = parser%consume()
-            expr_index = parse_identifier_or_call(parser, arena, current)
-
-        case (TK_OPERATOR)
-            ! Check for parentheses or array literal
-            if (current%text == "(") then
-                ! Check for legacy array literal: (/ ... /) FIRST before consuming
-                block
-                    type(token_t) :: next_token
-                    logical :: is_legacy_array
-                    is_legacy_array = .false.
-                    
-                    ! Manual lookahead - check if next token is "/"
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                        next_token = parser%tokens(parser%current_token + 1)
-                        if (next_token%kind == TK_OPERATOR .and. next_token%text == "/") then
-                            is_legacy_array = .true.
-                        end if
-                    end if
-                    
-                    if (is_legacy_array) then
-                        ! Legacy array literal: (/ ... /)
-                        expr_index = parse_legacy_array_literal(parser, arena)
-                    else
-                        ! Regular parenthesized expression
-                        current = parser%consume()
-                        expr_index = parse_range(parser, arena)  ! parse the expression inside
-                        current = parser%peek()
-                        if (current%text == ")") then
-                            current = parser%consume()
-                        end if
-                    end if
-                end block
-            else if (current%text == "[") then
-                ! Array literal: [1, 2, 3]
-                expr_index = parse_modern_array_literal(parser, arena)
-            else if (current%text == ".true." .or. current%text == ".false.") then
-                ! Handle boolean literals as single tokens
-                current = parser%consume()
-                expr_index = parse_boolean_literal(current, arena)
-            else
-                ! Unrecognized operator - create error node
-                expr_index = push_literal(arena, &
-                    "!ERROR: Unrecognized operator '"//current%text//"'", &
-                    LITERAL_STRING, current%line, current%column)
-                current = parser%consume()
-            end if
-
-        case (TK_KEYWORD)
-            ! Handle logical constants
-            current = parser%consume()
-            if (current%text == ".true." .or. current%text == ".false.") then
-                expr_index = parse_boolean_literal(current, arena)
-            else if (current%text == "real" .or. current%text == "integer" .or. &
-                     current%text == "character" .or. current%text == "logical" .or. &
-                     current%text == "complex" .or. current%text == "double") then
-                ! Type keywords should not appear in expressions - this indicates 
-                ! a parser routing error. Create a placeholder identifier node
-                ! instead of an error to allow parsing to continue
-                expr_index = push_identifier(arena, current%text, current%line, current%column)
-            else
-                ! Other keywords - create error node
-                expr_index = push_literal(arena, &
-                    "!ERROR: Unexpected keyword '"//current%text//"' in expression", &
-                    LITERAL_STRING, current%line, current%column)
-            end if
-
-        case default
-            ! Unrecognized token - create error node and skip
-            expr_index = push_literal(arena, &
-                "!ERROR: Unrecognized token '"//trim(current%text)//"' in expression", &
-                LITERAL_STRING, current%line, current%column)
-            current = parser%consume()
-        end select
-        
-        ! Now handle postfix operators (%, (), etc.) on the primary expression
-        if (expr_index > 0) then
-            expr_index = parse_postfix_ops(parser, arena, expr_index)
-        end if
-    end function parse_primary
+        call build_token_view(view, parser)
+        expr_index = parse_postfix_ops(parser, arena, view, expr_index)
+    end function parse_postfix_chain
 
     !=================================================================================
     ! RANGE EXPRESSION PARSING SECTION
@@ -427,24 +1001,19 @@ contains
         integer :: right_index
         type(token_t) :: op_token
 
-        ! Check if we start with a colon (empty lower bound)
         op_token = parser%peek()
         if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
-            ! Empty lower bound case (e.g., :5)
             op_token = parser%consume()
-            expr_index = 0  ! No lower bound
+            expr_index = 0
 
-            ! Parse the upper bound (optional)
             if (.not. parser%is_at_end()) then
                 block
                     type(token_t) :: next_tok
                     next_tok = parser%peek()
-                    ! Check if next token is not a closing paren/bracket or comma
                     if (.not. (next_tok%kind == TK_OPERATOR .and. &
                                (next_tok%text == ")" .or. next_tok%text == "]" .or. next_tok%text == ","))) then
                         right_index = parse_logical_eqv(parser, arena)
                     else
-                        ! Empty upper bound too (just :)
                         right_index = 0
                     end if
                 end block
@@ -452,39 +1021,31 @@ contains
                 right_index = 0
             end if
 
-            ! Check for stride (second colon) for empty lower bound case
             block
                 integer :: stride_index
                 stride_index = parse_stride_component(parser, arena)
-                
+
                 expr_index = push_range_expression(arena, expr_index, right_index, &
-                                                  stride_index=stride_index, &
-                                                  line=op_token%line, &
-                                                  column=op_token%column)
+                    stride_index=stride_index, line=op_token%line, column=op_token%column)
             end block
             return
         end if
 
-        ! Normal case: parse lower bound first
         expr_index = parse_logical_eqv(parser, arena)
 
-        ! Check for colon operator
         if (.not. parser%is_at_end()) then
             op_token = parser%peek()
             if (op_token%kind == TK_OPERATOR .and. op_token%text == ":") then
                 op_token = parser%consume()
 
-                ! Parse the upper bound (optional)
                 if (.not. parser%is_at_end()) then
                     block
                         type(token_t) :: next_tok
                         next_tok = parser%peek()
-                        ! Check if next token is not a closing paren/bracket or comma
                         if (.not. (next_tok%kind == TK_OPERATOR .and. &
                                  (next_tok%text == ")" .or. next_tok%text == "]" .or. next_tok%text == ","))) then
                             right_index = parse_logical_eqv(parser, arena)
                         else
-                            ! Empty upper bound (e.g., arr(2:))
                             right_index = 0
                         end if
                     end block
@@ -492,15 +1053,12 @@ contains
                     right_index = 0
                 end if
 
-                ! Check for stride (second colon)
                 block
                     integer :: stride_index
                     stride_index = parse_stride_component(parser, arena)
-                    
+
                     expr_index = push_range_expression(arena, expr_index, right_index, &
-                                                      stride_index=stride_index, &
-                                                      line=op_token%line, &
-                                                  column=op_token%column)
+                        stride_index=stride_index, line=op_token%line, column=op_token%column)
                 end block
             end if
         end if
@@ -544,7 +1102,7 @@ contains
             else
                 temp_indices(element_count) = parse_unary(parser, arena)
             end if
-            
+
             if (temp_indices(element_count) <= 0) then
                 expr_index = 0
                 return
@@ -647,18 +1205,18 @@ contains
     end function parse_legacy_array_literal
 
     ! Parse modern array literal: [1, 2, 3] with implied do loop support
-    function parse_modern_array_literal(parser, arena) result(expr_index)
+    function parse_modern_array_literal(parser, arena, start_token) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        type(token_t), intent(in) :: start_token
         integer :: expr_index
         
         block
-            type(token_t) :: bracket_token, current, next_token
+            type(token_t) :: current, next_token
             integer, allocatable :: element_indices(:), temp_indices(:)
             integer :: element_count
             logical :: is_implied_do
 
-            bracket_token = parser%consume()
             current = parser%peek()
             
             ! Check for empty array []
@@ -666,7 +1224,7 @@ contains
                 current = parser%consume()
                 allocate (element_indices(0))
                 expr_index = push_array_literal(arena, element_indices, &
-                                                bracket_token%line, bracket_token%column, &
+                                                start_token%line, start_token%column, &
                                                 syntax_style="modern")
                 return
             end if
@@ -680,10 +1238,10 @@ contains
             
             if (is_implied_do) then
                 ! Parse implied do loop
-                expr_index = parse_implied_do_constructor(parser, arena, bracket_token)
+                expr_index = parse_implied_do_constructor(parser, arena, start_token)
             else
                 ! Parse regular array elements
-                expr_index = parse_simple_array_elements(parser, arena, "]", "modern", bracket_token)
+                expr_index = parse_simple_array_elements(parser, arena, "]", "modern", start_token)
             end if
         end block
     end function parse_modern_array_literal
@@ -1003,9 +1561,10 @@ contains
     end function parse_square_indexing_postfix
      
     ! Parse postfix operators on an expression
-    function parse_postfix_ops(parser, arena, base_expr) result(expr_index)
+    function parse_postfix_ops(parser, arena, view, base_expr) result(expr_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
+        type(token_view_t), intent(in) :: view
         integer, intent(in) :: base_expr
         integer :: expr_index
         type(token_t) :: op_token
@@ -1017,10 +1576,10 @@ contains
         ! Handle postfix operators in a loop
         do while (.not. parser%is_at_end() .and. loop_count < 1000)
             loop_count = loop_count + 1
-            op_token = parser%peek()
-            
+            op_token = view_peek_token(view, parser)
+
             if (op_token%kind == TK_OPERATOR .and. op_token%text == "%") then
-                op_token = parser%consume()
+                op_token = view_consume_token(view, parser)
                 expr_index = parse_component_access_postfix(parser, arena, expr_index, op_token)
                 if (expr_index <= 0) exit
             else if (op_token%kind == TK_OPERATOR .and. op_token%text == "(") then
@@ -1036,104 +1595,5 @@ contains
     !=================================================================================
     ! PRIMARY EXPRESSION PARSING SECTION  
     !=================================================================================
-
-    ! Parse identifier or function call
-    function parse_identifier_or_call(parser, arena, identifier_token) result(expr_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        type(token_t), intent(in) :: identifier_token
-        integer :: expr_index
-        
-        ! Check if followed by '(' for function call
-        block
-            type(token_t) :: next_token
-            character(len=:), allocatable :: func_name
-            integer, allocatable :: arg_indices(:)
-            type(token_t) :: paren
-            integer :: arg_count
-
-            next_token = parser%peek()
-            if (next_token%kind == TK_OPERATOR .and. next_token%text == "(") then
-                ! Parse function call
-
-                func_name = identifier_token%text
-                arg_count = 0
-
-                ! Consume opening paren
-                paren = parser%consume()
-
-                ! Parse arguments (now handles multiple arguments)
-                next_token = parser%peek()
-                if (next_token%kind /= TK_OPERATOR .or. next_token%text /= ")") then
-                    block
-                        class(ast_node), allocatable :: arg
-
-                        ! Handle multiple arguments using indices
-                        arg_count = 0
-
-                        ! Parse first argument
-                        block
-                            integer :: arg_index
-                            arg_index = parse_range(parser, arena)
-                            if (arg_index > 0) then
-                                arg_count = 1
-                                allocate (arg_indices(1))
-                                arg_indices(1) = arg_index
-
-                                ! Parse additional arguments separated by commas
-                                do
-                                    next_token = parser%peek()
-                if (next_token%kind /= TK_OPERATOR .or. next_token%text /= ",") exit
-
-                                    ! Consume comma
-                                    next_token = parser%consume()
-
-                                    ! Parse next argument
-                                    arg_index = parse_range(parser, arena)
-                                    if (arg_index > 0) then
-                                        ! Extend index array
-                                        arg_indices = [arg_indices, arg_index]
-                                        arg_count = arg_count + 1
-                                    else
-                                        exit
-                                    end if
-                                end do
-                            end if
-                        end block
-                    end block
-                end if
-
-                ! Consume closing paren if present
-                next_token = parser%peek()
-               if (next_token%kind == TK_OPERATOR .and. next_token%text == ")") then
-                    paren = parser%consume()
-                end if
-
-                ! Create function call node with array slice detection
-                if (allocated(arg_indices)) then
-                    expr_index = &
-                        push_call_or_subscript_with_slice_detection(arena, &
-                        func_name, arg_indices, identifier_token%line, identifier_token%column)
-                else
-                    ! For empty args, create empty function call
-                    block
-                        integer, allocatable :: empty_args(:)
-                        allocate (empty_args(0))  ! Empty index array
-                        expr_index = push_call_or_subscript(arena, func_name, &
-                            empty_args, identifier_token%line, identifier_token%column)
-                    end block
-                end if
-            else
-                ! Check for boolean literals first
-                if (identifier_token%text == 'true' .or. identifier_token%text == 'false') then
-                    expr_index = push_literal(arena, identifier_token%text, LITERAL_LOGICAL, &
-                        identifier_token%line, identifier_token%column)
-                else
-                    expr_index = push_identifier(arena, identifier_token%text, &
-                        identifier_token%line, identifier_token%column)
-                end if
-            end if
-        end block
-    end function parse_identifier_or_call
 
 end module parser_expressions_module

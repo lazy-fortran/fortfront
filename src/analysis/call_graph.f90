@@ -35,6 +35,11 @@ module call_graph_module
         integer :: column
     end type call_edge_t
 
+    type :: call_traversal_item_t
+        integer :: node_index = 0
+        character(len=256) :: scope = ''
+    end type call_traversal_item_t
+
     ! Main call graph type
     type :: call_graph_t
         type(procedure_info_t), allocatable :: procedures(:)
@@ -235,7 +240,8 @@ contains
             end do
             
             ! Convert to allocatable array of proper size
-            allocate(character(len=maxval(len_trim(temp_names))) :: unused_names(unused_count))
+            allocate(character(len=maxval(len_trim(temp_names))) :: &
+                     unused_names(unused_count))
             do i = 1, unused_count
                 unused_names(i) = trim(temp_names(i))
             end do
@@ -459,9 +465,15 @@ contains
         write(out_unit, '(A)') "Procedures:"
         do i = 1, graph%proc_count
             write(out_unit, '(A,A)', advance='no') "  ", graph%procedures(i)%name
-            if (graph%procedures(i)%is_main_program) write(out_unit, '(A)', advance='no') " [MAIN]"
-            if (graph%procedures(i)%is_intrinsic) write(out_unit, '(A)', advance='no') " [INTRINSIC]"
-            if (graph%procedures(i)%is_external) write(out_unit, '(A)', advance='no') " [EXTERNAL]"
+            if (graph%procedures(i)%is_main_program) then
+                write(out_unit, '(A)', advance='no') ' [MAIN]'
+            end if
+            if (graph%procedures(i)%is_intrinsic) then
+                write(out_unit, '(A)', advance='no') ' [INTRINSIC]'
+            end if
+            if (graph%procedures(i)%is_external) then
+                write(out_unit, '(A)', advance='no') ' [EXTERNAL]'
+            end if
             write(out_unit, '(A,I0,A,I0,A)') " (line ", graph%procedures(i)%line, &
                                              ", col ", graph%procedures(i)%column, ")"
             
@@ -514,123 +526,139 @@ contains
         call traverse_ast_for_calls(graph, arena, root_index, "")
     end subroutine build_call_graph_from_ast
 
-    ! Recursive traversal to build call graph
-    recursive subroutine traverse_ast_for_calls(graph, arena, node_index, &
-                                              current_scope)
+    ! Iterative traversal to build call graph without recursion
+    subroutine traverse_ast_for_calls(graph, arena, node_index, current_scope)
         type(call_graph_t), intent(inout) :: graph
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=*), intent(in) :: current_scope
-        
+
+        type(call_traversal_item_t), allocatable :: stack(:)
+        type(call_traversal_item_t) :: item
         character(len=:), allocatable :: node_type
         character(len=256) :: new_scope
-        integer :: i
-        
-        if (node_index <= 0 .or. node_index > arena%size) return
-        if (.not. allocated(arena%entries(node_index)%node)) return
-        
-        node_type = arena%entries(node_index)%node_type
-        
-        select case (node_type)
-        case ("program")
-            ! Handle program node
-            select type (node => arena%entries(node_index)%node)
-            type is (program_node)
-                call add_procedure(graph, node%name, node_index, &
-                                 node%line, node%column, is_main=.true.)
-                new_scope = node%name
-                
-                ! Traverse body
-                if (allocated(node%body_indices)) then
-                    do i = 1, size(node%body_indices)
-                        call traverse_ast_for_calls(graph, arena, &
-                                                  node%body_indices(i), new_scope)
-                    end do
-                end if
-            end select
-            
-        case ("function")
-            ! Handle function definition
-            select type (node => arena%entries(node_index)%node)
-            type is (function_def_node)
-                call add_procedure(graph, node%name, node_index, &
-                                 node%line, node%column)
-                new_scope = node%name
-                
-                ! Traverse body
-                if (allocated(node%body_indices)) then
-                    do i = 1, size(node%body_indices)
-                        call traverse_ast_for_calls(graph, arena, &
-                                                  node%body_indices(i), new_scope)
-                    end do
-                end if
-            end select
-            
-        case ("subroutine")
-            ! Handle subroutine definition
-            select type (node => arena%entries(node_index)%node)
-            type is (subroutine_def_node)
-                call add_procedure(graph, node%name, node_index, &
-                                 node%line, node%column)
-                new_scope = node%name
-                
-                ! Traverse body
-                if (allocated(node%body_indices)) then
-                    do i = 1, size(node%body_indices)
-                        call traverse_ast_for_calls(graph, arena, &
-                                                  node%body_indices(i), new_scope)
-                    end do
-                end if
-            end select
-            
-        case ("call", "subroutine_call")
-            ! Handle subroutine call
-            select type (node => arena%entries(node_index)%node)
-            type is (subroutine_call_node)
-                if (len_trim(current_scope) > 0) then
-                    call add_call(graph, current_scope, node%name, node_index, &
-                                node%line, node%column)
-                end if
-            end select
-            
-        case ("call_or_subscript")
-            ! Handle function call (need to check if it's actually a call)
-            select type (node => arena%entries(node_index)%node)
-            type is (call_or_subscript_node)
-                ! For now, assume it's a function call if in expression context
-                if (len_trim(current_scope) > 0) then
-                    call add_call(graph, current_scope, node%name, node_index, &
-                                node%line, node%column)
-                end if
-            end select
-            
-        case default
-            ! For other node types, just traverse children
-            call traverse_children(graph, arena, node_index, current_scope)
-        end select
-    end subroutine traverse_ast_for_calls
-
-    ! Helper to traverse all children of a node
-    subroutine traverse_children(graph, arena, node_index, current_scope)
-        type(call_graph_t), intent(inout) :: graph
-        type(ast_arena_t), intent(in) :: arena
-        integer, intent(in) :: node_index
-        character(len=*), intent(in) :: current_scope
-        
         integer, allocatable :: children(:)
+        integer :: top
         integer :: i
-        
-        ! Get children indices based on node type
-        ! This is simplified - in reality we'd need to handle each node type
-        children = arena%get_children(node_index)
-        
-        if (allocated(children)) then
-            do i = 1, size(children)
-                call traverse_ast_for_calls(graph, arena, children(i), &
-                                          current_scope)
-            end do
+        logical, allocatable :: visited(:)
+
+        top = 0
+        if (arena%size > 0) then
+            allocate(visited(arena%size))
+            visited = .false.
         end if
-    end subroutine traverse_children
+        call push(node_index, current_scope)
+
+        do while (top > 0)
+            item = stack(top)
+            top = top - 1
+
+            if (item%node_index <= 0 .or. item%node_index > arena%size) cycle
+            if (.not. allocated(arena%entries(item%node_index)%node)) cycle
+            if (allocated(visited)) then
+                if (visited(item%node_index)) cycle
+                visited(item%node_index) = .true.
+            end if
+
+            node_type = arena%entries(item%node_index)%node_type
+
+            select case (node_type)
+            case ("program")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (program_node)
+                    call add_procedure(graph, node%name, item%node_index, &
+                                     node%line, node%column, is_main=.true.)
+                    new_scope = node%name
+                    if (allocated(node%body_indices)) then
+                        do i = size(node%body_indices), 1, -1
+                            call push(node%body_indices(i), new_scope)
+                        end do
+                    end if
+                end select
+
+            case ("function")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (function_def_node)
+                    call add_procedure(graph, node%name, item%node_index, &
+                                     node%line, node%column)
+                    new_scope = node%name
+                    if (allocated(node%body_indices)) then
+                        do i = size(node%body_indices), 1, -1
+                            call push(node%body_indices(i), new_scope)
+                        end do
+                    end if
+                end select
+
+            case ("subroutine")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (subroutine_def_node)
+                    call add_procedure(graph, node%name, item%node_index, &
+                                     node%line, node%column)
+                    new_scope = node%name
+                    if (allocated(node%body_indices)) then
+                        do i = size(node%body_indices), 1, -1
+                            call push(node%body_indices(i), new_scope)
+                        end do
+                    end if
+                end select
+
+            case ("call", "subroutine_call")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (subroutine_call_node)
+                    if (len_trim(item%scope) > 0) then
+                        call add_call(graph, trim(item%scope), node%name, &
+                                    item%node_index, node%line, node%column)
+                    end if
+                end select
+
+            case ("call_or_subscript")
+                select type (node => arena%entries(item%node_index)%node)
+                type is (call_or_subscript_node)
+                    if (len_trim(item%scope) > 0) then
+                        call add_call(graph, trim(item%scope), node%name, &
+                                    item%node_index, node%line, node%column)
+                    end if
+                end select
+
+            case default
+                children = arena%get_children(item%node_index)
+                if (allocated(children)) then
+                    do i = size(children), 1, -1
+                        call push(children(i), item%scope)
+                    end do
+                end if
+            end select
+        end do
+
+        if (allocated(visited)) then
+            deallocate(visited)
+        end if
+
+    contains
+        subroutine ensure_capacity()
+            type(call_traversal_item_t), allocatable :: tmp(:)
+
+            if (.not. allocated(stack)) then
+                allocate(stack(128))
+            else if (top >= size(stack)) then
+                allocate(tmp(size(stack)*2))
+                tmp(1:size(stack)) = stack
+                call move_alloc(tmp, stack)
+            end if
+        end subroutine ensure_capacity
+
+        subroutine push(idx, scope_value)
+            integer, intent(in) :: idx
+            character(len=*), intent(in) :: scope_value
+
+            if (idx <= 0) return
+            call ensure_capacity()
+            top = top + 1
+            stack(top)%node_index = idx
+            stack(top)%scope = ''
+            stack(top)%scope = scope_value
+        end subroutine push
+    end subroutine traverse_ast_for_calls
 
     ! Type-bound procedures
     subroutine graph_add_procedure(this, name, def_node, line, column, &
@@ -740,44 +768,102 @@ contains
     end function find_recursive_cycles
     
     ! Helper for cycle detection using DFS
-    recursive subroutine dfs_cycle_detect(graph, proc_idx, visited, in_stack, &
-                                        cycles, cycle_count)
+    subroutine dfs_cycle_detect(graph, proc_idx, visited, in_stack, cycles, cycle_count)
         type(call_graph_t), intent(in) :: graph
         integer, intent(in) :: proc_idx
         logical, intent(inout) :: visited(:), in_stack(:)
         character(len=256), intent(inout) :: cycles(:)
         integer, intent(inout) :: cycle_count
-        
+
+        type :: dfs_frame_t
+            integer :: proc_index = 0
+            integer :: edge_pos = 1
+            logical :: entering = .true.
+        end type dfs_frame_t
+
+        type(dfs_frame_t), allocatable :: stack(:)
+        type(dfs_frame_t) :: frame
+        integer :: top, capacity
         integer :: i, callee_idx
-        
-        visited(proc_idx) = .true.
-        in_stack(proc_idx) = .true.
-        
-        ! Check all callees of this procedure
-        do i = 1, graph%call_count
-            if (graph%calls(i)%caller == graph%procedures(proc_idx)%name) then
-                ! Find callee index
-                callee_idx = 0
-                do callee_idx = 1, graph%proc_count
-                    if (graph%procedures(callee_idx)%name == graph%calls(i)%callee) then
-                        exit
+        character(len=256) :: caller_name
+        logical :: found
+
+        capacity = 64
+        allocate(stack(capacity))
+        top = 1
+        stack(top)%proc_index = proc_idx
+        stack(top)%edge_pos = 1
+        stack(top)%entering = .true.
+
+        do while (top > 0)
+            frame = stack(top)
+
+            if (frame%entering) then
+                caller_name = graph%procedures(frame%proc_index)%name
+                visited(frame%proc_index) = .true.
+                in_stack(frame%proc_index) = .true.
+                stack(top)%entering = .false.
+                cycle
+            end if
+
+            caller_name = graph%procedures(frame%proc_index)%name
+            found = .false.
+            do i = frame%edge_pos, graph%call_count
+                if (graph%calls(i)%caller /= caller_name) cycle
+
+                stack(top)%edge_pos = i + 1
+                callee_idx = find_procedure_index(graph, graph%calls(i)%callee)
+                if (callee_idx <= 0 .or. callee_idx > graph%proc_count) cycle
+
+                if (in_stack(callee_idx)) then
+                    cycle_count = cycle_count + 1
+                    if (cycle_count <= size(cycles)) then
+                        cycles(cycle_count) = caller_name
                     end if
-                end do
-                
-                if (callee_idx > 0 .and. callee_idx <= graph%proc_count) then
-                    if (in_stack(callee_idx)) then
-                        ! Found a cycle
-                        cycle_count = cycle_count + 1
-                        cycles(cycle_count) = graph%procedures(proc_idx)%name
-                    else if (.not. visited(callee_idx)) then
-                        call dfs_cycle_detect(graph, callee_idx, visited, in_stack, &
-                                            cycles, cycle_count)
-                    end if
+                else if (.not. visited(callee_idx)) then
+                    call push_frame(callee_idx)
+                    found = .true.
+                    exit
                 end if
+            end do
+
+            if (.not. found) then
+                in_stack(frame%proc_index) = .false.
+                top = top - 1
             end if
         end do
-        
-        in_stack(proc_idx) = .false.
+
+    contains
+        subroutine push_frame(idx)
+            integer, intent(in) :: idx
+            type(dfs_frame_t), allocatable :: tmp(:)
+
+            if (top >= capacity) then
+                capacity = capacity * 2
+                allocate(tmp(capacity))
+                tmp(1:top) = stack(1:top)
+                call move_alloc(tmp, stack)
+            end if
+            top = top + 1
+            stack(top)%proc_index = idx
+            stack(top)%edge_pos = 1
+            stack(top)%entering = .true.
+        end subroutine push_frame
+
+        function find_procedure_index(graph_local, name) result(index)
+            type(call_graph_t), intent(in) :: graph_local
+            character(len=*), intent(in) :: name
+            integer :: index
+            integer :: j
+
+            index = 0
+            do j = 1, graph_local%proc_count
+                if (graph_local%procedures(j)%name == name) then
+                    index = j
+                    return
+                end if
+            end do
+        end function find_procedure_index
     end subroutine dfs_cycle_detect
 
     subroutine graph_print_call_graph(this, unit)

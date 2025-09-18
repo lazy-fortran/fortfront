@@ -92,7 +92,7 @@ contains
 
         ! Generate loop variable
         if (allocated(node%var_name)) then
-            var_code = node%var_name
+            var_code = trim(adjustl(node%var_name))
         else
             var_code = ""
         end if
@@ -100,18 +100,21 @@ contains
         ! Generate loop bounds
         if (node%start_expr_index > 0) then
             start_code = generate_code_from_arena(arena, node%start_expr_index)
+            start_code = trim(adjustl(start_code))
         else
             start_code = ""
         end if
 
         if (node%end_expr_index > 0) then
             end_code = generate_code_from_arena(arena, node%end_expr_index)
+            end_code = trim(adjustl(end_code))
         else
             end_code = ""
         end if
 
         if (node%step_expr_index > 0) then
             step_code = generate_code_from_arena(arena, node%step_expr_index)
+            step_code = trim(adjustl(step_code))
         else
             step_code = ""
         end if
@@ -128,11 +131,16 @@ contains
             body_code = generate_grouped_body_internal(arena, node%body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code // new_line('A') // body_code
+                ! body_code ends with a newline; avoid inserting an extra blank line
+                code = code // repeat("    ", indent_level) // "end do"
+            else
+                ! Empty body: ensure end do is on the next line
+                code = code // new_line('A') // repeat("    ", indent_level) // "end do"
             end if
+        else
+            ! No body array provided
+            code = code // new_line('A') // repeat("    ", indent_level) // "end do"
         end if
-
-        ! Generate end do
-        code = code // new_line('A') // repeat("    ", indent_level) // "end do"
     end function generate_code_do_loop
 
     ! Generate code for do while loops
@@ -161,11 +169,13 @@ contains
             body_code = generate_grouped_body_internal(arena, node%body_indices, indent_level + 1)
             if (len(body_code) > 0) then
                 code = code // new_line('A') // body_code
+                code = code // repeat("    ", indent_level) // "end do"
+            else
+                code = code // new_line('A') // repeat("    ", indent_level) // "end do"
             end if
+        else
+            code = code // new_line('A') // repeat("    ", indent_level) // "end do"
         end if
-
-        ! Generate end do
-        code = code // new_line('A') // repeat("    ", indent_level) // "end do"
     end function generate_code_do_while
 
     ! Generate code for select case statements
