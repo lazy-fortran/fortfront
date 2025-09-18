@@ -1,3 +1,4 @@
+! @slow-path
 module cfg_builder_utilities
     use iso_fortran_env, only: error_unit
     use ast_core

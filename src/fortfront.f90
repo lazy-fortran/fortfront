@@ -186,9 +186,18 @@ module fortfront
          is_procedure_used, &
          get_all_procedures_in_graph => get_all_procedures, &
          get_recursive_cycles => find_recursive_cycles
+    use slow_path_config, only: set_slow_path_enabled, is_slow_path_enabled
+    use slow_path_analyzers, only: clear_slow_path_results, fetch_call_graph_result, &
+                                   get_slow_path_invocation_count
 
     implicit none
     public
+    public :: enable_slow_path_analyses
+    public :: disable_slow_path_analyses
+    public :: slow_path_analyses_enabled
+    public :: reset_slow_path_results
+    public :: get_cached_call_graph
+    public :: slow_path_analysis_invocations
 
 contains
 
@@ -203,6 +212,33 @@ contains
             allocate(edges(0))
         end if
     end function get_call_edges
+
+    subroutine enable_slow_path_analyses()
+        call set_slow_path_enabled(.true.)
+    end subroutine enable_slow_path_analyses
+
+    subroutine disable_slow_path_analyses()
+        call set_slow_path_enabled(.false.)
+    end subroutine disable_slow_path_analyses
+
+    logical function slow_path_analyses_enabled()
+        slow_path_analyses_enabled = is_slow_path_enabled()
+    end function slow_path_analyses_enabled
+
+    subroutine reset_slow_path_results()
+        call clear_slow_path_results()
+    end subroutine reset_slow_path_results
+
+    subroutine get_cached_call_graph(graph, available)
+        type(call_graph_t), intent(out) :: graph
+        logical, intent(out) :: available
+
+        call fetch_call_graph_result(graph, available)
+    end subroutine get_cached_call_graph
+
+    integer function slow_path_analysis_invocations() result(count)
+        count = get_slow_path_invocation_count()
+    end function slow_path_analysis_invocations
 
 
 end module fortfront
