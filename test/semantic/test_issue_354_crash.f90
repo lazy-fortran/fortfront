@@ -4,6 +4,7 @@ program test_issue_354_crash
     ! and tests assignment operations that crash with the bug
     
     use type_system_unified
+    use identifier_table, only: identifier_table_t, identifier_table_init
     implicit none
     
     print *, "=== Testing Issue #354: GCC 15.2.1 Allocatable Crash ==="
@@ -44,6 +45,7 @@ contains
     subroutine test_uninitialized_type_env()
         type(type_env_t) :: envs(5)  ! Array of uninitialized environments
         type(type_env_t) :: source_env
+        type(identifier_table_t), target :: table
         type(poly_type_t) :: scheme
         type(mono_type_t) :: mono
         integer :: i
@@ -53,6 +55,9 @@ contains
         ! Create valid environment
         mono = create_mono_type(TREAL)
         scheme = create_poly_type([type_var_t::], mono)
+        call identifier_table_init(table)
+        source_env%identifiers => table
+
         call source_env%extend("x", scheme)
         
         ! This would crash with undefined allocatable components
