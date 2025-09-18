@@ -69,10 +69,9 @@
    - [ ] Prototype push/pop helpers with bounded scratch buffers (reuse builder statement buffer where possible) and clear lifecycle semantics.
    - [ ] Document control-flow invariants (edge ordering, block creation rules) to use as acceptance criteria.
 
-2. **Refactor `process_node` & Helpers**
-   - [ ] Replace `process_node` recursion with stack-driven dispatcher; ensure all helper routines (`process_if_statement`, `process_do_loop`, etc.) enqueue follow-up work instead of recursing directly.
-   - [ ] Eliminate per-call allocatables inside hot loops by reusing frame-owned scratch storage; avoid repeated `allocate/deallocate` churn.
-   - [ ] Add targeted regression tests for deep/nested constructs (elseif ladders, nested where/forall) to validate identical CFG output.
+2. **CFG Simplification**
+   - [x] Drop legacy CFG builder and analyzer modules; expose only core transformations required for codegen (2025-09-18, commit f3aebec, perf n/a).
+   - [ ] Evaluate if remaining CFG docs/examples should be retired or rewritten around the lean surface.
 
 3. **Update Control-Flow Analyzer Plugin**
    - [ ] Adjust analyzer to rely on the iterative CFG builder API; remove `traverse_ast_for_cfg` recursion.

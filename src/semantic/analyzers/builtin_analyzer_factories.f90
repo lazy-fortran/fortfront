@@ -3,8 +3,7 @@ module builtin_analyzer_factories
     use base_analyzer, only: base_analyzer_t
     ! Import all built-in analyzer types
     use builtin_analyzers, only: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t
-    use call_graph_analyzer, only: call_graph_analyzer_t  
-    use control_flow_analyzer, only: control_flow_analyzer_t
+    use call_graph_analyzer, only: call_graph_analyzer_t
     use usage_tracker_analyzer, only: usage_tracker_analyzer_t
     use source_reconstruction_analyzer, only: source_reconstruction_analyzer_t
     use interface_analyzer, only: interface_analyzer_t
@@ -14,7 +13,7 @@ module builtin_analyzer_factories
 
     public :: register_builtin_factories, &
               create_symbol_analyzer, create_type_analyzer, create_scope_analyzer, &
-              create_call_graph_analyzer, create_control_flow_analyzer, &
+              create_call_graph_analyzer, &
               create_usage_tracker_analyzer, create_source_reconstruction_analyzer, &
               create_interface_analyzer, create_simple_test_analyzer
 
@@ -40,11 +39,6 @@ contains
         class(base_analyzer_t), allocatable :: analyzer
         allocate(call_graph_analyzer_t :: analyzer)
     end function create_call_graph_analyzer
-
-    function create_control_flow_analyzer() result(analyzer)
-        class(base_analyzer_t), allocatable :: analyzer
-        allocate(control_flow_analyzer_t :: analyzer)
-    end function create_control_flow_analyzer
 
     function create_usage_tracker_analyzer() result(analyzer)
         class(base_analyzer_t), allocatable :: analyzer
@@ -94,12 +88,6 @@ contains
         factory%type_name = "call_graph_analyzer_t"
         factory%description = "Function call graph analysis"
         call registry%register_factory("call_graph", factory)
-
-        ! Control Flow Analyzer
-        factory%creator => create_control_flow_analyzer
-        factory%type_name = "control_flow_analyzer_t"
-        factory%description = "Control flow analysis"
-        call registry%register_factory("control_flow", factory)
 
         ! Usage Tracker Analyzer
         factory%creator => create_usage_tracker_analyzer

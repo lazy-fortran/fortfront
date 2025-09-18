@@ -6,7 +6,7 @@ A small Fortran frontend that lexes, parses, performs light semantic checks, and
 - Clean pipeline: lex → parse → semantic → codegen
 - Intrinsic recognition and lightweight type inference
 - Optional standardization step for consistent output
-- Lean analysis hooks: direct call-graph/CFG APIs without legacy wrappers
+- Minimal analysis hooks: direct call-graph API without extra wrappers
 
 ## Building
 - fpm: `fpm build`

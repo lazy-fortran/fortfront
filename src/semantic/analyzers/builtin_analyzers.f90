@@ -10,7 +10,6 @@ module builtin_analyzers
     
     ! Import analysis plugins
     use call_graph_analyzer, only: call_graph_analyzer_t
-    use control_flow_analyzer, only: control_flow_analyzer_t
     use usage_tracker_analyzer, only: usage_tracker_analyzer_t
     use source_reconstruction_analyzer, only: source_reconstruction_analyzer_t
     use interface_analyzer, only: interface_analyzer_t
@@ -23,7 +22,7 @@ module builtin_analyzers
     public :: symbol_analyzer_t, type_analyzer_t, scope_analyzer_t
     
     ! Analysis plugins (for external tools like fluff)
-    public :: call_graph_analyzer_t, control_flow_analyzer_t
+    public :: call_graph_analyzer_t
     public :: usage_tracker_analyzer_t, source_reconstruction_analyzer_t
     public :: interface_analyzer_t
 
