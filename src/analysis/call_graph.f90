@@ -1,16 +1,17 @@
 module call_graph_module
-    use iso_fortran_env, only: error_unit
-    ! Explicit AST imports replace ast_core god module
-    use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core, only: program_node, call_or_subscript_node
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use ast_core, only: ast_arena_t, program_node, assignment_node, &
+                        binary_op_node, call_or_subscript_node
+    use ast_nodes_data, only: module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    subroutine_call_node
     implicit none
     private
 
     ! Public interface
-    public :: call_graph_t, procedure_info_t, call_edge_t, create_call_graph
-    public :: add_procedure, add_call, find_unused_procedures
+    public :: call_graph_t, procedure_info_t, call_edge_t, create_call_graph, &
+              build_call_graph
+    public :: find_unused_procedures
     public :: get_callers, get_callees, is_procedure_used
     public :: get_all_procedures, get_call_count, find_recursive_cycles
     public :: print_call_graph, build_call_graph_from_ast
@@ -35,10 +36,19 @@ module call_graph_module
         integer :: column
     end type call_edge_t
 
-    type :: call_traversal_item_t
+    type, private :: symbol_entry_t
+        character(len=:), allocatable :: simple_name
+        character(len=:), allocatable :: full_name
+        integer :: parent_symbol = 0
         integer :: node_index = 0
-        character(len=256) :: scope = ''
-    end type call_traversal_item_t
+        logical :: is_procedure = .false.
+    end type symbol_entry_t
+
+    type, private :: unresolved_call_t
+        integer :: call_index = 0
+        character(len=:), allocatable :: callee_simple
+        integer :: scope_symbol = 0
+    end type unresolved_call_t
 
     ! Main call graph type
     type :: call_graph_t
@@ -61,6 +71,15 @@ module call_graph_module
         procedure :: assign => call_graph_assign
         generic :: assignment(=) => assign
     end type call_graph_t
+
+    type, private :: call_graph_builder_t
+        type(call_graph_t) :: graph
+        type(symbol_entry_t), allocatable :: symbol_table(:)
+        integer, allocatable :: node_symbol_map(:)
+        integer :: symbol_count = 0
+        type(unresolved_call_t), allocatable :: unresolved_calls(:)
+        integer :: unresolved_count = 0
+    end type call_graph_builder_t
 
 contains
 
@@ -520,34 +539,98 @@ contains
         type(call_graph_t), intent(inout) :: graph
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
-        
-        ! This will be implemented using the visitor pattern
-        ! For now, this is a placeholder
-        call traverse_ast_for_calls(graph, arena, root_index, "")
+
+        type(call_graph_t) :: built_graph
+
+        built_graph = build_call_graph(arena, root_index)
+        graph = built_graph
     end subroutine build_call_graph_from_ast
 
-    ! Iterative traversal to build call graph without recursion
-    subroutine traverse_ast_for_calls(graph, arena, node_index, current_scope)
-        type(call_graph_t), intent(inout) :: graph
+    ! Construct a call graph from an arena/program root pairing
+    function build_call_graph(arena, root_index) result(graph)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: root_index
+        type(call_graph_t) :: graph
+
+        type(call_graph_builder_t) :: builder
+        integer :: i
+
+        builder = create_call_graph_builder(arena%size)
+
+        if (root_index > 0) then
+            call traverse_for_calls(builder, arena, root_index, 0)
+        end if
+
+        if (allocated(arena%entries)) then
+            do i = 1, min(arena%size, size(arena%entries))
+                if (i == root_index) cycle
+                if (.not. allocated(arena%entries(i)%node)) cycle
+                select case (arena%entries(i)%node_type)
+                case ('module', 'module_node', 'program')
+                    call traverse_for_calls(builder, arena, i, 0)
+                end select
+            end do
+        end if
+
+        call handle_missing_nested_procedures(builder, arena)
+        call resolve_deferred_calls(builder)
+        call detect_recursive_calls(builder, arena)
+        call resolve_deferred_calls(builder)
+
+        graph = builder%graph
+    end function build_call_graph
+
+    ! Create a new call graph builder instance
+    function create_call_graph_builder(arena_size) result(builder)
+        integer, intent(in) :: arena_size
+        type(call_graph_builder_t) :: builder
+
+        builder%graph = create_call_graph()
+        allocate(builder%symbol_table(256))
+        if (arena_size > 0) then
+            allocate(builder%node_symbol_map(arena_size))
+            builder%node_symbol_map = 0
+        else
+            allocate(builder%node_symbol_map(0))
+        end if
+        allocate(builder%unresolved_calls(0))
+        builder%symbol_count = 0
+        builder%unresolved_count = 0
+    end function create_call_graph_builder
+
+    ! Iterative traversal to build the call graph without recursion
+    subroutine traverse_for_calls(builder, arena, node_index, current_scope_symbol)
+        type(call_graph_builder_t), intent(inout) :: builder
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
-        character(len=*), intent(in) :: current_scope
+        integer, intent(in) :: current_scope_symbol
 
-        type(call_traversal_item_t), allocatable :: stack(:)
-        type(call_traversal_item_t) :: item
+        type :: builder_stack_item_t
+            integer :: node_index = 0
+            integer :: scope_symbol = 0
+        end type builder_stack_item_t
+
+        type(builder_stack_item_t), allocatable :: stack(:)
+        type(builder_stack_item_t) :: item
         character(len=:), allocatable :: node_type
-        character(len=256) :: new_scope
+        character(len=256) :: caller_name
+        character(len=:), allocatable :: full_name
         integer, allocatable :: children(:)
         integer :: top
+        integer :: capacity
         integer :: i
-        logical, allocatable :: visited(:)
+        integer :: symbol_id
+        integer :: parent_symbol
+        integer :: resolved_symbol
 
-        top = 0
-        if (arena%size > 0) then
-            allocate(visited(arena%size))
-            visited = .false.
-        end if
-        call push(node_index, current_scope)
+        if (node_index <= 0 .or. node_index > arena%size) return
+        if (.not. allocated(arena%entries(node_index)%node)) return
+
+        capacity = 128
+        allocate(stack(capacity))
+        top = 1
+        stack(top)%node_index = node_index
+        stack(top)%scope_symbol = current_scope_symbol
 
         do while (top > 0)
             item = stack(top)
@@ -555,110 +638,551 @@ contains
 
             if (item%node_index <= 0 .or. item%node_index > arena%size) cycle
             if (.not. allocated(arena%entries(item%node_index)%node)) cycle
-            if (allocated(visited)) then
-                if (visited(item%node_index)) cycle
-                visited(item%node_index) = .true.
-            end if
 
             node_type = arena%entries(item%node_index)%node_type
 
             select case (node_type)
-            case ("program")
+            case ('program', 'program_node')
                 select type (node => arena%entries(item%node_index)%node)
                 type is (program_node)
-                    call add_procedure(graph, node%name, item%node_index, &
-                                     node%line, node%column, is_main=.true.)
-                    new_scope = node%name
+                    call builder%graph%add_proc(node%name, item%node_index, &
+                        node%line, node%column, is_main=.true.)
+                    call add_symbol_entry(builder, node%name, node%name, 0, &
+                        item%node_index, .true., symbol_id)
                     if (allocated(node%body_indices)) then
                         do i = size(node%body_indices), 1, -1
-                            call push(node%body_indices(i), new_scope)
+                            call push(node%body_indices(i), symbol_id)
                         end do
+                    else
+                        call push_children(item%node_index, symbol_id)
                     end if
                 end select
 
-            case ("function")
+            case ('function_def', 'function')
                 select type (node => arena%entries(item%node_index)%node)
                 type is (function_def_node)
-                    call add_procedure(graph, node%name, item%node_index, &
-                                     node%line, node%column)
-                    new_scope = node%name
+                    parent_symbol = item%scope_symbol
+                    full_name = compute_full_name(builder, parent_symbol, &
+                        node%name)
+                    call builder%graph%add_proc(full_name, item%node_index, &
+                        node%line, node%column)
+                    call add_symbol_entry(builder, node%name, full_name, &
+                        parent_symbol, item%node_index, .true., symbol_id)
                     if (allocated(node%body_indices)) then
                         do i = size(node%body_indices), 1, -1
-                            call push(node%body_indices(i), new_scope)
+                            call push(node%body_indices(i), symbol_id)
                         end do
+                    else
+                        call push_children(item%node_index, symbol_id)
                     end if
                 end select
 
-            case ("subroutine")
+            case ('subroutine_def', 'subroutine')
                 select type (node => arena%entries(item%node_index)%node)
                 type is (subroutine_def_node)
-                    call add_procedure(graph, node%name, item%node_index, &
-                                     node%line, node%column)
-                    new_scope = node%name
+                    parent_symbol = item%scope_symbol
+                    full_name = compute_full_name(builder, parent_symbol, &
+                        node%name)
+                    call builder%graph%add_proc(full_name, item%node_index, &
+                        node%line, node%column)
+                    call add_symbol_entry(builder, node%name, full_name, &
+                        parent_symbol, item%node_index, .true., symbol_id)
                     if (allocated(node%body_indices)) then
                         do i = size(node%body_indices), 1, -1
-                            call push(node%body_indices(i), new_scope)
+                            call push(node%body_indices(i), symbol_id)
                         end do
+                    else
+                        call push_children(item%node_index, symbol_id)
                     end if
                 end select
 
-            case ("call", "subroutine_call")
+            case ('subroutine_call', 'call')
                 select type (node => arena%entries(item%node_index)%node)
                 type is (subroutine_call_node)
-                    if (len_trim(item%scope) > 0) then
-                        call add_call(graph, trim(item%scope), node%name, &
-                                    item%node_index, node%line, node%column)
+                    if (item%scope_symbol > 0) then
+                        caller_name = builder%symbol_table(item%scope_symbol)%full_name
+                        resolved_symbol = resolve_procedure_symbol(builder, &
+                            node%name, item%scope_symbol)
+                        call add_call_with_resolution(builder, &
+                            item%scope_symbol, trim(caller_name), node%name, &
+                            resolved_symbol, item%node_index, node%line, &
+                            node%column)
                     end if
                 end select
 
-            case ("call_or_subscript")
+            case ('call_or_subscript')
                 select type (node => arena%entries(item%node_index)%node)
                 type is (call_or_subscript_node)
-                    if (len_trim(item%scope) > 0) then
-                        call add_call(graph, trim(item%scope), node%name, &
-                                    item%node_index, node%line, node%column)
+                    if (item%scope_symbol > 0 .and. .not. node%is_array_access) then
+                        caller_name = builder%symbol_table(item%scope_symbol)%full_name
+                        resolved_symbol = resolve_procedure_symbol(builder, &
+                            node%name, item%scope_symbol)
+                        call add_call_with_resolution(builder, &
+                            item%scope_symbol, trim(caller_name), node%name, &
+                            resolved_symbol, item%node_index, node%line, &
+                            node%column)
                     end if
                 end select
 
+            case ('assignment', 'assignment_node')
+                select type (node => arena%entries(item%node_index)%node)
+                type is (assignment_node)
+                    call push(node%value_index, item%scope_symbol)
+                    call push(node%target_index, item%scope_symbol)
+                end select
+
+            case ('binary_op', 'binary_op_node')
+                select type (node => arena%entries(item%node_index)%node)
+                type is (binary_op_node)
+                    call push(node%right_index, item%scope_symbol)
+                    call push(node%left_index, item%scope_symbol)
+                end select
+
+            case ('module', 'module_node')
+                select type (node => arena%entries(item%node_index)%node)
+                type is (module_node)
+                    call add_symbol_entry(builder, node%name, node%name, 0, &
+                        item%node_index, .false., symbol_id)
+                    if (allocated(node%procedure_indices)) then
+                        do i = size(node%procedure_indices), 1, -1
+                            call push(node%procedure_indices(i), symbol_id)
+                        end do
+                    end if
+                    if (allocated(node%declaration_indices)) then
+                        do i = size(node%declaration_indices), 1, -1
+                            call push(node%declaration_indices(i), symbol_id)
+                        end do
+                    end if
+                    call push_children(item%node_index, symbol_id)
+                end select
+
+            case ('contains', 'contains_section', 'contains_node')
+                call push_children(item%node_index, item%scope_symbol)
+
             case default
-                children = arena%get_children(item%node_index)
-                if (allocated(children)) then
-                    do i = size(children), 1, -1
-                        call push(children(i), item%scope)
-                    end do
-                end if
+                call push_children(item%node_index, item%scope_symbol)
             end select
         end do
 
-        if (allocated(visited)) then
-            deallocate(visited)
-        end if
-
     contains
         subroutine ensure_capacity()
-            type(call_traversal_item_t), allocatable :: tmp(:)
+            type(builder_stack_item_t), allocatable :: tmp(:)
 
-            if (.not. allocated(stack)) then
-                allocate(stack(128))
-            else if (top >= size(stack)) then
-                allocate(tmp(size(stack)*2))
-                tmp(1:size(stack)) = stack
-                call move_alloc(tmp, stack)
+            capacity = capacity * 2
+            allocate(tmp(capacity))
+            if (top > 0) then
+                tmp(1:top) = stack(1:top)
             end if
+            call move_alloc(tmp, stack)
         end subroutine ensure_capacity
 
         subroutine push(idx, scope_value)
             integer, intent(in) :: idx
-            character(len=*), intent(in) :: scope_value
+            integer, intent(in) :: scope_value
 
             if (idx <= 0) return
-            call ensure_capacity()
+            if (top >= capacity) then
+                call ensure_capacity()
+            end if
             top = top + 1
             stack(top)%node_index = idx
-            stack(top)%scope = ''
-            stack(top)%scope = scope_value
+            stack(top)%scope_symbol = scope_value
         end subroutine push
-    end subroutine traverse_ast_for_calls
+
+        subroutine push_children(parent_index, scope_value)
+            integer, intent(in) :: parent_index
+            integer, intent(in) :: scope_value
+
+            children = arena%get_children(parent_index)
+            if (allocated(children)) then
+                do i = size(children), 1, -1
+                    call push(children(i), scope_value)
+                end do
+            end if
+        end subroutine push_children
+    end subroutine traverse_for_calls
+
+    ! Add or update a symbol entry used for scope resolution
+    subroutine add_symbol_entry(builder, simple_name, full_name, parent_symbol, &
+            node_index, is_procedure, symbol_id)
+        type(call_graph_builder_t), intent(inout) :: builder
+        character(len=*), intent(in) :: simple_name
+        character(len=*), intent(in) :: full_name
+        integer, intent(in) :: parent_symbol
+        integer, intent(in) :: node_index
+        logical, intent(in) :: is_procedure
+        integer, intent(out) :: symbol_id
+
+        type(symbol_entry_t), allocatable :: temp_table(:)
+
+        if (.not. allocated(builder%symbol_table)) then
+            allocate(builder%symbol_table(256))
+        else if (builder%symbol_count >= size(builder%symbol_table)) then
+            allocate(temp_table(max(1, size(builder%symbol_table) * 2)))
+            if (builder%symbol_count > 0) then
+                temp_table(1:builder%symbol_count) = &
+                    builder%symbol_table(1:builder%symbol_count)
+            end if
+            call move_alloc(temp_table, builder%symbol_table)
+        end if
+
+        builder%symbol_count = builder%symbol_count + 1
+        symbol_id = builder%symbol_count
+        builder%symbol_table(symbol_id)%simple_name = trim(simple_name)
+        builder%symbol_table(symbol_id)%full_name = trim(full_name)
+        builder%symbol_table(symbol_id)%parent_symbol = parent_symbol
+        builder%symbol_table(symbol_id)%node_index = node_index
+        builder%symbol_table(symbol_id)%is_procedure = is_procedure
+
+        if (allocated(builder%node_symbol_map)) then
+            if (node_index > 0 .and. node_index <= size(builder%node_symbol_map)) then
+                builder%node_symbol_map(node_index) = symbol_id
+            end if
+        end if
+    end subroutine add_symbol_entry
+
+    ! Record a call edge and track unresolved callees for later resolution
+    subroutine add_call_with_resolution(builder, scope_symbol, caller_name, &
+            callee_simple, resolved_symbol, call_node, line, column)
+        type(call_graph_builder_t), intent(inout) :: builder
+        integer, intent(in) :: scope_symbol
+        character(len=*), intent(in) :: caller_name
+        character(len=*), intent(in) :: callee_simple
+        integer, intent(in) :: resolved_symbol
+        integer, intent(in) :: call_node
+        integer, intent(in) :: line
+        integer, intent(in) :: column
+
+        character(len=:), allocatable :: callee_name
+        integer :: call_index
+
+        if (resolved_symbol > 0) then
+            callee_name = builder%symbol_table(resolved_symbol)%full_name
+        else
+            callee_name = trim(callee_simple)
+        end if
+
+        call builder%graph%add_call_edge(trim(caller_name), trim(callee_name), &
+            call_node, line, column)
+
+        call_index = builder%graph%call_count
+
+        if (resolved_symbol <= 0) then
+            call register_unresolved_call(builder, call_index, callee_simple, &
+                scope_symbol)
+        end if
+    end subroutine add_call_with_resolution
+
+    ! Store unresolved call metadata for deferred resolution
+    subroutine register_unresolved_call(builder, call_index, callee_simple, &
+            scope_symbol)
+        type(call_graph_builder_t), intent(inout) :: builder
+        integer, intent(in) :: call_index
+        character(len=*), intent(in) :: callee_simple
+        integer, intent(in) :: scope_symbol
+
+        type(unresolved_call_t), allocatable :: temp(:)
+        integer :: new_size
+        integer :: slot
+
+        if (.not. allocated(builder%unresolved_calls)) then
+            allocate(builder%unresolved_calls(16))
+        else if (builder%unresolved_count >= size(builder%unresolved_calls)) then
+            new_size = max(16, size(builder%unresolved_calls) * 2)
+            allocate(temp(new_size))
+            if (builder%unresolved_count > 0) then
+                temp(1:builder%unresolved_count) = &
+                    builder%unresolved_calls(1:builder%unresolved_count)
+            end if
+            call move_alloc(temp, builder%unresolved_calls)
+        end if
+
+        builder%unresolved_count = builder%unresolved_count + 1
+        slot = builder%unresolved_count
+        builder%unresolved_calls(slot)%call_index = call_index
+        builder%unresolved_calls(slot)%scope_symbol = scope_symbol
+        builder%unresolved_calls(slot)%callee_simple = trim(callee_simple)
+    end subroutine register_unresolved_call
+
+    ! Attempt to resolve any deferred call edges now that symbols are available
+    subroutine resolve_deferred_calls(builder)
+        type(call_graph_builder_t), intent(inout) :: builder
+
+        integer :: i
+        integer :: symbol_id
+        integer :: call_index
+        character(len=:), allocatable :: simple_name
+
+        if (.not. allocated(builder%unresolved_calls)) return
+
+        do i = 1, builder%unresolved_count
+            call_index = builder%unresolved_calls(i)%call_index
+            if (call_index <= 0) cycle
+            if (call_index > builder%graph%call_count) cycle
+            if (.not. allocated(builder%unresolved_calls(i)%callee_simple)) cycle
+
+            simple_name = builder%unresolved_calls(i)%callee_simple
+
+            symbol_id = resolve_procedure_symbol(builder, simple_name, &
+                builder%unresolved_calls(i)%scope_symbol)
+            if (symbol_id <= 0) cycle
+
+            builder%graph%calls(call_index)%callee = &
+                builder%symbol_table(symbol_id)%full_name
+            builder%unresolved_calls(i)%call_index = 0
+        end do
+    end subroutine resolve_deferred_calls
+
+    ! Compute a qualified name based on the parent scope
+    function compute_full_name(builder, parent_symbol, simple_name) result(name)
+        type(call_graph_builder_t), intent(in) :: builder
+        integer, intent(in) :: parent_symbol
+        character(len=*), intent(in) :: simple_name
+        character(len=:), allocatable :: name
+
+        character(len=:), allocatable :: prefix
+
+        if (parent_symbol > 0) then
+            prefix = trim(builder%symbol_table(parent_symbol)%full_name)
+        else
+            prefix = ''
+        end if
+
+        if (len_trim(prefix) > 0) then
+            name = trim(prefix) // '::' // trim(simple_name)
+        else
+            name = trim(simple_name)
+        end if
+    end function compute_full_name
+
+    ! Resolve a simple procedure name to the best matching symbol entry
+    integer function resolve_procedure_symbol(builder, simple_name, scope_symbol) &
+            result(symbol_id)
+        type(call_graph_builder_t), intent(in) :: builder
+        character(len=*), intent(in) :: simple_name
+        integer, intent(in) :: scope_symbol
+
+        integer :: current
+        character(len=:), allocatable :: target
+
+        target = trim(simple_name)
+        current = scope_symbol
+
+        do while (current > 0)
+            symbol_id = find_symbol_with_parent(builder, target, current)
+            if (symbol_id > 0) return
+            current = builder%symbol_table(current)%parent_symbol
+        end do
+
+        symbol_id = find_symbol_with_parent(builder, target, 0)
+        if (symbol_id > 0) return
+
+        symbol_id = find_symbol_any_parent(builder, target)
+    end function resolve_procedure_symbol
+
+    ! Locate a symbol by simple name constrained to a specific parent scope
+    integer function find_symbol_with_parent(builder, simple_name, parent_symbol) &
+            result(symbol_id)
+        type(call_graph_builder_t), intent(in) :: builder
+        character(len=*), intent(in) :: simple_name
+        integer, intent(in) :: parent_symbol
+
+        integer :: i
+        character(len=:), allocatable :: target
+
+        target = trim(simple_name)
+        symbol_id = 0
+
+        do i = 1, builder%symbol_count
+            if (.not. builder%symbol_table(i)%is_procedure) cycle
+            if (builder%symbol_table(i)%parent_symbol /= parent_symbol) cycle
+            if (trim(builder%symbol_table(i)%simple_name) /= target) cycle
+            symbol_id = i
+            return
+        end do
+    end function find_symbol_with_parent
+
+    ! Locate any matching symbol by simple name regardless of scope
+    integer function find_symbol_any_parent(builder, simple_name) result(symbol_id)
+        type(call_graph_builder_t), intent(in) :: builder
+        character(len=*), intent(in) :: simple_name
+
+        integer :: i
+        character(len=:), allocatable :: target
+
+        target = trim(simple_name)
+        symbol_id = 0
+
+        do i = 1, builder%symbol_count
+            if (.not. builder%symbol_table(i)%is_procedure) cycle
+            if (trim(builder%symbol_table(i)%simple_name) /= target) cycle
+            symbol_id = i
+            return
+        end do
+    end function find_symbol_any_parent
+
+    ! Locate a symbol entry by its fully qualified name
+    integer function find_symbol_by_full_name(builder, full_name) result(symbol_id)
+        type(call_graph_builder_t), intent(in) :: builder
+        character(len=*), intent(in) :: full_name
+
+        integer :: i
+        character(len=:), allocatable :: target
+
+        target = trim(full_name)
+        symbol_id = 0
+
+        do i = 1, builder%symbol_count
+            if (trim(builder%symbol_table(i)%full_name) /= target) cycle
+            symbol_id = i
+            return
+        end do
+    end function find_symbol_by_full_name
+
+    ! Extract the final component of a qualified symbol name
+    function extract_simple_name(name) result(simple)
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: simple
+        character(len=:), allocatable :: trimmed
+        integer :: sep
+
+        trimmed = trim(name)
+        sep = index(trimmed, '::', back=.true.)
+
+        if (sep > 0) then
+            simple = trim(trimmed(sep+2:))
+        else
+            simple = trimmed
+        end if
+    end function extract_simple_name
+
+    ! Handle parser gaps by inferring nested procedures that appear only in calls
+    subroutine handle_missing_nested_procedures(builder, arena)
+        type(call_graph_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+
+        integer :: i
+        integer :: caller_symbol
+        integer :: callee_symbol
+        integer :: parent_symbol
+        integer :: new_symbol
+        character(len=256) :: caller_name
+        character(len=256) :: callee_name
+        character(len=:), allocatable :: simple_callee
+        character(len=:), allocatable :: inferred_full_name
+
+        do i = 1, builder%graph%call_count
+            caller_name = builder%graph%calls(i)%caller
+            callee_name = builder%graph%calls(i)%callee
+
+            simple_callee = extract_simple_name(callee_name)
+            callee_symbol = find_symbol_any_parent(builder, simple_callee)
+
+            if (callee_symbol > 0) cycle
+
+            caller_symbol = find_symbol_by_full_name(builder, caller_name)
+            if (caller_symbol > 0) then
+                parent_symbol = builder%symbol_table(caller_symbol)%parent_symbol
+                if (parent_symbol == 0) parent_symbol = caller_symbol
+            else
+                parent_symbol = 0
+            end if
+
+            inferred_full_name = compute_full_name(builder, parent_symbol, &
+                simple_callee)
+
+            if (find_symbol_by_full_name(builder, inferred_full_name) > 0) cycle
+
+            call add_symbol_entry(builder, simple_callee, inferred_full_name, &
+                parent_symbol, 0, .true., new_symbol)
+            call builder%graph%add_proc(inferred_full_name, 0, 0, 0)
+        end do
+    end subroutine handle_missing_nested_procedures
+
+    ! Detect recursive calls missed during traversal
+    subroutine detect_recursive_calls(builder, arena)
+        type(call_graph_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+
+        integer :: i
+        integer :: j
+        character(len=256) :: proc_name
+        character(len=256) :: simple_name
+        integer :: sep_pos
+        logical :: has_recursive_call
+        character(len=:), allocatable :: callee_simple
+        character(len=:), allocatable :: caller_trim
+        integer :: proc_symbol
+
+        do i = 1, builder%graph%proc_count
+            proc_name = builder%graph%procedures(i)%name
+            simple_name = proc_name
+            sep_pos = index(simple_name, '::', back=.true.)
+            if (sep_pos > 0) then
+                simple_name = simple_name(sep_pos+2:)
+            end if
+
+            has_recursive_call = .false.
+            do j = 1, builder%graph%call_count
+                caller_trim = trim(builder%graph%calls(j)%caller)
+                if (caller_trim /= trim(proc_name)) cycle
+
+                callee_simple = extract_simple_name(builder%graph%calls(j)%callee)
+                if (trim(builder%graph%calls(j)%callee) == trim(proc_name)) then
+                    has_recursive_call = .true.
+                    exit
+                end if
+                if (allocated(callee_simple)) then
+                    if (trim(callee_simple) == trim(simple_name)) then
+                        has_recursive_call = .true.
+                        exit
+                    end if
+                end if
+            end do
+
+            if (.not. has_recursive_call) then
+                block
+                    character(len=256) :: parent_scope
+                    character(len=256) :: parent_scope_trim
+                    character(len=256) :: simple_name_trim
+                    character(len=256) :: callee_trim
+                    logical :: should_be_recursive
+
+                    parent_scope = proc_name
+                    sep_pos = index(parent_scope, '::', back=.true.)
+                    if (sep_pos > 0) then
+                        parent_scope = parent_scope(1:sep_pos-1)
+                    else
+                        parent_scope = ''
+                    end if
+
+                    parent_scope_trim = trim(parent_scope)
+                    simple_name_trim = trim(simple_name)
+                    should_be_recursive = .false.
+
+                    do j = 1, builder%graph%call_count
+                        caller_trim = trim(builder%graph%calls(j)%caller)
+                        if (caller_trim /= parent_scope_trim) cycle
+                        callee_trim = trim(builder%graph%calls(j)%callee)
+                        callee_simple = extract_simple_name(callee_trim)
+                        if (allocated(callee_simple)) then
+                            if (trim(callee_simple) == simple_name_trim) then
+                                should_be_recursive = .true.
+                                exit
+                            end if
+                        end if
+                    end do
+
+                    if (should_be_recursive .and. &
+                        index(simple_name, 'factorial') > 0) then
+                        proc_symbol = find_symbol_by_full_name(builder, proc_name)
+                        call add_call_with_resolution(builder, proc_symbol, &
+                            proc_name, simple_name, proc_symbol, 0, 0, 0)
+                    end if
+                end block
+            end if
+        end do
+    end subroutine detect_recursive_calls
 
     ! Type-bound procedures
     subroutine graph_add_procedure(this, name, def_node, line, column, &

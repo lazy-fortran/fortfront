@@ -5,9 +5,9 @@
   expression entry point exposed through `frontend_parsing::parse_tokens`.
 - `frontend_transformation` reuses a module-level `compiler_arena_t` so lexing,
   Pratt parsing, semantic analysis, and code generation share a contiguous slab.
-- Tooling surfaces (`fortfront`, `frontend_tooling_api`, `variable_usage`)
-  consume the same arena; no secondary parsing or CFG builders remain in the hot
-  path.
+- Tooling surfaces reuse the same arena; `fortfront`, `frontend_tooling_api`,
+  `call_graph_module`, and `variable_usage` avoid secondary parsing or CFG
+  builders in the hot path.
 
 ## Execution Flow
 1. Source text is tokenized by `lexer_core::tokenize_core`, producing a shared
@@ -65,9 +65,23 @@
   through the lightweight tooling API so downstream tools can measure parse
   latency without triggering extra passes.
 
+## Tooling Usage
+- `fortfront::build_call_graph_from_arena` now accepts the arena/root pair
+  directly so tooling (fortfc, fluff) can produce call graphs without invoking
+  semantic passes. Scope resolution uses arena indices internally, eliminating
+  the string churn from the legacy walkers.
+- After parsing, call `graph = build_call_graph_from_arena(arena, root_index)`
+  and inspect `graph%procedures(1:graph%proc_count)` / `graph%calls` to iterate
+  procedures and edges respectively.
+- The returned `call_graph_t` de-duplicates procedure names and exposes helpers
+  such as `get_all_procedures`, `get_procedure_callers`, and
+  `get_recursive_cycles` so tooling can answer common queries without running
+  additional passes.
+
 ## Limitations and Follow-ups
-- Nested procedure discovery still relies on arena sweeps in call graph
-  walkers; indirect recursion can be missed when declarations are absent.
+- Nested procedure discovery still relies on arena sweeps in call graph walkers;
+  `call_graph_module::build_call_graph` can miss indirect recursion when
+  declarations are absent.
 - Deeply nested array literals force temporary scratch buffers; profiling shows
   these allocations remain the Pratt hotspot worth revisiting.
 - Strict semantic mode is currently toggled inside `semantic_context_t`. A

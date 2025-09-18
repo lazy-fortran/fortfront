@@ -145,7 +145,7 @@
 
 ## Simplify / Replace
 - **CFG Builder & Control Flow Analyzer** (`src/analysis/cfg_builder_*`, `src/semantic/analyzers/control_flow_analyzer_plugin.f90`): refactor into iterative, frame-based engines with optional execution. Consider merging analyser output into lightweight summaries to avoid deep recursion and per-node allocations.
-- **Call Graph Infrastructure** (`src/analysis/call_graph*.f90`, `src/analysis/call_graph_builder.f90`): unify into a single high-performance module using interned identifiers and arena indices. Drop redundant symbol tables once unified.
+- **Call Graph Infrastructure** (`src/analysis/call_graph*.f90`): keep the unified builder inside `call_graph_module` fast by introducing interned identifiers and trimming the fallback symbol table.
 - **AST Traversal Utilities** (`src/ast/traversal/*.f90`, `src/utilities/fortfront_utils.f90`): replace recursive visitors with shared iterative helpers; rationalise duplicated traversal code across modules.
 - **Semantic Pipeline** (dual path in `frontend_transformation.f90` calling both legacy analyzers and pipeline analyzers): collapse to one HM pipeline with feature toggles for optional analyses.
 - **Identifier Handling** (multiple modules storing `character(:)` names): implement global interning and propagate integer identifiers to reduce string churn.
