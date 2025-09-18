@@ -192,3 +192,5 @@
 - Update this TODO after each completed subtask with date, commit reference, and perf delta where applicable.
 - 2025-09-18 (2ae3bf4, perf n/a): Converted call graph traversal and variable usage walkers to
   iterative stacks to eliminate recursion on analysis hot paths.
+- 2025-09-18 (ec9c94d, perf n/a): Added cfg frame stack scaffolding to prepare control-flow builder
+  for iterative execution; procedure nodes now scheduled via explicit frames.

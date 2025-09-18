@@ -588,18 +588,18 @@ contains
     end subroutine process_error_stop
 
     ! Process an AST node - main dispatch routine
-    recursive function process_node(builder, arena, node_index) result(process_result)
+    function process_node(builder, arena, node_index) result(process_result)
         type(cfg_builder_t), intent(inout) :: builder
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(result_t) :: process_result
-        
+
+        type(cfg_frame_stack_t) :: stack
+        type(cfg_frame_t) :: frame
         character(len=:), allocatable :: node_type
-        
-        ! Initialize result
+
         process_result = success_result()
-        
-        ! Validate input parameters  
+
         if (node_index <= 0 .or. node_index > arena%size) then
             process_result = create_error_result( &
                 "Invalid node index in process_node", &
@@ -607,87 +607,143 @@ contains
                 "node_index out of bounds", "Check node index validity")
             return
         end if
-        
+
         if (.not. allocated(arena%entries(node_index)%node)) then
             process_result = create_error_result( &
                 "Unallocated node in process_node", &
                 ERROR_SEMANTIC, "cfg_builder", &
-                "node not allocated in arena", "Check arena integrity")  
+                "node not allocated in arena", "Check arena integrity")
             return
         end if
-        
+
         node_type = arena%entries(node_index)%node_type
-        
+
         select case (node_type)
         case ("program", "function_def", "subroutine_def")
-            call process_procedure(builder, arena, node_index)
-            
-        case ("if_statement", "if_node")
-            process_result = process_if_statement(builder, arena, node_index)
-            if (process_result%is_failure()) return
-            
-        case ("do_loop", "do_loop_node")
-            process_result = process_do_loop(builder, arena, node_index)
-            if (process_result%is_failure()) return
-            
-        case ("do_while", "do_while_node")
-            process_result = process_do_while(builder, arena, node_index)
-            if (process_result%is_failure()) return
-            
-        case ("select_case", "select_case_node")
-            call process_select_case(builder, arena, node_index)
-            
-        case ("return_statement", "return_node")
-            ! Flush any buffered statements first, then process return
-            call flush_statement_buffer(builder)
-            call process_return(builder, arena, node_index)
-            
-        case ("stop_statement", "stop_node")
-            ! Flush any buffered statements first, then process stop
-            call flush_statement_buffer(builder)
-            call process_stop(builder, arena, node_index)
-            
-        case ("exit_statement", "exit_node")
-            call process_exit(builder, arena, node_index)
-            
-        case ("cycle_statement", "cycle_node")
-            call process_cycle(builder, arena, node_index)
-            
-        case ("where_statement", "where_node")
-            call process_where(builder, arena, node_index)
-            
-        case ("forall_statement", "forall_node")
-            call process_forall(builder, arena, node_index)
-            
-        case ("allocate_statement", "allocate_node")
-            call process_allocate(builder, arena, node_index)
-            
-        case ("deallocate_statement", "deallocate_node")
-            call process_deallocate(builder, arena, node_index)
-            
-        case ("goto_statement", "goto_node")
-            call process_goto(builder, arena, node_index)
-            
-        case ("error_stop_statement", "error_stop_node")
-            call process_error_stop(builder, arena, node_index)
-            
-        case ("open_statement", "open_node")
-            call process_io_with_exception(builder, arena, node_index)
-            
-        case ("read_statement", "read_node")
-            call process_io_with_exception(builder, arena, node_index)
-            
-        case ("write_statement", "write_node")
-            call process_io_with_exception(builder, arena, node_index)
-            
+            call init_frame_stack(stack)
+            frame%node_index = node_index
+            frame%state = 0
+            call push_frame(stack, frame)
+
+            do while (.not. frame_stack_is_empty(stack))
+                frame = pop_frame(stack)
+
+                if (frame%node_index <= 0 .or. frame%node_index > arena%size) cycle
+                if (.not. allocated(arena%entries(frame%node_index)%node)) cycle
+
+                call process_procedure_frame(builder, arena, frame, stack, process_result)
+                if (process_result%is_failure()) return
+            end do
+
         case default
-            ! For other nodes, add to current block
-            call add_statement_to_buffer(builder, node_index)
+            process_result = process_node_recursive_impl(builder, arena, node_index)
+            if (process_result%is_failure()) return
         end select
-        
-        ! Return success if we get here
+
         process_result = success_result()
     end function process_node
+
+    subroutine process_procedure_frame(builder, arena, frame, stack, process_result)
+        type(cfg_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+        type(cfg_frame_t), intent(inout) :: frame
+        type(cfg_frame_stack_t), intent(inout) :: stack
+        type(result_t), intent(inout) :: process_result
+
+        integer :: exit_block_id
+        integer :: i
+
+        select case (frame%state)
+        case (0)
+            call gather_procedure_body(arena, frame)
+            frame%state = 1
+            call push_frame(stack, frame)
+
+            if (frame%pending_count > 0) then
+                do i = frame%pending_count, 1, -1
+                    call push_frame(stack, cfg_frame_t(node_index=frame%pending_indices(i), state=0))
+                end do
+            end if
+
+        case (1)
+            call flush_statement_buffer(builder)
+            exit_block_id = add_basic_block(builder%cfg, "exit", is_exit=.true.)
+            if (builder%current_block_id > 0 .and. &
+                builder%current_block_id /= exit_block_id) then
+                call add_cfg_edge(builder%cfg, builder%current_block_id, &
+                                 exit_block_id, EDGE_UNCONDITIONAL)
+            end if
+            if (allocated(frame%pending_indices)) deallocate(frame%pending_indices)
+        end select
+
+        process_result = success_result()
+    contains
+        subroutine gather_procedure_body(arena_local, frame_local)
+            type(ast_arena_t), intent(in) :: arena_local
+            type(cfg_frame_t), intent(inout) :: frame_local
+
+            integer, allocatable :: body_indices(:)
+
+            if (allocated(frame_local%pending_indices)) then
+                deallocate(frame_local%pending_indices)
+                frame_local%pending_count = 0
+                frame_local%pending_position = 0
+            end if
+
+            select case (arena_local%entries(frame_local%node_index)%node_type)
+            case ("program")
+                select type (node => arena_local%entries(frame_local%node_index)%node)
+                type is (program_node)
+                    if (allocated(node%body_indices)) then
+                        body_indices = node%body_indices
+                    else
+                        allocate(body_indices(0))
+                    end if
+                class default
+                    allocate(body_indices(0))
+                end select
+            case ("function_def")
+                select type (node => arena_local%entries(frame_local%node_index)%node)
+                type is (function_def_node)
+                    if (allocated(node%body_indices)) then
+                        body_indices = node%body_indices
+                    else
+                        allocate(body_indices(0))
+                    end if
+                class default
+                    allocate(body_indices(0))
+                end select
+            case ("subroutine_def")
+                select type (node => arena_local%entries(frame_local%node_index)%node)
+                type is (subroutine_def_node)
+                    if (allocated(node%body_indices)) then
+                        body_indices = node%body_indices
+                    else
+                        allocate(body_indices(0))
+                    end if
+                class default
+                    allocate(body_indices(0))
+                end select
+            case default
+                allocate(body_indices(0))
+            end select
+
+            if (allocated(frame_local%pending_indices)) deallocate(frame_local%pending_indices)
+            if (allocated(body_indices)) then
+                frame_local%pending_count = size(body_indices)
+                if (frame_local%pending_count > 0) then
+                    allocate(frame_local%pending_indices(frame_local%pending_count))
+                    frame_local%pending_indices = body_indices
+                else
+                    allocate(frame_local%pending_indices(0))
+                end if
+                deallocate(body_indices)
+            else
+                frame_local%pending_count = 0
+                allocate(frame_local%pending_indices(0))
+            end if
+        end subroutine gather_procedure_body
+    end subroutine process_procedure_frame
 
     ! Process a procedure (program, function, subroutine)
     subroutine process_procedure(builder, arena, node_index)
@@ -752,6 +808,102 @@ contains
                              exit_block_id, EDGE_UNCONDITIONAL)
         end if
     end subroutine process_procedure
+
+    recursive function process_node_recursive_impl(builder, arena, node_index) &
+            result(process_result)
+        type(cfg_builder_t), intent(inout) :: builder
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: node_index
+        type(result_t) :: process_result
+
+        character(len=:), allocatable :: node_type
+
+        process_result = success_result()
+
+        if (node_index <= 0 .or. node_index > arena%size) then
+            process_result = create_error_result( &
+                "Invalid node index in process_node (fallback)", &
+                ERROR_SEMANTIC, "cfg_builder", &
+                "node_index out of bounds", "Check node index validity")
+            return
+        end if
+
+        if (.not. allocated(arena%entries(node_index)%node)) then
+            process_result = create_error_result( &
+                "Unallocated node in process_node (fallback)", &
+                ERROR_SEMANTIC, "cfg_builder", &
+                "node not allocated in arena", "Check arena integrity")
+            return
+        end if
+
+        node_type = arena%entries(node_index)%node_type
+
+        select case (node_type)
+        case ("program", "function_def", "subroutine_def")
+            call process_procedure(builder, arena, node_index)
+
+        case ("if_statement", "if_node")
+            process_result = process_if_statement(builder, arena, node_index)
+            if (process_result%is_failure()) return
+
+        case ("do_loop", "do_loop_node")
+            process_result = process_do_loop(builder, arena, node_index)
+            if (process_result%is_failure()) return
+
+        case ("do_while", "do_while_node")
+            process_result = process_do_while(builder, arena, node_index)
+            if (process_result%is_failure()) return
+
+        case ("select_case", "select_case_node")
+            call process_select_case(builder, arena, node_index)
+
+        case ("return_statement", "return_node")
+            call flush_statement_buffer(builder)
+            call process_return(builder, arena, node_index)
+
+        case ("stop_statement", "stop_node")
+            call flush_statement_buffer(builder)
+            call process_stop(builder, arena, node_index)
+
+        case ("exit_statement", "exit_node")
+            call process_exit(builder, arena, node_index)
+
+        case ("cycle_statement", "cycle_node")
+            call process_cycle(builder, arena, node_index)
+
+        case ("where_statement", "where_node")
+            call process_where(builder, arena, node_index)
+
+        case ("forall_statement", "forall_node")
+            call process_forall(builder, arena, node_index)
+
+        case ("allocate_statement", "allocate_node")
+            call process_allocate(builder, arena, node_index)
+
+        case ("deallocate_statement", "deallocate_node")
+            call process_deallocate(builder, arena, node_index)
+
+        case ("goto_statement", "goto_node")
+            call process_goto(builder, arena, node_index)
+
+        case ("error_stop_statement", "error_stop_node")
+            call process_error_stop(builder, arena, node_index)
+
+        case ("open_statement", "open_node")
+            call process_io_with_exception(builder, arena, node_index)
+
+        case ("read_statement", "read_node")
+            call process_io_with_exception(builder, arena, node_index)
+
+        case ("write_statement", "write_node")
+            call process_io_with_exception(builder, arena, node_index)
+
+        case default
+            call add_statement_to_buffer(builder, node_index)
+        end select
+
+        process_result = success_result()
+    end function process_node_recursive_impl
 
     ! Process where statement
     subroutine process_where(builder, arena, node_index)
