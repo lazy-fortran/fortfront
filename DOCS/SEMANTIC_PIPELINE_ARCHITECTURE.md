@@ -30,7 +30,7 @@
 ## Interaction with Call Graph and Tooling
 - The semantic pass no longer orchestrates CFG builders. Instead the optional
   call graph walks reuse the finalized arena via
-  `call_graph_builder_module::build_call_graph` after semantics completes.
+  `call_graph_module::build_call_graph` after semantics completes.
 - Tooling that needs type data (e.g. `fortfront_types`, variable usage trackers)
   queries `semantic_context_t` helpers such as `get_type_for_node` and
   `update_identifier_type_in_arena` rather than re-running analysis.
@@ -48,7 +48,7 @@
 
 ## Remaining Work
 - Nested procedure scoping still depends on post-walk fixups in
-  `call_graph_builder_module`; unscoped procedure bodies can hide free variables
+  `call_graph_module::build_call_graph`; unscoped procedure bodies can hide free variables
   from the analyzer.
 - Large array constructors allocate temporary buffers during shape checks. A
   dedicated scratch allocator would shrink the final hotspot visible in perf

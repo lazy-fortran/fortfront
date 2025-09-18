@@ -5,9 +5,9 @@
   expression entry point exposed through `frontend_parsing::parse_tokens`.
 - `frontend_transformation` reuses a module-level `compiler_arena_t` so lexing,
   Pratt parsing, semantic analysis, and code generation share a contiguous slab.
-- Tooling surfaces (`fortfront`, `frontend_tooling_api`, `variable_usage`)
-  consume the same arena; no secondary parsing or CFG builders remain in the hot
-  path.
+- Tooling surfaces reuse the same arena; `fortfront`, `frontend_tooling_api`,
+  `call_graph_module`, and `variable_usage` avoid secondary parsing or CFG
+  builders in the hot path.
 
 ## Execution Flow
 1. Source text is tokenized by `lexer_core::tokenize_core`, producing a shared
@@ -66,8 +66,9 @@
   latency without triggering extra passes.
 
 ## Limitations and Follow-ups
-- Nested procedure discovery still relies on arena sweeps in call graph
-  walkers; indirect recursion can be missed when declarations are absent.
+- Nested procedure discovery still relies on arena sweeps in call graph walkers;
+  `call_graph_module::build_call_graph` can miss indirect recursion when
+  declarations are absent.
 - Deeply nested array literals force temporary scratch buffers; profiling shows
   these allocations remain the Pratt hotspot worth revisiting.
 - Strict semantic mode is currently toggled inside `semantic_context_t`. A
