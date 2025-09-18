@@ -11,9 +11,10 @@ Context (what’s already done)
 - Latest measurements show the CLI binary tolerates stacks down to 32 KB locally; standardizer paths no longer depend on recursion.
 - Windows still crashes on CLI system tests (run 17779908419, exit `0xC00000FD`); remaining depth is in later standardizer/analysis passes.
 
-Current status (2025-09-16)
-- Latest Windows rerun (Actions run 17779908419) fails during `test_cli_integration.exe` with stack overflow despite local fixes; traces show the crash after entering the final phase, so additional walkers still recurse on Windows.
-- Local CLI integration (`RUN_SYSTEM_TESTS=1 fpm test test_cli_integration`) and targeted regression tests pass, indicating the Linux path is stable.
+Current status (2025-09-18)
+- Latest Windows rerun (Actions run 17810496880) failed when `test_cli_integration.exe` re-built without scope for the linker stack flag; new commits now build with `--flag "-Wl,--stack,16777216"` before the tests, and the CLI system test skips the build whenever an executable is already present.
+- Local CLI integration (`RUN_SYSTEM_TESTS=1 fpm test --target test_cli_integration`) passes, confirming the fallback-less flow still succeeds on Linux. Fresh CI run 17810878982 is in flight to verify the Windows fix.
+- Core AST traversal helpers (`traverse_preorder`/`traverse_postorder`) now use explicit stacks (commit f5d10d3), eliminating recursion from traversal hot paths.
 
 Immediate plan
 - [ ] Instrument remaining CLI phases (standardizer/analysis) with trace depth counters to pinpoint residual recursion on Windows.
