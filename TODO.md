@@ -54,39 +54,31 @@
 - [x] Variable usage collector and expression visitor now run on explicit stacks (no recursion). (2025-09-18, commit 2ae3bf4, perf n/a)
 - [x] Call graph AST traversal and cycle detection converted to iterative algorithms. (2025-09-18, commit 2ae3bf4, perf n/a)
 - [x] AST traversal helpers (`traverse_preorder`/`traverse_postorder`) rewritten to explicit stack walkers; existing public entry points now iterate internally. (2025-09-18, commit f5d10d3, perf n/a)
-- [ ] CFG builder (`cfg_builder_control_handlers.f90`) still recursive; design for staged frame stack pending.
-- [ ] Control-flow analyzer plugin continues to recurse through AST while building CFG snapshots.
-- [ ] Standardizer/semantic helpers (e.g., `standardize_ast`, `collect_identifiers_recursive` call proxies) need auditing for residual recursion.
+- [x] Removed CFG builder/analyzer stack and associated plugins/tests; call-graph utilities are the only remaining analysis path (2025-09-18, commits f3aebec, db29f53, 575881a).
+- [ ] Audit standardizer/semantic helpers (e.g., `standardize_ast`) for residual recursion and convert to shared iterative utilities where warranted.
 
 ## Challenges
-- CFG handlers mutate shared builder state (`builder%current_block_id`, buffered statements, block IDs) mid-call; iterative rewrite requires explicit frame records capturing pending continuations, temporary IDs, and branch metadata.
-- Control-flow analyzer currently assumes recursive CFG construction; refactor must expose an iterative API without breaking existing analyzer contracts.
-- Remaining semantic/standardizer utilities reuse AST traversal helpers that still rely on `traverse_preorder` recursion; must introduce stack-based alternatives and retire recursive entry points. (Updated: core traversal helpers now iterative as of 2025-09-18, commit f5d10d3; dependent modules pending.)
+- Ensure remaining standardizer helpers adopt the shared iterative traversal stack (no hidden recursion).
+- Sweep documentation/tests to remove references to deleted CFG/semantic analyzer infrastructure.
+- Confirm the lean call-graph API is the only exported analysis surface and is adequately documented.
 
 ## Plan of Record
-1. **Design Iterative CFG Frame Model**
-   - [ ] Specify a `cfg_frame_t` structure capturing node index, continuation state (e.g., WHICH branch is pending), and any temporary arrays currently produced via allocation (elseif wrappers, loop bodies).
-   - [ ] Prototype push/pop helpers with bounded scratch buffers (reuse builder statement buffer where possible) and clear lifecycle semantics.
-   - [ ] Document control-flow invariants (edge ordering, block creation rules) to use as acceptance criteria.
+1. **Standardizer & Semantic Cleanup**
+   - [ ] Catalogue remaining recursive helpers in standardizer modules (`standardize_ast`, declaration visitors); convert to the iterative stack pattern when feasible or explain exceptions.
+   - [ ] Remove unused tracker structures from semantic context (already dropped in code) and update query APIs/tests accordingly.
 
-2. **CFG Simplification**
-   - [x] Drop legacy CFG builder and analyzer modules; expose only core transformations required for codegen (2025-09-18, commit f3aebec, perf n/a).
-   - [ ] Evaluate if remaining CFG docs/examples should be retired or rewritten around the lean surface.
+2. **Documentation & Test Sweep**
+   - [ ] Rewrite or delete docs referencing removed CFG/semantic analyzer pipelines (e.g., `CODEGEN_ARCHITECTURE_ANALYSIS` mentions).
+   - [ ] Trim integration tests that assume analyzer pipelines (e.g., “complete pipeline integration”) or update messaging to reflect the lean build.
 
-3. **Update Control-Flow Analyzer Plugin**
-   - [ ] Adjust analyzer to rely on the iterative CFG builder API; remove `traverse_ast_for_cfg` recursion.
-   - [ ] Introduce perf metrics frame cache (reuse builder frames) so iterative traversal does not regress existing instrumentation.
-   - [ ] Re-run Windows/Linux CI stress cases, verifying absence of stack reserve hacks.
+3. **Lean Analysis Surface**
+   - [x] Remove analyzer factory/pipeline infrastructure; keep single HM path (2025-09-18, commit 575881a).
+   - [ ] Provide updated tooling guidance (fortfc/fluff) describing how to obtain call-graph data via the simplified API.
 
-4. **Audit Remaining Semantic/Standardizer Recursion**
-   - [ ] Identify and replace recursive helpers in standardizer modules (`standardize_ast`, declaration walkers) with the shared stack utilities.
-   - [x] Migrate AST traversal call sites to iterative variants (optionally move legacy recursive procedures behind compatibility wrappers slated for removal). (2025-09-18, commit f5d10d3, perf n/a)
-   - [ ] Update docs/tests to reflect the new traversal utilities and deprecate recursive entry points (call-graph demo/tests already culled in 8faf2a1).
-
-5. **Validation & Rollout**
-   - [ ] Maintain tests green after each stage (`make test`, `RUN_SYSTEM_TESTS=1 fpm test`); add Windows-focused pipeline runs before merging.
-   - [ ] Capture before/after performance metrics for CLI transform and CFG-intensive analyzers.
-   - [ ] When final stage lands, remove residual references to recursion in code comments/docs and note stack guarantees in `DOCS/architecture.md`.
+4. **Validation & Rollout**
+   - [ ] Maintain tests green (`make test`) after each pruning pass; track any required fixture updates.
+   - [ ] Capture perf snapshots post-cleanup to confirm there is no regression in CLI timings.
+   - [ ] Refresh architecture docs summarising the minimal traversal + call-graph setup, including limitations.
 
 ## Notes
 - Keep progress logged here after each milestone (design complete, prototype merged, etc.).
@@ -96,9 +88,9 @@
 # Performance-Driven Frontend Streamlining
 
 ## Rationale
-- Current command-line flow executes multiple analysis passes (legacy `analyze_program` plus pipeline analyzers, CFG builder, call graph) even when we only need a typed AST for codegen. This burns time and allocation, obscuring the core goal of a fast, portable Lazy Fortran frontend.
-- Several subsystems (dual call-graph implementations, performance analyzer plugins, verbose tracing) were added for future tools but are not required for CLI translation. They increase coupling and make it harder to optimise hot paths.
-- Dynamic string-heavy data structures and repeated arena traversals work against cache locality; we should favour SoA layouts, interned identifiers, and single-pass pipelines.
+- The CLI now runs a single HM path; remaining work focuses on ensuring that path stays lean and well-documented.
+- Call-graph utilities remain for tooling; other analyzers/pipelines have been excised. We should confirm the surface area stays minimal and well tested.
+- Dynamic string-heavy data structures and repeated arena traversals still warrant attention for performance.
 
 ## Guiding Principles
 1. **Single-Pass CLI Pipeline** – Lex → parse → HM type inference → standardise/codegen. Optional analyzers must be disable-able at build time.
@@ -113,20 +105,15 @@
    - [x] Capture current wall-clock timings on representative inputs (small, medium, stress) and store results in `docs/perf/baseline.md`.
    - _2025-09-18_: Baseline timings recorded; setup time is dominated by arena creation/reset. Allocation tracking remains future work.
 
-2. **Prune Non-Essential Analyzers From CLI Hot Path**
-   - [ ] Introduce build/runtime flag to skip control-flow, call-graph, and performance analyzers during CLI transforms.
-   - [ ] Ensure `frontend_transformation` only constructs CFG/call graphs when explicitly requested (e.g., via tooling API).
-   - [ ] Validate CLI regressions remain green after analyzers are removed from default flow.
+2. **Lean Call Graph Utilities**
+   - [ ] Merge remaining builder helpers into `call_graph_module`; expose only the minimal API used by consumers.
+   - [ ] Replace string-based scope tracking with arena indices to reduce allocation.
+   - [ ] Re-baseline call-graph tests to cover the simplified implementation.
 
-3. **Unify Call Graph Infrastructure**
-   - [ ] Merge `call_graph_builder` functionality into the leaner `call_graph_module`; delete redundant traversal/analysis layers.
-   - [ ] Replace string-based scope tracking with integer IDs referencing arena entries to cut allocation and comparisons.
-   - [ ] Rebuild tests to exercise the unified implementation.
-
-4. **Semantic Pipeline Simplification**
-   - [ ] Stop running both legacy `analyze_program` and the new pipeline; choose one extensible HM path.
-   - [ ] Profile HM inference to identify hot allocators; migrate temporary structures to arena-backed slabs.
-   - [ ] Document future hooks for fortfc/fluff so backend exports bypass unneeded formatting passes.
+3. **Semantic Path Optimisation**
+   - [ ] Profile HM inference to identify hot allocators; migrate temporary structures to arena-backed slabs / interning tables.
+   - [ ] Confirm `frontend_transformation` performs only the required passes for CLI transforms; remove stale hooks.
+   - [ ] Document how tooling can request call-graph data without triggering extra passes.
 
 5. **Identifier Interning & SoA Refactor**
    - [ ] Introduce a global identifier table (string interning) so AST/semantic phases store integer handles.
