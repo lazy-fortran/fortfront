@@ -10,13 +10,14 @@ module parser_state_module
     ! Parser state type for tracking position in token stream
     ! Supports both traditional allocatable storage and arena-based storage
     type, public :: parser_state_t
-        ! Token storage - either allocatable array or arena-based
-        type(token_t), allocatable :: tokens(:)
-        
+        ! Token storage - either view into external buffer or owned allocation
+        type(token_t), pointer :: tokens(:) => null()
+
         ! Arena integration for memory-efficient token storage
         type(arena_t) :: token_arena
         type(arena_handle_t) :: tokens_handle  ! Single handle for entire token array
         logical :: use_arena = .false.
+        logical :: owns_tokens = .false.
         
         ! Parser position and error tracking
         integer :: current_token = 1
@@ -52,16 +53,18 @@ contains
 
     ! Create parser state from tokens (traditional allocatable storage)
     function create_parser_state(tokens) result(state)
-        type(token_t), intent(in) :: tokens(:)
+        type(token_t), target, intent(in) :: tokens(:)
         type(parser_state_t) :: state
 
         ! Simple allocatable array storage
         if (size(tokens) > 0) then
-            allocate(state%tokens(size(tokens)))
-            state%tokens = tokens
+            state%tokens => tokens
+        else
+            nullify(state%tokens)
         end if
         state%current_token = 1
         state%use_arena = .false.
+        state%owns_tokens = .false.
         state%generation = 1
         state%tokens_handle = null_handle()  ! Initialize to null handle
     end function create_parser_state
@@ -103,10 +106,20 @@ contains
             
             ! Also keep a copy in allocatable array for now
             ! (transitional approach for compatibility)
+            if (associated(state%tokens)) then
+                if (state%owns_tokens) then
+                    deallocate(state%tokens)
+                else
+                    nullify(state%tokens)
+                end if
+            end if
             allocate(state%tokens(size(tokens)))
             state%tokens = tokens
+            state%owns_tokens = .true.
         else
             state%tokens_handle = null_handle()
+            nullify(state%tokens)
+            state%owns_tokens = .false.
         end if
         
         state%current_token = 1
@@ -118,7 +131,7 @@ contains
         class(parser_state_t), intent(in) :: this
         type(token_t) :: current_token
 
-        if (allocated(this%tokens) .and. this%current_token >= 1 .and. this%current_token <= size(this%tokens)) then
+        if (associated(this%tokens) .and. this%current_token >= 1 .and. this%current_token <= size(this%tokens)) then
             current_token = this%tokens(this%current_token)
         else
             ! Return EOF token
@@ -229,7 +242,7 @@ contains
             ! Traditional allocatable storage stats
             stats%total_allocated = 0
             stats%total_capacity = 0
-            if (allocated(this%tokens)) then
+            if (associated(this%tokens)) then
                 stats%total_allocated = size(this%tokens) * &
                                        (storage_size(this%tokens(1)) / 8)
                 stats%total_capacity = stats%total_allocated
@@ -255,10 +268,15 @@ contains
         end if
         
         ! Clear tokens
-        if (allocated(this%tokens)) then
-            deallocate(this%tokens)
+        if (associated(this%tokens)) then
+            if (this%owns_tokens) then
+                deallocate(this%tokens)
+            else
+                nullify(this%tokens)
+            end if
         end if
-        
+        this%owns_tokens = .false.
+
         ! Reset position
         this%current_token = 1
     end subroutine parser_cleanup
@@ -269,7 +287,7 @@ contains
         integer, intent(in) :: index
         type(token_t) :: token
         
-        if (allocated(this%tokens) .and. index >= 1 .and. &
+        if (associated(this%tokens) .and. index >= 1 .and. &
             index <= size(this%tokens)) then
             token = this%tokens(index)
         else
@@ -286,7 +304,7 @@ contains
         class(parser_state_t), intent(in) :: this
         integer :: count
         
-        if (allocated(this%tokens)) then
+        if (associated(this%tokens)) then
             count = size(this%tokens)
         else
             count = 0
@@ -305,15 +323,29 @@ contains
         lhs%errors = rhs%errors
         
         ! Copy arena if used
+        lhs%token_arena = rhs%token_arena
         if (rhs%use_arena) then
-            lhs%token_arena = rhs%token_arena
             lhs%tokens_handle = rhs%tokens_handle
+        else
+            lhs%tokens_handle = null_handle()
         end if
-        
+
         ! Copy tokens array
-        if (allocated(rhs%tokens)) then
+        if (associated(lhs%tokens)) then
+            if (lhs%owns_tokens) then
+                deallocate(lhs%tokens)
+            else
+                nullify(lhs%tokens)
+            end if
+        end if
+
+        if (associated(rhs%tokens)) then
             allocate(lhs%tokens(size(rhs%tokens)))
             lhs%tokens = rhs%tokens
+            lhs%owns_tokens = .true.
+        else
+            nullify(lhs%tokens)
+            lhs%owns_tokens = .false.
         end if
     end subroutine parser_state_assign
 

@@ -221,7 +221,7 @@ contains
                 ! Parse statement in body
                 block
                     integer :: stmt_index
-                    type(token_t), allocatable :: stmt_tokens(:)
+                    type(token_t), allocatable, target :: stmt_tokens(:)
                     integer :: stmt_end, j
                     
                     stmt_end = parser%current_token
@@ -258,8 +258,8 @@ contains
                         block
                             type(parser_state_t) :: stmt_parser
                             integer :: target_idx, value_idx
-                            
-                            stmt_parser = parser_state_t(stmt_tokens)
+
+                            stmt_parser = create_parser_state(stmt_tokens)
                             
                             ! Try to parse as assignment
                             if (stmt_parser%current_token <= size(stmt_tokens)) then
@@ -344,4 +344,3 @@ contains
     end function parse_forall
     
 end module parser_forall_module
-

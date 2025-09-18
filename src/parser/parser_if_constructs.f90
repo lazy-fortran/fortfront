@@ -112,7 +112,7 @@ contains
                     target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column, parent_index)
                     ! Get remaining tokens for expression parsing
                     block
-                        type(token_t), allocatable :: expr_tokens(:)
+                        type(token_t), allocatable, target :: expr_tokens(:)
                         integer :: remaining_count
                         remaining_count = size(tokens) - parser%current_token + 1
                         if (remaining_count > 0) then
@@ -316,7 +316,7 @@ contains
             ! Parse the single statement
             block
                 integer :: stmt_index
-                type(token_t), allocatable :: remaining_tokens(:)
+                type(token_t), allocatable, target :: remaining_tokens(:)
                 integer :: i, n
 
                 ! Count remaining tokens
@@ -357,7 +357,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: condition_index
         type(token_t) :: paren_token
-        type(token_t), allocatable :: remaining_tokens(:)
+        type(token_t), allocatable, target :: remaining_tokens(:)
         integer :: i, n
 
         ! Check for opening parenthesis
@@ -465,7 +465,7 @@ contains
             ! Parse statement until end of line (same approach as do loop)
             block
                 integer :: stmt_start, stmt_end, j
-                type(token_t), allocatable :: stmt_tokens(:)
+                type(token_t), allocatable, target :: stmt_tokens(:)
 
                 stmt_start = parser%current_token
                 

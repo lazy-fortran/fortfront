@@ -15,14 +15,14 @@ contains
         logical, intent(out) :: has_initializer, has_comma
         integer :: lookahead_pos
         type(token_t) :: lookahead_token
-        type(token_t), allocatable :: tokens(:)
+        type(token_t), allocatable, target :: tokens(:)
         
         has_initializer = .false.
         has_comma = .false.
         lookahead_pos = parser%current_token
         
         ! Get tokens directly from parser
-        if (allocated(parser%tokens)) then
+        if (associated(parser%tokens)) then
             allocate(tokens(size(parser%tokens)))
             tokens = parser%tokens
         else

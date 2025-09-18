@@ -88,14 +88,15 @@ contains
         result = create_error_result( &
             "Specific error occurred", &
             ERROR_PARSER, &
-            component="parser_core", &
+            component="parser_expressions_module", &
             context="parse_statement", &
             suggestion="Check syntax" &
         )
         
         full_message = result%get_full_message()
         call assert_test(index(full_message, "ERROR") > 0, "Error message formatting with context")
-        call assert_test(index(full_message, "parser_core") > 0, "Full message contains component")
+        call assert_test(index(full_message, "parser_expressions_module") > 0, &
+            "Full message contains component")
     end subroutine
     
     subroutine test_error_categories_and_severity()

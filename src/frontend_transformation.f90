@@ -158,7 +158,7 @@ contains
         character(len=:), allocatable, intent(out) :: error_msg
 
         ! Local variables for 4-phase pipeline
-        type(token_t), allocatable :: tokens(:)
+        type(token_t), allocatable, target :: tokens(:)
         ! Use shared module-level arena for performance
         integer :: prog_index
         logical :: debug_transform

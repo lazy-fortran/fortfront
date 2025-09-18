@@ -67,7 +67,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
         integer, allocatable, intent(inout) :: body_indices(:)
-        type(token_t), allocatable :: stmt_tokens(:)
+        type(token_t), allocatable, target :: stmt_tokens(:)
 
         ! Create tokens for comment parsing
         allocate (stmt_tokens(2))
@@ -95,7 +95,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
         integer, allocatable, intent(inout) :: body_indices(:)
-        type(token_t), allocatable :: stmt_tokens(:)
+        type(token_t), allocatable, target :: stmt_tokens(:)
 
         ! Skip empty statements (can happen with consecutive semicolons)
         if (stmt_end < stmt_start) then

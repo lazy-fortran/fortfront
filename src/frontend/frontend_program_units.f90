@@ -5,7 +5,7 @@ module frontend_program_units
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
                            TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
-    use parser_core, only: parse_function_definition
+    use parser_definition_statements_module, only: parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
     use frontend_statement_processing, only: parse_all_statements => parse_all_statements
     use parser_declarations, only: parse_derived_type_def

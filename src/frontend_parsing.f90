@@ -276,7 +276,7 @@ contains
         integer, intent(out) :: unit_index
         logical, intent(in) :: has_explicit_program
         
-        type(token_t), allocatable :: unit_tokens(:)
+        type(token_t), allocatable, target :: unit_tokens(:)
 
         unit_index = 0
         

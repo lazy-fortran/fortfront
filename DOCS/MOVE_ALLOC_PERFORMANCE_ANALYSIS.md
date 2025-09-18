@@ -25,7 +25,7 @@
 ### Identified Problem Patterns
 
 #### Pattern 1: Array Growth with Manual Copy (Performance Critical)
-**Location**: `parser_core.f90:71-74`, `parser_expressions.f90:589-591`
+**Location**: `parser_expressions.f90:589-591` (historical: `parser_core.f90:71-74` prior to shim removal)
 
 ```fortran
 ! PROBLEMATIC: O(n) manual copy
@@ -98,8 +98,8 @@ call move_alloc(new_array, old_array)  ! O(1) pointer reassignment
 #### Performance Impact Analysis
 
 **Parser Performance**:
-- Array growth in `parser_core.f90` affects every multi-dimensional array parse
-- `parser_expressions.f90` affects every complex expression with multiple operands
+- Array growth in `parser_expressions.f90` affects every complex expression with multiple operands
+- Legacy references to `parser_core.f90` are obsolete after consolidation into the Pratt parser implementation
 - Compound impact: O(n²) overall vs O(n) with move semantics
 
 **Memory Pressure Reduction**:
@@ -130,9 +130,8 @@ call move_alloc(new_array, old_array)  ! O(1) pointer reassignment
 ### Phase 1: Critical Performance Fixes
 
 **High Priority**: Array growth operations in parser modules
-1. `parser_core.f90` - dimension array growth
-2. `parser_expressions.f90` - index array growth  
-3. `parser_statements.f90` - parameter array growth
+1. `parser_expressions.f90` - dimension and index array growth
+2. `parser_statements.f90` - parameter array growth
 
 ### Phase 2: Systematic Audit and Optimization
 
@@ -152,10 +151,10 @@ call move_alloc(new_array, old_array)  ! O(1) pointer reassignment
 
 ## Specific Fixes
 
-### 1. Parser Core Dimension Growth
+### 1. Pratt Parser Dimension Growth
 
-**File**: `src/parser/parser_core.f90`
-**Lines**: 71-74
+**File**: `src/parser/parser_expressions.f90`
+**Lines**: 589-591
 
 ```fortran
 ! BEFORE: Manual copy with O(n) performance
@@ -167,22 +166,7 @@ temp_dims = new_dims
 call move_alloc(new_dims, temp_dims)
 ```
 
-### 2. Parser Expressions Index Growth
-
-**File**: `src/parser/parser_expressions.f90`
-**Lines**: 589-591
-
-```fortran
-! BEFORE: Manual copy pattern
-deallocate (temp_indices)
-allocate (temp_indices(size(new_indices)))
-temp_indices = new_indices
-
-! AFTER: Move semantics optimization
-call move_alloc(new_indices, temp_indices)
-```
-
-### 3. Parser Expressions Second Instance  
+### 2. Parser Expressions Second Instance  
 
 **File**: `src/parser/parser_expressions.f90`
 **Lines**: 677-679

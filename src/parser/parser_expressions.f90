@@ -86,7 +86,7 @@ contains
         integer :: max_len
         type(token_t) :: token
 
-        if (.not. allocated(parser%tokens)) then
+        if (.not. associated(parser%tokens)) then
             view%count = 0
             view%base_index = parser%current_token
             if (allocated(view%text)) deallocate(view%text)
@@ -369,7 +369,7 @@ contains
     subroutine token_stack_ensure_capacity(stack, desired)
         type(token_stack_t), intent(inout) :: stack
         integer, intent(in) :: desired
-        type(token_t), allocatable :: new_values(:)
+        type(token_t), allocatable, target :: new_values(:)
         integer :: new_capacity
 
         if (.not. allocated(stack%values)) then
