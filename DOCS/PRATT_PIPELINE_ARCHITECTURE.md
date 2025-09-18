@@ -5,7 +5,7 @@
   expression entry point exposed through `frontend_parsing::parse_tokens`.
 - `frontend_transformation` reuses a module-level `compiler_arena_t` so lexing,
   Pratt parsing, semantic analysis, and code generation share a contiguous slab.
-- Tooling surfaces (`fortfront`, `call_graph_builder_module`, `variable_usage`)
+- Tooling surfaces (`fortfront`, `frontend_tooling_api`, `variable_usage`)
   consume the same arena; no secondary parsing or CFG builders remain in the hot
   path.
 
@@ -53,21 +53,26 @@
   bundle that includes the root program handle plus syntax errors for tooling.
 
 ## Integration with Call Graph and Tooling
-- Optional analysis surfaces operate solely on the Pratt output: the call graph
-  builder walks `ast_arena_t` via `ast_traversal::traverse_ast`, resolving
+- Optional analysis surfaces operate solely on the Pratt output; call graph
+  walkers traverse `ast_arena_t` via `ast_traversal::traverse_ast`, resolving
   procedure handles with arena-backed symbol tables.
+- `frontend_tooling_api::tooling_load_ast_from_string` exposes the Pratt arena
+  and optional token buffer directly to tooling, skipping semantics and
+  standardization unless toggled via `tooling_parse_options_t`.
 - Library consumers can fetch CST handles through `cst_arena` without
   re-tokenizing because Pratt preserves the original slice metadata.
-- CLI commands expose both AST and CST handles in a single traversal, allowing
-  downstream tools to request lightweight summaries without triggering extra
-  passes.
+- CLI commands expose both AST and CST handles in a single traversal, now routing
+  through the lightweight tooling API so downstream tools can measure parse
+  latency without triggering extra passes.
 
 ## Limitations and Follow-ups
-- Nested procedure discovery still relies on the arena sweep in
-  `call_graph_builder_module`; indirect recursion can be missed when declarations
-  are absent.
+- Nested procedure discovery still relies on arena sweeps in call graph
+  walkers; indirect recursion can be missed when declarations are absent.
 - Deeply nested array literals force temporary scratch buffers; profiling shows
   these allocations remain the Pratt hotspot worth revisiting.
 - Strict semantic mode is currently toggled inside `semantic_context_t`. A
   future refinement should thread strictness flags through `parser_state_t` so
   CLI callers can opt in earlier in the pipeline.
+- `tooling_parse_options_t` currently exposes only `run_semantics` and
+  `reuse_arena`; future iterations should add standardization toggles plus arena
+  pooling heuristics for reuse-heavy tooling.

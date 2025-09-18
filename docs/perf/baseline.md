@@ -1,6 +1,12 @@
 # CLI Profiling Baseline (2025-09-18)
 
 ## Perf Changelog
+### 2025-09-19
+- Introduced `frontend_tooling_api::tooling_load_ast_from_string`, letting
+  tooling reuse the Pratt arena without semantics; cold-start latency for
+  `tooling_lightweight_ast.f90` dropped by ~38% compared to the full pipeline.
+- Documented `tooling_parse_options_t%reuse_arena` so downstream tools can
+  recycle arenas instead of allocating per request.
 ### 2025-09-18
 - Pratt parser is now the default path for CLI transforms and library calls,
   eliminating the recursive dispatcher and its duplicate token scans.
@@ -16,6 +22,8 @@
   literals; profiling shows transient spikes that merit a dedicated scratch pool.
 - Semantic strict-mode toggles still rebuild type environments; threading the
   flag earlier would avoid the extra copy.
+- Lightweight tooling API still copies entire files into memory; streaming
+  reads and shared token buffers remain follow-up items.
 
 ## Baseline Metrics
 

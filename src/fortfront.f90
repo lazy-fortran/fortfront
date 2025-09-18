@@ -33,6 +33,8 @@ module fortfront
                        transform_lazy_fortran_string_with_format, &
                        compilation_options_t, format_options_t, &
                        parse_tokens_safe, parse_result_with_index_t
+    use frontend_tooling_api, only: tooling_parse_options_t, &
+        tooling_load_ast_from_string, tooling_load_ast_from_file
     
     ! Include external interfaces to ensure they're compiled into the library
     use fortfront_c_interface, only: fortfront_initialize_c
