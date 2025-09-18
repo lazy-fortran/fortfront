@@ -9,6 +9,7 @@ module cfg_builder_helpers
 
     ! Public interface
     public :: add_statement_to_buffer, flush_statement_buffer
+    public :: init_frame_stack, push_frame, pop_frame, frame_stack_is_empty
 
 contains
 
@@ -83,5 +84,64 @@ contains
         ! Clear buffer
         builder%buffer_size = 0
     end subroutine flush_statement_buffer
+
+    subroutine init_frame_stack(stack, initial_capacity)
+        type(cfg_frame_stack_t), intent(inout) :: stack
+        integer, intent(in), optional :: initial_capacity
+        integer :: capacity
+
+        if (allocated(stack%items)) deallocate(stack%items)
+        capacity = 64
+        if (present(initial_capacity)) capacity = max(32, initial_capacity)
+        allocate(stack%items(capacity))
+        stack%top = 0
+    end subroutine init_frame_stack
+
+    subroutine ensure_stack_capacity(stack, required)
+        type(cfg_frame_stack_t), intent(inout) :: stack
+        integer, intent(in) :: required
+        type(cfg_frame_t), allocatable :: temp(:)
+
+        if (.not. allocated(stack%items)) then
+            call init_frame_stack(stack, max(required, 32))
+            return
+        end if
+
+        if (required <= size(stack%items)) return
+
+        allocate(temp(max(size(stack%items) * 2, required)))
+        if (stack%top > 0) temp(1:stack%top) = stack%items(1:stack%top)
+        call move_alloc(temp, stack%items)
+    end subroutine ensure_stack_capacity
+
+    subroutine push_frame(stack, frame)
+        type(cfg_frame_stack_t), intent(inout) :: stack
+        type(cfg_frame_t), intent(in) :: frame
+
+        if (.not. allocated(stack%items)) then
+            call init_frame_stack(stack)
+        end if
+        call ensure_stack_capacity(stack, stack%top + 1)
+        stack%top = stack%top + 1
+        stack%items(stack%top) = frame
+    end subroutine push_frame
+
+    function pop_frame(stack) result(frame)
+        type(cfg_frame_stack_t), intent(inout) :: stack
+        type(cfg_frame_t) :: frame
+
+        if (stack%top <= 0) then
+            frame = cfg_frame_t()
+            return
+        end if
+
+        frame = stack%items(stack%top)
+        stack%top = stack%top - 1
+    end function pop_frame
+
+    logical function frame_stack_is_empty(stack)
+        type(cfg_frame_stack_t), intent(in) :: stack
+        frame_stack_is_empty = (stack%top <= 0)
+    end function frame_stack_is_empty
 
 end module cfg_builder_helpers
