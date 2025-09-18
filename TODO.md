@@ -55,7 +55,7 @@
 - [x] Call graph AST traversal and cycle detection converted to iterative algorithms. (2025-09-18, commit 2ae3bf4, perf n/a)
 - [x] AST traversal helpers (`traverse_preorder`/`traverse_postorder`) rewritten to explicit stack walkers; existing public entry points now iterate internally. (2025-09-18, commit f5d10d3, perf n/a)
 - [x] Removed CFG builder/analyzer stack and associated plugins/tests; call-graph utilities are the only remaining analysis path (2025-09-18, commits f3aebec, db29f53, 575881a).
-- [ ] Audit standardizer/semantic helpers (e.g., `standardize_ast`) for residual recursion and convert to shared iterative utilities where warranted.
+- [x] Audit standardizer/semantic helpers (e.g., `standardize_ast`) for residual recursion and convert to shared iterative utilities where warranted. (2025-09-18)
 
 ## Challenges
 - Ensure remaining standardizer helpers adopt the shared iterative traversal stack (no hidden recursion).
@@ -64,8 +64,8 @@
 
 ## Plan of Record
 1. **Standardizer & Semantic Cleanup**
-   - [ ] Catalogue remaining recursive helpers in standardizer modules (`standardize_ast`, declaration visitors); convert to the iterative stack pattern when feasible or explain exceptions.
-   - [ ] Remove unused tracker structures from semantic context (already dropped in code) and update query APIs/tests accordingly.
+   - [x] Catalogue remaining recursive helpers in standardizer modules (`standardize_ast`, declaration visitors); convert to the iterative stack pattern when feasible or explain exceptions. Remaining recursion limited to type-string conversion (`get_fortran_type_string`).
+   - [x] Remove unused tracker structures from semantic context (already dropped in code) and update query APIs/tests accordingly. (2025-09-18)
 
 2. **Documentation & Test Sweep**
    - [ ] Rewrite or delete docs referencing removed CFG/semantic analyzer pipelines (e.g., `CODEGEN_ARCHITECTURE_ANALYSIS` mentions).
@@ -186,3 +186,7 @@
   map straight to core CFG primitives.
 - 2025-09-18 (db29f53, perf n/a): Removed semantic analyzer/pipeline infrastructure and related docs/tests
   to keep the frontend focused on the single-pass HM path.
+- 2025-09-18 (local, perf n/a): Replaced recursive integer-expression walker with iterative stack logic,
+  removed redundant module recursion, and added regression coverage for declaration inference heuristics.
+- 2025-09-18 (local, perf n/a): Removed unused semantic query tracker hooks, trimmed unused-variable APIs,
+  and normalized symbol metadata to reflect the lean context.

@@ -983,32 +983,100 @@ contains
     end function infer_type_from_binary_operation
 
     ! Heuristic: determine if expression consists of integer-only operations
-    recursive logical function is_integer_expression(arena, idx) result(is_int)
+    logical function is_integer_expression(arena, idx) result(is_int)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: idx
+        integer, allocatable :: node_stack(:)
+        integer :: top, cap
+        integer :: current
+        logical :: ok
+
         is_int = .false.
         if (idx <= 0 .or. idx > arena%size) return
         if (.not. allocated(arena%entries(idx)%node)) return
-        select type (node => arena%entries(idx)%node)
-        type is (literal_node)
-            is_int = (node%literal_kind == LITERAL_INTEGER)
-        type is (identifier_node)
-            if (node%inferred_type%kind > 0) then
-                is_int = (node%inferred_type%kind == TINT)
-            else
-                is_int = .true.
-            end if
-        type is (binary_op_node)
-            ! Division may promote to real; conservatively mark real for '/'
-            if (trim(node%operator) == "/") then
+
+        cap = 16
+        allocate(node_stack(cap))
+        top = 0
+
+        call push(idx)
+        is_int = .true.
+
+loop_nodes: do while (top > 0)
+            current = node_stack(top)
+            top = top - 1
+
+            if (current <= 0 .or. current > arena%size) then
                 is_int = .false.
-            else
-                is_int = is_integer_expression(arena, node%left_index) .and. &
-                         is_integer_expression(arena, node%right_index)
+                exit loop_nodes
             end if
-        class default
-            is_int = .false.
-        end select
+            if (.not. allocated(arena%entries(current)%node)) then
+                is_int = .false.
+                exit loop_nodes
+            end if
+
+            select type (node => arena%entries(current)%node)
+            type is (literal_node)
+                if (node%literal_kind /= LITERAL_INTEGER) then
+                    is_int = .false.
+                    exit loop_nodes
+                end if
+            type is (identifier_node)
+                if (node%inferred_type%kind > 0) then
+                    if (node%inferred_type%kind /= TINT) then
+                        is_int = .false.
+                        exit loop_nodes
+                    end if
+                end if
+            type is (binary_op_node)
+                if (trim(node%operator) == "/") then
+                    is_int = .false.
+                    exit loop_nodes
+                end if
+                ok = push_if_valid(node%left_index)
+                if (.not. ok) then
+                    is_int = .false.
+                    exit loop_nodes
+                end if
+                ok = push_if_valid(node%right_index)
+                if (.not. ok) then
+                    is_int = .false.
+                    exit loop_nodes
+                end if
+            class default
+                is_int = .false.
+                exit loop_nodes
+            end select
+        end do loop_nodes
+
+        if (allocated(node_stack)) deallocate(node_stack)
+
+    contains
+
+        subroutine push(index)
+            integer, intent(in) :: index
+            if (top >= cap) call grow_stack()
+            top = top + 1
+            node_stack(top) = index
+        end subroutine push
+
+        logical function push_if_valid(index) result(success)
+            integer, intent(in) :: index
+            success = .false.
+            if (index <= 0 .or. index > arena%size) return
+            if (.not. allocated(arena%entries(index)%node)) return
+            call push(index)
+            success = .true.
+        end function push_if_valid
+
+        subroutine grow_stack()
+            integer, allocatable :: tmp(:)
+            allocate(tmp(cap * 2))
+            tmp(1:cap) = node_stack(1:cap)
+            call move_alloc(tmp, node_stack)
+            cap = cap * 2
+        end subroutine grow_stack
+
     end function is_integer_expression
     
     ! Collect identifier variable - stub implementation
