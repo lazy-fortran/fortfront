@@ -88,7 +88,7 @@ contains
         compile_result = error_compile_result( &
             'Critical parser failure simulation', &
             ERROR_CRITICAL, &
-            component='parser_core_simulation', &
+            component='parser_pratt_simulation', &
             context='critical_failure_injection', &
             suggestion='Verify parser handles critical failures gracefully' &
         )

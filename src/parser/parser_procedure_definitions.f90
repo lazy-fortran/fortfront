@@ -99,9 +99,9 @@ contains
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 ! Look ahead for "function"
                 block
-                    type(token_t), allocatable :: all_tokens(:)
+                    type(token_t), allocatable, target :: all_tokens(:)
                     integer :: next_idx
-                    if (allocated(parser%tokens)) then
+                    if (associated(parser%tokens)) then
                         allocate(all_tokens(size(parser%tokens)))
                         all_tokens = parser%tokens
                     else
@@ -136,11 +136,11 @@ contains
 
             ! Collect tokens for the current statement line
             block
-                type(token_t), allocatable :: stmt_tokens(:), all_tokens(:)
+                type(token_t), allocatable, target :: stmt_tokens(:), all_tokens(:)
                 integer :: stmt_start, stmt_end, i, stmt_size, stmt_index
                 type(parser_state_t) :: block_parser
                 
-                if (allocated(parser%tokens)) then
+                if (associated(parser%tokens)) then
                     allocate(all_tokens(size(parser%tokens)))
                     all_tokens = parser%tokens
                 else
@@ -241,9 +241,9 @@ contains
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 ! Look ahead for "subroutine"
                 block
-                    type(token_t), allocatable :: all_tokens(:)
+                    type(token_t), allocatable, target :: all_tokens(:)
                     integer :: next_idx
-                    if (allocated(parser%tokens)) then
+                    if (associated(parser%tokens)) then
                         allocate(all_tokens(size(parser%tokens)))
                         all_tokens = parser%tokens
                     else
@@ -278,11 +278,11 @@ contains
 
             ! Collect tokens for the current statement line
             block
-                type(token_t), allocatable :: stmt_tokens(:), all_tokens(:)
+                type(token_t), allocatable, target :: stmt_tokens(:), all_tokens(:)
                 integer :: stmt_start, stmt_end, i, stmt_size, stmt_index
                 type(parser_state_t) :: block_parser
                 
-                if (allocated(parser%tokens)) then
+                if (associated(parser%tokens)) then
                     allocate(all_tokens(size(parser%tokens)))
                     all_tokens = parser%tokens
                 else

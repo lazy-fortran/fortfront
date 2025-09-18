@@ -28,7 +28,7 @@ contains
         
         integer, allocatable :: implicit_indices(:), explicit_indices(:)
         integer :: i, stmt_index, range_start, range_end
-        type(token_t), allocatable :: range_tokens(:)
+        type(token_t), allocatable, target :: range_tokens(:)
         character(len=:), allocatable :: module_name
         
         error_msg = ""
@@ -94,7 +94,7 @@ contains
         integer, intent(out) :: stmt_index
         character(len=*), intent(out) :: error_msg
         
-        type(token_t), allocatable :: stmt_tokens(:)
+        type(token_t), allocatable, target :: stmt_tokens(:)
         
         error_msg = ""
         
@@ -129,7 +129,7 @@ contains
         integer, intent(out) :: stmt_index
         character(len=*), intent(out) :: error_msg
         
-        type(token_t), allocatable :: stmt_tokens(:)
+        type(token_t), allocatable, target :: stmt_tokens(:)
         
         error_msg = ""
         
