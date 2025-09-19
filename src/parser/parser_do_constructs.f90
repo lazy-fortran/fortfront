@@ -1,7 +1,9 @@
 module parser_do_constructs_module
     ! Parser module for DO constructs (do loops, do while)
-    use iso_fortran_env, only: error_unit
-    use lexer_core
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, &
+                          to_lower
     use ast_types, only: LITERAL_STRING
     use parser_state_module
     use parser_expressions_module, only: parse_logical_or, parse_range, parse_expression
@@ -13,7 +15,8 @@ module parser_do_constructs_module
     use parser_call_module, only: parse_call_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_loops, only: do_loop_node
     use ast_factory, only: push_do_loop, push_do_while, push_identifier, push_literal, push_assignment
     implicit none
     private

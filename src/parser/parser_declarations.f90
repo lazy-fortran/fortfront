@@ -1,5 +1,5 @@
 module parser_declarations
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
@@ -469,7 +469,7 @@ contains
 
     ! Parse multi-variable declaration (e.g., real :: x, y, z = 1.0)
     function parse_multi_declaration(parser, arena) result(decl_indices)
-        use iso_fortran_env, only: error_unit
+        use, intrinsic :: iso_fortran_env, only: error_unit
         use ast_factory, only: push_multi_declaration, push_declaration
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena

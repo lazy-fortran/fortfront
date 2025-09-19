@@ -1,6 +1,7 @@
 module parser_execution_statements_module
     ! Parser module for execution statement types (call, program)
-    use lexer_core
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_STRING, TK_NEWLINE, TK_KEYWORD
     use parser_state_module
     use parser_expressions_module, only: parse_range
@@ -15,9 +16,10 @@ module parser_execution_statements_module
                                           parse_where_construct, parse_associate
     use parser_forall_module, only: parse_forall
     use parser_call_module, only: parse_call_statement
-    use ast_core
-    use ast_factory
-    use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL
+    use ast_arena_modern, only: ast_arena_t
+    use ast_factory, only: push_program, push_assignment, push_identifier, push_literal, &
+                           push_declaration, push_if, push_implicit_statement
+    use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL
     implicit none
     private
 
@@ -76,7 +78,7 @@ contains
     ! Parse the body of a program until 'end program'
     ! Simplified approach that handles the basic case
     subroutine parse_program_body(parser, arena, body_indices)
-        use iso_fortran_env, only: error_unit
+        use, intrinsic :: iso_fortran_env, only: error_unit
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, allocatable, intent(inout) :: body_indices(:)

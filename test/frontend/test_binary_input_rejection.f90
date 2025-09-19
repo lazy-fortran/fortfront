@@ -1,5 +1,5 @@
 program test_binary_input_rejection
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use frontend, only: transform_lazy_fortran_string
     implicit none
 

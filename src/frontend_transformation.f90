@@ -1,5 +1,5 @@
 module frontend_transformation
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     ! fortfront - Transformation functions module
     ! Contains string-based transformation functionality
 
@@ -529,7 +529,7 @@ contains
     end subroutine run_code_generation_phase
 
     subroutine maybe_dump_program_overview(arena, prog_index)
-        use iso_fortran_env, only: error_unit
+        use, intrinsic :: iso_fortran_env, only: error_unit
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: prog_index
         character(len=8) :: flag
@@ -593,7 +593,7 @@ contains
         call set_standardizer_type_standardization(saved_standardizer_types)
     end subroutine restore_configuration
 
-    ! Detect binary data early to avoid flooding diagnostics with garbage
+    ! Detect binary data early; allow UTF-8/high-bit text
     pure logical function contains_binary_data(text) result(has_binary)
         character(len=*), intent(in) :: text
         integer :: i, code, limit
@@ -608,14 +608,12 @@ contains
                 has_binary = .true.
                 return
             end if
+            ! Reject control characters except TAB(9), LF(10), CR(13)
             if (code < 32 .and. code /= 9 .and. code /= 10 .and. code /= 13) then
                 has_binary = .true.
                 return
             end if
-            if (code > 126) then
-                has_binary = .true.
-                return
-            end if
+            ! High-bit (>=128) allowed to support UTF-8 and extended text
         end do
     end function contains_binary_data
 

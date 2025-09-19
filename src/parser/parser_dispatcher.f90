@@ -1,8 +1,9 @@
 module parser_dispatcher_module
     ! Statement dispatcher that delegates to appropriate parsing modules
     ! This implements the SRP by separating the switch logic from the implementations
-    use iso_fortran_env, only: error_unit
-    use lexer_core
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD
     use parser_state_module
     use parser_expressions_module
@@ -24,7 +25,10 @@ module parser_dispatcher_module
     use parser_control_flow_module, only: parse_if, parse_do_loop, parse_select_case, &
                                          parse_where_construct, parse_associate
     use parser_forall_module, only: parse_forall
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_core, only: comment_node, blank_line_node, create_comment, create_blank_line
+    use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+    use ast_factory, only: push_assignment, push_identifier, push_literal
     use ast_factory
     use parser_expressions_module, only: parse_expression, parse_range
     implicit none

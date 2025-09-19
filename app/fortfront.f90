@@ -1,5 +1,5 @@
 program fortfront_cli
-    use iso_fortran_env, only: input_unit, output_unit, error_unit, iostat_end
+    use, intrinsic :: iso_fortran_env, only: input_unit, output_unit, error_unit, iostat_end
     use frontend, only: transform_lazy_fortran_string
     use debug_trace, only: trace_init, trace_enter, trace_leave
     implicit none

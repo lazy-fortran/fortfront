@@ -1,12 +1,12 @@
 module parser_call_module
     ! Shared call-statement parser used across control-flow helpers
-    use lexer_core
+    use lexer_core,        only: token_t
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR
-    use parser_state_module
+    use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
-    use ast_core
-    use ast_factory, only: push_subroutine_call, push_literal
-    use ast_types, only: LITERAL_STRING
+    use ast_arena_modern,  only: ast_arena_t
+    use ast_factory,       only: push_subroutine_call, push_literal
+    use ast_types,         only: LITERAL_STRING
     implicit none
     private
 
