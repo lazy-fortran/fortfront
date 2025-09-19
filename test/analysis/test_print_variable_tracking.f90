@@ -208,7 +208,6 @@ contains
 
     ! Helper function to find print_statement node in the arena
     function find_print_statement_in_arena(arena) result(node_index)
-        use ast_core, only: ast_arena_t
         type(ast_arena_t), intent(in) :: arena
         integer :: node_index
         integer :: i
