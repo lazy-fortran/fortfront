@@ -2,7 +2,8 @@ program test_integer_expression_detection
     use frontend_core, only: lex_source
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
-    use ast_core, only: ast_arena_t, assignment_node
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: assignment_node
     use standardizer, only: collect_assignment_vars
     implicit none
 

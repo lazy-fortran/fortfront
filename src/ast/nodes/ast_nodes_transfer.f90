@@ -9,6 +9,9 @@ module ast_nodes_transfer
     ! Public types
     public :: cycle_node, exit_node, stop_node, return_node
     public :: goto_node, error_stop_node
+    ! Constructors migrated from ast_core
+    public :: create_cycle, create_exit, create_stop, create_return
+    public :: create_goto, create_error_stop
 
     ! Cycle statement node
     type, extends(ast_node) :: cycle_node
@@ -110,6 +113,18 @@ contains
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine cycle_assign
 
+    ! Constructors
+    function create_cycle(loop_label, line, column) result(node)
+        character(len=*), intent(in), optional :: loop_label
+        integer, intent(in), optional :: line, column
+        type(cycle_node) :: node
+
+        node%uid = generate_uid()
+        if (present(loop_label)) node%label = loop_label
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_cycle
+
     ! Exit statement implementations
     subroutine exit_accept(this, visitor)
         class(exit_node), intent(in) :: this
@@ -144,6 +159,17 @@ contains
         lhs%constant_type = rhs%constant_type
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine exit_assign
+
+    function create_exit(loop_label, line, column) result(node)
+        character(len=*), intent(in), optional :: loop_label
+        integer, intent(in), optional :: line, column
+        type(exit_node) :: node
+
+        node%uid = generate_uid()
+        if (present(loop_label)) node%label = loop_label
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_exit
 
     ! Stop statement implementations
     subroutine stop_accept(this, visitor)
@@ -184,6 +210,19 @@ contains
         if (allocated(rhs%stop_message)) lhs%stop_message = rhs%stop_message
     end subroutine stop_assign
 
+    function create_stop(stop_code_index, stop_message, line, column) result(node)
+        integer, intent(in), optional :: stop_code_index
+        character(len=*), intent(in), optional :: stop_message
+        integer, intent(in), optional :: line, column
+        type(stop_node) :: node
+
+        node%uid = generate_uid()
+        if (present(stop_code_index)) node%stop_code_index = stop_code_index
+        if (present(stop_message)) node%stop_message = stop_message
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_stop
+
     ! Return statement implementations
     subroutine return_accept(this, visitor)
         class(return_node), intent(in) :: this
@@ -216,6 +255,15 @@ contains
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
     end subroutine return_assign
+
+    function create_return(line, column) result(node)
+        integer, intent(in), optional :: line, column
+        type(return_node) :: node
+
+        node%uid = generate_uid()
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_return
 
     ! Goto statement implementations
     subroutine goto_accept(this, visitor)
@@ -251,6 +299,17 @@ contains
         lhs%constant_type = rhs%constant_type
         if (allocated(rhs%label)) lhs%label = rhs%label
     end subroutine goto_assign
+
+    function create_goto(label, line, column) result(node)
+        character(len=*), intent(in), optional :: label
+        integer, intent(in), optional :: line, column
+        type(goto_node) :: node
+
+        node%uid = generate_uid()
+        if (present(label)) node%label = label
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_goto
 
     ! Error stop statement implementations
     subroutine error_stop_accept(this, visitor)
@@ -290,5 +349,18 @@ contains
         lhs%error_code_index = rhs%error_code_index
         if (allocated(rhs%error_message)) lhs%error_message = rhs%error_message
     end subroutine error_stop_assign
+
+    function create_error_stop(error_code_index, error_message, line, column) result(node)
+        integer, intent(in), optional :: error_code_index
+        character(len=*), intent(in), optional :: error_message
+        integer, intent(in), optional :: line, column
+        type(error_stop_node) :: node
+
+        node%uid = generate_uid()
+        if (present(error_code_index)) node%error_code_index = error_code_index
+        if (present(error_message)) node%error_message = error_message
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_error_stop
 
 end module ast_nodes_transfer

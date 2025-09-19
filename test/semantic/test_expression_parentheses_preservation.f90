@@ -1,6 +1,6 @@
 program test_expression_parentheses_preservation
     use frontend, only: lex_source, parse_tokens, emit_fortran
-    use ast_core, only: ast_arena_t, create_ast_arena
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
     implicit none
 

@@ -1,5 +1,5 @@
 module test_where_forall_coverage
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_control
     use ast_factory
     implicit none

@@ -1,6 +1,7 @@
 program test_merge_intent_fix
     use codegen_utilities, only: generate_grouped_body
-    use ast_core, only: ast_arena_t, create_ast_arena, create_declaration
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use ast_nodes_data, only: create_declaration
     implicit none
 
     integer :: total, passed

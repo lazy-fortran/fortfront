@@ -1,6 +1,9 @@
 program test_constant_folding
     use frontend
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use ast_nodes_control, only: if_node
+    use ast_nodes_core, only: literal_node, binary_op_node
+    use ast_base, only: LITERAL_LOGICAL
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                  analyze_program
