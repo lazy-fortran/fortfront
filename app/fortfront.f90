@@ -2,6 +2,7 @@ program fortfront_cli
     use, intrinsic :: iso_fortran_env, only: input_unit, output_unit, error_unit, iostat_end
     use frontend, only: transform_lazy_fortran_string
     use debug_trace, only: trace_init, trace_enter, trace_leave
+    use cli_env, only: init_cli_trace
     implicit none
     
     character(len=:), allocatable :: input_text, output_text, error_msg
@@ -17,18 +18,7 @@ program fortfront_cli
     logical :: from_file, show_help, show_version
     logical :: trace_enabled
     character(len=:), allocatable :: trace_file_path
-    trace_enabled = .true.
-    trace_file_path = 'cli_trace.txt'
-    block
-        integer :: s
-        character(len=8) :: tv
-        character(len=512) :: tf
-        call get_environment_variable('FORTFRONT_TRACE', tv, status=s)
-        if (s == 0) then
-            call get_environment_variable('FORTFRONT_TRACE_FILE', tf, status=s)
-            if (s == 0 .and. len_trim(tf) > 0) trace_file_path = trim(tf)
-        end if
-    end block
+    call init_cli_trace(trace_enabled, trace_file_path)
     call cli_trace('CLI: start')
     call trace_init()
     call trace_enter('cli:main')

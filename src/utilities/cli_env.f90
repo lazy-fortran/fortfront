@@ -1,0 +1,72 @@
+module cli_env
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    implicit none
+    private
+
+    public :: init_cli_trace
+    public :: compute_cli_trace_settings
+
+contains
+
+    subroutine init_cli_trace(trace_enabled, trace_file_path)
+        logical, intent(out) :: trace_enabled
+        character(len=:), allocatable, intent(out) :: trace_file_path
+        character(len=64)  :: trace_env
+        character(len=512) :: file_env
+        integer :: s1, s2
+
+        trace_env = ''
+        file_env  = ''
+        call get_environment_variable('FORTFRONT_TRACE', trace_env, status=s1)
+        call get_environment_variable('FORTFRONT_TRACE_FILE', file_env, status=s2)
+
+        call compute_cli_trace_settings(trim(trace_env), trim(file_env), trace_enabled, trace_file_path)
+    end subroutine init_cli_trace
+
+    pure subroutine compute_cli_trace_settings(trace_env, file_env, trace_enabled, trace_file_path)
+        character(len=*), intent(in) :: trace_env
+        character(len=*), intent(in) :: file_env
+        logical, intent(out) :: trace_enabled
+        character(len=:), allocatable, intent(out) :: trace_file_path
+
+        trace_enabled = .false.
+        trace_file_path = 'cli_trace.txt'
+
+        if (len_trim(trace_env) > 0) then
+            trace_enabled = is_truthy(trim(trace_env))
+        end if
+
+        if (len_trim(file_env) > 0) then
+            trace_file_path = trim(file_env)
+        end if
+    end subroutine compute_cli_trace_settings
+
+    pure logical function is_truthy(s) result(val)
+        character(len=*), intent(in) :: s
+        character(len=len_trim(s)) :: t
+        t = to_lower(trim(s))
+        select case (t)
+        case ('0', 'false', 'off', 'no')
+            val = .false.
+        case default
+            ! Any non-empty value not explicitly falsey is truthy
+            val = (len(t) > 0)
+        end select
+    end function is_truthy
+
+    pure function to_lower(s) result(out)
+        character(len=*), intent(in) :: s
+        character(len=len(s)) :: out
+        integer :: i, ia
+        do i = 1, len(s)
+            ia = iachar(s(i:i))
+            if (ia >= iachar('A') .and. ia <= iachar('Z')) then
+                out(i:i) = achar(ia + 32)
+            else
+                out(i:i) = s(i:i)
+            end if
+        end do
+    end function to_lower
+
+end module cli_env
+
