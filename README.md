@@ -63,3 +63,19 @@ rm -f t.lf my_log.txt
 # Build and run tests
 make test
 ```
+
+### Running CLI System Tests
+- The CLI integration tests invoke external tools and are disabled by default.
+- Enable them with environment variable `RUN_SYSTEM_TESTS=1`.
+
+- POSIX shells:
+  - `RUN_SYSTEM_TESTS=1 make test`
+  - or `RUN_SYSTEM_TESTS=1 fpm test`
+
+- Windows (PowerShell):
+  - `$env:RUN_SYSTEM_TESTS=1; fpm test`
+
+- Notes:
+  - These tests build the `fortfront` CLI and exercise stdin/pipe behavior.
+  - Timeouts are applied in the test harness to keep runs bounded.
+  - Regular `make test` (without the env var) runs the fast unit/integration suite only.
