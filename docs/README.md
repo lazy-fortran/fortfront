@@ -65,6 +65,11 @@ Removed to avoid confusion and build fragmentation. Use FPM/Make.
   importing `frontend`.
 - Tests and external consumers may `use frontend` to validate public behavior.
 
+Note on test-only helpers
+- Some debug/test-oriented helpers are currently re-exported to support the
+  internal test suite. These are not part of the stable API surface and may
+  change or be removed between releases without deprecation.
+
 ## Integration
 
 ### With fortrun
