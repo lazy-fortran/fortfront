@@ -14,12 +14,11 @@ module cst_to_ast_converter
                         CST_DECLARATION, CST_ASSIGNMENT, CST_CALL, &
                         CST_IDENTIFIER, CST_LITERAL, CST_OPERATOR
     use cst_arena, only: cst_arena_t, cst_handle_t
-    use ast_base, only: ast_node
-    use ast_types, only: program_node, assignment_node, binary_op_node, &
-                        call_or_subscript_node, subroutine_call_node, &
-                        identifier_node, literal_node, &
-                        LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL, &
-                        ast_arena_t, create_ast_arena
+    use ast_base, only: ast_node, LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+    use ast_nodes_core, only: program_node, assignment_node, binary_op_node, &
+                        call_or_subscript_node, identifier_node, literal_node
+    use ast_nodes_procedure, only: subroutine_call_node
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use uid_generator, only: uid_t
     use string_types, only: string_t
     use error_handling, only: result_t, success_result, create_error_result, &

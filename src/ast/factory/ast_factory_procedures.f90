@@ -1,6 +1,5 @@
 module ast_factory_procedures
     use ast_arena_modern, only: ast_arena_t
-    use ast_core
     use uid_generator, only: generate_uid
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    create_function_def, create_subroutine_def

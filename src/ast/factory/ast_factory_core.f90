@@ -1,11 +1,11 @@
 module ast_factory_core
     use ast_arena_modern, only: ast_arena_t
-    use ast_core
     use ast_nodes_core, only: program_node, assignment_node, pointer_assignment_node, &
                               identifier_node, literal_node, binary_op_node, &
                               call_or_subscript_node, array_literal_node, &
                               component_access_node, range_subscript_node, &
-                              create_array_literal, create_component_access, create_range_subscript
+                              create_array_literal, create_component_access, create_range_subscript, &
+                              create_pointer_assignment
     use ast_nodes_misc, only: complex_literal_node
     use uid_generator, only: generate_uid
     use ast_base, only: LITERAL_STRING
@@ -119,7 +119,11 @@ contains
         integer :: prog_index
         type(program_node) :: prog
 
-        prog = create_program(name, body_indices, line, column)
+        prog%uid = generate_uid()
+        prog%name = name
+        if (size(body_indices) > 0) prog%body_indices = body_indices
+        if (present(line)) prog%line = line
+        if (present(column)) prog%column = column
         call arena%push(prog, "program", 0)
         prog_index = arena%size
     end function push_program
@@ -133,7 +137,12 @@ contains
         integer :: assign_index
         type(assignment_node) :: assign
 
-        assign = create_assignment(target_index, value_index, line, column)
+        assign%uid = generate_uid()
+        assign%target_index = target_index
+        assign%value_index = value_index
+        assign%operator = "="
+        if (present(line)) assign%line = line
+        if (present(column)) assign%column = column
         call arena%push(assign, "assignment", parent_index)
         assign_index = arena%size
     end function push_assignment
@@ -165,7 +174,12 @@ contains
         integer :: binop_index
         type(binary_op_node) :: binop
 
-        binop = create_binary_op(left_index, right_index, operator, line, column)
+        binop%uid = generate_uid()
+        binop%left_index = left_index
+        binop%right_index = right_index
+        binop%operator = operator
+        if (present(line)) binop%line = line
+        if (present(column)) binop%column = column
         call arena%push(binop, "binary_op", parent_index)
         binop_index = arena%size
     end function push_binary_op
@@ -313,6 +327,7 @@ contains
         type(call_or_subscript_node) :: constructor_node
 
         ! Type constructors are treated as special function calls
+        constructor_node%uid = generate_uid()
         constructor_node%name = type_name
         if (present(arg_indices)) then
             if (size(arg_indices) > 0) then

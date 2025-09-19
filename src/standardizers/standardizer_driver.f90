@@ -1,5 +1,8 @@
 module standardizer_driver
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: program_node
+    use ast_nodes_data, only: module_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use standardizer_program, only: standardize_program
     use standardizer_subprograms, only: wrap_function_in_program, wrap_subroutine_in_program
     implicit none
