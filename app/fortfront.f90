@@ -22,6 +22,7 @@ program fortfront_cli
     character(len=:), allocatable :: trace_file_opt
     character(len=:), allocatable :: next_arg
     character(len=:), allocatable :: optval
+    logical :: end_of_options
     call init_cli_trace(trace_enabled, trace_file_path)
     call cli_trace('CLI: start')
     call trace_init()
@@ -33,6 +34,7 @@ program fortfront_cli
     from_file = .false.
     has_trace_override = .false.
     has_trace_file_override = .false.
+    end_of_options = .false.
 
     ! Handle command line arguments
     if (num_args > 0) then
@@ -46,70 +48,81 @@ program fortfront_cli
             end if
             call get_command_argument(i, value=arg_str)
 
-            select case (trim(arg_str))
-            case ('--help', '-h')
-                show_help = .true.
-            case ('--version', '-v')
-                show_version = .true.
-            case default
-                block
-                    logical :: rec, is_file
-                    call parse_trace_option(trim(arg_str), rec, is_file, optval)
-                    if (rec) then
-                        if (is_file) then
-                            if (len_trim(optval) == 0) then
-                                if (i < num_args) then
-                                    call get_command_argument(i+1, length=next_len)
-                                    allocate(character(len=next_len) :: next_arg)
-                                    call get_command_argument(i+1, value=next_arg)
-                                    if (len_trim(next_arg) == 0 .or. next_arg(1:1) == '-') then
+            if (.not. end_of_options) then
+                select case (trim(arg_str))
+                case ('--')
+                    end_of_options = .true.
+                    deallocate(arg_str, stat=alloc_stat)
+                    if (alloc_stat /= 0) then
+                        write(error_unit, '(A,I0,A)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
+                        call exit_quiet(EXIT_FAILURE)
+                    end if
+                    i = i + 1
+                    cycle
+                case ('--help', '-h')
+                    show_help = .true.
+                case ('--version', '-v')
+                    show_version = .true.
+                case default
+                    block
+                        logical :: rec, is_file
+                        call parse_trace_option(trim(arg_str), rec, is_file, optval)
+                        if (rec) then
+                            if (is_file) then
+                                if (len_trim(optval) == 0) then
+                                    if (i < num_args) then
+                                        call get_command_argument(i+1, length=next_len)
+                                        allocate(character(len=next_len) :: next_arg)
+                                        call get_command_argument(i+1, value=next_arg)
+                                        if (len_trim(next_arg) == 0 .or. next_arg(1:1) == '-') then
+                                            write(error_unit, '(A)') 'Error: --trace-file requires a path'
+                                            call exit_quiet(EXIT_FAILURE)
+                                        end if
+                                        trace_file_opt = next_arg
+                                        has_trace_file_override = .true.
+                                        deallocate(next_arg)
+                                        i = i + 1
+                                    else
                                         write(error_unit, '(A)') 'Error: --trace-file requires a path'
                                         call exit_quiet(EXIT_FAILURE)
                                     end if
-                                    trace_file_opt = next_arg
-                                    has_trace_file_override = .true.
-                                    deallocate(next_arg)
-                                    i = i + 1
                                 else
-                                    write(error_unit, '(A)') 'Error: --trace-file requires a path'
-                                    call exit_quiet(EXIT_FAILURE)
+                                    trace_file_opt = optval
+                                    has_trace_file_override = .true.
                                 end if
                             else
-                                trace_file_opt = optval
-                                has_trace_file_override = .true.
+                                trace_enabled = parse_trace_flag_value(optval)
+                                has_trace_override = .true.
                             end if
-                        else
-                            trace_enabled = parse_trace_flag_value(optval)
-                            has_trace_override = .true.
+                            ! advance to next argument and clean up current
+                            deallocate(arg_str, stat=alloc_stat)
+                            if (alloc_stat /= 0) then
+                                write(error_unit, '(A,I0,A)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
+                                call exit_quiet(EXIT_FAILURE)
+                            end if
+                            i = i + 1
+                            cycle
                         end if
-                        ! advance to next argument and clean up current
-                        deallocate(arg_str, stat=alloc_stat)
-                        if (alloc_stat /= 0) then
-                            write(error_unit, '(A,I0,A)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
-                            call exit_quiet(EXIT_FAILURE)
-                        end if
-                        i = i + 1
-                        cycle
+                    end block
+                    if ((len(arg_str) >= 1 .and. arg_str(1:1) == '-')) then
+                        write(error_unit, '(A,A)') 'Error: Unknown option ', trim(arg_str)
+                        write(error_unit, '(A)') ''
+                        write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
+                        call exit_quiet(EXIT_FAILURE)
                     end if
-                end block
-                if ((len(arg_str) >= 1 .and. arg_str(1:1) == '-')) then
-                    write(error_unit, '(A,A)') 'Error: Unknown option ', trim(arg_str)
-                    write(error_unit, '(A)') ''
-                    write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
-                    call exit_quiet(EXIT_FAILURE)
-                end if
+                end select
+            end if
 
-                if (from_file) then
-                    write(error_unit, '(A)') 'Error: Multiple input files not supported.'
-                    write(error_unit, '(A)') 'fortfront processes one file at a time or reads from stdin.'
-                    write(error_unit, '(A)') ''
-                    write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
-                    call exit_quiet(EXIT_FAILURE)
-                end if
-
-                from_file = .true.
-                filename = arg_str
-            end select
+            ! Treat as filename (honoring end_of_options or non-option token)
+            if (from_file) then
+                write(error_unit, '(A)') 'Error: Multiple input files not supported.'
+                write(error_unit, '(A)') 'fortfront processes one file at a time or reads from stdin.'
+                write(error_unit, '(A)') ''
+                write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
+                call exit_quiet(EXIT_FAILURE)
+            end if
+            from_file = .true.
+            filename = arg_str
 
             deallocate(arg_str, stat=alloc_stat)
             if (alloc_stat /= 0) then
