@@ -3,7 +3,7 @@ program test_issue_653_semicolon_parsing
     use iso_fortran_env, only: error_unit
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
-    use ast_core, only: ast_arena_t, create_ast_arena
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
     implicit none
     

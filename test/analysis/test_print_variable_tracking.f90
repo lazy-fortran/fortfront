@@ -3,7 +3,7 @@ program test_print_variable_tracking
     use lexer_core, only: tokenize_core, token_t
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_subroutine_definition
-    use ast_core, only: ast_arena_t, create_ast_arena
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use variable_usage_tracker_module, only: get_identifiers_in_subtree
     implicit none
 

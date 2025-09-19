@@ -3,7 +3,7 @@ program test_derived_type_parsing
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
-    use ast_core, only: ast_arena_t, create_ast_arena
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     implicit none
     
     call test_simple_derived_type()
