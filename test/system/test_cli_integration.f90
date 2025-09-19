@@ -74,6 +74,9 @@ program test_cli_integration
     ! Test 2c-alt: Single dash returns non-zero exit code
     call test_single_dash_invalid_flag()
 
+    ! Test 2d: End-of-options marker allows hyphen-leading filename
+    call test_end_of_options_hyphen_filename()
+
     ! Test 2c: 'func' syntax yields error but still prints valid program
     call test_func_syntax_error_outputs_program()
 
@@ -689,6 +692,78 @@ contains
             print *, "  Exit code: ", run_status
         end if
     end subroutine test_single_dash_invalid_flag
+
+    subroutine test_end_of_options_hyphen_filename()
+        integer :: run_status, exit_code
+        character(len=512) :: command
+        character(len=256) :: line
+        character(len=:), allocatable :: executable_path
+        logical :: success
+
+        call test_start("End-of-options '--' allows hyphen filename")
+
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+
+        ! Create a file whose name begins with a hyphen
+        call write_text_file('-input_test.lf', 'print *, ''ok''' // new_line('a'))
+
+        if (is_windows) then
+            command = 'cmd /C ""' // executable_path // '" -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt"'
+        else
+            command = timeout_wrapper('20') // executable_path // &
+                      ' -- -input_test.lf > out_hyphen.txt 2>err_hyphen.txt'
+        end if
+
+        call execute_command_line(command, exitstat=run_status)
+        success = (run_status == 0)
+
+        if (success) then
+            ! Output should be a valid program; stderr should be empty
+            open(unit=31, file='out_hyphen.txt', status='old', action='read', iostat=exit_code)
+            if (exit_code == 0) then
+                read(31, '(A)', end=410, iostat=exit_code) line
+                if (exit_code == 0) then
+                    success = (index(line, 'program main') > 0)
+                else
+                    success = .false.
+                end if
+410             close(31)
+            else
+                success = .false.
+            end if
+
+            if (success) then
+                open(unit=32, file='err_hyphen.txt', status='old', action='read', iostat=exit_code)
+                if (exit_code == 0) then
+                    do
+                        read(32, '(A)', end=411, iostat=exit_code) line
+                        if (exit_code /= 0) exit
+                        if (len_trim(line) > 0) then
+                            success = .false.
+                            exit
+                        end if
+                    end do
+411                 close(32)
+                end if
+            end if
+        end if
+
+        ! Cleanup
+        call cleanup_file('-input_test.lf')
+        call cleanup_file('out_hyphen.txt')
+        call cleanup_file('err_hyphen.txt')
+
+        call test_result(success)
+        if (.not. success) then
+            print *, "  End-of-options handling failed"
+            print *, "  Exit code: ", run_status
+        end if
+    end subroutine test_end_of_options_hyphen_filename
 
     subroutine test_func_syntax_error_outputs_program()
         integer :: run_status, exit_code
