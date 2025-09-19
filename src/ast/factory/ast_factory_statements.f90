@@ -1,14 +1,10 @@
 module ast_factory_statements
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_misc, only: use_statement_node, implicit_statement_node, include_statement_node, &
-                              end_statement_node
-    use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, cycle_node, exit_node
     use ast_base, only: string_t
     use uid_generator, only: generate_uid
     use ast_nodes_misc, only: use_statement_node, implicit_statement_node, include_statement_node, &
-                              end_statement_node, allocate_statement_node, &
-                              deallocate_statement_node
-    use ast_nodes_control, only: return_node, goto_node, error_stop_node, cycle_node, exit_node, stop_node
+                              end_statement_node, allocate_statement_node, deallocate_statement_node
+    use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, cycle_node, exit_node
     implicit none
     private
 
@@ -129,6 +125,7 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: end_index
         type(end_statement_node) :: end_stmt
+        end_stmt%uid = generate_uid()
         if (present(line)) end_stmt%line = line
         if (present(column)) end_stmt%column = column
         call arena%push(end_stmt, "end_statement", parent_index)
@@ -144,6 +141,7 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: stop_index
         type(stop_node) :: stop_stmt
+        stop_stmt%uid = generate_uid()
         if (present(stop_code_index)) stop_stmt%stop_code_index = stop_code_index
         if (present(stop_message)) stop_stmt%stop_message = stop_message
         if (present(line)) stop_stmt%line = line
@@ -159,6 +157,7 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: return_index
         type(return_node) :: return_stmt
+        return_stmt%uid = generate_uid()
         if (present(line)) return_stmt%line = line
         if (present(column)) return_stmt%column = column
 
@@ -173,6 +172,7 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: goto_index
         type(goto_node) :: goto_stmt
+        goto_stmt%uid = generate_uid()
         if (present(label)) goto_stmt%label = label
         if (present(line)) goto_stmt%line = line
         if (present(column)) goto_stmt%column = column
@@ -189,6 +189,7 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: error_stop_index
         type(error_stop_node) :: error_stop_stmt
+        error_stop_stmt%uid = generate_uid()
         if (present(error_code_index)) error_stop_stmt%error_code_index = error_code_index
         if (present(error_message)) error_stop_stmt%error_message = error_message
         if (present(line)) error_stop_stmt%line = line
@@ -205,6 +206,7 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: cycle_index
         type(cycle_node) :: cycle_stmt
+        cycle_stmt%uid = generate_uid()
         if (present(loop_label)) cycle_stmt%label = loop_label
         if (present(line)) cycle_stmt%line = line
         if (present(column)) cycle_stmt%column = column
@@ -220,6 +222,7 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: exit_index
         type(exit_node) :: exit_stmt
+        exit_stmt%uid = generate_uid()
         if (present(loop_label)) exit_stmt%label = loop_label
         if (present(line)) exit_stmt%line = line
         if (present(column)) exit_stmt%column = column
@@ -242,6 +245,8 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: alloc_index
         type(allocate_statement_node) :: alloc_stmt
+
+        alloc_stmt%uid = generate_uid()
 
         if (size(var_indices) > 0) then
             alloc_stmt%var_indices = var_indices
@@ -274,6 +279,8 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: dealloc_index
         type(deallocate_statement_node) :: dealloc_stmt
+
+        dealloc_stmt%uid = generate_uid()
 
         if (size(var_indices) > 0) then
             dealloc_stmt%var_indices = var_indices

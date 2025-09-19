@@ -5,6 +5,7 @@ module ast_factory_expressions
     use ast_nodes_procedure, only: subroutine_call_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING
     use ast_factory_core, only: validate_arena, validate_node_index
+    use uid_generator, only: generate_uid
     implicit none
     private
 
@@ -26,6 +27,7 @@ contains
         integer :: call_index
         type(call_or_subscript_node) :: call_node
 
+        call_node%uid = generate_uid()
         call_node%name = name
         if (size(arg_indices) > 0) call_node%arg_indices = arg_indices
         if (present(line)) call_node%line = line
@@ -49,6 +51,7 @@ contains
         integer :: call_index
         type(subroutine_call_node) :: call_node
 
+        call_node%uid = generate_uid()
         call_node%name = name
         if (size(arg_indices) > 0) call_node%arg_indices = arg_indices
         if (present(line)) call_node%line = line

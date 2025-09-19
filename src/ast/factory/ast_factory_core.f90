@@ -119,6 +119,7 @@ contains
         integer :: prog_index
         type(program_node) :: prog
 
+        prog%uid = generate_uid()
         prog%name = name
         if (size(body_indices) > 0) prog%body_indices = body_indices
         if (present(line)) prog%line = line
@@ -136,8 +137,10 @@ contains
         integer :: assign_index
         type(assignment_node) :: assign
 
+        assign%uid = generate_uid()
         assign%target_index = target_index
         assign%value_index = value_index
+        assign%operator = "="
         if (present(line)) assign%line = line
         if (present(column)) assign%column = column
         call arena%push(assign, "assignment", parent_index)
@@ -171,6 +174,7 @@ contains
         integer :: binop_index
         type(binary_op_node) :: binop
 
+        binop%uid = generate_uid()
         binop%left_index = left_index
         binop%right_index = right_index
         binop%operator = operator
@@ -323,6 +327,7 @@ contains
         type(call_or_subscript_node) :: constructor_node
 
         ! Type constructors are treated as special function calls
+        constructor_node%uid = generate_uid()
         constructor_node%name = type_name
         if (present(arg_indices)) then
             if (size(arg_indices) > 0) then

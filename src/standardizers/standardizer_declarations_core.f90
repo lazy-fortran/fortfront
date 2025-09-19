@@ -366,6 +366,7 @@ contains
 
 
         ! Initialize declaration node
+        decl_node%uid = generate_uid()
         decl_node%var_name = trim(var_name)
         decl_node%has_kind = .false.
         decl_node%initializer_index = 0

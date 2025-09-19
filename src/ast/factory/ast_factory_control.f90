@@ -7,6 +7,7 @@ module ast_factory_control
                                  case_block_node, case_range_node, case_default_node, &
                                  where_node, associate_node
     use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
+    use uid_generator, only: generate_uid
     use error_handling, only: result_t, success_result, create_error_result
     use iso_fortran_env, only: error_unit
     implicit none
@@ -34,6 +35,8 @@ contains
         integer :: if_index
         type(if_node) :: if_stmt
         integer :: i
+
+        if_stmt%uid = generate_uid()
 
         ! Set condition index
         if (condition_index > 0 .and. condition_index <= arena%size) then
@@ -90,7 +93,8 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: loop_index
         type(do_loop_node) :: loop_node
-        integer :: i, n
+
+        loop_node%uid = generate_uid()
 
         loop_node%var_name = var_name
         if (present(loop_label)) loop_node%label = loop_label
@@ -134,7 +138,8 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: while_index
         type(do_while_node) :: while_node
-        integer :: i
+
+        while_node%uid = generate_uid()
 
         ! Set condition index
         if (condition_index > 0 .and. condition_index <= arena%size) then
@@ -165,6 +170,8 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: assoc_index
         type(associate_node) :: assoc
+
+        assoc%uid = generate_uid()
 
         ! Set associations
         if (size(associations) > 0) then
@@ -197,8 +204,9 @@ contains
         integer :: forall_index
         type(forall_node) :: forall_stmt
         integer :: i, index_var_len
-
         type(result_t) :: validation
+
+        forall_stmt%uid = generate_uid()
 
         ! Validate arena is initialized
         validation = validate_arena(arena, "push_forall")
@@ -332,6 +340,8 @@ contains
         integer :: select_index
         type(select_case_node) :: select_node
 
+        select_node%uid = generate_uid()
+
         ! Set selector expression index
         if (selector_index > 0 .and. selector_index <= arena%size) then
             select_node%selector_index = selector_index
@@ -362,6 +372,8 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: select_index
         type(select_case_node) :: select_node
+
+        select_node%uid = generate_uid()
 
         ! Set selector expression index
         if (selector_index > 0 .and. selector_index <= arena%size) then
@@ -397,6 +409,8 @@ contains
         integer :: case_index
         type(case_block_node) :: case_node
 
+        case_node%uid = generate_uid()
+
         ! Set case values
         if (size(value_indices) > 0) then
             case_node%value_indices = value_indices
@@ -425,6 +439,8 @@ contains
         integer :: range_index
         type(case_range_node) :: range_node
 
+        range_node%uid = generate_uid()
+
         range_node%start_value = start_value
         range_node%end_value = end_value
 
@@ -443,6 +459,8 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: default_index
         type(case_default_node) :: default_node
+
+        default_node%uid = generate_uid()
 
         ! Set default case body
         if (present(body_indices)) then
@@ -471,6 +489,8 @@ contains
         type(where_node) :: where_stmt
         integer :: i
         type(result_t) :: validation
+
+        where_stmt%uid = generate_uid()
 
         ! Validate arena is initialized
         validation = validate_arena(arena, "push_where")
@@ -518,13 +538,9 @@ contains
         end if
         if (present(elsewhere_body_indices)) then
             if (size(elsewhere_body_indices) > 0) then
-                allocate(where_stmt%elsewhere_clauses(size(elsewhere_body_indices)))
-                ! For simplicity, treat each provided index as a body-only clause
-                ! A full mask-indexed clause can be built by upstream callers if needed
-                do i = 1, size(elsewhere_body_indices)
-                    allocate(where_stmt%elsewhere_clauses(i)%body_indices(1))
-                    where_stmt%elsewhere_clauses(i)%body_indices(1) = elsewhere_body_indices(i)
-                end do
+                allocate(where_stmt%elsewhere_clauses(1))
+                allocate(where_stmt%elsewhere_clauses(1)%body_indices(size(elsewhere_body_indices)))
+                where_stmt%elsewhere_clauses(1)%body_indices = elsewhere_body_indices
             end if
         end if
         if (present(line)) where_stmt%line = line
