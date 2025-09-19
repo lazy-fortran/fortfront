@@ -1,6 +1,6 @@
 module codegen_control_flow
     use iso_fortran_env, only: error_unit
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_control
     use type_system_unified
     use string_types, only: string_t

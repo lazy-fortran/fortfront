@@ -3,7 +3,7 @@ module standardizer_declarations_core
     ! Handles implicit none insertion, variable declaration creation
     
     use iso_fortran_env, only: error_unit
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_factory
     use type_system_unified
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL

@@ -1,5 +1,7 @@
 module ast_factory_expressions
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: call_or_subscript_node
+    use ast_nodes_procedure, only: subroutine_call_node
     use ast_factory_core, only: validate_arena, validate_node_index
     implicit none
     private

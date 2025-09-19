@@ -1,5 +1,7 @@
 module ast_factory_arrays
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: call_or_subscript_node
+    use ast_nodes_bounds, only: array_bounds_node, array_slice_node, range_expression_node
     use ast_factory_core, only: push_literal
     implicit none
     private

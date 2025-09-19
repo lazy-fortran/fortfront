@@ -1,5 +1,6 @@
 module ast_factory_declarations
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_data, only: declaration_node, parameter_declaration_node, derived_type_node
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     implicit none
     private

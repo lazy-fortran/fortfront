@@ -2,7 +2,7 @@ module standardizer_core
     ! Core standardization module - main entry points and orchestration
     ! This module provides the primary interface for AST standardization
     
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_factory
     use type_system_unified
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL

@@ -1,5 +1,9 @@
 module ast_factory_statements
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_misc, only: use_statement_node, implicit_statement_node, include_statement_node, &
+                              end_statement_node, stop_node, allocate_statement_node, &
+                              deallocate_statement_node
+    use ast_nodes_control, only: return_node, goto_node, error_stop_node, cycle_node, exit_node
     implicit none
     private
 
