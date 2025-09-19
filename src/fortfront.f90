@@ -41,28 +41,32 @@ module fortfront
     use fortfront_external_interface, only: fortfront_transform_source
     
     ! Re-export AST arena and core types
-    use ast_core, only: ast_arena_t, ast_node, program_node, assignment_node, &
-                        binary_op_node, function_def_node, identifier_node, &
-                        literal_node, array_literal_node, call_or_subscript_node, &
-                        subroutine_def_node, subroutine_call_node, declaration_node, &
-                        parameter_declaration_node, if_node, do_loop_node, &
-                        do_while_node, select_case_node, case_block_node, &
-                        module_node, use_statement_node, include_statement_node, &
-                        print_statement_node, write_statement_node, &
-                        read_statement_node, format_descriptor_node, &
-                        allocate_statement_node, deallocate_statement_node, &
-                        stop_node, return_node, cycle_node, exit_node, &
-                        goto_node, error_stop_node, &
-                        where_node, interface_block_node, derived_type_node, &
-                        pointer_assignment_node, forall_node, case_range_node, &
-                        case_default_node, complex_literal_node, &
-                        comment_node, contains_node, implicit_statement_node, &
-                        LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
-                        LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX, &
-                        create_ast_arena, ast_arena_stats_t, &
-                        create_function_def, create_subroutine_def, &
-                        is_procedure_node, get_procedure_name, get_procedure_params, &
-                        get_procedure_body, procedure_has_return_type, get_procedure_return_type
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena, ast_arena_stats_t
+    use ast_base, only: ast_node
+    use ast_nodes_core, only: program_node, assignment_node, binary_op_node, &
+                              identifier_node, literal_node, array_literal_node, &
+                              call_or_subscript_node, pointer_assignment_node
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
+                                   subroutine_call_node, is_procedure_node, &
+                                   create_function_def, create_subroutine_def, &
+                                   get_procedure_name, get_procedure_params, &
+                                   get_procedure_body, procedure_has_return_type, &
+                                   get_procedure_return_type
+    use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
+                              module_node, derived_type_node
+    use ast_nodes_control, only: if_node, select_case_node, case_block_node, &
+                                 case_range_node, case_default_node, where_node, &
+                                 cycle_node, exit_node, goto_node, error_stop_node, &
+                                 stop_node, return_node
+    use ast_nodes_loops, only: do_loop_node, do_while_node, forall_node
+    use ast_nodes_io, only: print_statement_node, write_statement_node, &
+                            read_statement_node, format_descriptor_node
+    use ast_nodes_misc, only: use_statement_node, include_statement_node, &
+                              allocate_statement_node, deallocate_statement_node, &
+                              comment_node, contains_node, implicit_statement_node, &
+                              interface_block_node, complex_literal_node
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
+                         LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX
     
     ! Re-export AST node data utilities  
     use ast_nodes_data, only: intent_type_to_string, INTENT_NONE, INTENT_IN, &

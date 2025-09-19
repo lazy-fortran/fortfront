@@ -16,8 +16,8 @@
 ! @slow-path
 module ast_performance_module
     use iso_fortran_env, only: error_unit
-    use ast_core
-    use ast_arena_modern
+    use ast_arena_modern, only: ast_arena_t, ast_entry_t
+    use ast_base, only: ast_node
     use semantic_analyzer, only: semantic_context_t, create_semantic_context
     implicit none
     private

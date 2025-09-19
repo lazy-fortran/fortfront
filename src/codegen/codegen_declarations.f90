@@ -1,6 +1,6 @@
 module codegen_declarations
     use iso_fortran_env, only: error_unit
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
         derived_type_node, intent_type_to_string, module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node

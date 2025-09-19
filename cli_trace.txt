@@ -1,0 +1,19 @@
+CLI: start
+CLI: read input done (bytes=85)
+CLI: transform begin
+CLI: transform end
+CLI: start
+CLI: read input done (bytes=85)
+CLI: transform begin
+CLI: transform end
+CLI: start
+CLI: start
+CLI: start
+CLI: start
+CLI: read input done (bytes=85)
+CLI: transform begin
+CLI: transform end
+CLI: start
+CLI: read input done (bytes=85)
+CLI: transform begin
+CLI: transform end

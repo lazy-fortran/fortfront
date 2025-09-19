@@ -2,7 +2,7 @@
 module semantic_analyzer_with_checks
     ! Enhanced semantic analyzer with validation checks
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program
-    use ast_core, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     implicit none
     
     public :: analyze_with_checks

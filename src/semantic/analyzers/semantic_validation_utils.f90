@@ -4,7 +4,7 @@ module semantic_validation_utils
     use type_system_unified, only: mono_type_t, type_var_t, &
                                    create_mono_type, create_type_var, &
                                    TARRAY, TCHAR, TVAR
-    use ast_core, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node
     use ast_nodes_bounds, only: array_slice_node
     implicit none

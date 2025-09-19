@@ -2,7 +2,11 @@ module standardizer_subprograms
     ! Function/subroutine standardization module
     ! Handles function and subroutine transformations, wrapping, and parameter processing
     
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core
+    use ast_nodes_procedure
+    use ast_nodes_data
+    use ast_nodes_misc
     use ast_factory
     use type_system_unified
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT

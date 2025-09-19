@@ -9,7 +9,7 @@ module base_analyzer_mod
     use event_dispatcher_module
     use event_subscription_module
     use semantic_analyzer, only: semantic_context_t
-    use ast_core, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     implicit none
     private
     

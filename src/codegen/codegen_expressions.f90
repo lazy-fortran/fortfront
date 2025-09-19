@@ -1,6 +1,6 @@
 module codegen_expressions
     use iso_fortran_env, only: error_unit
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_data
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL

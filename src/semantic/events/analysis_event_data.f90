@@ -1,6 +1,6 @@
 module analysis_event_data
     ! Concrete event data types to replace class(*) in analysis events
-    use ast_core, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     use semantic_context_types, only: semantic_context_base_t
     implicit none
     private

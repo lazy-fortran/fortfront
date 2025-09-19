@@ -1,6 +1,6 @@
 module ast_typed
     ! Extended AST nodes with type information for the compiler frontend
-    use ast_core
+    use ast_base, only: ast_node
     use type_system_arena, only: mono_handle_t, null_mono_handle
     implicit none
     private

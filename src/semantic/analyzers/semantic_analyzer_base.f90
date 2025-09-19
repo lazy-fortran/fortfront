@@ -1,6 +1,6 @@
 module semantic_analyzer_base
     ! Base analyzer interface for the semantic pipeline
-    use ast_core, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     use semantic_context_types, only: semantic_context_base_t
     use semantic_result_types, only: semantic_result_base_t
     implicit none

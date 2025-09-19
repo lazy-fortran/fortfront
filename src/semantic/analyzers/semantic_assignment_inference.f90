@@ -4,7 +4,7 @@ module semantic_assignment_inference
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
                                    create_mono_type, create_poly_type, &
                                    TCHAR, TARRAY, TINT
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, binary_op_node, assignment_node
     use semantic_validation_utils, only: update_identifier_type_in_arena
     use error_handling, only: result_t, create_error_result, ERROR_SEMANTIC
