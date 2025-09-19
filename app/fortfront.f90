@@ -111,6 +111,10 @@ program fortfront_cli
         call read_all_stdin_or_file(.false., text=input_text, status=io_stat)
     end if
     call trace_leave('cli:read_input')
+    if (io_stat /= 0) then
+        call trace_leave('cli:main')
+        call exit_quiet(EXIT_FAILURE)
+    end if
     block
         character(len=64) :: tmp_msg
         write(tmp_msg, '("CLI: read input done (bytes=",I0,")")') merge(len(input_text), 0, allocated(input_text))
