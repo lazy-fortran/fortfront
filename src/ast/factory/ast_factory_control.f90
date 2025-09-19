@@ -1,7 +1,6 @@
 module ast_factory_control
     use iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
-    use ast_core
     use iso_fortran_env, only: error_unit
     use ast_factory_core, only: validate_arena, validate_node_index
     use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH, if_node, select_case_node, &
@@ -91,7 +90,7 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: loop_index
         type(do_loop_node) :: loop_node
-        integer :: i
+        integer :: i, n
 
         loop_node%var_name = var_name
         if (present(loop_label)) loop_node%label = loop_label
@@ -513,10 +512,23 @@ contains
             end do
         end if
 
-        where_stmt = create_where(mask_expr_index=mask_expr_index, &
-                                  where_body_indices=where_body_indices, &
-                                  elsewhere_body_indices=elsewhere_body_indices, &
-                                  line=line, column=column)
+        where_stmt%mask_expr_index = mask_expr_index
+        if (present(where_body_indices)) then
+            if (size(where_body_indices) > 0) where_stmt%where_body_indices = where_body_indices
+        end if
+        if (present(elsewhere_body_indices)) then
+            if (size(elsewhere_body_indices) > 0) then
+                allocate(where_stmt%elsewhere_clauses(size(elsewhere_body_indices)))
+                ! For simplicity, treat each provided index as a body-only clause
+                ! A full mask-indexed clause can be built by upstream callers if needed
+                do i = 1, size(elsewhere_body_indices)
+                    allocate(where_stmt%elsewhere_clauses(i)%body_indices(1))
+                    where_stmt%elsewhere_clauses(i)%body_indices(1) = elsewhere_body_indices(i)
+                end do
+            end if
+        end if
+        if (present(line)) where_stmt%line = line
+        if (present(column)) where_stmt%column = column
 
         call arena%push(where_stmt, "where_node", parent_index)
         where_index = arena%size

@@ -1,8 +1,9 @@
 module ast_factory_expressions
     use ast_arena_modern, only: ast_arena_t
-    use ast_core
     use ast_nodes_core, only: call_or_subscript_node
+    use ast_nodes_bounds, only: range_expression_node
     use ast_nodes_procedure, only: subroutine_call_node
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING
     use ast_factory_core, only: validate_arena, validate_node_index
     implicit none
     private
@@ -25,7 +26,10 @@ contains
         integer :: call_index
         type(call_or_subscript_node) :: call_node
 
-        call_node = create_call_or_subscript(name, arg_indices, line, column)
+        call_node%name = name
+        if (size(arg_indices) > 0) call_node%arg_indices = arg_indices
+        if (present(line)) call_node%line = line
+        if (present(column)) call_node%column = column
         
         ! Set intrinsic function information efficiently
         call get_intrinsic_info(name, call_node%is_intrinsic, &
@@ -45,7 +49,10 @@ contains
         integer :: call_index
         type(subroutine_call_node) :: call_node
 
-        call_node = create_subroutine_call(name, arg_indices, line, column)
+        call_node%name = name
+        if (size(arg_indices) > 0) call_node%arg_indices = arg_indices
+        if (present(line)) call_node%line = line
+        if (present(column)) call_node%column = column
         call arena%push(call_node, "subroutine_call", parent_index)
         call_index = arena%size
     end function push_subroutine_call

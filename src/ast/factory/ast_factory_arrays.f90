@@ -1,9 +1,9 @@
 module ast_factory_arrays
     use ast_arena_modern, only: ast_arena_t
-    use ast_core
     use ast_nodes_core, only: call_or_subscript_node
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node, range_expression_node
     use ast_factory_core, only: push_literal
+    use ast_base, only: LITERAL_INTEGER
     implicit none
     private
 
@@ -55,7 +55,9 @@ contains
         integer :: bounds_index
         type(array_bounds_node) :: bounds
         
-        bounds = create_array_bounds(lower_index, upper_index, stride_index)
+        bounds%lower_bound_index = lower_index
+        bounds%upper_bound_index = upper_index
+        if (present(stride_index)) bounds%stride_index = stride_index
         if (present(line)) bounds%line = line
         if (present(column)) bounds%column = column
         
@@ -74,7 +76,11 @@ contains
         integer :: slice_index
         type(array_slice_node) :: slice
         
-        slice = create_array_slice(array_index, bounds_indices, num_dims)
+        slice%array_index = array_index
+        slice%num_dimensions = num_dims
+        if (num_dims > 0) then
+            slice%bounds_indices(1:num_dims) = bounds_indices(1:num_dims)
+        end if
         if (present(line)) slice%line = line
         if (present(column)) slice%column = column
         
@@ -92,7 +98,9 @@ contains
         integer :: range_index
         type(range_expression_node) :: range
         
-        range = create_range_expression(start_index, end_index, stride_index)
+        range%start_index = start_index
+        range%end_index = end_index
+        if (present(stride_index)) range%stride_index = stride_index
         if (present(line)) range%line = line
         if (present(column)) range%column = column
         
