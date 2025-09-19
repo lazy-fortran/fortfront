@@ -2,7 +2,7 @@ program fortfront_cli
     use, intrinsic :: iso_fortran_env, only: input_unit, output_unit, error_unit
     use frontend, only: transform_lazy_fortran_string
     use debug_trace, only: trace_init, trace_enter, trace_leave
-    use cli_env, only: init_cli_trace
+    use cli_env, only: init_cli_trace, parse_trace_option, parse_trace_flag_value
     use cli_io, only: read_all_stdin_or_file
     use process_exit, only: exit_quiet
     implicit none
@@ -12,11 +12,16 @@ program fortfront_cli
     integer :: io_stat
     integer :: alloc_stat
     integer :: num_args, arg_len, i
+    integer :: next_len
     integer, parameter :: EXIT_SUCCESS = 0
     integer, parameter :: EXIT_FAILURE = 1
     logical :: from_file, show_help, show_version
     logical :: trace_enabled
     character(len=:), allocatable :: trace_file_path
+    logical :: has_trace_override, has_trace_file_override
+    character(len=:), allocatable :: trace_file_opt
+    character(len=:), allocatable :: next_arg
+    character(len=:), allocatable :: optval
     call init_cli_trace(trace_enabled, trace_file_path)
     call cli_trace('CLI: start')
     call trace_init()
@@ -26,10 +31,13 @@ program fortfront_cli
     show_help = .false.
     show_version = .false.
     from_file = .false.
+    has_trace_override = .false.
+    has_trace_file_override = .false.
 
     ! Handle command line arguments
     if (num_args > 0) then
-        do i = 1, num_args
+        i = 1
+        do while (i <= num_args)
             call get_command_argument(i, length=arg_len)
             allocate(character(len=arg_len) :: arg_str, stat=alloc_stat)
             if (alloc_stat /= 0) then
@@ -44,6 +52,46 @@ program fortfront_cli
             case ('--version', '-v')
                 show_version = .true.
             case default
+                block
+                    logical :: rec, is_file
+                    call parse_trace_option(trim(arg_str), rec, is_file, optval)
+                    if (rec) then
+                        if (is_file) then
+                            if (len_trim(optval) == 0) then
+                                if (i < num_args) then
+                                    call get_command_argument(i+1, length=next_len)
+                                    allocate(character(len=next_len) :: next_arg)
+                                    call get_command_argument(i+1, value=next_arg)
+                                    if (len_trim(next_arg) == 0 .or. next_arg(1:1) == '-') then
+                                        write(error_unit, '(A)') 'Error: --trace-file requires a path'
+                                        call exit_quiet(EXIT_FAILURE)
+                                    end if
+                                    trace_file_opt = next_arg
+                                    has_trace_file_override = .true.
+                                    deallocate(next_arg)
+                                    i = i + 1
+                                else
+                                    write(error_unit, '(A)') 'Error: --trace-file requires a path'
+                                    call exit_quiet(EXIT_FAILURE)
+                                end if
+                            else
+                                trace_file_opt = optval
+                                has_trace_file_override = .true.
+                            end if
+                        else
+                            trace_enabled = parse_trace_flag_value(optval)
+                            has_trace_override = .true.
+                        end if
+                        ! advance to next argument and clean up current
+                        deallocate(arg_str, stat=alloc_stat)
+                        if (alloc_stat /= 0) then
+                            write(error_unit, '(A,I0,A)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
+                            call exit_quiet(EXIT_FAILURE)
+                        end if
+                        i = i + 1
+                        cycle
+                    end if
+                end block
                 if ((len(arg_str) >= 1 .and. arg_str(1:1) == '-')) then
                     write(error_unit, '(A,A)') 'Error: Unknown option ', trim(arg_str)
                     write(error_unit, '(A)') ''
@@ -68,6 +116,7 @@ program fortfront_cli
                 write(error_unit, '(A,I0,A)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
                 call exit_quiet(EXIT_FAILURE)
             end if
+            i = i + 1
         end do
     end if
 
@@ -85,6 +134,8 @@ program fortfront_cli
         write(output_unit, '(A)') 'OPTIONS:'
         write(output_unit, '(A)') '    -h, --help     Show this help message'
         write(output_unit, '(A)') '    -v, --version  Show version information'
+        write(output_unit, '(A)') '        --trace[=on|off]   Enable/disable tracing (overrides env)'
+        write(output_unit, '(A)') '        --trace-file <path>  Trace output file (overrides env)'
         write(output_unit, '(A)') ''
         write(output_unit, '(A)') 'EXAMPLES:'
         write(output_unit, '(A)') '    fortfront input.lf        # Transpile file'
@@ -124,6 +175,18 @@ program fortfront_cli
     ! Trim to actual size to save memory
     ! input_text is already trimmed by reader
     
+    ! Apply CLI trace overrides if provided
+    if (has_trace_override) then
+        if (.not. trace_enabled) then
+            ! Explicit disable wins regardless of file override
+            if (allocated(trace_file_path)) deallocate(trace_file_path)
+        end if
+    end if
+    if (has_trace_file_override) then
+        if (allocated(trace_file_path)) deallocate(trace_file_path)
+        trace_file_path = trim(trace_file_opt)
+    end if
+
     ! Transform lazy fortran to standard fortran
     call trace_enter('cli:transform')
     call cli_trace('CLI: transform begin')
