@@ -19,4 +19,3 @@ contains
     end subroutine exit_quiet
 
 end module process_exit
-
