@@ -1,5 +1,5 @@
 module base_analyzer
-    use ast_core, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     use semantic_analyzer, only: semantic_context_t
     implicit none
     private
