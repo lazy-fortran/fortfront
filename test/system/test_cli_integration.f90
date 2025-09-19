@@ -54,6 +54,9 @@ program test_cli_integration
     
     test_count = 0  ! Reset test counter
     
+    ! Test 0: --help prints to stdout, empty stderr, exit 0
+    call test_help_no_stderr()
+
     ! Test 1: Basic CLI I/O works
     call test_basic_io()
     
@@ -797,6 +800,74 @@ contains
             print *, "  Exit code: ", exit_code
         end if
     end subroutine test_empty_input
+
+    subroutine test_help_no_stderr()
+        integer :: run_status, ios
+        character(len=512) :: command
+        character(len=:), allocatable :: executable_path
+        character(len=256) :: line
+        logical :: success
+
+        call test_start("--help returns 0 and empty stderr")
+
+        executable_path = find_fortfront_executable()
+        if (len(executable_path) == 0) then
+            call test_result(.false.)
+            print *, "  ERROR: Could not locate fortfront executable"
+            return
+        end if
+
+        if (is_windows) then
+            command = 'cmd /C ""' // executable_path // '" --help > help_out.txt 2>help_err.txt"'
+        else
+            command = 'bash -lc "' // timeout_wrapper('20') // executable_path // ' --help > help_out.txt 2>help_err.txt"'
+        end if
+        call execute_command_line(command, exitstat=run_status)
+
+        success = (run_status == 0)
+
+        ! Ensure stderr is empty
+        if (success) then
+            open(unit=31, file='help_err.txt', status='old', action='read', iostat=ios)
+            if (ios == 0) then
+                do
+                    read(31, '(A)', iostat=ios) line
+                    if (ios /= 0) exit
+                    if (len_trim(line) > 0) then
+                        success = .false.
+                        exit
+                    end if
+                end do
+                close(31)
+            else
+                success = .false.
+            end if
+        end if
+
+        ! Quick sanity: stdout contains usage header
+        if (success) then
+            open(unit=32, file='help_out.txt', status='old', action='read', iostat=ios)
+            if (ios == 0) then
+                read(32, '(A)', iostat=ios) line
+                if (ios == 0) then
+                    success = (index(line, 'fortfront -') > 0)
+                else
+                    success = .false.
+                end if
+                close(32)
+            else
+                success = .false.
+            end if
+        end if
+
+        call cleanup_file('help_out.txt')
+        call cleanup_file('help_err.txt')
+
+        call test_result(success)
+        if (.not. success) then
+            print *, "  --help did not meet expectations (exit=", run_status, ")"
+        end if
+    end subroutine test_help_no_stderr
     
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
