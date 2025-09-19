@@ -49,10 +49,19 @@ contains
         character(len=:), allocatable, intent(out) :: path
         character(len=256) :: envtmp
         integer :: ios
+
+        ! Prefer POSIX TMPDIR; fall back to Windows TEMP/TMP; finally current dir
         call get_environment_variable('TMPDIR', envtmp, status=ios)
         if (ios /= 0 .or. len_trim(envtmp) == 0) then
-            envtmp = '/tmp'
+            call get_environment_variable('TEMP', envtmp, status=ios)
         end if
+        if (ios /= 0 .or. len_trim(envtmp) == 0) then
+            call get_environment_variable('TMP', envtmp, status=ios)
+        end if
+        if (ios /= 0 .or. len_trim(envtmp) == 0) then
+            envtmp = '.'
+        end if
+
         path = trim(envtmp)//'/ff_long_line_test_'//to_str(int(1000000*rand()))//'.txt'
     end subroutine make_tmpfile
 
@@ -71,4 +80,3 @@ contains
     end function rand
 
 end program test_cli_long_line
-
