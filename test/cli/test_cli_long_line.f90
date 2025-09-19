@@ -40,6 +40,7 @@ program test_cli_long_line
         stop 1
     end if
 
+    call cleanup_tmpfile(tmpfile)
     print *, 'PASS: CLI reads long single line without truncation'
     stop 0
 
@@ -64,6 +65,16 @@ contains
 
         path = trim(envtmp)//'/ff_long_line_test_'//to_str(int(1000000*rand()))//'.txt'
     end subroutine make_tmpfile
+
+    subroutine cleanup_tmpfile(path)
+        character(len=*), intent(in) :: path
+        integer :: unit, ios
+        ! Best-effort delete; ignore failures
+        open(newunit=unit, file=path, status='old', action='readwrite', iostat=ios)
+        if (ios == 0) then
+            close(unit, status='delete')
+        end if
+    end subroutine cleanup_tmpfile
 
     function to_str(i) result(s)
         integer, intent(in) :: i
