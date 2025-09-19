@@ -11,6 +11,7 @@ module parser_basic_statement_module
                                                 parse_return_statement, parse_stop_statement, &
                                                 parse_goto_statement, parse_error_stop_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_call_module, only: parse_call_statement
     use parser_utils, only: analyze_declaration_structure
     use ast_core
     use ast_factory, only: push_assignment, push_identifier, push_literal
@@ -98,10 +99,7 @@ contains
                 ! Parse return statement
                 stmt_index = parse_return_statement(parser, arena, parent_index)
             case ("call")
-                ! Skip call statements in control flow contexts
-                ! They will be handled by higher-level parsers to avoid circular dependency
-                stmt_index = 0
-                first_token = parser%consume()  ! consume "call" to avoid infinite loop
+                stmt_index = parse_call_statement(parser, arena)
             case ("stop")
                 ! Parse stop statement
                 stmt_index = parse_stop_statement(parser, arena)

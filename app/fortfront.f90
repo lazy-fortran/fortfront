@@ -2,7 +2,6 @@ program fortfront_cli
     use iso_fortran_env, only: input_unit, output_unit, error_unit, iostat_end
     use frontend, only: transform_lazy_fortran_string
     use debug_trace, only: trace_init, trace_enter, trace_leave
-    use slow_path_config, only: initialize_slow_path_from_env, set_slow_path_enabled
     implicit none
     
     character(len=:), allocatable :: input_text, output_text, error_msg
@@ -18,7 +17,6 @@ program fortfront_cli
     logical :: from_file, show_help, show_version
     logical :: trace_enabled
     character(len=:), allocatable :: trace_file_path
-    logical :: slow_path_override, slow_path_value
     trace_enabled = .true.
     trace_file_path = 'cli_trace.txt'
     block
@@ -39,9 +37,6 @@ program fortfront_cli
     show_help = .false.
     show_version = .false.
     from_file = .false.
-    slow_path_override = .false.
-    slow_path_value = .false.
-    call initialize_slow_path_from_env()
 
     ! Handle command line arguments
     if (num_args > 0) then
@@ -59,12 +54,6 @@ program fortfront_cli
                 show_help = .true.
             case ('--version', '-v')
                 show_version = .true.
-            case ('--enable-slow-path')
-                slow_path_override = .true.
-                slow_path_value = .true.
-            case ('--disable-slow-path')
-                slow_path_override = .true.
-                slow_path_value = .false.
             case default
                 if ((len(arg_str) >= 1 .and. arg_str(1:1) == '-')) then
                     write(error_unit, '(A,A)') 'Error: Unknown option ', trim(arg_str)
@@ -93,9 +82,6 @@ program fortfront_cli
         end do
     end if
 
-    if (slow_path_override) then
-        call set_slow_path_enabled(slow_path_value)
-    end if
     
     ! Handle help option
     if (show_help) then
@@ -110,8 +96,6 @@ program fortfront_cli
         write(output_unit, '(A)') 'OPTIONS:'
         write(output_unit, '(A)') '    -h, --help     Show this help message'
         write(output_unit, '(A)') '    -v, --version  Show version information'
-        write(output_unit, '(A)') '    --enable-slow-path   Enable optional analyzer passes'
-        write(output_unit, '(A)') '    --disable-slow-path  Disable optional analyzer passes'
         write(output_unit, '(A)') ''
         write(output_unit, '(A)') 'EXAMPLES:'
         write(output_unit, '(A)') '    fortfront input.lf        # Transpile file'

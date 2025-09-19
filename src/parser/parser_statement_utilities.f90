@@ -10,6 +10,7 @@ module parser_statement_utilities_module
                                                parse_cycle_statement, parse_exit_statement
     use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
     use parser_execution_statements_module, only: parse_assignment_statement
+    use parser_call_module, only: parse_call_statement
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING
@@ -39,7 +40,7 @@ contains
             case ("read")
                 stmt_index = parse_read_statement(parser, arena)
             case ("call")
-                stmt_index = parse_call_statement_simple(parser, arena)
+                stmt_index = parse_call_statement(parser, arena)
             case ("integer", "real", "logical", "character", "complex", "double", "type")
                 stmt_index = parse_declaration(parser, arena)
             case ("allocate")
@@ -70,40 +71,6 @@ contains
             stmt_index = parse_assignment_simple(parser, arena)
         end select
     end function parse_statement_in_if_block
-
-    ! Simple call statement parser to break circular dependency
-    function parse_call_statement_simple(parser, arena) result(stmt_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: stmt_index
-        type(token_t) :: token
-        character(len=:), allocatable :: subroutine_name
-        integer, allocatable :: arg_indices(:)
-        integer :: line, column
-
-        ! Consume 'call' keyword
-        token = parser%consume()
-        line = token%line
-        column = token%column
-
-        ! Get subroutine name
-        token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
-            token = parser%consume()
-            subroutine_name = token%text
-
-            ! For simplicity, no arguments parsed in if blocks
-            allocate (arg_indices(0))
-
-            ! Create call node
-            stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, &
-                                              line, column)
-        else
-            ! Error: expected subroutine name
-            stmt_index = push_literal(arena, "! Error: expected subroutine name after 'call'", &
-                                      LITERAL_STRING, line, column)
-        end if
-    end function parse_call_statement_simple
 
     ! Simple assignment parser (utility function)
     function parse_assignment_simple(parser, arena) result(assign_index)

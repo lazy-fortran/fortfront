@@ -14,6 +14,7 @@ module parser_execution_statements_module
     use parser_control_flow_module, only: parse_do_loop, parse_select_case, &
                                           parse_where_construct, parse_associate
     use parser_forall_module, only: parse_forall
+    use parser_call_module, only: parse_call_statement
     use ast_core
     use ast_factory
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER, LITERAL_REAL
@@ -26,88 +27,6 @@ module parser_execution_statements_module
     integer, allocatable :: additional_execution_indices(:)
 
 contains
-
-    ! Helper subroutine to parse call arguments
-    subroutine parse_call_arguments(parser, arena, arg_indices)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer, allocatable, intent(out) :: arg_indices(:)
-        type(token_t) :: token
-        integer :: arg_index
-        
-        allocate(arg_indices(0))
-        
-        ! Consume opening parenthesis
-        token = parser%consume()
-        
-        ! Parse arguments
-        do while (.not. parser%is_at_end())
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                token = parser%consume()  ! consume ')'
-                exit
-            end if
-            
-            ! Parse argument expression
-            arg_index = parse_range(parser, arena)
-            if (arg_index > 0) then
-                arg_indices = [arg_indices, arg_index]
-            end if
-            
-            ! Check for comma (more arguments)
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == ",") then
-                token = parser%consume()  ! consume ','
-                cycle
-            else if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                token = parser%consume()  ! consume ')'
-                exit
-            else
-                ! Unexpected token - try to continue
-                exit
-            end if
-        end do
-    end subroutine parse_call_arguments
-
-    function parse_call_statement(parser, arena) result(stmt_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: stmt_index
-        type(token_t) :: token
-        character(len=:), allocatable :: subroutine_name
-        integer, allocatable :: arg_indices(:)
-        integer :: line, column
-
-        ! Consume 'call' keyword
-        token = parser%consume()
-        line = token%line
-        column = token%column
-
-        ! Get subroutine name
-        token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
-            token = parser%consume()
-            subroutine_name = token%text
-
-            ! Check for arguments
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                ! Parse arguments
-                call parse_call_arguments(parser, arena, arg_indices)
-            else
-                ! No arguments
-                allocate (arg_indices(0))
-            end if
-
-            ! Create call node
-            stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, &
-                                              line, column)
-        else
-            ! Error: expected subroutine name
-            stmt_index = push_literal(arena, "! Error: expected subroutine name after 'call'", &
-                                      LITERAL_STRING, line, column)
-        end if
-    end function parse_call_statement
 
     function parse_program_statement(parser, arena) result(prog_index)
         type(parser_state_t), intent(inout) :: parser

@@ -10,6 +10,7 @@ module parser_if_constructs_module
     use parser_control_statements_module, only: parse_cycle_statement, parse_exit_statement, &
                                                 parse_return_statement, parse_stop_statement, &
                                                 parse_goto_statement, parse_error_stop_statement
+    use parser_call_module, only: parse_call_statement
     use parser_do_constructs_module, only: parse_do_loop
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
@@ -83,6 +84,8 @@ contains
                 stmt_index = parse_exit_statement(parser, arena)
             case ("return")
                 stmt_index = parse_return_statement(parser, arena, parent_index)
+            case ("call")
+                stmt_index = parse_call_statement(parser, arena)
             case ("stop")
                 stmt_index = parse_stop_statement(parser, arena)
             case ("go")
