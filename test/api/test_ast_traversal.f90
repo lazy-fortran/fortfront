@@ -1,7 +1,6 @@
 program test_ast_traversal
     use fortfront
     use frontend
-    use ast_core
     use ast_visitor
     use ast_traversal
     implicit none

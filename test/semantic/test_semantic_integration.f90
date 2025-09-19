@@ -4,7 +4,7 @@ program test_semantic_integration
     ! or when CMAKE-only strategy is chosen and FMP tests are deprecated
     
     use fortfront, only: semantic_analyzer_t, semantic_context_t, create_semantic_context
-    use ast_core, only: ast_arena_t, create_ast_arena
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     implicit none
 
     type(semantic_context_t) :: context  

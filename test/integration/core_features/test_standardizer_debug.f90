@@ -1,7 +1,7 @@
 program test_standardizer_debug
     use frontend, only: lex_file, parse_tokens
     use standardizer, only: standardize_ast
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use codegen_core, only: codegen_core_generate_arena, initialize_codegen
     use lexer_core, only: token_t
     implicit none

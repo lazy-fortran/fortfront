@@ -1,7 +1,10 @@
 module variable_collection
     ! Unified variable collection utilities
     ! Consolidates DRY violations from multiple collection implementations
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: identifier_node, assignment_node, binary_op_node, call_or_subscript_node
+    use ast_nodes_data, only: declaration_node
+    use ast_nodes_loops, only: do_loop_node
     use type_system_arena, only: mono_handle_t, null_mono_handle
     implicit none
     private

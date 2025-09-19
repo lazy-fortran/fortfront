@@ -1,7 +1,6 @@
 program test_intrinsic_parser
     use frontend
     use lexer_core
-    use ast_core
     implicit none
     
     call test_intrinsic_function_in_pipeline()

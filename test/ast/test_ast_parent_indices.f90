@@ -1,5 +1,6 @@
 program test_ast_parent_indices
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use ast_nodes_control, only: if_node, do_loop_node
     use parser_control_flow_module
     use parser_state_module
     use lexer_core, only: token_t, TK_KEYWORD, TK_IDENTIFIER, TK_OPERATOR, &

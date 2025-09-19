@@ -1,6 +1,7 @@
 program test_ast_factory_direct
     use ast_factory
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
     implicit none
     
     integer :: test_count, pass_count

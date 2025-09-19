@@ -1,6 +1,7 @@
 program test_simple_uid
     use uid_generator
-    use ast_core
+    use ast_nodes_core, only: identifier_node, literal_node, create_identifier, create_literal
+    use ast_base, only: LITERAL_INTEGER
     implicit none
     
     type(identifier_node) :: id1, id2
