@@ -1,8 +1,22 @@
 module frontend
     ! fortfront - Core analysis frontend
     ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
-    ! This module provides backward compatibility by re-exporting functionality
-    ! from the refactored modular structure
+    !
+    ! Decision: keep `frontend` as the stable public entry point
+    ! -------------------------------------------------------------------------
+    ! This module intentionally remains as a thin umbrella that re-exports the
+    ! documented public API from the refactored modules. It exists to provide a
+    ! single import for downstream users and the CLI.
+    !
+    ! Scope policy
+    ! - Only re-export explicitly documented entry points (lexer/parsing,
+    !   semantics, transformation, and codegen helpers).
+    ! - Internal implementation must not depend on `frontend`; internal code
+    !   should import narrow modules directly (e.g., `frontend_parsing`,
+    !   `frontend_core`, `frontend_transformation`).
+    ! - Tests may import `frontend` to validate public behavior.
+    !
+    ! This comment documents the umbrella decision per Phase 3.
 
     ! Re-export core functionality
     use frontend_core, only: lex_source, analyze_semantics, emit_fortran, &
