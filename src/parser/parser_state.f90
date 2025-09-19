@@ -1,5 +1,5 @@
 module parser_state_module
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF
     use error_reporting, only: error_collection_t
     use arena_memory, only: arena_t, arena_handle_t, arena_stats_t, &

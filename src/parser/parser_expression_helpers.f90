@@ -1,7 +1,8 @@
 module parser_expression_helpers_module
-    use iso_fortran_env, only: error_unit
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_OPERATOR, TK_IDENTIFIER
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_types, only: LITERAL_REAL, LITERAL_INTEGER, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: component_access_node, identifier_node
     use ast_factory, only: push_literal, push_identifier, push_component_access, &
                            push_call_or_subscript, push_call_or_subscript_with_slice_detection

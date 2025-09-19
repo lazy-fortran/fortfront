@@ -1,9 +1,11 @@
 module parser_memory_statements_module
     ! Parser module for memory management statement types (allocate, deallocate)
-    use lexer_core
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use parser_state_module
     use parser_expressions_module, only: parse_comparison
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_factory, only: push_allocate, push_deallocate
     use ast_factory
     implicit none
     private

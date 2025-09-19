@@ -1,6 +1,7 @@
 module parser_statement_utilities_module
     ! Parser utility functions for statement parsing within function/subroutine bodies
-    use lexer_core
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_declarations, only: parse_declaration
     use parser_expressions_module, only: parse_comparison
@@ -11,7 +12,8 @@ module parser_statement_utilities_module
     use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
     use parser_execution_statements_module, only: parse_assignment_statement
     use parser_call_module, only: parse_call_statement
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_factory, only: push_associate, push_if, push_literal
     use ast_factory
     use ast_types, only: LITERAL_STRING
     use ast_nodes_control, only: association_t

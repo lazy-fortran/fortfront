@@ -1,8 +1,10 @@
 module parser_type_definitions_module
     ! Parser module for derived type definitions and type parameters
-    use lexer_core
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use parser_state_module, only: parser_state_t, create_parser_state
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_factory, only: push_derived_type
     use ast_factory
     implicit none
     private

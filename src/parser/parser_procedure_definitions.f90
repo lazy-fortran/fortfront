@@ -1,10 +1,12 @@
 module parser_procedure_definitions_module
     ! Parser module for function, subroutine, and interface definitions
-    use lexer_core
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_parameter_handling_module, only: parse_typed_parameters, merge_parameter_attributes
     use parser_statement_utilities_module, only: parse_statement_in_if_block
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_factory, only: push_function_def, push_subroutine_def, push_interface_block
     use ast_factory
     implicit none
     private
