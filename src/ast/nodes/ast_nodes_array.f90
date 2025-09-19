@@ -8,6 +8,8 @@ module ast_nodes_array
 
     ! Public types
     public :: where_node, where_stmt_node, elsewhere_clause_t
+    ! Constructor migrated from ast_core
+    public :: create_where
 
     ! Type for ELSEWHERE clause information
     type :: elsewhere_clause_t
@@ -151,5 +153,42 @@ contains
         lhs%mask_expr_index = rhs%mask_expr_index
         lhs%assignment_index = rhs%assignment_index
     end subroutine where_stmt_assign
+
+    ! Constructor
+    function create_where(mask_expr_index, where_body_indices, &
+            elsewhere_body_indices, line, column) result(node)
+        use uid_generator, only: generate_uid
+        integer, intent(in) :: mask_expr_index
+        integer, intent(in), optional :: where_body_indices(:), &
+                                          elsewhere_body_indices(:)
+        integer, intent(in), optional :: line, column
+        type(where_node) :: node
+        integer :: n
+
+        node%uid = generate_uid()
+        node%mask_expr_index = mask_expr_index
+        node%mask_is_simple = .false.
+        node%can_vectorize = .false.
+
+        if (present(where_body_indices)) then
+            if (size(where_body_indices) > 0) then
+                allocate(node%where_body_indices(size(where_body_indices)))
+                node%where_body_indices = where_body_indices
+            end if
+        end if
+
+        if (present(elsewhere_body_indices)) then
+            n = size(elsewhere_body_indices)
+            if (n > 0) then
+                allocate(node%elsewhere_clauses(1))
+                node%elsewhere_clauses(1)%mask_index = 0
+                allocate(node%elsewhere_clauses(1)%body_indices(n))
+                node%elsewhere_clauses(1)%body_indices = elsewhere_body_indices
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_where
 
 end module ast_nodes_array

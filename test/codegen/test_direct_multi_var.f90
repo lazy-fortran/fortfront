@@ -1,5 +1,6 @@
 program test_direct_multi_var
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_data, only: declaration_node
     use ast_factory
     use codegen_declarations
     implicit none

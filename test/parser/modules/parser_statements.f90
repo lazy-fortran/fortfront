@@ -30,7 +30,7 @@ module parser_statements_module
     use parser_expressions_module, only: parse_comparison, parse_expression, parse_range
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_factory
     use ast_types, only: LITERAL_STRING
     implicit none

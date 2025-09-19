@@ -3,12 +3,17 @@ module ast_nodes_core
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
                          ast_visitor_base_t
     use uid_generator, only: generate_uid
+    use ast_nodes_procedure, only: subroutine_call_node
     implicit none
     private
 
     ! Public factory functions
     public :: create_pointer_assignment, create_array_literal, create_component_access
     public :: create_range_subscript
+    ! Constructors migrated from ast_core
+    public :: create_identifier, create_literal, create_binary_op
+    public :: create_call_or_subscript, create_assignment, create_program
+    public :: create_subroutine_call
 
     ! Core AST node types used by all Fortran dialects
 
@@ -655,5 +660,116 @@ contains
         if (present(column)) node%column = column
         node%is_character_substring = .false.  ! Default to array slice
     end function create_range_subscript
+
+    ! New constructors migrated from ast_core
+    function create_identifier(name, line, column) result(node)
+        character(len=*), intent(in) :: name
+        integer, intent(in), optional :: line, column
+        type(identifier_node) :: node
+
+        node%uid = generate_uid()
+        node%name = name
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_identifier
+
+    function create_literal(value, kind, line, column) result(node)
+        character(len=*), intent(in) :: value
+        integer, intent(in) :: kind
+        integer, intent(in), optional :: line, column
+        type(literal_node) :: node
+
+        node%uid = generate_uid()
+        node%value = value
+        node%literal_kind = kind
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_literal
+
+    function create_binary_op(left_index, right_index, operator, line, column) &
+            result(node)
+        integer, intent(in) :: left_index, right_index
+        character(len=*), intent(in) :: operator
+        integer, intent(in), optional :: line, column
+        type(binary_op_node) :: node
+
+        node%uid = generate_uid()
+        node%left_index = left_index
+        node%right_index = right_index
+        node%operator = operator
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_binary_op
+
+    function create_call_or_subscript(name, args, line, column) result(node)
+        use intrinsic_registry, only: get_intrinsic_info
+        character(len=*), intent(in) :: name
+        integer, intent(in), optional :: args(:)
+        integer, intent(in), optional :: line, column
+        type(call_or_subscript_node) :: node
+
+        node%uid = generate_uid()
+        node%name = name
+        if (present(args)) then
+            if (size(args) > 0) then
+                node%arg_indices = args
+            end if
+        end if
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+        call get_intrinsic_info(name, node%is_intrinsic, node%intrinsic_signature)
+    end function create_call_or_subscript
+
+    function create_assignment(target_index, value_index, line, column, &
+            inferred_type, inferred_type_name) result(node)
+        use type_system_unified, only: mono_type_t
+        integer, intent(in) :: target_index, value_index
+        integer, intent(in), optional :: line, column
+        type(mono_type_t), intent(in), optional :: inferred_type
+        character(len=*), intent(in), optional :: inferred_type_name
+        type(assignment_node) :: node
+
+        node%target_index = target_index
+        node%value_index = value_index
+        node%operator = "="
+        node%uid = generate_uid()
+        if (present(inferred_type)) node%inferred_type = inferred_type
+        if (present(inferred_type_name)) then
+            node%inferred_type_name = inferred_type_name
+            node%type_was_inferred = .true.
+        end if
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_assignment
+
+    function create_program(name, body_indices, line, column) result(node)
+        character(len=*), intent(in) :: name
+        integer, intent(in), optional :: body_indices(:)
+        integer, intent(in), optional :: line, column
+        type(program_node) :: node
+
+        node%name = name
+        node%uid = generate_uid()
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) node%body_indices = body_indices
+        end if
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_program
+
+    function create_subroutine_call(name, args, line, column) result(node)
+        character(len=*), intent(in) :: name
+        integer, intent(in), optional :: args(:)
+        integer, intent(in), optional :: line, column
+        type(subroutine_call_node) :: node
+
+        node%name = name
+        node%uid = generate_uid()
+        if (present(args)) then
+            if (size(args) > 0) node%arg_indices = args
+        end if
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_subroutine_call
 
 end module ast_nodes_core

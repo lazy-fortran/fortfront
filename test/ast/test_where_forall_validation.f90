@@ -1,7 +1,7 @@
 module test_where_forall_validation
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_factory
-    use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH
+    use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH, forall_node
     implicit none
 
 contains

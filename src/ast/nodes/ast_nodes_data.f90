@@ -15,6 +15,8 @@ module ast_nodes_data
 
     ! Public factory functions
     public :: create_declaration, create_derived_type, create_mixed_construct_container
+    ! Constructors migrated from ast_core
+    public :: create_module
     
     ! Public utility functions
     public :: intent_type_to_string
@@ -321,6 +323,36 @@ contains
             lhs%param_indices = rhs%param_indices
         end if
     end subroutine derived_type_assign
+
+    ! Constructor for module node (migrated from ast_core)
+    function create_module(name, declaration_indices, procedure_indices, &
+            has_contains, line, column) result(node)
+        use uid_generator, only: generate_uid
+        character(len=*), intent(in) :: name
+        integer, intent(in), optional :: declaration_indices(:), procedure_indices(:)
+        logical, intent(in), optional :: has_contains
+        integer, intent(in), optional :: line, column
+        type(module_node) :: node
+
+        node%uid = generate_uid()
+        node%name = name
+        if (present(has_contains)) node%has_contains = has_contains
+
+        if (present(declaration_indices)) then
+            if (size(declaration_indices) > 0) then
+                node%declaration_indices = declaration_indices
+            end if
+        end if
+
+        if (present(procedure_indices)) then
+            if (size(procedure_indices) > 0) then
+                node%procedure_indices = procedure_indices
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_module
 
     ! Factory functions
     function create_declaration(type_name, var_name, kind_value, &

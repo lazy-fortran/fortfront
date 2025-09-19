@@ -1,5 +1,7 @@
 program test_arena_generator_init_guard
-    use ast_core, only: ast_arena_t, create_ast_arena, create_literal, literal_node, LITERAL_INTEGER
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use ast_nodes_core, only: literal_node, create_literal
+    use ast_base, only: LITERAL_INTEGER
     use codegen_arena_interface, only: generate_code_from_arena
     implicit none
 
@@ -29,4 +31,3 @@ program test_arena_generator_init_guard
     end if
 
 end program test_arena_generator_init_guard
-

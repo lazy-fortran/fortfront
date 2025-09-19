@@ -1,6 +1,6 @@
 program test_semantic_simple
     use frontend
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use lexer_core, only: token_t
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, analyze_program
     implicit none

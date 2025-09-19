@@ -1,5 +1,5 @@
 program test_character_substring_semantic_simple
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     use ast_nodes_bounds, only: array_slice_node
     implicit none
     

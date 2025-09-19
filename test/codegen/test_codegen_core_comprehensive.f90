@@ -1,6 +1,7 @@
 program test_codegen_core_comprehensive
     use codegen_core
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL
     use ast_factory
     implicit none
     

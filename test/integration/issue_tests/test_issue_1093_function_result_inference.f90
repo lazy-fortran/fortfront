@@ -8,7 +8,7 @@ program test_issue_1093_function_result_inference
     use frontend_parsing, only: parse_tokens
     use standardizer, only: standardize_ast
     use codegen_core, only: codegen_core_generate_arena, initialize_codegen
-    use ast_core, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     use lexer_core, only: token_t
     implicit none
 

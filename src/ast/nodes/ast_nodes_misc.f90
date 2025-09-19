@@ -154,7 +154,176 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type implicit_statement_node
 
+    ! Constructors migrated from ast_core
+    public :: create_comment, create_blank_line, create_end_statement
+    public :: create_use_statement, create_include_statement
+    public :: create_implicit_statement, create_interface_block
+
 contains
+
+    ! Constructors
+    function create_comment(text, line, column) result(node)
+        use uid_generator, only: generate_uid
+        character(len=*), intent(in) :: text
+        integer, intent(in), optional :: line, column
+        type(comment_node) :: node
+
+        node%uid = generate_uid()
+        node%text = text
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_comment
+
+    function create_blank_line(count, line, column) result(node)
+        use uid_generator, only: generate_uid
+        integer, intent(in), optional :: count
+        integer, intent(in), optional :: line, column
+        type(blank_line_node) :: node
+
+        node%uid = generate_uid()
+        if (present(count)) node%count = count
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_blank_line
+
+    function create_end_statement(line, column) result(node)
+        use uid_generator, only: generate_uid
+        integer, intent(in), optional :: line, column
+        type(end_statement_node) :: node
+
+        node%uid = generate_uid()
+        if (present(line)) then
+            if (line < 1) then
+                node%line = 1
+            else
+                node%line = line
+            end if
+        end if
+        if (present(column)) then
+            if (column < 1) then
+                node%column = 1
+            else
+                node%column = column
+            end if
+        end if
+    end function create_end_statement
+
+    function create_use_statement(module_name, only_list, rename_list, &
+            has_only, line, column, url_spec) result(node)
+        use uid_generator, only: generate_uid
+        character(len=*), intent(in) :: module_name
+        character(len=*), intent(in), optional :: only_list(:), rename_list(:)
+        character(len=*), intent(in), optional :: url_spec
+        logical, intent(in), optional :: has_only
+        integer, intent(in), optional :: line, column
+        type(use_statement_node) :: node
+        integer :: i
+
+        node%module_name = module_name
+        node%uid = generate_uid()
+        if (present(url_spec)) node%url_spec = url_spec
+        if (present(has_only)) node%has_only = has_only
+        
+        if (present(only_list)) then
+            if (size(only_list) > 0) then
+                allocate(node%only_list(size(only_list)))
+                do i = 1, size(only_list)
+                    node%only_list(i)%s = only_list(i)
+                end do
+            end if
+        end if
+        
+        if (present(rename_list)) then
+            if (size(rename_list) > 0) then
+                allocate(node%rename_list(size(rename_list)))
+                do i = 1, size(rename_list)
+                    node%rename_list(i)%s = rename_list(i)
+                end do
+            end if
+        end if
+        
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_use_statement
+
+    function create_implicit_statement(is_none, type_name, kind_value, has_kind, &
+                                       length_value, has_length, letter_ranges, &
+                                       line, column) result(node)
+        use uid_generator, only: generate_uid
+        logical, intent(in) :: is_none
+        character(len=*), intent(in), optional :: type_name
+        integer, intent(in), optional :: kind_value
+        logical, intent(in), optional :: has_kind
+        integer, intent(in), optional :: length_value
+        logical, intent(in), optional :: has_length
+        character(len=*), intent(in), optional :: letter_ranges(:)
+        integer, intent(in), optional :: line, column
+        type(implicit_statement_node) :: node
+        integer :: i, dash_pos
+
+        node%is_none = is_none
+        node%uid = generate_uid()
+
+        if (.not. is_none) then
+            if (present(type_name)) node%type_spec%type_name = type_name
+            if (present(has_kind)) node%type_spec%has_kind = has_kind
+            if (present(kind_value)) node%type_spec%kind_value = kind_value
+            if (present(has_length)) node%type_spec%has_length = has_length
+            if (present(length_value)) node%type_spec%length_value = length_value
+
+            if (present(letter_ranges)) then
+                allocate(node%letter_specs(size(letter_ranges)))
+                do i = 1, size(letter_ranges)
+                    dash_pos = index(letter_ranges(i), '-')
+                    if (dash_pos > 0) then
+                        node%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
+                        node%letter_specs(i)%end_letter = letter_ranges(i)(dash_pos+1:dash_pos+1)
+                    else
+                        node%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
+                        node%letter_specs(i)%end_letter = letter_ranges(i)(1:1)
+                    end if
+                end do
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_implicit_statement
+
+    function create_include_statement(filename, line, column) result(node)
+        use uid_generator, only: generate_uid
+        character(len=*), intent(in) :: filename
+        integer, intent(in), optional :: line, column
+        type(include_statement_node) :: node
+
+        node%filename = filename
+        node%uid = generate_uid()
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_include_statement
+
+    function create_interface_block(name, kind, operator, procedure_indices, &
+            line, column) result(node)
+        use uid_generator, only: generate_uid
+        character(len=*), intent(in), optional :: name, kind, operator
+        integer, intent(in), optional :: procedure_indices(:)
+        integer, intent(in), optional :: line, column
+        type(interface_block_node) :: node
+
+        node%uid = generate_uid()
+        if (present(name)) node%name = name
+        if (present(kind)) node%kind = kind
+        if (present(operator)) node%operator = operator
+
+        if (present(procedure_indices)) then
+            if (size(procedure_indices) > 0) then
+                node%procedure_indices = procedure_indices
+            end if
+        end if
+
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_interface_block
 
     ! Complex literal implementations
     subroutine complex_literal_accept(this, visitor)

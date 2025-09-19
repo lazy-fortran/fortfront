@@ -1,8 +1,8 @@
 program test_codegen_core_direct
     use codegen_core, only: codegen_core_generate_arena, generate_code_polymorphic, initialize_codegen
-    use ast_core, only: ast_arena_t, create_ast_arena, create_identifier, &
-                        create_literal, create_program, identifier_node, &
-                        literal_node, LITERAL_INTEGER, LITERAL_STRING
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use ast_nodes_core, only: identifier_node, literal_node, create_identifier, create_literal, create_program
+    use ast_base, only: LITERAL_INTEGER, LITERAL_STRING
     implicit none
 
     integer :: total_tests, passed_tests

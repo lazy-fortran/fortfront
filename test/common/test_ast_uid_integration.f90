@@ -3,7 +3,9 @@ program test_ast_uid_integration
     ! Verifies that all AST nodes have unique UIDs
     
     use uid_generator
-    use ast_core
+    use ast_nodes_core, only: identifier_node, literal_node, assignment_node, program_node, &
+                              create_identifier, create_literal, create_assignment, create_program
+    use ast_base, only: LITERAL_INTEGER
     use ast_arena_modern
     implicit none
     

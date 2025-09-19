@@ -1,6 +1,5 @@
 program test_parameter_attributes_simple
     use frontend
-    use ast_core
     use ast_nodes_data, only: parameter_declaration_node, INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use ast_visitor
     use ast_traversal

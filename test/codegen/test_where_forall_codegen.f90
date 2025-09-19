@@ -1,6 +1,7 @@
 program test_where_forall_codegen
     use frontend_core, only: emit_fortran
-    use ast_core, only: ast_arena_t, create_ast_arena, LITERAL_INTEGER
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use ast_base, only: LITERAL_INTEGER
     use ast_factory, only: push_program, push_identifier, push_literal, push_binary_op, &
                            push_assignment
     use ast_factory, only: push_where_construct_with_elsewhere, push_forall

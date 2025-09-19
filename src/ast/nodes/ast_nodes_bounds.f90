@@ -10,6 +10,9 @@ module ast_nodes_bounds
     public :: get_array_bounds_node, get_array_slice_node, get_range_expression_node, &
               get_array_operation_node
     public :: array_bounds_t, array_spec_t
+    ! Constructors migrated from ast_core
+    public :: create_array_bounds, create_array_slice, create_range_expression
+    public :: create_array_operation
 
     ! Node type constants
     integer, parameter, public :: NODE_ARRAY_BOUNDS = 50
@@ -158,6 +161,81 @@ contains
             end select
         end if
     end function get_array_operation_node
+
+    ! Constructors
+    function create_array_bounds(lower_index, upper_index, stride_index) result(node)
+        use uid_generator, only: generate_uid
+        integer, intent(in) :: lower_index, upper_index
+        integer, intent(in), optional :: stride_index
+        type(array_bounds_node) :: node
+
+        node%uid = generate_uid()
+        node%lower_bound_index = lower_index
+        node%upper_bound_index = upper_index
+        if (present(stride_index)) then
+            node%stride_index = stride_index
+        else
+            node%stride_index = -1
+        end if
+    end function create_array_bounds
+
+    function create_array_slice(array_index, bounds_indices, num_dims) result(node)
+        use uid_generator, only: generate_uid
+        integer, intent(in) :: array_index
+        integer, intent(in) :: bounds_indices(:)
+        integer, intent(in) :: num_dims
+        type(array_slice_node) :: node
+        integer :: i
+
+        node%uid = generate_uid()
+        node%array_index = array_index
+        if (num_dims < 0) then
+            node%num_dimensions = 0
+        else
+            node%num_dimensions = min(num_dims, size(node%bounds_indices))
+        end if
+        do i = 1, node%num_dimensions
+            if (i <= size(bounds_indices)) then
+                node%bounds_indices(i) = bounds_indices(i)
+            else
+                node%bounds_indices(i) = -1
+            end if
+        end do
+    end function create_array_slice
+
+    function create_range_expression(start_index, end_index, stride_index) result(node)
+        use uid_generator, only: generate_uid
+        integer, intent(in) :: start_index, end_index
+        integer, intent(in), optional :: stride_index
+        type(range_expression_node) :: node
+
+        node%uid = generate_uid()
+        node%start_index = start_index
+        node%end_index = end_index
+        if (present(stride_index)) then
+            node%stride_index = stride_index
+        else
+            node%stride_index = -1
+        end if
+    end function create_range_expression
+
+    function create_array_operation(operation, left_index, right_index, &
+                                    array_spec, result_spec) result(node)
+        use uid_generator, only: generate_uid
+        character(len=*), intent(in) :: operation
+        integer, intent(in) :: left_index, right_index
+        type(array_spec_t), intent(in), optional :: array_spec, result_spec
+        type(array_operation_node) :: node
+
+        node%uid = generate_uid()
+        node%operation = operation
+        node%left_operand_index = left_index
+        node%right_operand_index = right_index
+        if (present(array_spec)) node%array_spec = array_spec
+        if (present(result_spec)) node%result_spec = result_spec
+        node%bounds_checked = .false.
+        node%shape_conformant = .false.
+    end function create_array_operation
 
     ! Visitor pattern implementations
     subroutine array_bounds_accept(this, visitor)
