@@ -1,7 +1,7 @@
 module semantic_undefined_variable_checker
     ! Undefined variable detection and checking utilities
     ! Extracted from semantic_analyzer.f90 for architectural compliance (Issue #1067)
-    use ast_core, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, binary_op_node, assignment_node, &
                                call_or_subscript_node, array_literal_node, program_node
     use ast_nodes_control, only: if_node
