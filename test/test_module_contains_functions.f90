@@ -75,6 +75,16 @@ contains
             error stop 1
         end if
         
+        ! Ensure mixed declaration is split: parameters vs local
+        if (.not. contains_without_spaces(output_code, 'integer::a,b')) then
+            print *, "FAIL: Parameter declaration 'integer :: a, b' missing or not grouped"
+            error stop 1
+        end if
+        if (.not. contains_without_spaces(output_code, 'integer::c')) then
+            print *, "FAIL: Local variable 'c' missing from separate declaration"
+            error stop 1
+        end if
+        
         print *, "[PASS] Module with function"
     end subroutine test_module_with_function
     
