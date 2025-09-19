@@ -92,7 +92,8 @@ end if
 This is an alternative pattern for type identification:
 
 ```fortran
-use ast_nodes_core  ! Import specific node types
+use ast_nodes_core, only: program_node, assignment_node, identifier_node, &
+                          literal_node, binary_op_node  ! Import specific node types
 
 select type (node => arena%entries(index)%node)
 type is (program_node)
@@ -130,7 +131,7 @@ end select
 - Exhaustive checking with `class default`
 - IDE support for auto-completion
 
-### 2. Nested Type Checking
+### 3. Nested Type Checking
 
 For complex scenarios requiring multiple type checks:
 
@@ -359,7 +360,7 @@ end do
 ```fortran
 program process_ast
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core
+    use ast_nodes_core, only: program_node, assignment_node, identifier_node
     implicit none
     
     type(ast_arena_t) :: arena
@@ -392,7 +393,7 @@ end program
 ```fortran
 subroutine find_function_calls(arena)
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_core
+    use ast_nodes_core, only: call_or_subscript_node
     type(ast_arena_t), intent(in) :: arena
     
     integer, allocatable :: call_indices(:)
@@ -419,7 +420,7 @@ end subroutine
 ```fortran
 module my_ast_analysis
     use ast_visitor
-    use ast_nodes_core
+    use ast_nodes_core, only: assignment_node, identifier_node
     implicit none
     
     type, extends(ast_visitor_t) :: statement_counter_t
