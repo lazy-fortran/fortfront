@@ -22,6 +22,47 @@ program test_expression_iterative
 
 contains
 
+    subroutine emit_open_parens(u, depth)
+        implicit none
+        integer, intent(in) :: u, depth
+        integer :: i, remaining, chunk_size, paren_group
+
+        paren_group = 0
+        i = 1
+        do while (i <= depth)
+            remaining = depth - i + 1
+            chunk_size = min(64, remaining)
+            write(u, '(a)', advance='no') repeat('(', chunk_size)
+            paren_group = paren_group + chunk_size
+            if (paren_group >= 64 .and. i + chunk_size <= depth) then
+                write(u, '(a)') '&'
+                write(u, '(a)', advance='no') '    & '
+                paren_group = 0
+            end if
+            i = i + chunk_size
+        end do
+    end subroutine emit_open_parens
+
+    subroutine emit_close_parens(u, depth)
+        implicit none
+        integer, intent(in) :: u, depth
+        integer :: i, remaining, chunk_size, paren_group
+
+        paren_group = 0
+        i = 1
+        do while (i <= depth)
+            remaining = depth - i + 1
+            chunk_size = min(64, remaining)
+            if (paren_group == 0 .and. i > 1 .and. i < depth) then
+                write(u, '(a)') '&'
+                write(u, '(a)', advance='no') '    & '
+            end if
+            write(u, '(a)', advance='no') repeat(')', chunk_size)
+            paren_group = mod(paren_group + chunk_size, 64)
+            i = i + chunk_size
+        end do
+    end subroutine emit_close_parens
+
     logical function test_deep_exponent_chain()
         integer, parameter :: depth = 16
         character(len=:), allocatable :: input_file, output_file
@@ -302,8 +343,7 @@ contains
         character(len=:), allocatable :: input_file, output_file
         character(len=256) :: error_msg
         type(compilation_options_t) :: options
-        integer :: unit, iostat, i
-        integer :: paren_group
+        integer :: unit, iostat
 
         print *, "Testing extreme parentheses nesting (depth =", depth, ')'
         test_extreme_parentheses_depth = .true.
@@ -315,26 +355,9 @@ contains
         write(unit, '(a)') '    implicit none'
         write(unit, '(a)') '    real :: value'
         write(unit, '(a)', advance='no') '    value = '
-        paren_group = 0
-        do i = 1, depth
-            write(unit, '(a)', advance='no') '('
-            paren_group = paren_group + 1
-            if (mod(paren_group, 64) == 0) then
-                write(unit, '(a)') '&'
-                write(unit, '(a)', advance='no') '    & '
-                paren_group = 0
-            end if
-        end do
+        call emit_open_parens(unit, depth)
         write(unit, '(a)', advance='no') '1.0'
-        paren_group = 0
-        do i = 1, depth
-            if (paren_group == 0 .and. i > 1 .and. i < depth) then
-                write(unit, '(a)') '&'
-                write(unit, '(a)', advance='no') '    & '
-            end if
-            write(unit, '(a)', advance='no') ')'
-            paren_group = mod(paren_group + 1, 64)
-        end do
+        call emit_close_parens(unit, depth)
         write(unit, '(a)') ''
         write(unit, '(a)') '    print *, value'
         write(unit, '(a)') 'end program test_extreme_nesting'
