@@ -1,10 +1,12 @@
 module parser_io_statements_module
     ! Parser module for I/O statement types (print, write, read)
-    use iso_fortran_env, only: error_unit
-    use lexer_core
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use parser_state_module
     use parser_expressions_module, only: parse_comparison
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_factory, only: push_print_statement, push_write_statement, push_read_statement
     use ast_factory
     implicit none
     private

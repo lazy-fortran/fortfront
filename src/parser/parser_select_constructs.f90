@@ -1,7 +1,8 @@
 module parser_select_constructs_module
     ! Parser module for SELECT CASE constructs
-    use iso_fortran_env, only: error_unit
-    use lexer_core
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use ast_types, only: LITERAL_STRING
     use parser_state_module
     use parser_expressions_module, only: parse_primary, parse_expression_until
@@ -13,7 +14,7 @@ module parser_select_constructs_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
     use parser_basic_statement_module, only: parse_statement_body
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_select_case, push_select_case_with_default, &
                             push_case_block, push_case_default, &
                             push_identifier, push_literal, push_assignment

@@ -1,7 +1,9 @@
 module parser_basic_statement_module
     ! Parser module for basic statement parsing and utilities
-    use iso_fortran_env, only: error_unit
-    use lexer_core
+    use, intrinsic :: iso_fortran_env, only: error_unit
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, &
+                          to_lower
     use ast_types, only: LITERAL_STRING
     use parser_state_module
     use parser_expressions_module, only: parse_expression, parse_range
@@ -11,8 +13,9 @@ module parser_basic_statement_module
                                                 parse_return_statement, parse_stop_statement, &
                                                 parse_goto_statement, parse_error_stop_statement
     use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_call_module, only: parse_call_statement
     use parser_utils, only: analyze_declaration_structure
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_assignment, push_identifier, push_literal
     implicit none
     private
@@ -98,10 +101,7 @@ contains
                 ! Parse return statement
                 stmt_index = parse_return_statement(parser, arena, parent_index)
             case ("call")
-                ! Skip call statements in control flow contexts
-                ! They will be handled by higher-level parsers to avoid circular dependency
-                stmt_index = 0
-                first_token = parser%consume()  ! consume "call" to avoid infinite loop
+                stmt_index = parse_call_statement(parser, arena)
             case ("stop")
                 ! Parse stop statement
                 stmt_index = parse_stop_statement(parser, arena)

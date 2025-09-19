@@ -1,13 +1,15 @@
 module parser_procedure_bodies_module
     ! Procedure body parsing for subroutines and functions in module contexts
-    use lexer_core
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use parser_state_module
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_subroutine_def, push_function_def, &
                            push_parameter_declaration, push_print_statement, &
                            push_subroutine_call, push_assignment, push_identifier, &
                            push_literal, push_binary_op
     use parser_declarations, only: parse_declaration, parse_multi_declaration
+    use parser_call_module, only: parse_call_statement
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER
     implicit none
     private
@@ -359,7 +361,7 @@ contains
                     end if
                 end block
             case ("call")
-                stmt_index = parse_simple_call_statement(parser, arena)
+                stmt_index = parse_call_statement(parser, arena)
             case ("contains")
                 ! Handle contains section with nested procedures
                 token = parser%consume()  ! consume 'contains'
@@ -498,52 +500,6 @@ contains
         ! Create print statement node
         stmt_index = push_print_statement(arena, "*", arg_indices, line, column)
     end function parse_simple_print_statement
-
-    ! Simple call statement parser for subroutine bodies
-    function parse_simple_call_statement(parser, arena) result(stmt_index)
-        type(parser_state_t), intent(inout) :: parser
-        type(ast_arena_t), intent(inout) :: arena
-        integer :: stmt_index
-        type(token_t) :: token
-        character(len=:), allocatable :: subroutine_name
-        integer, allocatable :: arg_indices(:)
-        integer :: line, column
-        
-        ! Consume 'call' keyword
-        token = parser%consume()
-        line = token%line
-        column = token%column
-        
-        ! Get subroutine name
-        token = parser%peek()
-        if (token%kind == TK_IDENTIFIER) then
-            subroutine_name = token%text
-            token = parser%consume()
-            
-            ! For simplicity, skip arguments if present
-            allocate(arg_indices(0))
-            token = parser%peek()
-            if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                token = parser%consume()  ! consume '('
-                ! Skip until closing parenthesis
-                do while (.not. parser%is_at_end())
-                    token = parser%peek()
-                    if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                        token = parser%consume()  ! consume ')'
-                        exit
-                    end if
-                    token = parser%consume()  ! skip argument tokens
-                end do
-            end if
-            
-            ! Create call statement node
-            stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, &
-                                            line, column)
-        else
-            ! Error: expected subroutine name
-            stmt_index = 0
-        end if
-    end function parse_simple_call_statement
 
     ! Simple assignment statement parser for subroutine bodies
     function parse_simple_assignment_statement(parser, arena) result(stmt_index)
