@@ -92,7 +92,6 @@ end if
 This is an alternative pattern for type identification:
 
 ```fortran
-use ast_core
 use ast_nodes_core  ! Import specific node types
 
 select type (node => arena%entries(index)%node)
@@ -162,7 +161,7 @@ The arena provides string-based type searching for bulk operations:
 ### Finding Nodes by Type Name
 
 ```fortran
-use ast_core
+use ast_arena_modern, only: ast_arena_t
 
 ! Find all assignment nodes
 integer, allocatable :: assign_indices(:)
@@ -359,7 +358,7 @@ end do
 
 ```fortran
 program process_ast
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     implicit none
     
@@ -392,7 +391,7 @@ end program
 
 ```fortran
 subroutine find_function_calls(arena)
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     type(ast_arena_t), intent(in) :: arena
     
@@ -452,7 +451,7 @@ end module
 ! Usage:
 program analyze_ast
     use my_ast_analysis
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     
     type(statement_counter_t) :: counter
     type(ast_arena_t) :: arena
