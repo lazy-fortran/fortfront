@@ -22,6 +22,9 @@ module ast_arena_modern
     public :: create_ast_arena, destroy_ast_arena
     public :: store_ast_node, get_ast_node, is_valid_ast_handle, null_ast_handle
     public :: ast_arena_stats_t, ast_free_result_t
+    ! Safe, compatibility-hiding helpers (index-based)
+    public :: has_node_at, get_node_line, get_node_column
+    public :: get_inferred_kind_at, get_inferred_details_at
     public :: free_ast_node, is_node_active, get_free_statistics
     
     ! Use compatibility arena directly as the main arena type
@@ -31,6 +34,12 @@ module ast_arena_modern
         procedure :: clear => clear_ast_arena
         ! Override push to sync size field
         procedure :: push => ast_arena_push_with_size_sync
+        ! Safe, index-based helpers
+        procedure :: has_node_at
+        procedure :: get_node_line
+        procedure :: get_node_column
+        procedure :: get_inferred_kind_at
+        procedure :: get_inferred_details_at
     end type ast_arena_t
 
 contains
@@ -157,5 +166,71 @@ contains
         this%ast_arena_compat_t%compat_size = &
             this%ast_arena_compat_t%ast_arena_core_t%get_node_count()
     end subroutine clear_ast_arena
-    
+
+    ! =============================
+    ! Safe, index-based introspection
+    ! These helpers encapsulate compat internals (entries/compat_size)
+    ! and provide read-only accessors commonly needed by clients.
+    ! =============================
+
+    pure logical function has_node_at(this, index) result(has)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: index
+        has = .false.
+        if (index <= 0) return
+        if (.not. allocated(this%entries)) return
+        if (index > size(this%entries)) return
+        has = allocated(this%entries(index)%node)
+    end function has_node_at
+
+    pure integer function get_node_line(this, index) result(line)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: index
+        line = 0
+        if (.not. this%has_node_at(index)) return
+        line = this%entries(index)%node%line
+    end function get_node_line
+
+    pure integer function get_node_column(this, index) result(column)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: index
+        column = 0
+        if (.not. this%has_node_at(index)) return
+        column = this%entries(index)%node%column
+    end function get_node_column
+
+    pure integer function get_inferred_kind_at(this, index) result(kind)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: index
+        kind = 0
+        if (.not. this%has_node_at(index)) return
+        if (.not. this%entries(index)%node%inferred_type%kind > 0) return
+        kind = this%entries(index)%node%inferred_type%kind
+    end function get_inferred_kind_at
+
+    subroutine get_inferred_details_at(this, index, kind, type_size, &
+                                       is_allocatable, is_pointer, found)
+        class(ast_arena_t), intent(in) :: this
+        integer, intent(in) :: index
+        integer, intent(out) :: kind, type_size
+        logical, intent(out) :: is_allocatable, is_pointer, found
+
+        kind = 0
+        type_size = 0
+        is_allocatable = .false.
+        is_pointer = .false.
+        found = .false.
+
+        if (.not. this%has_node_at(index)) return
+        if (.not. this%entries(index)%node%inferred_type%kind > 0) return
+
+        associate (t => this%entries(index)%node%inferred_type)
+            kind = t%kind
+            type_size = t%size
+            is_allocatable = t%alloc_info%is_allocatable
+            is_pointer = t%alloc_info%is_pointer
+            found = .true.
+        end associate
+    end subroutine get_inferred_details_at
+
 end module ast_arena_modern
