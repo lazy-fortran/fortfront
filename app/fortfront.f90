@@ -3,16 +3,14 @@ program fortfront_cli
     use frontend, only: transform_lazy_fortran_string
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace
+    use cli_io, only: read_all_stdin_or_file
     implicit none
     
     character(len=:), allocatable :: input_text, output_text, error_msg
     character(len=:), allocatable :: temp_text, arg_str, filename
-    character(len=4096) :: buffer
-    integer :: io_stat, total_size, capacity, file_unit
+    integer :: io_stat
     integer :: alloc_stat
     integer :: num_args, arg_len, i
-    integer, parameter :: MAX_INPUT_SIZE = 10485760  ! 10MB safety limit
-    integer, parameter :: INITIAL_CAPACITY = 8192
     integer, parameter :: EXIT_SUCCESS = 0
     integer, parameter :: EXIT_FAILURE = 1
     logical :: from_file, show_help, show_version
@@ -104,73 +102,22 @@ program fortfront_cli
         stop EXIT_SUCCESS
     end if
     
-    ! Read input (from file or stdin)
-    capacity = INITIAL_CAPACITY
-    allocate(character(len=capacity) :: input_text, stat=alloc_stat)
-    if (alloc_stat /= 0) then
-        write(error_unit, '(A,I0)') 'Memory allocation failed for input buffer (stat=', alloc_stat, ')'
-        stop EXIT_FAILURE
-    end if
-    total_size = 0
-    
+    ! Read input (from file or stdin) using robust chunked reader
     call trace_enter('cli:read_input')
     if (from_file) then
-        ! Read from file
-        open(newunit=file_unit, file=filename, status='old', action='read', &
-             iostat=io_stat)
-        if (io_stat /= 0) then
-            write(error_unit, '(A,A)') 'Cannot open file: ', filename
-            stop EXIT_FAILURE
-        end if
-        
-        do
-            read(file_unit, '(A)', iostat=io_stat) buffer
-            if (io_stat == iostat_end) exit
-            if (io_stat > 0) then
-                write(error_unit, '(A,A)') 'Error reading file: ', filename
-                close(file_unit)
-                stop EXIT_FAILURE
-            end if
-            
-            call append_line_to_input(buffer, input_text, total_size, capacity)
-        end do
-        close(file_unit)
+        call read_all_stdin_or_file(.true., filename, input_text, io_stat)
     else
-        ! Read from stdin (original behavior preserved)
-        do
-            read(input_unit, '(A)', iostat=io_stat) buffer
-            if (io_stat == iostat_end) exit
-            if (io_stat > 0) then
-                write(error_unit, '(A)') 'Error reading input'
-                stop EXIT_FAILURE
-            end if
-            
-            call append_line_to_input(buffer, input_text, total_size, capacity)
-        end do
+        call read_all_stdin_or_file(.false., text=input_text, status=io_stat)
     end if
     call trace_leave('cli:read_input')
     block
         character(len=64) :: tmp_msg
-        write(tmp_msg, '("CLI: read input done (bytes=",I0,")")') total_size
+        write(tmp_msg, '("CLI: read input done (bytes=",I0,")")') merge(len(input_text), 0, allocated(input_text))
         call cli_trace(tmp_msg)
     end block
 
     ! Trim to actual size to save memory
-    if (total_size == 0) then
-        allocate(character(len=0) :: temp_text, stat=alloc_stat)
-        if (alloc_stat /= 0) then
-            write(error_unit, '(A,I0)') 'Memory allocation failed for temp buffer (stat=', alloc_stat, ')'
-            stop EXIT_FAILURE
-        end if
-    else
-        allocate(character(len=total_size) :: temp_text, stat=alloc_stat)
-        if (alloc_stat /= 0) then
-            write(error_unit, '(A,I0)') 'Memory allocation failed for sized temp buffer (stat=', alloc_stat, ')'
-            stop EXIT_FAILURE
-        end if
-        temp_text = input_text(1:total_size)
-    end if
-    call move_alloc(temp_text, input_text)
+    ! input_text is already trimmed by reader
     
     ! Transform lazy fortran to standard fortran
     call trace_enter('cli:transform')
@@ -225,55 +172,5 @@ contains
         close(unit_id)
     end subroutine cli_trace
 
-    subroutine append_line_to_input(buffer, input_text, total_size, capacity)
-        character(len=*), intent(in) :: buffer
-        character(len=:), allocatable, intent(inout) :: input_text
-        integer, intent(inout) :: total_size, capacity
-        character(len=:), allocatable :: temp_text
-        integer :: line_len
-        
-        line_len = len_trim(buffer)
-        
-        ! Security check: prevent memory exhaustion attacks
-        if (total_size + line_len + 1 > MAX_INPUT_SIZE) then
-            write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
-                MAX_INPUT_SIZE, ' bytes)'
-            stop EXIT_FAILURE
-        end if
-        
-        ! Grow buffer if needed
-        if (total_size + line_len + 1 > capacity) then
-            do while (capacity < total_size + line_len + 1 .and. &
-                     capacity <= MAX_INPUT_SIZE)
-                capacity = min(capacity * 2, MAX_INPUT_SIZE)
-            end do
-            
-            if (capacity > MAX_INPUT_SIZE) then
-                write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', &
-                    MAX_INPUT_SIZE, ' bytes)'
-            stop EXIT_FAILURE
-            end if
-            
-            allocate(character(len=capacity) :: temp_text, stat=alloc_stat)
-            if (alloc_stat /= 0) then
-                write(error_unit, '(A,I0)') 'Memory allocation failed while growing input buffer (stat=', alloc_stat, ')'
-                stop EXIT_FAILURE
-            end if
-            if (total_size > 0) then
-                temp_text(1:total_size) = input_text(1:total_size)
-            end if
-            call move_alloc(temp_text, input_text)
-        end if
-        
-        ! Add line content if not empty
-        if (line_len > 0) then
-            input_text(total_size+1:total_size+line_len) = buffer(1:line_len)
-            total_size = total_size + line_len
-        end if
-        
-        ! Always add newline to preserve source structure
-        input_text(total_size+1:total_size+1) = new_line('A')
-        total_size = total_size + 1
-    end subroutine append_line_to_input
-    
+    ! input reading utilities moved to cli_io module
 end program fortfront_cli
