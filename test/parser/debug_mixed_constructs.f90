@@ -3,7 +3,7 @@ program debug_mixed_constructs
     use frontend_core, only: lex_source
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
-    use ast_core, only: ast_arena_t, create_ast_arena
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     implicit none
     
     character(:), allocatable :: source, cli_output, error_msg

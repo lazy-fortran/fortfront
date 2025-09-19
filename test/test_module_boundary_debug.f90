@@ -3,7 +3,7 @@ program test_module_boundary_debug
     use frontend_parsing, only: find_program_unit_boundary, parse_tokens
     use frontend_core, only: lex_source, emit_fortran
     use lexer_core, only: token_t, TK_KEYWORD, TK_EOF
-    use ast_core, only: ast_arena_t, create_ast_arena
+    use ast_arena_modern, only: ast_arena_t, create_ast_arena
     implicit none
 
     call test_simple_module()
