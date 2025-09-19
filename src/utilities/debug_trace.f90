@@ -31,7 +31,8 @@ contains
         if (enabled) then
             call get_environment_variable('FORTFRONT_TRACE_FILE', file_name, status=stat)
             if (stat == 0 .and. len_trim(file_name) > 0) then
-                open(newunit=file_u, file=trim(file_name), status='replace', action='write')
+                ! Preserve any early CLI trace lines by appending instead of replacing.
+                open(newunit=file_u, file=trim(file_name), status='unknown', position='append', action='write')
             end if
         end if
     end subroutine trace_init

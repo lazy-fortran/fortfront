@@ -70,6 +70,7 @@ test_old_api.o
 *.log
 *.err
 *.out
+cli_trace.txt
 logs/
 examples/external_tool_example
 
