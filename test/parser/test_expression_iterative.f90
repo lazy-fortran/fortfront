@@ -320,8 +320,7 @@ contains
         i = 1
         do while (i <= depth)
             remaining = depth - i + 1
-            chunk_size = merge(64, remaining, remaining >= 64)
-            if (chunk_size > remaining) chunk_size = remaining
+            chunk_size = min(64, remaining)
             write(unit, '(a)', advance='no') repeat('(', chunk_size)
             paren_group = paren_group + chunk_size
             if (paren_group >= 64 .and. i + chunk_size <= depth) then
