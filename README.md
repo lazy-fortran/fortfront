@@ -17,6 +17,22 @@ A small Fortran frontend that lexes, parses, performs light semantic checks, and
   - CLI/tools are demonstrated in tests and examples
   - Library API: see `frontend` module (e.g., `transform_lazy_fortran_string`, `compile_source`)
 
+### CLI
+- Synopsis: `fortfront [OPTIONS] [--] [FILE]`
+- If `FILE` is omitted, `fortfront` reads from stdin and writes the transformed Fortran to stdout.
+- Options:
+  - `-h, --help` Show help and exit 0
+  - `-v, --version` Show version and exit 0
+  - `--trace[=on|off]` Enable/disable internal tracing (overrides env)
+  - `--trace-file <path>` Path to append trace messages (overrides env)
+  - `--` End of options; treat the next token as `FILE` even if it starts with `-`
+
+```sh
+fortfront input.lf > output.f90
+echo "x = 5" | fortfront > output.f90
+fortfront -- -file.lf > output.f90  # filename starts with '-'
+```
+
 ### Exit Codes
 - Success: `0` when transformation succeeds and output is produced (including
   empty input, which yields a minimal `program main`).

@@ -139,7 +139,7 @@ program fortfront_cli
         write(output_unit, '(A)') 'fortfront - Lazy Fortran to Standard Fortran Transpiler'
         write(output_unit, '(A)') ''
         write(output_unit, '(A)') 'USAGE:'
-        write(output_unit, '(A)') '    fortfront [OPTIONS] [FILE]'
+        write(output_unit, '(A)') '    fortfront [OPTIONS] [--] [FILE]'
         write(output_unit, '(A)') ''
         write(output_unit, '(A)') 'ARGUMENTS:'
         write(output_unit, '(A)') '    FILE    Input file (reads from stdin if not specified)'
@@ -149,11 +149,13 @@ program fortfront_cli
         write(output_unit, '(A)') '    -v, --version  Show version information'
         write(output_unit, '(A)') '        --trace[=on|off]   Enable/disable tracing (overrides env)'
         write(output_unit, '(A)') '        --trace-file <path>  Trace output file (overrides env)'
+        write(output_unit, '(A)') '        --   End of options; treat following token as FILE even if it starts with -'
         write(output_unit, '(A)') ''
         write(output_unit, '(A)') 'EXAMPLES:'
         write(output_unit, '(A)') '    fortfront input.lf        # Transpile file'
         write(output_unit, '(A)') '    cat input.lf | fortfront  # Transpile from stdin'
         write(output_unit, '(A)') '    echo "x = 5" | fortfront  # Transpile string'
+        write(output_unit, '(A)') '    fortfront -- -file.lf     # Filename begins with a hyphen'
         call trace_leave('cli:main')
         call exit_quiet(EXIT_SUCCESS)
     end if
