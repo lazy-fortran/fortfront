@@ -1,8 +1,8 @@
 module frontend
     ! fortfront - Core analysis frontend
-    ! Simple, clean interface: Lexer → Parser → Semantic → Standard Fortran codegen
+    ! Simple, clean interface: Lexer -> Parser -> Semantic -> Standard Fortran codegen
     !
-    ! Decision: keep `frontend` as the stable public entry point
+    ! Decision: keep frontend as the stable public entry point
     ! -------------------------------------------------------------------------
     ! This module intentionally remains as a thin umbrella that re-exports the
     ! documented public API from the refactored modules. It exists to provide a
