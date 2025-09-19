@@ -7,6 +7,8 @@ program test_path_validation
     call test_windows_like_disallows_glob_chars()
     call test_traversal_rejected()
     call test_angle_brackets_rejected()
+    call test_square_brackets_rejected()
+    call test_posix_glob_chars_in_subdir()
 
     print *, 'Path validation tests passed'
 
@@ -48,6 +50,23 @@ contains
             stop 1
         end if
     end subroutine test_angle_brackets_rejected
+    
+    subroutine test_square_brackets_rejected()
+        type(path_validation_result_t) :: res
+        res = validate_input_path('data[1].txt')
+        if (res%code /= PATH_INVALID_CHARACTERS) then
+            print *, 'Expected PATH_INVALID_CHARACTERS for square brackets in filename'
+            stop 1
+        end if
+    end subroutine test_square_brackets_rejected
+
+    subroutine test_posix_glob_chars_in_subdir()
+        type(path_validation_result_t) :: res
+        res = validate_input_path('subdir/data*?.txt')
+        if (res%code /= PATH_VALID) then
+            print *, 'Expected PATH_VALID for POSIX subdir path with * and ?'
+            stop 1
+        end if
+    end subroutine test_posix_glob_chars_in_subdir
 
 end program test_path_validation
-
