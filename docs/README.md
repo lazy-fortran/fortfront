@@ -55,6 +55,21 @@ Removed to avoid confusion and build fragmentation. Use FPM/Make.
 3. **Semantic** - Type checking 
 4. **Codegen** - Emits standard Fortran
 
+## Public API
+
+- `frontend` module is the stable public entry point. It re-exports a focused
+  set of routines for lexing, parsing, semantic analysis, transformation, and
+  code generation.
+- Internal modules should depend on narrow modules directly (e.g.,
+  `frontend_parsing`, `frontend_core`, `frontend_transformation`) rather than
+  importing `frontend`.
+- Tests and external consumers may `use frontend` to validate public behavior.
+
+Note on test-only helpers
+- Some debug/test-oriented helpers are currently re-exported to support the
+  internal test suite. These are not part of the stable API surface and may
+  change or be removed between releases without deprecation.
+
 ## Integration
 
 ### With fortrun
