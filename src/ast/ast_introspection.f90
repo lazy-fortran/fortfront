@@ -2,7 +2,9 @@ module ast_introspection
     ! AST Node Introspection APIs for Static Analysis
     ! Provides comprehensive API for examining AST nodes and their properties
     
-    use ast_arena_modern, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t, has_node_at, get_node_line, &
+                                get_node_column, get_inferred_kind_at, &
+                                get_inferred_details_at
     use ast_base, only: ast_node
     use ast_nodes_core
     use ast_nodes_procedure
@@ -61,11 +63,8 @@ contains
         integer, intent(in) :: index
         class(ast_visitor_t), intent(inout) :: visitor
         
-        ! Bounds checking
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (size(arena%entries) < index) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        ! Bounds checking via arena helper
+        if (.not. arena%has_node_at(index)) return
         
         ! Use the visitor pattern to safely access the node
         select type (node => arena%entries(index)%node)
@@ -205,15 +204,8 @@ contains
 
         type_kind = 0  ! Unknown/no type
         
-        ! Bounds checking
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (size(arena%entries) < index) return
-        if (.not. allocated(arena%entries(index)%node)) return
-        if (.not. arena%entries(index)%node%inferred_type%kind > 0) return
-        
-        ! Safe read-only access to basic type kind
-        type_kind = arena%entries(index)%node%inferred_type%kind
+        ! Delegate to arena helper
+        type_kind = arena%get_inferred_kind_at(index)
     end function get_node_type_kind
 
     ! Get type details without dangerous deep copy (safe read-only access)
@@ -224,27 +216,9 @@ contains
         integer, intent(out) :: kind, type_size
         logical, intent(out) :: is_allocatable, is_pointer, found
 
-        found = .false.
-        kind = 0
-        type_size = 0
-        is_allocatable = .false.
-        is_pointer = .false.
-        
-        ! Bounds checking
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (size(arena%entries) < index) return
-        if (.not. allocated(arena%entries(index)%node)) return
-        if (.not. arena%entries(index)%node%inferred_type%kind > 0) return
-        
-        ! Safe read-only access to type details
-        associate (node_type => arena%entries(index)%node%inferred_type)
-            kind = node_type%kind
-            type_size = node_type%size
-            is_allocatable = node_type%alloc_info%is_allocatable
-            is_pointer = node_type%alloc_info%is_pointer
-            found = .true.
-        end associate
+        ! Delegate to arena helper
+        call arena%get_inferred_details_at(index, kind, type_size, &
+             is_allocatable, is_pointer, found)
     end subroutine get_node_type_details
 
     ! PRIVATE: Legacy function - always returns unallocated
@@ -268,11 +242,8 @@ contains
         
         type_id = 99  ! Unknown by default
         
-        ! Bounds checking
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (size(arena%entries) < index) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        ! Bounds checking via arena helper
+        if (.not. arena%has_node_at(index)) return
         
         ! Use existing function with the node reference
         type_id = get_node_type_id(arena%entries(index)%node)
@@ -287,15 +258,11 @@ contains
         line = 0
         column = 0
         
-        ! Bounds checking
-        if (index <= 0 .or. index > arena%size) return
-        if (.not. allocated(arena%entries)) return
-        if (size(arena%entries) < index) return
-        if (.not. allocated(arena%entries(index)%node)) return
+        if (.not. arena%has_node_at(index)) return
         
-        ! Direct access to node fields
-        line = arena%entries(index)%node%line
-        column = arena%entries(index)%node%column
+        ! Use arena helpers to avoid compat field access
+        line = arena%get_node_line(index)
+        column = arena%get_node_column(index)
     end subroutine get_node_source_location_from_arena
 
 end module ast_introspection
