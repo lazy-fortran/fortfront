@@ -452,6 +452,41 @@ contains
                                     end do
                                     
                                     code = code // new_line('A')
+
+                                    ! Also emit a declaration for non-parameter variables (locals)
+                                    block
+                                        character(len=:), allocatable :: nonparam_list
+                                        logical :: have_nonparam
+                                        character(len=:), allocatable :: local_type
+                                        logical :: local_append_kind
+
+                                        nonparam_list = ""
+                                        have_nonparam = .false.
+                                        do j = 1, size(node%var_names)
+                                            if (.not. is_param(j)) then
+                                                if (have_nonparam) then
+                                                    nonparam_list = nonparam_list // ", " // trim(node%var_names(j))
+                                                else
+                                                    nonparam_list = trim(node%var_names(j))
+                                                end if
+                                                have_nonparam = .true.
+                                            end if
+                                        end do
+
+                                        if (have_nonparam) then
+                                            local_type = trim(node%type_name)
+                                            local_append_kind = node%has_kind
+                                            if (local_type == 'real' .and. .not. local_append_kind) then
+                                                local_type = 'real(8)'
+                                            end if
+                                            code = code // indent_str // local_type
+                                            if (local_append_kind) then
+                                                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                            end if
+                                            ! Intentionally do NOT add intent/optional for non-parameters
+                                            code = code // " :: " // nonparam_list // new_line('A')
+                                        end if
+                                    end block
                                 end if
                                 
                                 deallocate(is_param)
