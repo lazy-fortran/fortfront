@@ -1,5 +1,5 @@
 program fortfront_cli
-    use, intrinsic :: iso_fortran_env, only: input_unit, output_unit, error_unit, iostat_end
+    use, intrinsic :: iso_fortran_env, only: input_unit, output_unit, error_unit
     use frontend, only: transform_lazy_fortran_string
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace
@@ -7,7 +7,7 @@ program fortfront_cli
     implicit none
     
     character(len=:), allocatable :: input_text, output_text, error_msg
-    character(len=:), allocatable :: temp_text, arg_str, filename
+    character(len=:), allocatable :: arg_str, filename
     integer :: io_stat
     integer :: alloc_stat
     integer :: num_args, arg_len, i
@@ -32,7 +32,7 @@ program fortfront_cli
             call get_command_argument(i, length=arg_len)
             allocate(character(len=arg_len) :: arg_str, stat=alloc_stat)
             if (alloc_stat /= 0) then
-                write(error_unit, '(A,I0)') 'Memory allocation failed for command argument (stat=', alloc_stat, ')'
+                write(error_unit, '(A,I0,A)') 'Memory allocation failed for command argument (stat=', alloc_stat, ')'
                 stop EXIT_FAILURE
             end if
             call get_command_argument(i, value=arg_str)
@@ -64,7 +64,7 @@ program fortfront_cli
 
             deallocate(arg_str, stat=alloc_stat)
             if (alloc_stat /= 0) then
-                write(error_unit, '(A,I0)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
+                write(error_unit, '(A,I0,A)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
                 stop EXIT_FAILURE
             end if
         end do

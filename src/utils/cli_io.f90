@@ -68,7 +68,7 @@ contains
                 else if (ios == 0) then
                     if (sz > 0) call append_chunk(buffer(1:sz), text, total_size, capacity)
                 else
-                    write(error_unit, '(A,I0)') 'Error reading input (iostat=', ios, ')'
+                    write(error_unit, '(A,I0,A)') 'Error reading input (iostat=', ios, ')'
                     status = 3
                     return
                 end if
