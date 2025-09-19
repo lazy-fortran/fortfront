@@ -17,12 +17,23 @@ A small Fortran frontend that lexes, parses, performs light semantic checks, and
   - CLI/tools are demonstrated in tests and examples
   - Library API: see `frontend` module (e.g., `transform_lazy_fortran_string`, `compile_source`)
 
+### Exit Codes
+- Success: `0` when transformation succeeds and output is produced.
+- Failure: non‑zero when a syntax/parser/validation error occurs or when no output
+  is generated. Diagnostics are written to `stderr`. If any partial output was
+  produced, it is written to `stdout` before the error message to preserve
+  pipeline behavior.
+
 ## Tracing
 - CLI and library tracing are opt-in via environment variables:
   - `FORTFRONT_TRACE`: enable when set to a truthy value (`1`, `true`, `on`, `yes`);
     falsey values (`0`, `false`, `off`, `no`) disable it.
   - `FORTFRONT_TRACE_FILE`: optional path to write trace messages; traces append to this file.
 - On Windows, internal tracing is disabled to avoid stack issues when piping.
+
+Trace markers commonly include:
+- `cli:main`, `cli:read_input`, `cli:transform`
+- `phase:lexer`, `phase:syntax`, `phase:parser`, `phase:final`
 
 Manual checks (POSIX shells):
 
