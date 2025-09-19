@@ -1,13 +1,10 @@
 module ast_factory_statements
     use ast_arena_modern, only: ast_arena_t
-    use ast_core, only: create_use_statement, create_implicit_statement, &
-                        create_include_statement, create_end_statement, &
-                        create_stop, create_return, create_goto, create_error_stop, &
-                        create_cycle, create_exit
+    use ast_base, only: string_t
+    use uid_generator, only: generate_uid
     use ast_nodes_misc, only: use_statement_node, implicit_statement_node, include_statement_node, &
-                              end_statement_node, allocate_statement_node, &
-                              deallocate_statement_node
-    use ast_nodes_control, only: return_node, goto_node, error_stop_node, cycle_node, exit_node, stop_node
+                              end_statement_node, allocate_statement_node, deallocate_statement_node
+    use ast_nodes_control, only: stop_node, return_node, goto_node, error_stop_node, cycle_node, exit_node
     implicit none
     private
 
@@ -32,9 +29,30 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: use_index
         type(use_statement_node) :: use_stmt
+        integer :: i
 
-        use_stmt = create_use_statement(module_name, only_list, rename_list, &
-                                        has_only, line, column, url_spec)
+        use_stmt%uid = generate_uid()
+        use_stmt%module_name = module_name
+        if (present(url_spec)) use_stmt%url_spec = url_spec
+        if (present(has_only)) use_stmt%has_only = has_only
+        if (present(only_list)) then
+            if (size(only_list) > 0) then
+                allocate(use_stmt%only_list(size(only_list)))
+                do i = 1, size(only_list)
+                    use_stmt%only_list(i) = string_t(only_list(i))
+                end do
+            end if
+        end if
+        if (present(rename_list)) then
+            if (size(rename_list) > 0) then
+                allocate(use_stmt%rename_list(size(rename_list)))
+                do i = 1, size(rename_list)
+                    use_stmt%rename_list(i) = string_t(rename_list(i))
+                end do
+            end if
+        end if
+        if (present(line)) use_stmt%line = line
+        if (present(column)) use_stmt%column = column
         call arena%push(use_stmt, "use_statement", parent_index)
         use_index = arena%size
     end function push_use_statement
@@ -54,10 +72,32 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: implicit_index
         type(implicit_statement_node) :: implicit_stmt
+        integer :: i, dash_pos
 
-        implicit_stmt = create_implicit_statement(is_none, type_name, kind_value, &
-                                                  has_kind, length_value, has_length, &
-                                                  letter_ranges, line, column)
+        implicit_stmt%uid = generate_uid()
+        implicit_stmt%is_none = is_none
+        if (present(type_name)) implicit_stmt%type_spec%type_name = type_name
+        if (present(has_kind)) implicit_stmt%type_spec%has_kind = has_kind
+        if (present(kind_value)) implicit_stmt%type_spec%kind_value = kind_value
+        if (present(has_length)) implicit_stmt%type_spec%has_length = has_length
+        if (present(length_value)) implicit_stmt%type_spec%length_value = length_value
+        if (present(letter_ranges)) then
+            if (size(letter_ranges) > 0) then
+                allocate(implicit_stmt%letter_specs(size(letter_ranges)))
+                do i = 1, size(letter_ranges)
+                    dash_pos = index(letter_ranges(i), '-')
+                    if (dash_pos > 0) then
+                        implicit_stmt%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
+                        implicit_stmt%letter_specs(i)%end_letter = letter_ranges(i)(dash_pos+1:dash_pos+1)
+                    else
+                        implicit_stmt%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
+                        implicit_stmt%letter_specs(i)%end_letter = letter_ranges(i)(1:1)
+                    end if
+                end do
+            end if
+        end if
+        if (present(line)) implicit_stmt%line = line
+        if (present(column)) implicit_stmt%column = column
         call arena%push(implicit_stmt, "implicit_statement", parent_index)
         implicit_index = arena%size
     end function push_implicit_statement
@@ -71,7 +111,10 @@ contains
         integer :: include_index
         type(include_statement_node) :: include_stmt
 
-        include_stmt = create_include_statement(filename, line, column)
+        include_stmt%uid = generate_uid()
+        include_stmt%filename = filename
+        if (present(line)) include_stmt%line = line
+        if (present(column)) include_stmt%column = column
         call arena%push(include_stmt, "include_statement", parent_index)
         include_index = arena%size
     end function push_include_statement
@@ -82,8 +125,9 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: end_index
         type(end_statement_node) :: end_stmt
-
-        end_stmt = create_end_statement(line, column)
+        end_stmt%uid = generate_uid()
+        if (present(line)) end_stmt%line = line
+        if (present(column)) end_stmt%column = column
         call arena%push(end_stmt, "end_statement", parent_index)
         end_index = arena%size
     end function push_end_statement
@@ -97,10 +141,11 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: stop_index
         type(stop_node) :: stop_stmt
-
-        stop_stmt = create_stop(stop_code_index=stop_code_index, &
-                                stop_message=stop_message, &
-                                line=line, column=column)
+        stop_stmt%uid = generate_uid()
+        if (present(stop_code_index)) stop_stmt%stop_code_index = stop_code_index
+        if (present(stop_message)) stop_stmt%stop_message = stop_message
+        if (present(line)) stop_stmt%line = line
+        if (present(column)) stop_stmt%column = column
 
         call arena%push(stop_stmt, "stop_node", parent_index)
         stop_index = arena%size
@@ -112,8 +157,9 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: return_index
         type(return_node) :: return_stmt
-
-        return_stmt = create_return(line=line, column=column)
+        return_stmt%uid = generate_uid()
+        if (present(line)) return_stmt%line = line
+        if (present(column)) return_stmt%column = column
 
         call arena%push(return_stmt, "return_node", parent_index)
         return_index = arena%size
@@ -126,8 +172,10 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: goto_index
         type(goto_node) :: goto_stmt
-
-        goto_stmt = create_goto(label=label, line=line, column=column)
+        goto_stmt%uid = generate_uid()
+        if (present(label)) goto_stmt%label = label
+        if (present(line)) goto_stmt%line = line
+        if (present(column)) goto_stmt%column = column
 
         call arena%push(goto_stmt, "goto_node", parent_index)
         goto_index = arena%size
@@ -141,10 +189,11 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: error_stop_index
         type(error_stop_node) :: error_stop_stmt
-
-        error_stop_stmt = create_error_stop(error_code_index=error_code_index, &
-                                           error_message=error_message, &
-                                           line=line, column=column)
+        error_stop_stmt%uid = generate_uid()
+        if (present(error_code_index)) error_stop_stmt%error_code_index = error_code_index
+        if (present(error_message)) error_stop_stmt%error_message = error_message
+        if (present(line)) error_stop_stmt%line = line
+        if (present(column)) error_stop_stmt%column = column
 
         call arena%push(error_stop_stmt, "error_stop_node", parent_index)
         error_stop_index = arena%size
@@ -157,8 +206,10 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: cycle_index
         type(cycle_node) :: cycle_stmt
-
-        cycle_stmt = create_cycle(loop_label=loop_label, line=line, column=column)
+        cycle_stmt%uid = generate_uid()
+        if (present(loop_label)) cycle_stmt%label = loop_label
+        if (present(line)) cycle_stmt%line = line
+        if (present(column)) cycle_stmt%column = column
 
         call arena%push(cycle_stmt, "cycle_node", parent_index)
         cycle_index = arena%size
@@ -171,8 +222,10 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: exit_index
         type(exit_node) :: exit_stmt
-
-        exit_stmt = create_exit(loop_label=loop_label, line=line, column=column)
+        exit_stmt%uid = generate_uid()
+        if (present(loop_label)) exit_stmt%label = loop_label
+        if (present(line)) exit_stmt%line = line
+        if (present(column)) exit_stmt%column = column
 
         call arena%push(exit_stmt, "exit_node", parent_index)
         exit_index = arena%size
@@ -192,6 +245,8 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: alloc_index
         type(allocate_statement_node) :: alloc_stmt
+
+        alloc_stmt%uid = generate_uid()
 
         if (size(var_indices) > 0) then
             alloc_stmt%var_indices = var_indices
@@ -224,6 +279,8 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: dealloc_index
         type(deallocate_statement_node) :: dealloc_stmt
+
+        dealloc_stmt%uid = generate_uid()
 
         if (size(var_indices) > 0) then
             dealloc_stmt%var_indices = var_indices

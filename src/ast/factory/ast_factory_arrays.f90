@@ -1,9 +1,10 @@
 module ast_factory_arrays
     use ast_arena_modern, only: ast_arena_t
-    use ast_core
     use ast_nodes_core, only: call_or_subscript_node
     use ast_nodes_bounds, only: array_bounds_node, array_slice_node, range_expression_node
     use ast_factory_core, only: push_literal
+    use ast_base, only: LITERAL_INTEGER
+    use uid_generator, only: generate_uid
     implicit none
     private
 
@@ -33,6 +34,7 @@ contains
         end_literal_idx = push_literal(arena, trim(end_str), LITERAL_INTEGER, line, column)
 
         ! Create subscript node with array section range
+        section%uid = generate_uid()
         section%name = array_name
         allocate (section%arg_indices(2))
         section%arg_indices(1) = start_literal_idx
@@ -55,7 +57,10 @@ contains
         integer :: bounds_index
         type(array_bounds_node) :: bounds
         
-        bounds = create_array_bounds(lower_index, upper_index, stride_index)
+        bounds%uid = generate_uid()
+        bounds%lower_bound_index = lower_index
+        bounds%upper_bound_index = upper_index
+        if (present(stride_index)) bounds%stride_index = stride_index
         if (present(line)) bounds%line = line
         if (present(column)) bounds%column = column
         
@@ -73,8 +78,29 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: slice_index
         type(array_slice_node) :: slice
+        integer :: slice_dims, i
         
-        slice = create_array_slice(array_index, bounds_indices, num_dims)
+        slice%uid = generate_uid()
+        slice%array_index = array_index
+
+        if (num_dims < 0) then
+            slice%num_dimensions = 0
+        else
+            slice_dims = size(slice%bounds_indices)
+            slice%num_dimensions = min(num_dims, slice_dims)
+        end if
+
+        do i = 1, slice%num_dimensions
+            if (i <= size(bounds_indices)) then
+                slice%bounds_indices(i) = bounds_indices(i)
+            else
+                slice%bounds_indices(i) = -1
+            end if
+        end do
+
+        if (slice%num_dimensions < size(slice%bounds_indices)) then
+            slice%bounds_indices(slice%num_dimensions+1:) = -1
+        end if
         if (present(line)) slice%line = line
         if (present(column)) slice%column = column
         
@@ -92,7 +118,10 @@ contains
         integer :: range_index
         type(range_expression_node) :: range
         
-        range = create_range_expression(start_index, end_index, stride_index)
+        range%uid = generate_uid()
+        range%start_index = start_index
+        range%end_index = end_index
+        if (present(stride_index)) range%stride_index = stride_index
         if (present(line)) range%line = line
         if (present(column)) range%column = column
         

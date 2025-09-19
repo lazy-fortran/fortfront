@@ -4,7 +4,7 @@ module semantic_inference_helpers
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
                                    create_mono_type, create_type_var, create_poly_type, &
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TCOMPLEX, TDOUBLE, TDERIVED
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_control, only: if_node, do_while_node, where_node, where_stmt_node, &
                                   forall_node, select_case_node, associate_node, &
