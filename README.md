@@ -26,7 +26,11 @@ A small Fortran frontend that lexes, parses, performs light semantic checks, and
   is written to `stdout` first to preserve pipeline behavior.
 
 ## Tracing
-- CLI and library tracing are opt-in via environment variables:
+- Tracing can be enabled via CLI flags or environment variables:
+  - CLI flags (override environment):
+    - `--trace[=on|off]` enable/disable tracing explicitly
+    - `--trace-file <path>` set the trace output file path
+  - Environment variables:
   - `FORTFRONT_TRACE`: enable when set to a truthy value (`1`, `true`, `on`, `yes`);
     falsey values (`0`, `false`, `off`, `no`) disable it.
   - `FORTFRONT_TRACE_FILE`: optional path to write trace messages; traces append to this file.

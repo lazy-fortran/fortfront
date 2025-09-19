@@ -6,6 +6,8 @@ module cli_env
     public :: init_cli_trace
     public :: compute_cli_trace_settings
     public :: is_truthy
+    public :: parse_trace_option
+    public :: parse_trace_flag_value
 
 contains
 
@@ -41,6 +43,48 @@ contains
             trace_file_path = trim(file_env)
         end if
     end subroutine compute_cli_trace_settings
+
+    pure logical function parse_trace_flag_value(s) result(val)
+        character(len=*), intent(in) :: s
+        if (len_trim(s) == 0) then
+            val = .true.
+        else
+            val = is_truthy(s)
+        end if
+    end function parse_trace_flag_value
+
+    pure subroutine parse_trace_option(arg, recognized, is_file, value)
+        character(len=*), intent(in) :: arg
+        logical, intent(out) :: recognized
+        logical, intent(out) :: is_file
+        character(len=:), allocatable, intent(out) :: value
+        integer :: eq
+        recognized = .false.
+        is_file = .false.
+        value = ''
+        if (len_trim(arg) == 0) return
+        if (index(arg, '--trace-file') == 1) then
+            recognized = .true.
+            is_file = .true.
+            eq = index(arg, '=')
+            if (eq > 0 .and. eq < len(arg)) then
+                value = trim(arg(eq+1:))
+            else
+                value = ''
+            end if
+            return
+        end if
+        if (index(arg, '--trace') == 1) then
+            recognized = .true.
+            eq = index(arg, '=')
+            if (eq > 0 .and. eq < len(arg)) then
+                value = trim(arg(eq+1:))
+            else
+                value = ''
+            end if
+            return
+        end if
+    end subroutine parse_trace_option
 
     pure logical function is_truthy(s) result(val)
         character(len=*), intent(in) :: s
