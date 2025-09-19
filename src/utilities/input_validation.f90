@@ -555,8 +555,7 @@ contains
         end do
     end function has_only_meaningless_tokens
 
-    ! Enhanced error formatting with comprehensive Issue #256 requirements
-    ! CRITICAL FIX for Issue #1089: Clean text-only output to prevent ELF corruption
+    ! Enhanced error formatting with bounded source context
     function format_enhanced_error(message, line, column, source_lines, suggestion, error_type) result(formatted)
         character(len=*), intent(in) :: message
         integer, intent(in) :: line, column
@@ -564,47 +563,50 @@ contains
         character(len=*), intent(in) :: suggestion
         character(len=*), intent(in) :: error_type
         character(len=:), allocatable :: formatted
-        
+
         character(len=50) :: location_str
-        character(len=:), allocatable :: clean_source_line
-        integer :: i
-        
-        ! Format with clear line/column information (Issue #256 requirement #2)
+        character(len=:), allocatable :: clean_source_line, display_line
+        integer :: i, clean_len, caret_column, display_len
+        logical :: truncated
+        integer, parameter :: max_context = 120
+
         write(location_str, '("at line ", I0, ", column ", I0)') line, column
-        formatted = "[" // trim(error_type) // "] " // trim(message) // " " // trim(location_str)
-        
-        ! Add source line context with binary corruption prevention (Issue #1089 FIX)
+        formatted = '[' // trim(error_type) // '] ' // trim(message) // ' ' // trim(location_str)
+
         if (line > 0 .and. line <= size(source_lines)) then
-            ! CRITICAL: Clean source line of any non-printable characters to prevent ELF corruption
-            clean_source_line = ""
+            clean_source_line = ''
             do i = 1, len(source_lines(line))
-                ! Only include printable ASCII characters (32-126) plus tab and space
                 if (iachar(source_lines(line)(i:i)) >= 32 .and. iachar(source_lines(line)(i:i)) <= 126) then
                     clean_source_line = clean_source_line // source_lines(line)(i:i)
-                else if (source_lines(line)(i:i) == char(9)) then  ! Tab character
-                    clean_source_line = clean_source_line // "    "  ! Convert tab to spaces
+                else if (source_lines(line)(i:i) == char(9)) then
+                    clean_source_line = clean_source_line // '    '
                 end if
             end do
-            
-            ! Only add source context if we have clean printable content
-            if (len(clean_source_line) > 0) then
-                formatted = formatted // new_line('A') // &
-                           "  Source: " // clean_source_line
-                if (column > 0 .and. column <= len(clean_source_line)) then
+
+            clean_len = len_trim(clean_source_line)
+            if (clean_len > 0) then
+                truncated = clean_len > max_context
+                if (truncated) then
+                    display_line = clean_source_line(1:max_context) // '...'
+                else
+                    display_line = clean_source_line(1:clean_len)
+                end if
+                display_len = len_trim(display_line)
+                formatted = formatted // new_line('A') // '  Source: ' // trim(display_line)
+                caret_column = column
+                if (truncated .and. caret_column > max_context) caret_column = 0
+                if (caret_column > 0 .and. caret_column <= display_len) then
                     formatted = formatted // new_line('A') // &
-                               "  " // repeat(" ", 9 + column - 1) // "^"
+                               '  ' // repeat(' ', 9 + caret_column - 1) // '^'
                 end if
             else
-                ! If source line contains only binary data, omit it and add warning
-                formatted = formatted // new_line('A') // &
-                           "  Source: <contains non-printable characters>"
+                formatted = formatted // new_line('A') // '  Source: <contains non-printable characters>'
             end if
         end if
-        
-        ! Add helpful fix suggestion (Issue #256 requirement #3)
-        formatted = formatted // new_line('A') // &
-                   "  Suggestion: " // suggestion
+
+        formatted = formatted // new_line('A') // '  Suggestion: ' // trim(suggestion)
     end function format_enhanced_error
+
 
     ! Legacy format function for backward compatibility
     function format_syntax_error(message, line, column, source_lines, suggestion) result(formatted)
