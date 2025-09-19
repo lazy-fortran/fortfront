@@ -4,6 +4,7 @@ program fortfront_cli
     use debug_trace, only: trace_init, trace_enter, trace_leave
     use cli_env, only: init_cli_trace
     use cli_io, only: read_all_stdin_or_file
+    use process_exit, only: exit_quiet
     implicit none
     
     character(len=:), allocatable :: input_text, output_text, error_msg
@@ -33,7 +34,7 @@ program fortfront_cli
             allocate(character(len=arg_len) :: arg_str, stat=alloc_stat)
             if (alloc_stat /= 0) then
                 write(error_unit, '(A,I0,A)') 'Memory allocation failed for command argument (stat=', alloc_stat, ')'
-                stop EXIT_FAILURE
+                call exit_quiet(EXIT_FAILURE)
             end if
             call get_command_argument(i, value=arg_str)
 
@@ -47,7 +48,7 @@ program fortfront_cli
                     write(error_unit, '(A,A)') 'Error: Unknown option ', trim(arg_str)
                     write(error_unit, '(A)') ''
                     write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
-                    stop EXIT_FAILURE
+                    call exit_quiet(EXIT_FAILURE)
                 end if
 
                 if (from_file) then
@@ -55,7 +56,7 @@ program fortfront_cli
                     write(error_unit, '(A)') 'fortfront processes one file at a time or reads from stdin.'
                     write(error_unit, '(A)') ''
                     write(error_unit, '(A)') 'Try ''fortfront --help'' for usage information.'
-                    stop EXIT_FAILURE
+                    call exit_quiet(EXIT_FAILURE)
                 end if
 
                 from_file = .true.
@@ -65,7 +66,7 @@ program fortfront_cli
             deallocate(arg_str, stat=alloc_stat)
             if (alloc_stat /= 0) then
                 write(error_unit, '(A,I0,A)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
-                stop EXIT_FAILURE
+                call exit_quiet(EXIT_FAILURE)
             end if
         end do
     end if
@@ -90,7 +91,7 @@ program fortfront_cli
         write(output_unit, '(A)') '    cat input.lf | fortfront  # Transpile from stdin'
         write(output_unit, '(A)') '    echo "x = 5" | fortfront  # Transpile string'
         call trace_leave('cli:main')
-        stop EXIT_SUCCESS
+        call exit_quiet(EXIT_SUCCESS)
     end if
     
     ! Handle version option
@@ -99,7 +100,7 @@ program fortfront_cli
         write(output_unit, '(A)') 'Lazy Fortran to Standard Fortran Transpiler'
         write(output_unit, '(A)') 'https://github.com/lazy-fortran/fortfront'
         call trace_leave('cli:main')
-        stop EXIT_SUCCESS
+        call exit_quiet(EXIT_SUCCESS)
     end if
     
     ! Read input (from file or stdin) using robust chunked reader
@@ -110,6 +111,10 @@ program fortfront_cli
         call read_all_stdin_or_file(.false., text=input_text, status=io_stat)
     end if
     call trace_leave('cli:read_input')
+    if (io_stat /= 0) then
+        call trace_leave('cli:main')
+        call exit_quiet(EXIT_FAILURE)
+    end if
     block
         character(len=64) :: tmp_msg
         write(tmp_msg, '("CLI: read input done (bytes=",I0,")")') merge(len(input_text), 0, allocated(input_text))
@@ -143,7 +148,7 @@ program fortfront_cli
             if (index(error_msg, '[SYNTAX_ERROR]') > 0 .or. &
                 index(error_msg, '[VALIDATION') > 0 .or. &
                 index(error_msg, '[PARSER_') > 0) then
-                stop EXIT_FAILURE
+                call exit_quiet(EXIT_FAILURE)
             end if
             ! Unrecognized input reports are advisory only; continue with success to
             ! match historical CLI behaviour for pipeline fallbacks.
@@ -153,7 +158,7 @@ program fortfront_cli
     ! If no output was generated and no error was reported, treat as failure
     if (.not. allocated(output_text) .or. len(output_text) == 0) then
         write(error_unit, '(A)') 'No output generated'
-        stop EXIT_FAILURE
+        call exit_quiet(EXIT_FAILURE)
     end if
 
     call trace_leave('cli:main')
