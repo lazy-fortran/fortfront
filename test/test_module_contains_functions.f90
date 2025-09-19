@@ -139,6 +139,12 @@ contains
             print *, "FAIL: Subroutine body missing from output"
             error stop 1
         end if
+
+        ! Ensure local variable from mixed declaration is preserved
+        if (index(output_code, 'real(8) :: temp') == 0) then
+            print *, "FAIL: Local variable 'temp' missing from output declaration"
+            error stop 1
+        end if
         
         print *, "[PASS] Module with subroutine"
     end subroutine test_module_with_subroutine
