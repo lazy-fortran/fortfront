@@ -1,10 +1,12 @@
 module parser_parameter_handling_module
     ! Parser module for parameter handling and typed parameter parsing
-    use lexer_core
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_declarations, only: parse_declaration
     use parser_expressions_module, only: parse_comparison
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_factory, only: push_parameter_declaration, push_identifier, push_literal
     use ast_factory
     use ast_types, only: LITERAL_STRING, LITERAL_INTEGER
     use ast_nodes_data, only: declaration_node, parameter_declaration_node, &
