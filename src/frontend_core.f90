@@ -28,11 +28,6 @@ module frontend_core
     use codegen_core, only: generate_code_polymorphic, initialize_codegen
     use codegen_indent, only: set_indent_config, get_indent_config, &
                                set_line_length_config, get_line_length_config
-    use input_validation, only: validate_basic_syntax, check_missing_then_statements, &
-                                check_incomplete_statements, check_for_fortran_content, &
-                                check_missing_end_constructs, contains_invalid_patterns, &
-                                has_only_meaningless_tokens, format_enhanced_error, &
-                                format_syntax_error, split_into_lines
     use path_validation, only: validate_input_path, validate_output_path, path_validation_result_t
     use frontend_parsing, only: parse_tokens, parse_tokens_safe, parse_result_with_index_t
     use frontend_utilities, only: write_output_file, int_to_str
