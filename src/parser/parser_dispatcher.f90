@@ -26,7 +26,8 @@ module parser_dispatcher_module
                                          parse_where_construct, parse_associate
     use parser_forall_module, only: parse_forall
     use ast_arena_modern, only: ast_arena_t
-    use ast_core, only: comment_node, blank_line_node, create_comment, create_blank_line
+    use ast_nodes_misc, only: comment_node, blank_line_node
+    use uid_generator, only: generate_uid
     use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_factory, only: push_assignment, push_identifier, push_literal
     use ast_factory
@@ -360,7 +361,10 @@ contains
         type(comment_node) :: comment
 
         token = parser%consume()
-        comment = create_comment(token%text, token%line, token%column)
+        comment%uid = generate_uid()
+        comment%text = token%text
+        comment%line = token%line
+        comment%column = token%column
         call arena%push(comment, "comment")
         comment_index = arena%size
     end function parse_comment
@@ -384,7 +388,10 @@ contains
         end do
 
         ! Create blank line node with count of consecutive lines
-        blank_line = create_blank_line(count, token%line, token%column)
+        blank_line%uid = generate_uid()
+        blank_line%count = count
+        blank_line%line = token%line
+        blank_line%column = token%column
         call arena%push(blank_line, "blank_line")
         blank_index = arena%size
     end function parse_blank_line

@@ -2,7 +2,9 @@ module standardizer_module
     ! Module-specific transformations module
     ! Handles module node standardization and content processing
     
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node
+    use ast_nodes_data, only: module_node
     implicit none
     private
 

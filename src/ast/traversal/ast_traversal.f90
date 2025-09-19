@@ -1,5 +1,13 @@
 module ast_traversal
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_base, only: ast_node
+    use ast_nodes_core
+    use ast_nodes_procedure
+    use ast_nodes_control
+    use ast_nodes_loops
+    use ast_nodes_io
+    use ast_nodes_data
+    use ast_nodes_misc
     use ast_visitor
     implicit none
     private

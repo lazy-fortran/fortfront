@@ -1,6 +1,14 @@
 module codegen_utilities
     use iso_fortran_env, only: error_unit
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_base, only: ast_node
+    use ast_nodes_core
+    use ast_nodes_data
+    use ast_nodes_procedure
+    use ast_nodes_control
+    use ast_nodes_loops
+    use ast_nodes_io
+    use ast_nodes_misc
     use ast_nodes_data, only: intent_type_to_string, INTENT_NONE
     use type_system_unified
     use string_types, only: string_t

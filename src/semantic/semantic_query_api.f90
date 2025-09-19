@@ -11,7 +11,7 @@ module semantic_query_api
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN, TARRAY
     use identifier_table, only: identifier_table_get
     use fortfront_types, only: symbol_info_t, symbol_reference_t
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node

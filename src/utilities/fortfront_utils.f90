@@ -6,8 +6,10 @@ module fortfront_utils
     ! - Type identification
     ! - Basic traversal operations
     
-    use ast_core, only: ast_arena_t, ast_node, program_node, assignment_node, &
-                       function_def_node, ast_arena_stats_t
+    use ast_arena_modern, only: ast_arena_t, ast_arena_stats_t
+    use ast_base, only: ast_node
+    use ast_nodes_core, only: program_node, assignment_node
+    use ast_nodes_procedure, only: function_def_node
     use semantic_analyzer, only: semantic_context_t
     use type_system_unified, only: mono_type_t
     use fortfront_types, only: source_range_t, diagnostic_t, &

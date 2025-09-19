@@ -1,5 +1,5 @@
 module codegen_arena_interface
-    use ast_core, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     implicit none
     private
 

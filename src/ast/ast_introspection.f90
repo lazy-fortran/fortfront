@@ -2,7 +2,8 @@ module ast_introspection
     ! AST Node Introspection APIs for Static Analysis
     ! Provides comprehensive API for examining AST nodes and their properties
     
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_base, only: ast_node
     use ast_nodes_core
     use ast_nodes_procedure
     use ast_nodes_control

@@ -1,7 +1,11 @@
 module codegen_statements
     use iso_fortran_env, only: error_unit
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core
     use ast_nodes_io
+    use ast_nodes_misc
+    use ast_nodes_procedure
+    use ast_nodes_control
     use type_system_unified
     use string_types, only: string_t
     use codegen_indent

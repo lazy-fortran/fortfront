@@ -10,7 +10,7 @@ module semantic_analyzer
                                    TCOMPLEX, TDOUBLE, TDERIVED, &
                                    type_args_allocated, type_args_size, type_args_element
     use scope_manager
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use semantic_inference_helpers, only: check_implicit_none
     use semantic_validation_utils, only: validate_array_bounds, check_shape_conformance, &
                                           update_identifier_type_in_arena, int_to_str

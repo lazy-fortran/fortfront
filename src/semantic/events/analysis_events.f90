@@ -3,7 +3,7 @@ module semantic_events
     !! Provides event type definitions, data structures, and validation
     use analysis_event_data, only: event_data_base_t
     use semantic_context_types, only: semantic_context_base_t
-    use ast_core, only: ast_arena_t
+    use ast_arena_modern, only: ast_arena_t
     implicit none
     private
     
