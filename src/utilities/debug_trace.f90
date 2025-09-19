@@ -1,5 +1,6 @@
 module debug_trace
     use, intrinsic :: iso_fortran_env, only: error_unit
+    use cli_env, only: is_truthy
     implicit none
     private
 
@@ -14,21 +15,24 @@ module debug_trace
 contains
 
     subroutine trace_init()
-        character(len=8) :: val
+        character(len=64) :: val
         integer :: stat
         if (enabled) return
+        val = ''
         call get_environment_variable('FORTFRONT_TRACE', val, status=stat)
         if (stat == 0) then
-            ! The Windows CRT stack grows conservatively when piping; disable
-            ! tracing there to avoid spurious stack overflows in CI.
-            if (.not. is_windows_platform()) then
+            ! Opt-in: enable only for truthy values; still avoid enabling on
+            ! Windows to prevent CI pipe stack overflows.
+            if (is_truthy(trim(val)) .and. .not. is_windows_platform()) then
                 enabled = .true.
             end if
         end if
-        ! Optional: file logging
-        call get_environment_variable('FORTFRONT_TRACE_FILE', file_name, status=stat)
-        if (stat == 0 .and. len_trim(file_name) > 0) then
-            open(newunit=file_u, file=trim(file_name), status='replace', action='write')
+        ! Optional: file logging (open only if tracing enabled)
+        if (enabled) then
+            call get_environment_variable('FORTFRONT_TRACE_FILE', file_name, status=stat)
+            if (stat == 0 .and. len_trim(file_name) > 0) then
+                open(newunit=file_u, file=trim(file_name), status='replace', action='write')
+            end if
         end if
     end subroutine trace_init
 

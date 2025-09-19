@@ -5,6 +5,7 @@ module cli_env
 
     public :: init_cli_trace
     public :: compute_cli_trace_settings
+    public :: is_truthy
 
 contains
 
@@ -69,4 +70,3 @@ contains
     end function to_lower
 
 end module cli_env
-

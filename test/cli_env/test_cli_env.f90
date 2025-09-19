@@ -30,6 +30,14 @@ program test_cli_env
         write(*, '(A)') 'PASS: false disables trace'
     end if
 
+    call compute_cli_trace_settings('0', '', enabled, path)
+    if (enabled) then
+        write(error_unit, '(A)') 'FAIL: 0 should disable'
+        stop 1
+    else
+        write(*, '(A)') 'PASS: 0 disables trace'
+    end if
+
     call compute_cli_trace_settings('TRUE', '', enabled, path)
     if (.not. enabled) then
         write(error_unit, '(A)') 'FAIL: TRUE should enable (case-insensitive)'
@@ -46,6 +54,13 @@ program test_cli_env
         write(*, '(A)') 'PASS: file override respected when enabled'
     end if
 
+    call compute_cli_trace_settings('no', '', enabled, path)
+    if (enabled) then
+        write(error_unit, '(A)') 'FAIL: no should disable'
+        stop 1
+    else
+        write(*, '(A)') 'PASS: no disables trace'
+    end if
+
     stop 0
 end program test_cli_env
-
