@@ -17,22 +17,37 @@ A small Fortran frontend that lexes, parses, performs light semantic checks, and
   - CLI/tools are demonstrated in tests and examples
   - Library API: see `frontend` module (e.g., `transform_lazy_fortran_string`, `compile_source`)
 
+### Exit Codes
+- Success: `0` when transformation succeeds and output is produced (including
+  empty input, which yields a minimal `program main`).
+- Failure: non‑zero for invalid options (e.g., unknown flags) and for specific
+  syntax forms that are rejected by the parser (e.g., `func ...` shorthand).
+  Diagnostics are written to `stderr`. When any partial output is produced, it
+  is written to `stdout` first to preserve pipeline behavior.
+
 ## Tracing
 - CLI and library tracing are opt-in via environment variables:
   - `FORTFRONT_TRACE`: enable when set to a truthy value (`1`, `true`, `on`, `yes`);
     falsey values (`0`, `false`, `off`, `no`) disable it.
   - `FORTFRONT_TRACE_FILE`: optional path to write trace messages; traces append to this file.
-- On Windows, internal tracing is disabled to avoid stack issues when piping.
+- On Windows, internal tracing is limited/disabled in some paths to avoid
+  stack issues when piping.
+
+Trace markers commonly include:
+- `CLI:start`, `CLI: read input done (...)`, `CLI: transform begin/end` in the
+  trace file, and `phase:*` entries from internal tracing. Use a case‑insensitive
+  search when scanning logs.
 
 Manual checks (POSIX shells):
 
 ```sh
 # No trace file by default
-rm -f cli_trace.txt && echo "x = 1" | fpm run --quiet --target fortfront && test ! -f cli_trace.txt && echo "no trace by default"
+rm -f cli_trace.txt && echo "x = 1" | fpm run --target fortfront && test ! -f cli_trace.txt && echo "no trace by default"
 
 # Enable tracing and write to a specific file (ensure env applies to the fortfront process)
 echo "x = 1" > t.lf
-FORTFRONT_TRACE=1 FORTFRONT_TRACE_FILE=my_log.txt fpm run --quiet --target fortfront -- t.lf && test -f my_log.txt && echo "trace enabled via env"
+FORTFRONT_TRACE=1 FORTFRONT_TRACE_FILE=my_log.txt fpm run --target fortfront -- t.lf && test -f my_log.txt && echo "trace enabled via env"
+rg -in "^(cli:|phase:)" my_log.txt || true
 rm -f t.lf my_log.txt
 ```
 
