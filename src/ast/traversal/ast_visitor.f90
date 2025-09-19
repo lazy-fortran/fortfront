@@ -7,6 +7,7 @@ module ast_visitor
     use ast_nodes_loops
     use ast_nodes_io
     use ast_nodes_data
+    use ast_nodes_misc
     implicit none
     private
 

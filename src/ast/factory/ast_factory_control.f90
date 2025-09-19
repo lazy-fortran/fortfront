@@ -1,6 +1,7 @@
 module ast_factory_control
     use iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
+    use ast_core
     use iso_fortran_env, only: error_unit
     use ast_factory_core, only: validate_arena, validate_node_index
     use ast_nodes_control, only: MAX_INDEX_NAME_LENGTH, if_node, select_case_node, &
