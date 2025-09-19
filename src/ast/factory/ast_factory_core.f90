@@ -1,10 +1,14 @@
 module ast_factory_core
     use ast_arena_modern, only: ast_arena_t
+    use ast_core
     use ast_nodes_core, only: program_node, assignment_node, pointer_assignment_node, &
                               identifier_node, literal_node, binary_op_node, &
                               call_or_subscript_node, array_literal_node, &
-                              component_access_node, range_subscript_node
+                              component_access_node, range_subscript_node, &
+                              create_array_literal, create_component_access, create_range_subscript
     use ast_nodes_misc, only: complex_literal_node
+    use uid_generator, only: generate_uid
+    use ast_base, only: LITERAL_STRING
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use error_handling, only: result_t, success_result, create_error_result, critical_result, &
                               ERROR_VALIDATION, ERROR_MEMORY, ERROR_INTERNAL
@@ -174,7 +178,10 @@ contains
         integer :: id_index
         type(identifier_node) :: id
 
-        id = create_identifier(name, line, column)
+        id%uid = generate_uid()
+        id%name = name
+        if (present(line)) id%line = line
+        if (present(column)) id%column = column
         call arena%push(id, "identifier", parent_index)
         id_index = arena%size
     end function push_identifier
@@ -188,7 +195,11 @@ contains
         integer :: lit_index
         type(literal_node) :: lit
 
-        lit = create_literal(value, kind, line, column)
+        lit%uid = generate_uid()
+        lit%value = value
+        lit%literal_kind = kind
+        if (present(line)) lit%line = line
+        if (present(column)) lit%column = column
         call arena%push(lit, "literal", parent_index)
         lit_index = arena%size
     end function push_literal

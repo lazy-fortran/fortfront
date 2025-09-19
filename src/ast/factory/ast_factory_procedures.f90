@@ -1,6 +1,10 @@
 module ast_factory_procedures
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, interface_block_node
+    use ast_core
+    use uid_generator, only: generate_uid
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
+                                   create_function_def, create_subroutine_def
+    use ast_nodes_misc, only: interface_block_node
     use ast_nodes_data, only: module_node
     implicit none
     private
@@ -56,8 +60,14 @@ contains
         integer :: interface_index
         type(interface_block_node) :: interface_block
 
-        interface_block = create_interface_block(interface_name, "interface", &
-                          procedure_indices=procedure_indices, line=line, column=column)
+        interface_block%uid = generate_uid()
+        if (len_trim(interface_name) > 0) interface_block%name = interface_name
+        interface_block%kind = "interface"
+        if (present(procedure_indices)) then
+            if (size(procedure_indices) > 0) interface_block%procedure_indices = procedure_indices
+        end if
+        interface_block%line = line
+        interface_block%column = column
         call arena%push(interface_block, "interface_block", parent_index)
         interface_index = arena%size
     end function push_interface_block
@@ -72,8 +82,13 @@ contains
         integer :: module_index
         type(module_node) :: mod_node
 
-        mod_node = create_module(name, declaration_indices=body_indices, &
-                                line=line, column=column)
+        mod_node%uid = generate_uid()
+        mod_node%name = name
+        if (present(body_indices)) then
+            if (size(body_indices) > 0) mod_node%declaration_indices = body_indices
+        end if
+        mod_node%line = line
+        mod_node%column = column
 
         call arena%push(mod_node, "module_node", parent_index)
         module_index = arena%size
@@ -91,9 +106,17 @@ contains
         integer :: module_index
         type(module_node) :: mod_node
 
-        mod_node = create_module(name, declaration_indices=declaration_indices, &
-                                procedure_indices=procedure_indices, &
-                                has_contains=has_contains, line=line, column=column)
+        mod_node%uid = generate_uid()
+        mod_node%name = name
+        if (present(declaration_indices)) then
+            if (size(declaration_indices) > 0) mod_node%declaration_indices = declaration_indices
+        end if
+        if (present(procedure_indices)) then
+            if (size(procedure_indices) > 0) mod_node%procedure_indices = procedure_indices
+        end if
+        if (present(has_contains)) mod_node%has_contains = has_contains
+        mod_node%line = line
+        mod_node%column = column
 
         call arena%push(mod_node, "module_node", parent_index)
         module_index = arena%size

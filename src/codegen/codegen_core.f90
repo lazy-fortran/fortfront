@@ -8,12 +8,22 @@ module codegen_core
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_basic_utils, only: add_line_continuations
     use codegen_arena_interface, only: set_arena_generator
-    use ast_nodes_data, only: mixed_construct_container_node
+    use ast_nodes_data, only: mixed_construct_container_node, declaration_node, &
+                               parameter_declaration_node, module_node, derived_type_node
     use ast_nodes_bounds, only: range_expression_node, array_bounds_node, array_slice_node, &
                                 array_operation_node
-    use ast_nodes_core, only: range_subscript_node
+    use ast_nodes_core, only: range_subscript_node, literal_node, identifier_node, &
+                               binary_op_node, call_or_subscript_node, array_literal_node, &
+                               assignment_node, program_node
+    use ast_nodes_procedure
     use ast_nodes_associate, only: associate_node
-    use ast_nodes_misc, only: complex_literal_node
+    use ast_nodes_misc, only: complex_literal_node, comment_node, blank_line_node, &
+                               implicit_statement_node, allocate_statement_node, &
+                               deallocate_statement_node, use_statement_node, &
+                               contains_node, end_statement_node
+    use ast_nodes_control
+    use ast_nodes_loops
+    use ast_nodes_io
     implicit none
     private
 

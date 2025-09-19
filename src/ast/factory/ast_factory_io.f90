@@ -1,5 +1,6 @@
 module ast_factory_io
     use ast_arena_modern, only: ast_arena_t
+    use ast_core
     use ast_nodes_io, only: print_statement_node, write_statement_node, read_statement_node
     implicit none
     private

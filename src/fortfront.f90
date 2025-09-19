@@ -48,6 +48,7 @@ module fortfront
                               call_or_subscript_node, pointer_assignment_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    subroutine_call_node, is_procedure_node, &
+                                   create_function_def, create_subroutine_def, &
                                    get_procedure_name, get_procedure_params, &
                                    get_procedure_body, procedure_has_return_type, &
                                    get_procedure_return_type
@@ -64,7 +65,7 @@ module fortfront
                               allocate_statement_node, deallocate_statement_node, &
                               comment_node, contains_node, implicit_statement_node, &
                               interface_block_node, complex_literal_node
-    use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
+    use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, &
                          LITERAL_LOGICAL, LITERAL_ARRAY, LITERAL_COMPLEX
     
     ! Re-export AST node data utilities  

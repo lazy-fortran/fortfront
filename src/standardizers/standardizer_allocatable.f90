@@ -3,6 +3,11 @@ module standardizer_allocatable
     ! Handles array reassignment detection and string length change tracking
     
     use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core
+    use ast_nodes_loops
+    use ast_nodes_control
+    use ast_nodes_data
+    use ast_nodes_procedure
     use type_system_unified
     use standardizer_types
     implicit none
