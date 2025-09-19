@@ -304,6 +304,7 @@ contains
         type(compilation_options_t) :: options
         integer :: unit, iostat, i
         integer :: paren_group
+        integer :: chunk_size, remaining
 
         print *, "Testing extreme parentheses nesting (depth =", depth, ')'
         test_extreme_parentheses_depth = .true.
@@ -316,24 +317,34 @@ contains
         write(unit, '(a)') '    real :: value'
         write(unit, '(a)', advance='no') '    value = '
         paren_group = 0
-        do i = 1, depth
-            write(unit, '(a)', advance='no') '('
-            paren_group = paren_group + 1
-            if (mod(paren_group, 64) == 0) then
+        i = 1
+        do while (i <= depth)
+            remaining = depth - i + 1
+            chunk_size = merge(64, remaining, remaining >= 64)
+            if (chunk_size > remaining) chunk_size = remaining
+            write(unit, '(a)', advance='no') repeat('(', chunk_size)
+            paren_group = paren_group + chunk_size
+            if (paren_group >= 64 .and. i + chunk_size <= depth) then
                 write(unit, '(a)') '&'
                 write(unit, '(a)', advance='no') '    & '
                 paren_group = 0
             end if
+            i = i + chunk_size
         end do
         write(unit, '(a)', advance='no') '1.0'
         paren_group = 0
-        do i = 1, depth
+        i = 1
+        do while (i <= depth)
+            remaining = depth - i + 1
+            chunk_size = merge(64, remaining, remaining >= 64)
+            if (chunk_size > remaining) chunk_size = remaining
             if (paren_group == 0 .and. i > 1 .and. i < depth) then
                 write(unit, '(a)') '&'
                 write(unit, '(a)', advance='no') '    & '
             end if
-            write(unit, '(a)', advance='no') ')'
-            paren_group = mod(paren_group + 1, 64)
+            write(unit, '(a)', advance='no') repeat(')', chunk_size)
+            paren_group = mod(paren_group + chunk_size, 64)
+            i = i + chunk_size
         end do
         write(unit, '(a)') ''
         write(unit, '(a)') '    print *, value'
