@@ -1,7 +1,11 @@
 module constant_transformation
     ! Module for compile-time constant folding and evaluation
-    use ast_core
-    use ast_arena_modern
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
+                               assignment_node, call_or_subscript_node
+    use ast_nodes_control, only: if_node
+    use ast_nodes_data, only: declaration_node
+    use ast_nodes_core
     implicit none
     private
     

@@ -11,7 +11,7 @@ module standardizer_declarations_core
     use ast_nodes_loops
     use ast_nodes_control
     use ast_base, only: LITERAL_INTEGER
-    use ast_core, only: create_literal
+    use uid_generator, only: generate_uid
     use ast_factory
     use type_system_unified
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
@@ -485,7 +485,11 @@ contains
                 do i = 1, ndims
                     if (dimensions(i) > 0) then
                         write(size_str, '(i0)') dimensions(i)
-                        size_literal = create_literal(trim(size_str), LITERAL_INTEGER, 1, 1)
+                        size_literal%uid = generate_uid()
+                        size_literal%value = trim(size_str)
+                        size_literal%literal_kind = LITERAL_INTEGER
+                        size_literal%line = 1
+                        size_literal%column = 1
                         call arena%push(size_literal, "literal", prog_index)
                         decl_node%dimension_indices(i) = arena%size
                     else

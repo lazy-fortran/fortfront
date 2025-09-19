@@ -5,7 +5,7 @@ module semantic_function_analysis
                                    create_mono_type, create_type_var, &
                                    create_poly_type, create_fun_type, &
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node
     use ast_nodes_procedure, only: function_def_node
     use scope_manager, only: scope_stack_t
