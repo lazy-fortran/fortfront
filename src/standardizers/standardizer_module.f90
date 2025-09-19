@@ -2,7 +2,7 @@ module standardizer_module
     ! Module-specific transformations module
     ! Handles module node standardization and content processing
     
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     implicit none
     private
 

@@ -1,5 +1,7 @@
 module ast_factory_procedures
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_procedure, only: function_def_node, subroutine_def_node, interface_block_node
+    use ast_nodes_data, only: module_node
     implicit none
     private
 

@@ -2,7 +2,9 @@ module standardizer_types
     ! Type inference and utilities module
     ! Handles type analysis, expression type detection, and type string generation
     
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core
+    use ast_nodes_loops
     use type_system_unified
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use error_handling, only: result_t, success_result, create_error_result, ERROR_TYPE_SYSTEM

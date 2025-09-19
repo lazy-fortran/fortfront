@@ -1,6 +1,7 @@
 ! @slow-path
 module variable_usage_tracker_module
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core
     use ast_arena_modern
     use variable_usage_core_module
     use variable_usage_dispatcher_module

@@ -2,7 +2,7 @@ module standardizer_allocatable
     ! Allocatable marking logic module
     ! Handles array reassignment detection and string length change tracking
     
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use type_system_unified
     use standardizer_types
     implicit none

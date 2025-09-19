@@ -2,7 +2,7 @@ module standardizer_program
     ! Program-specific transformations module
     ! Handles program node standardization, contains insertion, and analysis
     
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
     use ast_factory
     use type_system_unified
     use error_handling

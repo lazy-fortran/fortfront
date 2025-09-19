@@ -1,5 +1,10 @@
 module ast_factory_core
-    use ast_core
+    use ast_arena_modern, only: ast_arena_t
+    use ast_nodes_core, only: program_node, assignment_node, pointer_assignment_node, &
+                              identifier_node, literal_node, binary_op_node, &
+                              call_or_subscript_node, array_literal_node, &
+                              component_access_node, range_subscript_node
+    use ast_nodes_misc, only: complex_literal_node
     use ast_nodes_data, only: INTENT_NONE, INTENT_IN, INTENT_OUT, INTENT_INOUT
     use error_handling, only: result_t, success_result, create_error_result, critical_result, &
                               ERROR_VALIDATION, ERROR_MEMORY, ERROR_INTERNAL
