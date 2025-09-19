@@ -112,7 +112,7 @@ contains
             return
         end if
         if (need > capacity) then
-            do while (capacity < need .and. capacity <= MAX_INPUT_SIZE)
+            do while (capacity < need .and. capacity < MAX_INPUT_SIZE)
                 capacity = min(capacity * 2, MAX_INPUT_SIZE)
             end do
             if (capacity < need) then
@@ -141,9 +141,14 @@ contains
             return
         end if
         if (need > capacity) then
-            do while (capacity < need .and. capacity <= MAX_INPUT_SIZE)
+            do while (capacity < need .and. capacity < MAX_INPUT_SIZE)
                 capacity = min(capacity * 2, MAX_INPUT_SIZE)
             end do
+            if (capacity < need) then
+                write(error_unit, '(A)') 'Input too large'
+                status = 4
+                return
+            end if
             allocate(character(len=capacity) :: tmp)
             if (total_size > 0) tmp(1:total_size) = text(1:total_size)
             call move_alloc(tmp, text)
