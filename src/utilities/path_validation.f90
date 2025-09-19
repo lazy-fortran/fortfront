@@ -202,8 +202,10 @@ contains
         logical :: has_invalid
         integer :: i
         character(len=1) :: c
-        
+        logical :: windows_like
+
         has_invalid = .false.
+        windows_like = is_likely_windows_path(path)
         
         do i = 1, len(path)
             c = path(i:i)
@@ -222,7 +224,7 @@ contains
             
             ! Check for dangerous characters that could be used in attacks
             select case (c)
-            case ('|', '&', ';', '`', '$', '(', ')', '{', '}', '[', ']', '*', '?')
+            case ('|', '&', ';', '`', '$', '(', ')', '{', '}', '[', ']')
                 ! These could be used for command injection
                 has_invalid = .true.
                 return
@@ -230,9 +232,44 @@ contains
                 ! These could be used for redirection attacks
                 has_invalid = .true.
                 return
+            case ('*', '?')
+                ! On Windows, these are invalid path characters. On POSIX they are valid
+                ! filename characters; allow them to avoid false positives.
+                if (windows_like) then
+                    has_invalid = .true.
+                    return
+                end if
             end select
         end do
     end function contains_invalid_characters
+
+    ! Heuristic check for Windows-style paths (drive letter, backslashes, UNC)
+    pure logical function is_likely_windows_path(path) result(is_win)
+        character(len=*), intent(in) :: path
+        integer :: n
+        is_win = .false.
+        n = len(path)
+        if (n >= 2) then
+            if (path(1:2) == '\\' .or. path(1:2) == '//') then
+                is_win = .true.
+                return
+            end if
+        end if
+        if (n >= 3) then
+            if (path(2:2) == ':' .and. (path(3:3) == '\\' .or. path(3:3) == '/')) then
+                if ((path(1:1) >= 'A' .and. path(1:1) <= 'Z') .or. &
+                    (path(1:1) >= 'a' .and. path(1:1) <= 'z')) then
+                    is_win = .true.
+                    return
+                end if
+            end if
+        end if
+        ! If the path contains backslashes anywhere, treat it as Windows-like
+        if (index(path, '\\') > 0) then
+            is_win = .true.
+            return
+        end if
+    end function is_likely_windows_path
     
     ! Check for suspicious file extensions
     function has_suspicious_extension(path) result(is_suspicious)
