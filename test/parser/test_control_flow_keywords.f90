@@ -93,7 +93,20 @@ contains
         
         ! Transform the source
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
+        if (.not. allocated(error_msg)) then
+            allocate(character(len=0) :: error_msg)
+        end if
+
+        if (.not. allocated(output)) then
+            print *, '    FAIL: Transformation returned no output'
+            if (len_trim(error_msg) > 0) then
+                print *, '    Error: ', trim(error_msg)
+            end if
+            all_passed = .false.
+            return
+        end if
+
         ! Check if the keyword appears in output (means it was recognized)
         ! Even if not fully parsed, the keyword should appear
         keyword_recognized = .false.
