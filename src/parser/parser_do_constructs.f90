@@ -18,12 +18,114 @@ module parser_do_constructs_module
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_loops, only: do_loop_node
     use ast_factory, only: push_do_loop, push_do_while, push_identifier, push_literal, push_assignment
+    use parser_if_constructs_module, only: parse_if, register_parse_do_loop
     implicit none
     private
+
+    logical, save :: if_hooks_initialized = .false.
 
     public :: parse_do_loop, parse_do_while, parse_do_while_from_do
 
 contains
+
+    subroutine initialize_if_hooks()
+        if (.not. if_hooks_initialized) then
+            call register_parse_do_loop(parse_do_loop)
+            if_hooks_initialized = .true.
+        end if
+    end subroutine initialize_if_hooks
+
+    logical function has_then_before_newline(tokens, start_pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer :: idx
+
+        has_then_before_newline = .false.
+        do idx = start_pos + 1, size(tokens)
+            select case (tokens(idx)%kind)
+            case (TK_KEYWORD)
+                if (tokens(idx)%text == "then") then
+                    has_then_before_newline = .true.
+                    return
+                else if (tokens(idx)%text == "endif" .or. tokens(idx)%text == "end") then
+                    return
+                end if
+            case (TK_NEWLINE, TK_EOF)
+                return
+            end select
+        end do
+    end function has_then_before_newline
+
+    logical function is_else_if_context(tokens, pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: pos
+        integer :: idx
+
+        is_else_if_context = .false.
+        idx = pos - 1
+        do while (idx >= 1)
+            select case (tokens(idx)%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                idx = idx - 1
+                cycle
+            case (TK_KEYWORD)
+                if (tokens(idx)%text == "else") then
+                    is_else_if_context = .true.
+                end if
+                return
+            case default
+                return
+            end select
+        end do
+    end function is_else_if_context
+
+    integer function find_matching_end_if(tokens, start_pos)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_pos
+        integer :: depth, idx
+
+        find_matching_end_if = -1
+        if (.not. has_then_before_newline(tokens, start_pos)) return
+
+        depth = 1
+        idx = start_pos + 1
+        do while (idx <= size(tokens))
+            select case (tokens(idx)%kind)
+            case (TK_KEYWORD)
+                select case (tokens(idx)%text)
+                case ("if")
+                    if (.not. is_else_if_context(tokens, idx)) then
+                        if (has_then_before_newline(tokens, idx)) depth = depth + 1
+                    end if
+                case ("endif")
+                    depth = depth - 1
+                    if (depth == 0) then
+                        find_matching_end_if = idx
+                        return
+                    end if
+                case ("end")
+                    if (idx + 1 <= size(tokens)) then
+                        if (tokens(idx + 1)%kind == TK_KEYWORD) then
+                            if (tokens(idx + 1)%text == "if") then
+                                depth = depth - 1
+                                if (depth == 0) then
+                                    find_matching_end_if = idx + 1
+                                    return
+                                end if
+                            end if
+                        end if
+                    end if
+                case ("elseif")
+                    cycle
+                case ("else")
+                    cycle
+                end select
+            case (TK_EOF)
+                exit
+            end select
+            idx = idx + 1
+        end do
+    end function find_matching_end_if
 
     ! Local implementation to avoid circular dependency
     function parse_basic_stmt_local(tokens, arena, parent_index) result(stmt_indices)
@@ -34,6 +136,8 @@ contains
         type(parser_state_t) :: parser
         type(token_t) :: first_token
         integer :: stmt_index
+
+        if (.not. if_hooks_initialized) call initialize_if_hooks()
 
         parser = create_parser_state(tokens)
         first_token = parser%peek()
@@ -74,6 +178,8 @@ contains
         ! Handle different statement types (excluding control flow to avoid circular deps)
         if (first_token%kind == TK_KEYWORD) then
             select case (first_token%text)
+            case ("if")
+                stmt_index = parse_if(parser, arena, parent_index)
             case ("print")
                 stmt_index = parse_print_statement(parser, arena)
             case ("write")
@@ -396,24 +502,40 @@ contains
 
                 stmt_end = stmt_start
 
-                ! Find end of current statement (same line or semicolon boundary)
-                do j = stmt_start, size(parser%tokens)
-                    if (parser%tokens(j)%kind == TK_EOF) then
-                        stmt_end = j
-                        exit
+                block
+                    integer :: block_end
+                    logical :: handled_block
+
+                    handled_block = .false.
+                    if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
+                        if (parser%tokens(stmt_start)%text == "if") then
+                            block_end = find_matching_end_if(parser%tokens, stmt_start)
+                            if (block_end > stmt_start) then
+                                stmt_end = block_end
+                                handled_block = .true.
+                            end if
+                        end if
                     end if
-   if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
-                        stmt_end = j - 1
-                        exit
+
+                    if (.not. handled_block) then
+                        do j = stmt_start, size(parser%tokens)
+                            if (parser%tokens(j)%kind == TK_EOF) then
+                                stmt_end = j
+                                exit
+                            end if
+                            if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
+                                stmt_end = j - 1
+                                exit
+                            end if
+                            if (j > stmt_start .and. parser%tokens(j)%kind == TK_OPERATOR .and. &
+                                parser%tokens(j)%text == ";") then
+                                stmt_end = j - 1
+                                exit
+                            end if
+                            stmt_end = j
+                        end do
                     end if
-                    ! Check for semicolon as statement separator
-                    if (j > stmt_start .and. parser%tokens(j)%kind == TK_OPERATOR .and. &
-                        parser%tokens(j)%text == ";") then
-                        stmt_end = j - 1
-                        exit
-                    end if
-                    stmt_end = j
-                end do
+                end block
 
                 ! Extract statement tokens
                 if (stmt_end >= stmt_start) then
