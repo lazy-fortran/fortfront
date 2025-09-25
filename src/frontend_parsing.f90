@@ -11,6 +11,7 @@ module frontend_parsing
     use ast_factory, only: push_program
     use iso_fortran_env, only: error_unit
     use frontend_utilities, only: int_to_str
+    use parser_do_constructs_module, only: ensure_if_do_registration
     use mixed_construct_detector, only: detect_mixed_constructs, mixed_construct_result_t
     use error_handling, only: result_t
 
@@ -83,6 +84,8 @@ contains
 
         error_msg = ""
         prog_index = 0
+
+        call ensure_if_do_registration()
 
         call get_environment_variable('FORTFRONT_DEBUG_DUMP_AST', debug_flag, status=debug_status)
         debug_units = (debug_status == 0 .and. len_trim(debug_flag) > 0)

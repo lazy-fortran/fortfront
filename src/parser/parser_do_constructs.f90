@@ -25,6 +25,7 @@ module parser_do_constructs_module
     logical, save :: if_hooks_initialized = .false.
 
     public :: parse_do_loop, parse_do_while, parse_do_while_from_do
+    public :: ensure_if_do_registration
 
 contains
 
@@ -34,6 +35,10 @@ contains
             if_hooks_initialized = .true.
         end if
     end subroutine initialize_if_hooks
+
+    subroutine ensure_if_do_registration()
+        call initialize_if_hooks()
+    end subroutine ensure_if_do_registration
 
     logical function has_then_before_newline(tokens, start_pos)
         type(token_t), intent(in) :: tokens(:)
@@ -356,6 +361,8 @@ contains
         integer :: start_index, end_index, step_index
         integer :: line, column
 
+        call initialize_if_hooks()
+
         step_index = 0  ! Initialize to 0 (no step)
         loop_index = 0  ! Initialize to 0 (failure) in case of early return
 
@@ -630,6 +637,8 @@ contains
         type(token_t) :: do_token
         integer :: line, column
 
+        call initialize_if_hooks()
+
         ! Consume 'do'
         do_token = parser%consume()
         line = do_token%line
@@ -648,6 +657,8 @@ contains
         type(token_t) :: while_token, lparen_token, rparen_token
         integer :: condition_index
         integer, allocatable :: body_indices(:)
+
+        call initialize_if_hooks()
 
         ! Consume 'while'
         while_token = parser%consume()
