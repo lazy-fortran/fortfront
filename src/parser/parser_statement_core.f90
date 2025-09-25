@@ -2,7 +2,7 @@ module parser_statement_core_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
                           TK_NEWLINE, to_lower
     use ast_types, only: LITERAL_STRING
-    use parser_state_module
+    use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_expression
     use parser_io_statements_module, only: parse_print_statement, &
                                            parse_write_statement, parse_read_statement

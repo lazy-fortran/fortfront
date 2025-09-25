@@ -1,7 +1,7 @@
 module parser_basic_statement_module
     ! Parser module for basic statement parsing and utilities
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD
-    use parser_state_module
+    use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
     use parser_statement_core_module, only: parse_basic_statement_core, &
                                             statement_callbacks_t, &
@@ -68,68 +68,68 @@ contains
                 safety_counter = safety_counter + 1
                 token = parser%peek()
 
-            ! Check for end keywords
-            found_end = .false.
-            if (token%kind == TK_KEYWORD) then
-                do j = 1, size(end_keywords)
-                    if (token%text == trim(end_keywords(j))) then
-                        found_end = .true.
-                        exit
-                    end if
-                end do
-                if (found_end) exit
-            end if
-
-            ! Parse statement until end of line
-            stmt_start = parser%current_token
-            stmt_end = stmt_start
-
-            ! Find end of current statement (same line)
-            do j = stmt_start, size(parser%tokens)
-                if (parser%tokens(j)%kind == TK_EOF) then
-                    stmt_end = j
-                    exit
-                end if
-                if (j > stmt_start .and. parser%tokens(j)%line > &
-                        parser%tokens(stmt_start)%line) then
-                    stmt_end = j - 1
-                    exit
-                end if
-                stmt_end = j
-            end do
-
-            ! Extract and parse statement tokens
-            if (stmt_end >= stmt_start) then
-                allocate (stmt_tokens(stmt_end - stmt_start + 2))
-                stmt_tokens(1:stmt_end - stmt_start + 1) = &
-                    parser%tokens(stmt_start:stmt_end)
-                stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
-                stmt_tokens(stmt_end - stmt_start + 2)%text = ""
-                stmt_tokens(stmt_end - stmt_start + 2)%line = &
-                    parser%tokens(stmt_end)%line
-                stmt_tokens(stmt_end - stmt_start + 2)%column = &
-                    parser%tokens(stmt_end)%column + 1
-
-                ! Parse statement; multi-variable declarations may expand results
-                block
-                    integer, allocatable :: stmt_indices(:)
-                    integer :: k
-                    stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, &
-                                                             callbacks=local_callbacks)
-
-                    ! Add all parsed statements to body
-                    do k = 1, size(stmt_indices)
-                        if (stmt_indices(k) > 0) then
-                            body_indices = [body_indices, stmt_indices(k)]
-                            stmt_count = stmt_count + 1
+                ! Check for end keywords
+                found_end = .false.
+                if (token%kind == TK_KEYWORD) then
+                    do j = 1, size(end_keywords)
+                        if (token%text == trim(end_keywords(j))) then
+                            found_end = .true.
+                            exit
                         end if
                     end do
-                end block
+                    if (found_end) exit
+                end if
 
-                deallocate (stmt_tokens)
-            end if
+                ! Parse statement until end of line
+                stmt_start = parser%current_token
+                stmt_end = stmt_start
 
-            parser%current_token = stmt_end + 1
+                ! Find end of current statement (same line)
+                do j = stmt_start, size(parser%tokens)
+                    if (parser%tokens(j)%kind == TK_EOF) then
+                        stmt_end = j
+                        exit
+                    end if
+                    if (j > stmt_start .and. parser%tokens(j)%line > &
+                            parser%tokens(stmt_start)%line) then
+                        stmt_end = j - 1
+                        exit
+                    end if
+                    stmt_end = j
+                end do
+
+                ! Extract and parse statement tokens
+                if (stmt_end >= stmt_start) then
+                    allocate (stmt_tokens(stmt_end - stmt_start + 2))
+                    stmt_tokens(1:stmt_end - stmt_start + 1) = &
+                        parser%tokens(stmt_start:stmt_end)
+                    stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
+                    stmt_tokens(stmt_end - stmt_start + 2)%text = ""
+                    stmt_tokens(stmt_end - stmt_start + 2)%line = &
+                        parser%tokens(stmt_end)%line
+                    stmt_tokens(stmt_end - stmt_start + 2)%column = &
+                        parser%tokens(stmt_end)%column + 1
+
+                    ! Parse statement; multi-variable declarations may expand results
+                    block
+                        integer, allocatable :: stmt_indices(:)
+                        integer :: k
+                        stmt_indices = parse_basic_statement_multi( &
+                            stmt_tokens, arena, callbacks=local_callbacks)
+
+                        ! Add all parsed statements to body
+                        do k = 1, size(stmt_indices)
+                            if (stmt_indices(k) > 0) then
+                                body_indices = [body_indices, stmt_indices(k)]
+                                stmt_count = stmt_count + 1
+                            end if
+                        end do
+                    end block
+
+                    deallocate (stmt_tokens)
+                end if
+
+                parser%current_token = stmt_end + 1
             end do
         end block
     end function parse_statement_body
