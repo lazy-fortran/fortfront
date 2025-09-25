@@ -14,6 +14,8 @@ module parser_select_constructs_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
     use parser_basic_statement_module, only: parse_statement_body
+    use parser_statement_core_module, only: statement_callbacks_t, &
+        null_statement_callbacks
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_select_case, push_select_case_with_default, &
                             push_case_block, push_case_default, &
@@ -35,6 +37,7 @@ contains
         integer, allocatable :: case_indices(:)
         integer :: case_count, line, column
         character(len=20), dimension(2) :: end_keywords
+        type(statement_callbacks_t) :: callbacks
 
         ! Consume 'select'
         select_token = parser%consume()
@@ -79,6 +82,9 @@ contains
         ! Define end keywords for statement parsing
         end_keywords = [character(len=20) :: "case", "end"]
 
+        callbacks = null_statement_callbacks()
+        callbacks%parse_select_case => parse_select_case
+
         do while (parser%current_token <= size(parser%tokens))
             case_token = parser%peek()
 
@@ -113,7 +119,8 @@ contains
                             end block
                             
                             ! Parse default case body using parse_statement_body
-                            body_indices = parse_statement_body(parser, arena, end_keywords)
+                            body_indices = parse_statement_body(parser, arena, &
+                                end_keywords, callbacks)
                             
                             ! Store default case index
                             default_index = push_case_default(arena, body_indices, &
@@ -179,7 +186,8 @@ contains
                             end block
                             
                             ! Parse case body statements using parse_statement_body
-                            body_indices = parse_statement_body(parser, arena, end_keywords)
+                            body_indices = parse_statement_body(parser, arena, &
+                                end_keywords, callbacks)
 
                             ! Create case block node and add to list
                             if (size(value_indices) > 0) then

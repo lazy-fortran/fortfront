@@ -16,25 +16,33 @@ module parser_basic_statement_module
 contains
 
     ! Parse basic statement with support for multi-variable declarations
-    function parse_basic_statement_multi(tokens, arena, parent_index) &
+    function parse_basic_statement_multi(tokens, arena, parent_index, callbacks) &
             result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
+        type(statement_callbacks_t), intent(in), optional :: callbacks
         integer, allocatable :: stmt_indices(:)
-        type(statement_callbacks_t) :: callbacks
+        type(statement_callbacks_t) :: local_callbacks
 
-        callbacks = null_statement_callbacks()
+        if (present(callbacks)) then
+            local_callbacks = callbacks
+        else
+            local_callbacks = null_statement_callbacks()
+        end if
+
         stmt_indices = parse_basic_statement_core(tokens, arena, parent_index, &
-                                                 callbacks)
+                                                 local_callbacks)
     end function parse_basic_statement_multi
 
     ! Unified function for parsing statement bodies (used by if blocks, &
     ! do while loops, etc.)
-    function parse_statement_body(parser, arena, end_keywords) result(body_indices)
+    function parse_statement_body(parser, arena, end_keywords, callbacks) &
+            result(body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: end_keywords(:)
+        type(statement_callbacks_t), intent(in), optional :: callbacks
         integer, allocatable :: body_indices(:)
 
         type(token_t) :: token
@@ -42,9 +50,16 @@ contains
         integer :: stmt_start, stmt_end, j
         type(token_t), allocatable, target :: stmt_tokens(:)
         logical :: found_end
+        type(statement_callbacks_t) :: local_callbacks
 
         allocate (body_indices(0))
         stmt_count = 0
+
+        if (present(callbacks)) then
+            local_callbacks = callbacks
+        else
+            local_callbacks = null_statement_callbacks()
+        end if
 
         block
             integer :: safety_counter
@@ -99,7 +114,8 @@ contains
                 block
                     integer, allocatable :: stmt_indices(:)
                     integer :: k
-                    stmt_indices = parse_basic_statement_multi(stmt_tokens, arena)
+                    stmt_indices = parse_basic_statement_multi(stmt_tokens, arena, &
+                                                             callbacks=local_callbacks)
 
                     ! Add all parsed statements to body
                     do k = 1, size(stmt_indices)
