@@ -13,7 +13,6 @@ module parser_if_constructs_module
                                                 parse_return_statement, parse_stop_statement, &
                                                 parse_goto_statement, parse_error_stop_statement
     use parser_call_module, only: parse_call_statement
-    use parser_do_constructs_module, only: parse_do_loop
     use parser_declarations, only: parse_declaration, parse_multi_declaration
     use parser_utils, only: analyze_declaration_structure
     use ast_arena_modern, only: ast_arena_t
@@ -23,8 +22,36 @@ module parser_if_constructs_module
     private
 
     public :: parse_if, parse_if_condition, parse_if_body, parse_elseif_block
+    public :: register_parse_do_loop
+
+    abstract interface
+        function parse_do_loop_interface(parser, arena) result(loop_index)
+            import :: parser_state_t, ast_arena_t
+            type(parser_state_t), intent(inout) :: parser
+            type(ast_arena_t), intent(inout) :: arena
+            integer :: loop_index
+        end function parse_do_loop_interface
+    end interface
+
+    procedure(parse_do_loop_interface), pointer :: parse_do_loop_proc => null()
+
+    interface
+        subroutine ensure_if_do_registration_bridge()
+        end subroutine ensure_if_do_registration_bridge
+    end interface
 
 contains
+
+    subroutine ensure_do_parser_ready()
+        if (.not. associated(parse_do_loop_proc)) then
+            call ensure_if_do_registration_bridge()
+        end if
+    end subroutine ensure_do_parser_ready
+
+    subroutine register_parse_do_loop(proc)
+        procedure(parse_do_loop_interface) :: proc
+        parse_do_loop_proc => proc
+    end subroutine register_parse_do_loop
 
     ! Local implementation to avoid circular dependency
     function parse_basic_stmt_local(tokens, arena, parent_index) result(stmt_indices)
@@ -99,8 +126,13 @@ contains
                 ! Handle nested if statements
                 stmt_index = parse_if(parser, arena, parent_index)
             case ("do")
-                ! Handle nested do loops
-                stmt_index = parse_do_loop(parser, arena)
+                ! Handle nested do loops when registration provided
+                call ensure_do_parser_ready()
+                if (associated(parse_do_loop_proc)) then
+                    stmt_index = parse_do_loop_proc(parser, arena)
+                else
+                    stmt_index = 0
+                end if
             case default
                 ! Unknown or control flow keyword - create placeholder
                 stmt_index = 0
