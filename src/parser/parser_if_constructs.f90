@@ -35,7 +35,18 @@ module parser_if_constructs_module
 
     procedure(parse_do_loop_interface), pointer :: parse_do_loop_proc => null()
 
+    interface
+        subroutine ensure_if_do_registration_bridge()
+        end subroutine ensure_if_do_registration_bridge
+    end interface
+
 contains
+
+    subroutine ensure_do_parser_ready()
+        if (.not. associated(parse_do_loop_proc)) then
+            call ensure_if_do_registration_bridge()
+        end if
+    end subroutine ensure_do_parser_ready
 
     subroutine register_parse_do_loop(proc)
         procedure(parse_do_loop_interface) :: proc
@@ -116,6 +127,7 @@ contains
                 stmt_index = parse_if(parser, arena, parent_index)
             case ("do")
                 ! Handle nested do loops when registration provided
+                call ensure_do_parser_ready()
                 if (associated(parse_do_loop_proc)) then
                     stmt_index = parse_do_loop_proc(parser, arena)
                 else
