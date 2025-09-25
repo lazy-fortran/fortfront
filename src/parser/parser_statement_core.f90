@@ -40,12 +40,16 @@ module parser_statement_core_module
 
     type :: statement_callbacks_t
         procedure(parse_with_parent_interface), pointer, nopass :: parse_if => null()
-        procedure(parse_without_parent_interface), pointer, nopass :: parse_do_loop => null()
+        procedure(parse_without_parent_interface), pointer, nopass :: &
+            parse_do_loop => null()
         procedure(parse_without_parent_interface), pointer, nopass :: &
             parse_select_case => null()
-        procedure(parse_without_parent_interface), pointer, nopass :: parse_where => null()
-        procedure(parse_without_parent_interface), pointer, nopass :: parse_forall => null()
-        procedure(parse_without_parent_interface), pointer, nopass :: parse_associate => null()
+        procedure(parse_without_parent_interface), pointer, nopass :: &
+            parse_where => null()
+        procedure(parse_without_parent_interface), pointer, nopass :: &
+            parse_forall => null()
+        procedure(parse_without_parent_interface), pointer, nopass :: &
+            parse_associate => null()
     end type statement_callbacks_t
 
 contains
