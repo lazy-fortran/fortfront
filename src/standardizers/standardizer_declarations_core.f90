@@ -66,15 +66,20 @@ contains
 
         ! Find insertion point (after use statements, before executable statements)
         implicit_insert_pos = find_declaration_insertion_point(arena, prog)
-        if (implicit_insert_pos == 0) implicit_insert_pos = 1  ! Default to beginning if no use statements
+        ! Default to beginning when no use statements are present
+        if (implicit_insert_pos == 0) then
+            implicit_insert_pos = 1
+        end if
         header_insert_pos = find_declaration_header_end(arena, prog)
-        if (header_insert_pos < implicit_insert_pos) header_insert_pos = implicit_insert_pos
+        if (header_insert_pos < implicit_insert_pos) then
+            header_insert_pos = implicit_insert_pos
+        end if
 
         ! Check if implicit none already exists
         if (.not. has_implicit_none(arena, prog)) then
             ! Create implicit none statement node
             implicit_none_index = push_implicit_statement(arena, .true., &
-                                                         line=1, column=1, parent_index=prog_index)
+                line=1, column=1, parent_index=prog_index)
         else
             implicit_none_index = 0  ! Don't add duplicate
         end if
