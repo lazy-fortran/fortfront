@@ -1,24 +1,19 @@
 module parser_do_constructs_module
     ! Parser module for DO constructs (do loops, do while)
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, &
-                          to_lower
-    use ast_types, only: LITERAL_STRING
+    use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
+                          TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use parser_state_module
-    use parser_expressions_module, only: parse_logical_or, parse_range, parse_expression
-    use parser_io_statements_module, only: parse_print_statement, parse_write_statement, &
-                                           parse_read_statement
-    use parser_control_statements_module, only: parse_cycle_statement, parse_exit_statement, &
-                                                parse_return_statement, parse_stop_statement, &
-                                                parse_goto_statement, parse_error_stop_statement
-    use parser_call_module, only: parse_call_statement
-    use parser_declarations, only: parse_declaration, parse_multi_declaration
-    use parser_utils, only: analyze_declaration_structure
+    use parser_expressions_module, only: parse_logical_or, parse_range
     use ast_arena_modern, only: ast_arena_t
-    use ast_nodes_loops, only: do_loop_node
-    use ast_factory, only: push_do_loop, push_do_while, push_identifier, push_literal, push_assignment
+    use ast_nodes_loops, only: do_loop_node, do_while_node
+    use ast_factory, only: push_do_loop, push_do_while
     use parser_if_constructs_module, only: parse_if, register_parse_do_loop
+    use parser_select_constructs_module, only: parse_select_case
+    use parser_array_constructs_module, only: parse_where_construct, parse_associate
+    use parser_forall_module, only: parse_forall
+    use parser_statement_core_module, only: parse_basic_statement_core, &
+                                            statement_callbacks_t, null_statement_callbacks
     implicit none
     private
 
@@ -132,224 +127,17 @@ contains
         end do
     end function find_matching_end_if
 
-    ! Local implementation to avoid circular dependency
-    function parse_basic_stmt_local(tokens, arena, parent_index) result(stmt_indices)
-        type(token_t), intent(in) :: tokens(:)
-        type(ast_arena_t), intent(inout) :: arena
-        integer, intent(in), optional :: parent_index
-        integer, allocatable :: stmt_indices(:)
-        type(parser_state_t) :: parser
-        type(token_t) :: first_token
-        integer :: stmt_index
+    function build_do_body_callbacks() result(callbacks)
+        type(statement_callbacks_t) :: callbacks
 
-        if (.not. if_hooks_initialized) call initialize_if_hooks()
-
-        parser = create_parser_state(tokens)
-        first_token = parser%peek()
-
-        ! Check if this is a declaration that might have multiple variables
-        if (first_token%kind == TK_KEYWORD) then
-            if (first_token%text == "real" .or. first_token%text == "integer" .or. &
-                first_token%text == "logical" .or. first_token%text == "character") then
-                ! Check if this is a single declaration with initializer
-                ! If so, use parse_declaration for proper initializer handling
-                block
-                    logical :: has_initializer, has_comma
-                    
-                    ! Look ahead to check for = (initializer) and comma (multi-var)
-                    has_initializer = .false.
-                    has_comma = .false.
-                    
-                    call analyze_declaration_structure(parser, has_initializer, has_comma)
-                    
-                    if (has_initializer .and. .not. has_comma) then
-                        ! Single variable with initializer - use parse_declaration
-                        if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
-                        stmt_indices(1) = parse_declaration(parser, arena)
-                        return
-                    else
-                        ! Multi-variable declaration - use parse_multi_declaration
-                        stmt_indices = parse_multi_declaration(parser, arena)
-                        return
-                    end if
-                end block
-            end if
-        end if
-
-        ! For all other statements, parse as single statement
-        if (.not. allocated(stmt_indices)) allocate (stmt_indices(1))
-        stmt_index = 0
-
-        ! Handle different statement types (excluding control flow to avoid circular deps)
-        if (first_token%kind == TK_KEYWORD) then
-            select case (first_token%text)
-            case ("if")
-                stmt_index = parse_if(parser, arena, parent_index)
-            case ("print")
-                stmt_index = parse_print_statement(parser, arena)
-            case ("write")
-                stmt_index = parse_write_statement(parser, arena)
-            case ("read")
-                stmt_index = parse_read_statement(parser, arena)
-            case ("cycle")
-                stmt_index = parse_cycle_statement(parser, arena)
-            case ("exit")
-                stmt_index = parse_exit_statement(parser, arena)
-            case ("return")
-                stmt_index = parse_return_statement(parser, arena, parent_index)
-            case ("call")
-                stmt_index = parse_call_statement(parser, arena)
-            case ("stop")
-                stmt_index = parse_stop_statement(parser, arena)
-            case ("go")
-                stmt_index = parse_goto_statement(parser, arena)
-            case ("error")
-                stmt_index = parse_error_stop_statement(parser, arena)
-            case default
-                ! Unknown or control flow keyword - create placeholder
-                stmt_index = 0
-            end select
-        else if (first_token%kind == TK_IDENTIFIER) then
-            block
-                integer :: eq_pos, pos, lhs_size, rhs_size
-                integer :: paren_depth, bracket_depth
-                integer :: target_index, value_index
-                type(token_t), allocatable, target :: lhs_tokens(:)
-                type(token_t), allocatable, target :: rhs_tokens(:)
-                type(parser_state_t) :: lhs_parser
-
-                eq_pos = 0
-                paren_depth = 0
-                bracket_depth = 0
-                do pos = 2, size(tokens)
-                    select case (tokens(pos)%kind)
-                    case (TK_OPERATOR)
-                        select case (tokens(pos)%text)
-                        case ("(")
-                            paren_depth = paren_depth + 1
-                        case (")")
-                            if (paren_depth > 0) paren_depth = paren_depth - 1
-                        case ("[")
-                            bracket_depth = bracket_depth + 1
-                        case ("]")
-                            if (bracket_depth > 0) bracket_depth = bracket_depth - 1
-                        case ("=")
-                            if (paren_depth == 0 .and. bracket_depth == 0) then
-                                eq_pos = pos
-                                exit
-                            end if
-                        end select
-                    case (TK_NEWLINE, TK_EOF)
-                        exit
-                    end select
-                end do
-
-                if (eq_pos > 0) then
-                    lhs_size = eq_pos - 1
-                    rhs_size = size(tokens) - eq_pos
-                    target_index = 0
-                    value_index = 0
-
-                    if (lhs_size > 0) then
-                        allocate (lhs_tokens(lhs_size + 1))
-                        lhs_tokens(1:lhs_size) = tokens(1:eq_pos - 1)
-                        lhs_tokens(lhs_size + 1)%kind = TK_EOF
-                        lhs_tokens(lhs_size + 1)%text = ""
-                        lhs_tokens(lhs_size + 1)%line = tokens(eq_pos)%line
-                        lhs_tokens(lhs_size + 1)%column = tokens(eq_pos)%column
-                        lhs_parser = create_parser_state(lhs_tokens)
-                        target_index = parse_range(lhs_parser, arena)
-                        deallocate (lhs_tokens)
-                    end if
-
-                    if (rhs_size > 0) then
-                        allocate (rhs_tokens(rhs_size))
-                        rhs_tokens = tokens(eq_pos + 1:)
-                        value_index = parse_expression(rhs_tokens, arena)
-                        deallocate (rhs_tokens)
-                    end if
-
-                    if (target_index > 0 .and. value_index > 0) then
-                        stmt_index = push_assignment(arena, target_index, value_index, &
-                                                     first_token%line, first_token%column, &
-                                                     parent_index)
-                    end if
-                end if
-            end block
-        end if
-
-        ! If we couldn't parse it, check for non-meaningful (blank/comment) lines first
-        if (stmt_index == 0) then
-            block
-                integer :: kk
-                logical :: has_meaningful
-                has_meaningful = .false.
-                do kk = 1, size(tokens)
-                    select case (tokens(kk)%kind)
-                    case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
-                        cycle
-                    case default
-                        if (len_trim(tokens(kk)%text) > 0) then
-                            has_meaningful = .true.
-                            exit
-                        end if
-                    end select
-                end do
-                if (.not. has_meaningful) then
-                    stmt_indices(1) = 0
-                    return
-                end if
-            end block
-            ! Otherwise, create a placeholder with debug info
-            block
-                logical :: is_terminator
-                character(len=:), allocatable :: lowered
-                character(len=256) :: debug_msg
-                character(len=64) :: token_text
-                integer :: debug_len, i
-
-                is_terminator = .false.
-                if (first_token%kind == TK_KEYWORD) then
-                    lowered = to_lower(first_token%text)
-                    select case (lowered)
-                    case ("end")
-                        if (size(tokens) >= 2) then
-                            select case (to_lower(tokens(2)%text))
-                            case ("do", "while")
-                                is_terminator = .true.
-                            end select
-                        else
-                            is_terminator = .true.
-                        end if
-                    case ("enddo", "endwhile")
-                        is_terminator = .true.
-                    end select
-                end if
-
-                if (.not. is_terminator) then
-                    debug_msg = "! Unparsed: "
-                    debug_len = len_trim(debug_msg)
-
-                    ! Add first few tokens for debugging
-                    do i = 1, min(3, size(tokens))
-                        if (tokens(i)%kind == TK_EOF) exit
-                        if (len_trim(tokens(i)%text) > 0) then
-                            token_text = trim(tokens(i)%text)
-                            if (debug_len + len_trim(token_text) + 1 < 250) then
-                                debug_msg = debug_msg(1:debug_len)//" "//trim(token_text)
-                                debug_len = len_trim(debug_msg)
-                            end if
-                        end if
-                    end do
-
-                    stmt_index = push_literal(arena, trim(debug_msg), LITERAL_STRING, &
-                                              first_token%line, first_token%column)
-                end if
-            end block
-        end if
-
-        stmt_indices(1) = stmt_index
-    end function parse_basic_stmt_local
+        callbacks = null_statement_callbacks()
+        callbacks%parse_if => parse_if
+        callbacks%parse_do_loop => parse_do_loop
+        callbacks%parse_select_case => parse_select_case
+        callbacks%parse_where => parse_where_construct
+        callbacks%parse_forall => parse_forall
+        callbacks%parse_associate => parse_associate
+    end function build_do_body_callbacks
 
     function parse_do_loop(parser, arena) result(loop_index)
         type(parser_state_t), intent(inout) :: parser
@@ -436,12 +224,12 @@ contains
         ! Parse body statements until 'end do'
         block
             integer, allocatable :: body_indices(:)
-            integer :: stmt_index
-            integer :: body_count, stmt_start, stmt_end, j
+            integer :: stmt_start, stmt_end, j
             type(token_t), allocatable, target :: stmt_tokens(:)
+            type(statement_callbacks_t) :: callbacks
 
             allocate (body_indices(0))
-            body_count = 0
+            callbacks = build_do_body_callbacks()
 
             ! Create do loop node placeholder first to get the parent index
             if (step_index > 0) then
@@ -587,13 +375,13 @@ contains
                             deallocate(stmt_tokens)
                             cycle
                         end if
-                        stmt_indices = parse_basic_stmt_local(stmt_tokens, arena, loop_index)
+                        stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
+                                                                loop_index, callbacks)
 
                         ! Add all parsed statements to body
                         do k = 1, size(stmt_indices)
                             if (stmt_indices(k) > 0) then
                                 body_indices = [body_indices, stmt_indices(k)]
-                                body_count = body_count + 1
                             end if
                         end do
                     end block
@@ -657,6 +445,7 @@ contains
         type(token_t) :: while_token, lparen_token, rparen_token
         integer :: condition_index
         integer, allocatable :: body_indices(:)
+        type(statement_callbacks_t) :: callbacks
 
         call initialize_if_hooks()
 
@@ -681,16 +470,19 @@ contains
             return
         end if
 
+        callbacks = build_do_body_callbacks()
+
+        loop_index = push_do_while(arena, condition_index, body_indices=[integer::], &
+                                   line=line, column=column)
+
         ! Parse body statements until 'end' (same logic as if blocks)
         block
             integer, allocatable :: temp_body_indices(:)
             type(token_t) :: token
-            integer :: stmt_count, stmt_index
             integer :: stmt_start, stmt_end, j
             type(token_t), allocatable, target :: stmt_tokens(:)
 
             allocate (temp_body_indices(0))
-            stmt_count = 0
 
             do while (.not. parser%is_at_end())
                 token = parser%peek()
@@ -756,13 +548,13 @@ contains
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: n
-                        stmt_indices = parse_basic_stmt_local(stmt_tokens, arena)
+                        stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
+                            loop_index, callbacks)
 
                         ! Add all parsed statements to body
                         do n = 1, size(stmt_indices)
                             if (stmt_indices(n) > 0) then
                                 temp_body_indices = [temp_body_indices, stmt_indices(n)]
-                                stmt_count = stmt_count + 1
                             end if
                         end do
                     end block
@@ -789,9 +581,16 @@ contains
             end if
         end block
 
-        ! Create do while node
-        loop_index = push_do_while(arena, condition_index, body_indices=body_indices, &
-                                   line=line, column=column)
+        if (loop_index > 0) then
+            if (allocated(arena%entries(loop_index)%node)) then
+                select type(node => arena%entries(loop_index)%node)
+                type is (do_while_node)
+                    if (allocated(body_indices)) then
+                        node%body_indices = body_indices
+                    end if
+                end select
+            end if
+        end if
 
         if (allocated(body_indices)) deallocate (body_indices)
     end function parse_do_while_from_do
