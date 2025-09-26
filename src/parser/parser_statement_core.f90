@@ -1,6 +1,6 @@
 module parser_statement_core_module
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_OPERATOR, TK_KEYWORD, &
-                          TK_NEWLINE, to_lower
+                          TK_NEWLINE, TK_COMMENT, TK_WHITESPACE, to_lower
     use ast_types, only: LITERAL_STRING
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_expressions_module, only: parse_expression
@@ -18,7 +18,7 @@ module parser_statement_core_module
     private
 
     public :: statement_callbacks_t, parse_basic_statement_core, &
-              null_statement_callbacks
+              null_statement_callbacks, find_statement_end
 
     abstract interface
         function parse_with_parent_interface(parser, arena, parent_index) &
@@ -58,12 +58,374 @@ contains
         type(statement_callbacks_t) :: callbacks
     end function null_statement_callbacks
 
-    function parse_basic_statement_core(tokens, arena, parent_index, callbacks) &
-            result(stmt_indices)
+    logical function is_block_if(tokens, start_index) result(is_block)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+        integer :: i
+
+        is_block = .false.
+        do i = start_index + 1, size(tokens)
+            select case (tokens(i)%kind)
+            case (TK_KEYWORD)
+                if (tokens(i)%text == "then") then
+                    is_block = .true.
+                    return
+                else
+                    return
+                end if
+            case (TK_OPERATOR)
+                if (tokens(i)%text == ";") return
+            case (TK_NEWLINE, TK_EOF)
+                return
+            case (TK_COMMENT, TK_WHITESPACE)
+                cycle
+            case default
+                cycle
+            end select
+        end do
+    end function is_block_if
+
+    pure logical function at_top_level(if_depth, select_depth, do_depth, &
+            where_depth, assoc_depth, forall_depth) result(is_top_level)
+        integer, intent(in) :: if_depth, select_depth, do_depth
+        integer, intent(in) :: where_depth, assoc_depth, forall_depth
+
+        is_top_level = (if_depth == 0 .and. select_depth == 0 .and. &
+            do_depth == 0 .and. where_depth == 0 .and. &
+            assoc_depth == 0 .and. forall_depth == 0)
+    end function at_top_level
+
+    integer function find_statement_end(tokens, start_index) result(end_index)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+
+        integer :: idx
+        integer :: if_depth, select_depth, do_depth, where_depth, assoc_depth
+        integer :: forall_depth
+        logical :: first_processed, block_if
+        character(len=16) :: first_keyword
+        type(token_t) :: token, next_token
+
+        end_index = start_index
+        if (start_index > size(tokens)) return
+
+        if_depth = 0
+        select_depth = 0
+        do_depth = 0
+        where_depth = 0
+        assoc_depth = 0
+        forall_depth = 0
+        first_processed = .false.
+        block_if = .false.
+        first_keyword = ""
+
+        idx = start_index
+        do while (idx <= size(tokens))
+            token = tokens(idx)
+
+            select case (token%kind)
+            case (TK_EOF)
+                end_index = idx - 1
+                exit
+            case (TK_NEWLINE)
+                        if (at_top_level( &
+                            if_depth, select_depth, do_depth, where_depth, &
+                            assoc_depth, forall_depth)) then
+                    end_index = idx - 1
+                    exit
+                end if
+            case (TK_OPERATOR)
+                if (token%text == ";") then
+                        if (at_top_level( &
+                            if_depth, select_depth, do_depth, where_depth, &
+                            assoc_depth, forall_depth)) then
+                        end_index = idx - 1
+                        exit
+                    end if
+                end if
+            case (TK_COMMENT, TK_WHITESPACE)
+                ! Ignore spacing tokens
+            case (TK_KEYWORD)
+                select case (token%text)
+                case ("if")
+                    if (.not. first_processed) then
+                        first_processed = .true.
+                        block_if = is_block_if(tokens, idx)
+                        if (block_if) if_depth = if_depth + 1
+                        first_keyword = "if"
+                    else
+                        if (is_block_if(tokens, idx)) then
+                            if_depth = if_depth + 1
+                        end if
+                    end if
+                case ("select")
+                    if (.not. first_processed) then
+                        first_processed = .true.
+                        first_keyword = "select"
+                    end if
+                    select_depth = select_depth + 1
+                case ("do")
+                    if (.not. first_processed) then
+                        first_processed = .true.
+                        first_keyword = "do"
+                    end if
+                    do_depth = do_depth + 1
+                case ("where")
+                    if (.not. first_processed) then
+                        first_processed = .true.
+                        first_keyword = "where"
+                    end if
+                    where_depth = where_depth + 1
+                case ("forall")
+                    if (.not. first_processed) then
+                        first_processed = .true.
+                        first_keyword = "forall"
+                    end if
+                    forall_depth = forall_depth + 1
+                case ("associate")
+                    if (.not. first_processed) then
+                        first_processed = .true.
+                        first_keyword = "associate"
+                    end if
+                    assoc_depth = assoc_depth + 1
+               case ("else")
+                   if (block_if) then
+                       if (idx + 1 <= size(tokens)) then
+                           if (tokens(idx + 1)%kind == TK_KEYWORD .and. &
+                               tokens(idx + 1)%text == "if") then
+                               if (if_depth == 1) then
+                                   end_index = idx - 1
+                                   exit
+                               end if
+                           else
+                               if (if_depth == 1) then
+                                   end_index = idx - 1
+                                   exit
+                               end if
+                           end if
+                       else
+                           if (if_depth == 1) then
+                               end_index = idx - 1
+                               exit
+                           end if
+                       end if
+                    else if (at_top_level( &
+                             if_depth, select_depth, do_depth, where_depth, &
+                             assoc_depth, forall_depth)) then
+                        end_index = idx - 1
+                        exit
+                    end if
+                case ("elseif", "else if")
+                    if (block_if .and. if_depth == 1) then
+                        end_index = idx - 1
+                        exit
+                    else if (at_top_level( &
+                             if_depth, select_depth, do_depth, where_depth, &
+                             assoc_depth, forall_depth)) then
+                        end_index = idx - 1
+                        exit
+                    end if
+                case ("endif")
+                    if (if_depth > 0) then
+                        if_depth = if_depth - 1
+                        if (if_depth == 0 .and. block_if) then
+                            end_index = idx
+                            exit
+                        end if
+                    else
+                        end_index = idx - 1
+                        exit
+                    end if
+                case ("endselect")
+                    if (select_depth > 0) then
+                        select_depth = select_depth - 1
+                        if (select_depth == 0 .and. first_keyword == "select") then
+                            end_index = idx
+                            exit
+                        end if
+                    else
+                        end_index = idx - 1
+                        exit
+                    end if
+                case ("enddo")
+                    if (do_depth > 0) then
+                        do_depth = do_depth - 1
+                        if (do_depth == 0 .and. first_keyword == "do") then
+                            end_index = idx
+                            exit
+                        end if
+                    else
+                        end_index = idx - 1
+                        exit
+                    end if
+                case ("endwhere")
+                    if (where_depth > 0) then
+                        where_depth = where_depth - 1
+                        if (where_depth == 0 .and. first_keyword == "where") then
+                            end_index = idx
+                            exit
+                        end if
+                    else
+                        end_index = idx - 1
+                        exit
+                    end if
+                case ("endforall")
+                    if (forall_depth > 0) then
+                        forall_depth = forall_depth - 1
+                        if (forall_depth == 0 .and. first_keyword == "forall") then
+                            end_index = idx
+                            exit
+                        end if
+                    else
+                        end_index = idx - 1
+                        exit
+                    end if
+                case ("endassociate")
+                    if (assoc_depth > 0) then
+                        assoc_depth = assoc_depth - 1
+                        if (assoc_depth == 0 .and. first_keyword == "associate") then
+                            end_index = idx
+                            exit
+                        end if
+                    else
+                        end_index = idx - 1
+                        exit
+                    end if
+                case ("end")
+                    if (idx + 1 <= size(tokens)) then
+                        if (tokens(idx + 1)%kind == TK_KEYWORD) then
+                            next_token = tokens(idx + 1)
+                            select case (next_token%text)
+                            case ("if")
+                                if (if_depth > 0) then
+                                    if_depth = if_depth - 1
+                                    if (if_depth == 0 .and. block_if) then
+                                        end_index = idx + 1
+                                        exit
+                                    end if
+                                else
+                                    end_index = idx - 1
+                                    exit
+                                end if
+                                idx = idx + 1
+                                cycle
+                            case ("select")
+                                if (select_depth > 0) then
+                                    select_depth = select_depth - 1
+                                    if (select_depth == 0 .and. &
+                                        first_keyword == "select") then
+                                        end_index = idx + 1
+                                        exit
+                                    end if
+                                else
+                                    end_index = idx - 1
+                                    exit
+                                end if
+                                idx = idx + 1
+                                cycle
+                            case ("do")
+                                if (do_depth > 0) then
+                                    do_depth = do_depth - 1
+                                    if (do_depth == 0 .and. first_keyword == "do") then
+                                        end_index = idx + 1
+                                        exit
+                                    end if
+                                else
+                                    end_index = idx - 1
+                                    exit
+                                end if
+                                idx = idx + 1
+                                cycle
+                            case ("associate")
+                                if (assoc_depth > 0) then
+                                    assoc_depth = assoc_depth - 1
+                                    if (assoc_depth == 0 .and. &
+                                        first_keyword == "associate") then
+                                        end_index = idx + 1
+                                        exit
+                                    end if
+                                else
+                                    end_index = idx - 1
+                                    exit
+                                end if
+                                idx = idx + 1
+                                cycle
+                            case ("where")
+                                if (where_depth > 0) then
+                                    where_depth = where_depth - 1
+                                    if (where_depth == 0 .and. &
+                                        first_keyword == "where") then
+                                        end_index = idx + 1
+                                        exit
+                                    end if
+                                else
+                                    end_index = idx - 1
+                                    exit
+                                end if
+                                idx = idx + 1
+                                cycle
+                            case ("forall")
+                                if (forall_depth > 0) then
+                                    forall_depth = forall_depth - 1
+                                    if (forall_depth == 0 .and. &
+                                        first_keyword == "forall") then
+                                        end_index = idx + 1
+                                        exit
+                                    end if
+                                else
+                                    end_index = idx - 1
+                                    exit
+                                end if
+                                idx = idx + 1
+                                cycle
+                            case default
+                                if (at_top_level( &
+                                    if_depth, select_depth, do_depth, where_depth, &
+                                    assoc_depth, forall_depth)) then
+                                    end_index = idx - 1
+                                    exit
+                                end if
+                            end select
+                        else
+                            if (at_top_level( &
+                                if_depth, select_depth, do_depth, where_depth, &
+                                assoc_depth, forall_depth)) then
+                                end_index = idx - 1
+                                exit
+                            end if
+                        end if
+                    else
+                        if (at_top_level( &
+                            if_depth, select_depth, do_depth, where_depth, &
+                            assoc_depth, forall_depth)) then
+                            end_index = idx - 1
+                            exit
+                        end if
+                    end if
+                case default
+                    if (.not. first_processed) then
+                        first_processed = .true.
+                        first_keyword = to_lower(token%text)
+                    end if
+                end select
+            case default
+                if (.not. first_processed) then
+                    first_processed = .true.
+                end if
+            end select
+
+            end_index = idx
+            idx = idx + 1
+        end do
+    end function find_statement_end
+
+    function parse_basic_statement_core(tokens, arena, parent_index, callbacks, &
+                                        consumed_count) result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
         type(statement_callbacks_t), intent(in), optional :: callbacks
+        integer, intent(out), optional :: consumed_count
         integer, allocatable :: stmt_indices(:)
         type(parser_state_t) :: parser
         type(token_t) :: first_token
@@ -81,7 +443,12 @@ contains
         first_token = parser%peek()
 
         handled = try_handle_declaration(parser, arena, first_token, stmt_indices)
-        if (handled) return
+        if (handled) then
+            if (present(consumed_count)) then
+                consumed_count = parser%current_token - 1
+            end if
+            return
+        end if
 
         stmt_index = 0
         select case (first_token%kind)
@@ -100,6 +467,10 @@ contains
             allocate (stmt_indices(1))
         end if
         stmt_indices(1) = stmt_index
+
+        if (present(consumed_count)) then
+            consumed_count = parser%current_token - 1
+        end if
     end function parse_basic_statement_core
 
     logical function try_handle_declaration(parser, arena, first_token, stmt_indices) &
