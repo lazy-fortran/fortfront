@@ -58,13 +58,16 @@ contains
         integer, allocatable :: new_body_indices(:)
         integer :: implicit_none_index
         integer, allocatable :: declaration_indices(:)
-        integer :: i, j, insert_pos, n_declarations
+        integer :: i, j, implicit_insert_pos, header_insert_pos
+        integer :: n_declarations, total_extra
 
         if (.not. allocated(prog%body_indices)) return
 
         ! Find insertion point (after use statements, before executable statements)
-        insert_pos = find_declaration_insertion_point(arena, prog)
-        if (insert_pos == 0) insert_pos = 1  ! Default to beginning if no use statements
+        implicit_insert_pos = find_declaration_insertion_point(arena, prog)
+        if (implicit_insert_pos == 0) implicit_insert_pos = 1  ! Default to beginning if no use statements
+        header_insert_pos = find_declaration_header_end(arena, prog)
+        if (header_insert_pos < implicit_insert_pos) header_insert_pos = implicit_insert_pos
 
         ! Check if implicit none already exists
         if (.not. has_implicit_none(arena, prog)) then
@@ -75,30 +78,24 @@ contains
             implicit_none_index = 0  ! Don't add duplicate
         end if
 
-        ! Check if program already has variable declarations (is already standardized)
-        if (program_has_variable_declarations(arena, prog)) then
-            ! Program already standardized, don't add more declarations
-            allocate(declaration_indices(0))
-        else
-            ! Collect and generate variable declarations
-            call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
-        end if
+        ! Collect and generate variable declarations for any missing variables
+        call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
         n_declarations = 0
         if (allocated(declaration_indices)) n_declarations = size(declaration_indices)
 
         ! Create new body indices with optional implicit none and declarations
-        if (implicit_none_index > 0) then
-            allocate (new_body_indices(size(prog%body_indices) + 1 + n_declarations))
-        else
-            allocate (new_body_indices(size(prog%body_indices) + n_declarations))
-        end if
+        total_extra = n_declarations
+        if (implicit_none_index > 0) total_extra = total_extra + 1
+        allocate (new_body_indices(size(prog%body_indices) + total_extra))
 
         ! Copy use statements
         j = 1
-        do i = 1, insert_pos - 1
-            new_body_indices(j) = prog%body_indices(i)
-            j = j + 1
-        end do
+        if (implicit_insert_pos > 1) then
+            do i = 1, implicit_insert_pos - 1
+                new_body_indices(j) = prog%body_indices(i)
+                j = j + 1
+            end do
+        end if
 
         ! Insert implicit none if we created one
         if (implicit_none_index > 0) then
@@ -106,17 +103,27 @@ contains
             j = j + 1
         end if
 
-        ! Insert declarations
+        ! Copy existing header statements (implicit none, declarations, comments) that should stay before new declarations
+        if (header_insert_pos > implicit_insert_pos) then
+            do i = implicit_insert_pos, header_insert_pos - 1
+                new_body_indices(j) = prog%body_indices(i)
+                j = j + 1
+            end do
+        end if
+
+        ! Insert newly generated declarations, if any
         do i = 1, n_declarations
             new_body_indices(j) = declaration_indices(i)
             j = j + 1
         end do
 
         ! Copy remaining statements
-        do i = insert_pos, size(prog%body_indices)
-            new_body_indices(j) = prog%body_indices(i)
-            j = j + 1
-        end do
+        if (header_insert_pos <= size(prog%body_indices)) then
+            do i = header_insert_pos, size(prog%body_indices)
+                new_body_indices(j) = prog%body_indices(i)
+                j = j + 1
+            end do
+        end if
 
         ! Update program body
         prog%body_indices = new_body_indices
@@ -210,6 +217,40 @@ contains
         end do
 
     end function find_declaration_insertion_point
+
+    ! Find the position after existing declaration header statements
+    function find_declaration_header_end(arena, prog) result(pos)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        integer :: pos
+        integer :: i
+
+        pos = 1
+        if (.not. allocated(prog%body_indices)) return
+
+        do i = 1, size(prog%body_indices)
+            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                    select type (stmt => arena%entries(prog%body_indices(i))%node)
+                    type is (use_statement_node)
+                        pos = i + 1
+                    type is (implicit_statement_node)
+                        pos = i + 1
+                    type is (declaration_node)
+                        pos = i + 1
+                    type is (parameter_declaration_node)
+                        pos = i + 1
+                    type is (comment_node)
+                        pos = i + 1
+                    type is (blank_line_node)
+                        pos = i + 1
+                    class default
+                        exit
+                    end select
+                end if
+            end if
+        end do
+    end function find_declaration_header_end
 
     ! Standardize existing declarations (e.g., real -> real(8))
     subroutine standardize_declarations(arena, prog)
