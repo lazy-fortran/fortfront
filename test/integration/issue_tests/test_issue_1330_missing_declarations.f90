@@ -60,11 +60,14 @@ contains
             if (real_decl_pos > 0) then
                 existing_decl_line = 'real(8) :: x, y'
             else
-                real_decl_pos = index(output, 'real :: x, y')
-                existing_decl_line = 'real :: x, y'
+                print *, 'FAIL: missing explicit real(kind=8) declaration for x,y'
+                print *, 'Output:'
+                print *, trim(output)
+                error stop 1
             end if
         end if
-        call assert_contains(output, existing_decl_line, 'missing real decl for x,y')
+        call assert_contains(output, existing_decl_line, &
+            'missing explicit real declaration for x,y')
 
         has_real_kind = index(output, 'real :: pi_estimate') > 0
         if (.not. has_real_kind) then
