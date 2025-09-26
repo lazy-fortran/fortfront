@@ -12,6 +12,12 @@ contains
 
     subroutine test_missing_variable_declarations()
         logical :: has_real_kind
+        integer :: real_decl_pos
+        integer :: pos_n
+        integer :: pos_count
+        integer :: pos_i
+        integer :: first_new_pos
+        integer :: output_len
 
         input = 'real(kind=8) :: x, y' // new_line('a') // &
                 'n = 1000000' // new_line('a') // &
@@ -38,12 +44,32 @@ contains
         call assert_contains(output, 'integer :: count', 'missing integer declaration for count')
         call assert_contains(output, 'integer :: i', 'missing integer declaration for i')
 
+        real_decl_pos = index(output, 'real(kind=8) :: x, y')
+        if (real_decl_pos == 0) real_decl_pos = index(output, 'real(8) :: x, y')
+        if (real_decl_pos == 0) real_decl_pos = index(output, 'real :: x, y')
+
         has_real_kind = index(output, 'real :: pi_estimate') > 0
         if (.not. has_real_kind) then
             has_real_kind = index(output, 'real(8) :: pi_estimate') > 0
         end if
         if (.not. has_real_kind) then
             print *, 'FAIL: missing real declaration for pi_estimate'
+            print *, 'Output:'
+            print *, trim(output)
+            error stop 1
+        end if
+
+        output_len = len(output)
+        first_new_pos = output_len + 1
+        pos_n = index(output, 'integer :: n')
+        if (pos_n > 0 .and. pos_n < first_new_pos) first_new_pos = pos_n
+        pos_count = index(output, 'integer :: count')
+        if (pos_count > 0 .and. pos_count < first_new_pos) first_new_pos = pos_count
+        pos_i = index(output, 'integer :: i')
+        if (pos_i > 0 .and. pos_i < first_new_pos) first_new_pos = pos_i
+
+        if (real_decl_pos > 0 .and. first_new_pos <= real_decl_pos) then
+            print *, 'FAIL: inferred declarations inserted before existing declarations'
             print *, 'Output:'
             print *, trim(output)
             error stop 1

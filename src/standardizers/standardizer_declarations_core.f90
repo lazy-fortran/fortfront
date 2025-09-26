@@ -60,6 +60,7 @@ contains
         integer, allocatable :: declaration_indices(:)
         integer :: i, j, implicit_insert_pos, header_insert_pos
         integer :: n_declarations, total_extra
+        integer :: header_copy_end, separator_start
 
         if (.not. allocated(prog%body_indices)) return
 
@@ -103,9 +104,22 @@ contains
             j = j + 1
         end if
 
-        ! Copy existing header statements (implicit none, declarations, comments) that should stay before new declarations
-        if (header_insert_pos > implicit_insert_pos) then
-            do i = implicit_insert_pos, header_insert_pos - 1
+        ! Determine header statements to retain before new declarations
+        header_copy_end = header_insert_pos - 1
+        if (header_copy_end >= implicit_insert_pos) then
+            do while (header_copy_end >= implicit_insert_pos)
+                if (.not. is_header_separator(header_copy_end)) exit
+                header_copy_end = header_copy_end - 1
+            end do
+        else
+            header_copy_end = implicit_insert_pos - 1
+        end if
+        separator_start = header_copy_end + 1
+        if (separator_start < implicit_insert_pos) separator_start = implicit_insert_pos
+
+        ! Copy retained header statements (uses are already handled)
+        if (header_copy_end >= implicit_insert_pos) then
+            do i = implicit_insert_pos, header_copy_end
                 new_body_indices(j) = prog%body_indices(i)
                 j = j + 1
             end do
@@ -116,6 +130,14 @@ contains
             new_body_indices(j) = declaration_indices(i)
             j = j + 1
         end do
+
+        ! Reinsert trailing separators (comments/blank lines) between header and body
+        if (separator_start <= header_insert_pos - 1) then
+            do i = separator_start, header_insert_pos - 1
+                new_body_indices(j) = prog%body_indices(i)
+                j = j + 1
+            end do
+        end if
 
         ! Copy remaining statements
         if (header_insert_pos <= size(prog%body_indices)) then
@@ -130,6 +152,30 @@ contains
 
         ! Update the arena entry
         arena%entries(prog_index)%node = prog
+
+    contains
+
+        logical function is_header_separator(pos)
+            integer, intent(in) :: pos
+            integer :: node_index
+
+            is_header_separator = .false.
+            if (.not. allocated(prog%body_indices)) return
+            if (pos < 1 .or. pos > size(prog%body_indices)) return
+
+            node_index = prog%body_indices(pos)
+            if (node_index <= 0 .or. node_index > arena%size) return
+            if (.not. allocated(arena%entries(node_index)%node)) return
+
+            select type (stmt => arena%entries(node_index)%node)
+            type is (comment_node)
+                is_header_separator = .true.
+            type is (blank_line_node)
+                is_header_separator = .true.
+            class default
+                is_header_separator = .false.
+            end select
+        end function is_header_separator
 
     end subroutine insert_variable_declarations
 
