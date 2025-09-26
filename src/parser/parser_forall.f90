@@ -11,22 +11,83 @@ module parser_forall_module
     use ast_nodes_loops, only: forall_triplet_t
     use parser_statement_core_module, only: parse_basic_statement_core, &
         statement_callbacks_t, null_statement_callbacks, find_statement_end
-    use parser_array_constructs_module, only: parse_where_construct, &
-        parse_associate
     implicit none
     private
 
-    public :: parse_forall
+    abstract interface
+        function parse_without_parent_interface(parser, arena) result(node_index)
+            import :: parser_state_t, ast_arena_t
+            type(parser_state_t), intent(inout) :: parser
+            type(ast_arena_t), intent(inout) :: arena
+            integer :: node_index
+        end function parse_without_parent_interface
+    end interface
+
+    interface
+        subroutine ensure_forall_array_registration_bridge()
+        end subroutine ensure_forall_array_registration_bridge
+    end interface
+
+    procedure(parse_without_parent_interface), pointer, save :: &
+        parse_where_proc => null()
+    procedure(parse_without_parent_interface), pointer, save :: &
+        parse_associate_proc => null()
+    logical, save :: array_callbacks_initialized = .false.
+
+    public :: parse_forall, register_forall_body_parsers
 
 contains
+
+    subroutine register_forall_body_parsers(parse_where, parse_associate)
+        procedure(parse_without_parent_interface) :: parse_where
+        procedure(parse_without_parent_interface) :: parse_associate
+
+        parse_where_proc => parse_where
+        parse_associate_proc => parse_associate
+        array_callbacks_initialized = .true.
+    end subroutine register_forall_body_parsers
+
+    subroutine ensure_array_callbacks_ready()
+        if (.not. array_callbacks_initialized) then
+            call ensure_forall_array_registration_bridge()
+        end if
+    end subroutine ensure_array_callbacks_ready
+
+    integer function parse_where_dispatch(parser, arena) result(where_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        call ensure_array_callbacks_ready()
+        where_index = 0
+        if (associated(parse_where_proc)) then
+            where_index = parse_where_proc(parser, arena)
+        end if
+    end function parse_where_dispatch
+
+    integer function parse_associate_dispatch(parser, arena) &
+            result(associate_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        call ensure_array_callbacks_ready()
+        associate_index = 0
+        if (associated(parse_associate_proc)) then
+            associate_index = parse_associate_proc(parser, arena)
+        end if
+    end function parse_associate_dispatch
 
     function build_forall_callbacks() result(callbacks)
         type(statement_callbacks_t) :: callbacks
 
         callbacks = null_statement_callbacks()
         callbacks%parse_forall => parse_forall
-        callbacks%parse_where => parse_where_construct
-        callbacks%parse_associate => parse_associate
+        call ensure_array_callbacks_ready()
+        if (associated(parse_where_proc)) then
+            callbacks%parse_where => parse_where_dispatch
+        end if
+        if (associated(parse_associate_proc)) then
+            callbacks%parse_associate => parse_associate_dispatch
+        end if
     end function build_forall_callbacks
 
     ! Parse FORALL construct
