@@ -85,7 +85,8 @@ contains
         end if
 
         ! Collect and generate variable declarations for any missing variables
-        call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
+        call generate_and_insert_declarations(arena, prog, prog_index, &
+            declaration_indices)
         n_declarations = 0
         if (allocated(declaration_indices)) n_declarations = size(declaration_indices)
 
@@ -259,8 +260,12 @@ contains
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
                     type is (use_statement_node)
                         pos = i + 1  ! Insert after this use statement
+                    type is (comment_node)
+                        cycle
+                    type is (blank_line_node)
+                        cycle
                     class default
-                        ! First non-use statement, stop looking
+                        ! First non-use, non-comment statement, stop looking
                         exit
                     end select
                 end if

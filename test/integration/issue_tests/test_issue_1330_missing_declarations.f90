@@ -19,13 +19,20 @@ contains
         integer :: first_new_pos
         integer :: last_new_pos
         integer :: output_len
-        integer :: comment_pos
+        integer :: header_comment_pos
         integer :: body_pos
         integer :: next_real_pos
         integer :: search_start
+        integer :: use1_pos
+        integer :: use2_pos
+        integer :: use_comment_pos
+        integer :: implicit_pos
         character(len=:), allocatable :: existing_decl_line
 
-        input = 'real(kind=8) :: x, y' // new_line('a') // new_line('a') // &
+        input = 'use iso_fortran_env' // new_line('a') // &
+                '! comment between use statements' // new_line('a') // &
+                'use iso_c_binding' // new_line('a') // &
+                'real(kind=8) :: x, y' // new_line('a') // new_line('a') // &
                 '! header comment before loop' // new_line('a') // &
                 'n = 1000000' // new_line('a') // &
                 'count = 0' // new_line('a') // &
@@ -47,10 +54,49 @@ contains
             end if
         end if
 
+        call assert_contains(output, 'use iso_fortran_env', &
+            'missing iso_fortran_env use statement')
+        call assert_contains(output, 'use iso_c_binding', &
+            'missing iso_c_binding use statement')
         call assert_contains(output, 'integer :: n', 'missing integer decl for n')
         call assert_contains(output, 'integer :: count', &
             'missing integer decl for count')
         call assert_contains(output, 'integer :: i', 'missing integer decl for i')
+
+        use1_pos = index(output, 'use iso_fortran_env')
+        use2_pos = index(output, 'use iso_c_binding')
+        use_comment_pos = index(output, 'comment between use statements')
+        if (use1_pos == 0 .or. use2_pos == 0) then
+            print *, 'FAIL: use statements missing after transformation'
+            print *, 'Output:'
+            print *, trim(output)
+            error stop 1
+        end if
+        if (use1_pos >= use2_pos) then
+            print *, 'FAIL: use statements reordered'
+            print *, 'Output:'
+            print *, trim(output)
+            error stop 1
+        end if
+        if (use_comment_pos == 0) then
+            print *, 'FAIL: use block comment missing'
+            print *, 'Output:'
+            print *, trim(output)
+            error stop 1
+        end if
+        implicit_pos = index(output, 'implicit none')
+        if (implicit_pos == 0) then
+            print *, 'FAIL: implicit none missing from output'
+            print *, 'Output:'
+            print *, trim(output)
+            error stop 1
+        end if
+        if (.not. (use_comment_pos > use1_pos .and. use_comment_pos < implicit_pos)) then
+            print *, 'FAIL: use block comment moved out of declaration header'
+            print *, 'Output:'
+            print *, trim(output)
+            error stop 1
+        end if
 
         real_decl_pos = index(output, 'real(kind=8) :: x, y')
         if (real_decl_pos > 0) then
@@ -106,21 +152,28 @@ contains
             error stop 1
         end if
 
-        comment_pos = index(output, 'header comment before loop')
-        if (comment_pos == 0) then
+        if (implicit_pos <= use2_pos) then
+            print *, 'FAIL: implicit none inserted before use block'
+            print *, 'Output:'
+            print *, trim(output)
+            error stop 1
+        end if
+
+        header_comment_pos = index(output, 'header comment before loop')
+        if (header_comment_pos == 0) then
             print *, 'FAIL: header comment missing after transformation'
             print *, 'Output:'
             print *, trim(output)
             error stop 1
         end if
-        if (comment_pos <= last_new_pos) then
+        if (header_comment_pos <= last_new_pos) then
             print *, 'FAIL: header comment moved ahead of inferred declarations'
             print *, 'Output:'
             print *, trim(output)
             error stop 1
         end if
         body_pos = index(output, 'n = 1000000')
-        if (body_pos > 0 .and. comment_pos >= body_pos) then
+        if (body_pos > 0 .and. header_comment_pos >= body_pos) then
             print *, 'FAIL: header comment moved into executable section'
             print *, 'Output:'
             print *, trim(output)
