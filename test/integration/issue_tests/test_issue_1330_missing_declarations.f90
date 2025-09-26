@@ -45,8 +45,20 @@ contains
         call assert_contains(output, 'integer :: i', 'missing integer declaration for i')
 
         real_decl_pos = index(output, 'real(kind=8) :: x, y')
-        if (real_decl_pos == 0) real_decl_pos = index(output, 'real(8) :: x, y')
-        if (real_decl_pos == 0) real_decl_pos = index(output, 'real :: x, y')
+        if (real_decl_pos > 0) then
+            call assert_contains(output, 'real(kind=8) :: x, y', &
+                'missing real declaration for x and y')
+        else
+            real_decl_pos = index(output, 'real(8) :: x, y')
+            if (real_decl_pos > 0) then
+                call assert_contains(output, 'real(8) :: x, y', &
+                    'missing real declaration for x and y')
+            else
+                real_decl_pos = index(output, 'real :: x, y')
+                call assert_contains(output, 'real :: x, y', &
+                    'missing real declaration for x and y')
+            end if
+        end if
 
         has_real_kind = index(output, 'real :: pi_estimate') > 0
         if (.not. has_real_kind) then
