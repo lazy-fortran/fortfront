@@ -1,6 +1,7 @@
 module parser_basic_statement_module
     ! Parser module for basic statement parsing and utilities
-    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD
+    use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_OPERATOR, TK_NEWLINE, &
+                          TK_COMMENT, TK_WHITESPACE
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
     use parser_statement_core_module, only: parse_basic_statement_core, &
@@ -16,12 +17,13 @@ module parser_basic_statement_module
 contains
 
     ! Parse basic statement with support for multi-variable declarations
-    function parse_basic_statement_multi(tokens, arena, parent_index, callbacks) &
-            result(stmt_indices)
+    function parse_basic_statement_multi(tokens, arena, parent_index, callbacks, &
+                                         consumed_count) result(stmt_indices)
         type(token_t), intent(in) :: tokens(:)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: parent_index
         type(statement_callbacks_t), intent(in), optional :: callbacks
+        integer, intent(out), optional :: consumed_count
         integer, allocatable :: stmt_indices(:)
         type(statement_callbacks_t) :: local_callbacks
 
@@ -31,18 +33,35 @@ contains
             local_callbacks = null_statement_callbacks()
         end if
 
-        stmt_indices = parse_basic_statement_core(tokens, arena, parent_index, &
-                                                 local_callbacks)
+        if (present(parent_index)) then
+            if (present(consumed_count)) then
+                stmt_indices = parse_basic_statement_core(tokens, arena, &
+                    parent_index=parent_index, callbacks=local_callbacks, &
+                    consumed_count=consumed_count)
+            else
+                stmt_indices = parse_basic_statement_core(tokens, arena, &
+                    parent_index=parent_index, callbacks=local_callbacks)
+            end if
+        else
+            if (present(consumed_count)) then
+                stmt_indices = parse_basic_statement_core(tokens, arena, &
+                    callbacks=local_callbacks, consumed_count=consumed_count)
+            else
+                stmt_indices = parse_basic_statement_core(tokens, arena, &
+                    callbacks=local_callbacks)
+            end if
+        end if
     end function parse_basic_statement_multi
 
     ! Unified function for parsing statement bodies (used by if blocks, &
     ! do while loops, etc.)
-    function parse_statement_body(parser, arena, end_keywords, callbacks) &
-            result(body_indices)
+    function parse_statement_body(parser, arena, end_keywords, callbacks, &
+                                   parent_index) result(body_indices)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: end_keywords(:)
         type(statement_callbacks_t), intent(in), optional :: callbacks
+        integer, intent(in), optional :: parent_index
         integer, allocatable :: body_indices(:)
 
         type(token_t) :: token
@@ -51,6 +70,8 @@ contains
         type(token_t), allocatable, target :: stmt_tokens(:)
         logical :: found_end
         type(statement_callbacks_t) :: local_callbacks
+        logical :: has_meaningful
+        integer :: next_index
 
         allocate (body_indices(0))
         stmt_count = 0
@@ -68,6 +89,27 @@ contains
                 safety_counter = safety_counter + 1
                 token = parser%peek()
 
+                ! Skip whitespace, comments, and standalone semicolons
+                do while (.not. parser%is_at_end())
+                    select case (token%kind)
+                    case (TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                        token = parser%consume()
+                    case (TK_OPERATOR)
+                        if (token%text == ";") then
+                            token = parser%consume()
+                        else
+                            exit
+                        end if
+                    case default
+                        exit
+                    end select
+                    if (parser%is_at_end()) exit
+                    token = parser%peek()
+                end do
+
+                if (parser%is_at_end()) exit
+                token = parser%peek()
+
                 ! Check for end keywords
                 found_end = .false.
                 if (token%kind == TK_KEYWORD) then
@@ -83,20 +125,49 @@ contains
                 ! Parse statement until end of line
                 stmt_start = parser%current_token
                 stmt_end = stmt_start
+                has_meaningful = .false.
 
-                ! Find end of current statement (same line)
+                ! Find end of current statement, respecting semicolons
                 do j = stmt_start, size(parser%tokens)
-                    if (parser%tokens(j)%kind == TK_EOF) then
+                    select case (parser%tokens(j)%kind)
+                    case (TK_EOF)
                         stmt_end = j
                         exit
-                    end if
+                    case (TK_NEWLINE)
+                        stmt_end = j - 1
+                        exit
+                    case (TK_OPERATOR)
+                        if (parser%tokens(j)%text == ";") then
+                            stmt_end = j - 1
+                            exit
+                        end if
+                    end select
+
                     if (j > stmt_start .and. parser%tokens(j)%line > &
                             parser%tokens(stmt_start)%line) then
                         stmt_end = j - 1
                         exit
                     end if
+
                     stmt_end = j
+                    select case (parser%tokens(j)%kind)
+                    case (TK_EOF, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                        cycle
+                    case default
+                        if (len_trim(parser%tokens(j)%text) > 0) then
+                            has_meaningful = .true.
+                        end if
+                    end select
                 end do
+
+                if (.not. has_meaningful) then
+                    if (stmt_end < stmt_start) then
+                        parser%current_token = parser%current_token + 1
+                    else
+                        parser%current_token = stmt_end + 1
+                    end if
+                    cycle
+                end if
 
                 ! Extract and parse statement tokens
                 if (stmt_end >= stmt_start) then
@@ -114,8 +185,13 @@ contains
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: k
-                        stmt_indices = parse_basic_statement_multi( &
-                            stmt_tokens, arena, callbacks=local_callbacks)
+                        if (present(parent_index)) then
+                            stmt_indices = parse_basic_statement_multi( &
+                                stmt_tokens, arena, parent_index, local_callbacks)
+                        else
+                            stmt_indices = parse_basic_statement_multi( &
+                                stmt_tokens, arena, callbacks=local_callbacks)
+                        end if
 
                         ! Add all parsed statements to body
                         do k = 1, size(stmt_indices)
@@ -129,7 +205,14 @@ contains
                     deallocate (stmt_tokens)
                 end if
 
-                parser%current_token = stmt_end + 1
+                next_index = stmt_end + 1
+                if (next_index <= size(parser%tokens)) then
+                    if (parser%tokens(next_index)%kind == TK_OPERATOR .and. &
+                        parser%tokens(next_index)%text == ";") then
+                        next_index = next_index + 1
+                    end if
+                end if
+                parser%current_token = next_index
             end do
         end block
     end function parse_statement_body
