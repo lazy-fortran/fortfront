@@ -28,6 +28,7 @@ contains
         integer :: use_comment_pos
         integer :: implicit_pos
         character(len=:), allocatable :: existing_decl_line
+        character(len=32) :: real_decl_variants(2)
 
         input = 'use iso_fortran_env' // new_line('a') // &
                 '! comment between use statements' // new_line('a') // &
@@ -98,22 +99,18 @@ contains
             error stop 1
         end if
 
-        real_decl_pos = index(output, 'real(kind=8) :: x, y')
-        if (real_decl_pos > 0) then
-            existing_decl_line = 'real(kind=8) :: x, y'
-        else
-            real_decl_pos = index(output, 'real(8) :: x, y')
-            if (real_decl_pos > 0) then
-                existing_decl_line = 'real(8) :: x, y'
-            else
-                print *, 'FAIL: missing explicit real(kind=8) declaration for x,y'
-                print *, 'Output:'
-                print *, trim(output)
-                error stop 1
-            end if
-        end if
-        call assert_contains(output, existing_decl_line, &
+        real_decl_variants = [ character(len=32) :: &
+            'real(kind=8) :: x, y', &
+            'real(8) :: x, y' ]
+        call assert_contains_any(output, real_decl_variants, &
             'missing explicit real declaration for x,y')
+
+        real_decl_pos = index(output, 'real(kind=8) :: x, y')
+        existing_decl_line = 'real(kind=8) :: x, y'
+        if (real_decl_pos == 0) then
+            real_decl_pos = index(output, 'real(8) :: x, y')
+            existing_decl_line = 'real(8) :: x, y'
+        end if
 
         has_real_kind = index(output, 'real :: pi_estimate') > 0
         if (.not. has_real_kind) then
@@ -209,5 +206,26 @@ contains
             error stop 1
         end if
     end subroutine assert_contains
+
+    subroutine assert_contains_any(text, patterns, message)
+        character(len=*), intent(in) :: text
+        character(len=*), dimension(:), intent(in) :: patterns
+        character(len=*), intent(in) :: message
+        integer :: i
+
+        do i = 1, size(patterns)
+            if (len_trim(patterns(i)) == 0) cycle
+            if (index(text, trim(patterns(i))) > 0) return
+        end do
+
+        print *, 'FAIL:', trim(message)
+        print *, 'Patterns:'
+        do i = 1, size(patterns)
+            print *, trim(patterns(i))
+        end do
+        print *, 'Output:'
+        print *, trim(text)
+        error stop 1
+    end subroutine assert_contains_any
 
 end program test_issue_1330_missing_declarations
