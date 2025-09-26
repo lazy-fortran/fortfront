@@ -2,19 +2,93 @@ module parser_forall_module
     ! Parser module for FORALL constructs
     use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_EOF, TK_IDENTIFIER, TK_NUMBER, TK_STRING, &
-                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, TK_WHITESPACE
+                          TK_OPERATOR, TK_KEYWORD, TK_NEWLINE, TK_COMMENT, &
+                          TK_WHITESPACE, to_lower
     use parser_state_module
-    use parser_expressions_module, only: parse_expression, parse_expression_until, parse_range, parse_postfix_chain
-    use parser_utils, only: analyze_declaration_structure
+    use parser_expressions_module, only: parse_expression_until
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_forall, push_assignment, push_identifier
+    use ast_factory, only: push_forall
     use ast_nodes_loops, only: forall_triplet_t
+    use parser_statement_core_module, only: parse_basic_statement_core, &
+        statement_callbacks_t, null_statement_callbacks, find_statement_end
     implicit none
     private
 
-    public :: parse_forall
+    abstract interface
+        function parse_without_parent_interface(parser, arena) result(node_index)
+            import :: parser_state_t, ast_arena_t
+            type(parser_state_t), intent(inout) :: parser
+            type(ast_arena_t), intent(inout) :: arena
+            integer :: node_index
+        end function parse_without_parent_interface
+    end interface
+
+    interface
+        subroutine ensure_forall_array_registration_bridge()
+        end subroutine ensure_forall_array_registration_bridge
+    end interface
+
+    procedure(parse_without_parent_interface), pointer, save :: &
+        parse_where_proc => null()
+    procedure(parse_without_parent_interface), pointer, save :: &
+        parse_associate_proc => null()
+    logical, save :: array_callbacks_initialized = .false.
+
+    public :: parse_forall, register_forall_body_parsers
 
 contains
+
+    subroutine register_forall_body_parsers(parse_where, parse_associate)
+        procedure(parse_without_parent_interface) :: parse_where
+        procedure(parse_without_parent_interface) :: parse_associate
+
+        parse_where_proc => parse_where
+        parse_associate_proc => parse_associate
+        array_callbacks_initialized = .true.
+    end subroutine register_forall_body_parsers
+
+    subroutine ensure_array_callbacks_ready()
+        if (.not. array_callbacks_initialized) then
+            call ensure_forall_array_registration_bridge()
+        end if
+    end subroutine ensure_array_callbacks_ready
+
+    integer function parse_where_dispatch(parser, arena) result(where_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        call ensure_array_callbacks_ready()
+        where_index = 0
+        if (associated(parse_where_proc)) then
+            where_index = parse_where_proc(parser, arena)
+        end if
+    end function parse_where_dispatch
+
+    integer function parse_associate_dispatch(parser, arena) &
+            result(associate_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+
+        call ensure_array_callbacks_ready()
+        associate_index = 0
+        if (associated(parse_associate_proc)) then
+            associate_index = parse_associate_proc(parser, arena)
+        end if
+    end function parse_associate_dispatch
+
+    function build_forall_callbacks() result(callbacks)
+        type(statement_callbacks_t) :: callbacks
+
+        callbacks = null_statement_callbacks()
+        callbacks%parse_forall => parse_forall
+        call ensure_array_callbacks_ready()
+        if (associated(parse_where_proc)) then
+            callbacks%parse_where => parse_where_dispatch
+        end if
+        if (associated(parse_associate_proc)) then
+            callbacks%parse_associate => parse_associate_dispatch
+        end if
+    end function build_forall_callbacks
 
     ! Parse FORALL construct
     function parse_forall(parser, arena) result(forall_index)
@@ -22,13 +96,17 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: forall_index
         
-        type(token_t) :: token
+        type(token_t) :: token, next_token
         type(forall_triplet_t), allocatable :: triplets(:)
         integer :: mask_index
         integer, allocatable :: body_indices(:)
-        integer :: triplet_count, body_count
+        integer, allocatable :: stmt_indices(:)
+        type(token_t), allocatable, target :: stmt_tokens(:)
+        integer :: triplet_count
         integer :: line, column
-        logical :: is_single_statement
+        integer :: stmt_start, stmt_end, token_count, k
+        logical :: is_inline
+        type(statement_callbacks_t) :: callbacks
         
         ! Initialize
         forall_index = 0
@@ -155,170 +233,131 @@ contains
             token = parser%consume()
         end if
         
-        ! Check if this is single-statement or block FORALL
-        token = parser%peek()
-        is_single_statement = .true.
-        if (token%kind == TK_NEWLINE .or. token%kind == TK_EOF) then
-            is_single_statement = .false.
-        else if (token%kind == TK_KEYWORD) then
-            ! Check for nested constructs that would make this a block forall
-            if (token%text == "forall" .or. token%text == "where" .or. &
-                token%text == "if" .or. token%text == "do") then
-                is_single_statement = .false.
-            end if
+        callbacks = build_forall_callbacks()
+        if (allocated(body_indices)) deallocate(body_indices)
+        allocate(body_indices(0))
+
+        stmt_start = parser%current_token
+        is_inline = .true.
+        do while (stmt_start <= size(parser%tokens))
+            select case (parser%tokens(stmt_start)%kind)
+            case (TK_WHITESPACE, TK_COMMENT)
+                stmt_start = stmt_start + 1
+            case (TK_NEWLINE)
+                is_inline = .false.
+                stmt_start = stmt_start + 1
+                exit
+            case default
+                exit
+            end select
+        end do
+        parser%current_token = stmt_start
+        if (parser%current_token > size(parser%tokens)) then
+            is_inline = .false.
         end if
-        
-        if (is_single_statement) then
-            ! Parse single statement (usually an assignment)
-            block
-                integer :: stmt_index, target_index, value_index
-                type(token_t) :: id_token, next_token
 
-                id_token = parser%peek()
-                if (id_token%kind == TK_IDENTIFIER) then
-                    id_token = parser%consume()
-
-                    target_index = push_identifier(arena, id_token%text, &
-                                                  id_token%line, id_token%column)
-                    target_index = parse_postfix_chain(parser, arena, target_index)
-
-                    next_token = parser%peek()
-                    if (next_token%kind == TK_OPERATOR .and. next_token%text == "=") then
-                        next_token = parser%consume()
-
-                        value_index = parse_range(parser, arena)
-
-                        if (value_index > 0) then
-                            stmt_index = push_assignment(arena, target_index, value_index, &
-                                                        id_token%line, id_token%column)
-                            deallocate(body_indices)
-                            allocate(body_indices(1))
-                            body_indices(1) = stmt_index
-                        end if
+        if (is_inline) then
+            if (parser%current_token <= size(parser%tokens)) then
+                stmt_end = find_statement_end(parser%tokens, parser%current_token)
+                if (stmt_end < parser%current_token) stmt_end = parser%current_token
+                token_count = stmt_end - parser%current_token + 1
+                if (token_count > 0) then
+                    allocate(stmt_tokens(token_count + 1))
+                    stmt_tokens(1:token_count) = &
+                        parser%tokens(parser%current_token:stmt_end)
+                    stmt_tokens(token_count + 1)%kind = TK_EOF
+                    stmt_tokens(token_count + 1)%text = ""
+                    stmt_tokens(token_count + 1)%line = &
+                        parser%tokens(stmt_end)%line
+                    stmt_tokens(token_count + 1)%column = &
+                        parser%tokens(stmt_end)%column + 1
+                    stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
+                        callbacks=callbacks)
+                    if (allocated(stmt_indices)) then
+                        do k = 1, size(stmt_indices)
+                            if (stmt_indices(k) > 0) then
+                                body_indices = [body_indices, stmt_indices(k)]
+                            end if
+                        end do
+                        deallocate(stmt_indices)
                     end if
+                    deallocate(stmt_tokens)
                 end if
-            end block
+                parser%current_token = stmt_end + 1
+            end if
         else
-            ! Parse block FORALL body until 'end forall'
-            body_count = 0
-            deallocate(body_indices)
-            allocate(body_indices(100))  ! Initial allocation
-            
             do while (.not. parser%is_at_end())
-                token = parser%peek()
-                
-                ! Check for 'end forall'
-                if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                    if (parser%current_token + 1 <= size(parser%tokens)) then
-                        if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
-                            parser%tokens(parser%current_token + 1)%text == "forall") then
-                            token = parser%consume()  ! consume 'end'
-                            token = parser%consume()  ! consume 'forall'
+                do
+                    if (parser%current_token > size(parser%tokens)) exit
+                    token = parser%tokens(parser%current_token)
+                    select case (token%kind)
+                    case (TK_WHITESPACE, TK_COMMENT, TK_NEWLINE)
+                        parser%current_token = parser%current_token + 1
+                    case (TK_OPERATOR)
+                        if (token%text == ";") then
+                            parser%current_token = parser%current_token + 1
+                        else
                             exit
                         end if
-                    end if
-                end if
-                
-                ! Parse statement in body
-                block
-                    integer :: stmt_index
-                    type(token_t), allocatable, target :: stmt_tokens(:)
-                    integer :: stmt_end, j
-                    
-                    stmt_end = parser%current_token
-                    
-                    ! Find end of current statement
-                    do j = parser%current_token, size(parser%tokens)
-                        if (parser%tokens(j)%kind == TK_NEWLINE) then
-                            stmt_end = j
-                            exit
-                        else if (parser%tokens(j)%kind == TK_EOF) then
-                            stmt_end = j - 1
-                            exit
-                        else if (parser%tokens(j)%kind == TK_KEYWORD) then
-                            if (j > parser%current_token .and. &
-                                (parser%tokens(j)%text == "forall" .or. &
-                                 parser%tokens(j)%text == "where" .or. &
-                                 parser%tokens(j)%text == "if" .or. &
-                                 parser%tokens(j)%text == "do" .or. &
-                                 parser%tokens(j)%text == "end")) then
-                                stmt_end = j - 1
+                    case default
+                        exit
+                    end select
+                end do
+                if (parser%current_token > size(parser%tokens)) exit
+
+                token = parser%peek()
+                if (token%kind == TK_KEYWORD) then
+                    if (to_lower(token%text) == "endforall") then
+                        token = parser%consume()
+                        exit
+                    else if (to_lower(token%text) == "end") then
+                        if (parser%current_token + 1 <= size(parser%tokens)) then
+                            next_token = parser%tokens(parser%current_token + 1)
+                            if (next_token%kind == TK_KEYWORD .and. &
+                                to_lower(next_token%text) == "forall") then
+                                token = parser%consume()
+                                token = parser%consume()
                                 exit
                             end if
                         end if
-                        stmt_end = j
-                    end do
-                    
-                    if (stmt_end >= parser%current_token) then
-                        allocate(stmt_tokens(stmt_end - parser%current_token + 1))
-                        do j = 1, stmt_end - parser%current_token + 1
-                            stmt_tokens(j) = parser%tokens(parser%current_token + j - 1)
-                        end do
-                        
-                        ! Parse the statement (usually an assignment)
-                        block
-                            type(parser_state_t) :: stmt_parser
-                            integer :: target_idx, value_idx
-
-                            stmt_parser = create_parser_state(stmt_tokens)
-                            
-                            ! Try to parse as assignment
-                            if (stmt_parser%current_token <= size(stmt_tokens)) then
-                                if (stmt_tokens(1)%kind == TK_IDENTIFIER) then
-                                    target_idx = parse_expression(stmt_tokens(1:), arena)
-                                    
-                                    ! Find the = operator
-                                    do j = 1, size(stmt_tokens)
-                                        if (stmt_tokens(j)%kind == TK_OPERATOR .and. &
-                                            stmt_tokens(j)%text == "=") then
-                                            ! Parse value after =
-                                            if (j < size(stmt_tokens)) then
-                                                value_idx = parse_expression(stmt_tokens(j+1:), arena)
-                                                if (target_idx > 0 .and. value_idx > 0) then
-                                                    stmt_index = push_assignment(arena, target_idx, value_idx, &
-                                                                               stmt_tokens(1)%line, stmt_tokens(1)%column)
-                                                end if
-                                            end if
-                                            exit
-                                        end if
-                                    end do
-                                end if
-                            end if
-                        end block
-                        if (stmt_index > 0) then
-                            body_count = body_count + 1
-                            if (body_count > size(body_indices)) then
-                                ! Resize array
-                                block
-                                    integer, allocatable :: temp(:)
-                                    allocate(temp(size(body_indices) + 100))
-                                    temp(1:size(body_indices)) = body_indices
-                                    temp(size(body_indices)+1:) = 0
-                                    call move_alloc(temp, body_indices)
-                                end block
-                            end if
-                            body_indices(body_count) = stmt_index
-                        end if
-                        
-                        parser%current_token = stmt_end + 1
-                    else
-                        parser%current_token = parser%current_token + 1
                     end if
-                end block
+                end if
+
+                stmt_end = find_statement_end(parser%tokens, parser%current_token)
+                if (stmt_end < parser%current_token) then
+                    stmt_end = parser%current_token
+                end if
+
+                token_count = stmt_end - parser%current_token + 1
+                if (token_count <= 0) then
+                    parser%current_token = parser%current_token + 1
+                    cycle
+                end if
+
+                allocate(stmt_tokens(token_count + 1))
+                stmt_tokens(1:token_count) = &
+                    parser%tokens(parser%current_token:stmt_end)
+                stmt_tokens(token_count + 1)%kind = TK_EOF
+                stmt_tokens(token_count + 1)%text = ""
+                stmt_tokens(token_count + 1)%line = &
+                    parser%tokens(stmt_end)%line
+                stmt_tokens(token_count + 1)%column = &
+                    parser%tokens(stmt_end)%column + 1
+
+                stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
+                    callbacks=callbacks)
+                if (allocated(stmt_indices)) then
+                    do k = 1, size(stmt_indices)
+                        if (stmt_indices(k) > 0) then
+                            body_indices = [body_indices, stmt_indices(k)]
+                        end if
+                    end do
+                    deallocate(stmt_indices)
+                end if
+                deallocate(stmt_tokens)
+
+                parser%current_token = stmt_end + 1
             end do
-            
-            ! Trim body_indices to actual size
-            if (body_count > 0) then
-                block
-                    integer, allocatable :: final_body(:)
-                    allocate(final_body(body_count))
-                    final_body = body_indices(1:body_count)
-                    call move_alloc(final_body, body_indices)
-                end block
-            else
-                deallocate(body_indices)
-                allocate(body_indices(0))
-            end if
         end if
         
         ! Create FORALL node

@@ -6,6 +6,7 @@ module parser_if_constructs_module
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: parse_basic_statement_core, &
         statement_callbacks_t, null_statement_callbacks, find_statement_end
+    use parser_forall_module, only: parse_forall
     use parser_select_constructs_module, only: parse_select_case
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_control, only: if_node
@@ -52,6 +53,7 @@ contains
         callbacks%parse_if => parse_if
         callbacks%parse_do_loop => parse_do_loop_callback
         callbacks%parse_select_case => parse_select_case
+        callbacks%parse_forall => parse_forall
     end function build_if_body_callbacks
 
     integer function parse_do_loop_callback(parser, arena) result(loop_index)
