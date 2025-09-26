@@ -13,7 +13,8 @@ module parser_do_constructs_module
     use parser_array_constructs_module, only: parse_where_construct, parse_associate
     use parser_forall_module, only: parse_forall
     use parser_statement_core_module, only: parse_basic_statement_core, &
-                                            statement_callbacks_t, null_statement_callbacks
+                                            statement_callbacks_t, &
+                                            null_statement_callbacks
     implicit none
     private
 
@@ -47,7 +48,8 @@ contains
                 if (tokens(idx)%text == "then") then
                     has_then_before_newline = .true.
                     return
-                else if (tokens(idx)%text == "endif" .or. tokens(idx)%text == "end") then
+                else if (tokens(idx)%text == "endif" .or. &
+                         tokens(idx)%text == "end") then
                     return
                 end if
             case (TK_NEWLINE, TK_EOF)
@@ -224,50 +226,50 @@ contains
         ! Parse body statements until 'end do'
         block
             integer, allocatable :: body_indices(:)
-            integer :: stmt_start, stmt_end, j
+            integer :: stmt_start, stmt_end, j, token_count, next_index
             type(token_t), allocatable, target :: stmt_tokens(:)
+            type(token_t) :: next_token
             type(statement_callbacks_t) :: callbacks
 
             allocate (body_indices(0))
             callbacks = build_do_body_callbacks()
 
-            ! Create do loop node placeholder first to get the parent index
             if (step_index > 0) then
                 loop_index = push_do_loop(arena, var_name, start_index, end_index, &
-                                     step_index=step_index, body_indices=[integer::], &
+                                          step_index=step_index, &
+                                          body_indices=[integer::], &
                                           line=line, column=column)
             else
                 loop_index = push_do_loop(arena, var_name, start_index, end_index, &
-                                    body_indices=[integer::], line=line, column=column)
+                                          body_indices=[integer::], &
+                                          line=line, column=column)
             end if
 
-            ! Parse body statements
             do while (parser%current_token <= size(parser%tokens))
-                ! Check for 'end do'
                 block
                     type(token_t) :: current_token
-                    current_token = parser%peek()
 
-            if (current_token%kind == TK_KEYWORD .and. current_token%text == "end") then
+                    current_token = parser%peek()
+                    if (current_token%kind == TK_KEYWORD .and. &
+                        current_token%text == "end") then
                         if (parser%current_token + 1 <= size(parser%tokens)) then
-                  if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
-                              parser%tokens(parser%current_token + 1)%text == "do") then
-                                ! Found 'end do', consume both tokens and exit
-                                current_token = parser%consume()  ! consume 'end'
-                                current_token = parser%consume()  ! consume 'do'
+                            next_index = parser%current_token + 1
+                            next_token = parser%tokens(next_index)
+                            if (next_token%kind == TK_KEYWORD .and. &
+                                next_token%text == "do") then
+                                current_token = parser%consume()
+                                current_token = parser%consume()
                                 exit
                             end if
                         end if
                     end if
                 end block
 
-                ! Parse statement until end of line or semicolon
                 stmt_start = parser%current_token
-                
-                ! Skip leading semicolons to get to actual statement
+
                 do while (stmt_start <= size(parser%tokens) .and. &
-                         parser%tokens(stmt_start)%kind == TK_OPERATOR .and. &
-                         parser%tokens(stmt_start)%text == ";")
+                          parser%tokens(stmt_start)%kind == TK_OPERATOR .and. &
+                          parser%tokens(stmt_start)%text == ";")
                     stmt_start = stmt_start + 1
                 end do
 
@@ -283,8 +285,10 @@ contains
                         exit
                     else if (parser%tokens(stmt_start)%text == "end") then
                         if (stmt_start + 1 <= size(parser%tokens)) then
-                            if (parser%tokens(stmt_start + 1)%kind == TK_KEYWORD .and. &
-                                parser%tokens(stmt_start + 1)%text == "do") then
+                            next_index = stmt_start + 1
+                            next_token = parser%tokens(next_index)
+                            if (next_token%kind == TK_KEYWORD .and. &
+                                next_token%text == "do") then
                                 parser%current_token = stmt_start
                                 exit
                             end if
@@ -296,7 +300,6 @@ contains
                 end if
 
                 stmt_end = stmt_start
-
                 block
                     integer :: block_end
                     logical :: handled_block
@@ -318,11 +321,13 @@ contains
                                 stmt_end = j
                                 exit
                             end if
-                            if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
+                            if (j > stmt_start .and. parser%tokens(j)%line > &
+                                    parser%tokens(stmt_start)%line) then
                                 stmt_end = j - 1
                                 exit
                             end if
-                            if (j > stmt_start .and. parser%tokens(j)%kind == TK_OPERATOR .and. &
+                            if (j > stmt_start .and. &
+                                parser%tokens(j)%kind == TK_OPERATOR .and. &
                                 parser%tokens(j)%text == ";") then
                                 stmt_end = j - 1
                                 exit
@@ -332,22 +337,21 @@ contains
                     end if
                 end block
 
-                ! Extract statement tokens
                 if (stmt_end >= stmt_start) then
-                    allocate (stmt_tokens(stmt_end - stmt_start + 2))
-           stmt_tokens(1:stmt_end - stmt_start + 1) = parser%tokens(stmt_start:stmt_end)
-                    ! Add EOF token
-                    stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
-                    stmt_tokens(stmt_end - stmt_start + 2)%text = ""
-              stmt_tokens(stmt_end - stmt_start + 2)%line = parser%tokens(stmt_end)%line
-      stmt_tokens(stmt_end - stmt_start + 2)%column = parser%tokens(stmt_end)%column + 1
+                    token_count = stmt_end - stmt_start + 1
+                    allocate (stmt_tokens(token_count + 1))
+                    stmt_tokens(1:token_count) = parser%tokens(stmt_start:stmt_end)
+                    stmt_tokens(token_count + 1)%kind = TK_EOF
+                    stmt_tokens(token_count + 1)%text = ""
+                    stmt_tokens(token_count + 1)%line = parser%tokens(stmt_end)%line
+                    stmt_tokens(token_count + 1)%column = &
+                        parser%tokens(stmt_end)%column + 1
 
-                    ! Parse the statement (may return multiple indices for &
-                    ! multi-variable declarations)
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: k
                         logical :: has_meaningful
+
                         has_meaningful = .false.
                         do k = 1, size(stmt_tokens)
                             select case (stmt_tokens(k)%kind)
@@ -360,11 +364,13 @@ contains
                                 end if
                             end select
                         end do
+
                         if (.not. has_meaningful) then
-                            ! Advance past this blank line before cycling to avoid infinite loop
                             if (stmt_end + 1 <= size(parser%tokens)) then
-                                if (parser%tokens(stmt_end + 1)%kind == TK_OPERATOR .and. &
-                                    parser%tokens(stmt_end + 1)%text == ";") then
+                                next_index = stmt_end + 1
+                                next_token = parser%tokens(next_index)
+                                if (next_token%kind == TK_OPERATOR .and. &
+                                    next_token%text == ";") then
                                     parser%current_token = stmt_end + 2
                                 else
                                     parser%current_token = stmt_end + 1
@@ -372,13 +378,13 @@ contains
                             else
                                 parser%current_token = stmt_end + 1
                             end if
-                            deallocate(stmt_tokens)
+                            deallocate (stmt_tokens)
                             cycle
                         end if
-                        stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                                                                loop_index, callbacks)
 
-                        ! Add all parsed statements to body
+                        stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
+                                                                  loop_index, callbacks)
+
                         do k = 1, size(stmt_indices)
                             if (stmt_indices(k) > 0) then
                                 body_indices = [body_indices, stmt_indices(k)]
@@ -389,8 +395,6 @@ contains
                     deallocate (stmt_tokens)
                 end if
 
-                ! Move to next statement
-                ! If we stopped at a semicolon, skip over it
                 if (stmt_end + 1 <= size(parser%tokens)) then
                     if (parser%tokens(stmt_end + 1)%kind == TK_OPERATOR .and. &
                         parser%tokens(stmt_end + 1)%text == ";") then
@@ -403,7 +407,6 @@ contains
                 end if
             end do
 
-            ! Update the do loop node with the actual body indices
             if (allocated(arena%entries(loop_index)%node)) then
                 select type(node => arena%entries(loop_index)%node)
                 type is (do_loop_node)
@@ -412,7 +415,6 @@ contains
                     end if
                 end select
             end if
-            ! Successfully created do loop node
         end block
 
     end function parse_do_loop
@@ -479,7 +481,7 @@ contains
         block
             integer, allocatable :: temp_body_indices(:)
             type(token_t) :: token
-            integer :: stmt_start, stmt_end, j
+            integer :: stmt_start, stmt_end, j, token_count, next_index
             type(token_t), allocatable, target :: stmt_tokens(:)
 
             allocate (temp_body_indices(0))
@@ -487,71 +489,69 @@ contains
             do while (.not. parser%is_at_end())
                 token = parser%peek()
 
-                ! Check for 'end do' keywords
                 if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                    ! Check if next token is 'do'
                     if (parser%current_token + 1 <= size(parser%tokens)) then
-                  if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
-                            parser%tokens(parser%current_token + 1)%text == "do") then
-                            exit  ! Found 'end do'
+                        next_index = parser%current_token + 1
+                        if (parser%tokens(next_index)%kind == TK_KEYWORD .and. &
+                            parser%tokens(next_index)%text == "do") then
+                            exit
                         end if
                     end if
                 end if
 
-                ! Parse statement until end of line (same approach as if blocks)
-            stmt_start = parser%current_token
-            stmt_end = stmt_start
+                stmt_start = parser%current_token
+                stmt_end = stmt_start
 
-            if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
-                if (parser%tokens(stmt_start)%text == "enddo" .or. &
-                    parser%tokens(stmt_start)%text == "end do") then
-                    parser%current_token = stmt_start
-                    exit
-                else if (parser%tokens(stmt_start)%text == "end") then
-                    if (stmt_start + 1 <= size(parser%tokens)) then
-                        if (parser%tokens(stmt_start + 1)%kind == TK_KEYWORD .and. &
-                            parser%tokens(stmt_start + 1)%text == "do") then
+                if (parser%tokens(stmt_start)%kind == TK_KEYWORD) then
+                    if (parser%tokens(stmt_start)%text == "enddo" .or. &
+                        parser%tokens(stmt_start)%text == "end do") then
+                        parser%current_token = stmt_start
+                        exit
+                    else if (parser%tokens(stmt_start)%text == "end") then
+                        if (stmt_start + 1 <= size(parser%tokens)) then
+                            next_index = stmt_start + 1
+                            if (parser%tokens(next_index)%kind == TK_KEYWORD .and. &
+                                parser%tokens(next_index)%text == "do") then
+                                parser%current_token = stmt_start
+                                exit
+                            end if
+                        else
                             parser%current_token = stmt_start
                             exit
                         end if
-                    else
-                        parser%current_token = stmt_start
-                        exit
                     end if
                 end if
-            end if
 
-                ! Find end of current statement (same line)
                 do j = stmt_start, size(parser%tokens)
                     if (parser%tokens(j)%kind == TK_EOF) then
                         stmt_end = j
                         exit
                     end if
-   if (j > stmt_start .and. parser%tokens(j)%line > parser%tokens(stmt_start)%line) then
+                    if (j > stmt_start .and. parser%tokens(j)%line > &
+                            parser%tokens(stmt_start)%line) then
                         stmt_end = j - 1
                         exit
                     end if
                     stmt_end = j
                 end do
 
-                ! Extract statement tokens
                 if (stmt_end >= stmt_start) then
-                    allocate (stmt_tokens(stmt_end - stmt_start + 2))
-           stmt_tokens(1:stmt_end - stmt_start + 1) = parser%tokens(stmt_start:stmt_end)
-                    stmt_tokens(stmt_end - stmt_start + 2)%kind = TK_EOF
-                    stmt_tokens(stmt_end - stmt_start + 2)%text = ""
-              stmt_tokens(stmt_end - stmt_start + 2)%line = parser%tokens(stmt_end)%line
-      stmt_tokens(stmt_end - stmt_start + 2)%column = parser%tokens(stmt_end)%column + 1
+                    token_count = stmt_end - stmt_start + 1
+                    allocate (stmt_tokens(token_count + 1))
+                    stmt_tokens(1:token_count) = parser%tokens(stmt_start:stmt_end)
+                    stmt_tokens(token_count + 1)%kind = TK_EOF
+                    stmt_tokens(token_count + 1)%text = ""
+                    stmt_tokens(token_count + 1)%line = parser%tokens(stmt_end)%line
+                    stmt_tokens(token_count + 1)%column = &
+                        parser%tokens(stmt_end)%column + 1
 
-                    ! Parse the statement (may return multiple indices for &
-                    ! multi-variable declarations)
                     block
                         integer, allocatable :: stmt_indices(:)
                         integer :: n
+
                         stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
                             loop_index, callbacks)
 
-                        ! Add all parsed statements to body
                         do n = 1, size(stmt_indices)
                             if (stmt_indices(n) > 0) then
                                 temp_body_indices = [temp_body_indices, stmt_indices(n)]
