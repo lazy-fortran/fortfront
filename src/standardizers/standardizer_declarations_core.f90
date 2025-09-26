@@ -58,47 +58,51 @@ contains
         integer, allocatable :: new_body_indices(:)
         integer :: implicit_none_index
         integer, allocatable :: declaration_indices(:)
-        integer :: i, j, insert_pos, n_declarations
+        integer :: i, j, implicit_insert_pos, header_insert_pos
+        integer :: n_declarations, total_extra
+        integer :: header_copy_end, separator_start
 
         if (.not. allocated(prog%body_indices)) return
 
         ! Find insertion point (after use statements, before executable statements)
-        insert_pos = find_declaration_insertion_point(arena, prog)
-        if (insert_pos == 0) insert_pos = 1  ! Default to beginning if no use statements
+        implicit_insert_pos = find_declaration_insertion_point(arena, prog)
+        ! Default to beginning when no use statements are present
+        if (implicit_insert_pos == 0) then
+            implicit_insert_pos = 1
+        end if
+        header_insert_pos = find_declaration_header_end(arena, prog)
+        if (header_insert_pos < implicit_insert_pos) then
+            header_insert_pos = implicit_insert_pos
+        end if
 
         ! Check if implicit none already exists
         if (.not. has_implicit_none(arena, prog)) then
             ! Create implicit none statement node
             implicit_none_index = push_implicit_statement(arena, .true., &
-                                                         line=1, column=1, parent_index=prog_index)
+                line=1, column=1, parent_index=prog_index)
         else
             implicit_none_index = 0  ! Don't add duplicate
         end if
 
-        ! Check if program already has variable declarations (is already standardized)
-        if (program_has_variable_declarations(arena, prog)) then
-            ! Program already standardized, don't add more declarations
-            allocate(declaration_indices(0))
-        else
-            ! Collect and generate variable declarations
-            call generate_and_insert_declarations(arena, prog, prog_index, declaration_indices)
-        end if
+        ! Collect and generate variable declarations for any missing variables
+        call generate_and_insert_declarations(arena, prog, prog_index, &
+            declaration_indices)
         n_declarations = 0
         if (allocated(declaration_indices)) n_declarations = size(declaration_indices)
 
         ! Create new body indices with optional implicit none and declarations
-        if (implicit_none_index > 0) then
-            allocate (new_body_indices(size(prog%body_indices) + 1 + n_declarations))
-        else
-            allocate (new_body_indices(size(prog%body_indices) + n_declarations))
-        end if
+        total_extra = n_declarations
+        if (implicit_none_index > 0) total_extra = total_extra + 1
+        allocate (new_body_indices(size(prog%body_indices) + total_extra))
 
         ! Copy use statements
         j = 1
-        do i = 1, insert_pos - 1
-            new_body_indices(j) = prog%body_indices(i)
-            j = j + 1
-        end do
+        if (implicit_insert_pos > 1) then
+            do i = 1, implicit_insert_pos - 1
+                new_body_indices(j) = prog%body_indices(i)
+                j = j + 1
+            end do
+        end if
 
         ! Insert implicit none if we created one
         if (implicit_none_index > 0) then
@@ -106,23 +110,78 @@ contains
             j = j + 1
         end if
 
-        ! Insert declarations
+        ! Determine header statements to retain before new declarations
+        header_copy_end = header_insert_pos - 1
+        if (header_copy_end >= implicit_insert_pos) then
+            do while (header_copy_end >= implicit_insert_pos)
+                if (.not. is_header_separator(header_copy_end)) exit
+                header_copy_end = header_copy_end - 1
+            end do
+        else
+            header_copy_end = implicit_insert_pos - 1
+        end if
+        separator_start = header_copy_end + 1
+        if (separator_start < implicit_insert_pos) separator_start = implicit_insert_pos
+
+        ! Copy retained header statements (uses are already handled)
+        if (header_copy_end >= implicit_insert_pos) then
+            do i = implicit_insert_pos, header_copy_end
+                new_body_indices(j) = prog%body_indices(i)
+                j = j + 1
+            end do
+        end if
+
+        ! Insert newly generated declarations, if any
         do i = 1, n_declarations
             new_body_indices(j) = declaration_indices(i)
             j = j + 1
         end do
 
+        ! Reinsert trailing separators (comments/blank lines) between header and body
+        if (separator_start <= header_insert_pos - 1) then
+            do i = separator_start, header_insert_pos - 1
+                new_body_indices(j) = prog%body_indices(i)
+                j = j + 1
+            end do
+        end if
+
         ! Copy remaining statements
-        do i = insert_pos, size(prog%body_indices)
-            new_body_indices(j) = prog%body_indices(i)
-            j = j + 1
-        end do
+        if (header_insert_pos <= size(prog%body_indices)) then
+            do i = header_insert_pos, size(prog%body_indices)
+                new_body_indices(j) = prog%body_indices(i)
+                j = j + 1
+            end do
+        end if
 
         ! Update program body
         prog%body_indices = new_body_indices
 
         ! Update the arena entry
         arena%entries(prog_index)%node = prog
+
+    contains
+
+        logical function is_header_separator(pos)
+            integer, intent(in) :: pos
+            integer :: node_index
+
+            is_header_separator = .false.
+            if (.not. allocated(prog%body_indices)) return
+            if (pos < 1 .or. pos > size(prog%body_indices)) return
+
+            node_index = prog%body_indices(pos)
+            if (node_index <= 0 .or. node_index > arena%size) return
+            if (.not. allocated(arena%entries(node_index)%node)) return
+
+            select type (stmt => arena%entries(node_index)%node)
+            type is (comment_node)
+                is_header_separator = .true.
+            type is (blank_line_node)
+                is_header_separator = .true.
+            class default
+                is_header_separator = .false.
+            end select
+        end function is_header_separator
 
     end subroutine insert_variable_declarations
 
@@ -201,8 +260,12 @@ contains
                     select type (stmt => arena%entries(prog%body_indices(i))%node)
                     type is (use_statement_node)
                         pos = i + 1  ! Insert after this use statement
+                    type is (comment_node)
+                        cycle
+                    type is (blank_line_node)
+                        cycle
                     class default
-                        ! First non-use statement, stop looking
+                        ! First non-use, non-comment statement, stop looking
                         exit
                     end select
                 end if
@@ -210,6 +273,40 @@ contains
         end do
 
     end function find_declaration_insertion_point
+
+    ! Find the position after existing declaration header statements
+    function find_declaration_header_end(arena, prog) result(pos)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        integer :: pos
+        integer :: i
+
+        pos = 1
+        if (.not. allocated(prog%body_indices)) return
+
+        do i = 1, size(prog%body_indices)
+            if (prog%body_indices(i) > 0 .and. prog%body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(prog%body_indices(i))%node)) then
+                    select type (stmt => arena%entries(prog%body_indices(i))%node)
+                    type is (use_statement_node)
+                        pos = i + 1
+                    type is (implicit_statement_node)
+                        pos = i + 1
+                    type is (declaration_node)
+                        pos = i + 1
+                    type is (parameter_declaration_node)
+                        pos = i + 1
+                    type is (comment_node)
+                        pos = i + 1
+                    type is (blank_line_node)
+                        pos = i + 1
+                    class default
+                        exit
+                    end select
+                end if
+            end if
+        end do
+    end function find_declaration_header_end
 
     ! Standardize existing declarations (e.g., real -> real(8))
     subroutine standardize_declarations(arena, prog)
