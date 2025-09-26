@@ -10,6 +10,7 @@ program test_if_inside_do_loop
     integer :: unit, iostat
     integer :: inline_if_count
     logical :: found_do_loop, found_unparsed, found_nested_if
+    logical :: found_nested_do, found_inner_if
 
     print *, "=== Testing IF statements inside DO loops (Issue #1324) ==="
 
@@ -24,7 +25,7 @@ program test_if_inside_do_loop
     write(unit, '(a)') 'program inline_if_fixture'
     write(unit, '(a)') '  implicit none'
     write(unit, '(a)') '  real :: x'
-    write(unit, '(a)') '  integer :: i, n'
+    write(unit, '(a)') '  integer :: i, j, n'
     write(unit, '(a)') '  n = 3'
     write(unit, '(a)') '  call random_number(x)'
     write(unit, '(a)') '  do i = 1, n'
@@ -34,6 +35,9 @@ program test_if_inside_do_loop
     write(unit, '(a)') '    if (x > 0.2) then'
     write(unit, '(a)') '      print*, "x larger than 0.2"'
     write(unit, '(a)') '    end if'
+    write(unit, '(a)') '    do j = 1, 2'
+    write(unit, '(a)') '      if (j == 1) print*, "nested iteration", j'
+    write(unit, '(a)') '    end do'
     write(unit, '(a)') '  end do'
     write(unit, '(a)') 'end program inline_if_fixture'
     close(unit)
@@ -55,6 +59,8 @@ program test_if_inside_do_loop
     found_do_loop = .false.
     found_unparsed = .false.
     found_nested_if = .false.
+    found_nested_do = .false.
+    found_inner_if = .false.
 
     do
         read(unit, '(a)', iostat=iostat) line
@@ -63,6 +69,8 @@ program test_if_inside_do_loop
         if (index(adjustl(line), 'do i = 1, n') > 0) found_do_loop = .true.
         if (index(line, 'if (x > 0.3d0)') > 0) inline_if_count = inline_if_count + 1
         if (index(line, 'if (x > 0.2d0) then') > 0) found_nested_if = .true.
+        if (index(line, 'do j = 1, 2') > 0) found_nested_do = .true.
+        if (index(line, 'if (j == 1)') > 0) found_inner_if = .true.
     end do
     close(unit)
 
@@ -82,7 +90,15 @@ program test_if_inside_do_loop
         write(error_unit, '(a)') 'ERROR: nested IF (x > 0.2d0) block missing'
         stop 1
     end if
+    if (.not. found_nested_do) then
+        write(error_unit, '(a)') 'ERROR: nested DO j loop missing from output'
+        stop 1
+    end if
+    if (.not. found_inner_if) then
+        write(error_unit, '(a)') 'ERROR: inner IF on nested loop missing from output'
+        stop 1
+    end if
 
-    print *, 'PASS: parser retains IF statements inside DO loops without placeholders'
+    print *, 'PASS: parser retains control flow inside DO loops without placeholders'
     stop 0
 end program test_if_inside_do_loop
