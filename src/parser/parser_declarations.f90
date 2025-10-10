@@ -46,6 +46,8 @@ contains
         type(type_specifier_t) :: type_spec
 
         type(token_t) :: token, next_token
+        character(len=:), allocatable :: paren_text
+        integer :: paren_depth
 
         token = parser%consume()
         type_spec%type_name = trim(token%text)  ! Explicit trim for clean allocation
@@ -918,18 +920,17 @@ contains
             token = parser%peek()
 
             ! Check for end type
-            if (token%kind == TK_IDENTIFIER .and. token%text == "end") then
+            if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. token%text == "end") then
                 token = parser%consume()
                 token = parser%peek()
-                if (token%kind == TK_IDENTIFIER .and. token%text == "type") then
+                if ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. token%text == "type") then
                     token = parser%consume()
-                    exit
-                else
-                    ! Not "end type", we need to reprocess this
-                    ! This is a problem - we can't push tokens back!
-                    ! For now, exit anyway
-                    exit
+                    token = parser%peek()
+                    if (token%kind == TK_IDENTIFIER) then
+                        token = parser%consume()
+                    end if
                 end if
+                exit
             end if
 
             ! Parse component
@@ -949,7 +950,8 @@ contains
             else if (comp_index == 0) then
                 ! If we couldn't parse a component, skip to next line or token
                 token = parser%peek()
-                if (.not. (token%kind == TK_IDENTIFIER .and. token%text == "end")) then
+                if (.not. ((token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD) .and. &
+                           token%text == "end")) then
                     ! Skip unknown token to avoid infinite loop
                     token = parser%consume()
                 end if

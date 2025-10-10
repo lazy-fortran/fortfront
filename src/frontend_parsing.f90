@@ -362,7 +362,7 @@ contains
             end do
         else if (unit_type == "subroutine" .or. unit_type == "function") then
             ! For standalone subroutines and functions, find the matching "end"
-            ! Note: We only handle standalone procedures here. 
+            ! Note: We only handle standalone procedures here.
             ! Internal procedures are handled by the default logic below
             do i = start_pos + 1, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then
@@ -389,6 +389,33 @@ contains
                             unit_end = i
                             exit
                         end if
+                    end if
+                end if
+                unit_end = i
+            end do
+        else if (unit_type == "program") then
+            ! Find matching "end program" to keep specification part within the unit
+            do i = start_pos + 1, size(tokens)
+                if (tokens(i)%kind == TK_EOF) then
+                    unit_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "end") then
+                    if (i + 1 <= size(tokens)) then
+                        if (tokens(i+1)%kind == TK_KEYWORD .and. tokens(i+1)%text == "program") then
+                            unit_end = i + 1
+                            if (i + 2 <= size(tokens)) then
+                                if (tokens(i+2)%kind == TK_IDENTIFIER) then
+                                    unit_end = i + 2
+                                end if
+                            end if
+                            exit
+                        end if
+                    end if
+                    ! Handle bare "end" for defensive coverage
+                    if (i == size(tokens) .or. &
+                        (i + 1 <= size(tokens) .and. tokens(i+1)%kind /= TK_KEYWORD)) then
+                        unit_end = i
+                        exit
                     end if
                 end if
                 unit_end = i

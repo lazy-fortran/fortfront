@@ -21,7 +21,6 @@ issue_1347_interface.f90        # Issue #1347: INTERFACE blocks cause parser err
 issue_1350_recursive.f90        # Issue #1350: RECURSIVE keyword dropped, ELSE missing
 issue_1351_elemental_pure.f90   # Issue #1351: ELEMENTAL and PURE keywords dropped
 issue_1352_optional.f90         # Issue #1352: OPTIONAL parameters broken
-issue_1353_derived_type.f90     # Issue #1353: Derived type definitions mangled
 
 # Lazy Fortran control flow
 
