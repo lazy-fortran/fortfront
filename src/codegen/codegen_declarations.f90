@@ -5,7 +5,7 @@ module codegen_declarations
         derived_type_node, intent_type_to_string, module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_core, only: program_node, identifier_node, literal_node, assignment_node, &
-        array_literal_node
+        array_literal_node, call_or_subscript_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node, comment_node, blank_line_node, &
         use_statement_node
     use ast_nodes_loops, only: do_loop_node
@@ -14,10 +14,9 @@ module codegen_declarations
     use codegen_indent
     use codegen_utilities, only: parameter_info_t, int_to_string, &
         generate_grouped_body, generate_grouped_body_with_params, &
-        generate_grouped_body_context, find_parameter_info
+        generate_grouped_body_context, find_parameter_info, type_name_from_mono
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_type_utils, only: get_type_standardization
-    use lexer_core, only: to_lower
     implicit none
     private
 
@@ -38,6 +37,7 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: return_type_code, params_code, body_code
+        character(len=:), allocatable :: inferred_type_name
         integer :: i
 
         ! Start function definition with return type
@@ -95,6 +95,8 @@ contains
                 param_map(i)%name = ""
                 param_map(i)%intent_str = ""
                 param_map(i)%is_optional = .false.
+                param_map(i)%type_name = ""
+                param_map(i)%has_explicit_declaration = .false.
                 
                 if (node%param_indices(i) > 0 .and. &
                     node%param_indices(i) <= arena%size) then
@@ -103,12 +105,26 @@ contains
                                      arena%entries(node%param_indices(i))%node)
                         type is (identifier_node)
                             param_map(i)%name = param_node%name
+                            inferred_type_name = ''
+                            if (param_node%inferred_type%kind > 0) then
+                                if (len_trim(param_map(i)%type_name) == 0) then
+                                    inferred_type_name = type_name_from_mono(param_node%inferred_type)
+                                    if (len_trim(inferred_type_name) > 0) then
+                                        param_map(i)%type_name = trim(inferred_type_name)
+                                    end if
+                                end if
+                            end if
                         type is (parameter_declaration_node)
                             ! Get attributes directly from parameter node
                             param_map(i)%name = param_node%name
                             param_map(i)%intent_str = &
                                 intent_type_to_string(param_node%intent_type)
                             param_map(i)%is_optional = param_node%is_optional
+                            if (len_trim(param_node%type_name) > 0) then
+                                if (len_trim(param_map(i)%type_name) == 0) then
+                                    param_map(i)%type_name = trim(param_node%type_name)
+                                end if
+                            end if
                         end select
                     end if
                 end if
@@ -130,6 +146,11 @@ contains
                                         param_map(i)%intent_str = &
                                             intent_type_to_string(body_node%intent_type)
                                         param_map(i)%is_optional = body_node%is_optional
+                                        if (len_trim(param_map(i)%type_name) == 0) then
+                                            if (len_trim(body_node%type_name) > 0) then
+                                                param_map(i)%type_name = trim(body_node%type_name)
+                                            end if
+                                        end if
                                     end if
                                 end do
                             type is (declaration_node)
@@ -143,6 +164,16 @@ contains
                                         end if
                                         ! Always update optional flag
                                         param_map(i)%is_optional = body_node%is_optional
+                                        if (len_trim(param_map(i)%type_name) == 0) then
+                                            if (len_trim(body_node%type_name) > 0) then
+                                                param_map(i)%type_name = trim(body_node%type_name)
+                                            else if (body_node%inferred_type%kind > 0) then
+                                                inferred_type_name = type_name_from_mono(body_node%inferred_type)
+                                                if (len_trim(inferred_type_name) > 0) then
+                                                    param_map(i)%type_name = trim(inferred_type_name)
+                                                end if
+                                            end if
+                                        end if
                                     end if
                                 end do
                             end select
@@ -169,6 +200,7 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: params_code
+        character(len=:), allocatable :: inferred_type_name
         integer :: i
 
         ! Start subroutine definition
@@ -251,6 +283,11 @@ contains
                                         param_map(i)%intent_str = &
                                             intent_type_to_string(body_node%intent_type)
                                         param_map(i)%is_optional = body_node%is_optional
+                                        if (len_trim(param_map(i)%type_name) == 0) then
+                                            if (len_trim(body_node%type_name) > 0) then
+                                                param_map(i)%type_name = trim(body_node%type_name)
+                                            end if
+                                        end if
                                     end if
                                 end do
                             type is (declaration_node)
@@ -264,6 +301,16 @@ contains
                                         end if
                                         ! Always update optional flag
                                         param_map(i)%is_optional = body_node%is_optional
+                                        if (len_trim(param_map(i)%type_name) == 0) then
+                                            if (len_trim(body_node%type_name) > 0) then
+                                                param_map(i)%type_name = trim(body_node%type_name)
+                                            else if (body_node%inferred_type%kind > 0) then
+                                                inferred_type_name = type_name_from_mono(body_node%inferred_type)
+                                                if (len_trim(inferred_type_name) > 0) then
+                                                    param_map(i)%type_name = trim(inferred_type_name)
+                                                end if
+                                            end if
+                                        end if
                                     end if
                                 end do
                             end select
@@ -290,28 +337,15 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: init_code, type_str
-        character(len=:), allocatable :: base_type, trimmed_type, paren_content
-        integer :: i, j, special_pos, read_len, io_stat
+        integer :: i, j
         logical :: standardize_types_enabled
 
         ! Get type standardization setting
         call get_type_standardization(standardize_types_enabled)
 
         ! Determine the type string
-        trimmed_type = trim(adjustl(node%type_name))
-        base_type = trimmed_type
-        special_pos = index(base_type, '(')
-        if (special_pos > 0) base_type = base_type(1:special_pos-1)
-        special_pos = index(base_type, '*')
-        if (special_pos > 0) base_type = base_type(1:special_pos-1)
-        base_type = to_lower(trim(base_type))
-
         if (len_trim(node%type_name) > 0) then
-            if (base_type == "character") then
-                type_str = "character"
-            else
-                type_str = node%type_name
-            end if
+            type_str = node%type_name
         else if (node%inferred_type%kind > 0) then
             ! Handle type inference
             select case (node%inferred_type%kind)
@@ -358,38 +392,11 @@ contains
         code = type_str
 
         ! Add kind if present and valid (>0) (but not for character which uses len)
-        if (node%has_kind .and. node%kind_value > 0 .and. base_type /= "character") then
+        if (node%has_kind .and. node%kind_value > 0 .and. node%type_name /= "character") then
             code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
-        else if (base_type == "character") then
-            if (node%has_kind) then
-                if (node%kind_value == -1) then
-                    code = "character(len=*)"
-                else if (node%kind_value > 0) then
-                    code = "character(len=" // trim(adjustl(int_to_string(node%kind_value))) // ")"
-                end if
-            else
-                special_pos = index(trimmed_type, '(')
-                if (special_pos > 0) then
-                    read_len = 0
-                    io_stat = 0
-                    if (index(trimmed_type, ')') > special_pos) then
-                        paren_content = trim(trimmed_type(special_pos+1:index(trimmed_type, ')')-1))
-                        if (len(paren_content) > 0) then
-                            if (index(to_lower(paren_content), "len=") == 1) then
-                                paren_content = trim(paren_content(5:))
-                            end if
-                            if (paren_content == "*") then
-                                code = "character(len=*)"
-                            else
-                                read(paren_content, *, iostat=io_stat) read_len
-                                if (io_stat == 0 .and. read_len > 0) then
-                                    code = "character(len=" // trim(adjustl(int_to_string(read_len))) // ")"
-                                end if
-                            end if
-                        end if
-                    end if
-                end if
-            end if
+        else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value > 0) then
+            ! For character, kind_value is actually the length
+            code = "character(len=" // trim(adjustl(int_to_string(node%kind_value))) // ")"
         end if
 
         ! Add intent if present
@@ -645,13 +652,9 @@ contains
         logical :: context_has_executable_before_contains
         integer, allocatable :: non_use_indices(:)
         integer :: non_use_count
-        character(len=64), allocatable :: func_names(:)
-        character(len=64), allocatable :: func_types(:)
-        integer :: func_count
 
         context_has_executable_before_contains = .false.
         non_use_count = 0
-        func_count = 0
 
         ! Check if there's a non-trivial body before contains
         has_non_trivial_body = .false.
@@ -680,31 +683,6 @@ contains
 
         ! Handle special multi-unit container
         if (node%name == "__MULTI_UNIT__") then
-            if (allocated(node%body_indices)) then
-                allocate(func_names(size(node%body_indices)))
-                allocate(func_types(size(node%body_indices)))
-                func_names = ""
-                func_types = ""
-                do i = 1, size(node%body_indices)
-                    if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
-                        if (allocated(arena%entries(node%body_indices(i))%node)) then
-                            select type (child => arena%entries(node%body_indices(i))%node)
-                            type is (function_def_node)
-                                if (func_count < size(func_names)) then
-                                    func_count = func_count + 1
-                                    func_names(func_count) = trim(child%name)
-                                    if (allocated(child%return_type) .and. &
-                                        len_trim(child%return_type) > 0) then
-                                        func_types(func_count) = trim(child%return_type)
-                                    else
-                                        func_types(func_count) = "real"
-                                    end if
-                                end if
-                            end select
-                        end if
-                    end if
-                end do
-            end if
             ! Generate code for each unit as siblings without program wrapper
             code = ""
             if (allocated(node%body_indices)) then
@@ -716,18 +694,6 @@ contains
                                 ! Skip empty implicit main programs to avoid duplicate minimal outputs
                                 if ((child%name == "main" .or. child%name == "__IMPLICIT_MAIN__") .and. &
                                     (.not. allocated(child%body_indices) .or. size(child%body_indices) == 0)) cycle
-                                block
-                                    character(len=:), allocatable :: program_code
-                                    program_code = generate_code_from_arena(arena, node%body_indices(i))
-                                    if (func_count > 0) then
-                                        program_code = add_function_declarations(program_code, func_names, func_types, func_count)
-                                    end if
-                                    if (len(code) > 0) then
-                                        code = code // new_line('A') // new_line('A')
-                                    end if
-                                    code = code // program_code
-                                    cycle
-                                end block
                             type is (subroutine_def_node)
                                 ! Skip duplicate empty subroutines (defensive check)
                                 if (.not. allocated(child%body_indices) .or. size(child%body_indices) == 0) then
@@ -763,8 +729,6 @@ contains
                     end if
                 end do
             end if
-            if (allocated(func_names)) deallocate(func_names)
-            if (allocated(func_types)) deallocate(func_types)
             return
         end if
 
@@ -777,6 +741,7 @@ contains
             logical :: is_use_stmt
             character(len=:), allocatable :: use_statements_code
             character(len=:), allocatable :: loop_var_declarations
+            character(len=:), allocatable :: extra_decls
             
             has_implicit = .false.
             use_statements_code = ""
@@ -834,6 +799,11 @@ contains
             if (.not. has_implicit) then
                 code = code // "    implicit none" // new_line('A')
             end if
+
+            extra_decls = collect_program_variable_decls(arena, node)
+            if (len_trim(extra_decls) > 0) then
+                code = code // extra_decls
+            end if
         end block
         
         ! Generate rest of body (non-use statements) with proper grouping
@@ -845,7 +815,6 @@ contains
             if (len(body_code) > 0) then
                 block
                     integer :: pos, start_pos, end_pos, impl_pos, insert_pos
-                    integer :: pattern_len
                     character(len=:), allocatable :: before_code, after_code, var_name
                     character(len=:), allocatable :: loop_vars(:)
                     integer :: n_vars, i, j
@@ -859,16 +828,10 @@ contains
                     ! Search for patterns like "(var=" in implied do loops (both old and new syntax)
                     pos = 1
                     do while (pos <= len(body_code))
-                        ! Find next occurrence of legacy implied-do "= (/(" (with or without whitespace)
-                        start_pos = index(body_code(pos:), "= (/(")
-                        pattern_len = 5
+                        ! Find next occurrence of either "= (/ (" or "= [("
+                        start_pos = index(body_code(pos:), "= (/ (")
                         if (start_pos == 0) then
-                            start_pos = index(body_code(pos:), "= (/ (")
-                            if (start_pos > 0) pattern_len = 6
-                        end if
-
-                        if (start_pos == 0) then
-                            ! Try modern syntax "= [("
+                            ! Try new syntax
                             start_pos = index(body_code(pos:), "= [(")
                             if (start_pos > 0) then
                                 start_pos = pos + start_pos - 1
@@ -887,14 +850,14 @@ contains
                         else
                             start_pos = pos + start_pos - 1
                             ! Find the loop variable patterns for old syntax
-                            end_pos = index(body_code(start_pos:), "/)")
+                            end_pos = index(body_code(start_pos:), " /)")
                             if (end_pos > 0) then
                                 end_pos = start_pos + end_pos - 1
                                 ! Extract variables from this implied do section
                                 call extract_loop_vars_from_section(body_code(start_pos:end_pos), &
                                                                    loop_vars, n_vars)
                             end if
-                            pos = start_pos + pattern_len  ! Move past the detected pattern
+                            pos = start_pos + 6  ! Move past "= (/ ("
                         end if
                     end do
                     
@@ -977,59 +940,144 @@ contains
 
         ! Program end
         code = code // "end program " // node%name
-
     contains
 
-        function add_function_declarations(program_code, fn_names, fn_types, fn_count) result(updated_code)
-            character(len=*), intent(in) :: program_code
-            character(len=64), intent(in) :: fn_names(:)
-            character(len=64), intent(in) :: fn_types(:)
-            integer, intent(in) :: fn_count
-            character(len=:), allocatable :: updated_code
-            character(len=:), allocatable :: before_code
-            character(len=:), allocatable :: after_code
-            character(len=:), allocatable :: decls
-            integer :: pos, newline_pos, i
+        function collect_program_variable_decls(arena, prog) result(decl_code)
+            type(ast_arena_t), intent(in) :: arena
+            type(program_node), intent(in) :: prog
+            character(len=:), allocatable :: decl_code
+            integer, parameter :: MAX_VARS = 256
+            character(len=64) :: declared_names(MAX_VARS)
+            character(len=64) :: var_names(MAX_VARS)
+            character(len=64) :: var_types(MAX_VARS)
+            character(len=64) :: func_names(MAX_VARS)
+            character(len=64) :: func_types(MAX_VARS)
+            logical :: name_declared
+            integer :: declared_count, var_count, func_count
+            integer :: i, idx, target_idx
+            character(len=64) :: name_buf
+            character(len=:), allocatable :: type_buf
 
-            updated_code = program_code
-            if (fn_count <= 0) return
-            if (index(program_code, 'contains') > 0) return
+            decl_code = ""
+            declared_count = 0
+            var_count = 0
+            func_count = 0
 
-            pos = index(program_code, 'implicit none')
-            if (pos <= 0) return
+            if (.not. allocated(prog%body_indices)) return
 
-            newline_pos = pos
-            do while (newline_pos <= len(program_code))
-                if (program_code(newline_pos:newline_pos) == new_line('A')) exit
-                newline_pos = newline_pos + 1
+            do i = 1, size(prog%body_indices)
+                idx = prog%body_indices(i)
+                if (idx <= 0 .or. idx > arena%size) cycle
+                if (.not. allocated(arena%entries(idx)%node)) cycle
+                select type (decl => arena%entries(idx)%node)
+                type is (declaration_node)
+                    if (declared_count < MAX_VARS) then
+                        declared_count = declared_count + 1
+                        declared_names(declared_count) = trim(decl%var_name)
+                    end if
+                end select
             end do
-            if (newline_pos > len(program_code)) return
 
-            before_code = program_code(1:newline_pos)
-            if (newline_pos < len(program_code)) then
-                after_code = program_code(newline_pos+1:)
-            else
-                after_code = ''
-            end if
+            do i = 1, size(prog%body_indices)
+                idx = prog%body_indices(i)
+                if (idx <= 0 .or. idx > arena%size) cycle
+                if (.not. allocated(arena%entries(idx)%node)) cycle
+                select type (stmt => arena%entries(idx)%node)
+                type is (assignment_node)
+                    target_idx = stmt%target_index
+                    if (target_idx > 0 .and. target_idx <= arena%size) then
+                        if (allocated(arena%entries(target_idx)%node)) then
+                            select type (id => arena%entries(target_idx)%node)
+                            type is (identifier_node)
+                                name_buf = trim(id%name)
+                                if (len_trim(name_buf) == 0) cycle
+                                name_declared = exists_in_list(declared_names, declared_count, name_buf)
+                                if (.not. name_declared) then
+                                    if (.not. exists_in_list(var_names, var_count, name_buf)) then
+                                        type_buf = mono_type_to_string(id%inferred_type)
+                                        if (len_trim(type_buf) == 0) type_buf = 'real'
+                                        if (var_count < MAX_VARS) then
+                                            var_count = var_count + 1
+                                            var_names(var_count) = name_buf
+                                            var_types(var_count) = trim(type_buf)
+                                        end if
+                                    end if
+                                end if
+                            end select
+                        end if
+                    end if
 
-            decls = ''
-            do i = 1, fn_count
-                if (len_trim(fn_names(i)) == 0) cycle
-                if (index(program_code, ':: ' // trim(fn_names(i))) > 0) cycle
-                if (len_trim(fn_types(i)) == 0) then
-                    decls = decls // '    real :: ' // trim(fn_names(i)) // new_line('A')
-                else
-                    decls = decls // '    ' // trim(fn_types(i)) // ' :: ' // trim(fn_names(i)) // new_line('A')
+                    if (stmt%value_index > 0 .and. stmt%value_index <= arena%size) then
+                        if (allocated(arena%entries(stmt%value_index)%node)) then
+                            select type (val => arena%entries(stmt%value_index)%node)
+                            type is (call_or_subscript_node)
+                                if (len_trim(val%name) > 0) then
+                                    type_buf = mono_type_to_string(val%inferred_type)
+                                    if (len_trim(type_buf) == 0) type_buf = 'real'
+                                    if (.not. exists_in_list(func_names, func_count, trim(val%name))) then
+                                        if (func_count < MAX_VARS) then
+                                            func_count = func_count + 1
+                                            func_names(func_count) = trim(val%name)
+                                            func_types(func_count) = trim(type_buf)
+                                        end if
+                                    end if
+                                end if
+                            end select
+                        end if
+                    end if
+                end select
+            end do
+
+            if (var_count == 0 .and. func_count == 0) return
+
+            do i = 1, var_count
+                decl_code = decl_code // "    " // trim(var_types(i)) // " :: " // trim(var_names(i)) // new_line('A')
+            end do
+
+            do i = 1, func_count
+                decl_code = decl_code // "    " // trim(func_types(i)) // ", external :: " // trim(func_names(i)) // new_line('A')
+            end do
+        end function collect_program_variable_decls
+
+        logical function exists_in_list(list, count, name)
+            character(len=*), intent(in) :: list(:)
+            integer, intent(in) :: count
+            character(len=*), intent(in) :: name
+            integer :: i
+
+            exists_in_list = .false.
+            if (count <= 0) return
+            do i = 1, count
+                if (trim(list(i)) == trim(name)) then
+                    exists_in_list = .true.
+                    return
                 end if
             end do
+        end function exists_in_list
 
-            if (len_trim(decls) == 0) return
+        function mono_type_to_string(mono) result(type_name)
+            type(mono_type_t), intent(in) :: mono
+            character(len=:), allocatable :: type_name
+            character(len=32) :: size_buf
 
-            updated_code = before_code // decls
-            if (len(after_code) > 0) then
-                updated_code = updated_code // after_code
-            end if
-        end function add_function_declarations
+            select case (mono%kind)
+            case (TINT)
+                type_name = 'integer'
+            case (TREAL)
+                type_name = 'real'
+            case (TLOGICAL)
+                type_name = 'logical'
+            case (TCHAR)
+                if (mono%size > 0) then
+                    write(size_buf, '(I0)') mono%size
+                    type_name = 'character(len='//trim(size_buf)//')'
+                else
+                    type_name = 'character(len=:), allocatable'
+                end if
+            case default
+                type_name = ''
+            end select
+        end function mono_type_to_string
 
     end function generate_code_program
 

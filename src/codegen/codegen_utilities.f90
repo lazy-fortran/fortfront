@@ -39,15 +39,66 @@ module codegen_utilities
     public :: find_parameter_info
     public :: is_function_parameter
     public :: is_parameter_name
+    public :: type_name_from_mono
     
     ! Type for storing parameter information during codegen
     type, public :: parameter_info_t
         character(len=:), allocatable :: name
         character(len=:), allocatable :: intent_str
-        logical :: is_optional
+        character(len=:), allocatable :: type_name
+        logical :: is_optional = .false.
+        logical :: has_explicit_declaration = .false.
     end type parameter_info_t
 
 contains
+
+    ! Convert a mono type to a Fortran declaration string
+    function type_name_from_mono(mono) result(name)
+        type(mono_type_t), intent(in) :: mono
+        character(len=:), allocatable :: name
+        character(len=32) :: len_buf
+
+        select case (mono%kind)
+        case (TINT)
+            name = 'integer'
+        case (TREAL)
+            name = 'real'
+        case (TLOGICAL)
+            name = 'logical'
+        case (TCHAR)
+            if (mono%size > 0) then
+                write(len_buf, '(I0)') mono%size
+                name = 'character(len=' // trim(len_buf) // ')'
+            else
+                name = 'character(len=:), allocatable'
+            end if
+        case default
+            name = ''
+        end select
+    end function type_name_from_mono
+
+    function lookup_identifier_type(arena, name) result(type_name)
+        type(ast_arena_t), intent(in) :: arena
+        character(len=*), intent(in) :: name
+        character(len=:), allocatable :: type_name
+        integer :: idx
+
+        type_name = ''
+        do idx = 1, arena%size
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (id => arena%entries(idx)%node)
+            type is (identifier_node)
+                if (allocated(id%name)) then
+                    if (trim(id%name) == trim(name)) then
+                        if (id%inferred_type%kind > 0) then
+                            type_name = type_name_from_mono(id%inferred_type)
+                            if (len_trim(type_name) > 0) return
+                        end if
+                    end if
+                end if
+            end select
+        end do
+    end function lookup_identifier_type
 
 
     ! Convert integer to string
@@ -360,7 +411,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent
-        type(parameter_info_t), intent(in) :: param_map(:)
+        type(parameter_info_t), intent(inout) :: param_map(:)
         class(ast_node), intent(in) :: proc_node
         character(len=:), allocatable :: code
         character(len=:), allocatable :: indent_str, stmt_code
@@ -375,6 +426,7 @@ contains
         logical :: append_kind
         logical :: append_kind_single
         logical :: append_kind_param
+        character(len=:), allocatable :: inferred_type
         
         ! Build indent string
         indent_str = repeat("    ", indent)
@@ -409,6 +461,11 @@ contains
                                     if (param_idx > 0) then
                                         found_params = .true.
                                         if (first_param_idx == 0) first_param_idx = param_idx
+                                        if (len_trim(param_map(param_idx)%type_name) == 0) then
+                                            if (len_trim(node%type_name) > 0) then
+                                                param_map(param_idx)%type_name = trim(node%type_name)
+                                            end if
+                                        end if
                                     end if
                                 end do
                                 
@@ -452,6 +509,15 @@ contains
                                     end do
                                     
                                     code = code // new_line('A')
+
+                                    do j = 1, size(node%var_names)
+                                        if (is_param(j)) then
+                                            param_idx = find_parameter_info(param_map, trim(node%var_names(j)))
+                                            if (param_idx > 0) then
+                                                param_map(param_idx)%has_explicit_declaration = .true.
+                                            end if
+                                        end if
+                                    end do
 
                                     ! Also emit a declaration for non-parameter variables (locals)
                                     block
@@ -535,6 +601,12 @@ contains
                                     end if
                                     
                                     code = code // new_line('A')
+                                    if (len_trim(param_map(param_idx)%type_name) == 0) then
+                                        if (len_trim(node%type_name) > 0) then
+                                            param_map(param_idx)%type_name = trim(node%type_name)
+                                        end if
+                                    end if
+                                    param_map(param_idx)%has_explicit_declaration = .true.
                                 end if
                             end if
                         type is (parameter_declaration_node)
@@ -581,6 +653,12 @@ contains
                                 end if
                                 
                                 code = code // new_line('A')
+                                if (len_trim(param_map(param_idx)%type_name) == 0) then
+                                    if (len_trim(node%type_name) > 0) then
+                                        param_map(param_idx)%type_name = trim(node%type_name)
+                                    end if
+                                end if
+                                param_map(param_idx)%has_explicit_declaration = .true.
                             end if
                         end select
                     end if
@@ -588,6 +666,48 @@ contains
             end do
         end if
         
+        ! Emit inferred parameter declarations for parameters without explicit ones
+        if (size(param_map) > 0) then
+            do i = 1, size(param_map)
+                if (.not. param_map(i)%has_explicit_declaration) then
+                    if (.not. allocated(param_map(i)%name)) cycle
+                    if (len_trim(param_map(i)%name) == 0) cycle
+
+                    inferred_type = ""
+                    if (allocated(param_map(i)%type_name)) then
+                        inferred_type = trim(param_map(i)%type_name)
+                    end if
+                    if (len_trim(inferred_type) == 0) then
+                        inferred_type = lookup_identifier_type(arena, trim(param_map(i)%name))
+                    end if
+
+                    if (len_trim(inferred_type) == 0) then
+                        inferred_type = "real"
+                    end if
+
+                    if (inferred_type == "real") then
+                        inferred_type = "real(8)"
+                    end if
+
+                    stmt_code = indent_str // inferred_type
+
+                    if (allocated(param_map(i)%intent_str)) then
+                        if (len_trim(param_map(i)%intent_str) > 0) then
+                            stmt_code = stmt_code // ", intent(" // trim(param_map(i)%intent_str) // ")"
+                        end if
+                    end if
+
+                    if (param_map(i)%is_optional) then
+                        stmt_code = stmt_code // ", optional"
+                    end if
+
+                    stmt_code = stmt_code // " :: " // trim(param_map(i)%name) // new_line('A')
+                    code = code // stmt_code
+                    param_map(i)%has_explicit_declaration = .true.
+                end if
+            end do
+        end if
+
         ! Second pass: generate body, filtering out parameter declarations
         allocate(filtered_indices(size(body_indices)))
         filtered_count = 0
