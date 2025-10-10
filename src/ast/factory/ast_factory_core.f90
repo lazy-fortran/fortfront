@@ -130,17 +130,22 @@ contains
 
     ! Create assignment node and add to stack
     function push_assignment(arena, target_index, value_index, line, column, &
-                            parent_index) result(assign_index)
+                            parent_index, operator) result(assign_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: target_index, value_index
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: operator
         integer :: assign_index
         type(assignment_node) :: assign
 
         assign%uid = generate_uid()
         assign%target_index = target_index
         assign%value_index = value_index
-        assign%operator = "="
+        if (present(operator)) then
+            assign%operator = operator
+        else
+            assign%operator = "="
+        end if
         if (present(line)) assign%line = line
         if (present(column)) assign%column = column
         call arena%push(assign, "assignment", parent_index)

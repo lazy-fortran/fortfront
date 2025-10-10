@@ -598,12 +598,21 @@ contains
         integer, intent(in), optional :: parent_index
         type(token_t), intent(in) :: tokens(:)
         type(token_t), intent(in) :: id_token
-        type(token_t) :: op_token
+        type(token_t) :: op_token, next_token
         type(token_t), allocatable, target :: expr_tokens(:)
         integer :: remaining_count, target_index, value_index
+        character(len=:), allocatable :: operator_text
 
         stmt_index = 0
         op_token = parser%consume()
+        operator_text = "="
+        if (parser%current_token <= size(parser%tokens)) then
+            next_token = parser%peek()
+            if (next_token%kind == TK_OPERATOR .and. next_token%text == ">") then
+                next_token = parser%consume()
+                operator_text = "=>"
+            end if
+        end if
         remaining_count = size(tokens) - parser%current_token + 1
         if (remaining_count <= 0) return
 
@@ -624,7 +633,7 @@ contains
         end if
 
         stmt_index = push_assignment(arena, target_index, value_index, id_token%line, &
-                                     id_token%column, parent_index)
+                                     id_token%column, parent_index, operator=operator_text)
         deallocate (expr_tokens)
     end function parse_simple_assignment
 
@@ -639,11 +648,13 @@ contains
         integer :: target_index, value_index, lhs_len, remaining_count
         type(token_t), allocatable, target :: lhs_tokens(:)
         type(token_t), allocatable, target :: rhs_tokens(:)
-        type(token_t) :: current_token
+        type(token_t) :: current_token, next_token
+        character(len=:), allocatable :: operator_text
 
         stmt_index = 0
         left_end = parser%current_token - 1
         paren_depth = 0
+        operator_text = "="
 
         do pos = parser%current_token, size(parser%tokens)
             current_token = parser%tokens(pos)
@@ -691,6 +702,14 @@ contains
             current_token = parser%peek()
             if (current_token%kind == TK_OPERATOR .and. current_token%text == "=") then
                 current_token = parser%consume()
+                operator_text = "="
+                if (parser%current_token <= size(parser%tokens)) then
+                    next_token = parser%peek()
+                    if (next_token%kind == TK_OPERATOR .and. next_token%text == ">") then
+                        next_token = parser%consume()
+                        operator_text = "=>"
+                    end if
+                end if
             end if
         end if
 
@@ -704,7 +723,7 @@ contains
         if (value_index <= 0) return
 
         stmt_index = push_assignment(arena, target_index, value_index, id_token%line, &
-                                     id_token%column, parent_index)
+                                     id_token%column, parent_index, operator=operator_text)
     end function parse_complex_assignment
 
     integer function build_placeholder_or_zero(tokens, first_token, arena) &

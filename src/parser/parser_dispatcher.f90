@@ -216,13 +216,14 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
-        type(token_t) :: id_token, op_token
+        type(token_t) :: id_token, op_token, next_token
         integer :: target_index, value_index
         logical :: is_multi_assignment
+        character(len=:), allocatable :: operator_text
 
         ! Check if this is a multi-variable assignment before consuming tokens
         is_multi_assignment = is_multi_var_assignment_dispatcher(parser)
-        
+
         if (is_multi_assignment) then
             call parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
         else
@@ -232,6 +233,14 @@ contains
 
             if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
                 op_token = parser%consume()
+                operator_text = "="
+                if (parser%current_token <= size(parser%tokens)) then
+                    next_token = parser%peek()
+                    if (next_token%kind == TK_OPERATOR .and. next_token%text == ">") then
+                        next_token = parser%consume()
+                        operator_text = "=>"
+                    end if
+                end if
 
                 ! Create target identifier
                 target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
@@ -242,7 +251,8 @@ contains
                 ! Create assignment
                 if (value_index > 0) then
                     stmt_index = push_assignment(arena, target_index, value_index, &
-                                                  id_token%line, id_token%column)
+                                                  id_token%line, id_token%column, &
+                                                  operator=operator_text)
                 else
                     stmt_index = push_literal(arena, "! Error: missing value", &
                                                LITERAL_STRING, id_token%line, &

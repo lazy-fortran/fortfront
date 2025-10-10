@@ -39,6 +39,8 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: left_code, right_code
+        character(len=:), allocatable :: rhs_no_gt
+        integer :: first_non_space
 
         ! Generate left-hand side
         if (node%target_index > 0 .and. node%target_index <= arena%size) then
@@ -58,7 +60,24 @@ contains
         if (allocated(node%operator) .and. node%operator == "=>") then
             code = left_code // " => " // right_code
         else
-            code = left_code // " = " // right_code
+            first_non_space = 1
+            do while (first_non_space <= len(right_code))
+                if (right_code(first_non_space:first_non_space) /= ' ') exit
+                first_non_space = first_non_space + 1
+            end do
+
+            if (first_non_space <= len(right_code) .and. &
+                    right_code(first_non_space:first_non_space) == '>' .and. &
+                    (.not. allocated(node%operator) .or. trim(node%operator) == "=")) then
+                if (first_non_space < len(right_code)) then
+                    rhs_no_gt = adjustl(right_code(first_non_space+1:))
+                else
+                    rhs_no_gt = ""
+                end if
+                code = left_code // " => " // trim(rhs_no_gt)
+            else
+                code = left_code // " = " // right_code
+            end if
         end if
     end function generate_code_assignment
 
