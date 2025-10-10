@@ -371,9 +371,8 @@ contains
                                           triplets(1)%stride_expr_index, &
                                           mask_index, body_indices, line, column)
             else
-                ! For multi-index, create a placeholder for now
-                ! TODO: Extend push_forall to support multi-index FORALL
-                write(error_unit, '(A)') "WARNING: Multi-index FORALL not yet fully supported"
+                ! For multi-index, emit error since body will be dropped
+                write(error_unit, '(A)') "ERROR: Multi-index FORALL not yet supported - body will be lost"
                 forall_index = 0
             end if
         end if

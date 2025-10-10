@@ -1,0 +1,7 @@
+! Minimal reproducer for issue #1343: Lazy fortran functions missing type inference
+function add(a, b)
+    result = a + b
+end function
+
+x = add(5, 3)
+print *, x
