@@ -8,9 +8,6 @@ function_test.lf                # Function scope handling: missing type declarat
 test_function_issue.lf          # Function scope handling: missing type declarations in main
 test_sem_ctor.lf                # Gfortran compilation failure
 test_sem_mixed.lf               # Gfortran compilation failure
-test_sem_scope.lf               # Gfortran compilation failure
-test_std_do.lf                  # Gfortran compilation failure
-test_std_slice.lf               # Gfortran compilation failure
 external_tool_example.f90       # Gfortran compilation failure
 tooling_lightweight_ast.f90     # Gfortran compilation failure
 

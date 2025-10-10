@@ -43,7 +43,9 @@ program fortfront_cli
             call get_command_argument(i, length=arg_len)
             allocate(character(len=arg_len) :: arg_str, stat=alloc_stat)
             if (alloc_stat /= 0) then
-                write(error_unit, '(A,I0,A)') 'Memory allocation failed for command argument (stat=', alloc_stat, ')'
+                write(error_unit, '(A,I0,A)') &
+                    'Memory allocation failed for command argument (stat=', &
+                    alloc_stat, ')'
                 call exit_quiet(EXIT_FAILURE)
             end if
             call get_command_argument(i, value=arg_str)
@@ -54,7 +56,9 @@ program fortfront_cli
                     end_of_options = .true.
                     deallocate(arg_str, stat=alloc_stat)
                     if (alloc_stat /= 0) then
-                        write(error_unit, '(A,I0,A)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
+                        write(error_unit, '(A,I0,A)') &
+                            'Memory deallocation failed for command argument (stat=', &
+                            alloc_stat, ')'
                         call exit_quiet(EXIT_FAILURE)
                     end if
                     i = i + 1
