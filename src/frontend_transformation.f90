@@ -74,8 +74,9 @@ contains
         call initialize_codegen()
 
         ! Obtain the shared compiler arena and reset for a clean run
+        ! PERFORMANCE FIX: Initialize in-place to avoid assignment operator overhead
         if (.not. shared_arena_initialized) then
-            shared_arena = create_compiler_arena()
+            call shared_arena%init()
             shared_arena_initialized = .true.
         else
             call shared_arena%reset()

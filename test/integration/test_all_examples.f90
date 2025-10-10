@@ -1,5 +1,6 @@
 program test_all_examples
     use iso_fortran_env, only: error_unit
+    use executable_finder, only: find_fortfront_executable
     implicit none
 
     integer :: test_count, pass_count, fail_count, skip_count
@@ -9,6 +10,7 @@ program test_all_examples
     character(len=256), allocatable :: expected_failures(:)
     integer :: num_expected_failures
     integer :: ios
+    character(len=:), allocatable :: fortfront_exe
 
     test_count = 0
     pass_count = 0
@@ -18,6 +20,14 @@ program test_all_examples
     xpass_count = 0
 
     is_windows = check_if_windows()
+
+    ! Find fortfront executable (avoid fpm run overhead)
+    fortfront_exe = find_fortfront_executable()
+    if (len(fortfront_exe) == 0) then
+        print *, "ERROR: Could not locate fortfront executable"
+        print *, "Please run 'fpm build' before running tests"
+        stop 1
+    end if
 
     ! fpm test runs from project root, so examples/ is directly accessible
     examples_dir = 'examples'
@@ -33,13 +43,13 @@ program test_all_examples
     print *, ""
 
     ! Test .lf (lazy fortran) examples
-    call test_examples_by_extension(examples_dir, '.lf', &
+    call test_examples_by_extension(examples_dir, '.lf', fortfront_exe, &
                                      test_count, pass_count, fail_count, skip_count, &
                                      xfail_count, xpass_count, is_windows, &
                                      expected_failures, num_expected_failures)
 
     ! Test .f90 (standard fortran) examples
-    call test_examples_by_extension(examples_dir, '.f90', &
+    call test_examples_by_extension(examples_dir, '.f90', fortfront_exe, &
                                      test_count, pass_count, fail_count, skip_count, &
                                      xfail_count, xpass_count, is_windows, &
                                      expected_failures, num_expected_failures)
@@ -189,11 +199,11 @@ contains
         end do
     end function is_expected_failure
 
-    subroutine test_examples_by_extension(examples_dir, extension, &
+    subroutine test_examples_by_extension(examples_dir, extension, fortfront_exe, &
                                            test_count, pass_count, fail_count, skip_count, &
                                            xfail_count, xpass_count, is_windows, &
                                            expected_failures, num_expected_failures)
-        character(len=*), intent(in) :: examples_dir, extension
+        character(len=*), intent(in) :: examples_dir, extension, fortfront_exe
         integer, intent(inout) :: test_count, pass_count, fail_count, skip_count
         integer, intent(inout) :: xfail_count, xpass_count
         logical, intent(in) :: is_windows
@@ -236,13 +246,13 @@ contains
 
             ! Build full path
             if (is_windows) then
-                call test_single_example(trim(examples_dir) // '\' // trim(line), &
+                call test_single_example(trim(examples_dir) // '\' // trim(line), fortfront_exe, &
                                           test_count, pass_count, fail_count, skip_count, &
                                           xfail_count, xpass_count, is_windows, &
                                           expected_failures, num_expected_failures)
             else
                 ! On Unix, ls gives full path already
-                call test_single_example(trim(line), &
+                call test_single_example(trim(line), fortfront_exe, &
                                           test_count, pass_count, fail_count, skip_count, &
                                           xfail_count, xpass_count, is_windows, &
                                           expected_failures, num_expected_failures)
@@ -254,10 +264,10 @@ contains
 
     end subroutine test_examples_by_extension
 
-    subroutine test_single_example(filepath, test_count, pass_count, &
+    subroutine test_single_example(filepath, fortfront_exe, test_count, pass_count, &
                                      fail_count, skip_count, xfail_count, xpass_count, &
                                      is_windows, expected_failures, num_expected_failures)
-        character(len=*), intent(in) :: filepath
+        character(len=*), intent(in) :: filepath, fortfront_exe
         integer, intent(inout) :: test_count, pass_count, fail_count, skip_count
         integer, intent(inout) :: xfail_count, xpass_count
         logical, intent(in) :: is_windows
@@ -293,15 +303,16 @@ contains
             return
         end if
 
-        ! Run fortfront on the example using fpm run
-        ! Note: fpm output goes to stderr, actual fortran code to stdout
+        ! Run fortfront on the example using direct binary (much faster than fpm run)
+        ! Note: Errors go to stderr, actual fortran code to stdout
         if (is_windows) then
-            command = 'cmd /C "type ' // trim(filepath) // ' | ' // &
-                      'fpm run fortfront 2>nul > ' // &
-                      trim(output_file) // '"'
+            command = 'cmd /C "type ' // trim(filepath) // ' | "' // &
+                      trim(fortfront_exe) // '" > ' // trim(output_file) // ' 2>' // &
+                      trim(error_file) // '"'
         else
-            command = 'sh -c "cat ' // trim(filepath) // ' | fpm run fortfront 2>' // &
-                      trim(error_file) // ' > ' // trim(output_file) // '"'
+            command = 'sh -c "cat ' // trim(filepath) // ' | ' // &
+                      trim(fortfront_exe) // ' > ' // trim(output_file) // ' 2>' // &
+                      trim(error_file) // '"'
         end if
 
         call execute_command_line(trim(command), exitstat=exit_code)

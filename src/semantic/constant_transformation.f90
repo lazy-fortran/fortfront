@@ -172,15 +172,12 @@ contains
     subroutine fold_binary_op_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(binary_op_node), intent(inout) :: node
-        
+
         ! Validate indices
         if (node%left_index <= 0 .or. node%left_index > arena%size) return
         if (node%right_index <= 0 .or. node%right_index > arena%size) return
-        
-        ! First ensure operands are folded
-        call fold_node_constants(arena, node%left_index)
-        call fold_node_constants(arena, node%right_index)
-        
+
+        ! Children are already folded by the stack-based traversal
         ! Check if both operands are constants
         associate(left_node => arena%entries(node%left_index)%node, &
                   right_node => arena%entries(node%right_index)%node)
@@ -321,32 +318,26 @@ contains
     subroutine fold_if_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(if_node), intent(inout) :: node
-        
-        ! Ensure the condition is folded
-        if (node%condition_index > 0) then
-            call fold_node_constants(arena, node%condition_index)
-        end if
+
+        ! Children are already folded by the stack-based traversal
+        ! No additional processing needed for if nodes in constant folding
     end subroutine fold_if_node
     
     subroutine fold_declaration_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(declaration_node), intent(inout) :: node
-        
-        ! Check if this is a parameter declaration
-        ! For now, assume parameter declarations have initializers that should be folded
+
+        ! Children are already folded by the stack-based traversal
+        ! If the initializer is constant, propagate that to the declaration
         if (node%has_initializer .and. node%initializer_index > 0 .and. &
             node%initializer_index <= arena%size) then
-            ! First ensure the initializer is folded
-            call fold_node_constants(arena, node%initializer_index)
-            
-            ! If the initializer is now constant, mark this declaration as constant
             select type(init => arena%entries(node%initializer_index)%node)
             class default
                 if (init%is_constant) then
                     node%is_constant = .true.
                     node%constant_type = init%constant_type
                     node%constant_integer = init%constant_integer
-                    node%constant_real = init%constant_real  
+                    node%constant_real = init%constant_real
                     node%constant_logical = init%constant_logical
                 end if
             end select

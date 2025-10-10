@@ -90,23 +90,28 @@ contains
         integer, intent(in), optional :: chunk_size
         logical, intent(in), optional :: enable_stats
         integer :: size
-        
+
         ! Set configuration
         if (present(chunk_size)) then
             this%default_chunk_size = chunk_size
         end if
-        
+
         if (present(enable_stats)) then
             this%enable_stats = enable_stats
         end if
-        
+
         size = this%default_chunk_size
-        
-        ! Initialize type arena (already implemented)
-        this%types = create_type_arena(size / 4)  ! Types typically need less memory
-        
-        ! Initialize AST arena (modern implementation with generational handles)
-        this%ast = create_ast_arena(size)
+
+        ! PERFORMANCE FIX: Initialize arenas in-place to avoid assignment operator overhead
+        ! Initialize type arena directly (avoid assignment operator deep copy)
+        this%types%arena = create_arena(size / 4)  ! Types typically need less memory
+        this%types%next_type_id = 1
+        this%types%mono_count = 0
+        this%types%poly_count = 0
+        this%types%args_count = 0
+
+        ! Initialize AST arena directly (avoid assignment operator deep copy)
+        this%ast = create_ast_arena(16)  ! Start small, will grow as needed
         
         ! Symbol arena - placeholder (future implementation)
         ! this%symbols = create_symbol_arena(size / 2)

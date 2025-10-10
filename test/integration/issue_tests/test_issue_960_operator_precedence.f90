@@ -1,5 +1,5 @@
 program test_issue_960_operator_precedence
-    use frontend, only: compile_source, compilation_options_t
+    use fortfront, only: transform_lazy_fortran_string
     implicit none
 
     logical :: all_passed
@@ -22,54 +22,38 @@ program test_issue_960_operator_precedence
 contains
 
     logical function test_exponentiation_right_associative()
-        character(len=:), allocatable :: input_file, output_file
-        character(len=256) :: error_msg, line
-        type(compilation_options_t) :: options
-        integer :: unit, iostat
+        character(len=:), allocatable :: source, output, error_msg
         logical :: saw_chain, saw_wrong_grouping
 
         test_exponentiation_right_associative = .true.
         print *, 'Testing exponentiation right-associativity (a**b**c == a**(b**c))...'
 
-        ! Minimal input exercising chained exponentiation
-        input_file = 'test_issue_960.lf'
-        open(newunit=unit, file=input_file, status='replace')
-        write(unit, '(a)') 'a = 2'
-        write(unit, '(a)') 'b = 3'
-        write(unit, '(a)') 'c = 2'
-        write(unit, '(a)') 'x = a**b**c'
-        close(unit)
+        source = 'a = 2' // new_line('a') // &
+                 'b = 3' // new_line('a') // &
+                 'c = 2' // new_line('a') // &
+                 'x = a**b**c'
 
-        output_file = 'test_issue_960_out.f90'
-        options%output_file = output_file
+        call transform_lazy_fortran_string(source, output, error_msg)
 
-        call compile_source(input_file, options, error_msg)
-
-        if (len_trim(error_msg) > 0) then
-            print *, '  FAIL: Compilation error:', trim(error_msg)
-            test_exponentiation_right_associative = .false.
-            return
+        if (allocated(error_msg)) then
+            if (len_trim(error_msg) > 0) then
+                print *, '  FAIL: Compilation error:', trim(error_msg)
+                test_exponentiation_right_associative = .false.
+                return
+            end if
         end if
 
         saw_chain = .false.
         saw_wrong_grouping = .false.
 
-        open(newunit=unit, file=output_file, status='old')
-        do
-            read(unit, '(a)', iostat=iostat) line
-            if (iostat /= 0) exit
+        if (contains_without_spaces(output, 'a**b**c')) then
+            saw_chain = .true.
+        end if
 
-            if (contains_without_spaces(line, 'a**b**c')) then
-                saw_chain = .true.
-            end if
-
-            ! Wrong grouping would look like (a**b)**c with or without spaces
-            if (contains_without_spaces(line, '(a**b)**c')) then
-                print *, '  FAIL: Found incorrect left-associative grouping: ', trim(line)
-                saw_wrong_grouping = .true.
-            end if
-        end do
-        close(unit)
+        if (contains_without_spaces(output, '(a**b)**c')) then
+            print *, '  FAIL: Found incorrect left-associative grouping'
+            saw_wrong_grouping = .true.
+        end if
 
         if (.not. saw_chain) then
             print *, '  FAIL: Did not find expected chained exponentiation in output'
