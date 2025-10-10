@@ -307,7 +307,8 @@ contains
         ! Note: Errors go to stderr, actual fortran code to stdout
         if (is_windows) then
             command = 'cmd /C "type ' // trim(filepath) // ' | "' // &
-                      trim(fortfront_exe) // '" > ' // trim(output_file) // ' 2>nul"'
+                      trim(fortfront_exe) // '" > ' // trim(output_file) // ' 2>' // &
+                      trim(error_file) // '"'
         else
             command = 'sh -c "cat ' // trim(filepath) // ' | ' // &
                       trim(fortfront_exe) // ' > ' // trim(output_file) // ' 2>' // &
