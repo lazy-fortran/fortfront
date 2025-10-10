@@ -604,9 +604,13 @@ contains
         logical :: context_has_executable_before_contains
         integer, allocatable :: non_use_indices(:)
         integer :: non_use_count
+        character(len=64), allocatable :: func_names(:)
+        character(len=64), allocatable :: func_types(:)
+        integer :: func_count
 
         context_has_executable_before_contains = .false.
         non_use_count = 0
+        func_count = 0
 
         ! Check if there's a non-trivial body before contains
         has_non_trivial_body = .false.
@@ -635,6 +639,31 @@ contains
 
         ! Handle special multi-unit container
         if (node%name == "__MULTI_UNIT__") then
+            if (allocated(node%body_indices)) then
+                allocate(func_names(size(node%body_indices)))
+                allocate(func_types(size(node%body_indices)))
+                func_names = ""
+                func_types = ""
+                do i = 1, size(node%body_indices)
+                    if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
+                        if (allocated(arena%entries(node%body_indices(i))%node)) then
+                            select type (child => arena%entries(node%body_indices(i))%node)
+                            type is (function_def_node)
+                                if (func_count < size(func_names)) then
+                                    func_count = func_count + 1
+                                    func_names(func_count) = trim(child%name)
+                                    if (allocated(child%return_type) .and. &
+                                        len_trim(child%return_type) > 0) then
+                                        func_types(func_count) = trim(child%return_type)
+                                    else
+                                        func_types(func_count) = "real"
+                                    end if
+                                end if
+                            end select
+                        end if
+                    end if
+                end do
+            end if
             ! Generate code for each unit as siblings without program wrapper
             code = ""
             if (allocated(node%body_indices)) then
@@ -646,6 +675,18 @@ contains
                                 ! Skip empty implicit main programs to avoid duplicate minimal outputs
                                 if ((child%name == "main" .or. child%name == "__IMPLICIT_MAIN__") .and. &
                                     (.not. allocated(child%body_indices) .or. size(child%body_indices) == 0)) cycle
+                                block
+                                    character(len=:), allocatable :: program_code
+                                    program_code = generate_code_from_arena(arena, node%body_indices(i))
+                                    if (func_count > 0) then
+                                        program_code = add_function_declarations(program_code, func_names, func_types, func_count)
+                                    end if
+                                    if (len(code) > 0) then
+                                        code = code // new_line('A') // new_line('A')
+                                    end if
+                                    code = code // program_code
+                                    cycle
+                                end block
                             type is (subroutine_def_node)
                                 ! Skip duplicate empty subroutines (defensive check)
                                 if (.not. allocated(child%body_indices) .or. size(child%body_indices) == 0) then
@@ -681,6 +722,8 @@ contains
                     end if
                 end do
             end if
+            if (allocated(func_names)) deallocate(func_names)
+            if (allocated(func_types)) deallocate(func_types)
             return
         end if
 
@@ -886,6 +929,60 @@ contains
 
         ! Program end
         code = code // "end program " // node%name
+
+    contains
+
+        function add_function_declarations(program_code, fn_names, fn_types, fn_count) result(updated_code)
+            character(len=*), intent(in) :: program_code
+            character(len=64), intent(in) :: fn_names(:)
+            character(len=64), intent(in) :: fn_types(:)
+            integer, intent(in) :: fn_count
+            character(len=:), allocatable :: updated_code
+            character(len=:), allocatable :: before_code
+            character(len=:), allocatable :: after_code
+            character(len=:), allocatable :: decls
+            integer :: pos, newline_pos, i
+
+            updated_code = program_code
+            if (fn_count <= 0) return
+            if (index(program_code, 'contains') > 0) return
+
+            pos = index(program_code, 'implicit none')
+            if (pos <= 0) return
+
+            newline_pos = pos
+            do while (newline_pos <= len(program_code))
+                if (program_code(newline_pos:newline_pos) == new_line('A')) exit
+                newline_pos = newline_pos + 1
+            end do
+            if (newline_pos > len(program_code)) return
+
+            before_code = program_code(1:newline_pos)
+            if (newline_pos < len(program_code)) then
+                after_code = program_code(newline_pos+1:)
+            else
+                after_code = ''
+            end if
+
+            decls = ''
+            do i = 1, fn_count
+                if (len_trim(fn_names(i)) == 0) cycle
+                if (index(program_code, ':: ' // trim(fn_names(i))) > 0) cycle
+                if (len_trim(fn_types(i)) == 0) then
+                    decls = decls // '    real :: ' // trim(fn_names(i)) // new_line('A')
+                else
+                    decls = decls // '    ' // trim(fn_types(i)) // ' :: ' // trim(fn_names(i)) // new_line('A')
+                end if
+            end do
+
+            if (len_trim(decls) == 0) return
+
+            updated_code = before_code // decls
+            if (len(after_code) > 0) then
+                updated_code = updated_code // after_code
+            end if
+        end function add_function_declarations
+
     end function generate_code_program
 
 

@@ -937,7 +937,15 @@ contains
                                     ! Prefer integer for pure-integer binary expressions
                                     if (len_trim(var_type) == 0) then
                                         if (is_integer_expression(arena, assign%value_index)) then
-                                            var_type = "integer"
+                                            if (is_default_integer_identifier(target%name)) then
+                                                var_type = "integer"
+                                            end if
+                                        end if
+                                    end if
+
+                                    if (trim(var_type) == "integer") then
+                                        if (.not. is_default_integer_identifier(target%name)) then
+                                            var_type = "real"
                                         end if
                                     end if
 
@@ -1188,7 +1196,21 @@ loop_nodes: do while (top > 0)
         end subroutine grow_stack
 
     end function is_integer_expression
-    
+
+    logical function is_default_integer_identifier(name) result(is_integer_default)
+        character(len=*), intent(in) :: name
+        character :: first_char
+
+        is_integer_default = .false.
+        if (len_trim(name) == 0) return
+
+        first_char = name(1:1)
+        select case (first_char)
+        case ('i', 'j', 'k', 'l', 'm', 'n', 'I', 'J', 'K', 'L', 'M', 'N')
+            is_integer_default = .true.
+        end select
+    end function is_default_integer_identifier
+
     ! Collect identifier variable - stub implementation
     subroutine collect_identifier_var(identifier, var_names, var_types, &
                                        var_declared, var_count, &
