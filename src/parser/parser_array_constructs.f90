@@ -68,8 +68,26 @@ contains
             
             ! Check if this is single-line WHERE
             token = parser%peek()
-            if (token%kind /= TK_KEYWORD .or. token%text == "elsewhere" .or. &
-                token%text == "end" .or. parser%is_at_end()) then
+            block
+                integer :: lookahead
+
+                lookahead = parser%current_token
+                do while (token%kind == TK_WHITESPACE .and. &
+                          lookahead <= size(parser%tokens))
+                    lookahead = lookahead + 1
+                    if (lookahead > size(parser%tokens)) then
+                        token%kind = TK_EOF
+                        token%text = ""
+                        exit
+                    end if
+                    token = parser%tokens(lookahead)
+                end do
+            end block
+
+            if (token%kind == TK_NEWLINE .or. token%kind == TK_COMMENT) then
+                ! Multi-line WHERE: body begins on following line
+            else if (token%kind /= TK_KEYWORD .or. token%text == "elsewhere" .or. &
+                     token%text == "end" .or. parser%is_at_end()) then
                 ! Single-line WHERE - parse single statement
                 block
                     type(token_t), allocatable, target :: remaining_tokens(:)
@@ -145,7 +163,13 @@ contains
                         if (token%kind == TK_KEYWORD .and. token%text == "end") then
                             exit
                         end if
-                        
+
+                        if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE .or. &
+                            token%kind == TK_COMMENT) then
+                            token = parser%consume()
+                            cycle
+                        end if
+
                         ! Parse statement in ELSEWHERE block
                         block
                             type(token_t), allocatable, target :: stmt_tokens(:)
@@ -202,7 +226,15 @@ contains
                     exit
                 end if
             end if
-            
+
+            if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE) then
+                token = parser%consume()
+                cycle
+            else if (token%kind == TK_COMMENT) then
+                token = parser%consume()
+                cycle
+            end if
+
             ! Parse statement in WHERE block
             block
                 type(token_t), allocatable, target :: stmt_tokens(:)
