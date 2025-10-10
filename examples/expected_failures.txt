@@ -3,9 +3,6 @@
 # Format: filename  # optional comment with issue reference
 
 # Existing examples with known issues (gfortran compilation failures)
-basic_function.lf               # ERROR [scope_manager]: lazy function scope issue
-function_test.lf                # ERROR [scope_manager]: lazy function scope issue
-test_function_issue.lf          # ERROR [scope_manager]: lazy function scope issue
 test_sem_ctor.lf                # Gfortran compilation failure
 test_sem_mixed.lf               # Gfortran compilation failure
 test_sem_scope.lf               # Gfortran compilation failure
