@@ -1,5 +1,6 @@
 program test_expression_iterative
     use frontend, only: compile_source, compilation_options_t
+    use temp_file_helper, only: get_temp_filepath
     implicit none
 
     logical :: all_passed
@@ -74,7 +75,7 @@ contains
 
         print *, "Testing deep exponentiation chains..."
         test_deep_exponent_chain = .true.
-        input_file = 'test_expression_iterative_exp.lf'
+        input_file = get_temp_filepath('test_expression_iterative_exp.lf')
         output_file = 'test_expression_iterative_exp_out.f90'
 
         open(newunit=unit, file=input_file, status='replace', action='write')
@@ -141,7 +142,7 @@ contains
 
         print *, "Testing deep unary minus chains..."
         test_deep_unary_minus_chain = .true.
-        input_file = 'test_expression_iterative_unary.lf'
+        input_file = get_temp_filepath('test_expression_iterative_unary.lf')
         output_file = 'test_expression_iterative_unary_out.f90'
 
         open(newunit=unit, file=input_file, status='replace', action='write')
@@ -213,7 +214,7 @@ contains
 
         print *, "Testing repeated logical NOT chains..."
         test_logical_not_chain = .true.
-        input_file = 'test_expression_iterative_not.lf'
+        input_file = get_temp_filepath('test_expression_iterative_not.lf')
         output_file = 'test_expression_iterative_not_out.f90'
 
         open(newunit=unit, file=input_file, status='replace', action='write')
@@ -284,7 +285,7 @@ contains
 
         print *, "Testing mixed precedence expression..."
         test_mixed_precedence_output = .true.
-        input_file = 'test_expression_iterative_mixed.lf'
+        input_file = get_temp_filepath('test_expression_iterative_mixed.lf')
         output_file = 'test_expression_iterative_mixed_out.f90'
 
         open(newunit=unit, file=input_file, status='replace', action='write')
@@ -347,7 +348,7 @@ contains
 
         print *, "Testing extreme parentheses nesting (depth =", depth, ')'
         test_extreme_parentheses_depth = .true.
-        input_file = 'test_expression_iterative_extreme.lf'
+        input_file = get_temp_filepath('test_expression_iterative_extreme.lf')
         output_file = 'test_expression_iterative_extreme_out.f90'
 
         open(newunit=unit, file=input_file, status='replace', action='write')
