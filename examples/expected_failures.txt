@@ -15,6 +15,7 @@ external_tool_example.f90       # Gfortran compilation failure
 tooling_lightweight_ast.f90     # Gfortran compilation failure
 
 # F95 features
+issue_1337_forall.f90           # Issue #1337: FORALL body assignments dropped
 issue_1338_where.f90            # Issue #1338: WHERE construct body incomplete
 
 # Lazy Fortran type inference
