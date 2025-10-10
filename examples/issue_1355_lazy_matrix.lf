@@ -1,0 +1,8 @@
+! Minimal reproducer for issue #1355: Multi-dimensional arrays not inferred, loop body scope wrong
+do i = 1, 3
+    do j = 1, 3
+        matrix(i, j) = i * 10 + j
+    end do
+end do
+
+print *, matrix

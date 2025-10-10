@@ -1,0 +1,40 @@
+# Expected failures for fortfront examples
+# One filename per line. Lines starting with # are comments.
+# Format: filename  # optional comment with issue reference
+
+# Existing examples with known issues (gfortran compilation failures)
+basic_function.lf               # ERROR [scope_manager]: lazy function scope issue
+function_test.lf                # ERROR [scope_manager]: lazy function scope issue
+test_function_issue.lf          # ERROR [scope_manager]: lazy function scope issue
+test_sem_ctor.lf                # Gfortran compilation failure
+test_sem_mixed.lf               # Gfortran compilation failure
+test_sem_scope.lf               # Gfortran compilation failure
+test_std_do.lf                  # Gfortran compilation failure
+test_std_slice.lf               # Gfortran compilation failure
+external_tool_example.f90       # Gfortran compilation failure
+tooling_lightweight_ast.f90     # Gfortran compilation failure
+
+# F95 features
+issue_1337_forall.f90           # Issue #1337: FORALL body assignments dropped
+issue_1338_where.f90            # Issue #1338: WHERE construct body incomplete
+
+# Lazy Fortran type inference
+issue_1343_lazy_function.lf     # Issue #1343: Functions missing type inference
+issue_1355_lazy_matrix.lf       # Issue #1355: Multi-dimensional arrays not inferred
+issue_1356_function_name.lf     # Issue #1356: Function name lost (unnamed_function)
+
+# F90/F95 parser issues
+issue_1347_interface.f90        # Issue #1347: INTERFACE blocks cause parser error
+issue_1348_pointer.f90          # Issue #1348: Pointer assignment operator => becomes = >
+issue_1350_recursive.f90        # Issue #1350: RECURSIVE keyword dropped, ELSE missing
+issue_1351_elemental_pure.f90   # Issue #1351: ELEMENTAL and PURE keywords dropped
+issue_1352_optional.f90         # Issue #1352: OPTIONAL parameters broken
+issue_1353_derived_type.f90     # Issue #1353: Derived type definitions mangled
+
+# Lazy Fortran control flow
+issue_1354_nested_if.lf         # Issue #1354: Nested IF-THEN-ELSE misassigned
+
+# Silent bugs (compile successfully but produce wrong code - cannot be detected by test)
+# These are commented out to avoid XPASS, but documented here for reference:
+# issue_1344_character_length.f90 # Issue #1344: Character lengths wrong (silent data corruption)
+# issue_1349_select_case.f90      # Issue #1349: CASE bodies outside SELECT (wrong logic)

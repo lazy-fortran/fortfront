@@ -1,0 +1,8 @@
+! Minimal reproducer for issue #1356: Lazy fortran function name lost (unnamed_function)
+function double(x)
+    result = x * 2
+end function
+
+a = 5
+b = double(a)
+print *, a, b

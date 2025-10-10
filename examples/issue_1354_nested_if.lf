@@ -1,0 +1,13 @@
+! Minimal reproducer for issue #1354: Lazy fortran nested IF-THEN-ELSE misassigned
+x = 15
+y = 20
+
+if (x > 10) then
+    if (y > 15) then
+        print *, "Both true"
+    else
+        print *, "Only x"
+    end if
+else
+    print *, "Neither"
+end if
