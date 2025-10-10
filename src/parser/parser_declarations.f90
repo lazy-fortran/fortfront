@@ -63,14 +63,89 @@ contains
             end if
         end if
 
-        ! Check for kind specification
+        ! Handle old-style character*len notation
+        if (trim(type_spec%type_name) == "character" .and. .not. parser%is_at_end()) then
+            token = parser%peek()
+            if (token%text == "*") then
+                token = parser%consume()
+                if (.not. parser%is_at_end()) then
+                    token = parser%peek()
+                    if (token%text == "*") then
+                        type_spec%has_kind = .true.
+                        type_spec%kind_value = -1
+                        token = parser%consume()
+                    else if (token%kind == TK_NUMBER) then
+                        read(token%text, *) type_spec%kind_value
+                        type_spec%has_kind = .true.
+                        token = parser%consume()
+                    end if
+                end if
+            end if
+        end if
+
+        ! Check for parenthesized specification (len/kind)
         if (.not. parser%is_at_end()) then
             token = parser%peek()
             if (token%text == "(") then
-                ! Skip kind specifications for simplicity
+                token = parser%consume()
                 do while (.not. parser%is_at_end())
-                    token = parser%consume()
-                    if (token%text == ")") exit
+                    token = parser%peek()
+
+                    if (token%text == ")") then
+                        token = parser%consume()
+                        exit
+                    end if
+
+                    if (trim(type_spec%type_name) == "character") then
+                        if (trim(token%text) == "len") then
+                            token = parser%consume()
+                            if (.not. parser%is_at_end()) then
+                                token = parser%peek()
+                                if (token%text == "=") then
+                                    token = parser%consume()
+                                    token = parser%peek()
+                                end if
+                                if (token%text == "*") then
+                                    type_spec%has_kind = .true.
+                                    type_spec%kind_value = -1
+                                    token = parser%consume()
+                                else if (token%kind == TK_NUMBER) then
+                                    read(token%text, *) type_spec%kind_value
+                                    type_spec%has_kind = .true.
+                                    token = parser%consume()
+                                end if
+                            end if
+                        else if (trim(token%text) == "kind") then
+                            ! Skip explicit character kind for now
+                            token = parser%consume()
+                            if (.not. parser%is_at_end()) then
+                                token = parser%peek()
+                                if (token%text == "=") then
+                                    token = parser%consume()
+                                end if
+                                if (.not. parser%is_at_end()) token = parser%consume()
+                            end if
+                        else if (token%kind == TK_NUMBER) then
+                            read(token%text, *) type_spec%kind_value
+                            type_spec%has_kind = .true.
+                            token = parser%consume()
+                        else if (token%text == "*") then
+                            type_spec%has_kind = .true.
+                            type_spec%kind_value = -1
+                            token = parser%consume()
+                        else
+                            token = parser%consume()
+                        end if
+                    else
+                        ! Non-character types: skip content
+                        token = parser%consume()
+                    end if
+
+                    if (parser%is_at_end()) exit
+                    token = parser%peek()
+                    if (token%text == ",") then
+                        token = parser%consume()
+                    end if
                 end do
             end if
         end if
@@ -360,46 +435,96 @@ contains
 
             ! Create declaration node
             if (attr_info%has_global_dimensions) then
-                decl_index = push_declaration( &
-                    arena, &
-                    type_spec%type_name, &
-                    var_name, &
-                    dimension_indices=attr_info%global_dimension_indices, &
-                    initializer_index=initializer_index, &
-                    is_allocatable=attr_info%is_allocatable, &
-                    is_pointer=attr_info%is_pointer, &
-                    is_target=attr_info%is_target, &
-                    intent_value=attr_info%intent, &
-                    is_optional=attr_info%is_optional, &
-                    is_parameter=attr_info%is_parameter &
-                )
+                if (type_spec%has_kind) then
+                    decl_index = push_declaration( &
+                        arena, &
+                        type_spec%type_name, &
+                        var_name, &
+                        kind_value=type_spec%kind_value, &
+                        dimension_indices=attr_info%global_dimension_indices, &
+                        initializer_index=initializer_index, &
+                        is_allocatable=attr_info%is_allocatable, &
+                        is_pointer=attr_info%is_pointer, &
+                        is_target=attr_info%is_target, &
+                        intent_value=attr_info%intent, &
+                        is_optional=attr_info%is_optional, &
+                        is_parameter=attr_info%is_parameter &
+                    )
+                else
+                    decl_index = push_declaration( &
+                        arena, &
+                        type_spec%type_name, &
+                        var_name, &
+                        dimension_indices=attr_info%global_dimension_indices, &
+                        initializer_index=initializer_index, &
+                        is_allocatable=attr_info%is_allocatable, &
+                        is_pointer=attr_info%is_pointer, &
+                        is_target=attr_info%is_target, &
+                        intent_value=attr_info%intent, &
+                        is_optional=attr_info%is_optional, &
+                        is_parameter=attr_info%is_parameter &
+                    )
+                end if
             else if (has_local_dimensions) then
-                decl_index = push_declaration( &
-                    arena, &
-                    type_spec%type_name, &
-                    var_name, &
-                    dimension_indices=local_dimension_indices, &
-                    initializer_index=initializer_index, &
-                    is_allocatable=attr_info%is_allocatable, &
-                    is_pointer=attr_info%is_pointer, &
-                    is_target=attr_info%is_target, &
-                    intent_value=attr_info%intent, &
-                    is_optional=attr_info%is_optional, &
-                    is_parameter=attr_info%is_parameter &
-                )
+                if (type_spec%has_kind) then
+                    decl_index = push_declaration( &
+                        arena, &
+                        type_spec%type_name, &
+                        var_name, &
+                        kind_value=type_spec%kind_value, &
+                        dimension_indices=local_dimension_indices, &
+                        initializer_index=initializer_index, &
+                        is_allocatable=attr_info%is_allocatable, &
+                        is_pointer=attr_info%is_pointer, &
+                        is_target=attr_info%is_target, &
+                        intent_value=attr_info%intent, &
+                        is_optional=attr_info%is_optional, &
+                        is_parameter=attr_info%is_parameter &
+                    )
+                else
+                    decl_index = push_declaration( &
+                        arena, &
+                        type_spec%type_name, &
+                        var_name, &
+                        dimension_indices=local_dimension_indices, &
+                        initializer_index=initializer_index, &
+                        is_allocatable=attr_info%is_allocatable, &
+                        is_pointer=attr_info%is_pointer, &
+                        is_target=attr_info%is_target, &
+                        intent_value=attr_info%intent, &
+                        is_optional=attr_info%is_optional, &
+                        is_parameter=attr_info%is_parameter &
+                    )
+                end if
             else
-                decl_index = push_declaration( &
-                arena, &
-                type_spec%type_name, &
-                var_name, &
-                initializer_index=initializer_index, &
-                is_allocatable=attr_info%is_allocatable, &
-                is_pointer=attr_info%is_pointer, &
-                is_target=attr_info%is_target, &
-                intent_value=attr_info%intent, &
-                is_optional=attr_info%is_optional, &
-                is_parameter=attr_info%is_parameter &
-            )
+                if (type_spec%has_kind) then
+                    decl_index = push_declaration( &
+                        arena, &
+                        type_spec%type_name, &
+                        var_name, &
+                        kind_value=type_spec%kind_value, &
+                        initializer_index=initializer_index, &
+                        is_allocatable=attr_info%is_allocatable, &
+                        is_pointer=attr_info%is_pointer, &
+                        is_target=attr_info%is_target, &
+                        intent_value=attr_info%intent, &
+                        is_optional=attr_info%is_optional, &
+                        is_parameter=attr_info%is_parameter &
+                    )
+                else
+                    decl_index = push_declaration( &
+                        arena, &
+                        type_spec%type_name, &
+                        var_name, &
+                        initializer_index=initializer_index, &
+                        is_allocatable=attr_info%is_allocatable, &
+                        is_pointer=attr_info%is_pointer, &
+                        is_target=attr_info%is_target, &
+                        intent_value=attr_info%intent, &
+                        is_optional=attr_info%is_optional, &
+                        is_parameter=attr_info%is_parameter &
+                    )
+                end if
             end if
         end block
     end function parse_declaration
