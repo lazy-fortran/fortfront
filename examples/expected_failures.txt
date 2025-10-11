@@ -14,7 +14,6 @@ tooling_lightweight_ast.f90     # Gfortran compilation failure
 
 # Lazy Fortran type inference
 issue_1355_lazy_matrix.lf       # Issue #1355: Multi-dimensional arrays not inferred
-issue_1356_function_name.lf     # Issue #1356: Function name lost (unnamed_function)
 
 # F90/F95 parser issues
 issue_1347_interface.f90        # Issue #1347: INTERFACE blocks cause parser error

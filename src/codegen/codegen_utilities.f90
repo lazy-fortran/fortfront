@@ -455,6 +455,7 @@ contains
                            integer :: first_param_idx
                            logical :: append_kind
 
+<<<<<<< HEAD
                            allocate (is_param(size(node%var_names)))
                            found_params = .false.
                            first_param_idx = 0
@@ -517,12 +518,142 @@ contains
 
                               do j = 1, size(node%var_names)
                                  if (is_param(j)) then
+=======
+    ! Generate grouped body with parameter mapping
+    function generate_grouped_body_with_params(arena, body_indices, indent, param_map, proc_node) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: body_indices(:)
+        integer, intent(in) :: indent
+        type(parameter_info_t), intent(in) :: param_map(:)
+        class(ast_node), intent(in) :: proc_node
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: indent_str, stmt_code
+        character(len=:), allocatable :: type_name
+        integer :: i, j, param_idx
+        logical :: has_params_with_attrs
+        logical :: should_skip
+        integer, allocatable :: filtered_indices(:)
+        integer :: filtered_count
+        logical :: in_contains_section
+        integer :: var_idx
+        logical :: append_kind
+        logical :: append_kind_single
+        logical :: append_kind_param
+        integer, allocatable :: implicit_indices(:)
+        integer :: implicit_count
+        character(len=:), allocatable :: result_name
+        logical :: has_result
+        
+        ! Build indent string
+        indent_str = repeat("    ", indent)
+        code = ""
+
+        implicit_count = 0
+        has_result = .false.
+        select type (func => proc_node)
+        type is (function_def_node)
+            if (allocated(func%result_variable)) then
+                if (len_trim(func%result_variable) > 0) then
+                    result_name = trim(func%result_variable)
+                    has_result = .true.
+                end if
+            end if
+        end select
+        if (size(body_indices) > 0) then
+            allocate(implicit_indices(size(body_indices)))
+            implicit_indices = 0
+        end if
+
+        do i = 1, size(body_indices)
+            if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(body_indices(i))%node)) then
+                    select type (node => arena%entries(body_indices(i))%node)
+                    type is (implicit_statement_node)
+                        implicit_count = implicit_count + 1
+                        implicit_indices(implicit_count) = body_indices(i)
+                    end select
+                end if
+            end if
+        end do
+
+        do i = 1, implicit_count
+            stmt_code = generate_code_from_arena(arena, implicit_indices(i))
+            code = code // indent_str // trim(stmt_code) // new_line('A')
+        end do
+        
+        ! First pass: collect parameter declarations from body to get types and attributes
+        ! Always scan body for parameter declarations (attributes might come from body, not param list)
+        if (size(param_map) > 0) then
+            do i = 1, size(body_indices)
+                if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
+                    if (allocated(arena%entries(body_indices(i))%node)) then
+                        select type (node => arena%entries(body_indices(i))%node)
+                        type is (declaration_node)
+                            ! Check if this declaration is for parameter(s)
+                            ! Handle both single and multi-declarations for parameters
+                            if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                                ! Multi-variable declaration - check each variable
+                                block
+                                    logical :: found_params, first_var
+                                    logical, allocatable :: is_param(:)
+                                    integer :: first_param_idx
+                                    logical :: append_kind
+                                
+                                allocate(is_param(size(node%var_names)))
+                                found_params = .false.
+                                first_param_idx = 0
+                                
+                                ! Check which variables are parameters
+                                do j = 1, size(node%var_names)
+>>>>>>> fb5607e (fix(codegen): emit real external declarations for multi-unit)
                                     param_idx = find_parameter_info(param_map, trim(node%var_names(j)))
                                     if (param_idx > 0) then
                                        param_map(param_idx)%has_explicit_declaration = .true.
                                     end if
+<<<<<<< HEAD
                                  end if
                               end do
+=======
+                                end do
+                                
+                                if (found_params) then
+                                    ! Generate declaration for all parameters in this multi-declaration
+                                    type_name = trim(node%type_name)
+                                    append_kind = node%has_kind
+                                    code = code // indent_str // type_name
+                                    
+                                    if (append_kind) then
+                                        code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                    end if
+                                    
+                                    ! Use attributes from the declaration node
+                                    if (node%has_intent) then
+                                        code = code // ", intent(" // node%intent // ")"
+                                    else if (allocated(param_map(first_param_idx)%intent_str) .and. &
+                                        len_trim(param_map(first_param_idx)%intent_str) > 0) then
+                                        code = code // ", intent(" // param_map(first_param_idx)%intent_str // ")"
+                                    end if
+                                    
+                                    if (node%is_optional) then
+                                        code = code // ", optional"
+                                    else if (param_map(first_param_idx)%is_optional) then
+                                        code = code // ", optional"
+                                    end if
+                                    
+                                    code = code // " :: "
+                                    
+                                    ! Add all parameter names
+                                    first_var = .true.
+                                    do j = 1, size(node%var_names)
+                                        if (is_param(j)) then
+                                            if (.not. first_var) code = code // ", "
+                                            code = code // trim(node%var_names(j))
+                                            first_var = .false.
+                                        end if
+                                    end do
+                                    
+                                    code = code // new_line('A')
+>>>>>>> fb5607e (fix(codegen): emit real external declarations for multi-unit)
 
                               ! Also emit a declaration for non-parameter variables (locals)
                               block
@@ -544,6 +675,7 @@ contains
                                     end if
                                  end do
 
+<<<<<<< HEAD
                                  if (have_nonparam) then
                                     local_type = trim(node%type_name)
                                     local_append_kind = node%has_kind
@@ -612,6 +744,157 @@ contains
                               end if
                            end if
                            param_map(param_idx)%has_explicit_declaration = .true.
+=======
+                                        if (have_nonparam) then
+                                            local_type = trim(node%type_name)
+                                            local_append_kind = node%has_kind
+                                            code = code // indent_str // local_type
+                                            if (local_append_kind) then
+                                                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                            end if
+                                            ! Intentionally do NOT add intent/optional for non-parameters
+                                            code = code // " :: " // nonparam_list // new_line('A')
+                                        end if
+                                    end block
+                                end if
+                                
+                                deallocate(is_param)
+                                end block
+                            else
+                                ! Single variable declaration
+                                param_idx = find_parameter_info(param_map, node%var_name)
+                                if (param_idx > 0) then
+                                    ! Generate the declaration with parameter attributes from the declaration node
+                                    type_name = trim(node%type_name)
+                                    append_kind_single = node%has_kind
+                                    code = code // indent_str // type_name
+                                    
+                                    if (append_kind_single) then
+                                        code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                    end if
+                                    
+                                    ! Use attributes from the declaration node itself
+                                    if (node%has_intent) then
+                                        code = code // ", intent(" // node%intent // ")"
+                                    else if (allocated(param_map(param_idx)%intent_str) .and. &
+                                        len_trim(param_map(param_idx)%intent_str) > 0) then
+                                        code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
+                                    end if
+                                    
+                                    if (node%is_optional) then
+                                        code = code // ", optional"
+                                    else if (param_map(param_idx)%is_optional) then
+                                        code = code // ", optional"
+                                    end if
+                                    
+                                    code = code // " :: " // param_map(param_idx)%name
+                                    
+                                    ! Add dimensions if present
+                                    if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
+                                        code = code // "("
+                                        do j = 1, size(node%dimension_indices)
+                                            if (j > 1) code = code // ", "
+                                            stmt_code = generate_code_from_arena(arena, node%dimension_indices(j))
+                                            code = code // stmt_code
+                                        end do
+                                        code = code // ")"
+                                    end if
+                                    
+                                    code = code // new_line('A')
+                                end if
+                            end if
+                        type is (parameter_declaration_node)
+                            ! Check if this parameter_declaration_node is for a parameter
+                            param_idx = find_parameter_info(param_map, node%name)
+                            if (param_idx > 0) then
+                                ! Generate the declaration with attributes from parameter_declaration_node
+                                type_name = trim(node%type_name)
+                                append_kind_param = node%has_kind
+                                ! Debug: print if type_name is empty
+                                if (len_trim(type_name) == 0) then
+                                    ! Skip if no type name - will be handled elsewhere
+                                    cycle
+                                end if
+                                code = code // indent_str // type_name
+                                
+                                if (append_kind_param) then
+                                    code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                                end if
+                                
+                                ! Use attributes from the parameter_declaration_node itself
+                                if (len_trim(param_map(param_idx)%intent_str) > 0) then
+                                    code = code // ", intent(" // param_map(param_idx)%intent_str // ")"
+                                end if
+                                
+                                if (param_map(param_idx)%is_optional) then
+                                    code = code // ", optional"
+                                end if
+                                
+                                code = code // " :: " // param_map(param_idx)%name
+                                
+                                ! Add dimensions if present
+                                if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
+                                    code = code // "("
+                                    do j = 1, size(node%dimension_indices)
+                                        if (j > 1) code = code // ", "
+                                        stmt_code = generate_code_from_arena(arena, node%dimension_indices(j))
+                                        code = code // stmt_code
+                                    end do
+                                    code = code // ")"
+                                end if
+                                
+                                code = code // new_line('A')
+                            end if
+                        end select
+                    end if
+                end if
+            end do
+        end if
+        
+        ! Second pass: generate body, filtering out parameter declarations
+        allocate(filtered_indices(size(body_indices)))
+        filtered_count = 0
+
+        do i = 1, size(body_indices)
+            should_skip = .false.
+            if (implicit_count > 0) then
+                if (any(implicit_indices(1:implicit_count) == body_indices(i))) then
+                    should_skip = .true.
+                end if
+            end if
+            if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
+                if (allocated(arena%entries(body_indices(i))%node)) then
+                    select type (node => arena%entries(body_indices(i))%node)
+                    type is (declaration_node)
+                        if (.not. should_skip .and. has_result) then
+                            if (allocated(node%var_name)) then
+                                if (trim(node%var_name) == result_name) then
+                                    should_skip = .true.
+                                end if
+                            end if
+                        end if
+                        if (should_skip) then
+                            cycle
+                        end if
+                        ! Skip parameter declarations if we're handling them separately
+                        if (size(param_map) > 0) then
+                            if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                                ! Check if any variable in multi-declaration is a parameter
+                                do var_idx = 1, size(node%var_names)
+                                    param_idx = find_parameter_info(param_map, trim(node%var_names(var_idx)))
+                                    if (param_idx > 0) then
+                                        should_skip = .true.
+                                        exit
+                                    end if
+                                end do
+                            else
+                                ! Single variable declaration
+                                param_idx = find_parameter_info(param_map, node%var_name)
+                                if (param_idx > 0) then
+                                    should_skip = .true.
+                                end if
+                            end if
+>>>>>>> fb5607e (fix(codegen): emit real external declarations for multi-unit)
                         end if
                      end if
                   type is (parameter_declaration_node)
@@ -624,12 +907,33 @@ contains
                         if (type_name == 'real' .and. .not. append_kind_param) then
                            type_name = 'real(8)'
                         end if
+<<<<<<< HEAD
                         ! Debug: print if type_name is empty
                         if (len_trim(type_name) == 0) then
                            ! Skip if no type name - will be handled elsewhere
                            cycle
                         end if
                         code = code//indent_str//type_name
+=======
+                    end select
+                end if
+            end if
+            
+            if (.not. should_skip) then
+                filtered_count = filtered_count + 1
+                filtered_indices(filtered_count) = body_indices(i)
+            end if
+        end do
+        
+        ! Generate the rest of the body with filtered indices
+        if (filtered_count > 0) then
+            code = code // generate_grouped_body(arena, filtered_indices(1:filtered_count), indent)
+        end if
+        
+        deallocate(filtered_indices)
+        if (allocated(implicit_indices)) deallocate(implicit_indices)
+    end function generate_grouped_body_with_params
+>>>>>>> fb5607e (fix(codegen): emit real external declarations for multi-unit)
 
                         if (append_kind_param) then
                            code = code//"("//trim(adjustl(int_to_string(node%kind_value)))//")"
