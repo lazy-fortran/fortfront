@@ -379,11 +379,29 @@ contains
         logical :: append_kind
         logical :: append_kind_single
         logical :: append_kind_param
+        character(len=:), allocatable :: result_var_name
+        logical :: has_return_type_in_signature
         
         ! Build indent string
         indent_str = repeat("    ", indent)
         code = ""
-        
+
+        ! Determine if we should skip result variable declarations
+        ! Skip when: function has return type in signature AND has result variable
+        has_return_type_in_signature = .false.
+        result_var_name = ""
+        select type (proc_node)
+        type is (function_def_node)
+            if (allocated(proc_node%return_type) .and. len_trim(proc_node%return_type) > 0) then
+                has_return_type_in_signature = .true.
+                if (allocated(proc_node%result_variable)) then
+                    result_var_name = trim(proc_node%result_variable)
+                else if (allocated(proc_node%name)) then
+                    result_var_name = trim(proc_node%name)
+                end if
+            end if
+        end select
+
         ! First pass: collect parameter declarations from body to get types and attributes
         ! Always scan body for parameter declarations (attributes might come from body, not param list)
         if (size(param_map) > 0) then
@@ -592,10 +610,10 @@ contains
             end do
         end if
         
-        ! Second pass: generate body, filtering out parameter declarations
+        ! Second pass: generate body, filtering out parameter declarations and result variable declarations
         allocate(filtered_indices(size(body_indices)))
         filtered_count = 0
-        
+
         do i = 1, size(body_indices)
             should_skip = .false.
             if (body_indices(i) > 0 .and. body_indices(i) <= arena%size) then
@@ -621,6 +639,26 @@ contains
                                 end if
                             end if
                         end if
+
+                        ! Skip result variable declaration if return type is in signature
+                        if (.not. should_skip .and. has_return_type_in_signature) then
+                            if (len_trim(result_var_name) > 0) then
+                                if (node%is_multi_declaration .and. allocated(node%var_names)) then
+                                    ! Check if any variable in multi-declaration is the result variable
+                                    do var_idx = 1, size(node%var_names)
+                                        if (trim(node%var_names(var_idx)) == result_var_name) then
+                                            should_skip = .true.
+                                            exit
+                                        end if
+                                    end do
+                                else
+                                    ! Single variable declaration
+                                    if (trim(node%var_name) == result_var_name) then
+                                        should_skip = .true.
+                                    end if
+                                end if
+                            end if
+                        end if
                     type is (parameter_declaration_node)
                         ! Also skip parameter_declaration_node entries for parameters
                         if (size(param_map) > 0) then
@@ -632,7 +670,7 @@ contains
                     end select
                 end if
             end if
-            
+
             if (.not. should_skip) then
                 filtered_count = filtered_count + 1
                 filtered_indices(filtered_count) = body_indices(i)
