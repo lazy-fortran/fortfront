@@ -31,6 +31,7 @@ module parser_declarations
         logical :: is_pointer = .false.
         logical :: is_target = .false.
         logical :: is_parameter = .false.
+        logical :: is_external = .false.
         logical :: is_optional = .false.
         logical :: has_intent = .false.
         logical :: has_global_dimensions = .false.
@@ -163,6 +164,7 @@ contains
         attr_info%is_pointer = .false.
         attr_info%is_target = .false.
         attr_info%is_parameter = .false.
+        attr_info%is_external = .false.
         attr_info%is_optional = .false.
         attr_info%has_intent = .false.
         attr_info%has_global_dimensions = .false.
@@ -183,6 +185,9 @@ contains
                     token = parser%consume()
                 case ("parameter")
                     attr_info%is_parameter = .true.
+                    token = parser%consume()
+                case ("external")
+                    attr_info%is_external = .true.
                     token = parser%consume()
                 case ("dimension")
                     token = parser%consume()
