@@ -76,9 +76,13 @@ contains
             code = code // "()"
         end if
 
-        ! Add result clause if present
+        ! Add result clause if present (but NOT if result name equals function name)
         if (allocated(node%result_variable) .and. len_trim(node%result_variable) > 0) then
-            code = code // " result(" // node%result_variable // ")"
+            ! Don't add result() clause if result variable name equals function name
+            ! (Fortran doesn't allow result(foo) for function foo - just use typed function signature)
+            if (.not. (allocated(node%name) .and. trim(node%result_variable) == trim(node%name))) then
+                code = code // " result(" // node%result_variable // ")"
+            end if
         end if
 
         code = code // new_line('A')
