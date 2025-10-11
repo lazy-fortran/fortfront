@@ -945,7 +945,7 @@ contains
                                     if (len_trim(var_type) == 0) then
                                         var_type = handle_string_concatenation(arena, assign%value_index)
                                     end if
-                                    
+
                                     ! If still no type found, try to infer from binary operation structure
                                     if (len_trim(var_type) == 0) then
                                         var_type = infer_type_from_binary_operation(arena, assign%value_index)
@@ -1188,7 +1188,7 @@ loop_nodes: do while (top > 0)
         end subroutine grow_stack
 
     end function is_integer_expression
-    
+
     ! Collect identifier variable - stub implementation
     subroutine collect_identifier_var(identifier, var_names, var_types, &
                                        var_declared, var_count, &
