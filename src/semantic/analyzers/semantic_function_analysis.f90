@@ -105,9 +105,15 @@ contains
         type(scope_stack_t), intent(inout) :: scopes
         type(poly_type_t) :: result_scheme
         
-        ! Lightweight: avoid modifying scopes to reduce stack/allocation pressure
+        ! Lightweight scope tracking: ensure a function scope is created so the
+        ! matching leave_scope call doesn't try to pop the global scope (Issue #1350)
         result_scheme = create_poly_type(forall_vars=[type_var_t::], mono=return_type)
-        ! No scope mutations here
+
+        if (allocated(func_node%name) .and. len_trim(func_node%name) > 0) then
+            call scopes%enter_function(func_node%name)
+        else
+            call scopes%enter_function('')
+        end if
     end subroutine create_function_scope
 
 end module semantic_function_analysis

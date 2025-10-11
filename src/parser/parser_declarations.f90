@@ -31,6 +31,7 @@ module parser_declarations
         logical :: is_pointer = .false.
         logical :: is_target = .false.
         logical :: is_parameter = .false.
+        logical :: is_external = .false.
         logical :: is_optional = .false.
         logical :: has_intent = .false.
         logical :: has_global_dimensions = .false.
@@ -89,6 +90,7 @@ contains
         attr_info%is_pointer = .false.
         attr_info%is_target = .false.
         attr_info%is_parameter = .false.
+        attr_info%is_external = .false.
         attr_info%is_optional = .false.
         attr_info%has_intent = .false.
         attr_info%has_global_dimensions = .false.
@@ -106,6 +108,9 @@ contains
                     token = parser%consume()
                 case ("pointer")
                     attr_info%is_pointer = .true.
+                    token = parser%consume()
+                case ("external")
+                    attr_info%is_external = .true.
                     token = parser%consume()
                 case ("parameter")
                     attr_info%is_parameter = .true.
@@ -287,6 +292,7 @@ contains
                             dimension_indices=attr_info%global_dimension_indices, &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
+                            is_external=attr_info%is_external, &
                             is_parameter=attr_info%is_parameter &
                         )
                     else
@@ -297,6 +303,7 @@ contains
                             kind_value=type_spec%kind_value, &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
+                            is_external=attr_info%is_external, &
                             is_parameter=attr_info%is_parameter &
                         )
                     end if
@@ -309,6 +316,7 @@ contains
                             dimension_indices=attr_info%global_dimension_indices, &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
+                            is_external=attr_info%is_external, &
                             is_parameter=attr_info%is_parameter &
                         )
                     else
@@ -318,6 +326,7 @@ contains
                             var_names(1:var_count), &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
+                            is_external=attr_info%is_external, &
                             is_parameter=attr_info%is_parameter &
                         )
                     end if
@@ -369,6 +378,7 @@ contains
                     is_allocatable=attr_info%is_allocatable, &
                     is_pointer=attr_info%is_pointer, &
                     is_target=attr_info%is_target, &
+                    is_external=attr_info%is_external, &
                     intent_value=attr_info%intent, &
                     is_optional=attr_info%is_optional, &
                     is_parameter=attr_info%is_parameter &
@@ -383,6 +393,7 @@ contains
                     is_allocatable=attr_info%is_allocatable, &
                     is_pointer=attr_info%is_pointer, &
                     is_target=attr_info%is_target, &
+                    is_external=attr_info%is_external, &
                     intent_value=attr_info%intent, &
                     is_optional=attr_info%is_optional, &
                     is_parameter=attr_info%is_parameter &
@@ -396,6 +407,7 @@ contains
                 is_allocatable=attr_info%is_allocatable, &
                 is_pointer=attr_info%is_pointer, &
                 is_target=attr_info%is_target, &
+                is_external=attr_info%is_external, &
                 intent_value=attr_info%intent, &
                 is_optional=attr_info%is_optional, &
                 is_parameter=attr_info%is_parameter &
@@ -649,6 +661,7 @@ contains
                                     is_allocatable=attr_info%is_allocatable, &
                                     is_pointer=attr_info%is_pointer, &
                                     is_target=attr_info%is_target, &
+                                    is_external=attr_info%is_external, &
                                     intent_value=attr_info%intent, &
                                     is_optional=attr_info%is_optional, &
                                     is_parameter=attr_info%is_parameter &
@@ -666,6 +679,7 @@ contains
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
                             is_target=attr_info%is_target, &
+                            is_external=attr_info%is_external, &
                             intent_value=attr_info%intent, &
                             is_optional=attr_info%is_optional, &
                             is_parameter=attr_info%is_parameter &
@@ -680,6 +694,7 @@ contains
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
                             is_target=attr_info%is_target, &
+                            is_external=attr_info%is_external, &
                             intent_value=attr_info%intent, &
                             is_optional=attr_info%is_optional, &
                             is_parameter=attr_info%is_parameter &
@@ -698,6 +713,7 @@ contains
                             dimension_indices=attr_info%global_dimension_indices, &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
+                            is_external=attr_info%is_external, &
                             is_parameter=attr_info%is_parameter &
                         )
                     else
@@ -708,6 +724,7 @@ contains
                             kind_value=type_spec%kind_value, &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
+                            is_external=attr_info%is_external, &
                             is_parameter=attr_info%is_parameter &
                         )
                     end if
@@ -720,6 +737,7 @@ contains
                             dimension_indices=attr_info%global_dimension_indices, &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
+                            is_external=attr_info%is_external, &
                             is_parameter=attr_info%is_parameter &
                         )
                     else
@@ -729,6 +747,7 @@ contains
                             var_names(1:var_count), &
                             is_allocatable=attr_info%is_allocatable, &
                             is_pointer=attr_info%is_pointer, &
+                            is_external=attr_info%is_external, &
                             is_parameter=attr_info%is_parameter &
                         )
                     end if

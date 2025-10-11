@@ -134,6 +134,10 @@ contains
             can_group = .false.
             return
         end if
+        if (node1%is_external .neqv. node2%is_external) then
+            can_group = .false.
+            return
+        end if
         if (node1%is_parameter .neqv. node2%is_parameter) then
             can_group = .false.
             return
@@ -689,7 +693,8 @@ contains
             
             ! For arrays or other non-groupable declarations, emit them individually
             if (node%is_array .or. node%is_allocatable .or. node%is_pointer .or. &
-                node%is_target .or. node%is_parameter .or. node%initializer_index > 0) then
+                node%is_target .or. node%is_external .or. node%is_parameter .or. &
+                node%initializer_index > 0) then
                 ! Use the full declaration generator for complex declarations
                 stmt_code = generate_code_from_arena(arena, body_indices(i))
                 code = code // indent_str // stmt_code // new_line('A')

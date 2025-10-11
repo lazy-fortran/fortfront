@@ -39,11 +39,16 @@ contains
         character(len=:), allocatable :: return_type_code, params_code, body_code
         integer :: i
 
-        ! Start function definition with return type
+        ! Start function definition with optional recursive keyword and return type
+        code = ""
+        if (node%is_recursive) then
+            code = "recursive "
+        end if
+
         if (allocated(node%return_type) .and. len_trim(node%return_type) > 0) then
-            code = node%return_type // " function " // node%name
+            code = code // trim(node%return_type) // " function " // node%name
         else
-            code = "function " // node%name
+            code = code // "function " // node%name
         end if
 
         ! Generate parameters (names only)
@@ -379,7 +384,11 @@ contains
         if (node%is_target) then
             code = code // ", target"
         end if
-        
+
+        if (node%is_external) then
+            code = code // ", external"
+        end if
+
         ! Add parameter if present
         if (node%is_parameter) then
             code = code // ", parameter"
@@ -641,11 +650,20 @@ contains
                 do i = 1, size(node%body_indices)
                     if (node%body_indices(i) > 0 .and. node%body_indices(i) <= arena%size) then
                         if (allocated(arena%entries(node%body_indices(i))%node)) then
-                            select type (child => arena%entries(node%body_indices(i))%node)
+                        select type (child => arena%entries(node%body_indices(i))%node)
                             type is (program_node)
-                                ! Skip empty implicit main programs to avoid duplicate minimal outputs
-                                if ((child%name == "main" .or. child%name == "__IMPLICIT_MAIN__") .and. &
-                                    (.not. allocated(child%body_indices) .or. size(child%body_indices) == 0)) cycle
+                                ! Skip trivial implicit main wrappers that only contain comments/blank lines
+                                if (program_is_trivial_wrapper(arena, node%body_indices(i), child%name)) then
+                                    block
+                                        character(len=:), allocatable :: trivia_code
+                                        trivia_code = collect_trivial_program_trivia(arena, node%body_indices(i))
+                                        if (len_trim(trivia_code) > 0) then
+                                            if (len(code) > 0) code = code // new_line('A') // new_line('A')
+                                            code = code // trivia_code
+                                        end if
+                                    end block
+                                    cycle
+                                end if
                             type is (subroutine_def_node)
                                 ! Skip duplicate empty subroutines (defensive check)
                                 if (.not. allocated(child%body_indices) .or. size(child%body_indices) == 0) then
@@ -887,6 +905,83 @@ contains
         ! Program end
         code = code // "end program " // node%name
     end function generate_code_program
+
+    logical function program_is_trivial_wrapper(arena, prog_index, name) result(is_trivial)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: prog_index
+        character(len=*), intent(in) :: name
+        integer :: j, child_idx
+
+        is_trivial = .false.
+        if (prog_index <= 0 .or. prog_index > arena%size) return
+        if (.not. allocated(arena%entries(prog_index)%node)) return
+
+        select type (prog => arena%entries(prog_index)%node)
+        type is (program_node)
+            if (.not. (trim(name) == 'main' .or. trim(name) == '__IMPLICIT_MAIN__')) return
+            if (.not. allocated(prog%body_indices) .or. size(prog%body_indices) == 0) then
+                is_trivial = .true.
+                return
+            end if
+
+            is_trivial = .true.
+            do j = 1, size(prog%body_indices)
+                child_idx = prog%body_indices(j)
+                if (child_idx <= 0 .or. child_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                select type (body => arena%entries(child_idx)%node)
+                type is (comment_node)
+                    cycle
+                type is (blank_line_node)
+                    cycle
+                type is (implicit_statement_node)
+                    if (body%is_none) cycle
+                    is_trivial = .false.
+                    return
+                class default
+                    is_trivial = .false.
+                    return
+                end select
+            end do
+        class default
+            return
+        end select
+    end function program_is_trivial_wrapper
+
+    function collect_trivial_program_trivia(arena, prog_index) result(trivia_code)
+        type(ast_arena_t), intent(in) :: arena
+        integer, intent(in) :: prog_index
+        character(len=:), allocatable :: trivia_code
+        integer :: j, child_idx
+        character(len=:), allocatable :: snippet
+
+        trivia_code = ""
+        if (prog_index <= 0 .or. prog_index > arena%size) return
+        if (.not. allocated(arena%entries(prog_index)%node)) return
+
+        select type (prog => arena%entries(prog_index)%node)
+        type is (program_node)
+            if (.not. allocated(prog%body_indices)) return
+            do j = 1, size(prog%body_indices)
+                child_idx = prog%body_indices(j)
+                if (child_idx <= 0 .or. child_idx > arena%size) cycle
+                if (.not. allocated(arena%entries(child_idx)%node)) cycle
+                select type (body => arena%entries(child_idx)%node)
+                type is (comment_node)
+                    snippet = generate_code_from_arena(arena, child_idx)
+                type is (blank_line_node)
+                    snippet = generate_code_from_arena(arena, child_idx)
+                class default
+                    cycle
+                end select
+
+                if (len(snippet) > 0) then
+                    if (len(trivia_code) > 0) trivia_code = trivia_code // new_line('A')
+                    trivia_code = trivia_code // snippet
+                end if
+            end do
+        end select
+    end function collect_trivial_program_trivia
 
 
     ! Generate grouped body with context
