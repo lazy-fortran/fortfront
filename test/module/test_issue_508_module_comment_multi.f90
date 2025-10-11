@@ -44,10 +44,9 @@ contains
 
         ! Output should start with a comment line
         p1 = 1
-        do while (p1 <= len(output) .and. ( &
-            output(p1:p1) == ' ' .or. &
-            output(p1:p1) == new_line('a') .or. &
-            iachar(output(p1:p1)) == 9))
+        do while (p1 <= len(output) .and. &
+                (output(p1:p1) == ' ' .or. output(p1:p1) == new_line('a') .or. &
+                 iachar(output(p1:p1)) == 9))
             p1 = p1 + 1
         end do
         if (p1 > len(output) .or. output(p1:p1) /= '!') then
@@ -91,4 +90,3 @@ contains
     end subroutine run_test
 
 end program test_issue_508_module_comment_multi
-

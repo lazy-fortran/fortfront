@@ -6,6 +6,7 @@ module parser_array_constructs_module
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: parse_basic_statement_core, &
         statement_callbacks_t, null_statement_callbacks, find_statement_end
+    use parser_basic_statement_module, only: parse_statement_body
     use parser_if_constructs_module, only: parse_if, parse_if_condition
     use parser_select_constructs_module, only: parse_select_case
     use ast_arena_modern, only: ast_arena_t
@@ -38,14 +39,17 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: where_index
-        
+
         type(token_t) :: token
         integer :: line, column
         integer :: mask_expr_index
         integer, allocatable :: where_body_indices(:)
         integer, allocatable :: elsewhere_body_indices(:)
-        integer :: body_count
-        
+        type(statement_callbacks_t) :: callbacks
+        logical :: single_line, has_elsewhere
+        character(len=9), parameter :: where_end_keywords(2) = [ &
+            'elsewhere', 'end      ']
+
         ! Consume 'where' keyword
         token = parser%peek()
         line = token%line
@@ -55,7 +59,7 @@ contains
             return
         end if
         token = parser%consume()
-        
+
         ! Check for single-line WHERE by looking for parentheses
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
@@ -65,9 +69,10 @@ contains
                 where_index = 0
                 return
             end if
-            
+
             ! Check if this is single-line WHERE
             token = parser%peek()
+            single_line = .true.
             block
                 integer :: lookahead
 
@@ -84,53 +89,57 @@ contains
                 end if
             end block
 
-            if (token%kind == TK_NEWLINE .or. token%kind == TK_COMMENT) then
-                ! Multi-line WHERE: body begins on following line
-            else if (token%kind /= TK_KEYWORD .or. token%text == "elsewhere" .or. &
-                     token%text == "end" .or. parser%is_at_end()) then
+            if (token%kind == TK_NEWLINE .or. token%kind == TK_EOF) then
+                single_line = .false.
+            else if (token%kind == TK_OPERATOR .and. token%text == ";") then
+                single_line = .false.
+            else if (token%kind == TK_COMMENT) then
+                single_line = .false.
+            else if (token%kind == TK_KEYWORD) then
+                if (token%text == "elsewhere" .or. token%text == "end") then
+                    single_line = .false.
+                end if
+            end if
+
+            if (single_line) then
                 ! Single-line WHERE - parse single statement
                 block
                     type(token_t), allocatable, target :: remaining_tokens(:)
                     integer, allocatable :: stmt_indices(:)
                     integer :: j, n
-                    
+
                     ! Count remaining tokens
                     n = 0
                     do j = parser%current_token, size(parser%tokens)
                         n = n + 1
                     end do
-                    
+
                     ! Extract remaining tokens
                     allocate(remaining_tokens(n))
                     do j = 1, n
                         remaining_tokens(j) = &
                             parser%tokens(parser%current_token + j - 1)
                     end do
-                    
+
                     ! Parse statement
-                    block
-                        type(statement_callbacks_t) :: callbacks
-                        callbacks = build_where_callbacks()
-                        stmt_indices = parse_basic_statement_core( &
-                            remaining_tokens, arena, callbacks=callbacks)
-                    end block
-                    
+                    callbacks = build_where_callbacks()
+                    stmt_indices = parse_basic_statement_core(remaining_tokens, &
+                        arena, callbacks=callbacks)
+
                     if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
                         allocate(where_body_indices(size(stmt_indices)))
                         where_body_indices = stmt_indices
                         ! Advance parser position
-                        parser%current_token = size(parser%tokens) + 1  ! End of tokens
+                        parser%current_token = size(parser%tokens) + 1
                     else
                         allocate(where_body_indices(0))
                     end if
                 end block
-                
+
                 ! Create WHERE node with single statement
-                block
-                    where_index = push_where(arena, mask_expr_index, &
-                                     where_body_indices, line=line, column=column)
-                end block
-                
+                where_index = push_where(arena, mask_expr_index, where_body_indices, &
+                    line=line, column=column)
+
                 deallocate(where_body_indices)
                 return
             end if
@@ -138,170 +147,56 @@ contains
             where_index = 0
             return
         end if
-        
-        ! Multi-line WHERE - parse body statements
-        body_count = 0
-        allocate(where_body_indices(0))
-        
-        do
-            token = parser%peek()
-            if (parser%is_at_end()) exit
-            
-            ! Check for ELSEWHERE or END WHERE
-            if (token%kind == TK_KEYWORD) then
-                if (token%text == "elsewhere") then
-                    ! Parse ELSEWHERE block
-                    token = parser%consume()  ! Consume 'elsewhere'
-                    
-                    body_count = 0
-                    allocate(elsewhere_body_indices(0))
-                    
-                    do
-                        token = parser%peek()
-                        if (parser%is_at_end()) exit
-                        
-                        if (token%kind == TK_KEYWORD .and. token%text == "end") then
-                            exit
-                        end if
 
-                        if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE .or. &
-                            token%kind == TK_COMMENT) then
-                            token = parser%consume()
-                            cycle
-                        end if
+        ! Multi-line WHERE - parse body statements using shared statement body parser
+        callbacks = build_where_callbacks()
+        where_body_indices = parse_statement_body(parser, arena, &
+            where_end_keywords, callbacks)
 
-                        ! Parse statement in ELSEWHERE block
-                        block
-                            type(token_t), allocatable, target :: stmt_tokens(:)
-                            integer, allocatable :: stmt_indices(:)
-                            integer :: j, n, k
-                            integer :: last_token_index
-                            
-                            ! Extract tokens for current statement
-                            n = 0
-                            do j = parser%current_token, size(parser%tokens)
-                                if (parser%tokens(j)%kind == TK_NEWLINE) then
-                                    n = j - parser%current_token + 1
-                                    exit
-                                end if
-                                n = n + 1
-                            end do
-                            
-                            if (n > 0) then
-                                allocate(stmt_tokens(n + 1))
-                                do j = 1, n
-                                    stmt_tokens(j) = &
-                                        parser%tokens(parser%current_token + j - 1)
-                                end do
-                                stmt_tokens(n + 1)%kind = TK_EOF
-                                stmt_tokens(n + 1)%text = ""
-                                last_token_index = parser%current_token + n - 1
-                                stmt_tokens(n + 1)%line = &
-                                    parser%tokens(last_token_index)%line
-                                stmt_tokens(n + 1)%column = &
-                                    parser%tokens(last_token_index)%column + 1
-
-                                stmt_indices = parse_basic_statement_core( &
-                                    stmt_tokens, arena, callbacks= &
-                                    build_where_callbacks())
-
-                                ! Add all parsed statements
-                                do k = 1, size(stmt_indices)
-                                    if (stmt_indices(k) > 0) then
-                                        body_count = body_count + 1
-                                        elsewhere_body_indices = &
-                                            [elsewhere_body_indices, stmt_indices(k)]
-                                    end if
-                                end do
-
-                                ! Advance parser position
-                                parser%current_token = parser%current_token + n
-                                deallocate(stmt_tokens)
-                            end if
-                        end block
-                    end do
-                    
-                    exit
-                else if (token%text == "end") then
-                    exit
-                end if
-            end if
-
-            if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE .or. &
-                token%kind == TK_COMMENT) then
+        has_elsewhere = .false.
+        token = parser%peek()
+        if (.not. parser%is_at_end()) then
+            if (token%kind == TK_KEYWORD .and. token%text == "elsewhere") then
+                has_elsewhere = .true.
+                ! Current implementation only supports final ELSEWHERE without mask
                 token = parser%consume()
-                cycle
-            end if
-
-            ! Parse statement in WHERE block
-            block
-                type(token_t), allocatable, target :: stmt_tokens(:)
-                integer, allocatable :: stmt_indices(:)
-                integer :: j, n, k
-                integer :: last_token_index
-                
-                ! Extract tokens for current statement
-                n = 0
-                do j = parser%current_token, size(parser%tokens)
-                    if (parser%tokens(j)%kind == TK_NEWLINE) then
-                        n = j - parser%current_token + 1
-                        exit
+                if (.not. parser%is_at_end()) then
+                    token = parser%peek()
+                    if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                        where_index = 0
+                        return
                     end if
-                    n = n + 1
-                end do
-                
-                if (n > 0) then
-                    allocate(stmt_tokens(n + 1))
-                    do j = 1, n
-                        stmt_tokens(j) = &
-                            parser%tokens(parser%current_token + j - 1)
-                    end do
-                    stmt_tokens(n + 1)%kind = TK_EOF
-                    stmt_tokens(n + 1)%text = ""
-                    last_token_index = parser%current_token + n - 1
-                    stmt_tokens(n + 1)%line = parser%tokens(last_token_index)%line
-                    stmt_tokens(n + 1)%column = &
-                        parser%tokens(last_token_index)%column + 1
-
-                    stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                        callbacks=build_where_callbacks())
-
-                    ! Add all parsed statements
-                    do k = 1, size(stmt_indices)
-                        if (stmt_indices(k) > 0) then
-                            body_count = body_count + 1
-                            where_body_indices = [where_body_indices, stmt_indices(k)]
-                        end if
-                    end do
-
-                    ! Advance parser position
-                    parser%current_token = parser%current_token + n
-                    deallocate(stmt_tokens)
                 end if
-            end block
-        end do
-        
+                elsewhere_body_indices = parse_statement_body(parser, arena, &
+                    where_end_keywords, callbacks)
+
+                token = parser%peek()
+                if (token%kind == TK_KEYWORD .and. token%text == "elsewhere") then
+                    where_index = 0
+                    return
+                end if
+            end if
+        end if
+
         ! Consume 'end where'
         token = parser%peek()
         if (token%kind == TK_KEYWORD .and. token%text == "end") then
             token = parser%consume()
-            token = parser%peek()
-            if (token%kind == TK_KEYWORD .and. token%text == "where") then
-                token = parser%consume()
+            if (.not. parser%is_at_end()) then
+                token = parser%peek()
+                if (token%kind == TK_KEYWORD .and. token%text == "where") then
+                    token = parser%consume()
+                end if
             end if
         end if
-        
-        ! Create WHERE node
-        if (allocated(elsewhere_body_indices)) then
+
+        if (has_elsewhere) then
             where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                                   elsewhere_body_indices, line=line, column=column)
-            deallocate(elsewhere_body_indices)
+                elsewhere_body_indices, line=line, column=column)
         else
             where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                                   line=line, column=column)
+                line=line, column=column)
         end if
-        
-        if (allocated(where_body_indices)) deallocate(where_body_indices)
     end function parse_where_construct
 
     ! Parse ASSOCIATE construct

@@ -77,10 +77,11 @@ contains
 
         call require(index(out, 'select case (x)') > 0, 'Missing select case header')
         call require(index(out, 'case (1)') > 0, 'Missing case (1)')
-        call require(index(out, 'case (2, 3)') > 0 .or. index(out, 'case (2,3)') > 0, 'Missing case (2,3)')
-        call require(index(out, 'print *, "one"') > 0 .or. index(out, 'print*, "one"') > 0, 'Missing first case body print')
-        call require( &
-            index(out, 'print *, "two or three"') > 0 .or. &
+        call require(index(out, 'case (2, 3)') > 0 .or. &
+            index(out, 'case (2,3)') > 0, 'Missing case (2,3)')
+        call require(index(out, 'print *, "one"') > 0 .or. &
+            index(out, 'print*, "one"') > 0, 'Missing first case body print')
+        call require(index(out, 'print *, "two or three"') > 0 .or. &
             index(out, 'print*, "two or three"') > 0, &
             'Missing second case body print')
         call require(index(out, 'end select') > 0, 'Missing end select')
@@ -100,13 +101,16 @@ contains
             x_id    = push_identifier(arena, 'x')
             one_lit = push_literal(arena, '1', LITERAL_INTEGER)
 
-            print_one   = push_print_statement(arena, '*', [push_literal(arena, '"one"', LITERAL_STRING)])
-            print_other = push_print_statement(arena, '*', [push_literal(arena, '"other"', LITERAL_STRING)])
+            print_one = push_print_statement(arena, '*', [ &
+                push_literal(arena, '"one"', LITERAL_STRING)])
+            print_other = push_print_statement(arena, '*', [ &
+                push_literal(arena, '"other"', LITERAL_STRING)])
 
             case1_idx   = push_case_block(arena, [one_lit], [print_one])
             default_idx = push_case_default(arena, [print_other])
 
-            select_idx = push_select_case_with_default(arena, x_id, [case1_idx], default_idx)
+            select_idx = push_select_case_with_default(arena, x_id, [case1_idx], &
+                default_idx)
             prog_idx = push_program(arena, 'main', [select_idx])
 
             call emit_fortran(arena, prog_idx, code)
@@ -114,10 +118,12 @@ contains
             out = code
         end block
 
-        call require(index(out, 'select case (x)') > 0, 'Missing select case header (default)')
+        call require(index(out, 'select case (x)') > 0, &
+            'Missing select case header (default)')
         call require(index(out, 'case (1)') > 0, 'Missing case (1) (default)')
         call require(index(out, 'case default') > 0, 'Missing case default')
-        call require(index(out, 'print *, "other"') > 0 .or. index(out, 'print*, "other"') > 0, 'Missing default case body print')
+        call require(index(out, 'print *, "other"') > 0 .or. &
+            index(out, 'print*, "other"') > 0, 'Missing default case body print')
         call require(index(out, 'end select') > 0, 'Missing end select (default)')
     end subroutine test_select_case_with_default
 
@@ -139,7 +145,8 @@ contains
             allocate(empty_body(0))
 
             default_idx = push_case_default(arena, empty_body)
-            select_idx = push_select_case_with_default(arena, x_id, empty_cases, default_idx)
+            select_idx = push_select_case_with_default(arena, x_id, empty_cases, &
+                default_idx)
 
             prog_idx = push_program(arena, 'main', [select_idx])
 
@@ -148,7 +155,8 @@ contains
             out = code
         end block
 
-        call require(index(out, 'select case (x)') > 0, 'Missing header (empty default)')
+        call require(index(out, 'select case (x)') > 0, &
+            'Missing header (empty default)')
         call require(index(out, 'case default') > 0, 'Missing case default (empty)')
         call require(index(out, 'end select') > 0, 'Missing end select (empty default)')
     end subroutine test_select_case_with_empty_default
