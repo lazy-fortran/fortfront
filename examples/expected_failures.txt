@@ -15,7 +15,6 @@ external_tool_example.f90       # Gfortran compilation failure
 tooling_lightweight_ast.f90     # Gfortran compilation failure
 
 # F95 features
-issue_1337_forall.f90           # Issue #1337: FORALL body assignments dropped
 
 # Lazy Fortran type inference
 issue_1343_lazy_function.lf     # Issue #1343: Functions missing type inference

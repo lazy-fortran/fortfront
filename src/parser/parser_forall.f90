@@ -102,7 +102,10 @@ contains
         integer, allocatable :: body_indices(:)
         integer, allocatable :: stmt_indices(:)
         type(token_t), allocatable, target :: stmt_tokens(:)
+        character(len=:), allocatable :: index_names(:)
+        integer, allocatable :: lower_bounds(:), upper_bounds(:), stride_bounds(:)
         integer :: triplet_count
+        integer :: max_name_len
         integer :: line, column
         integer :: stmt_start, stmt_end, token_count, k
         logical :: is_inline
@@ -362,8 +365,6 @@ contains
         
         ! Create FORALL node
         if (triplet_count > 0) then
-            ! For now, only handle single-index FORALL using existing push_forall
-            ! Multi-index support requires extending push_forall
             if (triplet_count == 1) then
                 forall_index = push_forall(arena, triplets(1)%index_name, &
                                           triplets(1)%lower_expr_index, &
@@ -371,15 +372,56 @@ contains
                                           triplets(1)%stride_expr_index, &
                                           mask_index, body_indices, line, column)
             else
-                ! For multi-index, emit error since body will be dropped
-                write(error_unit, '(A)') "ERROR: Multi-index FORALL not yet supported - body will be lost"
-                forall_index = 0
+                max_name_len = 0
+                do k = 1, triplet_count
+                    max_name_len = max(max_name_len, len_trim(triplets(k)%index_name))
+                end do
+                if (max_name_len <= 0) max_name_len = 1
+
+                allocate(character(len=max_name_len) :: index_names(triplet_count))
+                allocate(lower_bounds(triplet_count))
+                allocate(upper_bounds(triplet_count))
+                allocate(stride_bounds(triplet_count))
+
+                do k = 1, triplet_count
+                    index_names(k) = triplets(k)%index_name
+                    lower_bounds(k) = triplets(k)%lower_expr_index
+                    upper_bounds(k) = triplets(k)%upper_expr_index
+                    stride_bounds(k) = triplets(k)%stride_expr_index
+                end do
+
+                if (allocated(body_indices)) then
+                    forall_index = push_forall(arena, triplets(1)%index_name, &
+                                              triplets(1)%lower_expr_index, &
+                                              triplets(1)%upper_expr_index, &
+                                              triplets(1)%stride_expr_index, &
+                                              mask_index=mask_index, &
+                                              body_indices=body_indices, line=line, column=column, &
+                                              index_vars_all=index_names, &
+                                              start_indices_all=lower_bounds, &
+                                              end_indices_all=upper_bounds, &
+                                              stride_indices_all=stride_bounds)
+                else
+                    forall_index = push_forall(arena, triplets(1)%index_name, &
+                                              triplets(1)%lower_expr_index, &
+                                              triplets(1)%upper_expr_index, &
+                                              triplets(1)%stride_expr_index, &
+                                              mask_index=mask_index, line=line, column=column, &
+                                              index_vars_all=index_names, &
+                                              start_indices_all=lower_bounds, &
+                                              end_indices_all=upper_bounds, &
+                                              stride_indices_all=stride_bounds)
+                end if
             end if
         end if
-        
+
         deallocate(triplets)
         if (allocated(body_indices)) deallocate(body_indices)
-        
+        if (allocated(index_names)) deallocate(index_names)
+        if (allocated(lower_bounds)) deallocate(lower_bounds)
+        if (allocated(upper_bounds)) deallocate(upper_bounds)
+        if (allocated(stride_bounds)) deallocate(stride_bounds)
+
     end function parse_forall
     
 end module parser_forall_module

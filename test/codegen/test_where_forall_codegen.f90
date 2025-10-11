@@ -12,6 +12,7 @@ program test_where_forall_codegen
 
     if (.not. test_where_codegen()) all_passed = .false.
     if (.not. test_forall_codegen()) all_passed = .false.
+    if (.not. test_forall_multi_codegen()) all_passed = .false.
 
     if (all_passed) then
         print *, 'All WHERE/FORALL codegen tests passed!'
@@ -145,5 +146,62 @@ contains
             test_forall_codegen = .false.
         end if
     end function test_forall_codegen
+
+    logical function test_forall_multi_codegen()
+        type(ast_arena_t) :: arena
+        integer :: one_id, n_id, m_id
+        integer :: value_id, assign_idx, forall_idx, prog_idx
+        character(len=:), allocatable :: code
+        character(len=1) :: index_list(2)
+        integer :: lower_ids(2), upper_ids(2), stride_ids(2)
+
+        test_forall_multi_codegen = .true.
+        print *, 'Testing multi-index FORALL code generation...'
+
+        arena = create_ast_arena()
+
+        one_id = push_literal(arena, '1', LITERAL_INTEGER)
+        n_id = push_identifier(arena, 'n')
+        m_id = push_identifier(arena, 'm')
+
+        value_id = push_identifier(arena, 'value')
+        assign_idx = push_assignment(arena, value_id, one_id)
+
+        index_list = ['i', 'j']
+        lower_ids = [one_id, one_id]
+        upper_ids = [n_id, m_id]
+        stride_ids = [0, 0]
+
+        forall_idx = push_forall(arena, 'i', one_id, n_id, 0, 0, [assign_idx], &
+                                 index_vars_all=index_list, &
+                                 start_indices_all=lower_ids, &
+                                 end_indices_all=upper_ids, &
+                                 stride_indices_all=stride_ids)
+
+        prog_idx = push_program(arena, 'main', [forall_idx])
+
+        call emit_fortran(arena, prog_idx, code)
+
+        if (.not. allocated(code)) then
+            print *, '  FAIL: No code generated for multi-index FORALL'
+            test_forall_multi_codegen = .false.
+            return
+        end if
+
+        if (index(code, 'forall (i = 1:n, j = 1:m)') == 0) then
+            print *, '  FAIL: Multi-index FORALL header missing'
+            test_forall_multi_codegen = .false.
+        end if
+
+        if (index(code, 'value = 1') == 0) then
+            print *, '  FAIL: Multi-index FORALL body assignment missing'
+            test_forall_multi_codegen = .false.
+        end if
+
+        if (index(code, 'end forall') == 0) then
+            print *, '  FAIL: Missing END FORALL for multi-index construct'
+            test_forall_multi_codegen = .false.
+        end if
+    end function test_forall_multi_codegen
 
 end program test_where_forall_codegen
