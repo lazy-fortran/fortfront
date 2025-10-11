@@ -7,6 +7,7 @@ module semantic_function_analysis
                                    TVAR, TINT, TREAL, TCHAR, TLOGICAL, TFUN
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node
+    use ast_nodes_data, only: declaration_node, parameter_declaration_node
     use ast_nodes_procedure, only: function_def_node
     use scope_manager, only: scope_stack_t
     implicit none
@@ -99,15 +100,90 @@ contains
     end function determine_function_return_type
 
     ! Create function scope with result variable
-    subroutine create_function_scope(func_node, return_type, scopes)
+    subroutine create_function_scope(func_node, return_type, scopes, arena, param_types)
         type(function_def_node), intent(in) :: func_node
         type(mono_type_t), intent(in) :: return_type
         type(scope_stack_t), intent(inout) :: scopes
-        type(poly_type_t) :: result_scheme
-        
-        ! Lightweight: avoid modifying scopes to reduce stack/allocation pressure
+        type(ast_arena_t), intent(in) :: arena
+        type(mono_type_t), intent(in), optional :: param_types(:)
+
+        type(poly_type_t) :: result_scheme, param_scheme
+        integer :: i, param_count, param_index
+        character(len=:), allocatable :: scope_name, result_name, param_name
+
+        ! Determine the name of the scope we are about to enter
+        if (allocated(func_node%name) .and. len_trim(func_node%name) > 0) then
+            scope_name = trim(func_node%name)
+        else
+            scope_name = 'unnamed_function'
+        end if
+
+        call scopes%enter_function(scope_name)
+
+        ! Ensure the function result is available within the new scope
         result_scheme = create_poly_type(forall_vars=[type_var_t::], mono=return_type)
-        ! No scope mutations here
+
+        if (allocated(func_node%result_variable) .and. &
+                len_trim(func_node%result_variable) > 0) then
+            result_name = trim(func_node%result_variable)
+            call scopes%define(result_name, result_scheme)
+            if (result_name /= scope_name) then
+                call scopes%define(scope_name, result_scheme)
+            end if
+        else
+            result_name = scope_name
+            call scopes%define(scope_name, result_scheme)
+        end if
+
+        ! Register all parameters within the function scope so subsequent
+        ! statements can resolve their types during inference.
+        if (allocated(func_node%param_indices)) then
+            param_count = size(func_node%param_indices)
+        else
+            param_count = 0
+        end if
+
+        do i = 1, param_count
+            param_index = func_node%param_indices(i)
+            if (param_index <= 0) cycle
+            if (param_index > arena%size) cycle
+            if (.not. allocated(arena%entries(param_index)%node)) cycle
+
+            param_name = ''
+            select type (param_node => arena%entries(param_index)%node)
+            type is (parameter_declaration_node)
+                if (allocated(param_node%name)) param_name = trim(param_node%name)
+            type is (declaration_node)
+                if (allocated(param_node%var_name)) then
+                    param_name = trim(param_node%var_name)
+                else if (allocated(param_node%var_names)) then
+                    if (size(param_node%var_names) >= 1) then
+                        param_name = trim(param_node%var_names(1))
+                    end if
+                end if
+            type is (identifier_node)
+                if (allocated(param_node%name)) param_name = trim(param_node%name)
+            class default
+                ! Unknown node type - skip
+            end select
+
+            if (len_trim(param_name) == 0) cycle
+
+            if (present(param_types)) then
+                if (size(param_types) >= i) then
+                    param_scheme = create_poly_type(forall_vars=[type_var_t::], &
+                                                   mono=param_types(i))
+                else
+                    param_scheme = create_poly_type(forall_vars=[type_var_t::], &
+                                                   mono=create_mono_type(TREAL))
+                end if
+            else
+                param_scheme = create_poly_type(forall_vars=[type_var_t::], &
+                                               mono=create_mono_type(TREAL))
+            end if
+
+            call scopes%define(param_name, param_scheme)
+        end do
     end subroutine create_function_scope
 
 end module semantic_function_analysis
