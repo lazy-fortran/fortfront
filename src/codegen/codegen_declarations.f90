@@ -804,6 +804,7 @@ contains
             if (len(body_code) > 0) then
                 block
                     integer :: pos, start_pos, end_pos, impl_pos, insert_pos
+                    integer :: pattern_len
                     character(len=:), allocatable :: before_code, after_code, var_name
                     character(len=:), allocatable :: loop_vars(:)
                     integer :: n_vars, i, j
@@ -817,10 +818,16 @@ contains
                     ! Search for patterns like "(var=" in implied do loops (both old and new syntax)
                     pos = 1
                     do while (pos <= len(body_code))
-                        ! Find next occurrence of either "= (/ (" or "= [("
-                        start_pos = index(body_code(pos:), "= (/ (")
+                        ! Find next occurrence of legacy implied-do "= (/(" (with or without whitespace)
+                        start_pos = index(body_code(pos:), "= (/(")
+                        pattern_len = 5
                         if (start_pos == 0) then
-                            ! Try new syntax
+                            start_pos = index(body_code(pos:), "= (/ (")
+                            if (start_pos > 0) pattern_len = 6
+                        end if
+
+                        if (start_pos == 0) then
+                            ! Try modern syntax "= [("
                             start_pos = index(body_code(pos:), "= [(")
                             if (start_pos > 0) then
                                 start_pos = pos + start_pos - 1
@@ -839,14 +846,14 @@ contains
                         else
                             start_pos = pos + start_pos - 1
                             ! Find the loop variable patterns for old syntax
-                            end_pos = index(body_code(start_pos:), " /)")
+                            end_pos = index(body_code(start_pos:), "/)")
                             if (end_pos > 0) then
                                 end_pos = start_pos + end_pos - 1
                                 ! Extract variables from this implied do section
                                 call extract_loop_vars_from_section(body_code(start_pos:end_pos), &
                                                                    loop_vars, n_vars)
                             end if
-                            pos = start_pos + 6  ! Move past "= (/ ("
+                            pos = start_pos + pattern_len  ! Move past the detected pattern
                         end if
                     end do
                     
