@@ -51,14 +51,17 @@ program test_issue_1093_function_result_inference
 
     code = codegen_core_generate_arena(arena, root_index)
 
-    if (index(code, 'result(incr)') <= 0) then
-        print *, 'FAIL: function header lacks result(incr)'
+    ! When result variable name equals function name, Fortran does NOT allow result() clause
+    ! Instead, the return type should be in the function signature
+    if (index(code, 'integer function incr') <= 0 .and. index(code, 'result(incr)') > 0) then
+        print *, 'FAIL: function has invalid result(incr) when result name equals function name'
         print *, trim(code)
         ok = .false.
     end if
 
-    if (index(code, ':: incr') <= 0) then
-        print *, 'FAIL: missing declaration line for inferred result variable'
+    ! Check that return type is present (either in signature OR as separate declaration)
+    if (index(code, 'integer function incr') <= 0 .and. index(code, ':: incr') <= 0) then
+        print *, 'FAIL: function lacks return type (neither in signature nor declaration)'
         print *, trim(code)
         ok = .false.
     end if

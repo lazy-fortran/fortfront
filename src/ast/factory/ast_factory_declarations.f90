@@ -49,7 +49,7 @@ contains
     function push_declaration(arena, type_name, var_name, kind_value, &
        dimension_indices, &
        initializer_index, is_allocatable, is_pointer, is_target, &
-       intent_value, is_optional, is_parameter, line, column, &
+       is_external, intent_value, is_optional, is_parameter, line, column, &
        parent_index) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name, var_name
@@ -57,8 +57,9 @@ contains
         integer, intent(in), optional :: dimension_indices(:)
         integer, intent(in), optional :: initializer_index
         logical, intent(in), optional :: is_allocatable
-        logical, intent(in), optional :: is_pointer  
+        logical, intent(in), optional :: is_pointer
         logical, intent(in), optional :: is_target
+        logical, intent(in), optional :: is_external
         character(len=*), intent(in), optional :: intent_value
         logical, intent(in), optional :: is_optional
         logical, intent(in), optional :: is_parameter
@@ -116,6 +117,12 @@ contains
             decl%is_target = .false.
         end if
 
+        if (present(is_external)) then
+            decl%is_external = is_external
+        else
+            decl%is_external = .false.
+        end if
+
         if (present(intent_value)) then
             decl%intent = intent_value
             decl%has_intent = .true.
@@ -145,8 +152,8 @@ contains
     ! Create multi-variable declaration node and add to stack
     function push_multi_declaration(arena, type_name, var_names, kind_value, &
            dimension_indices, &
-           initializer_index, is_allocatable, is_pointer, is_target, intent_value, &
-           is_optional, is_parameter, line, column, parent_index) result(decl_index)
+       initializer_index, is_allocatable, is_pointer, is_target, is_external, intent_value, &
+       is_optional, is_parameter, line, column, parent_index) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_names(:)
@@ -156,6 +163,7 @@ contains
         logical, intent(in), optional :: is_allocatable
         logical, intent(in), optional :: is_pointer
         logical, intent(in), optional :: is_target
+        logical, intent(in), optional :: is_external
         character(len=*), intent(in), optional :: intent_value
         logical, intent(in), optional :: is_optional
         logical, intent(in), optional :: is_parameter
@@ -223,6 +231,12 @@ contains
             decl%is_target = is_target
         else
             decl%is_target = .false.
+        end if
+
+        if (present(is_external)) then
+            decl%is_external = is_external
+        else
+            decl%is_external = .false.
         end if
 
         if (present(intent_value)) then

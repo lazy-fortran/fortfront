@@ -22,6 +22,7 @@ module ast_nodes_procedure
         character(len=:), allocatable :: return_type
         character(len=:), allocatable :: result_variable
         integer, allocatable :: body_indices(:)
+        logical :: is_recursive = .false.
     contains
         procedure :: accept => function_def_accept
         procedure :: to_json => function_def_to_json
@@ -78,6 +79,7 @@ contains
         if (allocated(this%result_variable)) then
             call json%add(obj, 'result_variable', this%result_variable)
         end if
+        call json%add(obj, 'is_recursive', this%is_recursive)
         if (allocated(this%param_indices)) then
             call json%add(obj, 'param_indices', this%param_indices)
         end if
@@ -103,6 +105,7 @@ contains
         ! Copy derived class fields
         lhs%name = rhs%name
         lhs%return_type = rhs%return_type
+        lhs%is_recursive = rhs%is_recursive
         if (allocated(rhs%result_variable)) lhs%result_variable = rhs%result_variable
         if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
         if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
