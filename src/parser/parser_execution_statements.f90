@@ -358,6 +358,7 @@ contains
         integer, intent(out) :: stmt_index
         type(token_t) :: id_token, op_token
         integer :: target_index, value_index
+        character(len=:), allocatable :: assignment_op
         logical :: is_multi_assignment
 
         stmt_index = 0
@@ -372,8 +373,11 @@ contains
             id_token = parser%consume()
             op_token = parser%peek()
 
-            if (op_token%kind == TK_OPERATOR .and. (op_token%text == "=" .or. op_token%text == "(")) then
-                if (op_token%text == "=") then
+            if (allocated(assignment_op)) deallocate(assignment_op)
+
+            if (op_token%kind == TK_OPERATOR) then
+                select case (op_token%text)
+                case ("=")
                     ! Simple identifier assignment: x = expr
                     op_token = parser%consume()
                     target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
@@ -382,8 +386,17 @@ contains
                         stmt_index = push_assignment(arena, target_index, value_index, &
                                                    id_token%line, id_token%column)
                     end if
-                else if (op_token%text == "(") then
-                    ! Complex LHS: parse expression up to '=' (handles subscripts/slices)
+                case ("=>")
+                    ! Pointer assignment: ptr => target
+                    op_token = parser%consume()
+                    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+                    value_index = parse_range(parser, arena)
+                    if (value_index > 0) then
+                        stmt_index = push_assignment(arena, target_index, value_index, &
+                                                   id_token%line, id_token%column, operator_text=op_token%text)
+                    end if
+                case ("(", "%")
+                    ! Complex LHS (array or component access): parse expression up to '='
                     block
                         integer :: start_pos, pos, paren_depth, left_end
                         type(token_t), allocatable, target :: lhs_tokens(:)
@@ -400,7 +413,7 @@ contains
                                 paren_depth = paren_depth + 1
                             case (")")
                                 if (paren_depth > 0) paren_depth = paren_depth - 1
-                            case ("=")
+                            case ("=", "=>")
                                 if (paren_depth == 0) then
                                     left_end = pos - 1
                                     exit
@@ -426,11 +439,13 @@ contains
                         target_index = parse_range(lhs_parser, arena)
                     end block
 
-                    ! Advance original parser to '=' and consume it
+                    ! Advance original parser to '=' or '=>'
                     do while (.not. parser%is_at_end())
                         op_token = parser%peek()
-                        if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
+                        if (op_token%kind == TK_OPERATOR .and. &
+                            (op_token%text == "=" .or. op_token%text == "=>")) then
                             op_token = parser%consume()
+                            assignment_op = op_token%text
                             exit
                         else
                             op_token = parser%consume()
@@ -440,10 +455,12 @@ contains
                     ! Parse RHS on original parser
                     value_index = parse_range(parser, arena)
                     if (value_index > 0 .and. target_index > 0) then
+                        if (.not. allocated(assignment_op)) assignment_op = "="
                         stmt_index = push_assignment(arena, target_index, value_index, &
-                                                   id_token%line, id_token%column)
+                                                   id_token%line, id_token%column, &
+                                                   operator_text=assignment_op)
                     end if
-                end if
+                end select
             end if
         end if
     end subroutine parse_assignment_statement

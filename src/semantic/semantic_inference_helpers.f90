@@ -137,10 +137,17 @@ contains
         
         ! Create mono type
         var_type = create_mono_type(var_type_kind)
-        
+
         ! Handle kind parameter if present
         if (decl%has_kind) then
             var_type%kind = var_type_kind
+            if (var_type_kind == TCHAR) then
+                if (decl%kind_value > 0) then
+                    var_type%size = decl%kind_value
+                else if (decl%kind_value == -1) then
+                    var_type%size = -1
+                end if
+            end if
         end if
     end subroutine process_declaration_variables
 

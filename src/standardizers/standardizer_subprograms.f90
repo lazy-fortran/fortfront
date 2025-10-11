@@ -1,7 +1,7 @@
 module standardizer_subprograms
     ! Function/subroutine standardization module
     ! Handles function and subroutine transformations, wrapping, and parameter processing
-    
+
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_procedure
@@ -175,10 +175,30 @@ contains
         if (has_decl) return
 
         ! Insert a declaration for the result variable after implicit none
-        call infer_parameter_type(func_def%result_variable, decl%type_name, decl%has_kind, decl%kind_value)
+        block
+            character(len=32) :: inferred_type
+            call infer_parameter_type(func_def%result_variable, inferred_type, decl%has_kind, decl%kind_value)
+            decl%type_name = trim(inferred_type)
+        end block
         if (decl%type_name == "real" .and. type_std_enabled) then
             decl%has_kind = .true.
             decl%kind_value = 8
+        end if
+        if (.not. allocated(func_def%return_type) .or. len_trim(func_def%return_type) == 0) then
+            if (decl%has_kind .and. decl%kind_value > 0 .and. decl%type_name /= "character") then
+                block
+                    character(len=64) :: buffer
+                    write(buffer, '(A,"(",I0,")")') trim(decl%type_name), decl%kind_value
+                    func_def%return_type = trim(buffer)
+                end block
+            else
+                func_def%return_type = trim(decl%type_name)
+            end if
+        end if
+
+        if (allocated(func_def%return_type) .and. len_trim(func_def%return_type) > 0) then
+            arena%entries(func_index)%node = func_def
+            return
         end if
         decl%var_name = trim(func_def%result_variable)
         decl%intent = ""
@@ -423,8 +443,12 @@ contains
             do i = 1, n_params
                 if (param_names_found(i) == 0) then
                     ! Create declaration for this parameter
-                    call infer_parameter_type(param_names(i), param_decl%type_name, &
-                                            param_decl%has_kind, param_decl%kind_value)
+                    block
+                        character(len=32) :: inferred_type
+                        call infer_parameter_type(param_names(i), inferred_type, &
+                                                param_decl%has_kind, param_decl%kind_value)
+                        param_decl%type_name = trim(inferred_type)
+                    end block
                     if (param_decl%type_name == "real" .and. type_std_enabled) then
                         param_decl%has_kind = .true.
                         param_decl%kind_value = 8

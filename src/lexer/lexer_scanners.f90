@@ -264,10 +264,18 @@ contains
             col_num = col_num + 1
             ! Guard evaluation order to avoid out-of-bounds when at end of line
             if (pos <= len(source)) then
-                if (source(pos:pos) == '=') then
-                    pos = pos + 1
-                    col_num = col_num + 1
-                end if
+                select case (c)
+                case ('=')
+                    if (source(pos:pos) == '=' .or. source(pos:pos) == '>') then
+                        pos = pos + 1
+                        col_num = col_num + 1
+                    end if
+                case ('<', '>')
+                    if (source(pos:pos) == '=') then
+                        pos = pos + 1
+                        col_num = col_num + 1
+                    end if
+                end select
             end if
         case (':')
             pos = pos + 1

@@ -66,6 +66,9 @@ contains
         if (token%kind == TK_IDENTIFIER) then
             function_name = token%text
             token = parser%consume()
+        else if (token%kind == TK_KEYWORD .and. keyword_can_be_function_name(parser, token)) then
+            function_name = token%text
+            token = parser%consume()
         else
             function_name = "unnamed_function"
         end if
@@ -647,5 +650,43 @@ contains
         interface_index = push_interface_block(arena, interface_name, body_indices, &
                                                line, column)
     end function parse_interface_block
+
+    logical function keyword_can_be_function_name(parser, token) result(can_use)
+        type(parser_state_t), intent(in) :: parser
+        type(token_t), intent(in) :: token
+        type(token_t) :: lookahead
+        character(len=len(token%text)) :: token_lower
+        character(len=:), allocatable :: next_lower
+        integer :: next_index
+
+        token_lower = to_lower_local(token%text)
+        can_use = .false.
+
+        select case (trim(token_lower))
+        case ('double')
+            next_index = parser%current_token + 1
+            lookahead = parser%get_token_at_index(next_index)
+            next_lower = to_lower_local(trim(lookahead%text))
+            if (next_lower /= 'precision') then
+                can_use = .true.
+            end if
+        case default
+            can_use = .false.
+        end select
+    end function keyword_can_be_function_name
+
+    pure function to_lower_local(value) result(lower_value)
+        character(len=*), intent(in) :: value
+        character(len=len(value)) :: lower_value
+        integer :: i, code
+
+        lower_value = value
+        do i = 1, len(lower_value)
+            code = iachar(lower_value(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+                lower_value(i:i) = achar(code + 32)
+            end if
+        end do
+    end function to_lower_local
 
 end module parser_procedure_definitions_module

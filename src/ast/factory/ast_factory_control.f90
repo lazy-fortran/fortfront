@@ -194,16 +194,24 @@ contains
 
     ! Create forall construct node and add to stack
     function push_forall(arena, index_var, start_index, end_index, step_index, &
-              mask_index, body_indices, line, column, parent_index) result(forall_index)
+              mask_index, body_indices, line, column, parent_index, &
+              index_vars_all, start_indices_all, end_indices_all, &
+              stride_indices_all) result(forall_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: index_var
         integer, intent(in) :: start_index, end_index
         integer, intent(in), optional :: step_index, mask_index
         integer, intent(in), optional :: body_indices(:)
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: index_vars_all(:)
+        integer, intent(in), optional :: start_indices_all(:)
+        integer, intent(in), optional :: end_indices_all(:)
+        integer, intent(in), optional :: stride_indices_all(:)
         integer :: forall_index
         type(forall_node) :: forall_stmt
-        integer :: i, index_var_len
+        integer :: i, index_var_len, num_indices, max_index_len, stride_val
+        logical :: use_multi
+        integer, allocatable :: lower_vals(:), upper_vals(:), stride_vals(:)
         type(result_t) :: validation
 
         forall_stmt%uid = generate_uid()
@@ -216,45 +224,103 @@ contains
             return
         end if
 
-        ! Validate index variable name
-        index_var_len = len_trim(index_var)
-        if (index_var_len == 0) then
-            write(error_unit, '(A)') "ERROR [ast_factory_control]: FORALL index variable name cannot be empty"
-            forall_index = 0
-            return
-        end if
-        if (index_var_len > MAX_INDEX_NAME_LENGTH) then
-            write(error_unit, '(A)') "ERROR [ast_factory_control]: FORALL index variable name exceeds maximum length"
-            forall_index = 0
-            return
+        use_multi = present(index_vars_all) .and. present(start_indices_all) .and. &
+            present(end_indices_all)
+
+        if (use_multi) then
+            num_indices = size(index_vars_all)
+            if (num_indices <= 0) then
+                write(error_unit, '(A)') "ERROR [ast_factory_control]: FORALL requires at least one index"
+                forall_index = 0
+                return
+            end if
+            if (size(start_indices_all) /= num_indices .or. &
+                size(end_indices_all) /= num_indices) then
+                write(error_unit, '(A)') "ERROR [ast_factory_control]: FORALL index arrays must be the same size"
+                forall_index = 0
+                return
+            end if
+            if (present(stride_indices_all)) then
+                if (size(stride_indices_all) /= num_indices) then
+                    write(error_unit, '(A)') &
+                        "ERROR [ast_factory_control]: FORALL stride array must match index count"
+                    forall_index = 0
+                    return
+                end if
+            end if
+        else
+            num_indices = 1
         end if
 
-        ! Validate required indices
-        validation = validate_node_index(arena, start_index, "push_forall start")
-        if (validation%is_failure()) then
-            write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
-            forall_index = 0
-            return
-        end if
+        allocate(lower_vals(num_indices))
+        allocate(upper_vals(num_indices))
+        allocate(stride_vals(num_indices))
 
-        validation = validate_node_index(arena, end_index, "push_forall end")
-        if (validation%is_failure()) then
-            write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
-            forall_index = 0
-            return
-        end if
+        max_index_len = 0
+        do i = 1, num_indices
+            if (use_multi) then
+                index_var_len = len_trim(index_vars_all(i))
+                lower_vals(i) = start_indices_all(i)
+                upper_vals(i) = end_indices_all(i)
+                if (present(stride_indices_all)) then
+                    stride_val = stride_indices_all(i)
+                else
+                    stride_val = 0
+                end if
+            else
+                index_var_len = len_trim(index_var)
+                lower_vals(i) = start_index
+                upper_vals(i) = end_index
+                if (present(step_index)) then
+                    stride_val = step_index
+                else
+                    stride_val = 0
+                end if
+            end if
 
-        ! Validate optional step index
-        if (present(step_index)) then
-            if (step_index > 0) then
-                validation = validate_node_index(arena, step_index, "push_forall step")
+            if (index_var_len == 0) then
+                write(error_unit, '(A)') &
+                    "ERROR [ast_factory_control]: FORALL index variable name cannot be empty"
+                forall_index = 0
+                return
+            end if
+            if (index_var_len > MAX_INDEX_NAME_LENGTH) then
+                write(error_unit, '(A)') &
+                    "ERROR [ast_factory_control]: FORALL index variable name exceeds maximum length"
+                forall_index = 0
+                return
+            end if
+
+            max_index_len = max(max_index_len, index_var_len)
+
+            validation = validate_node_index(arena, lower_vals(i), "push_forall start")
+            if (validation%is_failure()) then
+                write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                forall_index = 0
+                return
+            end if
+
+            validation = validate_node_index(arena, upper_vals(i), "push_forall end")
+            if (validation%is_failure()) then
+                write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                forall_index = 0
+                return
+            end if
+
+            if (stride_val > 0) then
+                validation = validate_node_index(arena, stride_val, "push_forall step")
                 if (validation%is_failure()) then
                     write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     forall_index = 0
                     return
                 end if
+                stride_vals(i) = stride_val
+            else
+                stride_vals(i) = 0
             end if
-        end if
+        end do
+
+        if (max_index_len <= 0) max_index_len = 1
 
         ! Validate optional mask index
         if (present(mask_index)) then
@@ -280,29 +346,22 @@ contains
             end do
         end if
 
-        ! For simple single-index FORALL, use first element of arrays
-        forall_stmt%num_indices = 1
-        allocate(character(len=len(index_var)) :: forall_stmt%index_names(1))
-        forall_stmt%index_names(1) = index_var
+        forall_stmt%num_indices = num_indices
+        allocate(character(len=max_index_len) :: forall_stmt%index_names(num_indices))
+        allocate(forall_stmt%lower_bound_indices(num_indices))
+        allocate(forall_stmt%upper_bound_indices(num_indices))
+        allocate(forall_stmt%stride_indices(num_indices))
 
-        ! Set start and end expression indices
-        allocate(forall_stmt%lower_bound_indices(1))
-        allocate(forall_stmt%upper_bound_indices(1))
-        allocate(forall_stmt%stride_indices(1))
-        
-        forall_stmt%lower_bound_indices(1) = start_index
-        forall_stmt%upper_bound_indices(1) = end_index
-
-        ! Set optional step expression index
-        if (present(step_index)) then
-            if (step_index > 0) then
-                forall_stmt%stride_indices(1) = step_index
+        do i = 1, num_indices
+            if (use_multi) then
+                forall_stmt%index_names(i) = trim(index_vars_all(i))
             else
-                forall_stmt%stride_indices(1) = 0
+                forall_stmt%index_names(i) = trim(index_var)
             end if
-        else
-            forall_stmt%stride_indices(1) = 0
-        end if
+            forall_stmt%lower_bound_indices(i) = lower_vals(i)
+            forall_stmt%upper_bound_indices(i) = upper_vals(i)
+            forall_stmt%stride_indices(i) = stride_vals(i)
+        end do
 
         ! Set optional mask expression index
         if (present(mask_index)) then
@@ -326,7 +385,11 @@ contains
         if (present(line)) forall_stmt%line = line
         if (present(column)) forall_stmt%column = column
 
-        call arena%push(forall_stmt, "forall", parent_index)
+        if (present(parent_index)) then
+            call arena%push(forall_stmt, "forall", parent_index)
+        else
+            call arena%push(forall_stmt, "forall")
+        end if
         forall_index = arena%size
     end function push_forall
 
