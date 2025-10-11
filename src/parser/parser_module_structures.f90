@@ -99,13 +99,16 @@ contains
                     block
                         type(token_t) :: id_token, eq_token
                         integer :: target_index, assign_index
+                        character(len=:), allocatable :: assignment_op
                         
                         id_token = parser%consume()  ! Get the identifier
                         
                         ! Check if it's an assignment
                         eq_token = parser%peek()
-                        if (eq_token%kind == TK_OPERATOR .and. eq_token%text == "=") then
-                            eq_token = parser%consume()  ! Consume '='
+                        if (eq_token%kind == TK_OPERATOR .and. &
+                            (eq_token%text == "=" .or. eq_token%text == "=>")) then
+                            eq_token = parser%consume()  ! Consume '=' or '=>'
+                            assignment_op = eq_token%text
                             
                             ! Create target identifier
                             target_index = push_identifier(arena, id_token%text, &
@@ -133,8 +136,10 @@ contains
                                     
                                     if (rhs_index > 0 .and. target_index > 0) then
                                         ! Create assignment node
+                                        if (.not. allocated(assignment_op)) assignment_op = "="
                                         assign_index = push_assignment(arena, target_index, rhs_index, &
-                                                                     id_token%line, id_token%column)
+                                                                     id_token%line, id_token%column, &
+                                                                     operator_text=assignment_op)
                                         if (assign_index > 0) then
                                             declaration_indices = [declaration_indices, assign_index]
                                         end if

@@ -19,7 +19,6 @@ issue_1356_function_name.lf     # Issue #1356: Function name lost (unnamed_funct
 
 # F90/F95 parser issues
 issue_1347_interface.f90        # Issue #1347: INTERFACE blocks cause parser error
-issue_1348_pointer.f90          # Issue #1348: Pointer assignment operator => becomes = >
 issue_1350_recursive.f90        # Issue #1350: RECURSIVE keyword dropped, ELSE missing
 issue_1351_elemental_pure.f90   # Issue #1351: ELEMENTAL and PURE keywords dropped
 issue_1352_optional.f90         # Issue #1352: OPTIONAL parameters broken
