@@ -13,7 +13,6 @@ tooling_lightweight_ast.f90     # Gfortran compilation failure
 # F95 features
 
 # Lazy Fortran type inference
-issue_1343_lazy_function.lf     # Issue #1343: Functions missing type inference
 issue_1355_lazy_matrix.lf       # Issue #1355: Multi-dimensional arrays not inferred
 issue_1356_function_name.lf     # Issue #1356: Function name lost (unnamed_function)
 
