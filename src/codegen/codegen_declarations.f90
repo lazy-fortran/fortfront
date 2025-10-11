@@ -17,6 +17,7 @@ module codegen_declarations
         generate_grouped_body_context, find_parameter_info
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_type_utils, only: get_type_standardization
+    use lexer_core, only: to_lower
     implicit none
     private
 
@@ -289,15 +290,28 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         character(len=:), allocatable :: init_code, type_str
-        integer :: i, j
+        character(len=:), allocatable :: base_type, trimmed_type, paren_content
+        integer :: i, j, special_pos, read_len, io_stat
         logical :: standardize_types_enabled
 
         ! Get type standardization setting
         call get_type_standardization(standardize_types_enabled)
 
         ! Determine the type string
+        trimmed_type = trim(adjustl(node%type_name))
+        base_type = trimmed_type
+        special_pos = index(base_type, '(')
+        if (special_pos > 0) base_type = base_type(1:special_pos-1)
+        special_pos = index(base_type, '*')
+        if (special_pos > 0) base_type = base_type(1:special_pos-1)
+        base_type = to_lower(trim(base_type))
+
         if (len_trim(node%type_name) > 0) then
-            type_str = node%type_name
+            if (base_type == "character") then
+                type_str = "character"
+            else
+                type_str = node%type_name
+            end if
         else if (node%inferred_type%kind > 0) then
             ! Handle type inference
             select case (node%inferred_type%kind)
@@ -344,11 +358,38 @@ contains
         code = type_str
 
         ! Add kind if present and valid (>0) (but not for character which uses len)
-        if (node%has_kind .and. node%kind_value > 0 .and. node%type_name /= "character") then
+        if (node%has_kind .and. node%kind_value > 0 .and. base_type /= "character") then
             code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
-        else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value > 0) then
-            ! For character, kind_value is actually the length
-            code = "character(len=" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+        else if (base_type == "character") then
+            if (node%has_kind) then
+                if (node%kind_value == -1) then
+                    code = "character(len=*)"
+                else if (node%kind_value > 0) then
+                    code = "character(len=" // trim(adjustl(int_to_string(node%kind_value))) // ")"
+                end if
+            else
+                special_pos = index(trimmed_type, '(')
+                if (special_pos > 0) then
+                    read_len = 0
+                    io_stat = 0
+                    if (index(trimmed_type, ')') > special_pos) then
+                        paren_content = trim(trimmed_type(special_pos+1:index(trimmed_type, ')')-1))
+                        if (len(paren_content) > 0) then
+                            if (index(to_lower(paren_content), "len=") == 1) then
+                                paren_content = trim(paren_content(5:))
+                            end if
+                            if (paren_content == "*") then
+                                code = "character(len=*)"
+                            else
+                                read(paren_content, *, iostat=io_stat) read_len
+                                if (io_stat == 0 .and. read_len > 0) then
+                                    code = "character(len=" // trim(adjustl(int_to_string(read_len))) // ")"
+                                end if
+                            end if
+                        end if
+                    end if
+                end if
+            end if
         end if
 
         ! Add intent if present
