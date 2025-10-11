@@ -11,7 +11,7 @@ module frontend_transformation
     use semantic_analyzer, only: semantic_context_t, create_semantic_context, &
                                    analyze_program, has_semantic_errors
     use standardizer, only: standardize_ast, set_standardizer_type_standardization, &
-                           get_standardizer_type_standardization, standardize_function_def
+                           get_standardizer_type_standardization
     use codegen_arena_interface, only: generate_code_from_arena
     use codegen_basic_utils, only: add_line_continuations
     use codegen_core, only: initialize_codegen
@@ -20,10 +20,6 @@ module frontend_transformation
                                set_line_length_config, get_line_length_config
     use input_validation, only: validate_basic_syntax, has_only_meaningless_tokens
     use ast_nodes_core, only: program_node
-    use ast_nodes_data, only: module_node, declaration_node, parameter_declaration_node, &
-                               create_declaration
-    use ast_nodes_misc, only: implicit_statement_node
-    use ast_nodes_procedure, only: function_def_node
     use frontend_parsing, only: parse_tokens
     use frontend_core, only: lex_source, emit_fortran
     use debug_trace, only: trace_init, trace_enter, trace_leave
@@ -494,289 +490,33 @@ contains
         integer, intent(inout) :: prog_index
 
         call compiler_arena%next_phase("standardization")
-
-        if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
-            if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
-                select type (node => compiler_arena%ast%entries(prog_index)%node)
-                type is (program_node)
-                    if (node%name == "__MULTI_UNIT__") then
-                        if (allocated(node%body_indices)) then
-                            call standardize_multi_unit_children(compiler_arena%ast, node%body_indices)
-                        end if
-                        return
-                    end if
-                end select
-            end if
+        ! Skip standardization for multi-unit containers
+        if (should_skip_standardization(compiler_arena, prog_index)) then
+            return
         end if
 
         call standardize_ast(compiler_arena%ast, prog_index)
     end subroutine run_standardization_phase
 
-    subroutine standardize_multi_unit_children(ast, child_indices)
-        type(ast_arena_t), intent(inout) :: ast
-        integer, intent(in) :: child_indices(:)
-        integer :: i, child_index
-        character(len=64), allocatable :: function_names(:)
-        integer, allocatable :: program_indices(:)
-        integer :: func_count, prog_count
-
-        func_count = 0
-        prog_count = 0
-
-        do i = 1, size(child_indices)
-            child_index = child_indices(i)
-            if (child_index <= 0 .or. child_index > ast%size) cycle
-            if (.not. allocated(ast%entries(child_index)%node)) cycle
-
-            select type (child => ast%entries(child_index)%node)
-            type is (program_node)
-                if (child%name /= "__MULTI_UNIT__") then
-                    call standardize_ast(ast, child_index)
-                    call append_program_index(program_indices, prog_count, child_index)
-                end if
-            type is (module_node)
-                call standardize_ast(ast, child_index)
-            type is (function_def_node)
-                call standardize_function_def(ast, child, child_index)
-                call ensure_function_real_declarations(ast, child, child_index)
-                call append_function_name(function_names, func_count, child%name)
-            class default
-                cycle
-            end select
-        end do
-
-        if (func_count > 0 .and. prog_count > 0) then
-            do i = 1, prog_count
-                call ensure_program_function_declarations(ast, program_indices(i), &
-                    function_names, func_count)
-            end do
-        end if
-
-        if (allocated(function_names)) deallocate(function_names)
-        if (allocated(program_indices)) deallocate(program_indices)
-    end subroutine standardize_multi_unit_children
-
-    subroutine ensure_function_real_declarations(ast, func_def, func_index)
-        type(ast_arena_t), intent(inout) :: ast
-        type(function_def_node), intent(inout) :: func_def
-        integer, intent(in) :: func_index
-        integer :: j, node_index
-
-        func_def%return_type = "real"
-
-        if (allocated(func_def%param_indices)) then
-            do j = 1, size(func_def%param_indices)
-                node_index = func_def%param_indices(j)
-                call rewrite_if_real(ast, node_index)
-            end do
-        end if
-
-        if (allocated(func_def%body_indices)) then
-            do j = 1, size(func_def%body_indices)
-                node_index = func_def%body_indices(j)
-                call rewrite_if_real(ast, node_index)
-            end do
-        end if
-
-        ast%entries(func_index)%node = func_def
-    end subroutine ensure_function_real_declarations
-
-    subroutine rewrite_if_real(ast, node_index)
-        type(ast_arena_t), intent(inout) :: ast
-        integer, intent(in) :: node_index
-
-        if (node_index <= 0 .or. node_index > ast%size) return
-        if (.not. allocated(ast%entries(node_index)%node)) return
-
-        select type (stmt => ast%entries(node_index)%node)
-        type is (declaration_node)
-            stmt%type_name = "real"
-            stmt%has_kind = .false.
-            stmt%kind_value = 0
-            ast%entries(node_index)%node = stmt
-        type is (parameter_declaration_node)
-            stmt%type_name = "real"
-            stmt%has_kind = .false.
-            stmt%kind_value = 0
-            ast%entries(node_index)%node = stmt
-        end select
-    end subroutine rewrite_if_real
-
-    subroutine append_function_name(names, count, new_name)
-        character(len=64), allocatable, intent(inout) :: names(:)
-        integer, intent(inout) :: count
-        character(len=*), intent(in) :: new_name
-        character(len=64), allocatable :: old(:)
-        integer :: old_count, copy_len
-
-        if (count < 0) count = 0
-        old_count = count
-
-        if (allocated(names)) then
-            call move_alloc(names, old)
-            allocate(names(old_count + 1))
-            if (old_count > 0) names(1:old_count) = old(1:old_count)
-            if (allocated(old)) deallocate(old)
-        else
-            allocate(names(old_count + 1))
-        end if
-
-        count = old_count + 1
-        names(count) = ''
-        copy_len = min(len_trim(new_name), len(names(count)))
-        if (copy_len > 0) names(count)(1:copy_len) = new_name(1:copy_len)
-    end subroutine append_function_name
-
-    subroutine append_program_index(indices, count, new_index)
-        integer, allocatable, intent(inout) :: indices(:)
-        integer, intent(inout) :: count
-        integer, intent(in) :: new_index
-        integer, allocatable :: old(:)
-        integer :: old_count
-
-        if (count < 0) count = 0
-        old_count = count
-
-        if (allocated(indices)) then
-            call move_alloc(indices, old)
-            allocate(indices(old_count + 1))
-            if (old_count > 0) indices(1:old_count) = old(1:old_count)
-            if (allocated(old)) deallocate(old)
-        else
-            allocate(indices(old_count + 1))
-        end if
-
-        count = old_count + 1
-        indices(count) = new_index
-    end subroutine append_program_index
-
-    subroutine ensure_program_function_declarations(ast, program_index, function_names, func_count)
-        type(ast_arena_t), intent(inout) :: ast
-        integer, intent(in) :: program_index
-        character(len=64), intent(in) :: function_names(:)
-        integer, intent(in) :: func_count
-        type(program_node) :: prog
-        integer :: i, j, k, idx, insert_pos, missing_count, new_index
-        logical, allocatable :: name_present(:)
-        character(len=64), allocatable :: missing(:)
-        type(declaration_node) :: decl
-        integer, allocatable :: new_body(:)
-        integer :: current_pos
-
-        if (func_count <= 0) return
-        if (program_index <= 0 .or. program_index > ast%size) return
-        if (.not. allocated(ast%entries(program_index)%node)) return
-
-        select type (prog => ast%entries(program_index)%node)
-        type is (program_node)
-            allocate(name_present(func_count))
-            name_present = .false.
-
-            if (allocated(prog%body_indices)) then
-                do i = 1, size(prog%body_indices)
-                    idx = prog%body_indices(i)
-                    if (idx <= 0 .or. idx > ast%size) cycle
-                    if (.not. allocated(ast%entries(idx)%node)) cycle
-
-                    select type (stmt => ast%entries(idx)%node)
-                    type is (declaration_node)
-                        if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
-                            do j = 1, size(stmt%var_names)
-                                do k = 1, func_count
-                                    if (trim(stmt%var_names(j)) == trim(function_names(k))) then
-                                        name_present(k) = .true.
-                                    end if
-                                end do
-                            end do
-                        else
-                            if (allocated(stmt%var_name)) then
-                                do k = 1, func_count
-                                    if (trim(stmt%var_name) == trim(function_names(k))) then
-                                        name_present(k) = .true.
-                                    end if
-                                end do
-                            end if
-                        end if
-                    end select
-                end do
-            end if
-
-            missing_count = 0
-            do i = 1, func_count
-                if (.not. name_present(i)) missing_count = missing_count + 1
-            end do
-
-            if (missing_count == 0) then
-                deallocate(name_present)
-                return
-            end if
-
-            allocate(missing(missing_count))
-            missing_count = 0
-            do i = 1, func_count
-                if (.not. name_present(i)) then
-                    missing_count = missing_count + 1
-                    missing(missing_count) = function_names(i)
-                end if
-            end do
-
-            insert_pos = 0
-            if (allocated(prog%body_indices)) then
-                do i = 1, size(prog%body_indices)
-                    idx = prog%body_indices(i)
-                    if (idx <= 0 .or. idx > ast%size) cycle
-                    if (.not. allocated(ast%entries(idx)%node)) cycle
-
-                    select type (body_stmt => ast%entries(idx)%node)
-                    type is (implicit_statement_node)
-                        insert_pos = i
-                    end select
-                end do
-            end if
-
-            current_pos = insert_pos
-
-            do i = 1, missing_count
-                decl = create_declaration('real, external', trim(missing(i)))
-                decl%has_kind = .false.
-                decl%kind_value = 0
-                decl%has_intent = .false.
-                decl%intent = ""
-                decl%is_optional = .false.
-
-                call ast%push(decl, "declaration", program_index)
-                new_index = ast%size
-
-                if (.not. allocated(prog%body_indices)) then
-                    allocate(prog%body_indices(1))
-                    prog%body_indices(1) = new_index
-                else
-                    allocate(new_body(size(prog%body_indices) + 1))
-                    if (current_pos == 0) then
-                        new_body(1) = new_index
-                        new_body(2:) = prog%body_indices
-                    else
-                        new_body(1:current_pos) = prog%body_indices(1:current_pos)
-                        new_body(current_pos + 1) = new_index
-                        if (current_pos < size(prog%body_indices)) then
-                            new_body(current_pos + 2:) = prog%body_indices(current_pos + 1:)
-                        end if
-                    end if
-                    prog%body_indices = new_body
-                    deallocate(new_body)
-                end if
-
-                current_pos = current_pos + 1
-            end do
-
-            ast%entries(program_index)%node = prog
-
-            deallocate(name_present)
-            deallocate(missing)
-        end select
-    end subroutine ensure_program_function_declarations
-
     ! Check if should skip standardization
+    function should_skip_standardization(compiler_arena, prog_index) result(skip_standardization)
+        type(compiler_arena_t), intent(in) :: compiler_arena
+        integer, intent(in) :: prog_index
+        logical :: skip_standardization
+
+        skip_standardization = .false.
+        if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
+            if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
+                select type (node => compiler_arena%ast%entries(prog_index)%node)
+                type is (program_node)
+                    if (node%name == "__MULTI_UNIT__") then
+                        skip_standardization = .true.
+                    end if
+                end select
+            end if
+        end if
+    end function should_skip_standardization
+
     ! Run code generation phase
     subroutine run_code_generation_phase(compiler_arena, prog_index, output)
         type(compiler_arena_t), intent(inout) :: compiler_arena

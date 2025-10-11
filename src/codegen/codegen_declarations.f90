@@ -1090,14 +1090,20 @@ contains
 
       function mono_type_to_string(mono) result(type_name)
          type(mono_type_t), intent(in) :: mono
-         character(len=:), allocatable :: type_name
-         character(len=32) :: size_buf
+      character(len=:), allocatable :: type_name
+      character(len=32) :: size_buf
+      logical :: standardize_types_enabled
 
-         select case (mono%kind)
-         case (TINT)
-            type_name = 'integer'
-         case (TREAL)
+      select case (mono%kind)
+      case (TINT)
+         type_name = 'integer'
+      case (TREAL)
+         call get_type_standardization(standardize_types_enabled)
+         if (standardize_types_enabled) then
+            type_name = 'real(8)'
+         else
             type_name = 'real'
+         end if
          case (TLOGICAL)
             type_name = 'logical'
          case (TCHAR)
