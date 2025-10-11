@@ -3,6 +3,9 @@
 # Format: filename  # optional comment with issue reference
 
 # Existing examples with known issues (gfortran compilation failures)
+basic_function.lf               # Function scope handling: missing type declarations in main
+function_test.lf                # Function scope handling: missing type declarations in main
+test_function_issue.lf          # Function scope handling: missing type declarations in main
 test_sem_ctor.lf                # Gfortran compilation failure
 test_sem_mixed.lf               # Gfortran compilation failure
 test_sem_scope.lf               # Gfortran compilation failure
