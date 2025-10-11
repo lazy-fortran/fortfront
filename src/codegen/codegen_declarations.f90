@@ -91,19 +91,20 @@ contains
         block
             type(parameter_info_t), allocatable :: param_map(:)
             integer :: param_count, j
-            
+            logical :: has_implicit
+
             param_count = 0
             if (allocated(node%param_indices)) param_count = size(node%param_indices)
-            
+
             allocate(param_map(param_count))
-            
+
             ! Initialize parameter map from parameter names
             do i = 1, param_count
                 ! Initialize entry
                 param_map(i)%name = ""
                 param_map(i)%intent_str = ""
                 param_map(i)%is_optional = .false.
-                
+
                 if (node%param_indices(i) > 0 .and. &
                     node%param_indices(i) <= arena%size) then
                     if (allocated(arena%entries(node%param_indices(i))%node)) then
@@ -121,7 +122,7 @@ contains
                     end if
                 end if
             end do
-            
+
             ! Find parameter attributes in body declarations
             if (allocated(node%body_indices)) then
                 do j = 1, size(node%body_indices)
@@ -158,7 +159,34 @@ contains
                     end if
                 end do
             end if
-            
+
+            ! Add implicit none to function (quality requirement for lazy Fortran)
+            has_implicit = .false.
+            if (allocated(node%body_indices)) then
+                do j = 1, size(node%body_indices)
+                    if (node%body_indices(j) > 0 .and. node%body_indices(j) <= arena%size) then
+                        if (allocated(arena%entries(node%body_indices(j))%node)) then
+                            select type (body_node => arena%entries(node%body_indices(j))%node)
+                            type is (implicit_statement_node)
+                                if (body_node%is_none) has_implicit = .true.
+                            end select
+                        end if
+                    end if
+                end do
+            end if
+            if (.not. has_implicit) then
+                code = code // "    implicit none" // new_line('A')
+            end if
+
+            ! Add declarations for any undeclared parameters
+            block
+                character(len=:), allocatable :: param_decls
+                param_decls = collect_function_parameter_decls(arena, node, param_map)
+                if (len_trim(param_decls) > 0) then
+                    code = code // param_decls
+                end if
+            end block
+
             ! Generate body with indentation, declaration grouping, and parameter mapping
             if (allocated(node%body_indices)) then
                 code = code // generate_grouped_body_with_params(arena, &
@@ -803,8 +831,11 @@ contains
                     ! Search for patterns like "(var=" in implied do loops (both old and new syntax)
                     pos = 1
                     do while (pos <= len(body_code))
-                        ! Find next occurrence of either "= (/ (" or "= [("
-                        start_pos = index(body_code(pos:), "= (/ (")
+                        ! Find next occurrence of either "= (/(" or "= [(", with or without spaces
+                        start_pos = index(body_code(pos:), "= (/(")
+                        if (start_pos == 0) then
+                            start_pos = index(body_code(pos:), "= (/ (")
+                        end if
                         if (start_pos == 0) then
                             ! Try new syntax
                             start_pos = index(body_code(pos:), "= [(")
@@ -825,14 +856,14 @@ contains
                         else
                             start_pos = pos + start_pos - 1
                             ! Find the loop variable patterns for old syntax
-                            end_pos = index(body_code(start_pos:), " /)")
+                            end_pos = index(body_code(start_pos:), "/)")
                             if (end_pos > 0) then
                                 end_pos = start_pos + end_pos - 1
                                 ! Extract variables from this implied do section
                                 call extract_loop_vars_from_section(body_code(start_pos:end_pos), &
                                                                    loop_vars, n_vars)
                             end if
-                            pos = start_pos + 6  ! Move past "= (/ ("
+                            pos = start_pos + 5  ! Move past "= (/("
                         end if
                     end do
                     
@@ -1220,5 +1251,85 @@ contains
            type_name = "real"
         end select
      end function mono_type_to_string
+
+     ! Collect parameter declarations for undeclared function parameters
+     function collect_function_parameter_decls(arena, func, param_map) result(decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(function_def_node), intent(in) :: func
+        type(parameter_info_t), intent(in) :: param_map(:)
+        character(len=:), allocatable :: decl_code
+        integer :: i, param_idx
+        character(len=:), allocatable :: param_type
+        logical :: has_declaration
+
+        decl_code = ""
+
+        if (.not. allocated(func%param_indices)) return
+
+        ! Check each parameter
+        do i = 1, size(func%param_indices)
+           param_idx = func%param_indices(i)
+           if (param_idx <= 0 .or. param_idx > arena%size) cycle
+           if (.not. allocated(arena%entries(param_idx)%node)) cycle
+
+           ! Check if parameter already has a declaration in body
+           has_declaration = .false.
+           if (allocated(func%body_indices)) then
+              block
+                 integer :: j, body_idx
+                 do j = 1, size(func%body_indices)
+                    body_idx = func%body_indices(j)
+                    if (body_idx <= 0 .or. body_idx > arena%size) cycle
+                    if (.not. allocated(arena%entries(body_idx)%node)) cycle
+                    select type (body_node => arena%entries(body_idx)%node)
+                    type is (declaration_node)
+                       if (i <= size(param_map)) then
+                          if (trim(body_node%var_name) == trim(param_map(i)%name)) then
+                             has_declaration = .true.
+                             exit
+                          end if
+                       end if
+                    type is (parameter_declaration_node)
+                       if (i <= size(param_map)) then
+                          if (trim(body_node%name) == trim(param_map(i)%name)) then
+                             has_declaration = .true.
+                             exit
+                          end if
+                       end if
+                    end select
+                 end do
+              end block
+           end if
+
+           ! If no declaration, generate one from inferred type or parameter map
+           if (.not. has_declaration .and. i <= size(param_map)) then
+              if (len_trim(param_map(i)%name) > 0) then
+                 select type (param_node => arena%entries(param_idx)%node)
+                 type is (identifier_node)
+                    param_type = mono_type_to_string(param_node%inferred_type)
+                    if (len_trim(param_type) == 0) param_type = 'real'
+                    decl_code = decl_code // "    " // trim(param_type) // " :: " // &
+                                trim(param_map(i)%name) // new_line('A')
+                 type is (parameter_declaration_node)
+                    ! Try type_name first, then inferred_type
+                    if (allocated(param_node%type_name) .and. len_trim(param_node%type_name) > 0) then
+                       param_type = param_node%type_name
+                    else
+                       param_type = mono_type_to_string(param_node%inferred_type)
+                       if (len_trim(param_type) == 0) param_type = 'real'
+                    end if
+                    decl_code = decl_code // "    " // trim(param_type) // " :: " // &
+                                trim(param_map(i)%name) // new_line('A')
+                 class default
+                    ! For any other node type, try using the base inferred_type field
+                    param_type = mono_type_to_string(param_node%inferred_type)
+                    if (len_trim(param_type) == 0) param_type = 'real'
+                    decl_code = decl_code // "    " // trim(param_type) // " :: " // &
+                                trim(param_map(i)%name) // new_line('A')
+                 end select
+              end if
+           end if
+        end do
+     end function collect_function_parameter_decls
 
 end module codegen_declarations
