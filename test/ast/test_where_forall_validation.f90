@@ -14,6 +14,7 @@ contains
         call test_arena_initialization_validation()
         call test_node_allocation_validation()
         call test_empty_index_name_validation()
+        call test_multi_index_forall_creation()
         
         print *, ""
         print *, "All WHERE/FORALL validation tests passed!"
@@ -133,6 +134,53 @@ contains
         print *, "  ✓ Empty index name validation implemented"
         print *, "    (Error handling would trigger for empty index names)"
     end subroutine test_empty_index_name_validation
+
+    subroutine test_multi_index_forall_creation()
+        type(ast_arena_t) :: arena
+        integer :: lower_ids(2), upper_ids(2), stride_ids(2)
+        integer :: body_idx, forall_idx
+        character(len=1) :: index_names(2)
+
+        print *, "Testing multi-index FORALL creation..."
+
+        arena = create_ast_arena()
+
+        lower_ids(1) = push_literal(arena, "1", 1)
+        lower_ids(2) = push_literal(arena, "1", 1)
+        upper_ids(1) = push_identifier(arena, "n")
+        upper_ids(2) = push_identifier(arena, "m")
+        stride_ids = [0, 0]
+        body_idx = push_identifier(arena, "stmt")
+        index_names = ['i', 'j']
+
+        forall_idx = push_forall(arena, 'i', lower_ids(1), upper_ids(1), 0, 0, [body_idx], &
+                                 index_vars_all=index_names, &
+                                 start_indices_all=lower_ids, &
+                                 end_indices_all=upper_ids, &
+                                 stride_indices_all=stride_ids)
+
+        if (forall_idx <= 0) then
+            print *, "Failed to create multi-index FORALL"
+            stop 1
+        end if
+
+        select type(node => arena%entries(forall_idx)%node)
+        type is (forall_node)
+            if (node%num_indices /= 2) then
+                print *, "Multi-index FORALL did not record both indices"
+                stop 1
+            end if
+            if (trim(node%index_names(1)) /= 'i' .or. trim(node%index_names(2)) /= 'j') then
+                print *, "FORALL index names not preserved for multi-index case"
+                stop 1
+            end if
+        class default
+            print *, "Wrong node type when verifying multi-index FORALL"
+            stop 1
+        end select
+
+        print *, "  ✓ Multi-index FORALL creation successful"
+    end subroutine test_multi_index_forall_creation
 
 end module test_where_forall_validation
 
