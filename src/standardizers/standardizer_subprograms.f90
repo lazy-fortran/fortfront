@@ -1,7 +1,7 @@
 module standardizer_subprograms
     ! Function/subroutine standardization module
     ! Handles function and subroutine transformations, wrapping, and parameter processing
-    
+
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_procedure
@@ -350,6 +350,11 @@ contains
                                 end block
                             else if (is_param_decl) then
                                 ! Update the declaration to have intent(in) and preserve/enhance type
+                                if (stmt%type_name == "character") then
+                                    if (.not. allocated(stmt%char_length_expr)) then
+                                        ! Char length remains unspecified when not declared
+                                    end if
+                                end if
                                 if (stmt%type_name == "real") then
                                     if (standardizer_type_standardization_enabled) then
                                         stmt%type_name = "real"
@@ -632,6 +637,11 @@ contains
                                 ! Keep integer, logical, character as-is
                                 end if
                                 ! Default to intent(inout) for subroutine parameters
+                                if (stmt%type_name == "character") then
+                                    if (.not. allocated(stmt%char_length_expr)) then
+                                        ! Char length remains unspecified when not declared
+                                    end if
+                                end if
                                 if (len_trim(sb_param_intent(param_idx)) > 0) then
                                     stmt%intent = sb_param_intent(param_idx)
                                 else

@@ -50,19 +50,20 @@ contains
        dimension_indices, &
        initializer_index, is_allocatable, is_pointer, is_target, &
        intent_value, is_optional, is_parameter, line, column, &
-       parent_index) result(decl_index)
+       parent_index, char_length_expr) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name, var_name
         integer, intent(in), optional :: kind_value
         integer, intent(in), optional :: dimension_indices(:)
         integer, intent(in), optional :: initializer_index
         logical, intent(in), optional :: is_allocatable
-        logical, intent(in), optional :: is_pointer  
+        logical, intent(in), optional :: is_pointer
         logical, intent(in), optional :: is_target
         character(len=*), intent(in), optional :: intent_value
         logical, intent(in), optional :: is_optional
         logical, intent(in), optional :: is_parameter
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: char_length_expr
         integer :: decl_index
         type(declaration_node) :: decl
 
@@ -135,6 +136,12 @@ contains
             decl%is_parameter = .false.
         end if
 
+        if (present(char_length_expr)) then
+            if (len_trim(char_length_expr) > 0) then
+                decl%char_length_expr = trim(char_length_expr)
+            end if
+        end if
+
         if (present(line)) decl%line = line
         if (present(column)) decl%column = column
 
@@ -146,7 +153,7 @@ contains
     function push_multi_declaration(arena, type_name, var_names, kind_value, &
            dimension_indices, &
            initializer_index, is_allocatable, is_pointer, is_target, intent_value, &
-           is_optional, is_parameter, line, column, parent_index) result(decl_index)
+           is_optional, is_parameter, line, column, parent_index, char_length_expr) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_names(:)
@@ -160,6 +167,7 @@ contains
         logical, intent(in), optional :: is_optional
         logical, intent(in), optional :: is_parameter
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: char_length_expr
         integer :: decl_index
         type(declaration_node) :: decl
         integer :: i
@@ -244,6 +252,12 @@ contains
             decl%is_parameter = .false.
         end if
 
+        if (present(char_length_expr)) then
+            if (len_trim(char_length_expr) > 0) then
+                decl%char_length_expr = trim(char_length_expr)
+            end if
+        end if
+
         if (present(line)) decl%line = line
         if (present(column)) decl%column = column
 
@@ -256,13 +270,14 @@ contains
     ! Create parameter declaration node and add to stack
     function push_parameter_declaration(arena, name, type_name, kind_value, &
                       intent_value, is_optional, dimension_indices, line, column, &
-                      parent_index) result(param_index)
+                      parent_index, char_length_expr) result(param_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name, type_name
         integer, intent(in), optional :: kind_value, intent_value
         logical, intent(in), optional :: is_optional
         integer, intent(in), optional :: dimension_indices(:)
         integer, intent(in), optional :: line, column, parent_index
+        character(len=*), intent(in), optional :: char_length_expr
         integer :: param_index
         type(parameter_declaration_node) :: param
 
@@ -301,6 +316,12 @@ contains
 
         if (present(line)) param%line = line
         if (present(column)) param%column = column
+
+        if (present(char_length_expr)) then
+            if (len_trim(char_length_expr) > 0) then
+                param%char_length_expr = trim(char_length_expr)
+            end if
+        end if
 
         call arena%push(param, "parameter_declaration", parent_index)
         param_index = arena%size

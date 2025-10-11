@@ -107,7 +107,6 @@ contains
 
             ! Parse then body statements with the if node as parent
             then_body_indices = parse_if_body(parser, arena, if_index)
-
             ! Check for elseif/else blocks
             elseif_count = 0
             allocate (elseif_indices(0))
@@ -180,7 +179,7 @@ contains
                         node%then_body_indices = then_body_indices
                     end if
                     if (allocated(else_body_indices)) then
-                        node%else_body_indices = else_body_indices  
+                        node%else_body_indices = else_body_indices
                     end if
                     if (allocated(elseif_indices)) then
                 if (size(elseif_indices) > 0 .and. &
@@ -248,12 +247,13 @@ contains
         integer :: condition_index
         type(token_t) :: paren_token
         type(token_t), allocatable, target :: remaining_tokens(:)
-        integer :: i, n
+        integer :: i, n, paren_depth
 
         ! Check for opening parenthesis
         paren_token = parser%peek()
         if (paren_token%kind == TK_OPERATOR .and. paren_token%text == "(") then
             paren_token = parser%consume()  ! consume '('
+            paren_depth = 1
 
             ! Count remaining tokens
             n = 0
@@ -268,15 +268,22 @@ contains
             ! Parse the condition expression
             condition_index = parse_expression(remaining_tokens, arena)
 
-            ! Advance parser past the condition tokens
-            ! Simple approach: advance until we find the closing paren or 'then'
+            ! Advance parser past the condition tokens by tracking parentheses depth
             do while (.not. parser%is_at_end())
                 paren_token = parser%peek()
-                if (paren_token%kind == TK_OPERATOR .and. paren_token%text == ")") then
-                    paren_token = parser%consume()  ! consume the ')'
-                    exit
-          else if (paren_token%kind == TK_KEYWORD .and. paren_token%text == "then") then
-                    exit  ! Don't consume 'then', let caller handle it
+                if (paren_token%kind == TK_OPERATOR) then
+                    if (paren_token%text == "(") then
+                        paren_depth = paren_depth + 1
+                        paren_token = parser%consume()
+                        cycle
+                    else if (paren_token%text == ")") then
+                        paren_depth = paren_depth - 1
+                        paren_token = parser%consume()
+                        if (paren_depth <= 0) exit
+                        cycle
+                    end if
+                else if (paren_token%kind == TK_KEYWORD .and. paren_token%text == "then") then
+                    if (paren_depth <= 0) exit
                 end if
                 paren_token = parser%consume()
             end do
@@ -313,122 +320,102 @@ contains
         integer, intent(in), optional :: parent_index
         integer, allocatable :: body_indices(:)
         type(token_t) :: token
-        integer :: stmt_count
+        type(statement_callbacks_t) :: callbacks
+        integer :: stmt_start, stmt_end, token_count
+        integer :: consumed, i
+        type(token_t), allocatable :: stmt_tokens(:)
+        integer, allocatable :: stmt_indices(:)
 
         allocate (body_indices(0))
-        stmt_count = 0
-        
-        block
-            integer :: safety_counter
-            safety_counter = 0
-            
-            do while (.not. parser%is_at_end() .and. safety_counter < 10000)
-                safety_counter = safety_counter + 1
+        callbacks = build_if_body_callbacks()
 
-                do while (parser%current_token <= size(parser%tokens))
-                    select case (parser%tokens(parser%current_token)%kind)
-                    case (TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+        do while (.not. parser%is_at_end())
+            do while (parser%current_token <= size(parser%tokens))
+                select case (parser%tokens(parser%current_token)%kind)
+                case (TK_NEWLINE, TK_COMMENT, TK_WHITESPACE)
+                    parser%current_token = parser%current_token + 1
+                case (TK_OPERATOR)
+                    if (parser%tokens(parser%current_token)%text == ";") then
                         parser%current_token = parser%current_token + 1
-                    case (TK_OPERATOR)
-                        if (parser%tokens(parser%current_token)%text == ";") then
-                            parser%current_token = parser%current_token + 1
-                        else
-                            exit
-                        end if
-                    case default
+                    else
                         exit
-                    end select
-                end do
-                if (parser%current_token > size(parser%tokens)) exit
+                    end if
+                case default
+                    exit
+                end select
+            end do
 
-                token = parser%peek()
+            if (parser%current_token > size(parser%tokens)) exit
 
-            ! Check for end of body
+            token = parser%peek()
+
             if (token%kind == TK_KEYWORD) then
                 if (token%text == "elseif" .or. token%text == "else if" .or. &
-                    token%text == "endif" .or. token%text == "end if") then
-                    exit
-                else if (token%text == "else") then
-                    ! Check if next token is "if" (for "else if")
+                    token%text == "endif" .or. token%text == "end if") exit
+                if (token%text == "else") then
                     if (parser%current_token + 1 <= size(parser%tokens)) then
-                        block
-                            type(token_t) :: lookahead
-                            lookahead = parser%tokens(parser%current_token + 1)
-                            if (lookahead%kind == TK_KEYWORD .and. &
-                                lookahead%text == "if") then
-                                exit  ! Found "else if"
-                            end if
-                        end block
+                        if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                            parser%tokens(parser%current_token + 1)%text == "if") exit
                     end if
-                    ! If not "else if", it's just "else" - also exit
                     exit
                 else if (token%text == "end") then
-                    ! Check if next token is "if"
                     if (parser%current_token + 1 <= size(parser%tokens)) then
-                        block
-                            type(token_t) :: lookahead
-                            lookahead = parser%tokens(parser%current_token + 1)
-                            if (lookahead%kind == TK_KEYWORD .and. &
-                                lookahead%text == "if") then
-                                exit  ! Found "end if"
-                            end if
-                        end block
+                        if (parser%tokens(parser%current_token + 1)%kind == TK_KEYWORD .and. &
+                            parser%tokens(parser%current_token + 1)%text == "if") then
+                            exit
+                        end if
                     end if
                 end if
             end if
 
-            ! Parse statement until end of line (same approach as do loop)
-            block
-                type(token_t), allocatable, target :: stmt_tokens(:)
-                integer, allocatable :: stmt_indices(:)
-                integer :: remaining_count, consumed_tokens, k
-                integer :: stmt_end, last_token_index
-                type(statement_callbacks_t) :: callbacks
+            stmt_start = parser%current_token
+            if (stmt_start > size(parser%tokens)) exit
+            stmt_end = find_statement_end(parser%tokens, stmt_start)
+            if (stmt_end < stmt_start) exit
 
-                stmt_end = find_statement_end(parser%tokens, parser%current_token)
-                if (stmt_end < parser%current_token) then
-                    stmt_end = parser%current_token
+            token_count = stmt_end - stmt_start + 1
+            if (token_count <= 0) exit
+
+            allocate (stmt_tokens(token_count + 1))
+            stmt_tokens(1:token_count) = parser%tokens(stmt_start:stmt_end)
+            stmt_tokens(token_count + 1)%kind = TK_EOF
+            stmt_tokens(token_count + 1)%text = ""
+            stmt_tokens(token_count + 1)%line = parser%tokens(stmt_end)%line
+            stmt_tokens(token_count + 1)%column = parser%tokens(stmt_end)%column
+
+            consumed = 0
+            if (present(parent_index)) then
+                stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
+                    parent_index, callbacks, consumed)
+            else
+                stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
+                    callbacks=callbacks, consumed_count=consumed)
+            end if
+
+            if (allocated(stmt_indices)) then
+                do i = 1, size(stmt_indices)
+                    if (stmt_indices(i) > 0) then
+                        body_indices = [body_indices, stmt_indices(i)]
+                    end if
+                end do
+                deallocate (stmt_indices)
+            end if
+
+            deallocate (stmt_tokens)
+
+            if (consumed <= 0) then
+                consumed = token_count
+            end if
+
+            parser%current_token = stmt_start + consumed
+
+            if (parser%current_token <= size(parser%tokens)) then
+                if (parser%tokens(parser%current_token)%kind == TK_OPERATOR .and. &
+                    parser%tokens(parser%current_token)%text == ";") then
+                    parser%current_token = parser%current_token + 1
                 end if
-
-                remaining_count = stmt_end - parser%current_token + 1
-                if (remaining_count <= 0) exit
-
-                allocate (stmt_tokens(remaining_count + 1))
-                stmt_tokens(1:remaining_count) = &
-                    parser%tokens(parser%current_token:stmt_end)
-                stmt_tokens(remaining_count + 1)%kind = TK_EOF
-                stmt_tokens(remaining_count + 1)%text = ""
-                last_token_index = stmt_end
-                stmt_tokens(remaining_count + 1)%line = &
-                    parser%tokens(last_token_index)%line
-                stmt_tokens(remaining_count + 1)%column = &
-                    parser%tokens(last_token_index)%column + 1
-
-                callbacks = build_if_body_callbacks()
-                if (present(parent_index)) then
-                    stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                        parent_index=parent_index, callbacks=callbacks, &
-                        consumed_count=consumed_tokens)
-                else
-                    stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                        callbacks=callbacks, consumed_count=consumed_tokens)
-                end if
-
-                if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
-                    do k = 1, size(stmt_indices)
-                        if (stmt_indices(k) > 0) then
-                            body_indices = [body_indices, stmt_indices(k)]
-                            stmt_count = stmt_count + 1
-                        end if
-                    end do
-                end if
-
-                parser%current_token = stmt_end + 1
-
-                deallocate (stmt_tokens)
-            end block
-            end do
-        end block
+            end if
+        end do
 
     end function parse_if_body
 

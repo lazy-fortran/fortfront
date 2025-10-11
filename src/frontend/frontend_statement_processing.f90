@@ -3,7 +3,8 @@ module frontend_statement_processing
     ! Handles parsing of all statements into a program structure
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN
+                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN, &
+                           TK_WHITESPACE
     use parser_dispatcher_module, only: parse_statement_dispatcher, &
                                         get_additional_indices, clear_additional_indices
     use ast_arena_modern, only: ast_arena_t
@@ -317,6 +318,7 @@ contains
         stmt_start = start_pos
         do while (stmt_start <= size(tokens) .and. &
                  (tokens(stmt_start)%kind == TK_NEWLINE .or. &
+                  tokens(stmt_start)%kind == TK_WHITESPACE .or. &
                   (tokens(stmt_start)%kind == TK_OPERATOR .and. tokens(stmt_start)%text == ";")))
             stmt_start = stmt_start + 1
         end do

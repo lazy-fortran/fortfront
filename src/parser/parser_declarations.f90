@@ -1,10 +1,9 @@
 module parser_declarations
-    use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD, TK_NEWLINE
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_types, only: LITERAL_STRING
-    use ast_nodes_data, only: INTENT_IN, INTENT_OUT, INTENT_INOUT
+    use ast_nodes_data, only: INTENT_IN, INTENT_OUT, INTENT_INOUT, declaration_node
     use parser_expressions_module, only: parse_comparison, parse_range
     use parser_result_types, only: parse_result_t, success_parse_result, error_parse_result
     use error_handling, only: ERROR_PARSER
@@ -23,6 +22,8 @@ module parser_declarations
         integer :: kind_value = 0
         integer :: line = 0
         integer :: column = 0
+        logical :: has_char_length = .false.
+        character(len=:), allocatable :: char_length
     end type type_specifier_t
 
     ! Declaration attributes result type for structured attribute information
@@ -46,6 +47,8 @@ contains
         type(type_specifier_t) :: type_spec
 
         type(token_t) :: token, next_token
+        character(len=:), allocatable :: paren_content
+        integer :: paren_depth
 
         token = parser%consume()
         type_spec%type_name = trim(token%text)  ! Explicit trim for clean allocation
@@ -53,6 +56,7 @@ contains
         type_spec%column = token%column
         type_spec%has_kind = .false.
         type_spec%kind_value = 0
+        type_spec%has_char_length = .false.
 
         ! Handle "double precision" as a two-word type name
         if (trim(token%text) == "double" .and. .not. parser%is_at_end()) then
@@ -67,11 +71,67 @@ contains
         if (.not. parser%is_at_end()) then
             token = parser%peek()
             if (token%text == "(") then
-                ! Skip kind specifications for simplicity
-                do while (.not. parser%is_at_end())
-                    token = parser%consume()
-                    if (token%text == ")") exit
+                token = parser%consume()  ! consume '('
+                paren_depth = 1
+                allocate(character(len=0) :: paren_content)
+                do while (.not. parser%is_at_end() .and. paren_depth > 0)
+                    token = parser%peek()
+                    if (token%text == "(") then
+                        paren_depth = paren_depth + 1
+                        paren_content = paren_content // token%text
+                        token = parser%consume()
+                    else if (token%text == ")") then
+                        paren_depth = paren_depth - 1
+                        token = parser%consume()
+                        if (paren_depth > 0) then
+                            paren_content = paren_content // ")"
+                        end if
+                    else
+                        paren_content = paren_content // token%text
+                        token = parser%consume()
+                    end if
                 end do
+
+                if (type_spec%type_name == "character") then
+                    if (allocated(paren_content)) then
+                        if (len_trim(paren_content) > 0) then
+                            type_spec%char_length = trim(paren_content)
+                            type_spec%has_char_length = .true.
+                        end if
+                    end if
+                else
+                    if (allocated(paren_content)) then
+                        block
+                            character(len=:), allocatable :: trimmed_content
+                            logical :: is_numeric
+                            integer :: idx
+
+                            trimmed_content = trim(paren_content)
+                            is_numeric = .true.
+                            do idx = 1, len(trimmed_content)
+                                if (trimmed_content(idx:idx) < '0' .or. &
+                                    trimmed_content(idx:idx) > '9') then
+                                    is_numeric = .false.
+                                    exit
+                                end if
+                            end do
+
+                            if (is_numeric .and. len(trimmed_content) > 0) then
+                                read(trimmed_content, *, err=100) type_spec%kind_value
+                                type_spec%has_kind = .true.
+                            end if
+100                         continue
+                        end block
+                    end if
+                end if
+                if (allocated(paren_content)) deallocate(paren_content)
+            else if (token%text == "*") then
+                if (type_spec%type_name == "character") then
+                    token = parser%consume()
+                    type_spec%has_char_length = .true.
+                    allocate(character(len=1) :: type_spec%char_length)
+                    type_spec%char_length = "*"
+                end if
             end if
         end if
     end function parse_type_specifier
@@ -219,6 +279,7 @@ contains
         ! Check if this is a multi-variable declaration by looking ahead for commas
         block
             character(len=64), allocatable :: var_names(:)
+            character(len=:), allocatable :: char_length_local
             integer :: var_count, i, temp_index
             character(len=64) :: first_var_name
             type(token_t) :: next_token
@@ -228,6 +289,10 @@ contains
             var_count = 1
             is_multi_var = .false.
             
+            if (type_spec%has_char_length) then
+                char_length_local = trim(type_spec%char_length)
+            end if
+
             ! Look ahead for commas to detect multi-variable declaration
             if (.not. parser%is_at_end()) then
                 next_token = parser%peek()
@@ -322,6 +387,18 @@ contains
                         )
                     end if
                 end if
+
+                if (type_spec%has_char_length) then
+                    if (temp_index > 0 .and. temp_index <= arena%size) then
+                        if (allocated(arena%entries(temp_index)%node)) then
+                            select type(decl_node => arena%entries(temp_index)%node)
+                            type is (declaration_node)
+                                decl_node%char_length_expr = char_length_local
+                                arena%entries(temp_index)%node = decl_node
+                            end select
+                        end if
+                    end if
+                end if
                 decl_index = temp_index
                 return
             end if
@@ -331,8 +408,12 @@ contains
             character(len=:), allocatable :: var_name
             integer, allocatable :: local_dimension_indices(:)
             logical :: has_local_dimensions
+            character(len=:), allocatable :: char_length_local
             var_name = token%text
             has_local_dimensions = .false.
+            if (type_spec%has_char_length) then
+                char_length_local = trim(type_spec%char_length)
+            end if
 
             ! Per-variable dimensions: e.g., "integer :: arr(10)"
             if (.not. parser%is_at_end()) then
@@ -389,17 +470,29 @@ contains
                 )
             else
                 decl_index = push_declaration( &
-                arena, &
-                type_spec%type_name, &
-                var_name, &
-                initializer_index=initializer_index, &
-                is_allocatable=attr_info%is_allocatable, &
-                is_pointer=attr_info%is_pointer, &
-                is_target=attr_info%is_target, &
-                intent_value=attr_info%intent, &
-                is_optional=attr_info%is_optional, &
-                is_parameter=attr_info%is_parameter &
-            )
+                    arena, &
+                    type_spec%type_name, &
+                    var_name, &
+                    initializer_index=initializer_index, &
+                    is_allocatable=attr_info%is_allocatable, &
+                    is_pointer=attr_info%is_pointer, &
+                    is_target=attr_info%is_target, &
+                    intent_value=attr_info%intent, &
+                    is_optional=attr_info%is_optional, &
+                    is_parameter=attr_info%is_parameter &
+                )
+            end if
+
+            if (type_spec%has_char_length) then
+                if (decl_index > 0 .and. decl_index <= arena%size) then
+                    if (allocated(arena%entries(decl_index)%node)) then
+                        select type(decl_node => arena%entries(decl_index)%node)
+                        type is (declaration_node)
+                            decl_node%char_length_expr = char_length_local
+                            arena%entries(decl_index)%node = decl_node
+                        end select
+                    end if
+                end if
             end if
         end block
     end function parse_declaration
@@ -469,7 +562,6 @@ contains
 
     ! Parse multi-variable declaration (e.g., real :: x, y, z = 1.0)
     function parse_multi_declaration(parser, arena) result(decl_indices)
-        use, intrinsic :: iso_fortran_env, only: error_unit
         use ast_factory, only: push_multi_declaration, push_declaration
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena

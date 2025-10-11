@@ -14,6 +14,7 @@ module parser_execution_statements_module
                                                parse_cycle_statement, parse_exit_statement
     use parser_control_flow_module, only: parse_do_loop, parse_select_case, &
                                           parse_where_construct, parse_associate
+    use parser_if_constructs_module, only: parse_if
     use parser_forall_module, only: parse_forall
     use parser_call_module, only: parse_call_statement
     use ast_arena_modern, only: ast_arena_t
@@ -131,8 +132,7 @@ contains
                 case ("deallocate")
                     stmt_index = parse_deallocate_statement(parser, arena)
                 case ("if")
-                    ! Simple inline if parsing to avoid circular dependency
-                    stmt_index = parse_simple_if(parser, arena)
+                    stmt_index = parse_if(parser, arena)
                 case ("stop")
                     stmt_index = parse_stop_statement(parser, arena)
                 case ("go", "goto")

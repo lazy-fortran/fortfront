@@ -70,6 +70,9 @@ contains
                                         param_node%type_name = body_node%type_name
                                         param_node%kind_value = body_node%kind_value
                                         param_node%has_kind = body_node%has_kind
+                                        if (allocated(body_node%char_length_expr)) then
+                                            param_node%char_length_expr = body_node%char_length_expr
+                                        end if
                                     end if
                                 end if
                             end if
@@ -94,6 +97,9 @@ contains
                                     param_node%type_name = body_node%type_name
                                     param_node%kind_value = body_node%kind_value
                                     param_node%has_kind = body_node%has_kind
+                                    if (allocated(body_node%char_length_expr)) then
+                                        param_node%char_length_expr = body_node%char_length_expr
+                                    end if
                                 end if
                             end if
                         end if
@@ -113,8 +119,10 @@ contains
         integer :: param_count
         logical :: parsing_type_spec
         character(len=:), allocatable :: current_type, current_kind_str
+        character(len=:), allocatable :: current_char_length
         integer :: current_kind, current_intent
         logical :: current_is_optional
+        character(len=:), allocatable :: paren_content
         integer, allocatable :: temp_params(:)
         integer :: line, column
         character(len=:), allocatable :: type_expr
@@ -150,6 +158,7 @@ contains
                 current_kind = 0
                 current_intent = 0
                 current_is_optional = .false.
+                if (allocated(current_char_length)) deallocate(current_char_length)
                 line = token%line
                 column = token%column
                 token = parser%consume()
@@ -159,46 +168,66 @@ contains
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "(") then
                     token = parser%consume()  ! consume '('
+                    paren_count = 1
+                    allocate(character(len=0) :: paren_content)
 
-                    ! For type keywords, parse the complete type expression &
-                    ! including nested parentheses
-                    if (current_type == "type") then
-                        type_expr = ""
-                        paren_count = 1  ! We already consumed the opening parenthesis
-
-                        do while (.not. parser%is_at_end() .and. paren_count > 0)
-                            token = parser%peek()
-                            if (token%kind == TK_OPERATOR .and. token%text == "(") then
-                                paren_count = paren_count + 1
-                                type_expr = type_expr//token%text
-                                token = parser%consume()
+                    do while (.not. parser%is_at_end() .and. paren_count > 0)
+                        token = parser%peek()
+                        if (token%kind == TK_OPERATOR .and. token%text == "(") then
+                            paren_count = paren_count + 1
+                            paren_content = paren_content // token%text
+                            token = parser%consume()
                         else if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                                paren_count = paren_count - 1
-                                if (paren_count > 0) then
-                                    type_expr = type_expr//token%text
-                                end if
-                                token = parser%consume()
-                            else
-                                type_expr = type_expr//token%text
-                                token = parser%consume()
-                            end if
-                        end do
+                            paren_count = paren_count - 1
+                            token = parser%consume()
+                            if (paren_count > 0) paren_content = paren_content // ")"
+                        else
+                            paren_content = paren_content // token%text
+                            token = parser%consume()
+                        end if
+                    end do
 
-                        current_type = current_type//"("//type_expr//")"
+                    if (current_type == "type") then
+                        current_type = current_type // "(" // paren_content // ")"
+                    else if (current_type == "character") then
+                        current_char_length = trim(paren_content)
                     else
-                        ! For non-type keywords, expect a simple number for &
-                        ! kind specification
-                        token = parser%peek()
-                        if (token%kind == TK_NUMBER) then
-                            read (token%text, *) current_kind
-                            token = parser%consume()
-                        end if
+                        if (len_trim(paren_content) > 0) then
+                            block
+                                character(len=:), allocatable :: trimmed_content
+                                logical :: is_numeric
+                                integer :: idx
 
-                        ! Consume closing ')'
-                        token = parser%peek()
-                        if (token%kind == TK_OPERATOR .and. token%text == ")") then
-                            token = parser%consume()
+                                trimmed_content = trim(paren_content)
+                                is_numeric = .true.
+                                do idx = 1, len(trimmed_content)
+                                    if (trimmed_content(idx:idx) < '0' .or. &
+                                        trimmed_content(idx:idx) > '9') then
+                                        is_numeric = .false.
+                                        exit
+                                    end if
+                                end do
+
+                                if (is_numeric .and. len(trimmed_content) > 0) then
+                                    read (trimmed_content, *, err=301) current_kind
+301                                 continue
+                                end if
+                            end block
                         end if
+                    end if
+
+                    if (allocated(paren_content)) deallocate(paren_content)
+                else if (token%kind == TK_OPERATOR .and. token%text == "*") then
+                    token = parser%consume()
+                    current_char_length = "*"
+                    token = parser%peek()
+                    if (token%kind == TK_NUMBER) then
+                        if (allocated(current_char_length)) then
+                            current_char_length = current_char_length // trim(token%text)
+                        else
+                            current_char_length = trim(token%text)
+                        end if
+                        token = parser%consume()
                     end if
                 end if
 
@@ -360,6 +389,18 @@ contains
                                                          current_kind, current_intent, &
                                                          current_is_optional, &
                                                                line=line, column=column)
+                            end if
+
+                            if (allocated(current_char_length)) then
+                                if (param_index > 0 .and. param_index <= arena%size) then
+                                    if (allocated(arena%entries(param_index)%node)) then
+                                        select type(param_node => arena%entries(param_index)%node)
+                                        type is (parameter_declaration_node)
+                                            param_node%char_length_expr = trim(current_char_length)
+                                            arena%entries(param_index)%node = param_node
+                                        end select
+                                    end if
+                                end if
                             end if
                             temp_params = [temp_params, param_index]
                         end block

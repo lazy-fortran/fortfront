@@ -52,6 +52,7 @@ module ast_nodes_data
         ! attribute is present
         logical :: is_parameter = .false.              ! Whether parameter
         ! attribute is present (for constants)
+        character(len=:), allocatable :: char_length_expr ! Character length spec (e.g., "len=*")
     contains
         procedure :: accept => declaration_accept
         procedure :: to_json => declaration_to_json
@@ -72,6 +73,7 @@ module ast_nodes_data
         logical :: is_array = .false.                  ! Whether this is
         ! an array parameter
         integer, allocatable :: dimension_indices(:)   ! Dimension indices (stack-based)
+        character(len=:), allocatable :: char_length_expr ! Character length spec (e.g., "len=*")
     contains
         procedure :: accept => parameter_declaration_accept
         procedure :: to_json => parameter_declaration_to_json
@@ -169,6 +171,11 @@ contains
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
         end if
+        if (allocated(rhs%char_length_expr)) then
+            lhs%char_length_expr = rhs%char_length_expr
+        else if (allocated(lhs%char_length_expr)) then
+            deallocate(lhs%char_length_expr)
+        end if
     end subroutine declaration_assign
 
     ! Stub implementations for parameter_declaration_node
@@ -195,6 +202,11 @@ contains
         call json%add(node, 'has_kind', this%has_kind)
         call json%add(node, 'is_optional', this%is_optional)
         call json%add(node, 'is_array', this%is_array)
+        if (allocated(this%char_length_expr)) then
+            call json%add(node, 'char_length', this%char_length_expr)
+        else
+            call json%add(node, 'char_length', '')
+        end if
         
         ! Add intent as a readable string (single field for clarity)
         select case (this%intent_type)
@@ -238,6 +250,11 @@ contains
         lhs%is_array = rhs%is_array
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
+        end if
+        if (allocated(rhs%char_length_expr)) then
+            lhs%char_length_expr = rhs%char_length_expr
+        else if (allocated(lhs%char_length_expr)) then
+            deallocate(lhs%char_length_expr)
         end if
     end subroutine parameter_declaration_assign
 

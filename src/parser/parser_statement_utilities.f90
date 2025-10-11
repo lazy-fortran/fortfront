@@ -11,6 +11,7 @@ module parser_statement_utilities_module
                                                parse_cycle_statement, parse_exit_statement
     use parser_memory_statements_module, only: parse_allocate_statement, parse_deallocate_statement
     use parser_execution_statements_module, only: parse_assignment_statement
+    use parser_if_constructs_module, only: parse_if
     use parser_call_module, only: parse_call_statement
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_associate, push_if, push_literal
@@ -50,8 +51,7 @@ contains
             case ("deallocate")
                 stmt_index = parse_deallocate_statement(parser, arena)
             case ("if")
-                ! Forward to parse_if_from_definition to avoid circular dependency
-                stmt_index = parse_if_from_definition(parser, arena)
+                stmt_index = parse_if(parser, arena)
             case ("stop")
                 stmt_index = parse_stop_statement(parser, arena)
             case ("return")
