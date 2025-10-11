@@ -5,7 +5,7 @@ module codegen_declarations
         derived_type_node, intent_type_to_string, module_node
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_core, only: program_node, identifier_node, literal_node, assignment_node, &
-        array_literal_node
+        array_literal_node, call_or_subscript_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node, comment_node, blank_line_node, &
         use_statement_node
     use ast_nodes_loops, only: do_loop_node
@@ -715,7 +715,8 @@ contains
             logical :: is_use_stmt
             character(len=:), allocatable :: use_statements_code
             character(len=:), allocatable :: loop_var_declarations
-            
+            character(len=:), allocatable :: extra_decls
+
             has_implicit = .false.
             use_statements_code = ""
             loop_var_declarations = ""
@@ -771,6 +772,12 @@ contains
             ! Then add implicit none if not present
             if (.not. has_implicit) then
                 code = code // "    implicit none" // new_line('A')
+            end if
+
+            ! Collect and add variable declarations for undeclared identifiers
+            extra_decls = collect_program_variable_decls(arena, node)
+            if (len_trim(extra_decls) > 0) then
+                code = code // extra_decls
             end if
         end block
         
@@ -1058,5 +1065,160 @@ contains
             pos = eq_pos + 1
         end do
     end subroutine extract_loop_vars_from_section
+
+    ! Collect variable declarations for undeclared identifiers in programs
+    function collect_program_variable_decls(arena, prog) result(decl_code)
+        type(ast_arena_t), intent(in) :: arena
+        type(program_node), intent(in) :: prog
+        character(len=:), allocatable :: decl_code
+        integer, parameter :: MAX_VARS = 256
+        character(len=64) :: declared_names(MAX_VARS)
+        character(len=64) :: var_names(MAX_VARS)
+        character(len=64) :: var_types(MAX_VARS)
+        character(len=64) :: func_names(MAX_VARS)
+        character(len=64) :: func_types(MAX_VARS)
+        logical :: name_declared
+        integer :: declared_count, var_count, func_count
+        integer :: i, j, idx, target_idx
+        character(len=64) :: name_buf
+        character(len=:), allocatable :: type_buf
+
+        decl_code = ""
+        declared_count = 0
+        var_count = 0
+        func_count = 0
+
+        if (.not. allocated(prog%body_indices)) return
+
+        do i = 1, size(prog%body_indices)
+           idx = prog%body_indices(i)
+           if (idx <= 0 .or. idx > arena%size) cycle
+           if (.not. allocated(arena%entries(idx)%node)) cycle
+           select type (decl => arena%entries(idx)%node)
+           type is (declaration_node)
+              if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+                 do j = 1, size(decl%var_names)
+                    if (declared_count < MAX_VARS) then
+                       declared_count = declared_count + 1
+                       declared_names(declared_count) = trim(decl%var_names(j))
+                    end if
+                 end do
+              else
+                 if (declared_count < MAX_VARS) then
+                    declared_count = declared_count + 1
+                    declared_names(declared_count) = trim(decl%var_name)
+                 end if
+              end if
+           end select
+        end do
+
+        do i = 1, size(prog%body_indices)
+           idx = prog%body_indices(i)
+           if (idx <= 0 .or. idx > arena%size) cycle
+           if (.not. allocated(arena%entries(idx)%node)) cycle
+           select type (stmt => arena%entries(idx)%node)
+           type is (assignment_node)
+              target_idx = stmt%target_index
+              if (target_idx > 0 .and. target_idx <= arena%size) then
+                 if (allocated(arena%entries(target_idx)%node)) then
+                    select type (id => arena%entries(target_idx)%node)
+                    type is (identifier_node)
+                       name_buf = trim(id%name)
+                       if (len_trim(name_buf) == 0) cycle
+                       name_declared = exists_in_list(declared_names, declared_count, name_buf)
+                       if (.not. name_declared) then
+                          if (.not. exists_in_list(var_names, var_count, name_buf)) then
+                             type_buf = mono_type_to_string(id%inferred_type)
+                             if (len_trim(type_buf) == 0) type_buf = 'real'
+                             if (var_count < MAX_VARS) then
+                                var_count = var_count + 1
+                                var_names(var_count) = name_buf
+                                var_types(var_count) = trim(type_buf)
+                             end if
+                          end if
+                       end if
+                    end select
+                 end if
+              end if
+
+              if (stmt%value_index > 0 .and. stmt%value_index <= arena%size) then
+                 if (allocated(arena%entries(stmt%value_index)%node)) then
+                    select type (val => arena%entries(stmt%value_index)%node)
+                    type is (call_or_subscript_node)
+                       if (len_trim(val%name) > 0) then
+                          type_buf = mono_type_to_string(val%inferred_type)
+                          if (len_trim(type_buf) == 0) type_buf = 'real'
+                          if (.not. exists_in_list(func_names, func_count, trim(val%name))) then
+                             if (func_count < MAX_VARS) then
+                                func_count = func_count + 1
+                                func_names(func_count) = trim(val%name)
+                                func_types(func_count) = trim(type_buf)
+                             end if
+                          end if
+                       end if
+                    end select
+                 end if
+              end if
+           end select
+        end do
+
+        if (var_count == 0 .and. func_count == 0) return
+
+        do i = 1, var_count
+           decl_code = decl_code//"    "//trim(var_types(i))//" :: "//trim(var_names(i))//new_line('A')
+        end do
+
+        do i = 1, func_count
+           decl_code = decl_code//"    "//trim(func_types(i))//", external :: "//trim(func_names(i))//new_line('A')
+        end do
+     end function collect_program_variable_decls
+
+     ! Helper function to check if a name exists in a list
+     logical function exists_in_list(list, count, name)
+        character(len=*), intent(in) :: list(:)
+        integer, intent(in) :: count
+        character(len=*), intent(in) :: name
+        integer :: i
+
+        exists_in_list = .false.
+        do i = 1, count
+           if (trim(list(i)) == trim(name)) then
+              exists_in_list = .true.
+              return
+           end if
+        end do
+     end function exists_in_list
+
+     ! Convert mono_type_t to Fortran type string
+     function mono_type_to_string(mono) result(type_name)
+        type(mono_type_t), intent(in) :: mono
+        character(len=:), allocatable :: type_name
+
+        if (mono%kind <= 0) then
+           type_name = ""
+           return
+        end if
+
+        select case (mono%kind)
+        case (TINT)
+           type_name = "integer"
+        case (TREAL)
+           type_name = "real"
+        case (TCHAR)
+           if (mono%size > 0) then
+              type_name = "character(len=" // trim(adjustl(int_to_string(mono%size))) // ")"
+           else
+              type_name = "character(len=:)"
+           end if
+        case (TLOGICAL)
+           type_name = "logical"
+        case (TCOMPLEX)
+           type_name = "complex"
+        case (TDOUBLE)
+           type_name = "double precision"
+        case default
+           type_name = "real"
+        end select
+     end function mono_type_to_string
 
 end module codegen_declarations
