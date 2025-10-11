@@ -71,17 +71,17 @@ contains
             block
                 integer :: lookahead
 
-                lookahead = parser%current_token
-                do while (token%kind == TK_WHITESPACE .and. &
-                          lookahead <= size(parser%tokens))
-                    lookahead = lookahead + 1
-                    if (lookahead > size(parser%tokens)) then
-                        token%kind = TK_EOF
-                        token%text = ""
+                do lookahead = parser%current_token, size(parser%tokens)
+                    if (parser%tokens(lookahead)%kind /= TK_WHITESPACE) then
+                        token = parser%tokens(lookahead)
                         exit
                     end if
-                    token = parser%tokens(lookahead)
                 end do
+
+                if (lookahead > size(parser%tokens)) then
+                    token%kind = TK_EOF
+                    token%text = ""
+                end if
             end block
 
             if (token%kind == TK_NEWLINE .or. token%kind == TK_COMMENT) then
@@ -227,10 +227,8 @@ contains
                 end if
             end if
 
-            if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE) then
-                token = parser%consume()
-                cycle
-            else if (token%kind == TK_COMMENT) then
+            if (token%kind == TK_NEWLINE .or. token%kind == TK_WHITESPACE .or. &
+                token%kind == TK_COMMENT) then
                 token = parser%consume()
                 cycle
             end if
