@@ -385,7 +385,7 @@ contains
             type is (function_def_node)
                 call analyze_function_parameters(arena, expr, param_types, this%scopes, this%next_var_id)
                 return_type = determine_function_return_type(expr, this%next_var_id)
-                call create_function_scope(expr, return_type, this%scopes)
+                call create_function_scope(expr, return_type, this%scopes, arena, param_types)
                 post_frame = current
                 post_frame%state = STATE_POST
                 post_frame%leave_scope = .true.
@@ -834,7 +834,7 @@ contains
         ! Use extracted function analysis modules
         call analyze_function_parameters(arena, func_node, param_types, ctx%scopes, ctx%next_var_id)
         return_type = determine_function_return_type(func_node, ctx%next_var_id)
-        call create_function_scope(func_node, return_type, ctx%scopes)
+        call create_function_scope(func_node, return_type, ctx%scopes, arena, param_types)
         
         ! Analyze function body with parameters and result in scope
         if (allocated(func_node%body_indices)) then
