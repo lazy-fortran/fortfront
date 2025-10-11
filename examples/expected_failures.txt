@@ -14,7 +14,7 @@ issue_1355_lazy_matrix.lf       # Issue #1355: Multi-dimensional arrays not infe
 
 # F90/F95 parser issues
 issue_1347_interface.f90        # Issue #1347: INTERFACE blocks cause parser error
-issue_1350_recursive.f90        # Issue #1350: RECURSIVE keyword dropped, ELSE missing
+issue_1348_pointer.f90          # Issue #1348: Pointer assignment operator => becomes = >
 issue_1351_elemental_pure.f90   # Issue #1351: ELEMENTAL and PURE keywords dropped
 issue_1352_optional.f90         # Issue #1352: OPTIONAL parameters broken
 issue_1353_derived_type.f90     # Issue #1353: Derived type variable declarations parsed as type definitions
