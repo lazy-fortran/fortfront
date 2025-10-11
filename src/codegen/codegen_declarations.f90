@@ -828,8 +828,8 @@ contains
                     ! Search for patterns like "(var=" in implied do loops (both old and new syntax)
                     pos = 1
                     do while (pos <= len(body_code))
-                        ! Find next occurrence of either "= (/ (" or "= [("
-                        start_pos = index(body_code(pos:), "= (/ (")
+                        ! Find next occurrence of either "= (/" or "= [("
+                        start_pos = index(body_code(pos:), "= (/")
                         if (start_pos == 0) then
                             ! Try new syntax
                             start_pos = index(body_code(pos:), "= [(")
@@ -857,7 +857,7 @@ contains
                                 call extract_loop_vars_from_section(body_code(start_pos:end_pos), &
                                                                    loop_vars, n_vars)
                             end if
-                            pos = start_pos + 6  ! Move past "= (/ ("
+                            pos = start_pos + 4  ! Move past "= (/"
                         end if
                     end do
                     
@@ -954,7 +954,7 @@ contains
             character(len=64) :: func_types(MAX_VARS)
             logical :: name_declared
             integer :: declared_count, var_count, func_count
-            integer :: i, idx, target_idx
+            integer :: i, j, idx, target_idx
             character(len=64) :: name_buf
             character(len=:), allocatable :: type_buf
 
@@ -971,9 +971,18 @@ contains
                 if (.not. allocated(arena%entries(idx)%node)) cycle
                 select type (decl => arena%entries(idx)%node)
                 type is (declaration_node)
-                    if (declared_count < MAX_VARS) then
-                        declared_count = declared_count + 1
-                        declared_names(declared_count) = trim(decl%var_name)
+                    if (decl%is_multi_declaration .and. allocated(decl%var_names)) then
+                        do j = 1, size(decl%var_names)
+                            if (declared_count < MAX_VARS) then
+                                declared_count = declared_count + 1
+                                declared_names(declared_count) = trim(decl%var_names(j))
+                            end if
+                        end do
+                    else
+                        if (declared_count < MAX_VARS) then
+                            declared_count = declared_count + 1
+                            declared_names(declared_count) = trim(decl%var_name)
+                        end if
                     end if
                 end select
             end do
