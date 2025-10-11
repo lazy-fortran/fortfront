@@ -18,7 +18,7 @@ module parser_statement_core_module
     private
 
     public :: statement_callbacks_t, parse_basic_statement_core, &
-              null_statement_callbacks, find_statement_end
+              null_statement_callbacks, find_statement_end, extend_if_statement_end
 
     abstract interface
         function parse_with_parent_interface(parser, arena, parent_index) &
@@ -418,6 +418,81 @@ contains
             idx = idx + 1
         end do
     end function find_statement_end
+
+    integer function extend_if_statement_end(tokens, start_index, initial_end) &
+            result(end_index)
+        type(token_t), intent(in) :: tokens(:)
+        integer, intent(in) :: start_index
+        integer, intent(in) :: initial_end
+
+        integer :: idx, depth
+        type(token_t) :: token, next_token
+        logical :: block_if_stmt, last_token_was_else
+
+        end_index = initial_end
+        if (start_index < 1 .or. start_index > size(tokens)) return
+        if (initial_end < start_index) return
+
+        block_if_stmt = is_block_if(tokens, start_index)
+        if (.not. block_if_stmt) return
+
+        depth = 0
+        last_token_was_else = .false.
+
+        idx = start_index
+        do while (idx <= size(tokens))
+            token = tokens(idx)
+
+            select case (token%kind)
+            case (TK_KEYWORD)
+                select case (token%text)
+                case ("if")
+                    if (last_token_was_else) then
+                        last_token_was_else = .false.
+                    else if (is_block_if(tokens, idx)) then
+                        depth = depth + 1
+                    end if
+                case ("else")
+                    last_token_was_else = .true.
+                case ("elseif", "else if")
+                    last_token_was_else = .false.
+                case ("endif")
+                    last_token_was_else = .false.
+                    if (depth > 0) then
+                        depth = depth - 1
+                        if (depth == 0) then
+                            end_index = idx
+                            return
+                        end if
+                    end if
+                case ("end")
+                    last_token_was_else = .false.
+                    if (idx + 1 <= size(tokens)) then
+                        next_token = tokens(idx + 1)
+                        if (next_token%kind == TK_KEYWORD .and. &
+                            next_token%text == "if") then
+                            if (depth > 0) then
+                                depth = depth - 1
+                                if (depth == 0) then
+                                    end_index = idx + 1
+                                    return
+                                end if
+                            end if
+                            idx = idx + 1
+                        end if
+                    end if
+                case default
+                    last_token_was_else = .false.
+                end select
+            case (TK_WHITESPACE, TK_COMMENT)
+                ! Preserve last_token_was_else for whitespace/comments
+            case default
+                last_token_was_else = .false.
+            end select
+
+            idx = idx + 1
+        end do
+    end function extend_if_statement_end
 
     function parse_basic_statement_core(tokens, arena, parent_index, callbacks, &
                                         consumed_count) result(stmt_indices)
