@@ -162,20 +162,45 @@ contains
     end subroutine analyze_function_parameters
 
     ! Determine function return type based on name and result variable
-    function determine_function_return_type(func_node, next_var_id) result(return_type)
+    function determine_function_return_type(arena, func_node, next_var_id) result(return_type)
+        type(ast_arena_t), intent(in) :: arena
         type(function_def_node), intent(in) :: func_node
         integer, intent(inout) :: next_var_id
         type(mono_type_t) :: return_type
+        character(len=:), allocatable :: result_var_name
+        integer :: i, stmt_index
 
-        ! Determine return type based on function name and return variable
+        ! Determine the name of the result variable
         if (allocated(func_node%result_variable) .and. len_trim(func_node%result_variable) > 0) then
-            ! Function has explicit result variable
+            result_var_name = trim(func_node%result_variable)
+        else if (allocated(func_node%name) .and. len_trim(func_node%name) > 0) then
+            result_var_name = trim(func_node%name)
+        else
+            result_var_name = ''
+        end if
+
+        ! First try to find explicit declaration in function body
+        if (len_trim(result_var_name) > 0 .and. allocated(func_node%body_indices)) then
+            do i = 1, size(func_node%body_indices)
+                stmt_index = func_node%body_indices(i)
+                if (stmt_index <= 0 .or. stmt_index > arena%size) cycle
+                if (.not. allocated(arena%entries(stmt_index)%node)) cycle
+                select type (stmt => arena%entries(stmt_index)%node)
+                type is (declaration_node)
+                    if (trim(stmt%var_name) == result_var_name) then
+                        return_type = declaration_type_to_mono(stmt%type_name)
+                        if (return_type%kind /= 0) return
+                    end if
+                end select
+            end do
+        end if
+
+        ! Fall back to heuristic inference if no explicit declaration found
+        if (allocated(func_node%result_variable) .and. len_trim(func_node%result_variable) > 0) then
             return_type = infer_type_from_usage_context(func_node%result_variable, next_var_id)
         else if (allocated(func_node%name) .and. len_trim(func_node%name) > 0) then
-            ! Function name is the result variable (standard Fortran)
             return_type = infer_type_from_usage_context(func_node%name, next_var_id)
         else
-            ! Default return type for unnamed functions
             return_type = create_mono_type(TREAL)
         end if
 

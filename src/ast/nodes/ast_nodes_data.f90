@@ -50,6 +50,8 @@ module ast_nodes_data
         ! attribute is present
         logical :: is_target = .false.                 ! Whether target
         ! attribute is present
+        logical :: is_external = .false.              ! Whether external
+        ! attribute is present
         logical :: is_parameter = .false.              ! Whether parameter
         ! attribute is present (for constants)
     contains
@@ -165,6 +167,7 @@ contains
         lhs%is_allocatable = rhs%is_allocatable
         lhs%is_pointer = rhs%is_pointer
         lhs%is_target = rhs%is_target
+        lhs%is_external = rhs%is_external
         lhs%is_parameter = rhs%is_parameter
         if (allocated(rhs%dimension_indices)) then
             lhs%dimension_indices = rhs%dimension_indices
@@ -358,7 +361,7 @@ contains
     function create_declaration(type_name, var_name, kind_value, &
                                initializer_index, dimension_indices, &
                                is_allocatable, is_pointer, is_target, &
-                               line, column) result(node)
+                               is_external, line, column) result(node)
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_name
         integer, intent(in), optional :: kind_value
@@ -367,6 +370,7 @@ contains
         logical, intent(in), optional :: is_allocatable
         logical, intent(in), optional :: is_pointer
         logical, intent(in), optional :: is_target
+        logical, intent(in), optional :: is_external
         integer, intent(in), optional :: line, column
         type(declaration_node) :: node
 
@@ -400,6 +404,7 @@ contains
         if (present(is_allocatable)) node%is_allocatable = is_allocatable
         if (present(is_pointer)) node%is_pointer = is_pointer
         if (present(is_target)) node%is_target = is_target
+        if (present(is_external)) node%is_external = is_external
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_declaration
