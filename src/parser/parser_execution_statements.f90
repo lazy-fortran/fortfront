@@ -375,10 +375,9 @@ contains
 
             if (allocated(assignment_op)) deallocate(assignment_op)
 
-            if (op_token%kind == TK_OPERATOR .and. (op_token%text == "=" .or. &
-                                                   op_token%text == "(" .or. &
-                                                   op_token%text == "%")) then
-                if (op_token%text == "=") then
+            if (op_token%kind == TK_OPERATOR) then
+                select case (op_token%text)
+                case ("=")
                     ! Simple identifier assignment: x = expr
                     op_token = parser%consume()
                     target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
@@ -387,7 +386,16 @@ contains
                         stmt_index = push_assignment(arena, target_index, value_index, &
                                                    id_token%line, id_token%column)
                     end if
-                else
+                case ("=>")
+                    ! Pointer assignment: ptr => target
+                    op_token = parser%consume()
+                    target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
+                    value_index = parse_range(parser, arena)
+                    if (value_index > 0) then
+                        stmt_index = push_assignment(arena, target_index, value_index, &
+                                                   id_token%line, id_token%column, operator_text=op_token%text)
+                    end if
+                case ("(", "%")
                     ! Complex LHS (array or component access): parse expression up to '='
                     block
                         integer :: start_pos, pos, paren_depth, left_end
@@ -452,7 +460,7 @@ contains
                                                    id_token%line, id_token%column, &
                                                    operator_text=assignment_op)
                     end if
-                end if
+                end select
             end if
         end if
     end subroutine parse_assignment_statement

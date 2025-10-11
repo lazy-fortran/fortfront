@@ -46,9 +46,6 @@ contains
         type(type_specifier_t) :: type_spec
 
         type(token_t) :: token, next_token
-        character(len=:), allocatable :: paren_text
-        integer :: paren_depth
-
         token = parser%consume()
         type_spec%type_name = trim(token%text)  ! Explicit trim for clean allocation
         type_spec%line = token%line
