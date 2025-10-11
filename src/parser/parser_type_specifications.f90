@@ -113,7 +113,11 @@ contains
                 token = parser%peek()
             end if
         end if
-        if (token%kind == TK_NUMBER) then
+        if (token%text == "*") then
+            length_value = -1
+            has_length = .true.
+            token = parser%consume()
+        else if (token%kind == TK_NUMBER) then
             read(token%text, *) length_value
             has_length = .true.
             token = parser%consume()

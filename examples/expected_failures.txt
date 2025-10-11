@@ -28,5 +28,4 @@ issue_1353_derived_type.f90     # Issue #1353: Derived type definitions mangled
 
 # Silent bugs (compile successfully but produce wrong code - cannot be detected by test)
 # These are commented out to avoid XPASS, but documented here for reference:
-# issue_1344_character_length.f90 # Issue #1344: Character lengths wrong (silent data corruption)
 # issue_1349_select_case.f90      # Issue #1349: CASE bodies outside SELECT (wrong logic)
