@@ -97,7 +97,9 @@ program fortfront_cli
                             ! advance to next argument and clean up current
                             deallocate(arg_str, stat=alloc_stat)
                             if (alloc_stat /= 0) then
-                                write(error_unit, '(A,I0,A)') 'Memory deallocation failed for command argument (stat=', alloc_stat, ')'
+                                write(error_unit, '(A,I0,A)') &
+                                    'Memory deallocation failed for command argument (stat=', &
+                                    alloc_stat, ')'
                                 call exit_quiet(EXIT_FAILURE)
                             end if
                             i = i + 1

@@ -79,7 +79,9 @@ contains
         call require(index(out, 'case (1)') > 0, 'Missing case (1)')
         call require(index(out, 'case (2, 3)') > 0 .or. index(out, 'case (2,3)') > 0, 'Missing case (2,3)')
         call require(index(out, 'print *, "one"') > 0 .or. index(out, 'print*, "one"') > 0, 'Missing first case body print')
-        call require(index(out, 'print *, "two or three"') > 0 .or. index(out, 'print*, "two or three"') > 0, 'Missing second case body print')
+        call require(index(out, 'print *, "two or three"') > 0 .or. &
+                     index(out, 'print*, "two or three"') > 0, &
+                     'Missing second case body print')
         call require(index(out, 'end select') > 0, 'Missing end select')
     end subroutine test_basic_select_case
 
