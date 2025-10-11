@@ -80,13 +80,8 @@ contains
         call require(index(out, 'case (2, 3)') > 0 .or. index(out, 'case (2,3)') > 0, 'Missing case (2,3)')
         call require(index(out, 'print *, "one"') > 0 .or. index(out, 'print*, "one"') > 0, 'Missing first case body print')
         call require(index(out, 'print *, "two or three"') > 0 .or. &
-<<<<<<< HEAD
                      index(out, 'print*, "two or three"') > 0, &
                      'Missing second case body print')
-=======
-            index(out, 'print*, "two or three"') > 0, &
-            'Missing second case body print')
->>>>>>> fe49286 (fix(parser): handle nested if else bodies)
         call require(index(out, 'end select') > 0, 'Missing end select')
     end subroutine test_basic_select_case
 
