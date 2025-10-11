@@ -151,7 +151,7 @@ contains
         end if
 
         ! Ensure local variable from mixed declaration is preserved
-        if (index(output_code, 'real(8) :: temp') == 0) then
+        if (index(output_code, 'real :: temp') == 0) then
             print *, "FAIL: Local variable 'temp' missing from output declaration"
             error stop 1
         end if

@@ -478,9 +478,6 @@ contains
                               ! Generate declaration for all parameters in this multi-declaration
                               type_name = trim(node%type_name)
                               append_kind = node%has_kind
-                              if (type_name == 'real' .and. .not. append_kind) then
-                                 type_name = 'real(8)'
-                              end if
                               code = code//indent_str//type_name
 
                               if (append_kind) then
@@ -547,9 +544,6 @@ contains
                                  if (have_nonparam) then
                                     local_type = trim(node%type_name)
                                     local_append_kind = node%has_kind
-                                    if (local_type == 'real' .and. .not. local_append_kind) then
-                                       local_type = 'real(8)'
-                                    end if
                                     code = code//indent_str//local_type
                                     if (local_append_kind) then
                                        code = code//"("//trim(adjustl(int_to_string(node%kind_value)))//")"
@@ -569,9 +563,6 @@ contains
                            ! Generate the declaration with parameter attributes from the declaration node
                            type_name = trim(node%type_name)
                            append_kind_single = node%has_kind
-                           if (type_name == 'real' .and. .not. append_kind_single) then
-                              type_name = 'real(8)'
-                           end if
                            code = code//indent_str//type_name
 
                            if (append_kind_single) then
@@ -621,9 +612,6 @@ contains
                         ! Generate the declaration with attributes from parameter_declaration_node
                         type_name = trim(node%type_name)
                         append_kind_param = node%has_kind
-                        if (type_name == 'real' .and. .not. append_kind_param) then
-                           type_name = 'real(8)'
-                        end if
                         ! Debug: print if type_name is empty
                         if (len_trim(type_name) == 0) then
                            ! Skip if no type name - will be handled elsewhere
@@ -688,10 +676,6 @@ contains
 
                if (len_trim(inferred_type) == 0) then
                   inferred_type = "real"
-               end if
-
-               if (inferred_type == "real") then
-                  inferred_type = "real(8)"
                end if
 
                stmt_code = indent_str//inferred_type
