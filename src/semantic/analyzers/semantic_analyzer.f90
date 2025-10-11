@@ -422,8 +422,18 @@ contains
                     end do
                 end if
             type is (do_loop_node)
-                local_type = infer_implied_do_loop(this, arena, expr, node_index)
-                call finalize_node(node_index, local_type)
+                post_frame = current
+                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                post_frame%state = STATE_POST
+                call push_frame_local(post_frame)
+                if (expr%step_expr_index > 0) call push_child(expr%step_expr_index)
+                if (expr%end_expr_index > 0) call push_child(expr%end_expr_index)
+                if (expr%start_expr_index > 0) call push_child(expr%start_expr_index)
+                if (allocated(expr%body_indices)) then
+                    do i = size(expr%body_indices), 1, -1
+                        call push_child(expr%body_indices(i))
+                    end do
+                end if
             type is (declaration_node)
                 call handle_declaration(expr, node_index)
             type is (if_node)
@@ -567,6 +577,9 @@ contains
                 call finalize_node(node_index, node_type)
             type is (subroutine_call_node)
                 node_type = create_mono_type(TVAR, var=create_type_var(0, "error"))
+                call finalize_node(node_index, node_type)
+            type is (do_loop_node)
+                node_type = infer_implied_do_loop(this, arena, expr, node_index)
                 call finalize_node(node_index, node_type)
             type is (function_def_node)
                 node_type = build_function_type(current)
@@ -1128,22 +1141,19 @@ contains
         integer, intent(in) :: assignment_index
         type(mono_type_t) :: typ
         type(mono_type_t) :: expr_typ
+        type(mono_type_t) :: updated_expr_typ
         integer :: lhs_index
 
         lhs_index = assignment%target_index
         expr_typ = get_inferred_type_from_arena(ctx, arena, assignment%value_index)
+        updated_expr_typ = expr_typ
 
         ! Use extracted assignment processing
         call process_assignment_inference(arena, assignment, assignment_index, &
-                                         lhs_index, expr_typ, &
+                                         lhs_index, expr_typ, updated_expr_typ, &
                                          ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id)
 
-        ! For array assignments, return the element type instead of array type
-        if (expr_typ%kind == TARRAY .and. expr_typ%get_args_count() > 0) then
-            typ = expr_typ%get_arg(1)  ! Return element type
-        else
-            typ = expr_typ
-        end if
+        typ = updated_expr_typ
 
         ! Store the actual assignment type
         call set_node_inferred_type(arena, assignment_index, typ)

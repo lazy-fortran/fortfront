@@ -56,9 +56,6 @@ contains
         type(token_t), allocatable, target :: tokens(:)
         ! Use shared module-level arena for performance
         integer :: prog_index
-        logical :: debug_transform
-        character(len=8) :: debug_flag
-        integer :: env_status
 
         allocate(character(len=0) :: error_msg)
         error_msg = ""
@@ -68,9 +65,6 @@ contains
 
         call trace_enter('transform_lazy_fortran_string')
         ! Initialize the codegen system (idempotent)
-        debug_transform = .false.
-        call get_environment_variable('FORTFRONT_DEBUG_TRANSFORM', debug_flag, status=env_status)
-        if (env_status == 0) debug_transform = .true.
         call initialize_codegen()
 
         ! Obtain the shared compiler arena and reset for a clean run
@@ -127,15 +121,6 @@ contains
         ! Phase 2: Parsing
         call trace_enter('phase:parser')
         call run_parsing_phase(tokens, shared_arena, prog_index, error_msg, output)
-        if (debug_transform) then
-            write(error_unit, '(A,I0)') 'DEBUG transform: prog_index after parsing = ', prog_index
-            if (allocated(output)) then
-                if (len(output) > 0) then
-                    write(error_unit, '(A)') 'DEBUG transform: intermediate output:'
-                    write(error_unit, '(A)') output
-                end if
-            end if
-        end if
         call trace_leave('phase:parser')
         if (error_msg /= "") then
             call trace_leave('transform_lazy_fortran_string')
@@ -145,25 +130,6 @@ contains
         ! Phases 3-5: Semantic Analysis, Standardization, Code Generation
         call trace_enter('phase:final')
         call run_final_phases(shared_arena, prog_index, output, error_msg)
-        if (debug_transform) then
-            write(error_unit, '(A,I0)') 'DEBUG transform: prog_index after final = ', prog_index
-            write(error_unit, '(A)') 'DEBUG transform: final output:'
-            if (allocated(output)) then
-                if (len(output) > 0) then
-                    write(error_unit, '(A)') output
-                else
-                    write(error_unit, '(A)') '<empty output>'
-                end if
-            else
-                write(error_unit, '(A)') '<output not allocated>'
-            end if
-            write(error_unit, '(A)') 'DEBUG transform: error_msg:'
-            if (allocated(error_msg)) then
-                write(error_unit, '(A)') trim(error_msg)
-            else
-                write(error_unit, '(A)') '<error_msg not allocated>'
-            end if
-        end if
         call trace_leave('phase:final')
         if (error_msg /= "") then
             call trace_leave('transform_lazy_fortran_string')
