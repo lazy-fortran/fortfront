@@ -362,7 +362,7 @@ contains
             end do
         else if (unit_type == "subroutine" .or. unit_type == "function") then
             ! For standalone subroutines and functions, find the matching "end"
-            ! Note: We only handle standalone procedures here. 
+            ! Note: We only handle standalone procedures here.
             ! Internal procedures are handled by the default logic below
             do i = start_pos + 1, size(tokens)
                 if (tokens(i)%kind == TK_EOF) then

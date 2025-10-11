@@ -14,7 +14,7 @@ module codegen_core
                                 array_operation_node
     use ast_nodes_core, only: range_subscript_node, literal_node, identifier_node, &
                                binary_op_node, call_or_subscript_node, array_literal_node, &
-                               assignment_node, program_node
+                               assignment_node, program_node, component_access_node
     use ast_nodes_procedure
     use ast_nodes_associate, only: associate_node
     use ast_nodes_misc, only: complex_literal_node, comment_node, blank_line_node, &
@@ -57,6 +57,8 @@ contains
             code = generate_code_binary_op(arena, node, node_index)
         type is (call_or_subscript_node)
             code = generate_code_call_or_subscript(arena, node, node_index)
+        type is (component_access_node)
+            code = generate_code_component_access(arena, node, node_index)
         type is (array_literal_node)
             code = generate_code_array_literal(arena, node, node_index)
         type is (complex_literal_node)

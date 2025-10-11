@@ -161,9 +161,20 @@ contains
         type(component_access_node), intent(in) :: node
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
+        character(len=:), allocatable :: base_code
 
         ! Generate component access code (e.g., object%component)
-        code = "component_access"  ! Basic implementation - proper component access needs object and component name
+        if (node%base_expr_index > 0 .and. node%base_expr_index <= arena%size) then
+            base_code = generate_code_from_arena(arena, node%base_expr_index)
+        else
+            base_code = ""
+        end if
+
+        if (len_trim(base_code) > 0) then
+            code = trim(adjustl(base_code)) // "%" // trim(node%component_name)
+        else
+            code = trim(node%component_name)
+        end if
     end function generate_code_component_access
 
     ! Generate code for range subscripts

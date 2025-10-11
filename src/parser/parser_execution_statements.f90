@@ -395,8 +395,8 @@ contains
                         stmt_index = push_assignment(arena, target_index, value_index, &
                                                    id_token%line, id_token%column, operator_text=op_token%text)
                     end if
-                case ("(")
-                    ! Complex LHS: parse expression up to '=' (handles subscripts/slices)
+                case ("(", "%")
+                    ! Complex LHS (array or component access): parse expression up to '='
                     block
                         integer :: start_pos, pos, paren_depth, left_end
                         type(token_t), allocatable, target :: lhs_tokens(:)
