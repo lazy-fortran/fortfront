@@ -30,7 +30,6 @@ issue_1352_optional.f90         # Issue #1352: OPTIONAL parameters broken
 issue_1353_derived_type.f90     # Issue #1353: Derived type definitions mangled
 
 # Lazy Fortran control flow
-issue_1354_nested_if.lf         # Issue #1354: Nested IF-THEN-ELSE misassigned
 
 # Silent bugs (compile successfully but produce wrong code - cannot be detected by test)
 # These are commented out to avoid XPASS, but documented here for reference:

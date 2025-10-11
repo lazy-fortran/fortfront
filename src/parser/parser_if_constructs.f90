@@ -5,7 +5,8 @@ module parser_if_constructs_module
     use parser_state_module
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: parse_basic_statement_core, &
-        statement_callbacks_t, null_statement_callbacks, find_statement_end
+        statement_callbacks_t, null_statement_callbacks, find_statement_end, &
+        extend_if_statement_end
     use parser_forall_module, only: parse_forall
     use parser_select_constructs_module, only: parse_select_case
     use ast_arena_modern, only: ast_arena_t
@@ -380,12 +381,20 @@ contains
             ! Parse statement until end of line (same approach as do loop)
             block
                 type(token_t), allocatable, target :: stmt_tokens(:)
+                type(token_t) :: first_stmt_token
                 integer, allocatable :: stmt_indices(:)
                 integer :: remaining_count, consumed_tokens, k
                 integer :: stmt_end, last_token_index
                 type(statement_callbacks_t) :: callbacks
 
                 stmt_end = find_statement_end(parser%tokens, parser%current_token)
+                first_stmt_token = parser%tokens(parser%current_token)
+                if (first_stmt_token%kind == TK_KEYWORD) then
+                    if (first_stmt_token%text == "if") then
+                        stmt_end = extend_if_statement_end(parser%tokens, &
+                            parser%current_token, stmt_end)
+                    end if
+                end if
                 if (stmt_end < parser%current_token) then
                     stmt_end = parser%current_token
                 end if
