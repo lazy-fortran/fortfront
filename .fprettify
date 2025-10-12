@@ -1,0 +1,16 @@
+indent = 4
+line-length = 90
+whitespace-comma = true
+whitespace-assignment = true
+whitespace-decl = true
+whitespace-relational = true
+whitespace-logical = true
+whitespace-plusminus = true
+whitespace-multdiv = true
+whitespace-print = true
+whitespace-type = true
+whitespace-intrinsics = true
+enable-decl = true
+case = [1, 1, 1, 1]
+strip-comments = true
+comment-spacing = 2
