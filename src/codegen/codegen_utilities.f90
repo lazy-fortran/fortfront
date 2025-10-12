@@ -37,6 +37,9 @@ module codegen_utilities
     public :: find_parameter_info
     public :: is_function_parameter
     public :: is_parameter_name
+    public :: is_character_type_string
+    public :: normalize_character_type
+    public :: normalize_character_type_param
 
     ! Type for storing parameter information during codegen
     type, public :: parameter_info_t
@@ -243,7 +246,9 @@ contains
         if (present(is_optional)) opt_flag = is_optional
 
         stmt = type_name
-        if (has_kind) then
+        if (is_character_type_string(stmt)) then
+            stmt = normalize_character_type_param(stmt, has_kind, kind_value)
+        else if (has_kind) then
             stmt = stmt // "(" // trim(adjustl(int_to_string(kind_value))) // ")"
         end if
         if (len_trim(intent) > 0) then
@@ -818,8 +823,14 @@ contains
             else
                 stmt_code = "real"
             end if
+            if (is_character_type_string(stmt_code)) then
+                stmt_code = normalize_character_type_param(stmt_code, first_node%has_kind, &
+                    first_node%kind_value)
+            else if (first_node%has_kind .and. first_node%kind_value > 0) then
+                stmt_code = stmt_code // "(" // trim(adjustl(int_to_string(first_node%kind_value))) // ")"
+            end if
             if (first_node%intent_type /= INTENT_NONE) then
-    stmt_code = stmt_code // ", intent(" // intent_type_to_string(first_node%intent_type) // ")"
+                stmt_code = stmt_code // ", intent(" // intent_type_to_string(first_node%intent_type) // ")"
             end if
             if (first_node%is_optional) then
                 stmt_code = stmt_code // ", optional"
@@ -912,5 +923,225 @@ contains
             end if
         end do
     end function is_parameter_name
+
+    ! Helper to detect character type declarations irrespective of spacing/case
+    pure logical function is_character_type_string(type_str)
+        character(len=*), intent(in) :: type_str
+        character(len=:), allocatable :: trimmed
+        character(len=:), allocatable :: lowered
+
+        trimmed = adjustl(trim(type_str))
+        if (len_trim(trimmed) < len("character")) then
+            is_character_type_string = .false.
+            return
+        end if
+
+        lowered = to_lower_ascii(trimmed)
+        is_character_type_string = index(lowered, "character") == 1
+    end function is_character_type_string
+
+    ! ASCII-only lowercase conversion helper for type comparisons
+    pure function to_lower_ascii(str) result(lower_str)
+        character(len=*), intent(in) :: str
+        character(len=len(str)) :: lower_str
+        integer :: i, code
+
+        do i = 1, len(str)
+            code = iachar(str(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+                lower_str(i:i) = achar(code + 32)
+            else
+                lower_str(i:i) = str(i:i)
+            end if
+        end do
+    end function to_lower_ascii
+
+    ! Extract character length specification (len or old-style *) from type text
+    subroutine extract_character_length(type_str, has_length, length_spec)
+        character(len=*), intent(in) :: type_str
+        logical, intent(out) :: has_length
+        character(len=:), allocatable, intent(out) :: length_spec
+        integer :: star_pos, open_paren, close_paren
+
+        has_length = .false.
+        length_spec = ""
+
+        star_pos = index(type_str, "*")
+        if (star_pos > 0) then
+            if (star_pos < len_trim(type_str)) then
+                length_spec = trim(type_str(star_pos + 1:))
+                if (len_trim(length_spec) > 0) then
+                    has_length = .true.
+                    return
+                end if
+            end if
+        end if
+
+        open_paren = index(type_str, "(")
+        if (open_paren > 0) then
+            close_paren = index(type_str(open_paren + 1:), ")")
+            if (close_paren > 0) then
+                close_paren = open_paren + close_paren
+                if (close_paren > open_paren + 1) then
+                    length_spec = trim(type_str(open_paren + 1:close_paren - 1))
+                    if (len_trim(length_spec) > 0) then
+                        has_length = .true.
+                    end if
+                end if
+            end if
+        end if
+    end subroutine extract_character_length
+
+    ! Normalize character declarations to consistently emit LEN specifications
+    function normalize_character_type(node, raw_type) result(type_str)
+        type(declaration_node), intent(in) :: node
+        character(len=*), intent(in) :: raw_type
+        character(len=:), allocatable :: type_str
+        character(len=:), allocatable :: trimmed
+        character(len=:), allocatable :: length_spec
+        logical :: has_length
+        integer :: comma_pos
+        character(len=:), allocatable :: lowered_trim
+        character(len=:), allocatable :: lowered_len
+
+        trimmed = trim(raw_type)
+        if (.not. is_character_type_string(trimmed)) then
+            type_str = trimmed
+            return
+        end if
+
+        comma_pos = index(trimmed, ",")
+        if (comma_pos > 0) then
+            trimmed = trim(trimmed(:comma_pos - 1))
+        end if
+
+        lowered_trim = to_lower_ascii(trimmed)
+        if (index(lowered_trim, "kind=") > 0 .and. index(lowered_trim, "len") == 0) then
+            type_str = trimmed
+            return
+        end if
+
+        call extract_character_length(trimmed, has_length, length_spec)
+
+        if (has_length) then
+            lowered_len = to_lower_ascii(length_spec)
+            if (index(lowered_len, "kind=") > 0 .and. index(lowered_len, "len=") == 0) then
+                type_str = trimmed
+                return
+            end if
+        end if
+
+        if (.not. has_length) then
+            if (node%has_kind) then
+                if (node%kind_value > 0) then
+                    length_spec = trim(adjustl(int_to_string(node%kind_value)))
+                    has_length = .true.
+                else if (node%kind_value == -1) then
+                    length_spec = "*"
+                    has_length = .true.
+                end if
+            end if
+        end if
+
+        if (.not. has_length) then
+            if (node%inferred_type%kind == TCHAR) then
+                if (node%inferred_type%alloc_info%needs_allocatable_string) then
+                    length_spec = ":"
+                    has_length = .true.
+                else if (node%inferred_type%size > 0) then
+                    length_spec = trim(adjustl(int_to_string(node%inferred_type%size)))
+                    has_length = .true.
+                else if (node%inferred_type%size == -1) then
+                    length_spec = "*"
+                    has_length = .true.
+                end if
+            end if
+        end if
+
+        if (has_length) then
+            if (len_trim(length_spec) == 0) then
+                has_length = .false.
+            end if
+        end if
+
+        if (.not. has_length) then
+            type_str = "character"
+        else
+            lowered_len = to_lower_ascii(length_spec)
+            if (index(lowered_len, "len=") == 0) then
+                length_spec = "len=" // trim(length_spec)
+            end if
+            type_str = "character(" // trim(length_spec) // ")"
+        end if
+    end function normalize_character_type
+
+    ! Simpler normalization helper for parameter declarations (no inference data)
+    function normalize_character_type_param(raw_type, has_kind, kind_value) result(type_str)
+        character(len=*), intent(in) :: raw_type
+        logical, intent(in) :: has_kind
+        integer, intent(in) :: kind_value
+        character(len=:), allocatable :: type_str
+        character(len=:), allocatable :: trimmed
+        character(len=:), allocatable :: length_spec
+        logical :: has_length
+        integer :: comma_pos
+        character(len=:), allocatable :: lowered_trim
+        character(len=:), allocatable :: lowered_len
+
+        trimmed = trim(raw_type)
+        if (.not. is_character_type_string(trimmed)) then
+            type_str = trimmed
+            return
+        end if
+
+        comma_pos = index(trimmed, ",")
+        if (comma_pos > 0) then
+            trimmed = trim(trimmed(:comma_pos - 1))
+        end if
+
+        lowered_trim = to_lower_ascii(trimmed)
+        if (index(lowered_trim, "kind=") > 0 .and. index(lowered_trim, "len") == 0) then
+            type_str = trimmed
+            return
+        end if
+
+        call extract_character_length(trimmed, has_length, length_spec)
+
+        if (has_length) then
+            lowered_len = to_lower_ascii(length_spec)
+            if (index(lowered_len, "kind=") > 0 .and. index(lowered_len, "len=") == 0) then
+                type_str = trimmed
+                return
+            end if
+        end if
+
+        if (.not. has_length) then
+            if (has_kind) then
+                if (kind_value > 0) then
+                    length_spec = trim(adjustl(int_to_string(kind_value)))
+                    has_length = .true.
+                else if (kind_value == -1) then
+                    length_spec = "*"
+                    has_length = .true.
+                end if
+            end if
+        end if
+
+        if (has_length) then
+            if (len_trim(length_spec) == 0) then
+                has_length = .false.
+            end if
+        end if
+
+        if (.not. has_length) then
+            type_str = "character"
+        else
+            lowered_len = to_lower_ascii(length_spec)
+            if (index(lowered_len, "len=") == 0) then
+                length_spec = "len=" // trim(length_spec)
+            end if
+            type_str = "character(" // trim(length_spec) // ")"
+        end if
+    end function normalize_character_type_param
 
 end module codegen_utilities
