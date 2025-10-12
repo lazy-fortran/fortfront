@@ -86,9 +86,9 @@ contains
         end if
 
         if (contains_binary_data(input)) then
-            error_msg = '[INVALID_INPUT] Input appears to be binary data'// &
-     &                new_line('A')//'  Source: <binary data omitted>'// &
-     &                new_line('A')//'  Suggestion: Provide plain-text Fortran source'
+            error_msg = '[INVALID_INPUT] Input appears to be binary data' // &
+     &                new_line('A') // '  Source: <binary data omitted>' // &
+     &                new_line('A') // '  Suggestion: Provide plain-text Fortran source'
             call create_minimal_program(output)
             call trace_leave('transform_lazy_fortran_string')
             return
@@ -149,7 +149,7 @@ contains
                 if (allocated(lead)) then
                     if (len_trim(lead) > 0) then
                         if (len_trim(output) > 0) then
-                            output = trim(lead)//new_line('A')//trim(output)
+                            output = trim(lead) // new_line('A') // trim(output)
                         else
                             output = trim(lead)
                         end if
@@ -201,9 +201,9 @@ contains
     subroutine create_minimal_program(output)
         character(len=:), allocatable, intent(out) :: output
 
-        output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "end program main"//new_line('A')
+        output = "program main" // new_line('A') // &
+                 "    implicit none" // new_line('A') // &
+                 "end program main" // new_line('A')
     end subroutine create_minimal_program
 
     ! Run lexical analysis
@@ -226,10 +226,10 @@ contains
 
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-        output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "    ! Original code could not be parsed"//new_line('A')// &
-                 "end program main"//new_line('A')
+        output = "program main" // new_line('A') // &
+                 "    implicit none" // new_line('A') // &
+                 "    ! Original code could not be parsed" // new_line('A') // &
+                 "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
     end subroutine handle_lexical_error
@@ -246,11 +246,11 @@ contains
         if (error_msg /= "") then
             ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
             ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-            output = "program main"//new_line('A')// &
-                     "    implicit none"//new_line('A')// &
-                     "    ! COMPILATION FAILED"//new_line('A')// &
-                     "    ! Original code could not be parsed"//new_line('A')// &
-                     "end program main"//new_line('A')
+            output = "program main" // new_line('A') // &
+                     "    implicit none" // new_line('A') // &
+                     "    ! COMPILATION FAILED" // new_line('A') // &
+                     "    ! Original code could not be parsed" // new_line('A') // &
+                     "end program main" // new_line('A')
             ! error_msg already contains the error details for stderr
             ! Reuse shared arena: do not destroy here
         end if
@@ -332,11 +332,11 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
 
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-        output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "    ! COMPILATION FAILED"//new_line('A')// &
-                 "    ! Original code could not be parsed"//new_line('A')// &
-                 "end program main"//new_line('A')
+        output = "program main" // new_line('A') // &
+                 "    implicit none" // new_line('A') // &
+                 "    ! COMPILATION FAILED" // new_line('A') // &
+                 "    ! Original code could not be parsed" // new_line('A') // &
+                 "end program main" // new_line('A')
         ! error_msg parameter already contains the error details for stderr
     end subroutine create_parsing_error_program
 
@@ -349,11 +349,11 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         error_msg = "Parsing succeeded but no valid program unit was created"
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
-        output = "program main"//new_line('A')// &
-                 "    implicit none"//new_line('A')// &
-                 "    ! COMPILATION FAILED"//new_line('A')// &
-             "    ! Original code could not be structured as a program"//new_line('A')// &
-                 "end program main"//new_line('A')
+        output = "program main" // new_line('A') // &
+                 "    implicit none" // new_line('A') // &
+                 "    ! COMPILATION FAILED" // new_line('A') // &
+             "    ! Original code could not be structured as a program" // new_line('A') // &
+                 "end program main" // new_line('A')
         ! error_msg already contains the error details for stderr
         ! Reuse shared arena: do not destroy here
     end subroutine handle_invalid_program_index
@@ -436,9 +436,9 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
             if (i <= size(ctx%errors%errors)) then
                 if (allocated(ctx%errors%errors(i)%error_message)) then
-          error_msg = error_msg//new_line('a')//"  - "//ctx%errors%errors(i)%error_message
+          error_msg = error_msg // new_line('a') // "  - " // ctx%errors%errors(i)%error_message
                     if (allocated(ctx%errors%errors(i)%suggestion)) then
- error_msg = error_msg//new_line('a')//"    Suggestion: "//ctx%errors%errors(i)%suggestion
+ error_msg = error_msg // new_line('a') // "    Suggestion: " // ctx%errors%errors(i)%suggestion
                     end if
                 end if
             end if
@@ -447,7 +447,7 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         ! Add summary if there are more errors
         if (total_errors > 3) then
             write (buffer, '(A,I0,A)') "  ... and ", (total_errors - 3), " more error(s)"
-            error_msg = error_msg//new_line('a')//trim(buffer)
+            error_msg = error_msg // new_line('a') // trim(buffer)
         end if
     end function get_detailed_semantic_errors
 
@@ -856,9 +856,9 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
             case ('!')
                 ! Comment line: collect until newline
                 saw_comment = .true.
-                if (len(block_text) > 0) block_text = block_text//new_line('A')
+                if (len(block_text) > 0) block_text = block_text // new_line('A')
                 do while (i <= n .and. src(i:i) /= new_line('A'))
-                    block_text = block_text//src(i:i)
+                    block_text = block_text // src(i:i)
                     i = i + 1
                 end do
                 ! Trim trailing spaces from collected line
@@ -867,7 +867,7 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
                 if (i <= n .and. src(i:i) == new_line('A')) i = i + 1
             case (char(10))  ! newline encountered at line start
                 if (saw_comment) then
-                    if (len(block_text) > 0) block_text = block_text//new_line('A')
+                    if (len(block_text) > 0) block_text = block_text // new_line('A')
                 end if
                 i = i + 1
             case default

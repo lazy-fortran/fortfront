@@ -16,8 +16,8 @@ contains
 
     ! Create function definition node and add to stack
     function push_function_def(arena, name, param_indices, return_type, body_indices, &
-                              line, column, parent_index, result_variable, is_recursive, &
-                               prefix_keywords) result(func_index)
+                               line, column, parent_index, result_variable, &
+                               is_recursive,prefix_keywords) result(func_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)

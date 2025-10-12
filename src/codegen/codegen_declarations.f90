@@ -46,7 +46,7 @@ contains
         if (allocated(node%prefix_keywords)) then
             do i = 1, size(node%prefix_keywords)
                 if (len_trim(node%prefix_keywords(i)) > 0) then
-                    code = code//trim(node%prefix_keywords(i))//" "
+                    code = code // trim(node%prefix_keywords(i)) // " "
                     if (trim(node%prefix_keywords(i)) == "recursive") then
                         recursive_in_prefix = .true.
                     end if
@@ -54,46 +54,46 @@ contains
             end do
         end if
         if (node%is_recursive .and. .not. recursive_in_prefix) then
-            code = "recursive "//code
+            code = "recursive " // code
         end if
 
         if (allocated(node%return_type) .and. len_trim(node%return_type) > 0) then
             if (len(code) > 0) then
-                code = code//trim(node%return_type)//" function "//node%name
+                code = code // trim(node%return_type) // " function " // node%name
             else
-                code = trim(node%return_type)//" function "//node%name
+                code = trim(node%return_type) // " function " // node%name
             end if
         else
             if (len(code) > 0) then
-                code = code//"function "//node%name
+                code = code // "function " // node%name
             else
-                code = "function "//node%name
+                code = "function " // node%name
             end if
         end if
 
         ! Generate parameters (names only)
         if (allocated(node%param_indices) .and. size(node%param_indices) > 0) then
-            code = code//"("
+            code = code // "("
             do i = 1, size(node%param_indices)
-                if (i > 1) code = code//", "
+                if (i > 1) code = code // ", "
              if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
                     if (allocated(arena%entries(node%param_indices(i))%node)) then
                         select type (p => arena%entries(node%param_indices(i))%node)
                         type is (identifier_node)
-                            code = code//p%name
+                            code = code // p%name
                         type is (parameter_declaration_node)
-                            code = code//p%name
+                            code = code // p%name
                         type is (declaration_node)
-                            code = code//p%var_name
+                            code = code // p%var_name
                         class default
-                            code = code//"param"//trim(adjustl(int_to_string(i)))
+                            code = code // "param" // trim(adjustl(int_to_string(i)))
                         end select
                     end if
                 end if
             end do
-            code = code//")"
+            code = code // ")"
         else
-            code = code//"()"
+            code = code // "()"
         end if
 
         ! Add result clause if present (but NOT if result name equals function name)
@@ -101,11 +101,11 @@ contains
             ! Don't add result() clause if result variable name equals function name
             ! (Fortran doesn't allow result(foo) for function foo - just use typed function signature)
 if (.not. (allocated(node%name) .and. trim(node%result_variable) == trim(node%name))) then
-                code = code//" result("//node%result_variable//")"
+                code = code // " result(" // node%result_variable // ")"
             end if
         end if
 
-        code = code//new_line('A')
+        code = code // new_line('A')
 
         ! Build parameter map by matching parameter names to body declarations
         block
@@ -211,7 +211,7 @@ if (.not. (allocated(node%name) .and. trim(node%result_variable) == trim(node%na
                 end do
             end if
             if (.not. has_implicit) then
-                code = code//"    implicit none"//new_line('A')
+                code = code // "    implicit none" // new_line('A')
             end if
 
             ! Add declarations for any undeclared parameters
@@ -219,19 +219,19 @@ if (.not. (allocated(node%name) .and. trim(node%result_variable) == trim(node%na
                 character(len=:), allocatable :: param_decls
                 param_decls = collect_function_parameter_decls(arena, node, param_map)
                 if (len_trim(param_decls) > 0) then
-                    code = code//param_decls
+                    code = code // param_decls
                 end if
             end block
 
             ! Generate body with indentation, declaration grouping, and parameter mapping
             if (allocated(node%body_indices)) then
-                code = code//generate_grouped_body_with_params(arena, &
+                code = code // generate_grouped_body_with_params(arena, &
                                                     node%body_indices, 1, param_map, node)
             end if
         end block
 
         ! End function
-        code = code//"end function "//node%name
+        code = code // "end function " // node%name
     end function generate_code_function_def
 
     ! Generate code for subroutine definitions
@@ -244,33 +244,33 @@ if (.not. (allocated(node%name) .and. trim(node%result_variable) == trim(node%na
         integer :: i
 
         ! Start subroutine definition
-        code = "subroutine "//node%name
+        code = "subroutine " // node%name
 
         ! Generate parameters (names only)
         if (allocated(node%param_indices) .and. size(node%param_indices) > 0) then
-            code = code//"("
+            code = code // "("
             do i = 1, size(node%param_indices)
-                if (i > 1) code = code//", "
+                if (i > 1) code = code // ", "
              if (node%param_indices(i) > 0 .and. node%param_indices(i) <= arena%size) then
                     if (allocated(arena%entries(node%param_indices(i))%node)) then
                         select type (p => arena%entries(node%param_indices(i))%node)
                         type is (identifier_node)
-                            code = code//p%name
+                            code = code // p%name
                         type is (parameter_declaration_node)
-                            code = code//p%name
+                            code = code // p%name
                         type is (declaration_node)
-                            code = code//p%var_name
+                            code = code // p%var_name
                         class default
-                            code = code//"param"//trim(adjustl(int_to_string(i)))
+                            code = code // "param" // trim(adjustl(int_to_string(i)))
                         end select
                     end if
                 end if
             end do
-            code = code//")"
+            code = code // ")"
         else
-            code = code//"()"
+            code = code // "()"
         end if
-        code = code//new_line('A')
+        code = code // new_line('A')
 
         ! Build parameter map by matching parameter names to body declarations
         block
@@ -346,13 +346,13 @@ if (.not. (allocated(node%name) .and. trim(node%result_variable) == trim(node%na
 
             ! Generate body with indentation, declaration grouping, and parameter mapping
             if (allocated(node%body_indices)) then
-                code = code//generate_grouped_body_with_params(arena, &
+                code = code // generate_grouped_body_with_params(arena, &
                                                     node%body_indices, 1, param_map, node)
             end if
         end block
 
         ! End subroutine
-        code = code//"end subroutine "//node%name
+        code = code // "end subroutine " // node%name
     end function generate_code_subroutine_def
 
     ! Generate code for declarations
@@ -386,8 +386,8 @@ if (.not. (allocated(node%name) .and. trim(node%result_variable) == trim(node%na
                 if (node%inferred_type%alloc_info%needs_allocatable_string) then
                     type_str = "character(len=:)"
                 else if (node%inferred_type%size > 0) then
-                    type_str = "character(len="// &
-                        trim(adjustl(int_to_string(node%inferred_type%size)))//")"
+                    type_str = "character(len=" // &
+                        trim(adjustl(int_to_string(node%inferred_type%size))) // ")"
                 else
                     ! For zero-length or unknown strings, use explicit length 0
                     ! character(*) is only valid in parameter declarations
@@ -418,102 +418,102 @@ if (.not. (allocated(node%name) .and. trim(node%result_variable) == trim(node%na
 
         ! Add kind if present and valid (>0) (but not for character which uses len)
      if (node%has_kind .and. node%kind_value > 0 .and. node%type_name /= "character") then
-            code = code//"("//trim(adjustl(int_to_string(node%kind_value)))//")"
+            code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
 else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value > 0) then
             ! For character, kind_value is actually the length
-            code = "character(len="//trim(adjustl(int_to_string(node%kind_value)))//")"
+            code = "character(len=" // trim(adjustl(int_to_string(node%kind_value))) // ")"
         end if
 
         ! Add intent if present
         if (node%has_intent .and. allocated(node%intent)) then
-            code = code//", intent("//node%intent//")"
+            code = code // ", intent(" // node%intent // ")"
         end if
 
         ! Add allocatable if present or if string needs allocatable
         if (node%is_allocatable) then
-            code = code//", allocatable"
+            code = code // ", allocatable"
         else if (node%inferred_type%kind > 0) then
             if (node%inferred_type%alloc_info%needs_allocatable_string) then
-                code = code//", allocatable"
+                code = code // ", allocatable"
             end if
         end if
 
         ! Add optional if present
         if (node%is_optional) then
-            code = code//", optional"
+            code = code // ", optional"
         end if
 
         ! Add pointer if present
         if (node%is_pointer) then
-            code = code//", pointer"
+            code = code // ", pointer"
         end if
 
         ! Add target if present
         if (node%is_target) then
-            code = code//", target"
+            code = code // ", target"
         end if
 
         if (node%is_external) then
-            code = code//", external"
+            code = code // ", external"
         end if
 
         ! Add parameter if present
         if (node%is_parameter) then
-            code = code//", parameter"
+            code = code // ", parameter"
         end if
 
         ! Add variable names - handle both single and multi declarations
-        code = code//" :: "
+        code = code // " :: "
         if (node%is_multi_declaration .and. allocated(node%var_names)) then
             ! Multi-variable declaration
             do i = 1, size(node%var_names)
-                if (i > 1) code = code//", "
-                code = code//trim(node%var_names(i))
+                if (i > 1) code = code // ", "
+                code = code // trim(node%var_names(i))
                 ! Add dimensions per variable if needed
                 if (node%is_array .and. allocated(node%dimension_indices)) then
-                    code = code//"("
+                    code = code // "("
                     do j = 1, size(node%dimension_indices)
-                        if (j > 1) code = code//","
+                        if (j > 1) code = code // ","
                         if (node%dimension_indices(j) > 0 .and. &
                             node%dimension_indices(j) <= arena%size) then
-                            code = code//generate_code_from_arena(arena, &
+                            code = code // generate_code_from_arena(arena, &
                                                                 node%dimension_indices(j))
                         else
-                            code = code//":"  ! Default for unspecified dimensions
+                            code = code // ":"  ! Default for unspecified dimensions
                         end if
                     end do
-                    code = code//")"
+                    code = code // ")"
                 end if
             end do
         else
             ! Single variable declaration
-            code = code//node%var_name
+            code = code // node%var_name
 
             ! Add array dimensions if present
             if (node%is_array .and. allocated(node%dimension_indices)) then
                 ! Generate dimension expressions
-                code = code//"("
+                code = code // "("
                 do i = 1, size(node%dimension_indices)
-                    if (i > 1) code = code//","
+                    if (i > 1) code = code // ","
                     if (node%dimension_indices(i) > 0 .and. &
                         node%dimension_indices(i) <= arena%size) then
                         ! Valid arena index
-                   code = code//generate_code_from_arena(arena, node%dimension_indices(i))
+                   code = code // generate_code_from_arena(arena, node%dimension_indices(i))
                     else if (node%dimension_indices(i) > arena%size) then
                         ! Direct integer value (for inferred dimensions)
-                        code = code//int_to_string(node%dimension_indices(i))
+                        code = code // int_to_string(node%dimension_indices(i))
                     else
-                        code = code//":"  ! Default for unspecified dimensions (allocatable)
+                        code = code // ":"  ! Default for unspecified dimensions (allocatable)
                     end if
                 end do
-                code = code//")"
+                code = code // ")"
             end if
         end if
 
         ! Add initializer if present
         if (node%initializer_index > 0 .and. node%initializer_index <= arena%size) then
             init_code = generate_code_from_arena(arena, node%initializer_index)
-            code = code//" = "//init_code
+            code = code // " = " // init_code
         end if
     end function generate_code_declaration
 
@@ -534,30 +534,30 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
             code = node%type_name
 
             if (node%has_kind) then
-                code = code//"("//trim(adjustl(int_to_string(node%kind_value)))//")"
+                code = code // "(" // trim(adjustl(int_to_string(node%kind_value))) // ")"
             end if
 
             ! Add intent attribute
             intent_str = intent_type_to_string(node%intent_type)
             if (len_trim(intent_str) > 0) then
-                code = code//", intent("//intent_str//")"
+                code = code // ", intent(" // intent_str // ")"
             end if
 
             ! Add optional attribute
             if (node%is_optional) then
-                code = code//", optional"
+                code = code // ", optional"
             end if
 
-            code = code//" :: "//node%name
+            code = code // " :: " // node%name
 
             ! Add dimensions if present
         if (allocated(node%dimension_indices) .and. size(node%dimension_indices) > 0) then
-                code = code//"("
+                code = code // "("
                 do j = 1, size(node%dimension_indices)
-                    if (j > 1) code = code//", "
-                   code = code//generate_code_from_arena(arena, node%dimension_indices(j))
+                    if (j > 1) code = code // ", "
+                   code = code // generate_code_from_arena(arena, node%dimension_indices(j))
                 end do
-                code = code//")"
+                code = code // ")"
             end if
         else
             ! Just emit the name (when in parameter list)
@@ -576,7 +576,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
         logical :: has_implicit
 
         ! Module header
-        code = "module "//node%name//new_line('A')
+        code = "module " // node%name // new_line('A')
 
         ! Ensure module includes implicit none (quality requirement for lazy Fortran)
         has_implicit = .false.
@@ -603,20 +603,20 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
             end do
         end if
         if (.not. has_implicit) then
-            code = code//"    implicit none"//new_line('A')
+            code = code // "    implicit none" // new_line('A')
         end if
 
         ! Generate module declarations
         if (allocated(node%declaration_indices)) then
             body_code = generate_grouped_body(arena, node%declaration_indices, 1)
             if (len(body_code) > 0) then
-                code = code//body_code
+                code = code // body_code
             end if
         end if
 
         ! Check for contains section
         if (node%has_contains .and. allocated(node%procedure_indices)) then
-            code = code//"contains"//new_line('A')
+            code = code // "contains" // new_line('A')
 
             ! Generate contained procedures
             do i = 1, size(node%procedure_indices)
@@ -625,11 +625,11 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                     body_code = generate_code_from_arena(arena, node%procedure_indices(i))
                     if (len(body_code) > 0) then
                         ! Add proper indentation for contained procedures
-                        code = code//"    "//body_code
+                        code = code // "    " // body_code
                         if (i < size(node%procedure_indices)) then
-                            code = code//new_line('A')//new_line('A')
+                            code = code // new_line('A') // new_line('A')
                         else
-                            code = code//new_line('A')
+                            code = code // new_line('A')
                         end if
                     end if
                 end if
@@ -637,7 +637,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
         end if
 
         ! Module end
-        code = code//"end module "//node%name
+        code = code // "end module " // node%name
     end function generate_code_module
 
     ! Generate code for derived types
@@ -650,7 +650,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
         integer :: i
 
         ! Type definition header
-        code = "type :: "//node%name//new_line('A')
+        code = "type :: " // node%name // new_line('A')
 
         ! Generate components
         if (allocated(node%component_indices)) then
@@ -658,13 +658,13 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                 if (node%component_indices(i) > 0 .and. &
                     node%component_indices(i) <= arena%size) then
                component_code = generate_code_from_arena(arena, node%component_indices(i))
-                    code = code//"    "//component_code//new_line('A')
+                    code = code // "    " // component_code // new_line('A')
                 end if
             end do
         end if
 
         ! Type definition end
-        code = code//"end type "//node%name
+        code = code // "end type " // node%name
     end function generate_code_derived_type
 
     ! Generate code for program nodes
@@ -726,8 +726,8 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                                         character(len=:), allocatable :: trivia_code
                  trivia_code = collect_trivial_program_trivia(arena, node%body_indices(i))
                                         if (len_trim(trivia_code) > 0) then
-                              if (len(code) > 0) code = code//new_line('A')//new_line('A')
-                                            code = code//trivia_code
+                              if (len(code) > 0) code = code // new_line('A') // new_line('A')
+                                            code = code // trivia_code
                                         end if
                                     end block
                                     cycle
@@ -761,9 +761,9 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                             end select
                         end if
                         if (len(code) > 0) then
-                            code = code//new_line('A')//new_line('A')
+                            code = code // new_line('A') // new_line('A')
                         end if
-                        code = code//generate_code_from_arena(arena, node%body_indices(i))
+                        code = code // generate_code_from_arena(arena, node%body_indices(i))
                     end if
                 end do
             end if
@@ -771,7 +771,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
         end if
 
         ! Program header
-        code = "program "//node%name//new_line('A')
+        code = "program " // node%name // new_line('A')
 
         ! Process use statements first, then add implicit none, then rest of body
         block
@@ -799,8 +799,8 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                             type is (use_statement_node)
                                 ! Generate use statement code
                                 is_use_stmt = .true.
-                                use_statements_code = use_statements_code//"    "// &
-                      generate_code_from_arena(arena, node%body_indices(i))//new_line('A')
+                                use_statements_code = use_statements_code // "    " // &
+                      generate_code_from_arena(arena, node%body_indices(i)) // new_line('A')
 
                             type is (implicit_statement_node)
                                 if (ib%is_none) has_implicit = .true.
@@ -830,18 +830,18 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
 
             ! Add use statements first
             if (len(use_statements_code) > 0) then
-                code = code//use_statements_code
+                code = code // use_statements_code
             end if
 
             ! Then add implicit none if not present
             if (.not. has_implicit) then
-                code = code//"    implicit none"//new_line('A')
+                code = code // "    implicit none" // new_line('A')
             end if
 
             ! Collect and add variable declarations for undeclared identifiers
             extra_decls = collect_program_variable_decls(arena, node)
             if (len_trim(extra_decls) > 0) then
-                code = code//extra_decls
+                code = code // extra_decls
             end if
         end block
 
@@ -925,45 +925,45 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                                 do i = 1, n_vars
                                     ! Skip if already declared
                                     already_declared = .false.
-                         if (index(body_code, "integer :: "//trim(loop_vars(i))) > 0) then
+                         if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
                                         already_declared = .true.
                                     end if
 
                                     if (.not. already_declared) then
-                                        before_code = before_code//"    integer :: "// &
-                                                      trim(loop_vars(i))//new_line('A')
+                                        before_code = before_code // "    integer :: " // &
+                                                      trim(loop_vars(i)) // new_line('A')
                                     end if
                                 end do
                             else
                                 ! Check for implied do with default i
                      if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
                                     if (index(body_code, "integer :: i") == 0) then
-                              before_code = before_code//"    integer :: i"//new_line('A')
+                              before_code = before_code // "    integer :: i" // new_line('A')
                                     end if
                                 end if
                             end if
 
-                            body_code = before_code//after_code
+                            body_code = before_code // after_code
                         else
                             ! No implicit none in body, add to code as before
                             if (n_vars > 0) then
                                 do i = 1, n_vars
                                     already_declared = .false.
-                         if (index(body_code, "integer :: "//trim(loop_vars(i))) > 0) then
+                         if (index(body_code, "integer :: " // trim(loop_vars(i))) > 0) then
                                         already_declared = .true.
                                     end if
-                              if (index(code, "integer :: "//trim(loop_vars(i))) > 0) then
+                              if (index(code, "integer :: " // trim(loop_vars(i))) > 0) then
                                         already_declared = .true.
                                     end if
 
                                     if (.not. already_declared) then
-                         code = code//"    integer :: "//trim(loop_vars(i))//new_line('A')
+                         code = code // "    integer :: " // trim(loop_vars(i)) // new_line('A')
                                     end if
                                 end do
                             else
                      if (index(body_code, "[(") > 0 .and. index(body_code, ")]") > 0) then
     if (index(body_code, "integer :: i") == 0 .and. index(code, "integer :: i") == 0) then
-                                        code = code//"    integer :: i"//new_line('A')
+                                        code = code // "    integer :: i" // new_line('A')
                                     end if
                                 end if
                             end if
@@ -972,7 +972,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                 end block
             end if
 
-            code = code//body_code
+            code = code // body_code
         end if
 
         if (allocated(non_use_indices)) then
@@ -980,7 +980,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
         end if
 
         ! Program end
-        code = code//"end program "//node%name
+        code = code // "end program " // node%name
     end function generate_code_program
 
    logical function program_is_trivial_wrapper(arena, prog_index, name) result(is_trivial)
@@ -1053,8 +1053,8 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                 end select
 
                 if (len(snippet) > 0) then
-                    if (len(trivia_code) > 0) trivia_code = trivia_code//new_line('A')
-                    trivia_code = trivia_code//snippet
+                    if (len(trivia_code) > 0) trivia_code = trivia_code // new_line('A')
+                    trivia_code = trivia_code // snippet
                 end if
             end do
         end select
@@ -1237,12 +1237,12 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
         if (var_count == 0 .and. func_count == 0) return
 
         do i = 1, var_count
-         decl_code = decl_code//"    "//trim(var_types(i))//" :: "//trim(var_names(i))//new_line('A')
+         decl_code = decl_code // "    " // trim(var_types(i)) // " :: " // trim(var_names(i)) // new_line('A')
         end do
 
         do i = 1, func_count
        if (.not. exists_in_list(internal_funcs, internal_count, trim(func_names(i)))) then
-            decl_code = decl_code//"    "//trim(func_types(i))//", external :: "//trim(func_names(i))//new_line('A')
+            decl_code = decl_code // "    " // trim(func_types(i)) // ", external :: " // trim(func_names(i)) // new_line('A')
             end if
         end do
     end function collect_program_variable_decls
@@ -1280,7 +1280,7 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
             type_name = "real"
         case (TCHAR)
             if (mono%size > 0) then
-                type_name = "character(len="//trim(adjustl(int_to_string(mono%size)))//")"
+                type_name = "character(len=" // trim(adjustl(int_to_string(mono%size))) // ")"
             else
                 type_name = "character(len=:)"
             end if
@@ -1363,8 +1363,8 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                     type is (identifier_node)
                         param_type = mono_type_to_string(param_node%inferred_type)
                         if (len_trim(param_type) == 0) param_type = 'real'
-                        decl_code = decl_code//"    "//trim(param_type)//" :: "// &
-                                    trim(param_map(i)%name)//new_line('A')
+                        decl_code = decl_code // "    " // trim(param_type) // " :: " // &
+                                    trim(param_map(i)%name) // new_line('A')
                     type is (parameter_declaration_node)
                         ! Try type_name first, then inferred_type
         if (allocated(param_node%type_name) .and. len_trim(param_node%type_name) > 0) then
@@ -1373,14 +1373,14 @@ else if (node%type_name == "character" .and. node%has_kind .and. node%kind_value
                             param_type = mono_type_to_string(param_node%inferred_type)
                             if (len_trim(param_type) == 0) param_type = 'real'
                         end if
-                        decl_code = decl_code//"    "//trim(param_type)//" :: "// &
-                                    trim(param_map(i)%name)//new_line('A')
+                        decl_code = decl_code // "    " // trim(param_type) // " :: " // &
+                                    trim(param_map(i)%name) // new_line('A')
                     class default
                         ! For any other node type, try using the base inferred_type field
                         param_type = mono_type_to_string(param_node%inferred_type)
                         if (len_trim(param_type) == 0) param_type = 'real'
-                        decl_code = decl_code//"    "//trim(param_type)//" :: "// &
-                                    trim(param_map(i)%name)//new_line('A')
+                        decl_code = decl_code // "    " // trim(param_type) // " :: " // &
+                                    trim(param_map(i)%name) // new_line('A')
                     end select
                 end if
             end if
