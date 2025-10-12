@@ -393,6 +393,50 @@ contains
                 end if
                 unit_end = i
             end do
+        else if (unit_type == "program") then
+            ! For explicit programs, locate the matching end program and include body
+            nesting_level = 1
+            do i = start_pos + 1, size(tokens)
+                if (tokens(i)%kind == TK_EOF) then
+                    unit_end = i - 1
+                    exit
+                else if (tokens(i)%kind == TK_KEYWORD) then
+                    select case (tokens(i)%text)
+                    case ("program")
+                        nesting_level = nesting_level + 1
+                    case ("end")
+                        if (i + 1 <= size(tokens)) then
+                            if (tokens(i + 1)%kind == TK_KEYWORD) then
+                                if (tokens(i + 1)%text == "program") then
+                                    nesting_level = nesting_level - 1
+                                    if (nesting_level == 0) then
+                                        unit_end = i + 1
+                                        if (i + 2 <= size(tokens)) then
+                                            if (tokens(i + 2)%kind == TK_IDENTIFIER) then
+                                                unit_end = i + 2
+                                            end if
+                                        end if
+                                        exit
+                                    end if
+                                end if
+                            else
+                                nesting_level = nesting_level - 1
+                                if (nesting_level == 0) then
+                                    unit_end = i + 1
+                                    exit
+                                end if
+                            end if
+                        else
+                            nesting_level = nesting_level - 1
+                            if (nesting_level == 0) then
+                                unit_end = i
+                                exit
+                            end if
+                        end if
+                    end select
+                end if
+                unit_end = i
+            end do
         else
             ! Original logic for other units
             do i = start_pos, size(tokens)

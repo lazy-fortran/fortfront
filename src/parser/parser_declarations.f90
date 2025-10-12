@@ -1,6 +1,7 @@
 module parser_declarations
     use, intrinsic :: iso_fortran_env, only: error_unit
-    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD, TK_NEWLINE
+    use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD, &
+                          TK_NEWLINE, TK_WHITESPACE, TK_COMMENT
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_types, only: LITERAL_STRING
@@ -83,70 +84,115 @@ contains
             end if
         end if
 
-        ! Check for parenthesized specification (len/kind)
+        ! Check for parenthesized specification (len/kind or derived type name)
         if (.not. parser%is_at_end()) then
             token = parser%peek()
             if (token%text == "(") then
                 token = parser%consume()
-                do while (.not. parser%is_at_end())
-                    token = parser%peek()
+                if (trim(type_spec%type_name) == "type" .or. &
+                    trim(type_spec%type_name) == "class") then
+                    block
+                        character(len=:), allocatable :: derived_text
+                        integer :: nested_level
 
-                    if (token%text == ")") then
-                        token = parser%consume()
-                        exit
-                    end if
+                        derived_text = ""
+                        nested_level = 0
 
-                    if (trim(type_spec%type_name) == "character") then
-                        if (trim(token%text) == "len") then
-                            token = parser%consume()
-                            if (.not. parser%is_at_end()) then
-                                token = parser%peek()
-                                if (token%text == "=") then
+                        do while (.not. parser%is_at_end())
+                            token = parser%peek()
+                            select case (token%text)
+                            case (")")
+                                if (nested_level == 0) then
                                     token = parser%consume()
-                                    token = parser%peek()
-                                end if
-                                if (token%text == "*") then
-                                    type_spec%has_kind = .true.
-                                    type_spec%kind_value = -1
-                                    token = parser%consume()
-                                else if (token%kind == TK_NUMBER) then
-                                    read (token%text, *) type_spec%kind_value
-                                    type_spec%has_kind = .true.
+                                    exit
+                                else
+                                    nested_level = nested_level - 1
+                                    derived_text = derived_text // ")"
                                     token = parser%consume()
                                 end if
-                            end if
-                        else if (trim(token%text) == "kind") then
-                            ! Skip explicit character kind for now
-                            token = parser%consume()
-                            if (.not. parser%is_at_end()) then
-                                token = parser%peek()
-                                if (token%text == "=") then
+                            case ("(")
+                                nested_level = nested_level + 1
+                                derived_text = derived_text // "("
+                                token = parser%consume()
+                            case default
+                                if (token%kind == TK_WHITESPACE .or. token%kind == TK_NEWLINE .or. &
+                                    token%kind == TK_COMMENT) then
+                                    token = parser%consume()
+                                else
+                                    derived_text = derived_text // trim(token%text)
                                     token = parser%consume()
                                 end if
-                                if (.not. parser%is_at_end()) token = parser%consume()
-                            end if
-                        else if (token%kind == TK_NUMBER) then
-                            read (token%text, *) type_spec%kind_value
-                            type_spec%has_kind = .true.
-                            token = parser%consume()
-                        else if (token%text == "*") then
-                            type_spec%has_kind = .true.
-                            type_spec%kind_value = -1
-                            token = parser%consume()
+                            end select
+                        end do
+
+                        if (len_trim(derived_text) > 0) then
+                            type_spec%type_name = trim(type_spec%type_name) // "(" // &
+                                                  trim(derived_text) // ")"
                         else
+                            type_spec%type_name = trim(type_spec%type_name) // "()"
+                        end if
+                    end block
+                else
+                    do while (.not. parser%is_at_end())
+                        token = parser%peek()
+
+                        if (token%text == ")") then
+                            token = parser%consume()
+                            exit
+                        end if
+
+                        if (trim(type_spec%type_name) == "character") then
+                            if (trim(token%text) == "len") then
+                                token = parser%consume()
+                                if (.not. parser%is_at_end()) then
+                                    token = parser%peek()
+                                    if (token%text == "=") then
+                                        token = parser%consume()
+                                        token = parser%peek()
+                                    end if
+                                    if (token%text == "*") then
+                                        type_spec%has_kind = .true.
+                                        type_spec%kind_value = -1
+                                        token = parser%consume()
+                                    else if (token%kind == TK_NUMBER) then
+                                        read (token%text, *) type_spec%kind_value
+                                        type_spec%has_kind = .true.
+                                        token = parser%consume()
+                                    end if
+                                end if
+                            else if (trim(token%text) == "kind") then
+                                ! Skip explicit character kind for now
+                                token = parser%consume()
+                                if (.not. parser%is_at_end()) then
+                                    token = parser%peek()
+                                    if (token%text == "=") then
+                                        token = parser%consume()
+                                    end if
+                                    if (.not. parser%is_at_end()) token = parser%consume()
+                                end if
+                            else if (token%kind == TK_NUMBER) then
+                                read (token%text, *) type_spec%kind_value
+                                type_spec%has_kind = .true.
+                                token = parser%consume()
+                            else if (token%text == "*") then
+                                type_spec%has_kind = .true.
+                                type_spec%kind_value = -1
+                                token = parser%consume()
+                            else
+                                token = parser%consume()
+                            end if
+                        else
+                            ! Non-character types: skip content
                             token = parser%consume()
                         end if
-                    else
-                        ! Non-character types: skip content
-                        token = parser%consume()
-                    end if
 
-                    if (parser%is_at_end()) exit
-                    token = parser%peek()
-                    if (token%text == ",") then
-                        token = parser%consume()
-                    end if
-                end do
+                        if (parser%is_at_end()) exit
+                        token = parser%peek()
+                        if (token%text == ",") then
+                            token = parser%consume()
+                        end if
+                    end do
+                end if
             end if
         end if
     end function parse_type_specifier
