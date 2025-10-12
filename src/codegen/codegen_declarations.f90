@@ -7,7 +7,7 @@ module codegen_declarations
     use ast_nodes_core, only: program_node, identifier_node, literal_node, assignment_node, &
                               array_literal_node, call_or_subscript_node
     use ast_nodes_misc, only: implicit_statement_node, contains_node, comment_node, blank_line_node, &
-                              use_statement_node
+                              use_statement_node, interface_block_node, module_procedure_node
     use ast_nodes_loops, only: do_loop_node
     use type_system_unified
     use string_types, only: string_t
@@ -25,6 +25,8 @@ module codegen_declarations
     public :: generate_code_declaration
     public :: generate_code_parameter_declaration
     public :: generate_code_module
+    public :: generate_code_interface_block
+    public :: generate_code_module_procedure
     public :: generate_code_derived_type
     public :: generate_code_program
 
@@ -639,6 +641,54 @@ contains
         ! Module end
         code = code // "end module " // node%name
     end function generate_code_module
+
+    function generate_code_interface_block(arena, node, node_index) result(code)
+        type(ast_arena_t), intent(in) :: arena
+        type(interface_block_node), intent(in) :: node
+        integer, intent(in) :: node_index
+        character(len=:), allocatable :: code
+        character(len=:), allocatable :: body_code
+
+        code = "interface"
+        if (allocated(node%name)) then
+            if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+        end if
+        code = code // new_line('A')
+
+        if (allocated(node%procedure_indices)) then
+            body_code = generate_grouped_body(arena, node%procedure_indices, 1)
+            if (len(body_code) > 0) code = code // body_code
+        end if
+
+        code = code // "end interface"
+        if (allocated(node%name)) then
+            if (len_trim(node%name) > 0) code = code // " " // trim(node%name)
+        end if
+    end function generate_code_interface_block
+
+    function generate_code_module_procedure(node) result(code)
+        type(module_procedure_node), intent(in) :: node
+        character(len=:), allocatable :: code
+        integer :: i
+        character(len=:), allocatable :: name_text
+        logical :: first_name
+
+        code = "module procedure"
+        first_name = .true.
+        if (allocated(node%procedure_names)) then
+            do i = 1, size(node%procedure_names)
+                if (.not. allocated(node%procedure_names(i)%s)) cycle
+                name_text = trim(node%procedure_names(i)%s)
+                if (len_trim(name_text) == 0) cycle
+                if (first_name) then
+                    code = code // " " // name_text
+                    first_name = .false.
+                else
+                    code = code // ", " // name_text
+                end if
+            end do
+        end if
+    end function generate_code_module_procedure
 
     ! Generate code for derived types
     function generate_code_derived_type(arena, node, node_index) result(code)
