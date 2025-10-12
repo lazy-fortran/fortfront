@@ -770,7 +770,9 @@ contains
                 cycle
             end if
 
-            ! Default: consume token to avoid infinite loops
+            ! Report unexpected tokens instead of silently skipping them
+            call parser%error("Unexpected token '" // trim(token%text) // &
+                               "' in interface block.")
             token = parser%consume()
         end do
 
@@ -817,23 +819,24 @@ contains
                 call append_procedure_name(procedure_names, token%text)
                 token = parser%consume()
             case (TK_OPERATOR)
-                if (trim(token%text) == "," .or. token%text == ",") then
+                if (trim(token%text) == ",") then
                     token = parser%consume()
                 else
+                    call parser%error("Unexpected operator '" // &
+                                      trim(token%text) // &
+                                      "' in module procedure list.")
                     token = parser%consume()
+                    exit
                 end if
-            case (TK_COMMENT)
-                token = parser%consume()
-                exit
-            case (TK_NEWLINE)
-                token = parser%consume()
+            case (TK_COMMENT, TK_NEWLINE, TK_KEYWORD)
                 exit
             case (TK_WHITESPACE)
                 token = parser%consume()
-            case (TK_KEYWORD)
-                exit
             case default
+                call parser%error("Unexpected token '" // trim(token%text) // &
+                                   "' in module procedure list.")
                 token = parser%consume()
+                exit
             end select
         end do
 

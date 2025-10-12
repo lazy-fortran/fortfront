@@ -3,9 +3,13 @@ program test_module_interface_block
     use frontend_parsing, only: parse_tokens
     use lexer_core, only: token_t
     use ast_arena_modern, only: ast_arena_t, create_ast_arena
+    use parser_state_module, only: parser_state_t, create_parser_state
+    use parser_prefix_buffer_module, only: parser_prefix_buffer_t
+    use parser_procedure_definitions_module, only: parse_interface_block
     implicit none
 
     call test_module_with_interface_block()
+    call test_interface_block_reports_unexpected_token()
     print *, ""
     print *, "Interface block parser tests completed."
 
@@ -95,5 +99,75 @@ contains
 
         print *, "[PASS] Module with interface block"
     end subroutine test_module_with_interface_block
+
+    subroutine test_interface_block_reports_unexpected_token()
+        character(:), allocatable :: input_code
+        character(:), allocatable :: lex_error
+        character(:), allocatable :: parser_error
+        character(:), allocatable :: lower_error
+        type(token_t), allocatable :: tokens(:)
+        type(ast_arena_t) :: arena
+        type(parser_state_t) :: parser
+        type(parser_prefix_buffer_t) :: prefix_buffer
+        integer :: interface_index
+        character(len=1), parameter :: nl = new_line('A')
+        character(len=*), parameter :: expected_fragment = &
+            "unexpected token 'unexpected_token' in interface block."
+
+        input_code = "interface add" // nl // &
+                     "    unexpected_token" // nl // &
+                     "end interface add"
+
+        print *, ""
+        print *, "Test: Interface block reports unexpected token"
+        print *, "Input:"
+        print *, trim(input_code)
+
+        arena = create_ast_arena()
+        call lex_source(input_code, tokens, lex_error)
+
+        if (allocated(lex_error) .and. len_trim(lex_error) > 0) then
+            print *, "Lexing error: ", trim(lex_error)
+            error stop 1
+        end if
+
+        parser = create_parser_state(tokens)
+        call prefix_buffer%clear()
+        interface_index = parse_interface_block(parser, arena, prefix_buffer)
+        if (interface_index <= 0) then
+            print *, "FAIL: Interface block parsing returned invalid index"
+            error stop 1
+        end if
+
+        if (.not. parser%has_errors()) then
+            print *, "FAIL: Parser did not report unexpected token inside interface block"
+            error stop 1
+        end if
+
+        parser_error = parser%get_error_messages()
+        lower_error = to_lower_string(parser_error)
+        if (index(lower_error, expected_fragment) == 0) then
+            print *, "FAIL: Parser error message missing expected fragment"
+            print *, "Actual:"
+            print *, trim(parser_error)
+            error stop 1
+        end if
+
+        print *, "[PASS] Interface block unexpected token error surfaced"
+    end subroutine test_interface_block_reports_unexpected_token
+
+    pure function to_lower_string(value) result(lower_value)
+        character(len=*), intent(in) :: value
+        character(len=len(value)) :: lower_value
+        integer :: i, code
+
+        lower_value = value
+        do i = 1, len(lower_value)
+            code = iachar(lower_value(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+                lower_value(i:i) = achar(code + 32)
+            end if
+        end do
+    end function to_lower_string
 
 end program test_module_interface_block
