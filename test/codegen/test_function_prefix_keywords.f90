@@ -38,7 +38,7 @@ program test_function_prefix_keywords
         read (unit, '(a)', iostat=io_status) line
         if (io_status /= 0) exit
         if (.not. found_elemental) then
-           if (index(line, 'elemental') > 0 .and. index(line, 'function square') > 0) then
+            if (index(line, 'elemental') > 0 .and. index(line, 'function square') > 0) then
                 found_elemental = .true.
             end if
         end if

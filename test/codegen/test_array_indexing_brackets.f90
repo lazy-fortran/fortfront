@@ -155,5 +155,4 @@ contains
         end if
     end subroutine test_slice_empty_bounds
 
-
 end program test_array_indexing_brackets

@@ -30,10 +30,10 @@ contains
         if (.not. allocated(arena%entries(root_index)%node)) return
 
         root_tracker = root_index
-        allocate(visited(arena%size))
+        allocate (visited(arena%size))
         visited = .false.
         cap = 64
-        allocate(idx_stack(cap), inmod_stack(cap))
+        allocate (idx_stack(cap), inmod_stack(cap))
         top = 0
 
         call push(root_tracker, .false.)
@@ -122,16 +122,14 @@ contains
         subroutine grow()
             integer, allocatable :: tmp_i(:)
             logical, allocatable :: tmp_b(:)
-            allocate(tmp_i(cap*2), tmp_b(cap*2))
+            allocate (tmp_i(cap * 2), tmp_b(cap * 2))
             tmp_i(1:cap) = idx_stack(1:cap)
             tmp_b(1:cap) = inmod_stack(1:cap)
             call move_alloc(tmp_i, idx_stack)
             call move_alloc(tmp_b, inmod_stack)
-            cap = cap*2
+            cap = cap * 2
         end subroutine grow
 
     end subroutine standardize_ast_iter
-
-
 
 end module standardizer_driver

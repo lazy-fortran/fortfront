@@ -15,7 +15,7 @@ module ast_factory_arrays
 contains
 
     function push_array_section(arena, array_name, start_idx, end_idx, &
-                               line, column, parent_index) result(section_index)
+                                line, column, parent_index) result(section_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: array_name
         integer, intent(in) :: start_idx, end_idx
@@ -49,28 +49,28 @@ contains
 
     ! Create array bounds node and add to stack
     function push_array_bounds(arena, lower_index, upper_index, stride_index, &
-                              line, column, parent_index) result(bounds_index)
+                               line, column, parent_index) result(bounds_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: lower_index, upper_index
         integer, intent(in), optional :: stride_index
         integer, intent(in), optional :: line, column, parent_index
         integer :: bounds_index
         type(array_bounds_node) :: bounds
-        
+
         bounds%uid = generate_uid()
         bounds%lower_bound_index = lower_index
         bounds%upper_bound_index = upper_index
         if (present(stride_index)) bounds%stride_index = stride_index
         if (present(line)) bounds%line = line
         if (present(column)) bounds%column = column
-        
+
         call arena%push(bounds, "array_bounds", parent_index)
         bounds_index = arena%size
     end function push_array_bounds
 
     ! Create array slice node and add to stack
     function push_array_slice(arena, array_index, bounds_indices, num_dims, &
-                             line, column, parent_index) result(slice_index)
+                              line, column, parent_index) result(slice_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: array_index
         integer, intent(in) :: bounds_indices(:)
@@ -79,7 +79,7 @@ contains
         integer :: slice_index
         type(array_slice_node) :: slice
         integer :: slice_dims, i
-        
+
         slice%uid = generate_uid()
         slice%array_index = array_index
 
@@ -99,32 +99,32 @@ contains
         end do
 
         if (slice%num_dimensions < size(slice%bounds_indices)) then
-            slice%bounds_indices(slice%num_dimensions+1:) = -1
+            slice%bounds_indices(slice%num_dimensions + 1:) = -1
         end if
         if (present(line)) slice%line = line
         if (present(column)) slice%column = column
-        
+
         call arena%push(slice, "array_slice", parent_index)
         slice_index = arena%size
     end function push_array_slice
 
     ! Create range expression node and add to stack
     function push_range_expression(arena, start_index, end_index, stride_index, &
-                                  line, column, parent_index) result(range_index)
+                                   line, column, parent_index) result(range_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: start_index, end_index
         integer, intent(in), optional :: stride_index
         integer, intent(in), optional :: line, column, parent_index
         integer :: range_index
         type(range_expression_node) :: range
-        
+
         range%uid = generate_uid()
         range%start_index = start_index
         range%end_index = end_index
         if (present(stride_index)) range%stride_index = stride_index
         if (present(line)) range%line = line
         if (present(column)) range%column = column
-        
+
         call arena%push(range, "range_expression", parent_index)
         range_index = arena%size
     end function push_range_expression

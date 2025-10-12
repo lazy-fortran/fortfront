@@ -38,7 +38,7 @@ module analysis_event_data
         generic :: assignment(=) => assign
     end type node_exit_data_t
 
-    ! Scope entry event data  
+    ! Scope entry event data
     type, extends(event_data_base_t), public :: scope_entry_data_t
         character(:), allocatable :: scope_name
         integer :: scope_level = 0
@@ -136,15 +136,15 @@ contains
         class(node_entry_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(node_entry_data_t) :: temp_data
-        
+
         temp_data = this
-        allocate(cloned, source=temp_data)
+        allocate (cloned, source=temp_data)
     end function node_entry_clone_data
 
     subroutine node_entry_assign(lhs, rhs)
         class(node_entry_data_t), intent(out) :: lhs
         type(node_entry_data_t), intent(in) :: rhs
-        
+
         lhs%data_type = rhs%data_type
         lhs%data_name = rhs%data_name
         lhs%node_index = rhs%node_index
@@ -163,15 +163,15 @@ contains
         class(node_exit_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(node_exit_data_t) :: temp_data
-        
+
         temp_data = this
-        allocate(cloned, source=temp_data)
+        allocate (cloned, source=temp_data)
     end function node_exit_clone_data
 
     subroutine node_exit_assign(lhs, rhs)
         class(node_exit_data_t), intent(out) :: lhs
         type(node_exit_data_t), intent(in) :: rhs
-        
+
         lhs%data_type = rhs%data_type
         lhs%data_name = rhs%data_name
         lhs%node_index = rhs%node_index
@@ -190,15 +190,15 @@ contains
         class(scope_entry_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(scope_entry_data_t) :: temp_data
-        
+
         temp_data = this
-        allocate(cloned, source=temp_data)
+        allocate (cloned, source=temp_data)
     end function scope_entry_clone_data
 
     subroutine scope_entry_assign(lhs, rhs)
         class(scope_entry_data_t), intent(out) :: lhs
         type(scope_entry_data_t), intent(in) :: rhs
-        
+
         lhs%data_type = rhs%data_type
         lhs%data_name = rhs%data_name
         lhs%scope_name = rhs%scope_name
@@ -217,15 +217,15 @@ contains
         class(scope_exit_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(scope_exit_data_t) :: temp_data
-        
+
         temp_data = this
-        allocate(cloned, source=temp_data)
+        allocate (cloned, source=temp_data)
     end function scope_exit_clone_data
 
     subroutine scope_exit_assign(lhs, rhs)
         class(scope_exit_data_t), intent(out) :: lhs
         type(scope_exit_data_t), intent(in) :: rhs
-        
+
         lhs%data_type = rhs%data_type
         lhs%data_name = rhs%data_name
         lhs%scope_name = rhs%scope_name
@@ -244,15 +244,15 @@ contains
         class(type_inference_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(type_inference_data_t) :: temp_data
-        
+
         temp_data = this
-        allocate(cloned, source=temp_data)
+        allocate (cloned, source=temp_data)
     end function type_inference_clone_data
 
     subroutine type_inference_assign(lhs, rhs)
         class(type_inference_data_t), intent(out) :: lhs
         type(type_inference_data_t), intent(in) :: rhs
-        
+
         lhs%data_type = rhs%data_type
         lhs%data_name = rhs%data_name
         lhs%node_index = rhs%node_index
@@ -273,15 +273,15 @@ contains
         class(analysis_complete_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(analysis_complete_data_t) :: temp_data
-        
+
         temp_data = this
-        allocate(cloned, source=temp_data)
+        allocate (cloned, source=temp_data)
     end function analysis_complete_clone_data
 
     subroutine analysis_complete_assign(lhs, rhs)
         class(analysis_complete_data_t), intent(out) :: lhs
         type(analysis_complete_data_t), intent(in) :: rhs
-        
+
         lhs%data_type = rhs%data_type
         lhs%data_name = rhs%data_name
         lhs%analyzer_name = rhs%analyzer_name
@@ -302,15 +302,15 @@ contains
         class(error_detected_data_t), intent(in) :: this
         class(event_data_base_t), allocatable :: cloned
         type(error_detected_data_t) :: temp_data
-        
+
         temp_data = this
-        allocate(cloned, source=temp_data)
+        allocate (cloned, source=temp_data)
     end function error_detected_clone_data
 
     subroutine error_detected_assign(lhs, rhs)
         class(error_detected_data_t), intent(out) :: lhs
         type(error_detected_data_t), intent(in) :: rhs
-        
+
         lhs%data_type = rhs%data_type
         lhs%data_name = rhs%data_name
         lhs%node_index = rhs%node_index

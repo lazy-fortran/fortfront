@@ -1,4 +1,4 @@
-! Test to diagnose module contains parsing issues 
+! Test to diagnose module contains parsing issues
 program test_module_contains_parser_issue
     use frontend_core, only: lex_source, emit_fortran
     use frontend_parsing, only: parse_tokens
@@ -143,7 +143,7 @@ contains
             pos = pos + pos - 1
             end_pos = index(code(pos:), new_line('A'))
             if (end_pos == 0) end_pos = len(code) - pos + 1
-            print *, "    Found: ", code(pos:pos+end_pos-1)
+            print *, "    Found: ", code(pos:pos + end_pos - 1)
             pos = pos + end_pos
         end do
     end subroutine print_declaration_lines
@@ -158,7 +158,7 @@ contains
             pos = pos + pos - 1
             end_pos = index(code(pos:), new_line('A'))
             if (end_pos == 0) end_pos = len(code) - pos + 1
-            print *, "    Found: ", code(pos:pos+end_pos-1)
+            print *, "    Found: ", code(pos:pos + end_pos - 1)
             pos = pos + end_pos
         end do
     end subroutine print_function_signatures

@@ -19,13 +19,13 @@ contains
 
     subroutine run_test()
         character(len=*), parameter :: input = &
-            '! Top-level comment about the module' // new_line('a') // &
-            'module m' // new_line('a') // &
-            'contains' // new_line('a') // &
-            '  subroutine main()' // new_line('a') // &
-            "    print *, 'ok'" // new_line('a') // &
-            '  end subroutine main' // new_line('a') // &
-            'end module m'
+                                       '! Top-level comment about the module' // new_line('a') // &
+                                       'module m' // new_line('a') // &
+                                       'contains' // new_line('a') // &
+                                       '  subroutine main()' // new_line('a') // &
+                                       "    print *, 'ok'" // new_line('a') // &
+                                       '  end subroutine main' // new_line('a') // &
+                                       'end module m'
 
         character(len=:), allocatable :: output, error_msg
 

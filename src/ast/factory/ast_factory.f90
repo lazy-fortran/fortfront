@@ -1,12 +1,12 @@
 module ast_factory
     ! REFACTORED ast_factory module - split into specialized modules for architectural compliance
-    ! 
+    !
     ! This module now re-exports all functions from the specialized modules to maintain
     ! full backward compatibility with existing code.
     !
     ! Previous file: 1911 lines (violated hard limit of 1000 lines)
     ! Current structure: Multiple modules <500 lines each (compliance achieved)
-    
+
     ! Core functionality and utilities
     use ast_factory_core, only: &
         validate_arena, validate_node_index, &
@@ -59,7 +59,7 @@ module ast_factory
     private
 
     ! Re-export all public interfaces to maintain backward compatibility
-    
+
     ! Core functionality and utilities
     public :: validate_arena, validate_node_index
     public :: push_program, push_identifier, push_literal, push_binary_op

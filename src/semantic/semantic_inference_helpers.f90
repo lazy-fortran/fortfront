@@ -7,8 +7,8 @@ module semantic_inference_helpers
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: program_node
     use ast_nodes_control, only: if_node, do_while_node, where_node, where_stmt_node, &
-                                  forall_node, select_case_node, associate_node, &
-                                  stop_node
+                                 forall_node, select_case_node, associate_node, &
+                                 stop_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_misc, only: implicit_statement_node
     use scope_manager, only: scope_stack_t
@@ -32,7 +32,7 @@ contains
     subroutine process_if_node_branches(node, control_type)
         type(if_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
-        
+
         ! If statements don't have a type - return control marker
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_if_node_branches
@@ -41,7 +41,7 @@ contains
     subroutine process_do_while_node_body(node, control_type)
         type(do_while_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
-        
+
         ! Do while loops don't have a type
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_do_while_node_body
@@ -50,7 +50,7 @@ contains
     subroutine process_where_node_clauses(node, control_type)
         type(where_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
-        
+
         ! Where constructs don't have a type
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_where_node_clauses
@@ -59,7 +59,7 @@ contains
     subroutine process_where_stmt_node(node, control_type)
         type(where_stmt_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
-        
+
         ! Where statements use assignment type or control marker
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_where_stmt_node
@@ -69,11 +69,11 @@ contains
         type(forall_node), intent(in) :: node
         type(poly_type_t), intent(out) :: int_scheme
         type(mono_type_t), intent(out) :: control_type
-        
+
         ! Create integer type scheme for index variables
-        int_scheme = create_poly_type(forall_vars=[type_var_t::], &
+        int_scheme = create_poly_type(forall_vars=[type_var_t ::], &
                                       mono=create_mono_type(TINT))
-        
+
         ! Forall constructs don't have a type
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_forall_node_body
@@ -82,7 +82,7 @@ contains
     subroutine process_select_case_blocks(node, control_type)
         type(select_case_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
-        
+
         ! Select case constructs don't have a type
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_select_case_blocks
@@ -91,7 +91,7 @@ contains
     subroutine process_associate_node_body(node, control_type)
         type(associate_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
-        
+
         ! Associate constructs don't have a type
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_associate_node_body
@@ -100,7 +100,7 @@ contains
     subroutine process_stop_node_code(node, control_type)
         type(stop_node), intent(in) :: node
         type(mono_type_t), intent(out) :: control_type
-        
+
         ! Stop statements don't have a type
         control_type = create_mono_type(TVAR, var=create_type_var(0, "control"))
     end subroutine process_stop_node_code
@@ -110,7 +110,7 @@ contains
         type(declaration_node), intent(in) :: decl
         type(mono_type_t), intent(out) :: var_type
         integer :: var_type_kind
-        
+
         ! Map type name to type kind
         select case (trim(decl%type_name))
         case ("integer")
@@ -134,7 +134,7 @@ contains
                 var_type_kind = TREAL
             end if
         end select
-        
+
         ! Create mono type
         var_type = create_mono_type(var_type_kind)
 
@@ -159,7 +159,7 @@ contains
         integer :: i
 
         has_implicit = .false.
-        
+
         ! Scan through program body for implicit none statement
         if (allocated(prog%body_indices)) then
             do i = 1, size(prog%body_indices)

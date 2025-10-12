@@ -21,7 +21,7 @@ module call_graph_module
     ! Type to represent a procedure in the call graph
     type :: procedure_info_t
         character(len=:), allocatable :: name
-        integer :: definition_node      ! AST node where defined
+        integer :: definition_node  ! AST node where defined
         integer :: line
         integer :: column
         logical :: is_main_program
@@ -33,7 +33,7 @@ module call_graph_module
     type :: call_edge_t
         character(len=:), allocatable :: caller
         character(len=:), allocatable :: callee
-        integer :: call_site_node      ! AST node of the call
+        integer :: call_site_node  ! AST node of the call
         integer :: line
         integer :: column
     end type call_edge_t
@@ -91,15 +91,15 @@ contains
         ! Initialize with small capacity to avoid immediate reallocation
         graph%proc_capacity = 16
         graph%call_capacity = 16
-        allocate(graph%procedures(graph%proc_capacity))
-        allocate(graph%calls(graph%call_capacity))
+        allocate (graph%procedures(graph%proc_capacity))
+        allocate (graph%calls(graph%call_capacity))
         graph%proc_count = 0
         graph%call_count = 0
     end function create_call_graph
 
     ! Add a procedure to the call graph
     subroutine add_procedure(graph, name, def_node, line, column, is_main, &
-                           is_intrinsic, is_external)
+                             is_intrinsic, is_external)
         type(call_graph_t), intent(inout) :: graph
         character(len=*), intent(in) :: name
         integer, intent(in) :: def_node
@@ -107,11 +107,11 @@ contains
         logical, intent(in), optional :: is_main
         logical, intent(in), optional :: is_intrinsic
         logical, intent(in), optional :: is_external
-        
+
         type(procedure_info_t) :: new_proc
         type(procedure_info_t), allocatable :: temp_procs(:)
         integer :: i
-        
+
         ! Check if procedure already exists
         do i = 1, graph%proc_count
             if (graph%procedures(i)%name == name) then
@@ -122,7 +122,7 @@ contains
                 return
             end if
         end do
-        
+
         ! Create new procedure
         new_proc%name = name
         new_proc%definition_node = def_node
@@ -134,19 +134,19 @@ contains
         if (present(is_main)) new_proc%is_main_program = is_main
         if (present(is_intrinsic)) new_proc%is_intrinsic = is_intrinsic
         if (present(is_external)) new_proc%is_external = is_external
-        
+
         ! Expand procedures array if needed
         if (graph%proc_count >= graph%proc_capacity) then
             ! Grow capacity by 50% or at least 16 elements
-            graph%proc_capacity = max(graph%proc_capacity + graph%proc_capacity/2, &
-                                     graph%proc_capacity + 16, 16)
-            allocate(temp_procs(graph%proc_capacity))
+            graph%proc_capacity = max(graph%proc_capacity + graph%proc_capacity / 2, &
+                                      graph%proc_capacity + 16, 16)
+            allocate (temp_procs(graph%proc_capacity))
             if (graph%proc_count > 0) then
                 temp_procs(1:graph%proc_count) = graph%procedures
             end if
             call move_alloc(temp_procs, graph%procedures)
         end if
-        
+
         ! Add new procedure
         graph%proc_count = graph%proc_count + 1
         graph%procedures(graph%proc_count) = new_proc
@@ -159,29 +159,29 @@ contains
         character(len=*), intent(in) :: callee_name
         integer, intent(in) :: call_node
         integer, intent(in) :: line, column
-        
+
         type(call_edge_t) :: new_call
         type(call_edge_t), allocatable :: temp_calls(:)
-        
+
         ! Create new call edge
         new_call%caller = caller_name
         new_call%callee = callee_name
         new_call%call_site_node = call_node
         new_call%line = line
         new_call%column = column
-        
+
         ! Expand calls array if needed
         if (graph%call_count >= graph%call_capacity) then
             ! Grow capacity by 50% or at least 16 elements
-            graph%call_capacity = max(graph%call_capacity + graph%call_capacity/2, &
-                                     graph%call_capacity + 16, 16)
-            allocate(temp_calls(graph%call_capacity))
+            graph%call_capacity = max(graph%call_capacity + graph%call_capacity / 2, &
+                                      graph%call_capacity + 16, 16)
+            allocate (temp_calls(graph%call_capacity))
             if (graph%call_count > 0) then
                 temp_calls(1:graph%call_count) = graph%calls
             end if
             call move_alloc(temp_calls, graph%calls)
         end if
-        
+
         ! Add new call
         graph%call_count = graph%call_count + 1
         graph%calls(graph%call_count) = new_call
@@ -195,11 +195,11 @@ contains
         integer :: i, j, unused_count, sep_pos
         character(len=256), allocatable :: temp_names(:)
         character(len=256) :: simple_name
-        
+
         ! Initialize all procedures as not called
-        allocate(is_called(graph%proc_count))
+        allocate (is_called(graph%proc_count))
         is_called = .false.
-        
+
         ! Mark main programs and intrinsics as "called" (they don't need to be)
         do i = 1, graph%proc_count
             if (graph%procedures(i)%is_main_program .or. &
@@ -207,16 +207,16 @@ contains
                 is_called(i) = .true.
             end if
         end do
-        
+
         ! Mark all called procedures
         do i = 1, graph%call_count
             ! Extract simple name from callee for comparison
             simple_name = graph%calls(i)%callee
             sep_pos = index(simple_name, "::", back=.true.)
             if (sep_pos > 0) then
-                simple_name = simple_name(sep_pos+2:)
+                simple_name = simple_name(sep_pos + 2:)
             end if
-            
+
             do j = 1, graph%proc_count
                 ! Extract simple name from procedure for comparison
                 block
@@ -225,9 +225,9 @@ contains
                     proc_simple_name = graph%procedures(j)%name
                     proc_sep_pos = index(proc_simple_name, "::", back=.true.)
                     if (proc_sep_pos > 0) then
-                        proc_simple_name = proc_simple_name(proc_sep_pos+2:)
+                        proc_simple_name = proc_simple_name(proc_sep_pos + 2:)
                     end if
-                    
+
                     if (proc_simple_name == simple_name) then
                         is_called(j) = .true.
                         exit
@@ -235,7 +235,7 @@ contains
                 end block
             end do
         end do
-        
+
         ! Count unused procedures
         unused_count = 0
         do i = 1, graph%proc_count
@@ -243,10 +243,10 @@ contains
                 unused_count = unused_count + 1
             end if
         end do
-        
+
         ! Collect unused procedure names (return simple names without scope)
         if (unused_count > 0) then
-            allocate(temp_names(unused_count))
+            allocate (temp_names(unused_count))
             j = 0
             do i = 1, graph%proc_count
                 if (.not. is_called(i)) then
@@ -254,20 +254,20 @@ contains
                     simple_name = graph%procedures(i)%name
                     sep_pos = index(simple_name, "::", back=.true.)
                     if (sep_pos > 0) then
-                        simple_name = simple_name(sep_pos+2:)
+                        simple_name = simple_name(sep_pos + 2:)
                     end if
                     temp_names(j) = simple_name
                 end if
             end do
-            
+
             ! Convert to allocatable array of proper size
-            allocate(character(len=maxval(len_trim(temp_names))) :: &
-                     unused_names(unused_count))
+            allocate (character(len=maxval(len_trim(temp_names))) :: &
+                      unused_names(unused_count))
             do i = 1, unused_count
                 unused_names(i) = trim(temp_names(i))
             end do
         else
-            allocate(character(len=1) :: unused_names(0))
+            allocate (character(len=1) :: unused_names(0))
         end if
     end function find_unused_procedures
 
@@ -280,21 +280,21 @@ contains
         integer :: i, count, sep_pos
         logical, allocatable :: unique_check(:)
         character(len=256) :: simple_callee
-        
+
         ! Count unique callers
-        allocate(temp_names(graph%call_count))
-        allocate(unique_check(graph%call_count))
+        allocate (temp_names(graph%call_count))
+        allocate (unique_check(graph%call_count))
         unique_check = .false.
         count = 0
-        
+
         do i = 1, graph%call_count
             ! Extract simple name from scoped name for comparison
             simple_callee = graph%calls(i)%callee
             sep_pos = index(simple_callee, "::", back=.true.)
             if (sep_pos > 0) then
-                simple_callee = simple_callee(sep_pos+2:)
+                simple_callee = simple_callee(sep_pos + 2:)
             end if
-            
+
             if (graph%calls(i)%callee == procedure_name .or. &
                 trim(simple_callee) == procedure_name) then
                 block
@@ -302,10 +302,10 @@ contains
                     extracted_caller = graph%calls(i)%caller
                     sep_pos = index(extracted_caller, "::", back=.true.)
                     if (sep_pos > 0) then
-                        extracted_caller = extracted_caller(sep_pos+2:)
+                        extracted_caller = extracted_caller(sep_pos + 2:)
                     end if
-                    
-                    ! Check if this caller is already in list  
+
+                    ! Check if this caller is already in list
                     if (.not. any(temp_names(1:count) == trim(extracted_caller))) then
                         count = count + 1
                         temp_names(count) = trim(extracted_caller)
@@ -313,16 +313,16 @@ contains
                 end block
             end if
         end do
-        
+
         ! Convert to properly sized result
         if (count > 0) then
-            allocate(character(len=maxval(len_trim(temp_names(1:count)))) :: &
-                     caller_names(count))
+            allocate (character(len=maxval(len_trim(temp_names(1:count)))) :: &
+                      caller_names(count))
             do i = 1, count
                 caller_names(i) = trim(temp_names(i))
             end do
         else
-            allocate(character(len=1) :: caller_names(0))
+            allocate (character(len=1) :: caller_names(0))
         end if
     end function get_callers
 
@@ -334,19 +334,19 @@ contains
         character(len=256), allocatable :: temp_names(:)
         integer :: i, count, sep_pos
         character(len=256) :: simple_caller, extracted_callee
-        
+
         ! Count unique callees
-        allocate(temp_names(graph%call_count))
+        allocate (temp_names(graph%call_count))
         count = 0
-        
+
         do i = 1, graph%call_count
             ! Extract simple name from scoped name for comparison
             simple_caller = graph%calls(i)%caller
             sep_pos = index(simple_caller, "::", back=.true.)
             if (sep_pos > 0) then
-                simple_caller = simple_caller(sep_pos+2:)
+                simple_caller = simple_caller(sep_pos + 2:)
             end if
-            
+
             if (graph%calls(i)%caller == procedure_name .or. &
                 trim(simple_caller) == procedure_name) then
                 block
@@ -355,9 +355,9 @@ contains
                     extracted_callee = graph%calls(i)%callee
                     sep_pos = index(extracted_callee, "::", back=.true.)
                     if (sep_pos > 0) then
-                        extracted_callee = extracted_callee(sep_pos+2:)
+                        extracted_callee = extracted_callee(sep_pos + 2:)
                     end if
-                    
+
                     ! Check if this callee is already in list
                     if (.not. any(temp_names(1:count) == trim(extracted_callee))) then
                         count = count + 1
@@ -366,16 +366,16 @@ contains
                 end block
             end if
         end do
-        
+
         ! Convert to properly sized result
         if (count > 0) then
-            allocate(character(len=maxval(len_trim(temp_names(1:count)))) :: &
-                     callee_names(count))
+            allocate (character(len=maxval(len_trim(temp_names(1:count)))) :: &
+                      callee_names(count))
             do i = 1, count
                 callee_names(i) = trim(temp_names(i))
             end do
         else
-            allocate(character(len=1) :: callee_names(0))
+            allocate (character(len=1) :: callee_names(0))
         end if
     end function get_callees
 
@@ -386,15 +386,15 @@ contains
         logical :: is_used
         integer :: i, sep_pos
         character(len=256) :: simple_name, simple_callee
-        
+
         ! Main programs are always "used"
         do i = 1, graph%proc_count
             simple_name = graph%procedures(i)%name
             sep_pos = index(simple_name, "::", back=.true.)
             if (sep_pos > 0) then
-                simple_name = simple_name(sep_pos+2:)
+                simple_name = simple_name(sep_pos + 2:)
             end if
-            
+
             if ((graph%procedures(i)%name == procedure_name .or. &
                  trim(simple_name) == procedure_name) .and. &
                 graph%procedures(i)%is_main_program) then
@@ -402,22 +402,22 @@ contains
                 return
             end if
         end do
-        
+
         ! Check if called by anyone
         do i = 1, graph%call_count
             simple_callee = graph%calls(i)%callee
             sep_pos = index(simple_callee, "::", back=.true.)
             if (sep_pos > 0) then
-                simple_callee = simple_callee(sep_pos+2:)
+                simple_callee = simple_callee(sep_pos + 2:)
             end if
-            
+
             if (graph%calls(i)%callee == procedure_name .or. &
                 trim(simple_callee) == procedure_name) then
                 is_used = .true.
                 return
             end if
         end do
-        
+
         is_used = .false.
     end function is_procedure_used
 
@@ -427,7 +427,7 @@ contains
         character(len=:), allocatable :: proc_names(:)
         integer :: i, max_len, sep_pos
         character(len=256) :: simple_name
-        
+
         if (graph%proc_count > 0) then
             ! Find max length of simple names
             max_len = 0
@@ -436,19 +436,19 @@ contains
                     simple_name = graph%procedures(i)%name
                     sep_pos = index(simple_name, "::", back=.true.)
                     if (sep_pos > 0) then
-                        simple_name = simple_name(sep_pos+2:)
+                        simple_name = simple_name(sep_pos + 2:)
                     end if
                     max_len = max(max_len, len_trim(simple_name))
                 end if
             end do
-            
-            allocate(character(len=max_len) :: proc_names(graph%proc_count))
+
+            allocate (character(len=max_len) :: proc_names(graph%proc_count))
             do i = 1, graph%proc_count
                 if (allocated(graph%procedures(i)%name)) then
                     simple_name = graph%procedures(i)%name
                     sep_pos = index(simple_name, "::", back=.true.)
                     if (sep_pos > 0) then
-                        simple_name = simple_name(sep_pos+2:)
+                        simple_name = simple_name(sep_pos + 2:)
                     end if
                     proc_names(i) = trim(simple_name)
                 else
@@ -456,7 +456,7 @@ contains
                 end if
             end do
         else
-            allocate(character(len=1) :: proc_names(0))
+            allocate (character(len=1) :: proc_names(0))
         end if
     end function get_all_procedures
 
@@ -473,64 +473,64 @@ contains
         integer, intent(in), optional :: unit
         integer :: out_unit, i, j
         character(len=:), allocatable :: callers(:), callees(:)
-        
+
         out_unit = 6  ! stdout
         if (present(unit)) out_unit = unit
-        
-        write(out_unit, '(A)') "=== Call Graph ==="
-        write(out_unit, '(A,I0)') "Total procedures: ", graph%proc_count
-        write(out_unit, '(A,I0)') "Total calls: ", graph%call_count
-        write(out_unit, *)
-        
+
+        write (out_unit, '(A)') "=== Call Graph ==="
+        write (out_unit, '(A,I0)') "Total procedures: ", graph%proc_count
+        write (out_unit, '(A,I0)') "Total calls: ", graph%call_count
+        write (out_unit, *)
+
         ! List all procedures
-        write(out_unit, '(A)') "Procedures:"
+        write (out_unit, '(A)') "Procedures:"
         do i = 1, graph%proc_count
-            write(out_unit, '(A,A)', advance='no') "  ", graph%procedures(i)%name
+            write (out_unit, '(A,A)', advance='no') "  ", graph%procedures(i)%name
             if (graph%procedures(i)%is_main_program) then
-                write(out_unit, '(A)', advance='no') ' [MAIN]'
+                write (out_unit, '(A)', advance='no') ' [MAIN]'
             end if
             if (graph%procedures(i)%is_intrinsic) then
-                write(out_unit, '(A)', advance='no') ' [INTRINSIC]'
+                write (out_unit, '(A)', advance='no') ' [INTRINSIC]'
             end if
             if (graph%procedures(i)%is_external) then
-                write(out_unit, '(A)', advance='no') ' [EXTERNAL]'
+                write (out_unit, '(A)', advance='no') ' [EXTERNAL]'
             end if
-            write(out_unit, '(A,I0,A,I0,A)') " (line ", graph%procedures(i)%line, &
-                                             ", col ", graph%procedures(i)%column, ")"
-            
+            write (out_unit, '(A,I0,A,I0,A)') " (line ", graph%procedures(i)%line, &
+                ", col ", graph%procedures(i)%column, ")"
+
             ! Show callers and callees
             callers = get_callers(graph, graph%procedures(i)%name)
             callees = get_callees(graph, graph%procedures(i)%name)
-            
+
             if (size(callers) > 0) then
-                write(out_unit, '(A)', advance='no') "    Called by: "
+                write (out_unit, '(A)', advance='no') "    Called by: "
                 do j = 1, size(callers)
-                    if (j > 1) write(out_unit, '(A)', advance='no') ", "
-                    write(out_unit, '(A)', advance='no') trim(callers(j))
+                    if (j > 1) write (out_unit, '(A)', advance='no') ", "
+                    write (out_unit, '(A)', advance='no') trim(callers(j))
                 end do
-                write(out_unit, *)
+                write (out_unit, *)
             end if
-            
+
             if (size(callees) > 0) then
-                write(out_unit, '(A)', advance='no') "    Calls: "
+                write (out_unit, '(A)', advance='no') "    Calls: "
                 do j = 1, size(callees)
-                    if (j > 1) write(out_unit, '(A)', advance='no') ", "
-                    write(out_unit, '(A)', advance='no') trim(callees(j))
+                    if (j > 1) write (out_unit, '(A)', advance='no') ", "
+                    write (out_unit, '(A)', advance='no') trim(callees(j))
                 end do
-                write(out_unit, *)
+                write (out_unit, *)
             end if
         end do
-        
+
         ! Show unused procedures
         block
             character(len=:), allocatable :: unused(:)
             integer :: k
             unused = find_unused_procedures(graph)
             if (size(unused) > 0) then
-                write(out_unit, *)
-                write(out_unit, '(A)') "Unused procedures:"
+                write (out_unit, *)
+                write (out_unit, '(A)') "Unused procedures:"
                 do k = 1, size(unused)
-                    write(out_unit, '(A,A)') "  ", trim(unused(k))
+                    write (out_unit, '(A,A)') "  ", trim(unused(k))
                 end do
             end if
         end block
@@ -588,14 +588,14 @@ contains
         type(call_graph_builder_t) :: builder
 
         builder%graph = create_call_graph()
-        allocate(builder%symbol_table(256))
+        allocate (builder%symbol_table(256))
         if (arena_size > 0) then
-            allocate(builder%node_symbol_map(arena_size))
+            allocate (builder%node_symbol_map(arena_size))
             builder%node_symbol_map = 0
         else
-            allocate(builder%node_symbol_map(0))
+            allocate (builder%node_symbol_map(0))
         end if
-        allocate(builder%unresolved_calls(0))
+        allocate (builder%unresolved_calls(0))
         builder%symbol_count = 0
         builder%unresolved_count = 0
     end function create_call_graph_builder
@@ -629,7 +629,7 @@ contains
         if (.not. allocated(arena%entries(node_index)%node)) return
 
         capacity = 128
-        allocate(stack(capacity))
+        allocate (stack(capacity))
         top = 1
         stack(top)%node_index = node_index
         stack(top)%scope_symbol = current_scope_symbol
@@ -648,9 +648,9 @@ contains
                 select type (node => arena%entries(item%node_index)%node)
                 type is (program_node)
                     call builder%graph%add_proc(node%name, item%node_index, &
-                        node%line, node%column, is_main=.true.)
+                                                node%line, node%column, is_main=.true.)
                     call add_symbol_entry(builder, node%name, node%name, 0, &
-                        item%node_index, .true., symbol_id)
+                                          item%node_index, .true., symbol_id)
                     if (allocated(node%body_indices)) then
                         do i = size(node%body_indices), 1, -1
                             call push(node%body_indices(i), symbol_id)
@@ -665,11 +665,11 @@ contains
                 type is (function_def_node)
                     parent_symbol = item%scope_symbol
                     full_name = compute_full_name(builder, parent_symbol, &
-                        node%name)
+                                                  node%name)
                     call builder%graph%add_proc(full_name, item%node_index, &
-                        node%line, node%column)
+                                                node%line, node%column)
                     call add_symbol_entry(builder, node%name, full_name, &
-                        parent_symbol, item%node_index, .true., symbol_id)
+                                          parent_symbol, item%node_index, .true., symbol_id)
                     if (allocated(node%body_indices)) then
                         do i = size(node%body_indices), 1, -1
                             call push(node%body_indices(i), symbol_id)
@@ -684,11 +684,11 @@ contains
                 type is (subroutine_def_node)
                     parent_symbol = item%scope_symbol
                     full_name = compute_full_name(builder, parent_symbol, &
-                        node%name)
+                                                  node%name)
                     call builder%graph%add_proc(full_name, item%node_index, &
-                        node%line, node%column)
+                                                node%line, node%column)
                     call add_symbol_entry(builder, node%name, full_name, &
-                        parent_symbol, item%node_index, .true., symbol_id)
+                                          parent_symbol, item%node_index, .true., symbol_id)
                     if (allocated(node%body_indices)) then
                         do i = size(node%body_indices), 1, -1
                             call push(node%body_indices(i), symbol_id)
@@ -704,11 +704,11 @@ contains
                     if (item%scope_symbol > 0) then
                         caller_name = builder%symbol_table(item%scope_symbol)%full_name
                         resolved_symbol = resolve_procedure_symbol(builder, &
-                            node%name, item%scope_symbol)
+                                                                   node%name, item%scope_symbol)
                         call add_call_with_resolution(builder, &
-                            item%scope_symbol, trim(caller_name), node%name, &
-                            resolved_symbol, item%node_index, node%line, &
-                            node%column)
+                                                      item%scope_symbol, trim(caller_name), node%name, &
+                                                      resolved_symbol, item%node_index, node%line, &
+                                                      node%column)
                     end if
                 end select
 
@@ -718,11 +718,11 @@ contains
                     if (item%scope_symbol > 0 .and. .not. node%is_array_access) then
                         caller_name = builder%symbol_table(item%scope_symbol)%full_name
                         resolved_symbol = resolve_procedure_symbol(builder, &
-                            node%name, item%scope_symbol)
+                                                                   node%name, item%scope_symbol)
                         call add_call_with_resolution(builder, &
-                            item%scope_symbol, trim(caller_name), node%name, &
-                            resolved_symbol, item%node_index, node%line, &
-                            node%column)
+                                                      item%scope_symbol, trim(caller_name), node%name, &
+                                                      resolved_symbol, item%node_index, node%line, &
+                                                      node%column)
                     end if
                 end select
 
@@ -744,7 +744,7 @@ contains
                 select type (node => arena%entries(item%node_index)%node)
                 type is (module_node)
                     call add_symbol_entry(builder, node%name, node%name, 0, &
-                        item%node_index, .false., symbol_id)
+                                          item%node_index, .false., symbol_id)
                     if (allocated(node%procedure_indices)) then
                         do i = size(node%procedure_indices), 1, -1
                             call push(node%procedure_indices(i), symbol_id)
@@ -771,7 +771,7 @@ contains
             type(builder_stack_item_t), allocatable :: tmp(:)
 
             capacity = capacity * 2
-            allocate(tmp(capacity))
+            allocate (tmp(capacity))
             if (top > 0) then
                 tmp(1:top) = stack(1:top)
             end if
@@ -806,7 +806,7 @@ contains
 
     ! Add or update a symbol entry used for scope resolution
     subroutine add_symbol_entry(builder, simple_name, full_name, parent_symbol, &
-            node_index, is_procedure, symbol_id)
+                                node_index, is_procedure, symbol_id)
         type(call_graph_builder_t), intent(inout) :: builder
         character(len=*), intent(in) :: simple_name
         character(len=*), intent(in) :: full_name
@@ -818,9 +818,9 @@ contains
         type(symbol_entry_t), allocatable :: temp_table(:)
 
         if (.not. allocated(builder%symbol_table)) then
-            allocate(builder%symbol_table(256))
+            allocate (builder%symbol_table(256))
         else if (builder%symbol_count >= size(builder%symbol_table)) then
-            allocate(temp_table(max(1, size(builder%symbol_table) * 2)))
+            allocate (temp_table(max(1, size(builder%symbol_table) * 2)))
             if (builder%symbol_count > 0) then
                 temp_table(1:builder%symbol_count) = &
                     builder%symbol_table(1:builder%symbol_count)
@@ -845,7 +845,7 @@ contains
 
     ! Record a call edge and track unresolved callees for later resolution
     subroutine add_call_with_resolution(builder, scope_symbol, caller_name, &
-            callee_simple, resolved_symbol, call_node, line, column)
+                                        callee_simple, resolved_symbol, call_node, line, column)
         type(call_graph_builder_t), intent(inout) :: builder
         integer, intent(in) :: scope_symbol
         character(len=*), intent(in) :: caller_name
@@ -865,19 +865,19 @@ contains
         end if
 
         call builder%graph%add_call_edge(trim(caller_name), trim(callee_name), &
-            call_node, line, column)
+                                         call_node, line, column)
 
         call_index = builder%graph%call_count
 
         if (resolved_symbol <= 0) then
             call register_unresolved_call(builder, call_index, callee_simple, &
-                scope_symbol)
+                                          scope_symbol)
         end if
     end subroutine add_call_with_resolution
 
     ! Store unresolved call metadata for deferred resolution
     subroutine register_unresolved_call(builder, call_index, callee_simple, &
-            scope_symbol)
+                                        scope_symbol)
         type(call_graph_builder_t), intent(inout) :: builder
         integer, intent(in) :: call_index
         character(len=*), intent(in) :: callee_simple
@@ -888,10 +888,10 @@ contains
         integer :: slot
 
         if (.not. allocated(builder%unresolved_calls)) then
-            allocate(builder%unresolved_calls(16))
+            allocate (builder%unresolved_calls(16))
         else if (builder%unresolved_count >= size(builder%unresolved_calls)) then
             new_size = max(16, size(builder%unresolved_calls) * 2)
-            allocate(temp(new_size))
+            allocate (temp(new_size))
             if (builder%unresolved_count > 0) then
                 temp(1:builder%unresolved_count) = &
                     builder%unresolved_calls(1:builder%unresolved_count)
@@ -926,7 +926,7 @@ contains
             simple_name = builder%unresolved_calls(i)%callee_simple
 
             symbol_id = resolve_procedure_symbol(builder, simple_name, &
-                builder%unresolved_calls(i)%scope_symbol)
+                                                 builder%unresolved_calls(i)%scope_symbol)
             if (symbol_id <= 0) cycle
 
             builder%graph%calls(call_index)%callee = &
@@ -959,7 +959,7 @@ contains
 
     ! Resolve a simple procedure name to the best matching symbol entry
     integer function resolve_procedure_symbol(builder, simple_name, scope_symbol) &
-            result(symbol_id)
+        result(symbol_id)
         type(call_graph_builder_t), intent(in) :: builder
         character(len=*), intent(in) :: simple_name
         integer, intent(in) :: scope_symbol
@@ -984,7 +984,7 @@ contains
 
     ! Locate a symbol by simple name constrained to a specific parent scope
     integer function find_symbol_with_parent(builder, simple_name, parent_symbol) &
-            result(symbol_id)
+        result(symbol_id)
         type(call_graph_builder_t), intent(in) :: builder
         character(len=*), intent(in) :: simple_name
         integer, intent(in) :: parent_symbol
@@ -1052,7 +1052,7 @@ contains
         sep = index(trimmed, '::', back=.true.)
 
         if (sep > 0) then
-            simple = trim(trimmed(sep+2:))
+            simple = trim(trimmed(sep + 2:))
         else
             simple = trimmed
         end if
@@ -1091,12 +1091,12 @@ contains
             end if
 
             inferred_full_name = compute_full_name(builder, parent_symbol, &
-                simple_callee)
+                                                   simple_callee)
 
             if (find_symbol_by_full_name(builder, inferred_full_name) > 0) cycle
 
             call add_symbol_entry(builder, simple_callee, inferred_full_name, &
-                parent_symbol, 0, .true., new_symbol)
+                                  parent_symbol, 0, .true., new_symbol)
             call builder%graph%add_proc(inferred_full_name, 0, 0, 0)
         end do
     end subroutine handle_missing_nested_procedures
@@ -1121,7 +1121,7 @@ contains
             simple_name = proc_name
             sep_pos = index(simple_name, '::', back=.true.)
             if (sep_pos > 0) then
-                simple_name = simple_name(sep_pos+2:)
+                simple_name = simple_name(sep_pos + 2:)
             end if
 
             has_recursive_call = .false.
@@ -1153,7 +1153,7 @@ contains
                     parent_scope = proc_name
                     sep_pos = index(parent_scope, '::', back=.true.)
                     if (sep_pos > 0) then
-                        parent_scope = parent_scope(1:sep_pos-1)
+                        parent_scope = parent_scope(1:sep_pos - 1)
                     else
                         parent_scope = ''
                     end if
@@ -1179,7 +1179,7 @@ contains
                         index(simple_name, 'factorial') > 0) then
                         proc_symbol = find_symbol_by_full_name(builder, proc_name)
                         call add_call_with_resolution(builder, proc_symbol, &
-                            proc_name, simple_name, proc_symbol, 0, 0, 0)
+                                                      proc_name, simple_name, proc_symbol, 0, 0, 0)
                     end if
                 end block
             end if
@@ -1188,25 +1188,25 @@ contains
 
     ! Type-bound procedures
     subroutine graph_add_procedure(this, name, def_node, line, column, &
-                                  is_main, is_intrinsic, is_external)
+                                   is_main, is_intrinsic, is_external)
         class(call_graph_t), intent(inout) :: this
         character(len=*), intent(in) :: name
         integer, intent(in) :: def_node
         integer, intent(in) :: line, column
         logical, intent(in), optional :: is_main, is_intrinsic, is_external
-        
+
         call add_procedure(this, name, def_node, line, column, &
-                         is_main, is_intrinsic, is_external)
+                           is_main, is_intrinsic, is_external)
     end subroutine graph_add_procedure
 
     subroutine graph_add_call(this, caller_name, callee_name, call_node, &
-                            line, column)
+                              line, column)
         class(call_graph_t), intent(inout) :: this
         character(len=*), intent(in) :: caller_name
         character(len=*), intent(in) :: callee_name
         integer, intent(in) :: call_node
         integer, intent(in) :: line, column
-        
+
         call add_call(this, caller_name, callee_name, call_node, line, column)
     end subroutine graph_add_call
 
@@ -1215,7 +1215,7 @@ contains
         character(len=*), intent(in) :: name
         integer :: index
         integer :: i
-        
+
         index = 0
         do i = 1, this%proc_count
             if (this%procedures(i)%name == name) then
@@ -1229,7 +1229,7 @@ contains
         class(call_graph_t), intent(in) :: this
         character(len=*), intent(in) :: procedure_name
         character(len=:), allocatable :: caller_names(:)
-        
+
         caller_names = get_callers(this, procedure_name)
     end function graph_get_callers
 
@@ -1237,7 +1237,7 @@ contains
         class(call_graph_t), intent(in) :: this
         character(len=*), intent(in) :: procedure_name
         character(len=:), allocatable :: callee_names(:)
-        
+
         callee_names = get_callees(this, procedure_name)
     end function graph_get_callees
 
@@ -1245,14 +1245,14 @@ contains
         class(call_graph_t), intent(in) :: this
         character(len=*), intent(in) :: procedure_name
         logical :: is_used
-        
+
         is_used = is_procedure_used(this, procedure_name)
     end function graph_is_procedure_used
 
     function graph_find_unused_procedures(this) result(unused_names)
         class(call_graph_t), intent(in) :: this
         character(len=:), allocatable :: unused_names(:)
-        
+
         unused_names = find_unused_procedures(this)
     end function graph_find_unused_procedures
 
@@ -1260,39 +1260,39 @@ contains
     function find_recursive_cycles(graph) result(cycles)
         type(call_graph_t), intent(in) :: graph
         character(len=:), allocatable :: cycles(:)
-        
+
         character(len=256), allocatable :: temp_cycles(:)
         logical, allocatable :: visited(:), in_stack(:)
         integer :: cycle_count, i
-        
-        allocate(visited(graph%proc_count))
-        allocate(in_stack(graph%proc_count))
-        allocate(temp_cycles(graph%proc_count))
-        
+
+        allocate (visited(graph%proc_count))
+        allocate (in_stack(graph%proc_count))
+        allocate (temp_cycles(graph%proc_count))
+
         visited = .false.
         in_stack = .false.
         cycle_count = 0
-        
+
         ! Use depth-first search to detect cycles
         do i = 1, graph%proc_count
             if (.not. visited(i)) then
                 call dfs_cycle_detect(graph, i, visited, in_stack, &
-                                    temp_cycles, cycle_count)
+                                      temp_cycles, cycle_count)
             end if
         end do
-        
+
         ! Convert to properly sized result
         if (cycle_count > 0) then
-            allocate(character(len=maxval(len_trim(temp_cycles(1:cycle_count)))) :: &
-                     cycles(cycle_count))
+            allocate (character(len=maxval(len_trim(temp_cycles(1:cycle_count)))) :: &
+                      cycles(cycle_count))
             do i = 1, cycle_count
                 cycles(i) = trim(temp_cycles(i))
             end do
         else
-            allocate(character(len=1) :: cycles(0))
+            allocate (character(len=1) :: cycles(0))
         end if
     end function find_recursive_cycles
-    
+
     ! Helper for cycle detection using DFS
     subroutine dfs_cycle_detect(graph, proc_idx, visited, in_stack, cycles, cycle_count)
         type(call_graph_t), intent(in) :: graph
@@ -1315,7 +1315,7 @@ contains
         logical :: found
 
         capacity = 64
-        allocate(stack(capacity))
+        allocate (stack(capacity))
         top = 1
         stack(top)%proc_index = proc_idx
         stack(top)%edge_pos = 1
@@ -1366,7 +1366,7 @@ contains
 
             if (top >= capacity) then
                 capacity = capacity * 2
-                allocate(tmp(capacity))
+                allocate (tmp(capacity))
                 tmp(1:top) = stack(1:top)
                 call move_alloc(tmp, stack)
             end if
@@ -1395,7 +1395,7 @@ contains
     subroutine graph_print_call_graph(this, unit)
         class(call_graph_t), intent(in) :: this
         integer, intent(in), optional :: unit
-        
+
         call print_call_graph(this, unit)
     end subroutine graph_print_call_graph
 
@@ -1404,15 +1404,15 @@ contains
         class(call_graph_t), intent(out) :: dst
         class(call_graph_t), intent(in) :: src
         integer :: i
-        
+
         dst%proc_count = src%proc_count
         dst%call_count = src%call_count
         dst%proc_capacity = src%proc_capacity
         dst%call_capacity = src%call_capacity
-        
+
         ! Deep copy procedures
         if (allocated(src%procedures)) then
-            allocate(dst%procedures(dst%proc_capacity))
+            allocate (dst%procedures(dst%proc_capacity))
             do i = 1, dst%proc_count
                 if (allocated(src%procedures(i)%name)) then
                     dst%procedures(i)%name = src%procedures(i)%name
@@ -1425,10 +1425,10 @@ contains
                 dst%procedures(i)%is_external = src%procedures(i)%is_external
             end do
         end if
-        
+
         ! Deep copy calls
         if (allocated(src%calls)) then
-            allocate(dst%calls(dst%call_capacity))
+            allocate (dst%calls(dst%call_capacity))
             do i = 1, dst%call_count
                 if (allocated(src%calls(i)%caller)) then
                     dst%calls(i)%caller = src%calls(i)%caller
@@ -1447,7 +1447,7 @@ contains
     subroutine call_graph_assign(dst, src)
         class(call_graph_t), intent(out) :: dst
         class(call_graph_t), intent(in) :: src
-        
+
         call call_graph_deep_copy(dst, src)
     end subroutine call_graph_assign
 

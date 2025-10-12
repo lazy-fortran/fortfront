@@ -34,7 +34,7 @@ program test_all_examples
 
     ! Load expected failures list
     call load_expected_failures('examples/expected_failures.txt', &
-                                  expected_failures, num_expected_failures)
+                                expected_failures, num_expected_failures)
 
     print *, "=== Fortfront Examples Integration Test ==="
     print *, ""
@@ -44,28 +44,28 @@ program test_all_examples
 
     ! Test .lf (lazy fortran) examples
     call test_examples_by_extension(examples_dir, '.lf', fortfront_exe, &
-                                     test_count, pass_count, fail_count, skip_count, &
-                                     xfail_count, xpass_count, is_windows, &
-                                     expected_failures, num_expected_failures)
+                                    test_count, pass_count, fail_count, skip_count, &
+                                    xfail_count, xpass_count, is_windows, &
+                                    expected_failures, num_expected_failures)
 
     ! Test .f90 (standard fortran) examples
     call test_examples_by_extension(examples_dir, '.f90', fortfront_exe, &
-                                     test_count, pass_count, fail_count, skip_count, &
-                                     xfail_count, xpass_count, is_windows, &
-                                     expected_failures, num_expected_failures)
+                                    test_count, pass_count, fail_count, skip_count, &
+                                    xfail_count, xpass_count, is_windows, &
+                                    expected_failures, num_expected_failures)
 
     print *, ""
     print *, "=== Test Summary ==="
-    write(*, '(A,I0)') "Total examples tested: ", test_count
-    write(*, '(A,I0)') "Passed: ", pass_count
-    write(*, '(A,I0)') "Failed: ", fail_count
-    write(*, '(A,I0)') "XFail (expected): ", xfail_count
-    write(*, '(A,I0)') "XPass (unexpected): ", xpass_count
-    write(*, '(A,I0)') "Skipped: ", skip_count
+    write (*, '(A,I0)') "Total examples tested: ", test_count
+    write (*, '(A,I0)') "Passed: ", pass_count
+    write (*, '(A,I0)') "Failed: ", fail_count
+    write (*, '(A,I0)') "XFail (expected): ", xfail_count
+    write (*, '(A,I0)') "XPass (unexpected): ", xpass_count
+    write (*, '(A,I0)') "Skipped: ", skip_count
 
     if (test_count > 0) then
-        write(*, '(A,F5.1,A)') "Success rate: ", &
-              real(pass_count + xfail_count) * 100.0 / real(test_count), "%"
+        write (*, '(A,F5.1,A)') "Success rate: ", &
+            real(pass_count + xfail_count) * 100.0 / real(test_count), "%"
     end if
 
     print *, ""
@@ -132,58 +132,58 @@ contains
 
         num_failures = 0
 
-        inquire(file=trim(filename), exist=file_exists)
+        inquire (file=trim(filename), exist=file_exists)
         if (.not. file_exists) then
-            allocate(failures(0))
+            allocate (failures(0))
             return
         end if
 
         ! First pass: count non-empty, non-comment lines
-        open(newunit=unit_num, file=trim(filename), status='old', &
-             action='read', iostat=ios)
+        open (newunit=unit_num, file=trim(filename), status='old', &
+              action='read', iostat=ios)
         if (ios /= 0) then
-            allocate(failures(0))
+            allocate (failures(0))
             return
         end if
 
         count = 0
         do
-            read(unit_num, '(A)', iostat=ios) line
+            read (unit_num, '(A)', iostat=ios) line
             if (ios /= 0) exit
             trimmed_line = adjustl(line)
             if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
                 count = count + 1
             end if
         end do
-        close(unit_num)
+        close (unit_num)
 
         ! Allocate array
-        allocate(failures(count))
+        allocate (failures(count))
         num_failures = count
 
         ! Second pass: read filenames
-        open(newunit=unit_num, file=trim(filename), status='old', &
-             action='read', iostat=ios)
+        open (newunit=unit_num, file=trim(filename), status='old', &
+              action='read', iostat=ios)
         i = 0
         do
-            read(unit_num, '(A)', iostat=ios) line
+            read (unit_num, '(A)', iostat=ios) line
             if (ios /= 0) exit
             trimmed_line = adjustl(line)
             if (len_trim(trimmed_line) > 0 .and. trimmed_line(1:1) /= '#') then
                 i = i + 1
                 ! Extract filename before any # comment
                 if (index(trimmed_line, '#') > 0) then
-                    failures(i) = adjustl(trimmed_line(1:index(trimmed_line, '#')-1))
+                    failures(i) = adjustl(trimmed_line(1:index(trimmed_line, '#') - 1))
                 else
                     failures(i) = trim(trimmed_line)
                 end if
             end if
         end do
-        close(unit_num)
+        close (unit_num)
     end subroutine load_expected_failures
 
     function is_expected_failure(basename, expected_failures, num_expected_failures) &
-             result(is_xfail)
+        result(is_xfail)
         character(len=*), intent(in) :: basename
         character(len=256), intent(in) :: expected_failures(:)
         integer, intent(in) :: num_expected_failures
@@ -200,9 +200,9 @@ contains
     end function is_expected_failure
 
     subroutine test_examples_by_extension(examples_dir, extension, fortfront_exe, &
-                                           test_count, pass_count, fail_count, skip_count, &
-                                           xfail_count, xpass_count, is_windows, &
-                                           expected_failures, num_expected_failures)
+                                          test_count, pass_count, fail_count, skip_count, &
+                                          xfail_count, xpass_count, is_windows, &
+                                          expected_failures, num_expected_failures)
         character(len=*), intent(in) :: examples_dir, extension, fortfront_exe
         integer, intent(inout) :: test_count, pass_count, fail_count, skip_count
         integer, intent(inout) :: xfail_count, xpass_count
@@ -229,8 +229,8 @@ contains
         call execute_command_line(trim(list_command), exitstat=ios)
 
         ! Read and test each example file
-        open(newunit=unit_num, file=trim(list_file), status='old', &
-             action='read', iostat=ios)
+        open (newunit=unit_num, file=trim(list_file), status='old', &
+              action='read', iostat=ios)
 
         if (ios /= 0) then
             ! No files found with this extension, that's ok
@@ -239,7 +239,7 @@ contains
         end if
 
         do
-            read(unit_num, '(A)', iostat=ios) line
+            read (unit_num, '(A)', iostat=ios) line
             if (ios /= 0) exit
 
             if (len_trim(line) == 0) cycle
@@ -247,26 +247,26 @@ contains
             ! Build full path
             if (is_windows) then
                 call test_single_example(trim(examples_dir) // '\' // trim(line), fortfront_exe, &
-                                          test_count, pass_count, fail_count, skip_count, &
-                                          xfail_count, xpass_count, is_windows, &
-                                          expected_failures, num_expected_failures)
+                                         test_count, pass_count, fail_count, skip_count, &
+                                         xfail_count, xpass_count, is_windows, &
+                                         expected_failures, num_expected_failures)
             else
                 ! On Unix, ls gives full path already
                 call test_single_example(trim(line), fortfront_exe, &
-                                          test_count, pass_count, fail_count, skip_count, &
-                                          xfail_count, xpass_count, is_windows, &
-                                          expected_failures, num_expected_failures)
+                                         test_count, pass_count, fail_count, skip_count, &
+                                         xfail_count, xpass_count, is_windows, &
+                                         expected_failures, num_expected_failures)
             end if
         end do
 
-        close(unit_num)
+        close (unit_num)
         call cleanup_file(list_file)
 
     end subroutine test_examples_by_extension
 
     subroutine test_single_example(filepath, fortfront_exe, test_count, pass_count, &
-                                     fail_count, skip_count, xfail_count, xpass_count, &
-                                     is_windows, expected_failures, num_expected_failures)
+                                   fail_count, skip_count, xfail_count, xpass_count, &
+                                   is_windows, expected_failures, num_expected_failures)
         character(len=*), intent(in) :: filepath, fortfront_exe
         integer, intent(inout) :: test_count, pass_count, fail_count, skip_count
         integer, intent(inout) :: xfail_count, xpass_count
@@ -283,7 +283,7 @@ contains
         ! Extract basename for display and output files
         i = max(index(filepath, '/', back=.true.), index(filepath, '\', back=.true.))
         if (i > 0) then
-            basename_str = filepath(i+1:)
+            basename_str = filepath(i + 1:)
         else
             basename_str = filepath
         end if
@@ -293,10 +293,10 @@ contains
 
         test_count = test_count + 1
 
-        write(*, '(A)', advance='no') "Testing " // trim(basename_str) // " ... "
+        write (*, '(A)', advance='no') "Testing " // trim(basename_str) // " ... "
 
         ! Check if example file exists
-        inquire(file=trim(filepath), exist=file_exists)
+        inquire (file=trim(filepath), exist=file_exists)
         if (.not. file_exists) then
             print *, "SKIP (file not found)"
             skip_count = skip_count + 1
@@ -323,11 +323,11 @@ contains
         has_warning = .false.
 
         ! Check stderr file for error markers (parser errors go to stderr)
-        open(newunit=unit_out, file=trim(error_file), status='old', &
-             action='read', iostat=exit_code)
+        open (newunit=unit_out, file=trim(error_file), status='old', &
+              action='read', iostat=exit_code)
         if (exit_code == 0) then
             do
-                read(unit_out, '(A)', iostat=exit_code) line
+                read (unit_out, '(A)', iostat=exit_code) line
                 if (exit_code /= 0) exit
 
                 ! Check for errors in stderr
@@ -340,15 +340,15 @@ contains
                     has_warning = .true.
                 end if
             end do
-            close(unit_out)
+            close (unit_out)
         end if
 
         ! Check output file for code generation issues
-        open(newunit=unit_out, file=trim(output_file), status='old', &
-             action='read', iostat=exit_code)
+        open (newunit=unit_out, file=trim(output_file), status='old', &
+              action='read', iostat=exit_code)
         if (exit_code == 0) then
             do
-                read(unit_out, '(A)', iostat=exit_code) line
+                read (unit_out, '(A)', iostat=exit_code) line
                 if (exit_code /= 0) exit
 
                 ! Check for compilation failure marker
@@ -362,7 +362,7 @@ contains
                     has_unparsed = .true.
                 end if
             end do
-            close(unit_out)
+            close (unit_out)
         else
             has_error = .true.
         end if
@@ -388,7 +388,7 @@ contains
 
         ! Check if this test is expected to fail
         expect_fail = is_expected_failure(basename_str, expected_failures, &
-                                           num_expected_failures)
+                                          num_expected_failures)
 
         ! Report result
         if (has_error .or. has_unparsed) then

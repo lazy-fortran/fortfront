@@ -20,7 +20,7 @@ program test_boolean_precedence
         stop 1
     end if
 
-    contains
+contains
 
     function test_not_over_and_parentheses() result(passed)
         logical :: passed

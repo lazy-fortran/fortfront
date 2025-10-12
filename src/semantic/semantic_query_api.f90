@@ -2,7 +2,7 @@ module semantic_query_api
     ! Public API for querying semantic analysis results
     ! Provides convenient interface to access type information, symbol tables,
     ! scope information, and other semantic analysis results
-    
+
     use semantic_analyzer, only: semantic_context_t
     use scope_manager, only: scope_stack_t, SCOPE_GLOBAL, SCOPE_MODULE, &
                              SCOPE_FUNCTION, SCOPE_SUBROUTINE, SCOPE_BLOCK, &
@@ -22,7 +22,7 @@ module semantic_query_api
     public :: variable_info_t, function_info_t, type_info_t, scope_info_t
     public :: symbol_info_t
     public :: SYMBOL_VARIABLE, SYMBOL_FUNCTION, SYMBOL_SUBROUTINE, SYMBOL_UNKNOWN
-    
+
     ! Direct query functions to avoid semantic_query_t instantiation (issue #196)
     public :: is_identifier_defined_direct
     public :: get_symbols_in_scope_direct
@@ -72,7 +72,6 @@ module semantic_query_api
         integer :: depth
     end type scope_info_t
 
-
     ! Main query interface - WARNING: Assignment causes deep copies (issue #196)
     ! For production use, prefer direct query functions to avoid memory issues
     type :: semantic_query_t
@@ -118,15 +117,15 @@ contains
         type(mono_type_t) :: mono_type
 
         success = .false.
-        
+
         ! Look up variable in scope stack
         call this%context%scopes%lookup(var_name, scheme)
-        
+
         if (.not. allocated(scheme)) return
-        
+
         ! Extract type information
         mono_type = this%context%instantiate(scheme)
-        
+
         ! Fill variable info
         var_info%name = var_name
         var_info%type_name = get_type_name(mono_type)
@@ -134,17 +133,17 @@ contains
         var_info%is_array = (mono_type%kind == TARRAY)
         var_info%is_allocatable = mono_type%alloc_info%is_allocatable
         var_info%is_pointer = mono_type%alloc_info%is_pointer
-        
+
         if (var_info%is_array .and. mono_type%has_args()) then
             var_info%array_rank = get_array_rank(mono_type)
         end if
-        
+
         ! Get scope name
         var_info%scope_name = get_current_scope_name(this%context%scopes)
-        
+
         ! Check for parameter intent
         var_info%intent = ""
-        
+
         success = .true.
     end function query_get_variable_info
 
@@ -158,10 +157,10 @@ contains
         type(mono_type_t) :: mono_type
 
         success = .false.
-        
+
         ! Look up function in scope stack
         call this%context%scopes%lookup(func_name, scheme)
-        
+
         if (.not. allocated(scheme)) then
             ! Check if it's a builtin function
             mono_type = this%context%get_builtin_function_type(func_name)
@@ -173,16 +172,16 @@ contains
             end if
             return
         end if
-        
+
         ! Extract function type information
         mono_type = this%context%instantiate(scheme)
-        
+
         if (mono_type%kind /= TFUN) return  ! Not a function
-        
+
         func_info%name = func_name
         func_info%is_intrinsic = .false.
         call extract_function_signature(mono_type, func_info)
-        
+
         success = .true.
     end function query_get_function_info
 
@@ -196,15 +195,15 @@ contains
         type(mono_type_t) :: mono_type
 
         success = .false.
-        
+
         ! Look up symbol in scope stack
         call this%context%scopes%lookup(name, scheme)
-        
+
         if (.not. allocated(scheme)) return
-        
+
         mono_type = this%context%instantiate(scheme)
         call extract_type_info(mono_type, type_info)
-        
+
         success = .true.
     end function query_get_type_info_by_name
 
@@ -216,15 +215,15 @@ contains
         logical :: success
 
         success = .false.
-        
+
         if (node_index <= 0 .or. node_index > this%arena%size) return
         if (.not. allocated(this%arena%entries)) return
         if (size(this%arena%entries) < node_index) return
         if (.not. allocated(this%arena%entries(node_index)%node)) return
         if (.not. allocated(this%arena%entries(node_index)%node%inferred_type)) return
-        
+
         call extract_type_info(this%arena%entries(node_index)%node%inferred_type, &
-                                type_info)
+                               type_info)
         success = .true.
     end function query_get_type_info_by_node
 
@@ -235,19 +234,19 @@ contains
         logical :: success
 
         success = .false.
-        
+
         if (this%context%scopes%depth <= 0) return
-        
+
         scope_info%scope_type = this%context%scopes%get_current_scope_type()
         scope_info%depth = this%context%scopes%depth
         scope_info%scope_name = get_current_scope_name(this%context%scopes)
-        
+
         if (this%context%scopes%depth > 1) then
             scope_info%parent_scope_name = get_parent_scope_name(this%context%scopes)
         else
             scope_info%parent_scope_name = ""
         end if
-        
+
         success = .true.
     end function query_get_current_scope_info
 
@@ -276,7 +275,7 @@ contains
             defined = .true.
             return
         end if
-        
+
         ! Check builtin functions
         builtin_type = this%context%get_builtin_function_type(symbol_name)
         defined = (builtin_type%kind /= 0)
@@ -291,10 +290,10 @@ contains
         type(mono_type_t) :: mono_type, builtin_type
 
         symbol_type = SYMBOL_UNKNOWN
-        
+
         ! Look up in scope stack
         call this%context%scopes%lookup(symbol_name, scheme)
-        
+
         if (allocated(scheme)) then
             mono_type = this%context%instantiate(scheme)
             if (mono_type%kind == TFUN) then
@@ -304,7 +303,7 @@ contains
             end if
             return
         end if
-        
+
         ! Check builtin functions
         builtin_type = this%context%get_builtin_function_type(symbol_name)
         if (builtin_type%kind /= 0) then
@@ -313,11 +312,11 @@ contains
     end function query_get_symbol_type
 
     ! Helper functions
-    
+
     recursive function get_type_name(mono_type) result(name)
         type(mono_type_t), intent(in) :: mono_type
         character(len=:), allocatable :: name
-        
+
         select case (mono_type%kind)
         case (TINT)
             name = "integer"
@@ -345,14 +344,14 @@ contains
     function get_array_rank(mono_type) result(rank)
         type(mono_type_t), intent(in) :: mono_type
         integer :: rank
-        
+
         rank = 0
         if (mono_type%kind == TARRAY) then
-            ! For Fortran arrays, rank is typically stored in size field or 
+            ! For Fortran arrays, rank is typically stored in size field or
             ! can be inferred from the array structure
             ! For now, default to rank 1 which covers most cases
             rank = 1
-            
+
             ! If size is > 1, it might indicate multi-dimensional
             ! This is a simplified heuristic until more sophisticated
             ! rank tracking is implemented in the type system
@@ -365,7 +364,7 @@ contains
     function get_current_scope_name(scopes) result(name)
         type(scope_stack_t), intent(in) :: scopes
         character(len=:), allocatable :: name
-        
+
         if (scopes%depth > 0) then
             if (allocated(scopes%scopes(scopes%depth)%name)) then
                 name = scopes%scopes(scopes%depth)%name
@@ -380,7 +379,7 @@ contains
     function get_parent_scope_name(scopes) result(name)
         type(scope_stack_t), intent(in) :: scopes
         character(len=:), allocatable :: name
-        
+
         if (scopes%depth > 1) then
             if (allocated(scopes%scopes(scopes%depth - 1)%name)) then
                 name = scopes%scopes(scopes%depth - 1)%name
@@ -395,25 +394,25 @@ contains
     subroutine extract_function_signature(func_type, func_info)
         type(mono_type_t), intent(in) :: func_type
         type(function_info_t), intent(inout) :: func_info
-        
+
         if (func_type%kind /= TFUN .or. .not. func_type%has_args()) return
-        
+
         ! Simple case: single argument function
         if (func_type%get_args_count() == 2) then
-            allocate(character(len=16) :: func_info%parameter_names(1))
-            allocate(character(len=16) :: func_info%parameter_types(1))
-            allocate(character(len=16) :: func_info%parameter_intents(1))
-            
+            allocate (character(len=16) :: func_info%parameter_names(1))
+            allocate (character(len=16) :: func_info%parameter_types(1))
+            allocate (character(len=16) :: func_info%parameter_intents(1))
+
             func_info%parameter_names(1) = "param1"
             func_info%parameter_types(1) = get_type_name(func_type%get_arg(1))
             func_info%parameter_intents(1) = ""
             func_info%return_type = get_type_name(func_type%get_arg(2))
         else
             ! No parameters or complex curried function
-            allocate(character(len=16) :: func_info%parameter_names(0))
-            allocate(character(len=16) :: func_info%parameter_types(0))
-            allocate(character(len=16) :: func_info%parameter_intents(0))
-            
+            allocate (character(len=16) :: func_info%parameter_names(0))
+            allocate (character(len=16) :: func_info%parameter_types(0))
+            allocate (character(len=16) :: func_info%parameter_intents(0))
+
             if (func_type%has_args() .and. func_type%get_args_count() > 0) then
                 func_info%return_type = &
                     get_type_name(func_type%get_arg(func_type%get_args_count()))
@@ -426,16 +425,16 @@ contains
     subroutine extract_type_info(mono_type, type_info)
         type(mono_type_t), intent(in) :: mono_type
         type(type_info_t), intent(out) :: type_info
-        
+
         type_info%kind_name = get_type_name(mono_type)
         type_info%is_array = (mono_type%kind == TARRAY)
         type_info%is_allocatable = mono_type%alloc_info%is_allocatable
         type_info%is_pointer = mono_type%alloc_info%is_pointer
-        
+
         if (mono_type%kind == TCHAR) then
             type_info%character_length = mono_type%size
         end if
-        
+
         if (type_info%is_array .and. mono_type%has_args() .and. &
             mono_type%get_args_count() > 0) then
             type_info%array_element_type = get_type_name(mono_type%get_arg(1))
@@ -444,7 +443,7 @@ contains
     end subroutine extract_type_info
 
     ! Issue #14 required APIs
-    
+
     ! Get all symbols in current scope
     function query_get_symbols_in_scope(this, scope_type, symbols) result(success)
         class(semantic_query_t), intent(inout) :: this
@@ -452,10 +451,10 @@ contains
         type(symbol_info_t), allocatable, intent(out) :: symbols(:)
         logical :: success
         integer :: i, count, target_depth
-        
+
         success = .false.
         count = 0
-        
+
         ! Find target scope depth based on scope_type
         select case (scope_type)
         case (SCOPE_GLOBAL)
@@ -465,37 +464,37 @@ contains
         case default
             target_depth = this%context%scopes%depth
         end select
-        
+
         if (target_depth <= 0 .or. target_depth > this%context%scopes%depth) return
-        
+
         ! Count symbols in target scope
         count = this%context%scopes%scopes(target_depth)%env%count
-        
+
         if (count == 0) then
-            allocate(symbols(0))
+            allocate (symbols(0))
             success = .true.
             return
         end if
-        
+
         ! Allocate and populate symbols array
-        allocate(symbols(count))
-        
+        allocate (symbols(count))
+
         do i = 1, count
             symbols(i)%name = identifier_table_get(
-                this%context%scopes%identifier_storage,
-                this%context%scopes%scopes(target_depth)%env%name_ids(i)
+            this%context%scopes%identifier_storage,
+            this%context%scopes%scopes(target_depth)%env%name_ids(i)
             )
             symbols(i)%type_info = this%context%instantiate( &
-                this%context%scopes%scopes(target_depth)%env%schemes(i))
+                                   this%context%scopes%scopes(target_depth)%env%schemes(i))
             symbols(i)%is_parameter = .false.
             symbols(i)%is_used = .false.
             symbols(i)%is_defined = .true.
             symbols(i)%scope_level = target_depth
         end do
-        
+
         success = .true.
     end function query_get_symbols_in_scope
-    
+
     ! Get resolved type for identifier
     function query_get_identifier_type(this, identifier_name, type_info) result(success)
         class(semantic_query_t), intent(inout) :: this
@@ -503,11 +502,11 @@ contains
         type(mono_type_t), optional, intent(out) :: type_info
         logical :: success
         type(poly_type_t), allocatable :: scheme
-        
+
         success = .false.
-        
+
         call this%context%scopes%lookup(identifier_name, scheme)
-        
+
         if (allocated(scheme)) then
             if (present(type_info)) then
                 type_info = this%context%instantiate(scheme)
@@ -515,62 +514,62 @@ contains
             success = .true.
         end if
     end function query_get_identifier_type
-    
+
     ! Check if identifier is defined (alias for is_symbol_defined)
     function query_is_identifier_defined(this, identifier_name) result(defined)
         class(semantic_query_t), intent(inout) :: this
         character(len=*), intent(in) :: identifier_name
         logical :: defined
-        
+
         defined = this%is_symbol_defined(identifier_name)
     end function query_is_identifier_defined
-    
+
     ! ===== DIRECT QUERY FUNCTIONS (RECOMMENDED APPROACH) =====
     ! These functions provide the recommended way to query semantic information.
     ! They avoid the deep copy issues of semantic_query_t and should be used
     ! in production code, especially with large AST arenas.
-    ! 
+    !
     ! Benefits:
     ! - No memory allocation for query objects
     ! - No deep copies of arena/context
     ! - Direct access to semantic information
     ! - Safe to use with any size arena
-    
+
     ! Direct function to check if identifier is defined (issue #196)
     function is_identifier_defined_direct(arena, context, &
-                                           identifier_name) result(defined)
+                                          identifier_name) result(defined)
         type(ast_arena_t), intent(in) :: arena
         type(semantic_context_t), intent(inout) :: context
         character(len=*), intent(in) :: identifier_name
         logical :: defined
         type(poly_type_t), allocatable :: scheme
         type(mono_type_t) :: builtin_type
-        
-        ! Check in scope stack  
+
+        ! Check in scope stack
         call context%scopes%lookup(identifier_name, scheme)
         if (allocated(scheme)) then
             defined = .true.
             return
         end if
-        
+
         ! Check builtin functions
         builtin_type = context%get_builtin_function_type(identifier_name)
         defined = (builtin_type%kind /= 0)
     end function is_identifier_defined_direct
-    
+
     ! Direct function to get symbols in scope (issue #196)
     function get_symbols_in_scope_direct(arena, context, scope_type, &
-                                          symbols) result(success)
+                                         symbols) result(success)
         type(ast_arena_t), intent(in) :: arena
         type(semantic_context_t), intent(inout) :: context
         integer, intent(in) :: scope_type
         type(symbol_info_t), allocatable, intent(out) :: symbols(:)
         logical :: success
         integer :: i, count, target_depth
-        
+
         success = .false.
         count = 0
-        
+
         ! Find target scope depth based on scope_type
         select case (scope_type)
         case (SCOPE_GLOBAL)
@@ -580,34 +579,34 @@ contains
         case default
             target_depth = context%scopes%depth
         end select
-        
+
         if (target_depth <= 0 .or. target_depth > context%scopes%depth) return
-        
+
         ! Count symbols in target scope
         count = context%scopes%scopes(target_depth)%env%count
-        
+
         if (count == 0) then
-            allocate(symbols(0))
+            allocate (symbols(0))
             success = .true.
             return
         end if
-        
+
         ! Allocate and populate symbols array
-        allocate(symbols(count))
-        
+        allocate (symbols(count))
+
         do i = 1, count
             symbols(i)%name = identifier_table_get(
-                context%scopes%identifier_storage,
-                context%scopes%scopes(target_depth)%env%name_ids(i)
+            context%scopes%identifier_storage,
+            context%scopes%scopes(target_depth)%env%name_ids(i)
             )
             symbols(i)%type_info = context%instantiate( &
-                context%scopes%scopes(target_depth)%env%schemes(i))
+                                   context%scopes%scopes(target_depth)%env%schemes(i))
             symbols(i)%is_parameter = .false.
             symbols(i)%is_used = .false.
             symbols(i)%is_defined = .true.
             symbols(i)%scope_level = target_depth
         end do
-        
+
         success = .true.
     end function get_symbols_in_scope_direct
 

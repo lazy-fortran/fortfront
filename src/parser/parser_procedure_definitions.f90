@@ -15,7 +15,7 @@ module parser_procedure_definitions_module
     implicit none
     private
 
-   public :: parse_function_definition, parse_subroutine_definition, parse_interface_block
+    public :: parse_function_definition, parse_subroutine_definition, parse_interface_block
 
 contains
 
@@ -25,7 +25,7 @@ contains
         integer :: func_index
 
         type(token_t) :: token
-     character(len=:), allocatable :: function_name, return_type_str, result_variable_name
+        character(len=:), allocatable :: function_name, return_type_str, result_variable_name
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
         logical :: has_recursive_keyword
@@ -218,11 +218,11 @@ contains
                                     preceded_by_else = .false.
                                     if (pos > 1) then
                                         if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
-                           if (all_tokens(pos - 1)%text == "end") preceded_by_end = .true.
-                         if (all_tokens(pos - 1)%text == "else") preceded_by_else = .true.
+                                            if (all_tokens(pos - 1)%text == "end") preceded_by_end = .true.
+                                            if (all_tokens(pos - 1)%text == "else") preceded_by_else = .true.
                                         end if
                                     end if
-                              if (.not. preceded_by_end .and. .not. preceded_by_else) then
+                                    if (.not. preceded_by_end .and. .not. preceded_by_else) then
                                         depth = depth + 1
                                     end if
                                 case ("end")
@@ -277,15 +277,15 @@ contains
                     end if
 
                     ! Parse the statement (handle multi-line IF blocks)
-     if (token%kind == TK_KEYWORD .and. (token%text == "if" .or. token%text == "IF")) then
+                    if (token%kind == TK_KEYWORD .and. (token%text == "if" .or. token%text == "IF")) then
                         stmt_index = parse_if_statement_tokens(stmt_tokens, arena)
                         if (stmt_index <= 0) then
                             block_parser = create_parser_state(stmt_tokens)
-             stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                            stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
                         end if
                     else
                         block_parser = create_parser_state(stmt_tokens)
-             stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                        stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
                     end if
 
                     ! Add to body
@@ -314,7 +314,7 @@ contains
 
         func_index = push_function_def(arena, function_name, param_indices, &
                                        return_type_str, body_indices, &
-                                     line, column, result_variable=result_variable_name, &
+                                       line, column, result_variable=result_variable_name, &
                                        is_recursive=has_recursive_keyword, &
                                        prefix_keywords=prefix_keywords)
     end function parse_function_definition
@@ -353,7 +353,7 @@ contains
                 case ("end", "END")
                     if (i < token_count) then
                         if (stmt_tokens(i + 1)%kind == TK_KEYWORD .and. &
-              (stmt_tokens(i + 1)%text == "if" .or. stmt_tokens(i + 1)%text == "IF")) then
+                            (stmt_tokens(i + 1)%text == "if" .or. stmt_tokens(i + 1)%text == "IF")) then
                             end_pos = i
                             exit
                         end if
@@ -394,7 +394,7 @@ contains
         if (else_pos > 0) then
             else_start = else_pos + 1
             else_end = end_pos - 1
-        else_body_indices = parse_if_body_tokens(stmt_tokens, else_start, else_end, arena)
+            else_body_indices = parse_if_body_tokens(stmt_tokens, else_start, else_end, arena)
         else
             allocate (else_body_indices(0))
         end if
@@ -463,7 +463,7 @@ contains
                 line_tokens(stmt_size + 1)%column = token%column
 
                 line_parser = create_parser_state(line_tokens)
-              stmt_index = parse_statement_in_if_block(line_parser, arena, line_tokens(1))
+                stmt_index = parse_statement_in_if_block(line_parser, arena, line_tokens(1))
                 if (stmt_index > 0) then
                     body_indices = [body_indices, stmt_index]
                 end if
@@ -617,11 +617,11 @@ contains
                                     preceded_by_else = .false.
                                     if (pos > 1) then
                                         if (all_tokens(pos - 1)%kind == TK_KEYWORD) then
-                           if (all_tokens(pos - 1)%text == "end") preceded_by_end = .true.
-                         if (all_tokens(pos - 1)%text == "else") preceded_by_else = .true.
+                                            if (all_tokens(pos - 1)%text == "end") preceded_by_end = .true.
+                                            if (all_tokens(pos - 1)%text == "else") preceded_by_else = .true.
                                         end if
                                     end if
-                              if (.not. preceded_by_end .and. .not. preceded_by_else) then
+                                    if (.not. preceded_by_end .and. .not. preceded_by_else) then
                                         depth = depth + 1
                                     end if
                                 case ("end")
@@ -661,7 +661,7 @@ contains
 
                     ! Parse the statement
                     block_parser = create_parser_state(stmt_tokens)
-             stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
+                    stmt_index = parse_statement_in_if_block(block_parser, arena, stmt_tokens(1))
 
                     ! Add to body
                     if (stmt_index > 0) then
@@ -682,7 +682,7 @@ contains
         end if
 
         ! Create subroutine node
-    sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
+        sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
                                         line, column)
     end function parse_subroutine_definition
 

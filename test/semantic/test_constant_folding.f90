@@ -41,10 +41,10 @@ contains
         print *, "Testing literal false condition detection..."
 
         source = "program test" // new_line('a') // &
-                "    if (.false.) then" // new_line('a') // &
-                "        print *, 'dead code'" // new_line('a') // &
-                "    end if" // new_line('a') // &
-                "end program test"
+                 "    if (.false.) then" // new_line('a') // &
+                 "        print *, 'dead code'" // new_line('a') // &
+                 "    end if" // new_line('a') // &
+                 "end program test"
 
         ! Tokenize
         call lex_source(source, tokens, error_msg)
@@ -95,10 +95,10 @@ contains
         print *, "Testing constant expression comparison (1 > 2)..."
 
         source = "program test" // new_line('a') // &
-                "    if (1 > 2) then" // new_line('a') // &
-                "        print *, 'dead code'" // new_line('a') // &
-                "    end if" // new_line('a') // &
-                "end program test"
+                 "    if (1 > 2) then" // new_line('a') // &
+                 "        print *, 'dead code'" // new_line('a') // &
+                 "    end if" // new_line('a') // &
+                 "end program test"
 
         ! Tokenize
         call lex_source(source, tokens, error_msg)
@@ -149,11 +149,11 @@ contains
         print *, "Testing parameter value propagation..."
 
         source = "program test" // new_line('a') // &
-                "    integer, parameter :: N = 0" // new_line('a') // &
-                "    if (N > 0) then" // new_line('a') // &
-                "        print *, 'dead code'" // new_line('a') // &
-                "    end if" // new_line('a') // &
-                "end program test"
+                 "    integer, parameter :: N = 0" // new_line('a') // &
+                 "    if (N > 0) then" // new_line('a') // &
+                 "        print *, 'dead code'" // new_line('a') // &
+                 "    end if" // new_line('a') // &
+                 "end program test"
 
         ! Tokenize
         call lex_source(source, tokens, error_msg)
@@ -200,25 +200,25 @@ contains
         integer :: i
         logical :: debug = .false.
 
-        associate(unused_prog_index => prog_index); end associate
-        
+        associate (unused_prog_index => prog_index); end associate
+
         found = .false.
-        
+
         if (debug) print *, "DEBUG: Checking arena with", arena%size, "nodes"
-        
+
         ! Check all nodes in the arena for if_node with constant false condition
         do i = 1, arena%size
             if (debug .and. i <= 10) then
                 print *, "DEBUG: Node", i, "type=", arena%entries(i)%node_type
             end if
-            select type(node => arena%entries(i)%node)
+            select type (node => arena%entries(i)%node)
             type is (if_node)
                 if (debug) print *, "DEBUG: Found if_node at index", i
                 ! Check if condition is marked as constant false
                 if (node%condition_index > 0 .and. &
                     node%condition_index <= arena%size) then
                     if (debug) print *, "DEBUG: Condition index is", node%condition_index
-                    select type(cond => arena%entries(node%condition_index)%node)
+                    select type (cond => arena%entries(node%condition_index)%node)
                     type is (literal_node)
                         if (debug) then
                             print *, "DEBUG: Condition is literal_node"

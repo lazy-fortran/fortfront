@@ -29,21 +29,21 @@ contains
         print *, "Testing internal procedure resolution..."
 
         source = '' // &
-            "program main" // new_line('a') // &
-            "contains" // new_line('a') // &
-            "    subroutine driver()" // new_line('a') // &
-            "        call outer()" // new_line('a') // &
-            "    end subroutine driver" // new_line('a') // &
-            "    subroutine outer()" // new_line('a') // &
-            "        call helper()" // new_line('a') // &
-            "    contains" // new_line('a') // &
-            "        subroutine helper()" // new_line('a') // &
-            "            call inner()" // new_line('a') // &
-            "        end subroutine helper" // new_line('a') // &
-            "        subroutine inner()" // new_line('a') // &
-            "        end subroutine inner" // new_line('a') // &
-            "    end subroutine outer" // new_line('a') // &
-            "end program main"
+                 "program main" // new_line('a') // &
+                 "contains" // new_line('a') // &
+                 "    subroutine driver()" // new_line('a') // &
+                 "        call outer()" // new_line('a') // &
+                 "    end subroutine driver" // new_line('a') // &
+                 "    subroutine outer()" // new_line('a') // &
+                 "        call helper()" // new_line('a') // &
+                 "    contains" // new_line('a') // &
+                 "        subroutine helper()" // new_line('a') // &
+                 "            call inner()" // new_line('a') // &
+                 "        end subroutine helper" // new_line('a') // &
+                 "        subroutine inner()" // new_line('a') // &
+                 "        end subroutine inner" // new_line('a') // &
+                 "    end subroutine outer" // new_line('a') // &
+                 "end program main"
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= '') then
@@ -85,22 +85,22 @@ contains
         print *, "Testing module and program scope traversal..."
 
         source = '' // &
-            "module math_mod" // new_line('a') // &
-            "contains" // new_line('a') // &
-            "    subroutine compute()" // new_line('a') // &
-            "        call helper()" // new_line('a') // &
-            "    contains" // new_line('a') // &
-            "        subroutine helper()" // new_line('a') // &
-            "        end subroutine helper" // new_line('a') // &
-            "    end subroutine compute" // new_line('a') // &
-            "end module math_mod" // new_line('a') // &
-            "program app" // new_line('a') // &
-            "    use math_mod" // new_line('a') // &
-            "contains" // new_line('a') // &
-            "    subroutine run()" // new_line('a') // &
-            "        call compute()" // new_line('a') // &
-            "    end subroutine run" // new_line('a') // &
-            "end program app"
+                 "module math_mod" // new_line('a') // &
+                 "contains" // new_line('a') // &
+                 "    subroutine compute()" // new_line('a') // &
+                 "        call helper()" // new_line('a') // &
+                 "    contains" // new_line('a') // &
+                 "        subroutine helper()" // new_line('a') // &
+                 "        end subroutine helper" // new_line('a') // &
+                 "    end subroutine compute" // new_line('a') // &
+                 "end module math_mod" // new_line('a') // &
+                 "program app" // new_line('a') // &
+                 "    use math_mod" // new_line('a') // &
+                 "contains" // new_line('a') // &
+                 "    subroutine run()" // new_line('a') // &
+                 "        call compute()" // new_line('a') // &
+                 "    end subroutine run" // new_line('a') // &
+                 "end program app"
 
         call lex_source(source, tokens, error_msg)
         if (error_msg /= '') then
@@ -142,7 +142,7 @@ contains
         character(len=*), intent(in) :: callee
         if (.not. edge_exists(graph, caller, callee)) then
             call report_failure('Missing call edge in call graph', &
-                caller // ' -> ' // callee)
+                                caller // ' -> ' // callee)
         end if
     end subroutine assert_edge
 
@@ -182,9 +182,9 @@ contains
         character(len=*), intent(in) :: message
         character(len=*), intent(in) :: detail
 
-        write(error_unit, '(A)') trim(message)
+        write (error_unit, '(A)') trim(message)
         if (len_trim(detail) > 0) then
-            write(error_unit, '(A)') '  Detail: ' // trim(detail)
+            write (error_unit, '(A)') '  Detail: ' // trim(detail)
         end if
         all_tests_passed = .false.
     end subroutine report_failure
@@ -198,7 +198,7 @@ contains
             do j = i + 1, graph%proc_count
                 if (trim(graph%procedures(i)%name) == trim(graph%procedures(j)%name)) then
                     call report_failure('Duplicate procedure detected', &
-                        trim(graph%procedures(i)%name))
+                                        trim(graph%procedures(i)%name))
                     return
                 end if
             end do

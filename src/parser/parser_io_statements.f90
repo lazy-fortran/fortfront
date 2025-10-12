@@ -65,7 +65,7 @@ contains
         type(token_t) :: token
         integer :: current_arg_index
 
-        allocate(arg_indices(0))
+        allocate (arg_indices(0))
 
         if (.not. parser%is_at_end()) then
             ! Parse first argument
@@ -78,7 +78,7 @@ contains
                     token = parser%peek()
                     if (token%kind /= TK_OPERATOR .or. token%text /= ",") exit
 
-                    token = parser%consume() ! consume comma
+                    token = parser%consume()  ! consume comma
                     current_arg_index = parse_comparison(parser, arena)
                     if (current_arg_index > 0) then
                         arg_indices = [arg_indices, current_arg_index]
@@ -108,7 +108,7 @@ contains
 
         ! Parse format spec (*, format string, or format variable)
         call parse_format_specifier(parser, format_spec)
-        if (len(format_spec) == 0) format_spec = "*" ! Default
+        if (len(format_spec) == 0) format_spec = "*"  ! Default
 
         ! Skip comma after format spec if present
         token = parser%peek()
@@ -149,7 +149,7 @@ contains
         ! Expect opening parenthesis
         token = parser%consume()
         if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
-            write(error_unit, *) "Error: Expected '(' after 'write' at line ", &
+            write (error_unit, *) "Error: Expected '(' after 'write' at line ", &
                 token%line
             write_index = 0
             return
@@ -158,7 +158,7 @@ contains
         ! Parse unit specifier
         unit_spec = parse_unit_specifier(parser)
         if (len(unit_spec) == 0) then
-            write(error_unit, *) &
+            write (error_unit, *) &
                 "Error: Expected unit specifier in write statement at line ", &
                 token%line
             write_index = 0
@@ -169,14 +169,14 @@ contains
         format_spec = ""
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == ",") then
-            token = parser%consume() ! consume comma
+            token = parser%consume()  ! consume comma
             call parse_format_specifier(parser, format_spec)
         end if
 
         ! Expect closing parenthesis
         token = parser%consume()
         if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
-            write(error_unit, *) &
+            write (error_unit, *) &
                 "Error: Expected ')' after write unit and format at line ", &
                 token%line
             write_index = 0
@@ -186,7 +186,7 @@ contains
         ! Parse all write arguments
         call parse_argument_list(parser, arena, arg_indices)
 
-        ! Create write statement node with parsed arguments        
+        ! Create write statement node with parsed arguments
         write_index = push_write_statement(arena, unit_spec, arg_indices, &
                                            format_spec, line, column)
     end function parse_write_statement
@@ -209,7 +209,7 @@ contains
         ! Expect opening parenthesis
         token = parser%consume()
         if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
-            write(error_unit, *) "Error: Expected '(' after 'read' at line ", &
+            write (error_unit, *) "Error: Expected '(' after 'read' at line ", &
                 token%line
             read_index = 0
             return
@@ -218,7 +218,7 @@ contains
         ! Parse unit specifier
         unit_spec = parse_unit_specifier(parser)
         if (len(unit_spec) == 0) then
-            write(error_unit, *) &
+            write (error_unit, *) &
                 "Error: Expected unit specifier in read statement at line ", &
                 token%line
             read_index = 0
@@ -229,14 +229,14 @@ contains
         format_spec = ""
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == ",") then
-            token = parser%consume() ! consume comma
+            token = parser%consume()  ! consume comma
             call parse_format_specifier(parser, format_spec)
         end if
 
         ! Expect closing parenthesis
         token = parser%consume()
         if (token%kind /= TK_OPERATOR .or. token%text /= ")") then
-            write(error_unit, *) &
+            write (error_unit, *) &
                 "Error: Expected ')' after read unit and format at line ", &
                 token%line
             read_index = 0

@@ -1,29 +1,29 @@
 program test_cli_integration
     use iso_fortran_env, only: error_unit
     implicit none
-    
+
     integer :: test_count, pass_count
     logical :: is_windows
     logical :: run_system
-    
+
     test_count = 0
     pass_count = 0
-    
+
     ! Detect if we're on Windows
     is_windows = check_if_windows()
-    
+
     ! By default, do not run CLI system tests that invoke external tools.
     ! Enable explicitly with: RUN_SYSTEM_TESTS=1 fpm test
     run_system = should_run_system_tests()
-    
+
     print *, "=== CLI Integration System Tests ==="
     print *, ""
-    
+
     if (.not. run_system) then
         print *, "SKIPPING: CLI system tests disabled (set RUN_SYSTEM_TESTS=1 to enable)"
         stop 0
     end if
-    
+
     ! Pre-build fortfront to ensure it exists before testing
     print *, "Building fortfront executable..."
     block
@@ -51,20 +51,20 @@ program test_cli_integration
         print *, "This may indicate CI environment issues or missing build dependencies"
         stop 0
     end if
-    
+
     test_count = 0  ! Reset test counter
-    
+
     ! Test 0: --help prints to stdout, empty stderr, exit 0
     call test_help_no_stderr()
 
     ! Test 1: Basic CLI I/O works
     call test_basic_io()
-    
+
     ! Test 1b (Linux-only): Basic CLI I/O with CRLF to mimic Windows text input
     if (.not. is_windows) then
         call test_basic_io_crlf()
     end if
-    
+
     ! Test 2: Error handling works
     call test_error_handling()
 
@@ -87,11 +87,11 @@ program test_cli_integration
     if (is_windows) then
         call test_basic_io_windows_pipe()
     end if
-    
+
     print *, ""
     print *, "=== Test Summary ==="
-    write(*, '(A,I0,A,I0,A)') "Passed: ", pass_count, "/", test_count, " tests"
-    
+    write (*, '(A,I0,A,I0,A)') "Passed: ", pass_count, "/", test_count, " tests"
+
     if (pass_count == test_count) then
         print *, "All CLI system tests passed!"
         stop 0
@@ -99,7 +99,7 @@ program test_cli_integration
         print *, "Some CLI system tests failed!"
         stop 1
     end if
-    
+
 contains
 
     subroutine cleanup_file(file)
@@ -115,10 +115,10 @@ contains
     subroutine write_text_file(path, content)
         character(len=*), intent(in) :: path, content
         integer :: u, ios
-        open(newunit=u, file=path, status='replace', action='write', iostat=ios)
+        open (newunit=u, file=path, status='replace', action='write', iostat=ios)
         if (ios == 0) then
-            write(u, '(A)', iostat=ios) content
-            close(u)
+            write (u, '(A)', iostat=ios) content
+            close (u)
         end if
     end subroutine write_text_file
 
@@ -144,7 +144,7 @@ contains
         if (stat == 0) then
             if (len_trim(val) > 0) then
                 select case (adjustl(val(1:1)))
-                case ('1','y','Y','t','T')
+                case ('1', 'y', 'Y', 't', 'T')
                     run = .true.
                 end select
             end if
@@ -156,15 +156,15 @@ contains
         character(len=:), allocatable :: prefix
         integer :: ec
         logical :: script_exists
-        
+
         prefix = ""
-        
-        inquire(file='scripts/with_timeout.sh', exist=script_exists)
+
+        inquire (file='scripts/with_timeout.sh', exist=script_exists)
         if (script_exists) then
             prefix = 'scripts/with_timeout.sh ' // trim(limit_secs) // ' '
             return
         end if
-        
+
         call execute_command_line('command -v timeout >/dev/null 2>&1', exitstat=ec)
         if (ec == 0) then
             prefix = 'timeout ' // trim(limit_secs) // ' '
@@ -177,18 +177,18 @@ contains
         logical :: is_win
         character(len=10) :: os_name
         integer :: stat
-        
+
         ! Try to detect Windows through environment variable
         call get_environment_variable('OS', os_name, status=stat)
         is_win = (stat == 0 .and. os_name(1:7) == 'Windows')
-        
+
         ! Alternative: check for Windows-specific env var
         if (.not. is_win) then
             call get_environment_variable('WINDIR', os_name, status=stat)
             is_win = (stat == 0)
         end if
     end function check_if_windows
-    
+
     ! Find the fortfront executable using multiple search strategies
     function find_fortfront_executable() result(executable_path)
         character(len=:), allocatable :: executable_path
@@ -198,18 +198,18 @@ contains
         character(len=256) :: search_output
         character(len=50), dimension(20) :: build_patterns
         logical :: on_windows
-        
+
         executable_path = ""
         on_windows = check_if_windows()
-        
+
         ! Windows: locate built executable reliably via dir search
         if (on_windows) then
             ! Try multiple search roots to reliably locate build sibling directories
             block
                 character(len=64), allocatable :: roots(:)
                 integer :: r
-                allocate(roots(5))
-                roots = [ character(len=16) :: '.', '..', '..\\..', '..\\..\\..', '..\\..\\..\\..' ]
+                allocate (roots(5))
+                roots = [character(len=16) :: '.', '..', '..\\..', '..\\..\\..', '..\\..\\..\\..']
                 do r = 1, size(roots)
                     call execute_command_line('cmd /C where /R ' // trim(roots(r)) // ' fortfront.exe > fortfront_search_win.txt', &
                                               exitstat=exit_code)
@@ -217,12 +217,12 @@ contains
                         open(newunit=unit_num, file='fortfront_search_win.txt', status='old', action='read', iostat=exit_code)
                         if (exit_code == 0) then
                             do
-                                read(unit_num, '(A)', iostat=exit_code) search_output
+                                read (unit_num, '(A)', iostat=exit_code) search_output
                                 if (exit_code /= 0) exit
                                 if (len_trim(search_output) > 0) then
                                     ! Prefer app\fortfront.exe path if present
                                     if (index(adjustl(search_output), 'app\\fortfront.exe') > 0) then
-                                        inquire(file=trim(search_output), exist=file_exists)
+                                        inquire (file=trim(search_output), exist=file_exists)
                                         if (file_exists) then
                                             executable_path = trim(search_output)
                                             exit
@@ -230,27 +230,27 @@ contains
                                     end if
                                 end if
                             end do
-                            rewind(unit_num)
+                            rewind (unit_num)
                             if (len(executable_path) == 0) then
                                 ! Fallback: take first found fortfront.exe
-                                read(unit_num, '(A)', iostat=exit_code) search_output
+                                read (unit_num, '(A)', iostat=exit_code) search_output
                                 if (exit_code == 0 .and. len_trim(search_output) > 0) then
-                                    inquire(file=trim(search_output), exist=file_exists)
+                                    inquire (file=trim(search_output), exist=file_exists)
                                     if (file_exists) executable_path = trim(search_output)
                                 end if
                             end if
-                            close(unit_num)
+                            close (unit_num)
                         end if
                         call execute_command_line('cmd /C del /F /Q fortfront_search_win.txt', exitstat=exit_code)
                     end if
                     if (len(executable_path) > 0) return
                 end do
             end block
-            
+
             ! Fallback candidates
             do i = 1, 1
                 candidate_path = 'app\\fortfront.exe'
-                inquire(file=candidate_path, exist=file_exists)
+                inquire (file=candidate_path, exist=file_exists)
                 if (file_exists) then
                     executable_path = trim(candidate_path)
                     return
@@ -260,19 +260,19 @@ contains
             executable_path = ''
             return
         end if
-        
+
         ! Strategy 1: Use find command to dynamically locate fortfront executable
         call execute_command_line('find build -name "fortfront" -type f | head -1 > fortfront_search.txt', &
                                   exitstat=exit_code)
         if (exit_code == 0) then
             open(newunit=unit_num, file='fortfront_search.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
-                read(unit_num, '(A)', iostat=exit_code) search_output
-                close(unit_num)
+                read (unit_num, '(A)', iostat=exit_code) search_output
+                close (unit_num)
                 ! Clean up temporary file
                 call execute_command_line('rm -f fortfront_search.txt', exitstat=exit_code)
                 if (exit_code == 0 .and. len_trim(search_output) > 0) then
-                    inquire(file=trim(search_output), exist=file_exists)
+                    inquire (file=trim(search_output), exist=file_exists)
                     if (file_exists) then
                         executable_path = trim(search_output)
                         return
@@ -280,54 +280,53 @@ contains
                 end if
             end if
         end if
-        
+
         ! Strategy 2: Check hardcoded patterns as fallback
         ! List of common build hash patterns to check (update when needed)
         build_patterns = [ &
-            "build/gfortran_266FF454AB2555FE/app/fortfront   ", &
-            "build/gfortran_9ABCD662468F5A74/app/fortfront   ", &
-            "build/gfortran_C79DEB301B8081FC/app/fortfront   ", &
-            "build/gfortran_C523F0F8A99FF060/app/fortfront   ", &
-            "build/gfortran_1F2DC83CBD1DC595/app/fortfront   ", &
-            "build/gfortran_35CFD5CFC35942D6/app/fortfront   ", &
-            "build/gfortran_4AE9E4ED7A89B913/app/fortfront   ", &
-            "build/gfortran_66DBF6172AF51040/app/fortfront   ", &
-            "build/gfortran_A56298966DD7666C/app/fortfront   ", &
-            "build/gfortran_E3D58E6D75301430/app/fortfront   ", &
-            "build/gfortran_9CBC8EEC13D00A4A/app/fortfront   ", &
-            "./build/gfortran_266FF454AB2555FE/app/fortfront ", &
-            "./build/gfortran_9ABCD662468F5A74/app/fortfront ", &
-            "./build/gfortran_C79DEB301B8081FC/app/fortfront ", &
-            "./build/gfortran_C523F0F8A99FF060/app/fortfront ", &
-            "fortfront                                       ", &
-            "./fortfront                                     ", &
-            "app/fortfront                                   ", &
-            "./app/fortfront                                 ", &
-            "../fortfront                                    " ]
-        
+                         "build/gfortran_266FF454AB2555FE/app/fortfront   ", &
+                         "build/gfortran_9ABCD662468F5A74/app/fortfront   ", &
+                         "build/gfortran_C79DEB301B8081FC/app/fortfront   ", &
+                         "build/gfortran_C523F0F8A99FF060/app/fortfront   ", &
+                         "build/gfortran_1F2DC83CBD1DC595/app/fortfront   ", &
+                         "build/gfortran_35CFD5CFC35942D6/app/fortfront   ", &
+                         "build/gfortran_4AE9E4ED7A89B913/app/fortfront   ", &
+                         "build/gfortran_66DBF6172AF51040/app/fortfront   ", &
+                         "build/gfortran_A56298966DD7666C/app/fortfront   ", &
+                         "build/gfortran_E3D58E6D75301430/app/fortfront   ", &
+                         "build/gfortran_9CBC8EEC13D00A4A/app/fortfront   ", &
+                         "./build/gfortran_266FF454AB2555FE/app/fortfront ", &
+                         "./build/gfortran_9ABCD662468F5A74/app/fortfront ", &
+                         "./build/gfortran_C79DEB301B8081FC/app/fortfront ", &
+                         "./build/gfortran_C523F0F8A99FF060/app/fortfront ", &
+                         "fortfront                                       ", &
+                         "./fortfront                                     ", &
+                         "app/fortfront                                   ", &
+                         "./app/fortfront                                 ", &
+                         "../fortfront                                    "]
+
         ! Check each candidate path
         do i = 1, size(build_patterns)
             candidate_path = trim(build_patterns(i))
-            inquire(file=candidate_path, exist=file_exists)
-            
+            inquire (file=candidate_path, exist=file_exists)
+
             if (file_exists) then
                 executable_path = trim(candidate_path)
                 return
             end if
         end do
-        
+
     end function find_fortfront_executable
-    
-    
+
     subroutine test_basic_io()
         integer :: exit_code, run_status
         character(len=256) :: output_line, err_line
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
         logical :: success
-        
+
         call test_start("Basic CLI I/O")
-        
+
         ! Find the fortfront executable
         executable_path = find_fortfront_executable()
         if (len(executable_path) == 0) then
@@ -335,10 +334,10 @@ contains
             print *, "  ERROR: Could not locate fortfront executable"
             return
         end if
-        
+
         ! Prepare input file for cross-platform piping
         call write_text_file('test_input.lf', 'print *, ''test''' // new_line('a'))
-        
+
         ! Execute with input. On Windows, prefer passing filename to avoid pipe forwarding issues via fpm.
         if (is_windows) then
             command = 'cmd /C ""' // executable_path // '" test_input.lf > test_output.txt 2> test_error.txt"'
@@ -347,50 +346,50 @@ contains
                                          'test_output.txt', 'test_error.txt', .false.)
         end if
         call execute_command_line(command, exitstat=run_status)
-        
+
         success = (run_status == 0)
-        
+
         if (success) then
             ! Check if output contains expected Fortran code (scan file)
-            open(unit=10, file='test_output.txt', status='old', action='read', iostat=exit_code)
+            open (unit=10, file='test_output.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
                 success = .false.
                 do
-                    read(10, '(A)', end=100, iostat=exit_code) output_line
+                    read (10, '(A)', end=100, iostat=exit_code) output_line
                     if (exit_code /= 0) exit
                     if (index(output_line, 'program main') > 0) then
                         success = .true.
                         exit
                     end if
                 end do
-100             close(10)
+100             close (10)
                 ! On Windows via fpm wrapper, allow any non-empty output as success
                 if (.not. success .and. is_windows) then
-                    open(unit=13, file='test_output.txt', status='old', action='read', iostat=exit_code)
+                    open (unit=13, file='test_output.txt', status='old', action='read', iostat=exit_code)
                     if (exit_code == 0) then
                         do
-                            read(13, '(A)', end=102, iostat=exit_code) output_line
+                            read (13, '(A)', end=102, iostat=exit_code) output_line
                             if (exit_code /= 0) exit
                             if (len_trim(output_line) > 0) then
                                 success = .true.
                                 exit
                             end if
                         end do
-102                     close(13)
+102                     close (13)
                     end if
                 end if
                 ! Ensure no diagnostics leaked to stderr (should be empty on success)
-                open(unit=12, file='test_error.txt', status='old', action='read', iostat=exit_code)
+                open (unit=12, file='test_error.txt', status='old', action='read', iostat=exit_code)
                 if (exit_code == 0) then
                     do
-                        read(12, '(A)', end=101, iostat=exit_code) err_line
+                        read (12, '(A)', end=101, iostat=exit_code) err_line
                         if (exit_code /= 0) exit
                         if (len_trim(err_line) > 0) then
                             success = .false.
                             exit
                         end if
                     end do
-101                 close(12)
+101                 close (12)
                 end if
                 ! Clean up test files
                 call cleanup_file('test_input.lf')
@@ -400,23 +399,23 @@ contains
                 success = .false.
             end if
         end if
-        
+
         call test_result(success)
         if (.not. success) then
             print *, "  Failed to run basic CLI command"
             print *, "  Executable path: ", executable_path
             print *, "  Exit code: ", run_status
             ! Dump captured stderr for diagnostics (Windows and POSIX)
-            open(unit=98, file='test_error.txt', status='old', action='read', iostat=exit_code)
+            open (unit=98, file='test_error.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
                 do
-                    read(98, '(A)', end=199, iostat=exit_code) err_line
+                    read (98, '(A)', end=199, iostat=exit_code) err_line
                     if (exit_code /= 0) exit
                     if (len_trim(err_line) > 0) then
                         print *, '  TRACE: ', trim(err_line)
                     end if
                 end do
-199             close(98)
+199             close (98)
             end if
         end if
     end subroutine test_basic_io
@@ -460,30 +459,30 @@ contains
 
         if (success) then
             ! Verify expected output and empty stderr
-            open(unit=14, file='test_output_crlf.txt', status='old', action='read', iostat=exit_code)
+            open (unit=14, file='test_output_crlf.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
                 success = .false.
                 do
-                    read(14, '(A)', end=110, iostat=exit_code) output_line
+                    read (14, '(A)', end=110, iostat=exit_code) output_line
                     if (exit_code /= 0) exit
                     if (index(output_line, 'program main') > 0) then
                         success = .true.
                         exit
                     end if
                 end do
-110             close(14)
+110             close (14)
 
-                open(unit=15, file='test_error_crlf.txt', status='old', action='read', iostat=exit_code)
+                open (unit=15, file='test_error_crlf.txt', status='old', action='read', iostat=exit_code)
                 if (exit_code == 0) then
                     do
-                        read(15, '(A)', end=111, iostat=exit_code) err_line
+                        read (15, '(A)', end=111, iostat=exit_code) err_line
                         if (exit_code /= 0) exit
                         if (len_trim(err_line) > 0) then
                             success = .false.
                             exit
                         end if
                     end do
-111                 close(15)
+111                 close (15)
                 end if
             else
                 success = .false.
@@ -533,14 +532,14 @@ contains
             if (exit_code == 0) then
                 success = .false.
                 do
-                    read(16, '(A)', end=120, iostat=exit_code) output_line
+                    read (16, '(A)', end=120, iostat=exit_code) output_line
                     if (exit_code /= 0) exit
                     if (len_trim(output_line) > 0) then
                         success = .true.
                         exit
                     end if
                 end do
-120             close(16)
+120             close (16)
             else
                 success = .false.
             end if
@@ -557,26 +556,26 @@ contains
             open(unit=96, file='test_error_pipe_win.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
                 do
-                    read(96, '(A)', end=398, iostat=exit_code) line
+                    read (96, '(A)', end=398, iostat=exit_code) line
                     if (exit_code /= 0) exit
                     if (len_trim(line) > 0) then
                         print *, '  TRACE: ', trim(line)
                     end if
                 end do
-398             close(96)
+398             close (96)
             end if
         end if
     end subroutine test_basic_io_windows_pipe
-    
+
     subroutine test_error_handling()
         integer :: exit_code, run_status
         character(len=512) :: command
         character(len=256) :: line
         character(len=:), allocatable :: executable_path
         logical :: success
-        
+
         call test_start("Error handling")
-        
+
         ! Find the fortfront executable
         executable_path = find_fortfront_executable()
         if (len(executable_path) == 0) then
@@ -584,35 +583,35 @@ contains
             print *, "  ERROR: Could not locate fortfront executable"
             return
         end if
-        
+
         ! Run with invalid input (cross-platform piping)
         call write_text_file('test_invalid.lf', 'invalid fortran code @#$%' // new_line('a'))
         command = build_pipe_command(executable_path, 'test_invalid.lf', &
                                      'test_output2.txt', 'test_error2.txt', is_windows)
         call execute_command_line(command, exitstat=run_status)
-        
+
         ! Clean up test files
         call cleanup_file('test_invalid.lf')
         call cleanup_file('test_output2.txt')
         call cleanup_file('test_error2.txt')
-        
+
         ! Invalid source input should not crash; current design returns 0
         success = (run_status == 0)
-        
+
         call test_result(success)
         if (.not. success) then
             print *, "  Error handling failed"
             print *, "  Exit code: ", run_status
-            open(unit=97, file='test_error2.txt', status='old', action='read', iostat=exit_code)
+            open (unit=97, file='test_error2.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
                 do
-                    read(97, '(A)', end=298, iostat=exit_code) line
+                    read (97, '(A)', end=298, iostat=exit_code) line
                     if (exit_code /= 0) exit
                     if (len_trim(line) > 0) then
                         print *, '  TRACE: ', trim(line)
                     end if
                 end do
-298             close(97)
+298             close (97)
             end if
         end if
     end subroutine test_error_handling
@@ -724,31 +723,31 @@ contains
 
         if (success) then
             ! Output should be a valid program; stderr should be empty
-            open(unit=31, file='out_hyphen.txt', status='old', action='read', iostat=exit_code)
+            open (unit=31, file='out_hyphen.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
-                read(31, '(A)', end=410, iostat=exit_code) line
+                read (31, '(A)', end=410, iostat=exit_code) line
                 if (exit_code == 0) then
                     success = (index(line, 'program main') > 0)
                 else
                     success = .false.
                 end if
-410             close(31)
+410             close (31)
             else
                 success = .false.
             end if
 
             if (success) then
-                open(unit=32, file='err_hyphen.txt', status='old', action='read', iostat=exit_code)
+                open (unit=32, file='err_hyphen.txt', status='old', action='read', iostat=exit_code)
                 if (exit_code == 0) then
                     do
-                        read(32, '(A)', end=411, iostat=exit_code) line
+                        read (32, '(A)', end=411, iostat=exit_code) line
                         if (exit_code /= 0) exit
                         if (len_trim(line) > 0) then
                             success = .false.
                             exit
                         end if
                     end do
-411                 close(32)
+411                 close (32)
                 end if
             end if
         end if
@@ -799,13 +798,13 @@ contains
 
         ! And program output should still be produced
         if (success) then
-            open(unit=21, file='test_out_func.txt', status='old', action='read', iostat=exit_code)
+            open (unit=21, file='test_out_func.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
-                read(21, '(A)', end=300, iostat=exit_code) line
+                read (21, '(A)', end=300, iostat=exit_code) line
                 if (exit_code == 0) then
                     success = success .and. (index(line, 'program main') > 0)
                 end if
-300             close(21)
+300             close (21)
             else
                 success = .false.
             end if
@@ -822,16 +821,16 @@ contains
             print *, "  Exit code: ", run_status
         end if
     end subroutine test_func_syntax_error_outputs_program
-    
+
     subroutine test_empty_input()
         integer :: exit_code
         character(len=256) :: output_line
         character(len=512) :: command
         character(len=:), allocatable :: executable_path
         logical :: success
-        
+
         call test_start("Empty input produces valid program")
-        
+
         ! Find the fortfront executable
         executable_path = find_fortfront_executable()
         if (len(executable_path) == 0) then
@@ -839,7 +838,7 @@ contains
             print *, "  ERROR: Could not locate fortfront executable"
             return
         end if
-        
+
         ! Run with empty input (cross-platform)
         if (is_windows) then
             ! Use NUL on Windows to pipe empty input
@@ -849,18 +848,18 @@ contains
                       executable_path // ' > test_output3.txt 2>test_error3.txt"'
         end if
         call execute_command_line(command, exitstat=exit_code)
-        
+
         success = (exit_code == 0)
-        
+
         if (success) then
             ! Check output contains valid empty program
-            open(unit=11, file='test_output3.txt', status='old', action='read', iostat=exit_code)
+            open (unit=11, file='test_output3.txt', status='old', action='read', iostat=exit_code)
             if (exit_code == 0) then
-                read(11, '(A)', end=200, iostat=exit_code) output_line
+                read (11, '(A)', end=200, iostat=exit_code) output_line
                 if (exit_code == 0) then
                     success = success .and. (index(output_line, 'program main') > 0)
                 end if
-200             close(11)
+200             close (11)
                 ! Clean up test files
                 call cleanup_file('test_output3.txt')
                 call cleanup_file('test_error3.txt')
@@ -868,7 +867,7 @@ contains
                 success = .false.
             end if
         end if
-        
+
         call test_result(success)
         if (.not. success) then
             print *, "  Empty input handling failed"
@@ -903,17 +902,17 @@ contains
 
         ! Ensure stderr is empty
         if (success) then
-            open(unit=31, file='help_err.txt', status='old', action='read', iostat=ios)
+            open (unit=31, file='help_err.txt', status='old', action='read', iostat=ios)
             if (ios == 0) then
                 do
-                    read(31, '(A)', iostat=ios) line
+                    read (31, '(A)', iostat=ios) line
                     if (ios /= 0) exit
                     if (len_trim(line) > 0) then
                         success = .false.
                         exit
                     end if
                 end do
-                close(31)
+                close (31)
             else
                 success = .false.
             end if
@@ -921,15 +920,15 @@ contains
 
         ! Quick sanity: stdout contains usage header
         if (success) then
-            open(unit=32, file='help_out.txt', status='old', action='read', iostat=ios)
+            open (unit=32, file='help_out.txt', status='old', action='read', iostat=ios)
             if (ios == 0) then
-                read(32, '(A)', iostat=ios) line
+                read (32, '(A)', iostat=ios) line
                 if (ios == 0) then
                     success = (index(line, 'fortfront -') > 0)
                 else
                     success = .false.
                 end if
-                close(32)
+                close (32)
             else
                 success = .false.
             end if
@@ -943,13 +942,13 @@ contains
             print *, "  --help did not meet expectations (exit=", run_status, ")"
         end if
     end subroutine test_help_no_stderr
-    
+
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
         test_count = test_count + 1
-        write(*, '(A)', advance='no') "Testing: " // test_name // "  ... "
+        write (*, '(A)', advance='no') "Testing: " // test_name // "  ... "
     end subroutine test_start
-    
+
     subroutine test_result(passed)
         logical, intent(in) :: passed
         if (passed) then
@@ -959,5 +958,5 @@ contains
             print *, "FAILED"
         end if
     end subroutine test_result
-    
+
 end program test_cli_integration

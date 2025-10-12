@@ -20,7 +20,6 @@ module codegen_control_flow
 
 contains
 
-
     ! Generate code for if statements
     function generate_code_if(arena, node, node_index) result(code)
         type(ast_arena_t), intent(in) :: arena
@@ -55,7 +54,7 @@ contains
             do i = 1, size(node%elseif_blocks)
                 cond_code = generate_code_from_arena(arena, node%elseif_blocks(i)%condition_index)
                 code = code // new_line('A') // repeat("    ", indent_level) // "else if (" // cond_code // ") then"
-                
+
                 if (allocated(node%elseif_blocks(i)%body_indices)) then
                     body_code = generate_grouped_body_internal(arena, node%elseif_blocks(i)%body_indices, indent_level + 1)
                     if (len(body_code) > 0) then
@@ -207,14 +206,14 @@ contains
                     type is (case_block_node)
                         ! Generate case statement
                         code = code // new_line('A') // repeat("    ", indent_level)
-                        
+
                         code = code // "case ("
-                        
+
                         ! Generate case values
                         if (allocated(case_node%value_indices)) then
                             do j = 1, size(case_node%value_indices)
                                 if (j > 1) code = code // ", "
-                                
+
                                 ! Check for range
                                 if (case_node%value_indices(j) > 0) then
                                     case_code = generate_code_from_arena(arena, case_node%value_indices(j))
@@ -222,9 +221,9 @@ contains
                                 end if
                             end do
                         end if
-                        
+
                         code = code // ")"
-                        
+
                         ! Generate case body
                         if (allocated(case_node%body_indices)) then
                             body_code = generate_grouped_body_internal(arena, case_node%body_indices, indent_level + 1)
@@ -384,10 +383,10 @@ contains
         if (allocated(node%associations)) then
             do i = 1, size(node%associations)
                 if (i > 1) code = code // ", "
-                
+
                 if (allocated(node%associations(i)%name)) then
                     code = code // node%associations(i)%name // " => "
-                    
+
                     if (node%associations(i)%expr_index > 0) then
                         assoc_code = generate_code_from_arena(arena, node%associations(i)%expr_index)
                         code = code // assoc_code
@@ -417,7 +416,7 @@ contains
         integer, intent(in) :: body_indices(:)
         integer, intent(in) :: indent
         character(len=:), allocatable :: code
-        
+
         ! Use stub implementation
         code = generate_grouped_body(arena, body_indices, indent)
     end function generate_grouped_body_internal

@@ -34,7 +34,7 @@ contains
         integer :: i, free_slot
 
         if (.not. allocated(this%entries)) then
-            allocate(this%entries(this%capacity))
+            allocate (this%entries(this%capacity))
             this%size = 0
         end if
 
@@ -134,17 +134,17 @@ contains
         integer :: old_capacity
 
         if (.not. allocated(this%entries)) then
-            allocate(this%entries(this%capacity))
+            allocate (this%entries(this%capacity))
             return
         end if
 
         old_capacity = this%capacity
         this%capacity = this%capacity * 2
 
-        allocate(temp_entries(this%capacity))
+        allocate (temp_entries(this%capacity))
         temp_entries(1:old_capacity) = this%entries
-        deallocate(this%entries)
-        allocate(this%entries(this%capacity))
+        deallocate (this%entries)
+        allocate (this%entries(this%capacity))
         this%entries = temp_entries
     end subroutine cache_expand_capacity
 

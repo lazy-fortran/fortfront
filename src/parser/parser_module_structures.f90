@@ -44,8 +44,8 @@ contains
         end if
 
         ! Initialize arrays
-        allocate(declaration_indices(0))
-        allocate(procedure_indices(0))
+        allocate (declaration_indices(0))
+        allocate (procedure_indices(0))
         has_contains = .false.
         in_contains_section = .false.
 
@@ -74,7 +74,7 @@ contains
                 token = parser%consume()  ! consume "contains"
                 cycle  ! Continue to next iteration
             end if
-            
+
             ! Parse declarations in module body (before contains)
             if (.not. in_contains_section) then
                 if (token%kind == TK_KEYWORD) then
@@ -100,46 +100,46 @@ contains
                         type(token_t) :: id_token, eq_token
                         integer :: target_index, assign_index
                         character(len=:), allocatable :: assignment_op
-                        
+
                         id_token = parser%consume()  ! Get the identifier
-                        
+
                         ! Check if it's an assignment
                         eq_token = parser%peek()
                         if (eq_token%kind == TK_OPERATOR .and. &
                             (eq_token%text == "=" .or. eq_token%text == "=>")) then
                             eq_token = parser%consume()  ! Consume '=' or '=>'
                             assignment_op = eq_token%text
-                            
+
                             ! Create target identifier
                             target_index = push_identifier(arena, id_token%text, &
-                                                         id_token%line, id_token%column)
-                            
+                                                           id_token%line, id_token%column)
+
                             ! For simple module assignments, just consume the rest of the line
                             ! We'll create a simple identifier node for the RHS
                             block
                                 type(token_t) :: rhs_token
                                 integer :: rhs_index
-                                
+
                                 rhs_token = parser%peek()
                                 if (rhs_token%kind == TK_NUMBER .or. rhs_token%kind == TK_IDENTIFIER) then
                                     rhs_token = parser%consume()
-                                    
+
                                     ! Create identifier or literal node for RHS
                                     if (rhs_token%kind == TK_IDENTIFIER) then
                                         rhs_index = push_identifier(arena, rhs_token%text, &
-                                                                   rhs_token%line, rhs_token%column)
+                                                                    rhs_token%line, rhs_token%column)
                                     else
                                         ! For numbers, create as literal
                                         rhs_index = push_literal(arena, rhs_token%text, &
-                                                                rhs_token%line, rhs_token%column, LITERAL_STRING)
+                                                                 rhs_token%line, rhs_token%column, LITERAL_STRING)
                                     end if
-                                    
+
                                     if (rhs_index > 0 .and. target_index > 0) then
                                         ! Create assignment node
                                         if (.not. allocated(assignment_op)) assignment_op = "="
                                         assign_index = push_assignment(arena, target_index, rhs_index, &
-                                                                     id_token%line, id_token%column, &
-                                                                     operator_text=assignment_op)
+                                                                       id_token%line, id_token%column, &
+                                                                       operator_text=assignment_op)
                                         if (assign_index > 0) then
                                             declaration_indices = [declaration_indices, assign_index]
                                         end if
@@ -167,7 +167,7 @@ contains
                 end block
                 cycle
             end if
-            
+
             ! Parse function definitions for contains section
             if (in_contains_section .and. token%kind == TK_KEYWORD .and. token%text == "function") then
                 ! Parse the function and add to procedure list
@@ -180,19 +180,19 @@ contains
                 end block
                 cycle
             end if
-            
+
             ! Handle comments specially - skip them without disrupting module parsing
             if (token%kind == TK_COMMENT .or. token%kind == TK_NEWLINE) then
                 token = parser%consume()  ! Skip comment/newline
                 cycle  ! Continue to next iteration
             end if
-            
+
             if (in_contains_section) then
                 ! Don't consume function/subroutine - let them be handled by the checks above
                 if (.not. (token%kind == TK_KEYWORD .and. (token%text == "function" .or. token%text == "subroutine"))) then
                     token = parser%consume()
                 end if
-            else  
+            else
                 ! Default: consume unhandled token in module body
                 token = parser%consume()
             end if
@@ -200,9 +200,9 @@ contains
 
         ! Create module node with proper structure
         module_index = push_module_structured(arena, module_name, declaration_indices, &
-                                             procedure_indices, has_contains, line, column)
+                                              procedure_indices, has_contains, line, column)
     end function parse_module
-    
+
     ! Parse a simple implicit statement in module context
     subroutine parse_simple_implicit_in_module(parser, arena, stmt_index)
         type(parser_state_t), intent(inout) :: parser
@@ -210,12 +210,12 @@ contains
         integer, intent(out) :: stmt_index
         type(token_t) :: implicit_token, none_token
         character(len=:), allocatable :: implicit_type
-        
+
         stmt_index = 0
-        
+
         ! Get implicit keyword
         implicit_token = parser%consume()
-        
+
         ! Check for 'none'
         none_token = parser%peek()
         if (none_token%kind == TK_KEYWORD .and. none_token%text == "none") then
@@ -224,14 +224,14 @@ contains
         else
             implicit_type = "default"
         end if
-        
+
         ! Create implicit statement node
         if (implicit_type == "none") then
             stmt_index = push_implicit_statement(arena, .true., &
-                                               line=implicit_token%line, column=implicit_token%column)
+                                                 line=implicit_token%line, column=implicit_token%column)
         else
             stmt_index = push_implicit_statement(arena, .false., &
-                                               line=implicit_token%line, column=implicit_token%column)
+                                                 line=implicit_token%line, column=implicit_token%column)
         end if
     end subroutine parse_simple_implicit_in_module
 
@@ -241,22 +241,22 @@ contains
         character(len=*), intent(in) :: proc_type
         type(token_t) :: token
         integer :: nesting_level
-        
+
         nesting_level = 1  ! We're already inside a procedure
-        
+
         ! Consume the procedure keyword
         token = parser%consume()
-        
+
         ! Skip the procedure name if present
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER) then
             token = parser%consume()
         end if
-        
+
         ! Skip until matching "end <proc_type>"
         do while (.not. parser%is_at_end() .and. nesting_level > 0)
             token = parser%peek()
-            
+
             if (token%kind == TK_KEYWORD) then
                 if (token%text == proc_type) then
                     nesting_level = nesting_level + 1
@@ -270,7 +270,7 @@ contains
                     end if
                 end if
             end if
-            
+
             token = parser%consume()
         end do
     end subroutine skip_procedure_body

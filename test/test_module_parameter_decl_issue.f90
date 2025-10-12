@@ -64,7 +64,7 @@ contains
 
         ! Verify the output
         test_passed = .true.
-        
+
         ! Check function signature
         if (index(output_code, 'function calc(a, b, c)') == 0) then
             print *, "ERROR: Function signature incomplete"
@@ -113,7 +113,7 @@ contains
     subroutine print_lines(text)
         character(*), intent(in) :: text
         integer :: i, start, end_pos
-        
+
         start = 1
         do i = 1, len(text)
             if (text(i:i) == new_line('A')) then
@@ -135,23 +135,23 @@ contains
     subroutine find_and_print_line(text, search_str)
         character(*), intent(in) :: text, search_str
         integer :: pos, line_start, line_end
-        
+
         pos = index(text, search_str)
         if (pos > 0) then
             ! Find start of line
             line_start = pos
             do while (line_start > 1)
-                if (text(line_start-1:line_start-1) == new_line('A')) exit
+                if (text(line_start - 1:line_start - 1) == new_line('A')) exit
                 line_start = line_start - 1
             end do
-            
+
             ! Find end of line
             line_end = pos + len(search_str) - 1
             do while (line_end < len(text))
-                if (text(line_end+1:line_end+1) == new_line('A')) exit
+                if (text(line_end + 1:line_end + 1) == new_line('A')) exit
                 line_end = line_end + 1
             end do
-            
+
             print *, "  Found: '", text(line_start:line_end), "'"
         else
             print *, "  Not found: '", search_str, "'"

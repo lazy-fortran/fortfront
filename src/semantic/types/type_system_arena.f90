@@ -2,7 +2,7 @@ module type_system_arena
     ! Arena-based type system for eliminating GCC Bug 114612
     ! Replaces self-referential allocatable components with handle-based storage
     ! Provides 10-100x performance improvement for type inference operations
-    
+
     use arena_memory
     implicit none
     private
@@ -30,17 +30,17 @@ module type_system_arena
     ! Handle for type argument arrays
     type :: args_handle_t
         type(arena_handle_t) :: handle
-        integer :: count = 0    ! Number of arguments
+        integer :: count = 0  ! Number of arguments
         integer :: type_id = 0  ! Unique identifier for debugging
     end type args_handle_t
 
     ! Arena-based monomorphic type (no self-referential allocatables)
     type :: arena_mono_type_t
-        integer :: kind = 0             ! TVAR, TINT, TREAL, etc.
-        integer :: var_id = 0           ! Type variable ID
+        integer :: kind = 0  ! TVAR, TINT, TREAL, etc.
+        integer :: var_id = 0  ! Type variable ID
         character(len=64) :: var_name = ""  ! Fixed-size name to avoid allocatable
-        type(args_handle_t) :: args     ! Handle to argument array
-        integer :: size = 0             ! For TCHAR(len=size), TARRAY(size)
+        type(args_handle_t) :: args  ! Handle to argument array
+        integer :: size = 0  ! For TCHAR(len=size), TARRAY(size)
         logical :: is_allocatable = .false.
         logical :: is_pointer = .false.
         logical :: is_target = .false.
@@ -49,14 +49,14 @@ module type_system_arena
     ! Arena-based polymorphic type
     type :: arena_poly_type_t
         type(args_handle_t) :: forall_vars  ! Handle to quantified variables
-        type(mono_handle_t) :: mono         ! Handle to monomorphic type
+        type(mono_handle_t) :: mono  ! Handle to monomorphic type
     end type arena_poly_type_t
 
     ! Type arena for managing all type allocations (extends base_arena_t)
     type, extends(base_arena_t), public :: type_arena_t
-        type(arena_t) :: arena              ! Underlying memory arena
-        integer :: next_type_id = 1         ! Unique ID counter
-        integer :: mono_count = 0           ! Statistics
+        type(arena_t) :: arena  ! Underlying memory arena
+        integer :: next_type_id = 1  ! Unique ID counter
+        integer :: mono_count = 0  ! Statistics
         integer :: poly_count = 0
         integer :: args_count = 0
     contains
@@ -65,12 +65,12 @@ module type_system_arena
         procedure :: get => type_arena_get
         procedure :: valid => type_arena_valid
         procedure :: free => type_arena_free
-        
+
         ! Override base implementations
         procedure :: reset => type_arena_reset
         procedure :: checkpoint => type_arena_checkpoint
         procedure :: rollback => type_arena_rollback
-        
+
         ! Type-specific operations
         procedure :: allocate_mono => type_arena_allocate_mono
         procedure :: allocate_poly => type_arena_allocate_poly
@@ -196,10 +196,10 @@ contains
         type(mono_handle_t), intent(out), allocatable :: args(:)
 
         if (is_valid_args_handle(handle) .and. handle%count > 0) then
-            allocate(args(handle%count))
+            allocate (args(handle%count))
             call arena%get_args(handle, args)
         else
-            if (allocated(args)) deallocate(args)
+            if (allocated(args)) deallocate (args)
         end if
     end subroutine get_type_args
 
@@ -208,7 +208,7 @@ contains
         class(type_arena_t), intent(inout) :: this
         type(mono_handle_t) :: handle
 
-        handle%handle = this%arena%allocate(storage_size(arena_mono_type_t())/8)
+        handle%handle = this%arena%allocate(storage_size(arena_mono_type_t()) / 8)
         if (is_valid_handle(handle%handle)) then
             handle%type_id = this%next_type_id
             this%next_type_id = this%next_type_id + 1
@@ -223,7 +223,7 @@ contains
         class(type_arena_t), intent(inout) :: this
         type(poly_handle_t) :: handle
 
-        handle%handle = this%arena%allocate(storage_size(arena_poly_type_t())/8)
+        handle%handle = this%arena%allocate(storage_size(arena_poly_type_t()) / 8)
         if (is_valid_handle(handle%handle)) then
             handle%type_id = this%next_type_id
             this%next_type_id = this%next_type_id + 1
@@ -244,7 +244,7 @@ contains
             return
         end if
 
-        handle%handle = this%arena%allocate(count * (storage_size(mono_handle_t())/8))
+        handle%handle = this%arena%allocate(count * (storage_size(mono_handle_t()) / 8))
         if (is_valid_handle(handle%handle)) then
             handle%count = count
             handle%type_id = this%next_type_id
@@ -260,7 +260,7 @@ contains
         class(type_arena_t), intent(in) :: this
         type(mono_handle_t), intent(in) :: handle
         type(arena_mono_type_t), intent(out) :: mono_type
-        integer(1) :: buffer(storage_size(arena_mono_type_t())/8)
+        integer(1) :: buffer(storage_size(arena_mono_type_t()) / 8)
         logical :: status
 
         call this%arena%get_data(handle%handle, buffer, status)
@@ -276,7 +276,7 @@ contains
         class(type_arena_t), intent(in) :: this
         type(poly_handle_t), intent(in) :: handle
         type(arena_poly_type_t), intent(out) :: poly_type
-        integer(1) :: buffer(storage_size(arena_poly_type_t())/8)
+        integer(1) :: buffer(storage_size(arena_poly_type_t()) / 8)
         logical :: status
 
         call this%arena%get_data(handle%handle, buffer, status)
@@ -297,7 +297,7 @@ contains
 
         if (handle%count /= size(args)) return
 
-        allocate(buffer(handle%count * (storage_size(mono_handle_t())/8)))
+        allocate (buffer(handle%count * (storage_size(mono_handle_t()) / 8)))
         call this%arena%get_data(handle%handle, buffer, status)
         if (status) then
             args = transfer(buffer, args)
@@ -309,7 +309,7 @@ contains
         class(type_arena_t), intent(inout) :: this
         type(mono_handle_t), intent(in) :: handle
         type(arena_mono_type_t), intent(in) :: mono_type
-        integer(1) :: buffer(storage_size(arena_mono_type_t())/8)
+        integer(1) :: buffer(storage_size(arena_mono_type_t()) / 8)
         logical :: status
 
         buffer = transfer(mono_type, buffer)
@@ -321,7 +321,7 @@ contains
         class(type_arena_t), intent(inout) :: this
         type(poly_handle_t), intent(in) :: handle
         type(arena_poly_type_t), intent(in) :: poly_type
-        integer(1) :: buffer(storage_size(arena_poly_type_t())/8)
+        integer(1) :: buffer(storage_size(arena_poly_type_t()) / 8)
         logical :: status
 
         buffer = transfer(poly_type, buffer)
@@ -338,7 +338,7 @@ contains
 
         if (handle%count /= size(args)) return
 
-        allocate(buffer(size(args) * (storage_size(mono_handle_t())/8)))
+        allocate (buffer(size(args) * (storage_size(mono_handle_t()) / 8)))
         buffer = transfer(args, buffer)
         call this%arena%set_data(handle%handle, buffer, status)
     end subroutine type_arena_set_args
@@ -380,7 +380,7 @@ contains
         stats%mono_types = this%mono_count
         stats%poly_types = this%poly_count
         stats%arg_arrays = this%args_count
-        
+
         arena_stats = this%arena%get_stats()
         stats%total_memory = arena_stats%total_allocated
         stats%utilization = arena_stats%utilization
@@ -440,10 +440,10 @@ contains
     subroutine type_arena_assign(lhs, rhs)
         class(type_arena_t), intent(out) :: lhs
         type(type_arena_t), intent(in) :: rhs
-        
+
         ! Deep copy the underlying arena (uses arena_t's assignment)
         lhs%arena = rhs%arena
-        
+
         ! Copy scalar members
         lhs%next_type_id = rhs%next_type_id
         lhs%mono_count = rhs%mono_count
@@ -454,7 +454,7 @@ contains
     ! ============================================================================
     ! Base Arena Interface Implementations for Type Arena (Issue #369)
     ! ============================================================================
-    
+
     ! Insert item into type arena (base interface)
     function type_arena_insert(this, item) result(handle)
         class(type_arena_t), intent(inout) :: this
@@ -463,9 +463,9 @@ contains
         type(mono_handle_t) :: mono_h
         type(poly_handle_t) :: poly_h
         type(args_handle_t) :: args_h
-        
+
         ! Determine type and store accordingly
-        select type(item)
+        select type (item)
         type is (arena_mono_type_t)
             mono_h = this%allocate_mono()
             if (is_valid_mono_handle(mono_h)) then
@@ -492,13 +492,13 @@ contains
             handle%generation = 0
             handle%size = 0
         end select
-        
+
         ! Update size
         if (handle%chunk_id > 0) then
             this%size = this%size + 1
         end if
     end function type_arena_insert
-    
+
     ! Get item from type arena (base interface)
     function type_arena_get(this, handle) result(item)
         class(type_arena_t), intent(in) :: this
@@ -506,32 +506,32 @@ contains
         class(*), pointer :: item
         integer(1), allocatable :: buffer(:)
         logical :: status
-        
+
         item => null()
-        
+
         ! Validate handle first
         if (.not. this%valid(handle)) return
-        
+
         ! We can't easily return polymorphic pointers to arena data
         ! This is a limitation of the type arena design
         ! For actual use, clients should use get_mono/get_poly/get_args
     end function type_arena_get
-    
+
     ! Validate handle in type arena (base interface)
     function type_arena_valid(this, handle) result(is_valid)
         class(type_arena_t), intent(in) :: this
         type(arena_handle_t), intent(in) :: handle
         logical :: is_valid
-        
+
         ! Use underlying arena validation
         is_valid = this%arena%validate(handle)
     end function type_arena_valid
-    
+
     ! Free item in type arena (base interface)
     subroutine type_arena_free(this, handle)
         class(type_arena_t), intent(inout) :: this
         type(arena_handle_t), intent(in) :: handle
-        
+
         ! Type arena doesn't support individual frees
         ! This is by design for performance
         ! Just decrement size counter
@@ -539,15 +539,15 @@ contains
             this%size = this%size - 1
         end if
     end subroutine type_arena_free
-    
+
     ! Create checkpoint for type arena
     function type_arena_checkpoint(this) result(checkpoint)
         class(type_arena_t), intent(in) :: this
         type(arena_checkpoint_t) :: checkpoint
         type(arena_stats_t) :: stats
-        
+
         stats = this%arena%get_stats()
-        
+
         checkpoint%generation = stats%current_generation
         checkpoint%size = this%size
         checkpoint%capacity = stats%total_capacity
@@ -555,17 +555,17 @@ contains
         checkpoint%current_chunk = 1
         checkpoint%total_allocated = stats%total_allocated
     end function type_arena_checkpoint
-    
+
     ! Rollback type arena to checkpoint
     subroutine type_arena_rollback(this, checkpoint)
         class(type_arena_t), intent(inout) :: this
         type(arena_checkpoint_t), intent(in) :: checkpoint
-        
+
         ! Can't truly rollback without more state tracking
         ! Just increment generation to invalidate handles
         this%generation = this%generation + 1
         this%size = checkpoint%size
-        
+
         ! Reset counts to checkpoint values
         ! This is approximate without detailed tracking
     end subroutine type_arena_rollback

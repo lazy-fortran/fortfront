@@ -15,7 +15,7 @@ module variable_usage_dispatcher_module
         integer :: top = 0
     end type traversal_context_t
 
-    ! Public procedures  
+    ! Public procedures
     public :: dispatch_node_processing
     public :: process_if_node_children, process_do_while_node_children
     public :: process_select_case_node_children, process_where_node_children
@@ -41,9 +41,9 @@ contains
         integer, allocatable :: tmp(:)
 
         if (.not. allocated(ctx%stack)) then
-            allocate(ctx%stack(64))
+            allocate (ctx%stack(64))
         else if (ctx%top >= size(ctx%stack)) then
-            allocate(tmp(size(ctx%stack)*2))
+            allocate (tmp(size(ctx%stack) * 2))
             tmp(1:size(ctx%stack)) = ctx%stack
             call move_alloc(tmp, ctx%stack)
         end if
@@ -86,7 +86,7 @@ contains
         if (.not. allocated(arena%entries(node_index)%node)) return
 
         if (arena%size > 0) then
-            allocate(visited(arena%size))
+            allocate (visited(arena%size))
             visited = .false.
         end if
 
@@ -111,7 +111,7 @@ contains
         end do
 
         if (allocated(visited)) then
-            deallocate(visited)
+            deallocate (visited)
         end if
     end subroutine collect_identifiers_recursive
 
@@ -183,31 +183,31 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i, j
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (if_node)
             ! Process condition expression
             call push_node(ctx, node%condition_index)
-            
+
             ! Process then body statements
             if (allocated(node%then_body_indices)) then
                 do i = 1, size(node%then_body_indices)
                     call push_node(ctx, node%then_body_indices(i))
                 end do
             end if
-            
+
             ! Process elseif blocks
             if (allocated(node%elseif_blocks)) then
                 do i = 1, size(node%elseif_blocks)
                     ! Process elseif condition
                     call push_node(ctx, node%elseif_blocks(i)%condition_index)
-                    
+
                     ! Process elseif body
                     if (allocated(node%elseif_blocks(i)%body_indices)) then
                         do j = 1, size(node%elseif_blocks(i)%body_indices)
@@ -216,7 +216,7 @@ contains
                     end if
                 end do
             end if
-            
+
             ! Process else body statements
             if (allocated(node%else_body_indices)) then
                 do i = 1, size(node%else_body_indices)
@@ -233,18 +233,18 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (do_while_node)
             ! Process condition expression
             call push_node(ctx, node%condition_index)
-            
+
             ! Process body statements
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
@@ -261,21 +261,21 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (select_case_node)
             ! Process selector expression
             call push_node(ctx, node%selector_index)
-            
+
             ! Process case blocks
             if (allocated(node%case_indices)) then
                 do i = 1, size(node%case_indices)
                     call push_node(ctx, node%case_indices(i))
                 end do
             end if
-            
+
             ! Process default case
             call push_node(ctx, node%default_index)
         end select
@@ -288,27 +288,27 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i, j
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (where_node)
             ! Process mask expression
             call push_node(ctx, node%mask_expr_index)
-            
+
             ! Process where body statements
             if (allocated(node%where_body_indices)) then
                 do i = 1, size(node%where_body_indices)
                     call push_node(ctx, node%where_body_indices(i))
                 end do
             end if
-            
+
             ! Process elsewhere clauses
             if (allocated(node%elsewhere_clauses)) then
                 do i = 1, size(node%elsewhere_clauses)
                     ! Process elsewhere mask if present
                     call push_node(ctx, node%elsewhere_clauses(i)%mask_index)
-                    
+
                     ! Process elsewhere body
                     if (allocated(node%elsewhere_clauses(i)%body_indices)) then
                         do j = 1, size(node%elsewhere_clauses(i)%body_indices)
@@ -320,38 +320,38 @@ contains
         end select
     end subroutine process_where_node_children
 
-    ! Process where statement node children  
+    ! Process where statement node children
     subroutine process_where_stmt_node_children(arena, node_index, info, ctx)
         use ast_nodes_control, only: where_stmt_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (where_stmt_node)
             ! Process mask expression
             call push_node(ctx, node%mask_expr_index)
-            
+
             ! Process assignment
             call push_node(ctx, node%assignment_index)
         end select
     end subroutine process_where_stmt_node_children
 
-    ! Process multi declaration node children  
+    ! Process multi declaration node children
     subroutine process_multi_declaration_node_children(arena, node_index, info, ctx)
         use ast_nodes_data, only: declaration_node
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (declaration_node)
             ! Only process if this is actually a multi-declaration
@@ -371,13 +371,13 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (print_statement_node)
             ! Process all expression arguments
@@ -396,13 +396,13 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (case_block_node)
             ! Process case value expressions
@@ -411,7 +411,7 @@ contains
                     call push_node(ctx, node%value_indices(i))
                 end do
             end if
-            
+
             ! Process case body statements
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
@@ -428,29 +428,29 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (do_loop_node)
             ! Process loop variable (stored as string, not index)
             if (allocated(node%var_name)) then
                 call add_string_to_info(node%var_name, node_index, info)
             end if
-            
+
             ! Process start expression
             call push_node(ctx, node%start_expr_index)
-            
+
             ! Process end expression
             call push_node(ctx, node%end_expr_index)
-            
+
             ! Process step expression
             call push_node(ctx, node%step_expr_index)
-            
+
             ! Process loop body statements
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
@@ -467,27 +467,27 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         ! Verify node type matches expectation
         if (arena%entries(node_index)%node_type /= "subroutine_call" .and. &
             arena%entries(node_index)%node_type /= "call_statement") then
             ! Node type mismatch - this shouldn't happen if called correctly
             return
         end if
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (subroutine_call_node)
             ! Subroutine name is stored as string, not index
             if (allocated(node%name)) then
                 call add_string_to_info(node%name, node_index, info)
             end if
-            
+
             ! Process all arguments
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
@@ -504,27 +504,27 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         ! Verify node type matches expectation
         if (arena%entries(node_index)%node_type /= "write_statement") then
             ! Node type mismatch - this shouldn't happen if called correctly
             return
         end if
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (write_statement_node)
             ! Process runtime format expression if present
             call push_node(ctx, node%format_expr_index)
-            
+
             ! Process iostat variable if present
             call push_node(ctx, node%iostat_var_index)
-            
+
             ! Process all output arguments
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
@@ -541,27 +541,27 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         ! Verify node type matches expectation
         if (arena%entries(node_index)%node_type /= "read_statement") then
             ! Node type mismatch - this shouldn't happen if called correctly
             return
         end if
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (read_statement_node)
             ! Process runtime format expression if present
             call push_node(ctx, node%format_expr_index)
-            
+
             ! Process iostat variable if present
             call push_node(ctx, node%iostat_var_index)
-            
+
             ! Process all variables to read into
             if (allocated(node%var_indices)) then
                 do i = 1, size(node%var_indices)
@@ -578,21 +578,21 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries)) return
         if (node_index > size(arena%entries)) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         ! Verify node type matches expectation
         if (arena%entries(node_index)%node_type /= "allocate_statement") then
             ! Node type mismatch - this shouldn't happen if called correctly
             return
         end if
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (allocate_statement_node)
             ! Process variables being allocated
@@ -601,23 +601,23 @@ contains
                     call push_node(ctx, node%var_indices(i))
                 end do
             end if
-            
+
             ! Process shape expressions for each variable
             if (allocated(node%shape_indices)) then
                 do i = 1, size(node%shape_indices)
                     call push_node(ctx, node%shape_indices(i))
                 end do
             end if
-            
+
             ! Process stat variable if present
             call push_node(ctx, node%stat_var_index)
-            
+
             ! Process errmsg variable if present
             call push_node(ctx, node%errmsg_var_index)
-            
+
             ! Process source expression if present
             call push_node(ctx, node%source_expr_index)
-            
+
             ! Process mold expression if present
             call push_node(ctx, node%mold_expr_index)
         end select
@@ -630,21 +630,21 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries)) return
         if (node_index > size(arena%entries)) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         ! Verify node type matches expectation
         if (arena%entries(node_index)%node_type /= "deallocate_statement") then
             ! Node type mismatch - this shouldn't happen if called correctly
             return
         end if
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (deallocate_statement_node)
             ! Process variables being deallocated
@@ -653,10 +653,10 @@ contains
                     call push_node(ctx, node%var_indices(i))
                 end do
             end if
-            
+
             ! Process stat variable if present
             call push_node(ctx, node%stat_var_index)
-            
+
             ! Process errmsg variable if present
             call push_node(ctx, node%errmsg_var_index)
         end select
@@ -669,14 +669,14 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries)) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (associate_node)
             ! Process all associations - track variables used in target expressions
@@ -687,7 +687,7 @@ contains
                     call push_node(ctx, node%associations(i)%expr_index)
                 end do
             end if
-            
+
             ! Process the body statements
             if (allocated(node%body_indices)) then
                 do i = 1, size(node%body_indices)
@@ -704,17 +704,17 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries)) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (subroutine_def_node)
             if (allocated(node%body_indices)) then
                 call process_procedure_def_body(arena, node_index, info, &
-                    node%body_indices, ctx)
+                                                node%body_indices, ctx)
             end if
         end select
     end subroutine process_subroutine_def_children
@@ -726,17 +726,17 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries)) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (function_def_node)
             if (allocated(node%body_indices)) then
                 call process_procedure_def_body(arena, node_index, info, &
-                    node%body_indices, ctx)
+                                                node%body_indices, ctx)
             end if
         end select
     end subroutine process_function_def_children
@@ -747,7 +747,7 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (binary_op_node)
             call push_node(ctx, node%left_index)
@@ -761,9 +761,9 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (call_or_subscript_node)
             ! The function/array name is stored as a string, not an index
@@ -771,7 +771,7 @@ contains
             if (allocated(node%name)) then
                 call add_string_to_info(node%name, node_index, info)
             end if
-            
+
             ! Process all arguments/subscripts
             if (allocated(node%arg_indices)) then
                 do i = 1, size(node%arg_indices)
@@ -787,12 +787,12 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (array_slice_node)
             ! Process array name
             call push_node(ctx, node%array_index)
-            
+
             ! Process slice bounds
             block
                 integer :: i
@@ -809,12 +809,12 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (component_access_node)
             ! Process the base expression (structure/derived type)
             call push_node(ctx, node%base_expr_index)
-            
+
             ! Component name is stored as a string
             if (allocated(node%component_name)) then
                 call add_string_to_info(node%component_name, node_index, info)
@@ -828,22 +828,22 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         ! Verify node type matches expectation
         if (arena%entries(node_index)%node_type /= "assignment") then
             ! Node type mismatch - this shouldn't happen if called correctly
             return
         end if
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (assignment_node)
             ! Process target (LHS) - might have array subscripts
             call push_node(ctx, node%target_index)
-            
+
             ! Process value (RHS)
             call push_node(ctx, node%value_index)
         end select
@@ -855,13 +855,13 @@ contains
         integer, intent(in) :: node_index
         type(variable_usage_info_t), intent(inout) :: info
         type(traversal_context_t), intent(inout) :: ctx
-        
+
         integer :: i
-        
+
         ! Validate node index bounds
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select type (node => arena%entries(node_index)%node)
         type is (program_node)
             ! Process all body statements
@@ -897,7 +897,7 @@ contains
         type(traversal_context_t), intent(inout) :: ctx
 
         integer :: i
-        
+
         ! Process all body statements - this will capture all identifiers used
         ! within the procedure, including dummy arguments when they're used
         if (present(body_indices)) then

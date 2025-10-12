@@ -49,7 +49,7 @@ contains
 
             if (is_prefix_only_statement(tokens, stmt_start, stmt_end)) then
                 if (stmt_end + 1 <= size(tokens)) then
-              call find_statement_boundary(tokens, stmt_end + 1, merged_start, merged_end)
+                    call find_statement_boundary(tokens, stmt_end + 1, merged_start, merged_end)
                     if (merged_start == stmt_end + 1) then
                         if (tokens(merged_start)%kind == TK_KEYWORD .and. &
                             (tokens(merged_start)%text == "function" .or. &
@@ -61,7 +61,7 @@ contains
             end if
 
             if (tokens(stmt_start)%kind == TK_COMMENT) then
-       call process_comment_statement(tokens, stmt_start, arena, stmt_index, body_indices)
+                call process_comment_statement(tokens, stmt_start, arena, stmt_index, body_indices)
             else
                 call process_regular_statement(tokens, stmt_start, stmt_end, arena, &
                                                stmt_index, body_indices)
@@ -262,7 +262,7 @@ contains
             end if
         else
             ! Multiple units - create container
-      prog_index = push_program(arena, "__MULTI_UNIT__", valid_units(1:valid_count), 1, 1)
+            prog_index = push_program(arena, "__MULTI_UNIT__", valid_units(1:valid_count), 1, 1)
         end if
 
         deallocate (valid_units)
@@ -297,7 +297,7 @@ contains
 
         select type (prog_node => node)
         type is (program_node)
-         if ((prog_node%name == "main" .or. prog_node%name == "__IMPLICIT_MAIN__") .and. &
+            if ((prog_node%name == "main" .or. prog_node%name == "__IMPLICIT_MAIN__") .and. &
                 size(prog_node%body_indices) == 0) then
                 is_empty = .true.
             end if
@@ -332,7 +332,7 @@ contains
         stmt_start = start_pos
         do while (stmt_start <= size(tokens) .and. &
                   (tokens(stmt_start)%kind == TK_NEWLINE .or. &
-           (tokens(stmt_start)%kind == TK_OPERATOR .and. tokens(stmt_start)%text == ";")))
+                   (tokens(stmt_start)%kind == TK_OPERATOR .and. tokens(stmt_start)%text == ";")))
             stmt_start = stmt_start + 1
         end do
 
@@ -370,7 +370,7 @@ contains
                         nesting_level = 1
                         exit
                     else if (tokens(i)%kind == TK_KEYWORD .and. &
-                        (tokens(i)%text == "end" .or. tokens(i)%text == "elsewhere")) then
+                             (tokens(i)%text == "end" .or. tokens(i)%text == "elsewhere")) then
                         is_multiline_construct = .true.
                         nesting_level = 1
                         exit
@@ -397,7 +397,7 @@ contains
                             block
                                 integer :: j
                                 do j = i + 1, min(i + 20, size(tokens))
-                     if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == "then") then
+                                    if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == "then") then
                                         nesting_level = nesting_level + 1
                                         exit
                                     else if (tokens(j)%kind == TK_NEWLINE) then
@@ -424,8 +424,8 @@ contains
                                     stmt_end = i
                                     exit
                                 end if
-                      else if (tokens(i)%text == "end" .and. i + 1 <= size(tokens) .and. &
-                   tokens(i + 1)%kind == TK_KEYWORD .and. tokens(i + 1)%text == "if") then
+                            else if (tokens(i)%text == "end" .and. i + 1 <= size(tokens) .and. &
+                                     tokens(i + 1)%kind == TK_KEYWORD .and. tokens(i + 1)%text == "if") then
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     stmt_end = i + 1
@@ -446,19 +446,19 @@ contains
                     ! Check for two-word end constructs
                     if (tokens(i)%text == "end") then
                     if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == TK_KEYWORD) then
-                if (tokens(i + 1)%text == "do" .and. tokens(stmt_start)%text == "do") then
+                        if (tokens(i + 1)%text == "do" .and. tokens(stmt_start)%text == "do") then
                             nesting_level = nesting_level - 1
                             if (nesting_level == 0) then
                                 stmt_end = i + 1
                                 exit
                             end if
-   else if (tokens(i + 1)%text == "select" .and. tokens(stmt_start)%text == "select") then
+                        else if (tokens(i + 1)%text == "select" .and. tokens(stmt_start)%text == "select") then
                             nesting_level = nesting_level - 1
                             if (nesting_level == 0) then
                                 stmt_end = i + 1
                                 exit
                             end if
-     else if (tokens(i + 1)%text == "where" .and. tokens(stmt_start)%text == "where") then
+                        else if (tokens(i + 1)%text == "where" .and. tokens(stmt_start)%text == "where") then
                             nesting_level = nesting_level - 1
                             if (nesting_level == 0) then
                                 stmt_end = i + 1
@@ -492,7 +492,7 @@ contains
         if (stmt_end < stmt_start) stmt_end = stmt_start
     end subroutine find_statement_boundary
 
-   logical function is_prefix_only_statement(tokens, start_idx, end_idx) result(is_prefix)
+    logical function is_prefix_only_statement(tokens, start_idx, end_idx) result(is_prefix)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_idx, end_idx
         integer :: idx

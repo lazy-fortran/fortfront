@@ -30,14 +30,14 @@ program test_merge_intent_fix
 
     print *, ""
     print *, "=== Test Summary ==="
-    write(*, '(A,I0,A,I0)') "Passed ", passed, "/", total
+    write (*, '(A,I0,A,I0)') "Passed ", passed, "/", total
     if (passed /= total) error stop 1
 
 contains
     subroutine test_start(name)
         character(len=*), intent(in) :: name
         total = total + 1
-        write(*, '(A,A)', advance='no') "Testing: ", name
+        write (*, '(A,A)', advance='no') "Testing: ", name
     end subroutine test_start
 
     subroutine test_pass()

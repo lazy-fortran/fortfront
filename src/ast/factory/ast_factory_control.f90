@@ -24,7 +24,7 @@ contains
 
     ! Create if statement node and add to stack
     function push_if(arena, condition_index, then_body_indices, elseif_indices, &
-                    else_body_indices, &
+                     else_body_indices, &
                      line, column, parent_index) result(if_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: condition_index
@@ -64,10 +64,10 @@ contains
                 ! condition, body, condition, body, ...
                 ! Each pair becomes one elseif_wrapper
                 if (mod(size(elseif_indices), 2) == 0) then
-                    allocate (if_stmt%elseif_blocks(size(elseif_indices)/2))
-                    do i = 1, size(elseif_indices)/2
-                      if_stmt%elseif_blocks(i)%condition_index = elseif_indices(2*i - 1)
-                        if_stmt%elseif_blocks(i)%body_indices = [elseif_indices(2*i)]
+                    allocate (if_stmt%elseif_blocks(size(elseif_indices) / 2))
+                    do i = 1, size(elseif_indices) / 2
+                        if_stmt%elseif_blocks(i)%condition_index = elseif_indices(2 * i - 1)
+                        if_stmt%elseif_blocks(i)%body_indices = [elseif_indices(2 * i)]
                     end do
                 end if
             end if
@@ -82,7 +82,7 @@ contains
 
     ! Create do loop node and add to stack
     function push_do_loop(arena, var_name, start_index, end_index, step_index, &
-                         body_indices, &
+                          body_indices, &
                           loop_label, line, column, parent_index) result(loop_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: var_name
@@ -131,7 +131,7 @@ contains
 
     ! Create do while loop node and add to stack
     function push_do_while(arena, condition_index, body_indices, line, column, &
-                          parent_index) result(while_index)
+                           parent_index) result(while_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: condition_index
         integer, intent(in), optional :: body_indices(:)
@@ -162,7 +162,7 @@ contains
 
     ! Create ASSOCIATE construct node and add to stack
     function push_associate(arena, associations, body_indices, line, column, &
-                           parent_index) result(assoc_index)
+                            parent_index) result(assoc_index)
         use ast_nodes_control, only: associate_node, association_t
         type(ast_arena_t), intent(inout) :: arena
         type(association_t), intent(in) :: associations(:)
@@ -194,9 +194,9 @@ contains
 
     ! Create forall construct node and add to stack
     function push_forall(arena, index_var, start_index, end_index, step_index, &
-              mask_index, body_indices, line, column, parent_index, &
-              index_vars_all, start_indices_all, end_indices_all, &
-              stride_indices_all) result(forall_index)
+                         mask_index, body_indices, line, column, parent_index, &
+                         index_vars_all, start_indices_all, end_indices_all, &
+                         stride_indices_all) result(forall_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: index_var
         integer, intent(in) :: start_index, end_index
@@ -219,13 +219,13 @@ contains
         ! Validate arena is initialized
         validation = validate_arena(arena, "push_forall")
         if (validation%is_failure()) then
-            write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
             forall_index = 0
             return
         end if
 
         use_multi = present(index_vars_all) .and. present(start_indices_all) .and. &
-            present(end_indices_all)
+                    present(end_indices_all)
 
         if (use_multi) then
             num_indices = size(index_vars_all)
@@ -242,7 +242,7 @@ contains
             end if
             if (present(stride_indices_all)) then
                 if (size(stride_indices_all) /= num_indices) then
-                    write(error_unit, '(A)') &
+                    write (error_unit, '(A)') &
                         "ERROR [ast_factory_control]: FORALL stride array must match index count"
                     forall_index = 0
                     return
@@ -252,9 +252,9 @@ contains
             num_indices = 1
         end if
 
-        allocate(lower_vals(num_indices))
-        allocate(upper_vals(num_indices))
-        allocate(stride_vals(num_indices))
+        allocate (lower_vals(num_indices))
+        allocate (upper_vals(num_indices))
+        allocate (stride_vals(num_indices))
 
         max_index_len = 0
         do i = 1, num_indices
@@ -279,13 +279,13 @@ contains
             end if
 
             if (index_var_len == 0) then
-                write(error_unit, '(A)') &
+                write (error_unit, '(A)') &
                     "ERROR [ast_factory_control]: FORALL index variable name cannot be empty"
                 forall_index = 0
                 return
             end if
             if (index_var_len > MAX_INDEX_NAME_LENGTH) then
-                write(error_unit, '(A)') &
+                write (error_unit, '(A)') &
                     "ERROR [ast_factory_control]: FORALL index variable name exceeds maximum length"
                 forall_index = 0
                 return
@@ -295,14 +295,14 @@ contains
 
             validation = validate_node_index(arena, lower_vals(i), "push_forall start")
             if (validation%is_failure()) then
-                write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                 forall_index = 0
                 return
             end if
 
             validation = validate_node_index(arena, upper_vals(i), "push_forall end")
             if (validation%is_failure()) then
-                write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                 forall_index = 0
                 return
             end if
@@ -310,7 +310,7 @@ contains
             if (stride_val > 0) then
                 validation = validate_node_index(arena, stride_val, "push_forall step")
                 if (validation%is_failure()) then
-                    write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     forall_index = 0
                     return
                 end if
@@ -327,7 +327,7 @@ contains
             if (mask_index > 0) then
                 validation = validate_node_index(arena, mask_index, "push_forall mask")
                 if (validation%is_failure()) then
-                    write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     forall_index = 0
                     return
                 end if
@@ -339,7 +339,7 @@ contains
             do i = 1, size(body_indices)
                 validation = validate_node_index(arena, body_indices(i), "push_forall body")
                 if (validation%is_failure()) then
-                    write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     forall_index = 0
                     return
                 end if
@@ -347,10 +347,10 @@ contains
         end if
 
         forall_stmt%num_indices = num_indices
-        allocate(character(len=max_index_len) :: forall_stmt%index_names(num_indices))
-        allocate(forall_stmt%lower_bound_indices(num_indices))
-        allocate(forall_stmt%upper_bound_indices(num_indices))
-        allocate(forall_stmt%stride_indices(num_indices))
+        allocate (character(len=max_index_len) :: forall_stmt%index_names(num_indices))
+        allocate (forall_stmt%lower_bound_indices(num_indices))
+        allocate (forall_stmt%upper_bound_indices(num_indices))
+        allocate (forall_stmt%stride_indices(num_indices))
 
         do i = 1, num_indices
             if (use_multi) then
@@ -395,7 +395,7 @@ contains
 
     ! Create select case node and add to stack
     function push_select_case(arena, selector_index, case_indices, line, &
-                             column, parent_index) result(select_index)
+                              column, parent_index) result(select_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: selector_index
         integer, intent(in), optional :: case_indices(:)
@@ -427,7 +427,7 @@ contains
     ! Create select case node with default case and add to stack
     function push_select_case_with_default(arena, selector_index, case_indices, &
                                            default_index, &
-                                        line, column, parent_index) result(select_index)
+                                           line, column, parent_index) result(select_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: selector_index
         integer, intent(in), optional :: case_indices(:)
@@ -464,7 +464,7 @@ contains
 
     ! Create case block node and add to stack
     function push_case_block(arena, value_indices, body_indices, line, column, &
-                            parent_index) result(case_index)
+                             parent_index) result(case_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: value_indices(:)
         integer, intent(in), optional :: body_indices(:)
@@ -495,7 +495,7 @@ contains
 
     ! Create case range node and add to stack
     function push_case_range(arena, start_value, end_value, line, column, &
-                            parent_index) result(range_index)
+                             parent_index) result(range_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: start_value, end_value
         integer, intent(in), optional :: line, column, parent_index
@@ -516,7 +516,7 @@ contains
 
     ! Create case default node and add to stack
     function push_case_default(arena, body_indices, line, column, &
-                              parent_index) result(default_index)
+                               parent_index) result(default_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: body_indices(:)
         integer, intent(in), optional :: line, column, parent_index
@@ -541,7 +541,7 @@ contains
 
     ! Create WHERE construct node and add to stack
     function push_where(arena, mask_expr_index, where_body_indices, &
-                       elsewhere_body_indices, &
+                        elsewhere_body_indices, &
                         line, column, parent_index) result(where_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: mask_expr_index
@@ -558,7 +558,7 @@ contains
         ! Validate arena is initialized
         validation = validate_arena(arena, "push_where")
         if (validation%is_failure()) then
-            write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
             where_index = 0
             return
         end if
@@ -566,7 +566,7 @@ contains
         ! Validate mask expression index
         validation = validate_node_index(arena, mask_expr_index, "push_where mask")
         if (validation%is_failure()) then
-            write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+            write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
             where_index = 0
             return
         end if
@@ -576,7 +576,7 @@ contains
             do i = 1, size(where_body_indices)
                 validation = validate_node_index(arena, where_body_indices(i), "push_where body")
                 if (validation%is_failure()) then
-                    write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     where_index = 0
                     return
                 end if
@@ -588,7 +588,7 @@ contains
             do i = 1, size(elsewhere_body_indices)
                 validation = validate_node_index(arena, elsewhere_body_indices(i), "push_where elsewhere")
                 if (validation%is_failure()) then
-                    write(error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
+                    write (error_unit, '(A)') "ERROR [ast_factory_control]: " // validation%get_full_message()
                     where_index = 0
                     return
                 end if
@@ -601,8 +601,8 @@ contains
         end if
         if (present(elsewhere_body_indices)) then
             if (size(elsewhere_body_indices) > 0) then
-                allocate(where_stmt%elsewhere_clauses(1))
-                allocate(where_stmt%elsewhere_clauses(1)%body_indices(size(elsewhere_body_indices)))
+                allocate (where_stmt%elsewhere_clauses(1))
+                allocate (where_stmt%elsewhere_clauses(1)%body_indices(size(elsewhere_body_indices)))
                 where_stmt%elsewhere_clauses(1)%body_indices = elsewhere_body_indices
             end if
         end if
@@ -629,7 +629,7 @@ contains
     ! Create WHERE construct with ELSEWHERE and add to stack
     function push_where_construct_with_elsewhere(arena, mask_expr_index, &
                                                  where_body_indices, &
-                                   elsewhere_body_indices, line, column, parent_index) &
+                                                 elsewhere_body_indices, line, column, parent_index) &
         result(where_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: mask_expr_index

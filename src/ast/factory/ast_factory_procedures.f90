@@ -70,7 +70,7 @@ contains
         if (len_trim(interface_name) > 0) interface_block%name = interface_name
         interface_block%kind = "interface"
         if (present(procedure_indices)) then
-    if (size(procedure_indices) > 0) interface_block%procedure_indices = procedure_indices
+            if (size(procedure_indices) > 0) interface_block%procedure_indices = procedure_indices
         end if
         interface_block%line = line
         interface_block%column = column

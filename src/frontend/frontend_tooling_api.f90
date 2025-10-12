@@ -19,7 +19,7 @@ module frontend_tooling_api
 contains
 
     subroutine tooling_load_ast_from_string(source_code, arena, root_index, &
-            error_msg, options, tokens)
+                                            error_msg, options, tokens)
         character(len=*), intent(in) :: source_code
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: root_index
@@ -38,7 +38,7 @@ contains
         if (message_has_error(lex_error)) then
             call move_alloc(lex_error, error_msg)
             root_index = 0
-            if (allocated(local_tokens)) deallocate(local_tokens)
+            if (allocated(local_tokens)) deallocate (local_tokens)
             return
         end if
 
@@ -49,7 +49,7 @@ contains
         call parse_tokens(local_tokens, arena, root_index, parse_error)
         if (len_trim(parse_error) > 0) then
             call set_message_from_char(parse_error, error_msg)
-            if (allocated(local_tokens)) deallocate(local_tokens)
+            if (allocated(local_tokens)) deallocate (local_tokens)
             return
         end if
 
@@ -62,12 +62,12 @@ contains
         if (present(tokens)) then
             call move_alloc(local_tokens, tokens)
         else if (allocated(local_tokens)) then
-            deallocate(local_tokens)
+            deallocate (local_tokens)
         end if
     end subroutine tooling_load_ast_from_string
 
     subroutine tooling_load_ast_from_file(path, arena, root_index, error_msg, &
-            options, tokens)
+                                          options, tokens)
         character(len=*), intent(in) :: path
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: root_index
@@ -86,10 +86,10 @@ contains
 
         if (present(tokens)) then
             call tooling_load_ast_from_string(source, arena, root_index, &
-                error_msg, options, tokens)
+                                              error_msg, options, tokens)
         else
             call tooling_load_ast_from_string(source, arena, root_index, &
-                error_msg, options)
+                                              error_msg, options)
         end if
     end subroutine tooling_load_ast_from_file
 
@@ -122,24 +122,24 @@ contains
         max_default = int(huge(0), int64)
         call ensure_empty_message(error_msg)
 
-        inquire(file=path, exist=exists, size=file_size)
+        inquire (file=path, exist=exists, size=file_size)
         if (.not. exists) then
             call set_message_from_char('File not found: ' // trim(path), &
-                error_msg)
+                                       error_msg)
             call allocate_empty_string(contents)
             return
         end if
 
         if (file_size < 0_int64) then
             call set_message_from_char('Unable to determine file size: ' // &
-                trim(path), error_msg)
+                                       trim(path), error_msg)
             call allocate_empty_string(contents)
             return
         end if
 
         if (file_size > max_default) then
             call set_message_from_char('File too large to load: ' // &
-                trim(path), error_msg)
+                                       trim(path), error_msg)
             call allocate_empty_string(contents)
             return
         end if
@@ -148,32 +148,32 @@ contains
         if (char_len <= 0) then
             call allocate_empty_string(contents)
         else
-            allocate(character(len=char_len) :: contents)
+            allocate (character(len=char_len) :: contents)
         end if
 
-        open(newunit=unit, file=path, status='old', action='read', &
-            access='stream', form='unformatted', iostat=stat)
+        open (newunit=unit, file=path, status='old', action='read', &
+              access='stream', form='unformatted', iostat=stat)
         if (stat /= 0) then
             call set_message_from_char('Failed to open file: ' // trim(path), &
-                error_msg)
-            if (allocated(contents)) deallocate(contents)
+                                       error_msg)
+            if (allocated(contents)) deallocate (contents)
             call allocate_empty_string(contents)
             return
         end if
 
         if (len(contents) > 0) then
-            read(unit, pos=1, iostat=stat) contents
+            read (unit, pos=1, iostat=stat) contents
             if (stat /= 0) then
                 call set_message_from_char('Failed to read file: ' // &
-                    trim(path), error_msg)
-                close(unit)
-                deallocate(contents)
+                                           trim(path), error_msg)
+                close (unit)
+                deallocate (contents)
                 call allocate_empty_string(contents)
                 return
             end if
         end if
 
-        close(unit)
+        close (unit)
         call ensure_empty_message(error_msg)
     end subroutine read_file_contents
 
@@ -194,9 +194,9 @@ contains
 
         length_trimmed = len_trim(text)
         if (length_trimmed <= 0) then
-            allocate(character(len=0) :: message)
+            allocate (character(len=0) :: message)
         else
-            allocate(character(len=length_trimmed) :: message)
+            allocate (character(len=length_trimmed) :: message)
             message = text(1:length_trimmed)
         end if
     end subroutine set_message_from_char
@@ -206,15 +206,15 @@ contains
 
         if (allocated(message)) then
             if (len(message) == 0) return
-            deallocate(message)
+            deallocate (message)
         end if
-        allocate(character(len=0) :: message)
+        allocate (character(len=0) :: message)
     end subroutine ensure_empty_message
 
     subroutine allocate_empty_string(value)
         character(len=:), allocatable, intent(out) :: value
 
-        allocate(character(len=0) :: value)
+        allocate (character(len=0) :: value)
     end subroutine allocate_empty_string
 
 end module frontend_tooling_api

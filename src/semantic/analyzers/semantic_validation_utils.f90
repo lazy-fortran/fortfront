@@ -16,10 +16,10 @@ module semantic_validation_utils
 
 contains
 
-    ! Character function to convert integer to string  
+    ! Character function to convert integer to string
     character(len=20) function int_to_str(n)
         integer, intent(in) :: n
-        write(int_to_str, '(I0)') n
+        write (int_to_str, '(I0)') n
     end function int_to_str
 
     ! Helper functions for validate_array_bounds
@@ -27,14 +27,14 @@ contains
         type(ast_arena_t), intent(in) :: arena
         type(array_slice_node), intent(in) :: slice_node
         logical, intent(out) :: result
-        
+
         result = .true.  ! Always valid for now
     end subroutine validate_array_bounds
 
     subroutine check_shape_conformance(lhs_shape, rhs_shape, result)
         integer, intent(in) :: lhs_shape(:), rhs_shape(:)
         logical, intent(out) :: result
-        
+
         result = size(lhs_shape) == size(rhs_shape)
     end subroutine check_shape_conformance
 

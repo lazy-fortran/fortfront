@@ -9,10 +9,10 @@ module type_checker
     public :: get_common_type, type_error
 
     ! Type compatibility levels
-    integer, parameter, public :: COMPAT_EXACT = 1      ! Exact type match
-    integer, parameter, public :: COMPAT_PROMOTE = 2    ! Type promotion allowed
-    integer, parameter, public :: COMPAT_CONVERT = 3    ! Type conversion allowed
-    integer, parameter, public :: COMPAT_NONE = 0       ! Not compatible
+    integer, parameter, public :: COMPAT_EXACT = 1  ! Exact type match
+    integer, parameter, public :: COMPAT_PROMOTE = 2  ! Type promotion allowed
+    integer, parameter, public :: COMPAT_CONVERT = 3  ! Type conversion allowed
+    integer, parameter, public :: COMPAT_NONE = 0  ! Not compatible
 
 contains
 
@@ -193,8 +193,8 @@ contains
         character(len=*), intent(in) :: context
         character(len=:), allocatable :: msg
 
-        msg = "Type error in "//trim(context)//": expected "// &
-              expected%to_string()//" but got "//actual%to_string()
+        msg = "Type error in " // trim(context) // ": expected " // &
+              expected%to_string() // " but got " // actual%to_string()
 
     end function type_error
 

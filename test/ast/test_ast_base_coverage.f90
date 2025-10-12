@@ -16,7 +16,7 @@ program test_ast_base_coverage
     call test_ast_node_wrapper_assign()
 
     ! Test 2: ast_node_wrapper assignment with deallocation
-    call test_start("ast_node_wrapper assignment with reallocation") 
+    call test_start("ast_node_wrapper assignment with reallocation")
     call test_ast_node_wrapper_assign_deallocate()
 
     ! Test 3: ast_node_wrapper assignment with unallocated rhs
@@ -49,7 +49,7 @@ contains
         test_node%column = 10
 
         ! Allocate and assign to rhs
-        allocate(rhs%node, source=test_node)
+        allocate (rhs%node, source=test_node)
         rhs%stack_index = 123
 
         ! Test assignment
@@ -97,14 +97,14 @@ contains
         test_node1%value = "old_value"
         test_node1%literal_type = "string"
         test_node1%literal_kind = LITERAL_STRING
-        allocate(lhs%node, source=test_node1)
+        allocate (lhs%node, source=test_node1)
         lhs%stack_index = 100
 
         ! Create second node and assign to rhs
         test_node2%value = "new_value"
         test_node2%literal_type = "string"
         test_node2%literal_kind = LITERAL_STRING
-        allocate(rhs%node, source=test_node2)
+        allocate (rhs%node, source=test_node2)
         rhs%stack_index = 200
 
         ! Test reassignment (should deallocate old node)
@@ -141,7 +141,7 @@ contains
 
         ! Allocate lhs but leave rhs unallocated
         test_node%name = "test"
-        allocate(lhs%node, source=test_node)
+        allocate (lhs%node, source=test_node)
         lhs%stack_index = 100
 
         ! rhs is unallocated
@@ -246,7 +246,7 @@ contains
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
         total_tests = total_tests + 1
-        write(*, '(A)', advance='no') "Testing " // test_name // "... "
+        write (*, '(A)', advance='no') "Testing " // test_name // "... "
     end subroutine test_start
 
     subroutine test_pass()
@@ -262,7 +262,7 @@ contains
     subroutine print_results()
         print *, ""
         print *, "=== Test Results ==="
-        write(*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, " tests"
+        write (*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, " tests"
         if (passed_tests == total_tests) then
             print *, "All AST base coverage tests passed!"
         else

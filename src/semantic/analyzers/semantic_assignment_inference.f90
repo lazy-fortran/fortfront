@@ -6,7 +6,7 @@ module semantic_assignment_inference
                                    TCHAR, TARRAY, TINT, TREAL, TLOGICAL
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, binary_op_node, assignment_node, &
-                               call_or_subscript_node, literal_node
+                              call_or_subscript_node, literal_node
     use ast_nodes_loops, only: do_loop_node
     use semantic_validation_utils, only: update_identifier_type_in_arena
     use error_handling, only: result_t, create_error_result, ERROR_SEMANTIC
@@ -23,8 +23,8 @@ contains
 
     ! Process assignment inference with scope and error handling
     subroutine process_assignment_inference(arena, assignment, assignment_index, &
-                                           lhs_index, expr_typ, updated_expr_typ, &
-                                           scopes, errors, strict_mode, next_var_id)
+                                            lhs_index, expr_typ, updated_expr_typ, &
+                                            scopes, errors, strict_mode, next_var_id)
         type(ast_arena_t), intent(inout) :: arena
         type(assignment_node), intent(in) :: assignment
         integer, intent(in) :: assignment_index, lhs_index
@@ -61,22 +61,22 @@ contains
                         ! with proper arena-backed discovery. Keeping this path silent
                         ! avoids duplicate or premature errors for multi-declarations.
                     end if
-                    
+
                     ! Handle allocatable character detection
                     if (updated_expr_typ%kind == TCHAR) then
                         call handle_character_allocation(arena, assignment, updated_expr_typ, &
-                            lhs_node%name)
+                                                         lhs_node%name)
                     end if
 
                     ! Update all identifier nodes in the arena with the inferred type
                     call update_identifier_type_in_arena(arena, lhs_node%name, updated_expr_typ)
 
                     ! Generalize the expression type and define/update in scope
-                    scheme = create_poly_type(forall_vars=[type_var_t::], mono=updated_expr_typ)
+                    scheme = create_poly_type(forall_vars=[type_var_t ::], mono=updated_expr_typ)
                     call scopes%define(lhs_node%name, scheme)
                 type is (call_or_subscript_node)
                     call handle_array_assignment(arena, assignment_index, lhs_node, &
-                        expr_typ, updated_expr_typ, scopes)
+                                                 expr_typ, updated_expr_typ, scopes)
                 end select
             end if
         end if
@@ -100,7 +100,7 @@ contains
                 if (allocated(node%var_name)) then
                     if (trim(node%var_name) == trim(name)) then
                         call process_declaration_variables(node, decl_type)
-                        scheme = create_poly_type(forall_vars=[type_var_t::], mono=decl_type)
+                        scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
                         call scopes%define(name, scheme)
                         return
                     end if
@@ -109,7 +109,7 @@ contains
                     do j = 1, size(node%var_names)
                         if (trim(node%var_names(j)) == trim(name)) then
                             call process_declaration_variables(node, decl_type)
-                            scheme = create_poly_type(forall_vars=[type_var_t::], mono=decl_type)
+                            scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
                             call scopes%define(name, scheme)
                             return
                         end if
@@ -137,7 +137,7 @@ contains
                             expr_typ%alloc_info%needs_allocatable_string = .true.
                             expr_typ%size = 0  ! Deferred length
                         end if
-                        
+
                         ! Update all existing identifier nodes with this name
                         call update_identifier_type_in_arena(arena, var_name, expr_typ)
                     end if
@@ -174,10 +174,10 @@ contains
         rank = size(call_node%arg_indices)
         if (rank <= 0) return
 
-        allocate(dim_sizes(rank))
+        allocate (dim_sizes(rank))
         do i = 1, rank
             dim_sizes(i) = infer_dimension_size_from_index(arena, assignment_index, &
-                call_node%arg_indices(i))
+                                                           call_node%arg_indices(i))
         end do
 
         element_type = expr_typ
@@ -193,7 +193,7 @@ contains
 
         call update_identifier_type_in_arena(arena, base_name, array_type)
 
-        scheme = create_poly_type(forall_vars=[type_var_t::], mono=array_type)
+        scheme = create_poly_type(forall_vars=[type_var_t ::], mono=array_type)
         call scopes%define(base_name, scheme)
 
         decl_string = build_array_declaration_string(element_type, dim_sizes)
@@ -208,7 +208,7 @@ contains
             end if
         end if
 
-        if (allocated(dim_sizes)) deallocate(dim_sizes)
+        if (allocated(dim_sizes)) deallocate (dim_sizes)
     end subroutine handle_array_assignment
 
     ! Determine inferred dimension size from an index expression
@@ -252,7 +252,7 @@ contains
                     if (allocated(loop_node%var_name)) then
                         if (trim(loop_node%var_name) == trim(var_name)) then
                             extent = calculate_loop_size(arena, loop_node%start_expr_index, &
-                                loop_node%end_expr_index, loop_node%step_expr_index)
+                                                         loop_node%end_expr_index, loop_node%step_expr_index)
                             if (extent < 0) extent = 0
                             return
                         end if
@@ -292,7 +292,7 @@ contains
                                 if (allocated(sibling_loop%var_name)) then
                                     if (trim(sibling_loop%var_name) == trim(var_name)) then
                                         extent = calculate_loop_size(arena, sibling_loop%start_expr_index, &
-                                            sibling_loop%end_expr_index, sibling_loop%step_expr_index)
+                                                                     sibling_loop%end_expr_index, sibling_loop%step_expr_index)
                                         if (extent < 0) extent = 0
                                         if (extent > 0) return
                                     end if
@@ -323,7 +323,7 @@ contains
         end if
 
         do idx = size(dim_sizes), 1, -1
-            allocate(args(1))
+            allocate (args(1))
             args(1) = current_type
             if (dim_sizes(idx) > 0) then
                 current_type = create_mono_type(TARRAY, args=args, array_size=dim_sizes(idx))
@@ -332,7 +332,7 @@ contains
                 current_type%alloc_info%is_allocatable = .true.
                 current_type%alloc_info%needs_allocation_check = .true.
             end if
-            deallocate(args)
+            deallocate (args)
         end do
 
         array_type = current_type
@@ -353,7 +353,7 @@ contains
         do i = 1, size(dim_sizes)
             if (i > 1) dims_string = dims_string // ","
             if (dim_sizes(i) > 0) then
-                write(dim_component, '(I0)') dim_sizes(i)
+                write (dim_component, '(I0)') dim_sizes(i)
                 dims_string = dims_string // trim(dim_component)
             else
                 dims_string = dims_string // ":"
@@ -378,7 +378,7 @@ contains
             base_type = 'real'
         case (TCHAR)
             if (element_type%size > 0) then
-                write(buffer, '("character(len=",I0,")")') element_type%size
+                write (buffer, '("character(len=",I0,")")') element_type%size
                 base_type = trim(buffer)
             else
                 base_type = 'character(len=:), allocatable'

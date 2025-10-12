@@ -6,9 +6,9 @@ module ast_node_registry
     ! Node registry for distributed node management
     type :: node_entry_t
         class(ast_node), allocatable :: node
-        integer :: ref_count = 0        ! Reference counting for memory management
-        logical :: is_root = .false.    ! Track root nodes for GC
-        integer :: generation = 0       ! For generational GC
+        integer :: ref_count = 0  ! Reference counting for memory management
+        logical :: is_root = .false.  ! Track root nodes for GC
+        integer :: generation = 0  ! For generational GC
     contains
         procedure :: increment_ref
         procedure :: decrement_ref
@@ -22,9 +22,9 @@ module ast_node_registry
         integer :: size = 0
         integer :: capacity = 0
         integer :: generation_counter = 0
-        integer, allocatable :: free_list(:)    ! Free slot management
+        integer, allocatable :: free_list(:)  ! Free slot management
         integer :: free_count = 0
-        integer :: initial_capacity = 64       ! Smaller initial size
+        integer :: initial_capacity = 64  ! Smaller initial size
     contains
         procedure :: register_node
         procedure :: get_node
@@ -66,8 +66,8 @@ contains
 
         registry%capacity = cap
         registry%initial_capacity = cap
-        allocate(registry%nodes(cap))
-        allocate(registry%free_list(cap))
+        allocate (registry%nodes(cap))
+        allocate (registry%free_list(cap))
         registry%size = 0
         registry%free_count = 0
         registry%generation_counter = 0
@@ -90,12 +90,12 @@ contains
 
         ! Register node with reference counting
         if (allocated(this%nodes(slot)%node)) then
-            deallocate(this%nodes(slot)%node)
+            deallocate (this%nodes(slot)%node)
         end if
-        allocate(this%nodes(slot)%node, source=node)
+        allocate (this%nodes(slot)%node, source=node)
         this%nodes(slot)%ref_count = 1  ! Start with one reference
         this%nodes(slot)%generation = this%generation_counter
-        
+
         if (present(is_root)) then
             this%nodes(slot)%is_root = is_root
         else
@@ -115,7 +115,7 @@ contains
         ! Bounds checking
         if (node_id > 0 .and. node_id <= this%capacity) then
             if (allocated(this%nodes(node_id)%node)) then
-                allocate(node, source=this%nodes(node_id)%node)
+                allocate (node, source=this%nodes(node_id)%node)
             end if
         end if
     end function get_node
@@ -128,18 +128,18 @@ contains
         if (node_id > 0 .and. node_id <= this%capacity) then
             if (allocated(this%nodes(node_id)%node)) then
                 call this%nodes(node_id)%decrement_ref()
-                
+
                 ! If reference count reaches zero, mark as free
                 if (this%nodes(node_id)%ref_count <= 0) then
-                    deallocate(this%nodes(node_id)%node)
+                    deallocate (this%nodes(node_id)%node)
                     this%nodes(node_id)%is_root = .false.
-                    
+
                     ! Add to free list
                     if (this%free_count < size(this%free_list)) then
                         this%free_count = this%free_count + 1
                         this%free_list(this%free_count) = node_id
                     end if
-                    
+
                     this%size = this%size - 1
                 end if
             end if
@@ -179,14 +179,14 @@ contains
             if (allocated(this%nodes(i)%node)) then
                 ! Collect nodes with zero references and not root
                 if (this%nodes(i)%ref_count <= 0 .and. .not. this%nodes(i)%is_root) then
-                    deallocate(this%nodes(i)%node)
-                    
+                    deallocate (this%nodes(i)%node)
+
                     ! Add to free list
                     if (this%free_count < size(this%free_list)) then
                         this%free_count = this%free_count + 1
                         this%free_list(this%free_count) = i
                     end if
-                    
+
                     collected = collected + 1
                 end if
             end if
@@ -214,7 +214,7 @@ contains
         stats%free_slots = this%free_count
         stats%memory_usage = this%capacity * 64  ! Rough estimate
         stats%ref_count_total = ref_total
-        
+
         if (this%capacity > 0) then
             stats%fragmentation_ratio = real(this%free_count) / real(this%capacity)
         else
@@ -230,7 +230,7 @@ contains
         ! Deallocate all nodes
         do i = 1, this%capacity
             if (allocated(this%nodes(i)%node)) then
-                deallocate(this%nodes(i)%node)
+                deallocate (this%nodes(i)%node)
             end if
             this%nodes(i)%ref_count = 0
             this%nodes(i)%is_root = .false.
@@ -249,10 +249,10 @@ contains
         integer :: new_capacity, i
 
         ! Grow by 50% or at least 32 slots
-        new_capacity = max(this%capacity + this%capacity/2, this%capacity + 32)
+        new_capacity = max(this%capacity + this%capacity / 2, this%capacity + 32)
 
         ! Move existing nodes
-        allocate(temp_nodes(new_capacity))
+        allocate (temp_nodes(new_capacity))
         do i = 1, this%capacity
             if (allocated(this%nodes(i)%node)) then
                 call move_alloc(this%nodes(i)%node, temp_nodes(i)%node)
@@ -263,7 +263,7 @@ contains
         end do
 
         ! Move free list
-        allocate(temp_free_list(new_capacity))
+        allocate (temp_free_list(new_capacity))
         if (this%free_count > 0) then
             temp_free_list(1:this%free_count) = this%free_list(1:this%free_count)
         end if
@@ -322,7 +322,7 @@ contains
     subroutine cleanup_entry(this)
         type(node_entry_t), intent(inout) :: this
         if (allocated(this%node)) then
-            deallocate(this%node)
+            deallocate (this%node)
         end if
     end subroutine cleanup_entry
 
@@ -330,10 +330,10 @@ contains
         type(ast_node_registry_t), intent(inout) :: this
         call this%clear_registry()
         if (allocated(this%nodes)) then
-            deallocate(this%nodes)
+            deallocate (this%nodes)
         end if
         if (allocated(this%free_list)) then
-            deallocate(this%free_list)
+            deallocate (this%free_list)
         end if
     end subroutine cleanup_registry
 

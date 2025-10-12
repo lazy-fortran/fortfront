@@ -1,6 +1,6 @@
 program test_scope_pattern
     use type_system_unified, only: mono_type_t, poly_type_t, type_var_t, &
-                                  create_mono_type, create_poly_type, TINT
+                                   create_mono_type, create_poly_type, TINT
     implicit none
 
     type :: env_entry
@@ -24,7 +24,7 @@ program test_scope_pattern
         entries(1)%scheme = create_poly_type(empty_forall, mono_sin)
     end block
 
-    ! Entry 2 - create mono type using arena  
+    ! Entry 2 - create mono type using arena
     mono_cos = create_mono_type(TINT)  ! Basic integer type
     entries(2)%name = "cos"
     block
@@ -70,7 +70,7 @@ contains
             print *, "  Checking entry ", i, ": '", trim(entries(i)%name), "'"
             if (entries(i)%name == name) then
                 print *, "  Found match! Doing assignment..."
-                allocate(scheme)
+                allocate (scheme)
                 scheme = entries(i)%scheme  ! Uses unified arena assignment
                 print *, "  Assignment complete"
                 return

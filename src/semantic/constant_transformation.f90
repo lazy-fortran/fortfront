@@ -3,28 +3,28 @@ module constant_transformation
     use ast_arena_modern, only: ast_arena_t
     use ast_base, only: ast_node
     use ast_nodes_core, only: binary_op_node, literal_node, identifier_node, &
-                               assignment_node, call_or_subscript_node
+                              assignment_node, call_or_subscript_node
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_LOGICAL, LITERAL_STRING
     use ast_nodes_control, only: if_node
     use ast_nodes_data, only: declaration_node
     use ast_nodes_core
     implicit none
     private
-    
+
     public :: fold_constants_in_arena
-    
+
 contains
-    
+
     subroutine fold_constants_in_arena(arena)
         type(ast_arena_t), intent(inout) :: arena
         integer :: i
-        
+
         ! Process all nodes in the arena
         do i = 1, arena%size
             call fold_node_constants(arena, i)
         end do
     end subroutine fold_constants_in_arena
-    
+
     subroutine fold_node_constants(arena, node_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: node_index
@@ -39,7 +39,7 @@ contains
         type(stack_entry) :: current
 
         capacity = 64
-        allocate(stack(capacity))
+        allocate (stack(capacity))
         top = 0
 
         call push(node_index, .false.)
@@ -52,7 +52,7 @@ contains
             if (.not. current%processed) then
                 ! Schedule node for processing after its children
                 call push(current%idx, .true.)
-                select type(node => arena%entries(current%idx)%node)
+                select type (node => arena%entries(current%idx)%node)
                 type is (binary_op_node)
                     call push(node%right_index, .false.)
                     call push(node%left_index, .false.)
@@ -81,7 +81,7 @@ contains
                     cycle
                 end select
             else
-                select type(node => arena%entries(current%idx)%node)
+                select type (node => arena%entries(current%idx)%node)
                 type is (literal_node)
                     call fold_literal_node(node)
                 type is (binary_op_node)
@@ -106,7 +106,7 @@ contains
             type(stack_entry), allocatable :: temp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate(temp(capacity*2))
+                allocate (temp(capacity * 2))
                 if (capacity > 0) temp(1:capacity) = stack(1:capacity)
                 call move_alloc(temp, stack)
                 capacity = size(stack)
@@ -137,15 +137,15 @@ contains
         end function pop
 
     end subroutine fold_node_constants
-    
+
     subroutine fold_literal_node(node)
         type(literal_node), intent(inout) :: node
         integer :: read_status
-        
+
         ! Mark literals as constants and store their values
         node%is_constant = .true.
-        
-        ! Store the constant value based on type  
+
+        ! Store the constant value based on type
         if (node%value == ".false." .or. node%value == ".FALSE.") then
             node%constant_logical = .false.
             node%constant_type = LITERAL_LOGICAL
@@ -153,14 +153,14 @@ contains
             node%constant_logical = .true.
             node%constant_type = LITERAL_LOGICAL
         else if (node%literal_kind == LITERAL_INTEGER) then
-            read(node%value, *, iostat=read_status) node%constant_integer
+            read (node%value, *, iostat=read_status) node%constant_integer
             if (read_status /= 0) then
                 node%is_constant = .false.
                 return
             end if
             node%constant_type = LITERAL_INTEGER
         else if (node%literal_kind == LITERAL_REAL) then
-            read(node%value, *, iostat=read_status) node%constant_real
+            read (node%value, *, iostat=read_status) node%constant_real
             if (read_status /= 0) then
                 node%is_constant = .false.
                 return
@@ -168,7 +168,7 @@ contains
             node%constant_type = LITERAL_REAL
         end if
     end subroutine fold_literal_node
-    
+
     subroutine fold_binary_op_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(binary_op_node), intent(inout) :: node
@@ -179,12 +179,12 @@ contains
 
         ! Children are already folded by the stack-based traversal
         ! Check if both operands are constants
-        associate(left_node => arena%entries(node%left_index)%node, &
-                  right_node => arena%entries(node%right_index)%node)
+        associate (left_node => arena%entries(node%left_index)%node, &
+                   right_node => arena%entries(node%right_index)%node)
             if (.not. left_node%is_constant .or. .not. right_node%is_constant) return
-            
+
             ! Fold comparison operators
-            select case(trim(node%operator))
+            select case (trim(node%operator))
             case (">")
                 call fold_comparison_gt(node, left_node, right_node)
             case ("<")
@@ -200,11 +200,11 @@ contains
             end select
         end associate
     end subroutine fold_binary_op_node
-    
+
     subroutine fold_comparison_gt(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
-        
+
         if (left%constant_type == LITERAL_INTEGER .and. &
             right%constant_type == LITERAL_INTEGER) then
             node%is_constant = .true.
@@ -217,11 +217,11 @@ contains
             node%constant_type = LITERAL_LOGICAL
         end if
     end subroutine fold_comparison_gt
-    
+
     subroutine fold_comparison_lt(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
-        
+
         if (left%constant_type == LITERAL_INTEGER .and. &
             right%constant_type == LITERAL_INTEGER) then
             node%is_constant = .true.
@@ -234,11 +234,11 @@ contains
             node%constant_type = LITERAL_LOGICAL
         end if
     end subroutine fold_comparison_lt
-    
+
     subroutine fold_comparison_ge(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
-        
+
         if (left%constant_type == LITERAL_INTEGER .and. &
             right%constant_type == LITERAL_INTEGER) then
             node%is_constant = .true.
@@ -251,11 +251,11 @@ contains
             node%constant_type = LITERAL_LOGICAL
         end if
     end subroutine fold_comparison_ge
-    
+
     subroutine fold_comparison_le(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
-        
+
         if (left%constant_type == LITERAL_INTEGER .and. &
             right%constant_type == LITERAL_INTEGER) then
             node%is_constant = .true.
@@ -268,11 +268,11 @@ contains
             node%constant_type = LITERAL_LOGICAL
         end if
     end subroutine fold_comparison_le
-    
+
     subroutine fold_comparison_eq(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
-        
+
         if (left%constant_type == LITERAL_INTEGER .and. &
             right%constant_type == LITERAL_INTEGER) then
             node%is_constant = .true.
@@ -291,11 +291,11 @@ contains
             node%constant_type = LITERAL_LOGICAL
         end if
     end subroutine fold_comparison_eq
-    
+
     subroutine fold_comparison_ne(node, left, right)
         type(binary_op_node), intent(inout) :: node
         class(ast_node), intent(in) :: left, right
-        
+
         if (left%constant_type == LITERAL_INTEGER .and. &
             right%constant_type == LITERAL_INTEGER) then
             node%is_constant = .true.
@@ -314,7 +314,7 @@ contains
             node%constant_type = LITERAL_LOGICAL
         end if
     end subroutine fold_comparison_ne
-    
+
     subroutine fold_if_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(if_node), intent(inout) :: node
@@ -322,7 +322,7 @@ contains
         ! Children are already folded by the stack-based traversal
         ! No additional processing needed for if nodes in constant folding
     end subroutine fold_if_node
-    
+
     subroutine fold_declaration_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(declaration_node), intent(inout) :: node
@@ -331,7 +331,7 @@ contains
         ! If the initializer is constant, propagate that to the declaration
         if (node%has_initializer .and. node%initializer_index > 0 .and. &
             node%initializer_index <= arena%size) then
-            select type(init => arena%entries(node%initializer_index)%node)
+            select type (init => arena%entries(node%initializer_index)%node)
             class default
                 if (init%is_constant) then
                     node%is_constant = .true.
@@ -343,19 +343,19 @@ contains
             end select
         end if
     end subroutine fold_declaration_node
-    
+
     subroutine fold_identifier_node(arena, node)
         type(ast_arena_t), intent(inout) :: arena
         type(identifier_node), intent(inout) :: node
         integer :: i
-        
+
         ! Early exit if node name is not allocated
         if (.not. allocated(node%name)) return
-        
+
         ! Look for declarations with matching name (including parameters)
         ! Only check nodes that come before this one in the arena
         do i = 1, arena%size
-            select type(decl => arena%entries(i)%node)
+            select type (decl => arena%entries(i)%node)
             type is (declaration_node)
                 if (allocated(decl%var_name)) then
                     if (trim(decl%var_name) == trim(node%name)) then
@@ -373,5 +373,5 @@ contains
             end select
         end do
     end subroutine fold_identifier_node
-    
+
 end module constant_transformation

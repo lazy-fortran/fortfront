@@ -15,11 +15,11 @@ module parser_select_constructs_module
     use parser_utils, only: analyze_declaration_structure
     use parser_basic_statement_module, only: parse_statement_body
     use parser_statement_core_module, only: statement_callbacks_t, &
-        null_statement_callbacks
+                                            null_statement_callbacks
     use ast_arena_modern, only: ast_arena_t
     use ast_factory, only: push_select_case, push_select_case_with_default, &
-                            push_case_block, push_case_default, &
-                            push_identifier, push_literal, push_assignment
+                           push_case_block, push_case_default, &
+                           push_identifier, push_literal, push_assignment
     implicit none
     private
 
@@ -102,7 +102,7 @@ contains
                         value_token = parser%peek()
                         if (value_token%kind == TK_KEYWORD .and. value_token%text == "default") then
                             value_token = parser%consume()  ! consume 'default'
-                            
+
                             ! Skip rest of current line
                             block
                                 integer :: current_line
@@ -117,11 +117,11 @@ contains
                                     end if
                                 end do
                             end block
-                            
+
                             ! Parse default case body using parse_statement_body
                             body_indices = parse_statement_body(parser, arena, &
-                                end_keywords, callbacks)
-                            
+                                                                end_keywords, callbacks)
+
                             ! Store default case index
                             default_index = push_case_default(arena, body_indices, &
                                                               line=case_token%line, &
@@ -166,14 +166,14 @@ contains
                             block
                                 integer :: current_line
                                 type(token_t) :: skip_token
-                                
+
                                 ! Get the current line number
                                 if (parser%current_token > 1) then
                                     current_line = parser%tokens(parser%current_token - 1)%line
                                 else
                                     current_line = 1
                                 end if
-                                
+
                                 ! Skip all tokens on current line
                                 do while (parser%current_token <= size(parser%tokens))
                                     skip_token = parser%peek()
@@ -184,10 +184,10 @@ contains
                                     end if
                                 end do
                             end block
-                            
+
                             ! Parse case body statements using parse_statement_body
                             body_indices = parse_statement_body(parser, arena, &
-                                end_keywords, callbacks)
+                                                                end_keywords, callbacks)
 
                             ! Create case block node and add to list
                             if (size(value_indices) > 0) then

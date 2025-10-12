@@ -17,25 +17,25 @@ contains
 
     logical function test_single_module_not_wrapped()
         character(len=*), parameter :: input = &
-            'module m' // new_line('a') // &
-            '  implicit none' // new_line('a') // &
-            'contains' // new_line('a') // &
-            '  function add(a,b) result(c)' // new_line('a') // &
-            '    integer :: a,b,c' // new_line('a') // &
-            '    c = a + b' // new_line('a') // &
-            '  end function add' // new_line('a') // &
-            'end module m'
+                                       'module m' // new_line('a') // &
+                                       '  implicit none' // new_line('a') // &
+                                       'contains' // new_line('a') // &
+                                       '  function add(a,b) result(c)' // new_line('a') // &
+                                       '    integer :: a,b,c' // new_line('a') // &
+                                       '    c = a + b' // new_line('a') // &
+                                       '  end function add' // new_line('a') // &
+                                       'end module m'
         character(len=:), allocatable :: output, error_msg
 
         call transform_lazy_fortran_string(input, output, error_msg)
 
         ! Add diagnostic output for CI debugging
-        write(*,*) 'DEBUG: error_msg=', trim(error_msg)
-        write(*,*) 'DEBUG: output begins:'
-        write(*,*) output
-        write(*,*) 'DEBUG: has program main=', index(output, 'program main') > 0
-        write(*,*) 'DEBUG: has module m=', index(output, 'module m') > 0
-        write(*,*) 'DEBUG: has function add=', index(output, 'function add') > 0
+        write (*, *) 'DEBUG: error_msg=', trim(error_msg)
+        write (*, *) 'DEBUG: output begins:'
+        write (*, *) output
+        write (*, *) 'DEBUG: has program main=', index(output, 'program main') > 0
+        write (*, *) 'DEBUG: has module m=', index(output, 'module m') > 0
+        write (*, *) 'DEBUG: has function add=', index(output, 'function add') > 0
 
         if (len_trim(error_msg) > 0) then
             test_single_module_not_wrapped = .false.

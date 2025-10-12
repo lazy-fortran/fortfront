@@ -3,7 +3,7 @@ module frontend_program_units
     ! Handles module, function, subroutine, type, and program unit parsing
 
     use lexer_core, only: token_t, TK_EOF, TK_KEYWORD, TK_COMMENT, TK_NEWLINE, &
-                           TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN
+                          TK_OPERATOR, TK_IDENTIFIER, TK_NUMBER, TK_STRING, TK_UNKNOWN
     use parser_state_module, only: parser_state_t, create_parser_state
     use parser_definition_statements_module, only: parse_function_definition
     use parser_dispatcher_module, only: parse_statement_dispatcher
@@ -145,7 +145,7 @@ contains
             end if
         else
             ! No meaningful content - create empty program
-            prog_index = push_program(arena, "main", [integer::], 1, 1)
+            prog_index = push_program(arena, "main", [integer ::], 1, 1)
         end if
     end function parse_implicit_main_program
 

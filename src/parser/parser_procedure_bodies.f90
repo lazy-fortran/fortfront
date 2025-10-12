@@ -63,8 +63,8 @@ contains
                         block
                             integer, allocatable :: empty_dims(:)
                             allocate (empty_dims(0))
-          param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
-                                                     empty_dims, token%line, token%column)
+                            param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
+                                                                     empty_dims, token%line, token%column)
                         end block
                         param_indices = [param_indices, param_index]
                     end block
@@ -92,9 +92,9 @@ contains
                         ! Check if this "end subroutine" belongs to this subroutine
                         ! Look ahead to see if there's a subroutine name
                         if (parser%current_token + 2 <= size(parser%tokens) .and. &
-                       parser%tokens(parser%current_token + 2)%kind == TK_IDENTIFIER) then
+                            parser%tokens(parser%current_token + 2)%kind == TK_IDENTIFIER) then
                             ! There is a name - check if it matches our subroutine
-                 if (parser%tokens(parser%current_token + 2)%text == subroutine_name) then
+                            if (parser%tokens(parser%current_token + 2)%text == subroutine_name) then
                                 ! This is our matching "end subroutine" - consume it and exit
                                 token = parser%consume()  ! consume "end"
                                 token = parser%consume()  ! consume "subroutine"
@@ -146,7 +146,7 @@ contains
         end do
 
         ! Create subroutine node
-    sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
+        sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
                                         line, column)
     end function parse_subroutine_in_module
 
@@ -216,7 +216,7 @@ contains
         if (token%kind == TK_IDENTIFIER) then
             function_name = token%text
             token = parser%consume()
- else if (token%kind == TK_KEYWORD .and. keyword_can_be_function_name(parser, token)) then
+        else if (token%kind == TK_KEYWORD .and. keyword_can_be_function_name(parser, token)) then
             function_name = token%text
             token = parser%consume()
         else
@@ -244,8 +244,8 @@ contains
                         block
                             integer, allocatable :: empty_dims(:)
                             allocate (empty_dims(0))
-          param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
-                                                     empty_dims, token%line, token%column)
+                            param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
+                                                                     empty_dims, token%line, token%column)
                         end block
                         param_indices = [param_indices, param_index]
                     end block
@@ -291,9 +291,9 @@ contains
                         ! Check if this "end function" belongs to this function
                         ! Look ahead to see if there's a function name
                         if (parser%current_token + 2 <= size(parser%tokens) .and. &
-                       parser%tokens(parser%current_token + 2)%kind == TK_IDENTIFIER) then
+                            parser%tokens(parser%current_token + 2)%kind == TK_IDENTIFIER) then
                             ! There is a name - check if it matches our function
-                   if (parser%tokens(parser%current_token + 2)%text == function_name) then
+                            if (parser%tokens(parser%current_token + 2)%text == function_name) then
                                 ! This is our matching "end function" - consume it and exit
                                 token = parser%consume()  ! consume "end"
                                 token = parser%consume()  ! consume "function"

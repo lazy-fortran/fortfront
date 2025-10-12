@@ -2,7 +2,7 @@ module ast_nodes_array
     use json_module
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
-                         ast_node_wrapper, ast_visitor_base_t
+                        ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 
@@ -22,20 +22,20 @@ module ast_nodes_array
         ! Main WHERE clause
         integer :: mask_expr_index = 0
         integer, allocatable :: where_body_indices(:)
-        
+
         ! ELSEWHERE clauses (includes all ELSEWHERE, even final one without mask)
         type(elsewhere_clause_t), allocatable :: elsewhere_clauses(:)
-        
+
         ! Optimization hints
         logical :: mask_is_simple = .false.  ! True if mask is simple comparison
-        logical :: can_vectorize = .false.   ! True if all assignments vectorizable
+        logical :: can_vectorize = .false.  ! True if all assignments vectorizable
     contains
         procedure :: accept => where_accept
         procedure :: to_json => where_to_json
         procedure :: assign => where_assign
         generic :: assignment(=) => assign
     end type where_node
-    
+
     ! Single-line WHERE statement node
     type, extends(ast_node) :: where_stmt_node
         integer :: mask_expr_index = 0
@@ -83,7 +83,7 @@ contains
         class(where_node), intent(inout) :: lhs
         class(where_node), intent(in) :: rhs
         integer :: i
-        
+
         lhs%line = rhs%line
         lhs%column = rhs%column
         lhs%uid = rhs%uid
@@ -95,19 +95,19 @@ contains
         lhs%constant_type = rhs%constant_type
         lhs%mask_expr_index = rhs%mask_expr_index
         if (allocated(rhs%where_body_indices)) then
-            if (allocated(lhs%where_body_indices)) deallocate(lhs%where_body_indices)
-            allocate(lhs%where_body_indices(size(rhs%where_body_indices)))
+            if (allocated(lhs%where_body_indices)) deallocate (lhs%where_body_indices)
+            allocate (lhs%where_body_indices(size(rhs%where_body_indices)))
             lhs%where_body_indices = rhs%where_body_indices
         end if
         if (allocated(rhs%elsewhere_clauses)) then
-            if (allocated(lhs%elsewhere_clauses)) deallocate(lhs%elsewhere_clauses)
-            allocate(lhs%elsewhere_clauses(size(rhs%elsewhere_clauses)))
+            if (allocated(lhs%elsewhere_clauses)) deallocate (lhs%elsewhere_clauses)
+            allocate (lhs%elsewhere_clauses(size(rhs%elsewhere_clauses)))
             do i = 1, size(rhs%elsewhere_clauses)
                 lhs%elsewhere_clauses(i)%mask_index = &
                     rhs%elsewhere_clauses(i)%mask_index
                 if (allocated(rhs%elsewhere_clauses(i)%body_indices)) then
-                    allocate(lhs%elsewhere_clauses(i)%body_indices( &
-                        size(rhs%elsewhere_clauses(i)%body_indices)))
+                    allocate (lhs%elsewhere_clauses(i)%body_indices( &
+                              size(rhs%elsewhere_clauses(i)%body_indices)))
                     lhs%elsewhere_clauses(i)%body_indices = &
                         rhs%elsewhere_clauses(i)%body_indices
                 end if
@@ -156,11 +156,11 @@ contains
 
     ! Constructor
     function create_where(mask_expr_index, where_body_indices, &
-            elsewhere_body_indices, line, column) result(node)
+                          elsewhere_body_indices, line, column) result(node)
         use uid_generator, only: generate_uid
         integer, intent(in) :: mask_expr_index
         integer, intent(in), optional :: where_body_indices(:), &
-                                          elsewhere_body_indices(:)
+                                         elsewhere_body_indices(:)
         integer, intent(in), optional :: line, column
         type(where_node) :: node
         integer :: n
@@ -172,7 +172,7 @@ contains
 
         if (present(where_body_indices)) then
             if (size(where_body_indices) > 0) then
-                allocate(node%where_body_indices(size(where_body_indices)))
+                allocate (node%where_body_indices(size(where_body_indices)))
                 node%where_body_indices = where_body_indices
             end if
         end if
@@ -180,9 +180,9 @@ contains
         if (present(elsewhere_body_indices)) then
             n = size(elsewhere_body_indices)
             if (n > 0) then
-                allocate(node%elsewhere_clauses(1))
+                allocate (node%elsewhere_clauses(1))
                 node%elsewhere_clauses(1)%mask_index = 0
-                allocate(node%elsewhere_clauses(1)%body_indices(n))
+                allocate (node%elsewhere_clauses(1)%body_indices(n))
                 node%elsewhere_clauses(1)%body_indices = elsewhere_body_indices
             end if
         end if

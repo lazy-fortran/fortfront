@@ -14,25 +14,25 @@ module ast_visitor_base
         procedure(visit_function_def_interface), deferred :: visit_function_def
         procedure(visit_subroutine_def_interface), deferred :: visit_subroutine_def
         procedure(visit_call_or_subscript_interface), deferred :: &
-                                                    visit_call_or_subscript
+            visit_call_or_subscript
         procedure(visit_subroutine_call_interface), deferred :: &
-                                                    visit_subroutine_call
+            visit_subroutine_call
         procedure(visit_identifier_interface), deferred :: visit_identifier
         procedure(visit_literal_interface), deferred :: visit_literal
         procedure(visit_declaration_interface), deferred :: visit_declaration
         procedure(visit_print_statement_interface), deferred :: &
-                                                    visit_print_statement
+            visit_print_statement
         procedure(visit_if_interface), deferred :: visit_if
         procedure(visit_do_loop_interface), deferred :: visit_do_loop
         procedure(visit_do_while_interface), deferred :: visit_do_while
         procedure(visit_select_case_interface), deferred :: visit_select_case
         procedure(visit_derived_type_interface), deferred :: visit_derived_type
         procedure(visit_interface_block_interface), deferred :: &
-                                                    visit_interface_block
+            visit_interface_block
         procedure(visit_module_interface), deferred :: visit_module
         procedure(visit_use_statement_interface), deferred :: visit_use_statement
         procedure(visit_include_statement_interface), deferred :: &
-                                                    visit_include_statement
+            visit_include_statement
     end type ast_visitor_t
 
     ! Abstract interfaces for visitor methods
@@ -45,7 +45,7 @@ module ast_visitor_base
         end subroutine visit_program_interface
 
         subroutine visit_assignment_interface(this, node)
-            import :: ast_visitor_t  
+            import :: ast_visitor_t
             class(ast_visitor_t), intent(inout) :: this
             class(*), intent(in) :: node  ! Temporary - will replace with assignment_node
         end subroutine visit_assignment_interface

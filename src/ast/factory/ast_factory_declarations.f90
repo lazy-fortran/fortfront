@@ -47,10 +47,10 @@ contains
 
     ! Create declaration node and add to stack
     function push_declaration(arena, type_name, var_name, kind_value, &
-       dimension_indices, &
-       initializer_index, is_allocatable, is_pointer, is_target, &
-       is_external, intent_value, is_optional, is_parameter, line, column, &
-       parent_index) result(decl_index)
+                              dimension_indices, &
+                              initializer_index, is_allocatable, is_pointer, is_target, &
+                              is_external, intent_value, is_optional, is_parameter, line, column, &
+                              parent_index) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name, var_name
         integer, intent(in), optional :: kind_value
@@ -110,7 +110,7 @@ contains
         else
             decl%is_pointer = .false.
         end if
-        
+
         if (present(is_target)) then
             decl%is_target = is_target
         else
@@ -151,9 +151,9 @@ contains
 
     ! Create multi-variable declaration node and add to stack
     function push_multi_declaration(arena, type_name, var_names, kind_value, &
-           dimension_indices, &
-       initializer_index, is_allocatable, is_pointer, is_target, is_external, intent_value, &
-       is_optional, is_parameter, line, column, parent_index) result(decl_index)
+                                    dimension_indices, &
+                                    initializer_index, is_allocatable, is_pointer, is_target, is_external, intent_value, &
+                                    is_optional, is_parameter, line, column, parent_index) result(decl_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
         character(len=*), intent(in) :: var_names(:)
@@ -175,14 +175,14 @@ contains
         ! Create multi-variable declaration
         decl%type_name = type_name
         decl%is_multi_declaration = .true.
-        
+
         ! Set primary variable name to first variable
         if (size(var_names) > 0) then
             decl%var_name = trim(var_names(1))
         end if
-        
+
         ! Allocate and copy variable names
-        allocate(character(len=100) :: decl%var_names(size(var_names)))
+        allocate (character(len=100) :: decl%var_names(size(var_names)))
         do i = 1, size(var_names)
             decl%var_names(i) = trim(var_names(i))
         end do
@@ -226,7 +226,7 @@ contains
         else
             decl%is_pointer = .false.
         end if
-        
+
         if (present(is_target)) then
             decl%is_target = is_target
         else
@@ -269,8 +269,8 @@ contains
 
     ! Create parameter declaration node and add to stack
     function push_parameter_declaration(arena, name, type_name, kind_value, &
-                      intent_value, is_optional, dimension_indices, line, column, &
-                      parent_index) result(param_index)
+                                        intent_value, is_optional, dimension_indices, line, column, &
+                                        parent_index) result(param_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name, type_name
         integer, intent(in), optional :: kind_value, intent_value

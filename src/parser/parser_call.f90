@@ -1,12 +1,12 @@
 module parser_call_module
     ! Shared call-statement parser used across control-flow helpers
-    use lexer_core,        only: token_t
+    use lexer_core, only: token_t
     use lexer_token_types, only: TK_IDENTIFIER, TK_OPERATOR
     use parser_state_module, only: parser_state_t
     use parser_expressions_module, only: parse_range
-    use ast_arena_modern,  only: ast_arena_t
-    use ast_factory,       only: push_subroutine_call, push_literal
-    use ast_types,         only: LITERAL_STRING
+    use ast_arena_modern, only: ast_arena_t
+    use ast_factory, only: push_subroutine_call, push_literal
+    use ast_types, only: LITERAL_STRING
     implicit none
     private
 
@@ -21,7 +21,7 @@ contains
         type(token_t) :: token
         integer :: arg_index
 
-        allocate(arg_indices(0))
+        allocate (arg_indices(0))
         token = parser%consume()  ! consume '('
 
         do while (.not. parser%is_at_end())
@@ -77,7 +77,7 @@ contains
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             call parse_call_arguments(parser, arena, arg_indices)
         else
-            allocate(arg_indices(0))
+            allocate (arg_indices(0))
         end if
 
         stmt_index = push_subroutine_call(arena, subroutine_name, arg_indices, line, column)

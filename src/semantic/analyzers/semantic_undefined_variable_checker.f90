@@ -3,7 +3,7 @@ module semantic_undefined_variable_checker
     ! Extracted from semantic_analyzer.f90 for architectural compliance (Issue #1067)
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core, only: identifier_node, binary_op_node, assignment_node, &
-                               call_or_subscript_node, array_literal_node, program_node
+                              call_or_subscript_node, array_literal_node, program_node
     use ast_nodes_control, only: if_node
     use ast_nodes_data, only: declaration_node
     use type_system_unified, only: poly_type_t, mono_type_t, create_poly_type, type_var_t
@@ -24,14 +24,14 @@ contains
         logical, intent(in) :: strict_mode
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: prog_index
-        
+
         ! Only perform undefined variable checking in strict mode
         if (.not. strict_mode) return
-        
+
         ! Recursively traverse the AST to find identifier nodes and check if they're defined
         call traverse_for_undefined_variables(scopes, errors, arena, prog_index)
     end subroutine check_undefined_variables_generic
-    
+
     ! Recursive helper to traverse AST and detect undefined variables
     subroutine traverse_for_undefined_variables(scopes, errors, arena, node_index)
         type(scope_stack_t), intent(inout) :: scopes
@@ -50,7 +50,7 @@ contains
         integer :: current_index, i
 
         capacity = 64
-        allocate(stack(capacity))
+        allocate (stack(capacity))
         top = 0
 
         call push(node_index)
@@ -70,12 +70,12 @@ contains
                         cycle
                     end if
                     error_result = create_error_result( &
-                        "Undefined variable '" // node%name // "'", &
-                        ERROR_SEMANTIC, &
-                        component="semantic_analyzer", &
-                        context="check_undefined_variables", &
-                        suggestion="Declare the variable before using it or remove 'implicit none'" &
-                    )
+                                   "Undefined variable '" // node%name // "'", &
+                                   ERROR_SEMANTIC, &
+                                   component="semantic_analyzer", &
+                                   context="check_undefined_variables", &
+                                   suggestion="Declare the variable before using it or remove 'implicit none'" &
+                                   )
                     call errors%add_result(error_result)
                 end if
 
@@ -133,7 +133,7 @@ contains
             type(node_stack_entry), allocatable :: temp(:)
             if (idx <= 0) return
             if (top >= capacity) then
-                allocate(temp(capacity*2))
+                allocate (temp(capacity * 2))
                 if (capacity > 0) temp(1:capacity) = stack(1:capacity)
                 call move_alloc(temp, stack)
                 capacity = size(stack)
@@ -196,7 +196,7 @@ contains
                 if (allocated(node%var_name)) then
                     if (trim(node%var_name) == trim(name)) then
                         call process_declaration_variables(node, decl_type)
-                        scheme = create_poly_type(forall_vars=[type_var_t::], mono=decl_type)
+                        scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
                         call scopes%define(name, scheme)
                         return
                     end if
@@ -205,7 +205,7 @@ contains
                     do j = 1, size(node%var_names)
                         if (trim(node%var_names(j)) == trim(name)) then
                             call process_declaration_variables(node, decl_type)
-                            scheme = create_poly_type(forall_vars=[type_var_t::], mono=decl_type)
+                            scheme = create_poly_type(forall_vars=[type_var_t ::], mono=decl_type)
                             call scopes%define(name, scheme)
                             return
                         end if
@@ -214,7 +214,5 @@ contains
             end select
         end do
     end subroutine define_from_arena
-
-
 
 end module semantic_undefined_variable_checker

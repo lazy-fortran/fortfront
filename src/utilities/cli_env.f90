@@ -14,12 +14,12 @@ contains
     subroutine init_cli_trace(trace_enabled, trace_file_path)
         logical, intent(out) :: trace_enabled
         character(len=:), allocatable, intent(out) :: trace_file_path
-        character(len=64)  :: trace_env
+        character(len=64) :: trace_env
         character(len=512) :: file_env
         integer :: s1, s2
 
         trace_env = ''
-        file_env  = ''
+        file_env = ''
         call get_environment_variable('FORTFRONT_TRACE', trace_env, status=s1)
         call get_environment_variable('FORTFRONT_TRACE_FILE', file_env, status=s2)
 
@@ -68,7 +68,7 @@ contains
             is_file = .true.
             eq = index(arg, '=')
             if (eq > 0 .and. eq < len(arg)) then
-                value = trim(arg(eq+1:))
+                value = trim(arg(eq + 1:))
             else
                 value = ''
             end if
@@ -78,7 +78,7 @@ contains
             recognized = .true.
             eq = index(arg, '=')
             if (eq > 0 .and. eq < len(arg)) then
-                value = trim(arg(eq+1:))
+                value = trim(arg(eq + 1:))
             else
                 value = ''
             end if

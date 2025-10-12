@@ -1,7 +1,7 @@
 module standardizer_module
     ! Module-specific transformations module
     ! Handles module node standardization and content processing
-    
+
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node
     use ast_nodes_data, only: module_node
@@ -9,7 +9,6 @@ module standardizer_module
     private
 
     public :: standardize_module
-    
 
 contains
 
@@ -20,10 +19,10 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(inout) :: root_index
         logical, intent(in), optional :: in_module
-        
+
         if (root_index <= 0 .or. root_index > arena%size) return
         if (.not. allocated(arena%entries(root_index)%node)) return
-        
+
         ! For module contents, we only need to handle function/subroutine definitions
         ! All other declarations are left as-is
         select type (node => arena%entries(root_index)%node)
@@ -31,7 +30,7 @@ contains
             ! Inside a module - don't wrap in program, just leave as-is
             ! Functions inside modules are already properly structured
         type is (subroutine_def_node)
-            ! Inside a module - don't wrap in program, just leave as-is  
+            ! Inside a module - don't wrap in program, just leave as-is
             ! Subroutines inside modules are already properly structured
         class default
             ! For declarations and other node types inside modules, no action needed
@@ -44,25 +43,25 @@ contains
         type(module_node), intent(inout) :: mod
         integer, intent(in) :: mod_index
         integer :: i
-        
+
         ! Standardize declarations in the module (pass in_module=.true.)
         if (allocated(mod%declaration_indices)) then
             do i = 1, size(mod%declaration_indices)
                 if (mod%declaration_indices(i) > 0 .and. &
                     mod%declaration_indices(i) <= arena%size) then
                     call standardize_ast(arena, mod%declaration_indices(i), &
-                                       in_module=.true.)
+                                         in_module=.true.)
                 end if
             end do
         end if
-        
+
         ! Standardize procedures in the module (pass in_module=.true.)
         if (allocated(mod%procedure_indices)) then
             do i = 1, size(mod%procedure_indices)
                 if (mod%procedure_indices(i) > 0 .and. &
                     mod%procedure_indices(i) <= arena%size) then
                     call standardize_ast(arena, mod%procedure_indices(i), &
-                                       in_module=.true.)
+                                         in_module=.true.)
                 end if
             end do
         end if

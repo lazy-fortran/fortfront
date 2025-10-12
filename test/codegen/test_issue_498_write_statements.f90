@@ -23,7 +23,7 @@ contains
 
         ! Test the exact case from Issue #498
         source = "write(*,*) 'Hello'"
-        
+
         ! Tokenize
         lex_result = tokenize_safe(source)
         if (lex_result%result%is_failure()) then
@@ -50,7 +50,7 @@ contains
         print *, "Test: write with string literal validation"
 
         source = "write(*,*) 'Hello World'"
-        
+
         ! Tokenize
         lex_result = tokenize_safe(source)
         if (lex_result%result%is_failure()) then
@@ -77,7 +77,7 @@ contains
         print *, "Test: write with variables validation"
 
         source = "write(*,*) x, y, z"
-        
+
         ! Tokenize
         lex_result = tokenize_safe(source)
         if (lex_result%result%is_failure()) then
@@ -104,7 +104,7 @@ contains
         print *, "Test: write with format validation"
 
         source = "write(*, '(A)') 'formatted'"
-        
+
         ! Tokenize
         lex_result = tokenize_safe(source)
         if (lex_result%result%is_failure()) then
@@ -130,10 +130,10 @@ contains
 
         ! Test the exact failure case from Issue #498 through full pipeline
         source = "write(*,*) 'Hello'"
-        
+
         ! Transform through full frontend (same as CLI)
         call transform_lazy_fortran_string(source, generated, error_msg)
-        
+
         ! Check compilation succeeded
         if (len_trim(error_msg) > 0) then
             print *, "FAIL: Compilation failed: ", trim(error_msg)
