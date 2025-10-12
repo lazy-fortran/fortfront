@@ -22,7 +22,7 @@ contains
 
     logical function test_character_length_preservation()
         character(len=:), allocatable :: source, output, error_msg
-        logical :: str1_ok, str2_ok, str3_ok
+        logical :: str1_ok, str2_ok, str3_ok, str4_ok
 
         test_character_length_preservation = .true.
         print *, 'Testing character length preservation...'
@@ -32,6 +32,7 @@ contains
                  '    character(len=10) :: str1' // new_line('a') // &
                  '    character(len=*), parameter :: str2 = "Hello"' // new_line('a') // &
                  '    character*20 :: str3' // new_line('a') // &
+                 '    character(len=12) :: Σtext' // new_line('a') // &
                  '' // new_line('a') // &
                  '    str1 = "Test"' // new_line('a') // &
                  '    str3 = "Old style"' // new_line('a') // &
@@ -58,9 +59,15 @@ contains
         str1_ok = index(output, 'character(len=10) :: str1') > 0
         str2_ok = index(output, 'character(len=*), parameter :: str2 =') > 0
         str3_ok = index(output, 'character(len=20) :: str3') > 0
+        str4_ok = index(output, 'character(len=12) :: text') > 0
 
         if (.not. str1_ok) then
             print *, '  FAIL: str1 length specifier missing'
+            test_character_length_preservation = .false.
+        end if
+
+        if (.not. str4_ok) then
+            print *, '  FAIL: non-ASCII name normalization lost its length specifier'
             test_character_length_preservation = .false.
         end if
 

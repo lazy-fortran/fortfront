@@ -944,15 +944,17 @@ contains
     pure function to_lower_ascii(str) result(lower_str)
         character(len=*), intent(in) :: str
         character(len=len(str)) :: lower_str
-        integer :: i, code
+        integer :: i, position
+        character(len=*), parameter :: uppercase_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        character(len=*), parameter :: lowercase_letters = 'abcdefghijklmnopqrstuvwxyz'
+
+        lower_str = str
+
+        if (len(str) == 0) return
 
         do i = 1, len(str)
-            code = iachar(str(i:i))
-            if (code >= iachar('A') .and. code <= iachar('Z')) then
-                lower_str(i:i) = achar(code + 32)
-            else
-                lower_str(i:i) = str(i:i)
-            end if
+            position = index(uppercase_letters, str(i:i))
+            if (position > 0) lower_str(i:i) = lowercase_letters(position:position)
         end do
     end function to_lower_ascii
 
