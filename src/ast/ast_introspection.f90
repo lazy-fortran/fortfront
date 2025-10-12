@@ -168,6 +168,8 @@ contains
             type_id = 42  ! NODE_COMMENT
         type is (implicit_statement_node)
             type_id = 43  ! NODE_IMPLICIT_STATEMENT
+        type is (module_procedure_node)
+            type_id = 44  ! NODE_MODULE_PROCEDURE
         class default
             ! Log warning for debugging purposes
             write (error_unit, '(A)') "Warning: Unknown node type encountered in get_node_type_id"

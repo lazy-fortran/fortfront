@@ -20,7 +20,8 @@ module codegen_core
     use ast_nodes_misc, only: complex_literal_node, comment_node, blank_line_node, &
                               implicit_statement_node, allocate_statement_node, &
                               deallocate_statement_node, use_statement_node, &
-                              contains_node, end_statement_node
+                              contains_node, end_statement_node, interface_block_node, &
+                              module_procedure_node
     use ast_nodes_control
     use ast_nodes_loops
     use ast_nodes_io
@@ -131,6 +132,10 @@ contains
             code = generate_code_declaration(arena, node, node_index)
         type is (parameter_declaration_node)
             code = generate_code_parameter_declaration(arena, node, node_index)
+        type is (interface_block_node)
+            code = generate_code_interface_block(arena, node, node_index)
+        type is (module_procedure_node)
+            code = generate_code_module_procedure(node)
         type is (function_def_node)
             code = generate_code_function_def(arena, node, node_index)
         type is (subroutine_def_node)

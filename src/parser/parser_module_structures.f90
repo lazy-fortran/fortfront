@@ -7,7 +7,9 @@ module parser_module_structures_module
     use ast_factory, only: push_module_structured, push_implicit_statement, &
                            push_assignment, push_identifier, push_literal
     use parser_declarations, only: parse_declaration
-    use parser_procedure_definitions_module, only: parse_function_definition, parse_subroutine_definition
+    use parser_procedure_definitions_module, only: parse_function_definition, &
+                                                   parse_subroutine_definition, &
+                                                   parse_interface_block
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_types, only: LITERAL_STRING
     ! Temporarily removed to avoid circular dependency
@@ -94,6 +96,12 @@ contains
                             declaration_indices = [declaration_indices, stmt_index]
                         end if
                         cycle  ! Continue to next iteration
+                    case ("interface")
+                        stmt_index = parse_interface_block(parser, arena, prefix_buffer)
+                        if (stmt_index > 0) then
+                            declaration_indices = [declaration_indices, stmt_index]
+                        end if
+                        cycle
                     end select
                 else if (token%kind == TK_IDENTIFIER) then
                     ! Handle assignments and other statements in module body
@@ -155,6 +163,15 @@ contains
                     end block
                     cycle  ! Continue to next iteration
                 end if
+            end if
+
+            if (in_contains_section .and. token%kind == TK_KEYWORD .and. &
+                token%text == "interface") then
+                stmt_index = parse_interface_block(parser, arena, prefix_buffer)
+                if (stmt_index > 0) then
+                    procedure_indices = [procedure_indices, stmt_index]
+                end if
+                cycle
             end if
 
             ! Parse subroutine definitions for contains section

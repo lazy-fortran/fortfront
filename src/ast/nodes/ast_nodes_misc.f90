@@ -127,6 +127,15 @@ module ast_nodes_misc
         generic :: assignment(=) => assign
     end type interface_block_node
 
+    type, extends(ast_node), public :: module_procedure_node
+        type(string_t), allocatable :: procedure_names(:)
+    contains
+        procedure :: accept => module_procedure_accept
+        procedure :: to_json => module_procedure_to_json
+        procedure :: assign => module_procedure_assign
+        generic :: assignment(=) => assign
+    end type module_procedure_node
+
     ! Letter specification for implicit statements
     type, public :: implicit_letter_spec_t
         character :: start_letter = ' '  ! Starting letter of range
@@ -157,7 +166,7 @@ module ast_nodes_misc
     ! Constructors migrated from ast_core
     public :: create_comment, create_blank_line, create_end_statement
     public :: create_use_statement, create_include_statement
-    public :: create_implicit_statement, create_interface_block
+    public :: create_implicit_statement, create_interface_block, create_module_procedure
 
 contains
 
@@ -324,6 +333,26 @@ contains
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_interface_block
+
+    function create_module_procedure(procedure_names, line, column) result(node)
+        use uid_generator, only: generate_uid
+        type(string_t), intent(in), optional :: procedure_names(:)
+        integer, intent(in), optional :: line, column
+        type(module_procedure_node) :: node
+        integer :: i
+
+        node%uid = generate_uid()
+        if (present(procedure_names)) then
+            if (size(procedure_names) > 0) then
+                allocate (node%procedure_names(size(procedure_names)))
+                do i = 1, size(procedure_names)
+                    node%procedure_names(i) = procedure_names(i)
+                end do
+            end if
+        end if
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
+    end function create_module_procedure
 
     ! Complex literal implementations
     subroutine complex_literal_accept(this, visitor)
@@ -670,6 +699,66 @@ contains
             lhs%procedure_indices = rhs%procedure_indices
         end if
     end subroutine interface_block_assign
+
+    ! Module procedure implementations
+    subroutine module_procedure_accept(this, visitor)
+        class(module_procedure_node), intent(in) :: this
+        class(ast_visitor_base_t), intent(inout) :: visitor
+    end subroutine module_procedure_accept
+
+    subroutine module_procedure_to_json(this, json, parent)
+        class(module_procedure_node), intent(in) :: this
+        type(json_core), intent(inout) :: json
+        type(json_value), pointer, intent(in) :: parent
+        type(json_value), pointer :: obj
+        type(json_value), pointer :: arr
+        integer :: i
+
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'module_procedure')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        if (allocated(this%procedure_names)) then
+            call json%create_array(arr, 'procedure_names')
+            do i = 1, size(this%procedure_names)
+                if (allocated(this%procedure_names(i)%s)) then
+                    call json%add(arr, '', trim(this%procedure_names(i)%s))
+                else
+                    call json%add(arr, '', '')
+                end if
+            end do
+            call json%add(obj, arr)
+        end if
+        call json%add(parent, obj)
+    end subroutine module_procedure_to_json
+
+    subroutine module_procedure_assign(lhs, rhs)
+        class(module_procedure_node), intent(inout) :: lhs
+        class(module_procedure_node), intent(in) :: rhs
+        integer :: n
+        type(string_t), allocatable :: tmp(:)
+
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
+
+        if (allocated(rhs%procedure_names)) then
+            n = size(rhs%procedure_names)
+            allocate (tmp(n))
+            tmp = rhs%procedure_names
+            call move_alloc(tmp, lhs%procedure_names)
+        else
+            if (allocated(lhs%procedure_names)) then
+                call move_alloc(lhs%procedure_names, tmp)
+            end if
+        end if
+    end subroutine module_procedure_assign
 
     ! Comment node methods
     subroutine comment_accept(this, visitor)

@@ -3,13 +3,16 @@ module ast_factory_procedures
     use uid_generator, only: generate_uid
     use ast_nodes_procedure, only: function_def_node, subroutine_def_node, &
                                    create_function_def, create_subroutine_def
-    use ast_nodes_misc, only: interface_block_node
+    use ast_nodes_misc, only: interface_block_node, module_procedure_node, &
+                              create_module_procedure
     use ast_nodes_data, only: module_node
+    use ast_base, only: string_t
     implicit none
     private
 
     ! Public procedure node creation functions
     public :: push_function_def, push_subroutine_def, push_interface_block
+    public :: push_module_procedure
     public :: push_module, push_module_structured
 
 contains
@@ -77,6 +80,19 @@ contains
         call arena%push(interface_block, "interface_block", parent_index)
         interface_index = arena%size
     end function push_interface_block
+
+    function push_module_procedure(arena, procedure_names, line, column, &
+                                   parent_index) result(proc_index)
+        type(ast_arena_t), intent(inout) :: arena
+        type(string_t), intent(in), optional :: procedure_names(:)
+        integer, intent(in), optional :: line, column, parent_index
+        integer :: proc_index
+        type(module_procedure_node) :: module_proc
+
+        module_proc = create_module_procedure(procedure_names, line, column)
+        call arena%push(module_proc, "module_procedure", parent_index)
+        proc_index = arena%size
+    end function push_module_procedure
 
     ! Create module node and add to stack
     function push_module(arena, name, body_indices, line, column, &

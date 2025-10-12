@@ -10,8 +10,10 @@ module parser_procedure_definitions_module
     use parser_expressions_module, only: parse_comparison
     use parser_prefix_buffer_module, only: parser_prefix_buffer_t
     use ast_arena_modern, only: ast_arena_t
-    use ast_factory, only: push_function_def, push_subroutine_def, push_interface_block
+    use ast_factory, only: push_function_def, push_subroutine_def, push_interface_block, &
+                           push_module_procedure
     use ast_factory
+    use ast_base, only: string_t
     implicit none
     private
 
@@ -710,11 +712,15 @@ contains
         character(len=:), allocatable :: interface_name
         integer :: line, column
         integer, allocatable :: body_indices(:)
+        integer :: stmt_index
 
         ! Consume interface keyword
         token = parser%consume()
         line = token%line
         column = token%column
+
+        ! Reset any pending prefix keywords
+        call prefix_buffer%clear()
 
         ! Get interface name (optional)
         token = parser%peek()
@@ -725,13 +731,144 @@ contains
             interface_name = ""
         end if
 
-        ! Simplified parsing for refactoring
         allocate (body_indices(0))
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+
+            ! Detect end of interface block
+            if (token%kind == TK_KEYWORD .and. &
+                trim(to_lower_local(token%text)) == "end") then
+                block
+                    type(token_t) :: next_token
+                    next_token = parser%get_token_at_index(parser%current_token + 1)
+                    if (next_token%kind == TK_KEYWORD .and. &
+                        trim(to_lower_local(next_token%text)) == "interface") then
+                        token = parser%consume()  ! consume "end"
+                        token = parser%consume()  ! consume "interface"
+                        token = parser%peek()
+                        if (token%kind == TK_IDENTIFIER) then
+                            ! Optional interface name after END INTERFACE
+                            token = parser%consume()
+                        end if
+                        exit
+                    end if
+                end block
+            end if
+
+            ! Parse module procedure statements inside the interface
+            if (token%kind == TK_KEYWORD .and. &
+                trim(to_lower_local(token%text)) == "module") then
+                stmt_index = parse_module_procedure_statement(parser, arena)
+                if (stmt_index > 0) then
+                    body_indices = [body_indices, stmt_index]
+                end if
+                cycle
+            end if
+
+            ! Skip blank lines and comments
+            if (token%kind == TK_NEWLINE .or. token%kind == TK_COMMENT) then
+                token = parser%consume()
+                cycle
+            end if
+
+            ! Report unexpected tokens instead of silently skipping them
+            call parser%error("Unexpected token '"//trim(token%text)// &
+                              "' in interface block.")
+            token = parser%consume()
+        end do
 
         ! Create interface node
         interface_index = push_interface_block(arena, interface_name, body_indices, &
                                                line, column)
     end function parse_interface_block
+
+    function parse_module_procedure_statement(parser, arena) result(stmt_index)
+        type(parser_state_t), intent(inout) :: parser
+        type(ast_arena_t), intent(inout) :: arena
+        integer :: stmt_index
+
+        type(token_t) :: token
+        type(string_t), allocatable :: procedure_names(:)
+        integer :: line, column
+
+        stmt_index = 0
+        allocate (procedure_names(0))
+
+        ! Consume MODULE keyword
+        token = parser%consume()
+        line = token%line
+        column = token%column
+
+        ! Procedure keyword must follow
+        token = parser%peek()
+        if (.not. (token%kind == TK_KEYWORD .and. &
+                   trim(to_lower_local(token%text)) == "procedure")) then
+            return
+        end if
+        token = parser%consume()
+
+        ! Optional double colon separator
+        token = parser%peek()
+        if (token%kind == TK_OPERATOR .and. token%text == "::") then
+            token = parser%consume()
+        end if
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%kind)
+            case (TK_IDENTIFIER)
+                call append_procedure_name(procedure_names, token%text)
+                token = parser%consume()
+            case (TK_OPERATOR)
+                if (trim(token%text) == ",") then
+                    token = parser%consume()
+                else
+                    call parser%error("Unexpected operator '"// &
+                                      trim(token%text)// &
+                                      "' in module procedure list.")
+                    token = parser%consume()
+                    exit
+                end if
+            case (TK_COMMENT, TK_NEWLINE, TK_KEYWORD)
+                exit
+            case (TK_WHITESPACE)
+                token = parser%consume()
+            case default
+                call parser%error("Unexpected token '"//trim(token%text)// &
+                                  "' in module procedure list.")
+                token = parser%consume()
+                exit
+            end select
+        end do
+
+        if (allocated(procedure_names)) then
+            if (size(procedure_names) > 0) then
+                stmt_index = push_module_procedure(arena, procedure_names, line, column)
+            end if
+        end if
+    end function parse_module_procedure_statement
+
+    subroutine append_procedure_name(list, value)
+        type(string_t), allocatable, intent(inout) :: list(:)
+        character(len=*), intent(in) :: value
+        type(string_t), allocatable :: tmp(:)
+        integer :: n
+
+        if (len_trim(value) == 0) return
+
+        if (.not. allocated(list)) then
+            allocate (list(1))
+            list(1)%s = trim(value)
+            return
+        end if
+
+        n = size(list)
+        allocate (tmp(n + 1))
+        if (n > 0) tmp(1:n) = list
+        tmp(n + 1)%s = trim(value)
+        call move_alloc(tmp, list)
+    end subroutine append_procedure_name
 
     logical function keyword_can_be_function_name(parser, token) result(can_use)
         type(parser_state_t), intent(in) :: parser
