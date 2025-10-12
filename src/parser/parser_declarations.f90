@@ -1,7 +1,7 @@
 module parser_declarations
     use, intrinsic :: iso_fortran_env, only: error_unit
     use lexer_core, only: token_t, TK_IDENTIFIER, TK_OPERATOR, TK_NUMBER, TK_EOF, TK_KEYWORD, &
-                          TK_NEWLINE, TK_WHITESPACE, TK_COMMENT
+                          TK_NEWLINE, TK_WHITESPACE, TK_COMMENT, to_lower
     use parser_state_module, only: parser_state_t
     use ast_arena_modern, only: ast_arena_t
     use ast_types, only: LITERAL_STRING
@@ -16,6 +16,7 @@ module parser_declarations
     public :: parse_declaration, parse_multi_declaration, parse_declaration_with_result
     public :: parse_derived_type_def, parse_derived_type_component
     public :: parse_array_dimensions
+    public :: is_type_attribute_token
 
     ! Type specifier result type for structured type information
     type, public :: type_specifier_t
@@ -41,6 +42,89 @@ module parser_declarations
     end type declaration_attributes_t
 
 contains
+
+    logical function is_type_attribute_token(text) result(is_attribute)
+        character(len=*), intent(in) :: text
+        character(len=:), allocatable :: normalized
+
+        normalized = to_lower(trim(adjustl(text)))
+
+        select case (normalized)
+        case ("public", "private", "sequence", "abstract", "extends", "bind", &
+              "protected", "non_overridable", "final", "deferred")
+            is_attribute = .true.
+        case default
+            is_attribute = .false.
+        end select
+    end function is_type_attribute_token
+
+    subroutine skip_type_definition_attributes(parser, invalid_definition)
+        type(parser_state_t), intent(inout) :: parser
+        logical, intent(out) :: invalid_definition
+
+        type(token_t) :: token
+        character(len=:), allocatable :: last_attribute
+        integer :: depth
+
+        invalid_definition = .false.
+        last_attribute = ""
+
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            select case (token%kind)
+            case (TK_WHITESPACE, TK_NEWLINE, TK_COMMENT)
+                token = parser%consume()
+            case (TK_OPERATOR)
+                select case (token%text)
+                case (",")
+                    token = parser%consume()
+                    last_attribute = ""
+                case ("::")
+                    token = parser%consume()
+                    return
+                case ("(")
+                    if (len(last_attribute) > 0) then
+                        select case (to_lower(trim(adjustl(last_attribute))))
+                        case ("extends", "bind")
+                            token = parser%consume()
+                            depth = 1
+                            do while (.not. parser%is_at_end() .and. depth > 0)
+                                token = parser%consume()
+                                if (token%kind == TK_OPERATOR) then
+                                    select case (token%text)
+                                    case ("(")
+                                        depth = depth + 1
+                                    case (")")
+                                        depth = depth - 1
+                                    end select
+                                end if
+                            end do
+                            last_attribute = ""
+                        case default
+                            invalid_definition = .true.
+                            return
+                        end select
+                    else
+                        invalid_definition = .true.
+                        return
+                    end if
+                case default
+                    invalid_definition = .true.
+                    return
+                end select
+            case (TK_KEYWORD, TK_IDENTIFIER)
+                if (is_type_attribute_token(token%text)) then
+                    last_attribute = to_lower(trim(adjustl(token%text)))
+                    token = parser%consume()
+                else
+                    return
+                end if
+            case default
+                invalid_definition = .true.
+                return
+            end select
+        end do
+    end subroutine skip_type_definition_attributes
 
     ! Parse type specifier (e.g., "integer(kind=8)", "character(len=*)")
     function parse_type_specifier(parser) result(type_spec)
@@ -930,25 +1014,32 @@ contains
         integer, parameter :: max_components = 100
         integer :: component_indices(max_components)
         integer :: component_count
+        integer :: debug_i
+        logical :: invalid_type_spec
 
         type_index = 0
         component_count = 0
 
+        print *, 'DEBUG full token list start'
+        do debug_i = 1, parser%get_token_count()
+            print *, 'DEBUG full token', debug_i, trim(parser%tokens(debug_i)%text), parser%tokens(debug_i)%kind
+        end do
+        print *, 'DEBUG full token list end'
+
         ! Consume 'type'
         token = parser%consume()
 
-        ! Check for optional '::'
-        token = parser%peek()
-        if (token%text == "::") then
-            token = parser%consume()
+        call skip_type_definition_attributes(parser, invalid_type_spec)
+        if (invalid_type_spec) then
+            return
         end if
 
-        ! Get type name
-        token = parser%consume()
+        token = parser%peek()
         if (token%kind /= TK_IDENTIFIER) then
             return
         end if
-        type_name = token%text
+        token = parser%consume()
+        type_name = trim(token%text)
 
         ! Skip any semicolons or newlines
         do while (.not. parser%is_at_end())
