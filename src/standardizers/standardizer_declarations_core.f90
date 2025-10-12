@@ -974,6 +974,37 @@ contains
                                 var_names, var_types, var_declared, var_count, &
                                 function_names, func_count)
                         end if
+                    type is (call_or_subscript_node)
+                        if (target%is_array_access .and. allocated(target%name)) then
+                            block
+                                character(len=64) :: base_name
+                                character(len=96) :: decl_type
+                                integer :: rank, idx
+
+                                base_name = trim(target%name)
+                                decl_type = ''
+
+                                if (assign%type_was_inferred .and. &
+                                    allocated(assign%inferred_type_name)) then
+                                    decl_type = trim(assign%inferred_type_name)
+                                end if
+
+                                if (len_trim(decl_type) == 0) then
+                                    rank = 0
+                                    if (allocated(target%arg_indices)) rank = size(target%arg_indices)
+                                    if (rank <= 0) rank = 1
+                                    decl_type = 'real, dimension('
+                                    do idx = 1, rank
+                                        if (idx > 1) decl_type = trim(decl_type) // ','
+                                        decl_type = trim(decl_type) // ':'
+                                    end do
+                                    decl_type = trim(decl_type) // ')'
+                                end if
+
+                                call add_variable(base_name, decl_type, var_names, var_types, &
+                                                  var_declared, var_count, function_names, func_count)
+                            end block
+                        end if
                     end select
                 end if
             end if

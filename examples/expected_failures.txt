@@ -11,7 +11,6 @@ tooling_lightweight_ast.f90     # Gfortran compilation failure
 
 # Lazy Fortran type inference
 issue_1343_lazy_function.lf     # Issue #1343: Function parameter types inferred from result type, not call site
-issue_1355_lazy_matrix.lf       # Issue #1355: Multi-dimensional arrays not inferred
 
 # F90/F95 parser issues
 issue_1347_interface.f90        # Issue #1347: INTERFACE blocks cause parser error
