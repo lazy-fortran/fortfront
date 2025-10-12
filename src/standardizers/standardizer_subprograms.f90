@@ -86,7 +86,7 @@ contains
         if (allocated(func_def%body_indices)) then
             ! Create implicit none statement node
             implicit_none_index = push_implicit_statement(arena, .true., &
-                                                         line=1, column=1, parent_index=func_index)
+                                                          line=1, column=1, parent_index=func_index)
 
             ! Create new body with implicit none at the beginning
             allocate (new_body_indices(size(func_def%body_indices) + 1))
@@ -119,11 +119,12 @@ contains
         integer, allocatable :: new_body_indices(:)
         type(declaration_node) :: decl
         logical :: type_std_enabled
+        logical :: result_inferred
 
         call get_standardizer_type_standardization(type_std_enabled)
 
         ! If result variable not set, try to infer from first assignment target
-        if ((.not. allocated(func_def%result_variable)) .or. len_trim(func_def%result_variable) == 0) then
+      if ((.not. allocated(func_def%result_variable)) .or. len_trim(func_def%result_variable) == 0) then
             if (allocated(func_def%body_indices)) then
                 do i = 1, size(func_def%body_indices)
                     if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= arena%size) then
@@ -152,7 +153,7 @@ contains
         end if
 
         ! If still no result variable, nothing to do
-        if ((.not. allocated(func_def%result_variable)) .or. len_trim(func_def%result_variable) == 0) return
+      if ((.not. allocated(func_def%result_variable)) .or. len_trim(func_def%result_variable) == 0) return
 
         ! Check if a declaration exists for the result variable
         has_decl = .false.
@@ -174,21 +175,74 @@ contains
 
         if (has_decl) return
 
-        ! Insert a declaration for the result variable after implicit none
-        block
-            character(len=32) :: inferred_type
-            call infer_parameter_type(func_def%result_variable, inferred_type, decl%has_kind, decl%kind_value)
-            decl%type_name = trim(inferred_type)
-        end block
-        if (decl%type_name == "real" .and. type_std_enabled) then
+        decl%type_name = ""
+        decl%has_kind = .false.
+        decl%kind_value = 0
+        decl%is_array = .false.
+        decl%is_allocatable = .false.
+        result_inferred = .false.
+
+        if (allocated(func_def%return_type)) then
+            if (len_trim(func_def%return_type) > 0) then
+                block
+                    character(len=:), allocatable :: rt
+                    character(len=64) :: base_text
+                    character(len=64) :: attr_text
+                    integer :: open_pos, close_pos, read_stat, inner_close
+                    integer :: kind_val
+
+                    rt = trim(func_def%return_type)
+                    open_pos = index(rt, "(")
+                    if (open_pos > 0) then
+                        inner_close = index(rt(open_pos + 1:), ")")
+                        if (inner_close > 0) then
+                            close_pos = open_pos + inner_close
+                        else
+                            close_pos = 0
+                        end if
+                    else
+                        close_pos = 0
+                    end if
+
+                    if (open_pos > 0 .and. close_pos > open_pos) then
+                        base_text = trim(rt(1:open_pos - 1))
+                        attr_text = trim(rt(open_pos + 1:close_pos - 1))
+                        read_stat = 0
+                        read (attr_text, *, iostat=read_stat) kind_val
+                        if (read_stat == 0) then
+                            decl%type_name = trim(base_text)
+                            decl%has_kind = .true.
+                            decl%kind_value = kind_val
+                        else
+                            decl%type_name = trim(rt)
+                        end if
+                    else
+                        decl%type_name = trim(rt)
+                    end if
+                end block
+            end if
+        end if
+
+        if (len_trim(decl%type_name) == 0) then
+            block
+                character(len=32) :: inferred_type
+                call infer_parameter_type(func_def%result_variable, inferred_type, &
+                                          decl%has_kind, decl%kind_value)
+                decl%type_name = trim(inferred_type)
+            end block
+            result_inferred = .true.
+        end if
+
+        if (decl%type_name == "real" .and. type_std_enabled .and. result_inferred) then
             decl%has_kind = .true.
             decl%kind_value = 8
         end if
+
         if (.not. allocated(func_def%return_type) .or. len_trim(func_def%return_type) == 0) then
             if (decl%has_kind .and. decl%kind_value > 0 .and. decl%type_name /= "character") then
                 block
                     character(len=64) :: buffer
-                    write(buffer, '(A,"(",I0,")")') trim(decl%type_name), decl%kind_value
+                    write (buffer, '(A,"(",I0,")")') trim(decl%type_name), decl%kind_value
                     func_def%return_type = trim(buffer)
                 end block
             else
@@ -196,10 +250,6 @@ contains
             end if
         end if
 
-        if (allocated(func_def%return_type) .and. len_trim(func_def%return_type) > 0) then
-            arena%entries(func_index)%node = func_def
-            return
-        end if
         decl%var_name = trim(func_def%result_variable)
         decl%intent = ""
         decl%has_intent = .false.
@@ -214,11 +264,11 @@ contains
         call arena%push(decl, "declaration", func_index)
 
         if (.not. allocated(func_def%body_indices)) then
-            allocate(func_def%body_indices(1))
+            allocate (func_def%body_indices(1))
             func_def%body_indices(1) = arena%size
         else
             ! Insert as the second statement (after implicit none which we added earlier)
-            allocate(new_body_indices(size(func_def%body_indices) + 1))
+            allocate (new_body_indices(size(func_def%body_indices) + 1))
             if (size(func_def%body_indices) == 0) then
                 new_body_indices(1) = arena%size
             else
@@ -243,15 +293,22 @@ contains
         type(declaration_node) :: param_decl
         integer, allocatable :: new_body_indices(:)
         integer, allocatable :: param_names_found(:)
-        
+
         logical, allocatable :: fn_param_optional(:)
         character(len=8), allocatable :: fn_param_intent(:)
-        
+        character(len=64), allocatable :: fn_param_type(:)
+        logical, allocatable :: fn_param_has_kind(:)
+        integer, allocatable :: fn_param_kind_value(:)
+        logical, allocatable :: fn_param_is_array(:)
+        logical, allocatable :: fn_param_is_allocatable(:)
+        logical, allocatable :: fn_param_type_inferred(:)
+
         integer :: i, j, n_params, n_body, param_idx
         character(len=64) :: param_name
         character(len=64), allocatable :: param_names(:)
         logical :: is_param_decl, param_updated
         logical :: standardizer_type_standardization_enabled
+        logical :: requires_intent_in
 
         if (.not. allocated(func_def%param_indices)) return
         n_params = size(func_def%param_indices)
@@ -264,10 +321,32 @@ contains
         allocate (param_names_found(n_params))
         allocate (fn_param_optional(n_params))
         allocate (fn_param_intent(n_params))
+        allocate (fn_param_type(n_params))
+        allocate (fn_param_has_kind(n_params))
+        allocate (fn_param_kind_value(n_params))
+        allocate (fn_param_is_array(n_params))
+        allocate (fn_param_is_allocatable(n_params))
+        allocate (fn_param_type_inferred(n_params))
         param_names_found = 0
         fn_param_optional = .false.
         fn_param_intent = ""
-        
+        fn_param_type = ""
+        fn_param_has_kind = .false.
+        fn_param_kind_value = 0
+        fn_param_is_array = .false.
+        fn_param_is_allocatable = .false.
+        fn_param_type_inferred = .true.
+
+        requires_intent_in = .false.
+        if (allocated(func_def%prefix_keywords)) then
+            do i = 1, size(func_def%prefix_keywords)
+                select case (trim(func_def%prefix_keywords(i)))
+                case ("pure", "elemental")
+                    requires_intent_in = .true.
+                end select
+            end do
+        end if
+        if (requires_intent_in) fn_param_intent = "in"
         ! Initialize all param_names to avoid undefined behavior
         do i = 1, n_params
             param_names(i) = ""
@@ -282,6 +361,13 @@ contains
                     type is (parameter_declaration_node)
                         param_names(i) = param%name
                         fn_param_optional(i) = param%is_optional
+                        if (allocated(param%type_name)) then
+                            fn_param_type(i) = trim(param%type_name)
+                            if (len_trim(fn_param_type(i)) > 0) fn_param_type_inferred(i) = .false.
+                        end if
+                        fn_param_has_kind(i) = param%has_kind
+                        fn_param_kind_value(i) = param%kind_value
+                        fn_param_is_array(i) = param%is_array
                         select case (param%intent_type)
                         case (INTENT_IN)
                             fn_param_intent(i) = "in"
@@ -295,17 +381,25 @@ contains
                         ! captured above into param_optional/param_intent
                     type is (declaration_node)
                         param_names(i) = param%var_name
+                        if (allocated(param%type_name)) then
+                            fn_param_type(i) = trim(param%type_name)
+                            if (len_trim(fn_param_type(i)) > 0) fn_param_type_inferred(i) = .false.
+                        end if
+                        fn_param_has_kind(i) = param%has_kind
+                        fn_param_kind_value(i) = param%kind_value
+                        fn_param_is_array(i) = param%is_array
+                        fn_param_is_allocatable(i) = param%is_allocatable
                     class default
                         ! Try to get a reasonable default name
-                        write(param_names(i), '(a,i0)') "param", i
+                        write (param_names(i), '(a,i0)') "param", i
                     end select
                 else
                     ! Node not allocated, create default name
-                    write(param_names(i), '(a,i0)') "param", i
+                    write (param_names(i), '(a,i0)') "param", i
                 end if
             else
                 ! Invalid index, create default name
-                write(param_names(i), '(a,i0)') "param", i
+                write (param_names(i), '(a,i0)') "param", i
             end if
         end do
 
@@ -314,7 +408,7 @@ contains
             do i = 1, size(func_def%body_indices)
                 if (func_def%body_indices(i) > 0 .and. func_def%body_indices(i) <= arena%size) then
                     if (allocated(arena%entries(func_def%body_indices(i))%node)) then
-                      select type (stmt => arena%entries(func_def%body_indices(i))%node)
+                        select type (stmt => arena%entries(func_def%body_indices(i))%node)
                         type is (declaration_node)
                             ! Check if this declaration is for a parameter
                             is_param_decl = .false.
@@ -352,6 +446,16 @@ contains
                                             if (fn_param_optional(pidx)) stmt%is_optional = .true.
                                             if (len_trim(stmt_intent) == 0) stmt_intent = fn_param_intent(pidx)
                                             param_names_found(pidx) = func_def%body_indices(i)
+                                            if (allocated(stmt%type_name)) then
+                                                fn_param_type(pidx) = trim(stmt%type_name)
+                                                if (len_trim(fn_param_type(pidx)) > 0) then
+                                                    fn_param_type_inferred(pidx) = .false.
+                                                end if
+                                            end if
+                                            fn_param_has_kind(pidx) = stmt%has_kind
+                                            fn_param_kind_value(pidx) = stmt%kind_value
+                                            fn_param_is_array(pidx) = stmt%is_array
+                                            fn_param_is_allocatable(pidx) = stmt%is_allocatable
                                         end if
                                     end do
                                     if (matched_multi) then
@@ -376,7 +480,7 @@ contains
                                         stmt%has_kind = .true.
                                         stmt%kind_value = 8
                                     end if
-                                ! Keep integer, logical, character as-is
+                                    ! Keep integer, logical, character as-is
                                 end if
                                 if (len_trim(fn_param_intent(param_idx)) > 0) then
                                     stmt%intent = fn_param_intent(param_idx)
@@ -387,6 +491,16 @@ contains
                                 end if
                                 if (fn_param_optional(param_idx)) stmt%is_optional = .true.
                                 param_names_found(param_idx) = func_def%body_indices(i)
+                                if (allocated(stmt%type_name)) then
+                                    fn_param_type(param_idx) = trim(stmt%type_name)
+                                    if (len_trim(fn_param_type(param_idx)) > 0) then
+                                        fn_param_type_inferred(param_idx) = .false.
+                                    end if
+                                end if
+                                fn_param_has_kind(param_idx) = stmt%has_kind
+                                fn_param_kind_value(param_idx) = stmt%kind_value
+                                fn_param_is_array(param_idx) = stmt%is_array
+                                fn_param_is_allocatable(param_idx) = stmt%is_allocatable
                                 ! Update in arena
                                 arena%entries(func_def%body_indices(i))%node = stmt
                             end if
@@ -398,16 +512,25 @@ contains
 
         ! Add declarations for parameters not found
         call add_missing_parameter_declarations_ext(arena, func_def, func_index, &
-                                              param_names, param_names_found, n_params, &
-                                              fn_param_optional, fn_param_intent, &
-                                              standardizer_type_standardization_enabled)
+                                                    param_names, param_names_found, n_params, fn_param_optional, &
+                                                    fn_param_intent, fn_param_type, fn_param_has_kind, &
+                                                    fn_param_kind_value, fn_param_is_array, fn_param_is_allocatable, &
+                                                    fn_param_type_inferred, standardizer_type_standardization_enabled)
+
+        if (requires_intent_in) then
+            call rebuild_parameter_declarations(arena, func_def, func_index, param_names, &
+                                                fn_param_optional, fn_param_type, fn_param_has_kind, fn_param_kind_value, &
+                                                fn_param_is_array, fn_param_is_allocatable, fn_param_type_inferred, &
+                                                standardizer_type_standardization_enabled)
+        end if
 
     end subroutine standardize_function_parameters
 
     ! Add missing parameter declarations
     subroutine add_missing_parameter_declarations_ext(arena, func_def, func_index, &
-                                                param_names, param_names_found, n_params, &
-                                                param_optional, param_intent, type_std_enabled)
+                                                      param_names, param_names_found, n_params, param_optional, param_intent, &
+                                                      param_type, param_has_kind, param_kind_value, param_is_array, &
+                                                      param_is_allocatable, param_type_inferred, type_std_enabled)
         type(ast_arena_t), intent(inout) :: arena
         type(function_def_node), intent(inout) :: func_def
         integer, intent(in) :: func_index, n_params
@@ -415,10 +538,17 @@ contains
         integer, intent(in) :: param_names_found(:)
         logical, intent(in) :: param_optional(:)
         character(len=8), intent(in) :: param_intent(:)
+        character(len=64), intent(in) :: param_type(:)
+        logical, intent(in) :: param_has_kind(:)
+        integer, intent(in) :: param_kind_value(:)
+        logical, intent(in) :: param_is_array(:)
+        logical, intent(in) :: param_is_allocatable(:)
+        logical, intent(in) :: param_type_inferred(:)
         logical, intent(in) :: type_std_enabled
         type(declaration_node) :: param_decl
         integer, allocatable :: new_body_indices(:)
         integer :: i, j, n_body, new_decl_count
+        logical :: inferred_local
 
         n_body = 0
         if (allocated(func_def%body_indices)) n_body = size(func_def%body_indices)
@@ -443,17 +573,36 @@ contains
             do i = 1, n_params
                 if (param_names_found(i) == 0) then
                     ! Create declaration for this parameter
-                    block
-                        character(len=32) :: inferred_type
-                        call infer_parameter_type(param_names(i), inferred_type, &
-                                                param_decl%has_kind, param_decl%kind_value)
-                        param_decl%type_name = trim(inferred_type)
-                    end block
-                    if (param_decl%type_name == "real" .and. type_std_enabled) then
-                        param_decl%has_kind = .true.
-                        param_decl%kind_value = 8
+                    param_decl%type_name = ""
+                    param_decl%has_kind = .false.
+                    param_decl%kind_value = 0
+                    param_decl%is_array = .false.
+                    param_decl%is_allocatable = .false.
+                    inferred_local = param_type_inferred(i)
+                    if (len_trim(param_type(i)) > 0) then
+                        param_decl%type_name = trim(param_type(i))
+                        param_decl%has_kind = param_has_kind(i)
+                        param_decl%kind_value = param_kind_value(i)
+                    else
+                        block
+                            character(len=32) :: inferred_type
+                            call infer_parameter_type(param_names(i), inferred_type, &
+                                                      param_decl%has_kind, param_decl%kind_value)
+                            param_decl%type_name = trim(inferred_type)
+                        end block
+                        inferred_local = .true.
                     end if
+                    if (param_decl%type_name == "real") then
+                        if (type_std_enabled .and. inferred_local) then
+                            param_decl%has_kind = .true.
+                            param_decl%kind_value = 8
+                        end if
+                    end if
+                    param_decl%is_array = param_is_array(i)
+                    param_decl%is_allocatable = param_is_allocatable(i)
                     param_decl%var_name = param_names(i)
+                    param_decl%is_multi_declaration = .false.
+                    if (allocated(param_decl%var_names)) deallocate (param_decl%var_names)
                     if (len_trim(param_intent(i)) > 0) then
                         param_decl%intent = param_intent(i)
                         param_decl%has_intent = .true.
@@ -461,20 +610,18 @@ contains
                         param_decl%intent = "in"
                         param_decl%has_intent = .true.
                     end if
-                    if (param_optional(i)) param_decl%is_optional = .true.
-                    param_decl%is_array = .false.
-                    param_decl%is_allocatable = .false.
+                    param_decl%is_optional = param_optional(i)
                     param_decl%initializer_index = 0
                     param_decl%line = 1
                     param_decl%column = 1
 
                     call arena%push(param_decl, "declaration", func_index)
                     new_decl_count = new_decl_count + 1
-                    
+
                     ! Insert after implicit none, shift other statements down
                     ! Move all statements from position 2 onwards down by one
                     do j = n_body + new_decl_count, 3, -1
-                        new_body_indices(j) = new_body_indices(j-1)
+                        new_body_indices(j) = new_body_indices(j - 1)
                     end do
                     new_body_indices(1 + new_decl_count) = arena%size
                 end if
@@ -484,6 +631,145 @@ contains
         end if
 
     end subroutine add_missing_parameter_declarations_ext
+
+    subroutine rebuild_parameter_declarations(arena, func_def, func_index, param_names, &
+                                              param_optional, param_type, param_has_kind, param_kind_value, param_is_array, &
+                                              param_is_allocatable, param_type_inferred, type_std_enabled)
+        type(ast_arena_t), intent(inout) :: arena
+        type(function_def_node), intent(inout) :: func_def
+        integer, intent(in) :: func_index
+        character(len=64), intent(in) :: param_names(:)
+        logical, intent(in) :: param_optional(:)
+        character(len=64), intent(in) :: param_type(:)
+        logical, intent(in) :: param_has_kind(:)
+        integer, intent(in) :: param_kind_value(:)
+        logical, intent(in) :: param_is_array(:)
+        logical, intent(in) :: param_is_allocatable(:)
+        logical, intent(in) :: param_type_inferred(:)
+        logical, intent(in) :: type_std_enabled
+        integer :: i, n_params, idx, pname_idx, name_idx
+        type(declaration_node) :: param_decl
+        integer, allocatable :: new_indices(:)
+        character(len=32) :: inferred_type
+        logical :: is_param
+        integer, allocatable :: existing(:)
+        logical :: inferred_local
+
+        if (.not. allocated(func_def%body_indices)) return
+        n_params = size(param_names)
+        if (n_params == 0) return
+
+        ! Remove existing parameter declarations
+        do i = 1, size(func_def%body_indices)
+            idx = func_def%body_indices(i)
+            if (idx <= 0 .or. idx > arena%size) cycle
+            if (.not. allocated(arena%entries(idx)%node)) cycle
+            select type (stmt => arena%entries(idx)%node)
+            type is (declaration_node)
+                is_param = .false.
+                if (trim(stmt%var_name) /= "") then
+                    do pname_idx = 1, n_params
+                        if (trim(stmt%var_name) == trim(param_names(pname_idx))) then
+                            is_param = .true.
+                            exit
+                        end if
+                    end do
+                end if
+                if (.not. is_param) then
+                    if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                        do pname_idx = 1, n_params
+                            do name_idx = 1, size(stmt%var_names)
+                                if (trim(stmt%var_names(name_idx)) == trim(param_names(pname_idx))) then
+                                    is_param = .true.
+                                    exit
+                                end if
+                            end do
+                            if (is_param) exit
+                        end do
+                    end if
+                end if
+                if (is_param) func_def%body_indices(i) = 0
+            type is (parameter_declaration_node)
+                do pname_idx = 1, n_params
+                    if (trim(stmt%name) == trim(param_names(pname_idx))) then
+                        func_def%body_indices(i) = 0
+                        exit
+                    end if
+                end do
+            end select
+        end do
+
+        ! Create new declarations for each parameter
+        allocate (new_indices(n_params))
+        do i = 1, n_params
+            param_decl%type_name = ""
+            param_decl%has_kind = .false.
+            param_decl%kind_value = 0
+            param_decl%is_array = .false.
+            param_decl%is_allocatable = .false.
+            inferred_local = param_type_inferred(i)
+            if (len_trim(param_type(i)) > 0) then
+                param_decl%type_name = trim(param_type(i))
+                param_decl%has_kind = param_has_kind(i)
+                param_decl%kind_value = param_kind_value(i)
+            else
+                call infer_parameter_type(param_names(i), inferred_type, &
+                                          param_decl%has_kind, param_decl%kind_value)
+                param_decl%type_name = trim(inferred_type)
+                inferred_local = .true.
+            end if
+            if (param_decl%type_name == "real") then
+                if (type_std_enabled .and. inferred_local) then
+                    param_decl%has_kind = .true.
+                    param_decl%kind_value = 8
+                end if
+            end if
+            param_decl%var_name = trim(param_names(i))
+            param_decl%is_multi_declaration = .false.
+            if (allocated(param_decl%var_names)) deallocate (param_decl%var_names)
+            param_decl%intent = "in"
+            param_decl%has_intent = .true.
+            param_decl%is_optional = param_optional(i)
+            param_decl%is_array = param_is_array(i)
+            param_decl%is_allocatable = param_is_allocatable(i)
+            param_decl%initializer_index = 0
+            param_decl%line = 1
+            param_decl%column = 1
+            call arena%push(param_decl, "declaration", func_index)
+            new_indices(i) = arena%size
+        end do
+
+        ! Collect existing non-removed statements
+        allocate (existing(0))
+        do i = 1, size(func_def%body_indices)
+            if (func_def%body_indices(i) /= 0) then
+                existing = [existing, func_def%body_indices(i)]
+            end if
+        end do
+
+        if (size(existing) == 0) then
+            if (allocated(func_def%body_indices)) deallocate (func_def%body_indices)
+            allocate (func_def%body_indices(n_params))
+            func_def%body_indices = new_indices
+        else
+            if (allocated(func_def%body_indices)) deallocate (func_def%body_indices)
+            allocate (func_def%body_indices(size(existing) + n_params))
+            if (size(existing) >= 1) then
+                func_def%body_indices(1) = existing(1)
+                do i = 1, n_params
+                    func_def%body_indices(1 + i) = new_indices(i)
+                end do
+                do i = 2, size(existing)
+                    func_def%body_indices(n_params + i) = existing(i)
+                end do
+            else
+                do i = 1, n_params
+                    func_def%body_indices(i) = new_indices(i)
+                end do
+            end if
+        end if
+
+    end subroutine rebuild_parameter_declarations
 
     ! Standardize a subroutine definition
     subroutine standardize_subroutine_def(arena, sub_def, sub_index)
@@ -497,7 +783,7 @@ contains
         if (allocated(sub_def%body_indices)) then
             ! Create implicit none statement node
             implicit_none_index = push_implicit_statement(arena, .true., &
-                                                         line=1, column=1, parent_index=sub_index)
+                                                          line=1, column=1, parent_index=sub_index)
 
             ! Create new body with implicit none at the beginning
             allocate (new_body_indices(size(sub_def%body_indices) + 1))
@@ -545,7 +831,7 @@ contains
         param_names_found = 0
         sb_param_optional = .false.
         sb_param_intent = ""
-        
+
         ! Initialize all param_names to avoid undefined behavior
         do i = 1, n_params
             param_names(i) = ""
@@ -574,15 +860,15 @@ contains
                         param_names(i) = param%var_name
                     class default
                         ! Try to get a reasonable default name
-                        write(param_names(i), '(a,i0)') "param", i
+                        write (param_names(i), '(a,i0)') "param", i
                     end select
                 else
                     ! Node not allocated, create default name
-                    write(param_names(i), '(a,i0)') "param", i
+                    write (param_names(i), '(a,i0)') "param", i
                 end if
             else
                 ! Invalid index, create default name
-                write(param_names(i), '(a,i0)') "param", i
+                write (param_names(i), '(a,i0)') "param", i
             end if
         end do
 
@@ -591,7 +877,7 @@ contains
             do i = 1, size(sub_def%body_indices)
                 if (sub_def%body_indices(i) > 0 .and. sub_def%body_indices(i) <= arena%size) then
                     if (allocated(arena%entries(sub_def%body_indices(i))%node)) then
-                      select type (stmt => arena%entries(sub_def%body_indices(i))%node)
+                        select type (stmt => arena%entries(sub_def%body_indices(i))%node)
                         type is (declaration_node)
                             ! Check if this declaration is for a parameter
                             is_param_decl = .false.
@@ -653,7 +939,7 @@ contains
                                         stmt%has_kind = .true.
                                         stmt%kind_value = 8
                                     end if
-                                ! Keep integer, logical, character as-is
+                                    ! Keep integer, logical, character as-is
                                 end if
                                 ! Default to intent(inout) for subroutine parameters
                                 if (len_trim(sb_param_intent(param_idx)) > 0) then
@@ -675,16 +961,16 @@ contains
 
         ! Add declarations for parameters not found
         call add_missing_subroutine_parameter_declarations_ext(arena, sub_def, sub_index, &
-                                                          param_names, param_names_found, n_params, &
-                                                          sb_param_optional, sb_param_intent, &
-                                                          standardizer_type_standardization_enabled)
+                                                               param_names, param_names_found, n_params, &
+                                                               sb_param_optional, sb_param_intent, &
+                                                               standardizer_type_standardization_enabled)
 
     end subroutine standardize_subroutine_parameters
 
     ! Add missing subroutine parameter declarations
     subroutine add_missing_subroutine_parameter_declarations_ext(arena, sub_def, sub_index, &
-                                                           param_names, param_names_found, n_params, &
-                                                           param_optional, param_intent, type_std_enabled)
+                                                                 param_names, param_names_found, n_params, &
+                                                                 param_optional, param_intent, type_std_enabled)
         type(ast_arena_t), intent(inout) :: arena
         type(subroutine_def_node), intent(inout) :: sub_def
         integer, intent(in) :: sub_index, n_params
@@ -721,7 +1007,7 @@ contains
                 if (param_names_found(i) == 0) then
                     ! Create declaration for this parameter
                     call infer_parameter_type(param_names(i), param_decl%type_name, &
-                                            param_decl%has_kind, param_decl%kind_value)
+                                              param_decl%has_kind, param_decl%kind_value)
                     if (param_decl%type_name == "real" .and. type_std_enabled) then
                         param_decl%has_kind = .true.
                         param_decl%kind_value = 8
@@ -748,7 +1034,7 @@ contains
                     if (n_body >= 1) then
                         ! Shift existing statements down to make room after implicit none
                         do j = n_body + new_decl_count, 3, -1
-                            new_body_indices(j) = new_body_indices(j-1)
+                            new_body_indices(j) = new_body_indices(j - 1)
                         end do
                         new_body_indices(1 + new_decl_count) = arena%size
                     else
@@ -770,16 +1056,16 @@ contains
         logical, intent(out) :: has_kind
         integer, intent(out) :: kind_value
         character :: first_char
-        
+
         has_kind = .false.
         kind_value = 0
-        
+
         if (len_trim(param_name) > 0) then
             first_char = param_name(1:1)
             select case (first_char)
             case ('i', 'j', 'k', 'l', 'm', 'n')
                 type_name = "integer"
-            case ('x', 'y', 'z', 'r', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'o', 'p', 'q', 's', 't', 'u', 'v', 'w')
+         case ('x', 'y', 'z', 'r', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'o', 'p', 'q', 's', 't', 'u', 'v', 'w')
                 type_name = "real"
             case default
                 type_name = "real"  ! Default to real
@@ -787,7 +1073,7 @@ contains
         else
             type_name = "real"  ! Default fallback
         end if
-        
+
     end subroutine infer_parameter_type
 
     ! Wrap a standalone function in a program
@@ -806,7 +1092,7 @@ contains
 
         ! Create implicit none
         implicit_none_index = push_implicit_statement(arena, .true., &
-                                                     line=1, column=1, parent_index=0)
+                                                      line=1, column=1, parent_index=0)
 
         ! Create contains statement
         contains_stmt%line = 1
@@ -856,7 +1142,7 @@ contains
 
         ! Create implicit none
         implicit_none_index = push_implicit_statement(arena, .true., &
-                                                     line=1, column=1, parent_index=0)
+                                                      line=1, column=1, parent_index=0)
 
         ! Create contains statement
         contains_stmt%line = 1

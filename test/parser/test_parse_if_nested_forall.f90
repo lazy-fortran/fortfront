@@ -30,7 +30,7 @@ program test_parse_if_nested_forall
 
     if_index = parse_if(parser, arena)
     if (if_index <= 0) then
-        write(error_unit, '(a)') 'ERROR: parse_if returned invalid index'
+        write (error_unit, '(a)') 'ERROR: parse_if returned invalid index'
         stop 1
     end if
 
@@ -54,12 +54,12 @@ program test_parse_if_nested_forall
     end do
 
     if (.not. has_forall) then
-        write(error_unit, '(a)') 'ERROR: nested FORALL node not created'
+        write (error_unit, '(a)') 'ERROR: nested FORALL node not created'
         stop 1
     end if
 
     if (has_unparsed) then
-        write(error_unit, '(a)') 'ERROR: unexpected ! Unparsed literal emitted'
+        write (error_unit, '(a)') 'ERROR: unexpected ! Unparsed literal emitted'
         stop 1
     end if
 

@@ -7,7 +7,7 @@ program test_issue_259_input_validation_refinement
 
     test_count = 0
     passed_count = 0
-    
+
     print *, '=== Issue #259 Input Validation Refinement ==='
     print *, 'Testing that input validation refinement fixes are working correctly'
     print *
@@ -15,40 +15,40 @@ program test_issue_259_input_validation_refinement
     ! Test Category 1: Comments-only input should be accepted
     call run_test('Comments-only input with single comment', &
                   test_single_comment_input())
-    
+
     call run_test('Comments-only input with multiple comments', &
                   test_multiple_comment_input())
-    
+
     call run_test('Comment with whitespace variations', &
                   test_comment_whitespace_variations())
-    
+
     ! Test Category 2: Mathematical expressions should be accepted
     call run_test('Simple addition expression', &
                   test_simple_addition_expression())
-    
+
     call run_test('Expression with parentheses', &
                   test_expression_with_parentheses())
-    
+
     call run_test('Identifier multiplication', &
                   test_identifier_multiplication())
-    
+
     call run_test('Complex variable expression', &
                   test_complex_variable_expression())
-    
+
     ! These should pass (demonstrating current validation works for some cases)
     call run_test('Expression with numbers (should work)', &
                   test_expression_with_numbers())
-    
+
     call run_test('Expression with function call (should work)', &
                   test_expression_with_function_call())
-    
+
     ! Test Category 3: Lazy Fortran constructs should be valid
     call run_test('Variable assignment without declaration', &
                   test_variable_assignment())
-    
+
     call run_test('Array indexing expression', &
                   test_array_indexing())
-    
+
     call run_test('Mixed identifier and number expressions', &
                   test_mixed_identifier_number())
 
@@ -59,7 +59,7 @@ program test_issue_259_input_validation_refinement
     print *, '  Tests passing:', passed_count
     print *, '  Tests failing (demonstrating bugs):', test_count - passed_count
     print *
-    
+
     if (passed_count == test_count) then
         print *, 'SUCCESS: All validation tests pass - Issue #259 has been fixed!'
         print *, 'All previously problematic inputs are now correctly accepted:'
@@ -79,7 +79,7 @@ contains
     subroutine run_test(test_name, result)
         character(len=*), intent(in) :: test_name
         logical, intent(in) :: result
-        
+
         test_count = test_count + 1
         if (result) then
             passed_count = passed_count + 1
@@ -95,11 +95,11 @@ contains
     function test_single_comment_input() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = '! This is a comment'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for comments-only input
         passed = len_trim(error_msg) == 0
     end function
@@ -110,13 +110,13 @@ contains
     function test_multiple_comment_input() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = '! Comment 1' // new_line('a') // &
                  '! Comment 2' // new_line('a') // &
                  '! Comment 3'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for comments-only input
         passed = len_trim(error_msg) == 0
     end function
@@ -127,11 +127,11 @@ contains
     function test_comment_whitespace_variations() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = '    ! Indented comment with spaces'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for comments-only input
         passed = len_trim(error_msg) == 0
     end function
@@ -142,11 +142,11 @@ contains
     function test_simple_addition_expression() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = 'a + b'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for mathematical expressions
         passed = len_trim(error_msg) == 0
     end function
@@ -157,11 +157,11 @@ contains
     function test_identifier_multiplication() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = 'a * b'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for identifier expressions
         passed = len_trim(error_msg) == 0
     end function
@@ -172,11 +172,11 @@ contains
     function test_complex_variable_expression() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = 'x + y - z'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for variable expressions
         passed = len_trim(error_msg) == 0
     end function
@@ -187,11 +187,11 @@ contains
     function test_expression_with_numbers() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = 'x * y + z / 2.0'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for expressions with numbers
         passed = len_trim(error_msg) == 0
     end function
@@ -202,11 +202,11 @@ contains
     function test_expression_with_parentheses() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = '(a + b) * c'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for expressions with parentheses
         passed = len_trim(error_msg) == 0
     end function
@@ -217,11 +217,11 @@ contains
     function test_expression_with_function_call() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = 'sqrt(x) + y'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for expressions with function calls
         passed = len_trim(error_msg) == 0
     end function
@@ -232,11 +232,11 @@ contains
     function test_variable_assignment() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = 'x = 42'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for assignment expressions
         passed = len_trim(error_msg) == 0
     end function
@@ -247,11 +247,11 @@ contains
     function test_array_indexing() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = 'arr(i)'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for array indexing
         passed = len_trim(error_msg) == 0
     end function
@@ -262,11 +262,11 @@ contains
     function test_mixed_identifier_number() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, output, error_msg
-        
+
         source = 'result = 3.14 * radius'
-        
+
         call transform_lazy_fortran_string(source, output, error_msg)
-        
+
         ! Should succeed (empty error_msg) for mixed expressions
         passed = len_trim(error_msg) == 0
     end function

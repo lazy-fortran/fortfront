@@ -31,33 +31,33 @@ contains
         type(ast_arena_t), intent(in) :: arena
         character(len=*), intent(in) :: context
         type(result_t) :: validation_result
-        
+
         if (.not. allocated(arena%entries)) then
             validation_result = critical_result( &
-                "Arena entries not allocated", &
-                ERROR_MEMORY, &
-                component="ast_factory_core", &
-                context=context, &
-                suggestion="Initialize arena with create_ast_arena() before use" &
-            )
+                                "Arena entries not allocated", &
+                                ERROR_MEMORY, &
+                                component="ast_factory_core", &
+                                context=context, &
+                                suggestion="Initialize arena with create_ast_arena() before use" &
+                                )
             return
         end if
-        
+
         if (arena%size < 0 .or. arena%size > arena%capacity) then
             validation_result = critical_result( &
-                "Arena size inconsistent with capacity", &
-                ERROR_INTERNAL, &
-                component="ast_factory_core", &
-                context=context, &
-                suggestion="Check for memory corruption or incorrect initialization" &
-            )
+                                "Arena size inconsistent with capacity", &
+                                ERROR_INTERNAL, &
+                                component="ast_factory_core", &
+                                context=context, &
+                                suggestion="Check for memory corruption or incorrect initialization" &
+                                )
             return
         end if
-        
+
         validation_result = success_result()
     end function validate_arena
 
-    ! Node index validation utility  
+    ! Node index validation utility
     function validate_node_index(arena, node_index, context, allow_zero) result(validation_result)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
@@ -65,48 +65,48 @@ contains
         logical, intent(in), optional :: allow_zero
         type(result_t) :: validation_result
         logical :: zero_ok
-        
+
         zero_ok = .false.
         if (present(allow_zero)) zero_ok = allow_zero
-        
+
         if (node_index == 0 .and. zero_ok) then
             validation_result = success_result()
             return
         end if
-        
+
         if (node_index <= 0) then
             validation_result = create_error_result( &
-                "Invalid node index: must be positive", &
-                ERROR_VALIDATION, &
-                component="ast_factory_core", &
-                context=context, &
-                suggestion="Ensure node index comes from valid push_* operation" &
-            )
+                                "Invalid node index: must be positive", &
+                                ERROR_VALIDATION, &
+                                component="ast_factory_core", &
+                                context=context, &
+                                suggestion="Ensure node index comes from valid push_* operation" &
+                                )
             return
         end if
-        
+
         if (node_index > arena%size) then
             validation_result = create_error_result( &
-                "Node index out of bounds", &
-                ERROR_VALIDATION, &
-                component="ast_factory_core", &
-                context=context, &
-                suggestion="Check that referenced node was created in this arena" &
-            )
+                                "Node index out of bounds", &
+                                ERROR_VALIDATION, &
+                                component="ast_factory_core", &
+                                context=context, &
+                                suggestion="Check that referenced node was created in this arena" &
+                                )
             return
         end if
-        
+
         if (.not. allocated(arena%entries(node_index)%node)) then
             validation_result = create_error_result( &
-                "Node index references unallocated node", &
-                ERROR_VALIDATION, &
-                component="ast_factory_core", &
-                context=context, &
-                suggestion="Ensure referenced node is still valid and not deallocated" &
-            )
+                                "Node index references unallocated node", &
+                                ERROR_VALIDATION, &
+                                component="ast_factory_core", &
+                                context=context, &
+                                suggestion="Ensure referenced node is still valid and not deallocated" &
+                                )
             return
         end if
-        
+
         validation_result = success_result()
     end function validate_node_index
 
@@ -130,7 +130,7 @@ contains
 
     ! Create assignment node and add to stack
     function push_assignment(arena, target_index, value_index, line, column, &
-                            parent_index, operator_text) result(assign_index)
+                             parent_index, operator_text) result(assign_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: target_index, value_index
         integer, intent(in), optional :: line, column, parent_index
@@ -155,7 +155,7 @@ contains
     ! Create pointer assignment node and add to stack
     function push_pointer_assignment(arena, pointer_index, target_index, &
                                      line, column, parent_index) &
-            result(assign_index)
+        result(assign_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: pointer_index
         integer, intent(in) :: target_index
@@ -171,7 +171,7 @@ contains
 
     ! Create binary operation node and add to stack
     function push_binary_op(arena, left_index, right_index, operator, &
-                           line, column, parent_index) result(binop_index)
+                            line, column, parent_index) result(binop_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: left_index, right_index
         character(len=*), intent(in) :: operator
@@ -225,14 +225,14 @@ contains
 
     ! Create array literal node and add to stack
     function push_array_literal(arena, element_indices, line, column, &
-                               parent_index, syntax_style) result(array_index)
+                                parent_index, syntax_style) result(array_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: element_indices(:)
         integer, intent(in), optional :: line, column, parent_index
         character(len=*), intent(in), optional :: syntax_style
         integer :: array_index
         type(array_literal_node) :: array_lit
-        
+
         array_lit = create_array_literal(element_indices, line, column, syntax_style)
         call arena%push(array_lit, "array_literal", parent_index)
         array_index = arena%size
@@ -240,7 +240,7 @@ contains
 
     ! Create complex literal node and add to stack
     function push_complex_literal(arena, real_index, imag_index, line, column, &
-                                 parent_index) result(complex_index)
+                                  parent_index) result(complex_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: real_index, imag_index
         integer, intent(in), optional :: line, column, parent_index
@@ -259,7 +259,7 @@ contains
 
     ! Create component access node and add to stack
     function push_component_access(arena, object_index, component_name, &
-                                  line, column, parent_index) result(access_index)
+                                   line, column, parent_index) result(access_index)
         use ast_nodes_core, only: component_access_node, create_component_access
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: object_index
@@ -272,21 +272,21 @@ contains
         if (object_index <= 0 .or. object_index > arena%size) then
             ! Create error node for invalid base
             access_index = push_literal(arena, &
-                "!ERROR: Invalid base for component access", &
-                                      LITERAL_STRING, line, column)
+                                        "!ERROR: Invalid base for component access", &
+                                        LITERAL_STRING, line, column)
             return
         end if
 
         if (len_trim(component_name) == 0) then
             ! Create error node for empty component name
             access_index = push_literal(arena, "!ERROR: Empty component name", &
-                                      LITERAL_STRING, line, column)
+                                        LITERAL_STRING, line, column)
             return
         end if
 
         ! Create proper component access node
         access_node = create_component_access(object_index, component_name, &
-            line, column)
+                                              line, column)
 
         call arena%push(access_node, "component_access", parent_index)
         access_index = arena%size
@@ -294,7 +294,7 @@ contains
 
     ! Create range subscript node (for array slices or character substrings)
     function push_range_subscript(arena, base_expr_index, start_index, end_index, &
-                                     line, column, parent_index) result(subscript_index)
+                                  line, column, parent_index) result(subscript_index)
         use ast_nodes_core, only: range_subscript_node, create_range_subscript
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in) :: base_expr_index
@@ -302,28 +302,28 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         integer :: subscript_index
         type(range_subscript_node) :: subscript_node
-        
+
         ! Validate base expression index
         if (base_expr_index <= 0 .or. base_expr_index > arena%size) then
             ! Create error node for invalid base expression
             subscript_index = push_literal(arena, &
-                "!ERROR: Invalid base for range subscript", &
-                                         LITERAL_STRING, line, column)
+                                           "!ERROR: Invalid base for range subscript", &
+                                           LITERAL_STRING, line, column)
             return
         end if
-        
+
         ! Create range subscript node
         subscript_node = create_range_subscript(base_expr_index, start_index, &
-            end_index, &
-                                                   line, column)
-        
+                                                end_index, &
+                                                line, column)
+
         call arena%push(subscript_node, "range_subscript", parent_index)
         subscript_index = arena%size
     end function push_range_subscript
 
     ! Create type constructor node and add to stack
     function push_type_constructor(arena, type_name, arg_indices, line, &
-                                  column, parent_index) result(constructor_index)
+                                   column, parent_index) result(constructor_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: type_name
         integer, intent(in), optional :: arg_indices(:)

@@ -2,7 +2,7 @@ module ast_nodes_associate
     use json_module
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
-                         ast_node_wrapper, ast_visitor_base_t
+                        ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 
@@ -14,14 +14,14 @@ module ast_nodes_associate
 
     ! Association type for ASSOCIATE construct
     type :: association_t
-        character(len=:), allocatable :: name     ! Associate name
-        integer :: expr_index = 0                 ! Expression index in arena
+        character(len=:), allocatable :: name  ! Associate name
+        integer :: expr_index = 0  ! Expression index in arena
     end type association_t
 
     ! ASSOCIATE construct node
     type, extends(ast_node) :: associate_node
         type(association_t), allocatable :: associations(:)  ! List of associations
-        integer, allocatable :: body_indices(:)              ! Body statement indices
+        integer, allocatable :: body_indices(:)  ! Body statement indices
     contains
         procedure :: accept => associate_accept
         procedure :: to_json => associate_to_json
@@ -91,7 +91,7 @@ contains
 
         ! Copy associations
         if (allocated(rhs%associations)) then
-            allocate(lhs%associations(size(rhs%associations)))
+            allocate (lhs%associations(size(rhs%associations)))
             do i = 1, size(rhs%associations)
                 lhs%associations(i)%name = rhs%associations(i)%name
                 lhs%associations(i)%expr_index = rhs%associations(i)%expr_index

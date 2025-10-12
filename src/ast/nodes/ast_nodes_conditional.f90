@@ -2,7 +2,7 @@ module ast_nodes_conditional
     use json_module
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
-                         ast_node_wrapper, ast_visitor_base_t
+                        ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 
@@ -16,25 +16,25 @@ module ast_nodes_conditional
 
     ! Elseif wrapper (not an AST node itself)
     type :: elseif_wrapper
-        integer :: condition_index = 0                ! Elseif condition arena index
-        integer, allocatable :: body_indices(:)       ! Elseif body arena indices
+        integer :: condition_index = 0  ! Elseif condition arena index
+        integer, allocatable :: body_indices(:)  ! Elseif body arena indices
     end type elseif_wrapper
 
     ! Case statement wrapper (temporary for parser compatibility)
     type :: case_wrapper
-        character(len=:), allocatable :: case_type    ! "case", "case_default"
-        class(ast_node), allocatable :: value         ! Case value (optional &
-                                                        ! for default)
-        type(ast_node_wrapper), allocatable :: body(:) ! Case body
+        character(len=:), allocatable :: case_type  ! "case", "case_default"
+        class(ast_node), allocatable :: value  ! Case value (optional &
+        ! for default)
+        type(ast_node_wrapper), allocatable :: body(:)  ! Case body
     end type case_wrapper
 
     ! If statement node
     type, extends(ast_node) :: if_node
-        integer :: condition_index = 0                ! If condition arena index
-        integer, allocatable :: then_body_indices(:) ! Then body arena indices
-        type(elseif_wrapper), allocatable :: elseif_blocks(:) ! Elseif blocks (optional)
-        integer, allocatable :: else_body_indices(:) ! Else body arena indices &
-                                                      ! (optional)
+        integer :: condition_index = 0  ! If condition arena index
+        integer, allocatable :: then_body_indices(:)  ! Then body arena indices
+        type(elseif_wrapper), allocatable :: elseif_blocks(:)  ! Elseif blocks (optional)
+        integer, allocatable :: else_body_indices(:)  ! Else body arena indices &
+        ! (optional)
     contains
         procedure :: accept => if_accept
         procedure :: to_json => if_to_json
@@ -44,10 +44,10 @@ module ast_nodes_conditional
 
     ! Select case construct node
     type, extends(ast_node) :: select_case_node
-        integer :: selector_index = 0                 ! Selector expression arena index
-        integer, allocatable :: case_indices(:)       ! Case block arena indices
-        integer :: default_index = 0                  ! Default case arena index &
-                                                        ! (optional)
+        integer :: selector_index = 0  ! Selector expression arena index
+        integer, allocatable :: case_indices(:)  ! Case block arena indices
+        integer :: default_index = 0  ! Default case arena index &
+        ! (optional)
     contains
         procedure :: accept => select_case_accept
         procedure :: to_json => select_case_to_json
@@ -57,8 +57,8 @@ module ast_nodes_conditional
 
     ! Case block node (case (values) body)
     type, extends(ast_node) :: case_block_node
-        integer, allocatable :: value_indices(:)      ! Case value arena indices
-        integer, allocatable :: body_indices(:)       ! Case body arena indices
+        integer, allocatable :: value_indices(:)  ! Case value arena indices
+        integer, allocatable :: body_indices(:)  ! Case body arena indices
     contains
         procedure :: accept => case_block_accept
         procedure :: to_json => case_block_to_json
@@ -68,8 +68,8 @@ module ast_nodes_conditional
 
     ! Case range node (for ranges like 1:5)
     type, extends(ast_node) :: case_range_node
-        integer :: start_value = 0                    ! Start value
-        integer :: end_value = 0                      ! End value
+        integer :: start_value = 0  ! Start value
+        integer :: end_value = 0  ! End value
     contains
         procedure :: accept => case_range_accept
         procedure :: to_json => case_range_to_json
@@ -79,7 +79,7 @@ module ast_nodes_conditional
 
     ! Case default node
     type, extends(ast_node) :: case_default_node
-        integer, allocatable :: body_indices(:)       ! Default case body arena indices
+        integer, allocatable :: body_indices(:)  ! Default case body arena indices
     contains
         procedure :: accept => case_default_accept
         procedure :: to_json => case_default_to_json
@@ -120,18 +120,18 @@ contains
         ! Copy specific fields
         lhs%condition_index = rhs%condition_index
         if (allocated(rhs%then_body_indices)) then
-            if (allocated(lhs%then_body_indices)) deallocate(lhs%then_body_indices)
-            allocate(lhs%then_body_indices(size(rhs%then_body_indices)))
+            if (allocated(lhs%then_body_indices)) deallocate (lhs%then_body_indices)
+            allocate (lhs%then_body_indices(size(rhs%then_body_indices)))
             lhs%then_body_indices = rhs%then_body_indices
         end if
         if (allocated(rhs%else_body_indices)) then
-            if (allocated(lhs%else_body_indices)) deallocate(lhs%else_body_indices)
-            allocate(lhs%else_body_indices(size(rhs%else_body_indices)))
+            if (allocated(lhs%else_body_indices)) deallocate (lhs%else_body_indices)
+            allocate (lhs%else_body_indices(size(rhs%else_body_indices)))
             lhs%else_body_indices = rhs%else_body_indices
         end if
         if (allocated(rhs%elseif_blocks)) then
-            if (allocated(lhs%elseif_blocks)) deallocate(lhs%elseif_blocks)
-            allocate(lhs%elseif_blocks(size(rhs%elseif_blocks)))
+            if (allocated(lhs%elseif_blocks)) deallocate (lhs%elseif_blocks)
+            allocate (lhs%elseif_blocks(size(rhs%elseif_blocks)))
             lhs%elseif_blocks = rhs%elseif_blocks
         end if
     end subroutine if_assign
@@ -148,14 +148,14 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'select_case')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         call json%add(obj, 'selector_index', this%selector_index)
         if (this%default_index > 0) call json%add(obj, 'default_index', &
-                                                   this%default_index)
+                                                  this%default_index)
         call json%add(parent, obj)
     end subroutine select_case_to_json
 
@@ -177,8 +177,8 @@ contains
         lhs%default_index = rhs%default_index
         ! Deep copy allocatable array
         if (allocated(rhs%case_indices)) then
-            if (allocated(lhs%case_indices)) deallocate(lhs%case_indices)
-            allocate(lhs%case_indices(size(rhs%case_indices)))
+            if (allocated(lhs%case_indices)) deallocate (lhs%case_indices)
+            allocate (lhs%case_indices(size(rhs%case_indices)))
             lhs%case_indices = rhs%case_indices
         end if
     end subroutine select_case_assign
@@ -217,13 +217,13 @@ contains
         lhs%constant_type = rhs%constant_type
         ! Deep copy allocatable arrays
         if (allocated(rhs%value_indices)) then
-            if (allocated(lhs%value_indices)) deallocate(lhs%value_indices)
-            allocate(lhs%value_indices(size(rhs%value_indices)))
+            if (allocated(lhs%value_indices)) deallocate (lhs%value_indices)
+            allocate (lhs%value_indices(size(rhs%value_indices)))
             lhs%value_indices = rhs%value_indices
         end if
         if (allocated(rhs%body_indices)) then
-            if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
-            allocate(lhs%body_indices(size(rhs%body_indices)))
+            if (allocated(lhs%body_indices)) deallocate (lhs%body_indices)
+            allocate (lhs%body_indices(size(rhs%body_indices)))
             lhs%body_indices = rhs%body_indices
         end if
     end subroutine case_block_assign
@@ -301,8 +301,8 @@ contains
         lhs%constant_type = rhs%constant_type
         ! Deep copy allocatable array
         if (allocated(rhs%body_indices)) then
-            if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
-            allocate(lhs%body_indices(size(rhs%body_indices)))
+            if (allocated(lhs%body_indices)) deallocate (lhs%body_indices)
+            allocate (lhs%body_indices(size(rhs%body_indices)))
             lhs%body_indices = rhs%body_indices
         end if
     end subroutine case_default_assign

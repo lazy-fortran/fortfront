@@ -13,7 +13,7 @@ module semantic_analyzer
     use ast_arena_modern, only: ast_arena_t
     use semantic_inference_helpers, only: check_implicit_none
     use semantic_validation_utils, only: validate_array_bounds, check_shape_conformance, &
-                                          update_identifier_type_in_arena, int_to_str
+                                         update_identifier_type_in_arena, int_to_str
     use semantic_function_analysis, only: infer_type_from_usage_context, &
                                           analyze_function_parameters, &
                                           determine_function_return_type, &
@@ -28,27 +28,27 @@ module semantic_analyzer
                                           infer_comparison_operation, &
                                           infer_logical_operation
     use semantic_inference_helpers, only: process_if_node_branches, process_do_while_node_body, &
-                                           process_where_node_clauses, process_where_stmt_node, &
-                                           process_forall_node_body, process_select_case_blocks, &
-                                           process_associate_node_body, process_stop_node_code, &
-                                           process_declaration_variables
+                                          process_where_node_clauses, process_where_stmt_node, &
+                                          process_forall_node_body, process_select_case_blocks, &
+                                          process_associate_node_body, process_stop_node_code, &
+                                          process_declaration_variables
     use ast_base, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
     use ast_nodes_core, only: literal_node, identifier_node, binary_op_node, &
-                               assignment_node, call_or_subscript_node, &
-                               array_literal_node, program_node
+                              assignment_node, call_or_subscript_node, &
+                              array_literal_node, program_node
     use ast_nodes_procedure, only: subroutine_call_node, function_def_node, subroutine_def_node
     use ast_nodes_control, only: do_loop_node, if_node, do_while_node, &
-                                  where_node, where_stmt_node, forall_node, &
-                                  select_case_node, case_block_node, &
-                                  associate_node, association_t, cycle_node, exit_node, &
-                                  stop_node, return_node, elsewhere_clause_t
+                                 where_node, where_stmt_node, forall_node, &
+                                 select_case_node, case_block_node, &
+                                 associate_node, association_t, cycle_node, exit_node, &
+                                 stop_node, return_node, elsewhere_clause_t
     use ast_nodes_data, only: intent_type_to_string, declaration_node, module_node
     use ast_nodes_bounds, only: array_spec_t, array_bounds_t, array_slice_node, &
                                 range_expression_node, get_array_slice_node
     ! Removed legacy parameter/temp trackers for lean build
     use constant_transformation, only: fold_constants_in_arena
     use error_handling, only: error_collection_t, create_error_collection, result_t, &
-                               create_error_result, ERROR_SEMANTIC
+                              create_error_result, ERROR_SEMANTIC
     use semantic_context_types, only: semantic_context_base_t
     use semantic_undefined_variable_checker, only: check_undefined_variables_generic
     implicit none
@@ -107,31 +107,31 @@ contains
         type(semantic_context_t), intent(out) :: ctx
         type(poly_type_t) :: builtin_scheme
         type(mono_type_t) :: real_to_real, real_type
-        
+
         ! Initialize base class components
         ctx%context_id = 1
         ctx%context_name = "semantic_context"
-        
+
         ! Initialize basic components
         call create_scope_stack(ctx%scopes)
         ctx%subst%count = 0
         ctx%subst%capacity = 64
-        if (allocated(ctx%subst%vars)) deallocate(ctx%subst%vars)
-        if (allocated(ctx%subst%types)) deallocate(ctx%subst%types)
-        allocate(ctx%subst%vars(ctx%subst%capacity))
-        allocate(ctx%subst%types(ctx%subst%capacity))
+        if (allocated(ctx%subst%vars)) deallocate (ctx%subst%vars)
+        if (allocated(ctx%subst%types)) deallocate (ctx%subst%types)
+        allocate (ctx%subst%vars(ctx%subst%capacity))
+        allocate (ctx%subst%types(ctx%subst%capacity))
         ! No parameter/temporary tracking in lean build
         ctx%errors = create_error_collection()
         ctx%next_var_id = 1  ! Start from 1 (main branch compatibility)
         ctx%respect_implicit_none = .true.
-        
+
         ! Create real -> real type for math functions
         real_type = create_mono_type(TREAL)
         real_to_real = create_fun_type(real_type, real_type)
-        
+
         ! Create polymorphic type scheme (no type variables to generalize)
-        builtin_scheme = create_poly_type(forall_vars=[type_var_t::], mono=real_to_real)
-        
+        builtin_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=real_to_real)
+
         ! Add common math functions to global scope
         call ctx%scopes%define("sin", builtin_scheme)
         call ctx%scopes%define("cos", builtin_scheme)
@@ -163,11 +163,11 @@ contains
         class default
             call infer_and_store_type(ctx, arena, root_index)
         end select
-        
+
         call fold_constants_in_arena(arena)
     end subroutine analyze_program
 
-    ! Analyze a program node with arena-based AST  
+    ! Analyze a program node with arena-based AST
     subroutine analyze_program_node_arena(ctx, arena, prog, prog_index)
         type(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
@@ -259,7 +259,7 @@ contains
         if (.not. allocated(arena%entries(expr_index)%node)) return
 
         stack_capacity = max(16, arena%size / 4 + 1)
-        allocate(stack(stack_capacity))
+        allocate (stack(stack_capacity))
         stack_size = 0
 
         call push_pre(expr_index)
@@ -290,7 +290,7 @@ contains
             if (required <= stack_capacity) return
 
             new_capacity = max(required, stack_capacity * 2)
-            allocate(new_stack(new_capacity))
+            allocate (new_stack(new_capacity))
             if (stack_size > 0) new_stack(1:stack_size) = stack(1:stack_size)
             call move_alloc(new_stack, stack)
             stack_capacity = new_capacity
@@ -313,7 +313,7 @@ contains
             new_frame%aux_index = 0
             new_frame%leave_scope = .false.
             new_frame%has_cached_type = .false.
-            if (allocated(new_frame%param_types)) deallocate(new_frame%param_types)
+            if (allocated(new_frame%param_types)) deallocate (new_frame%param_types)
             call push_frame_local(new_frame)
         end subroutine push_pre
 
@@ -354,14 +354,14 @@ contains
                 call finalize_node(node_index, local_type)
             type is (binary_op_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 call push_child(expr%right_index)
                 call push_child(expr%left_index)
             type is (call_or_subscript_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%arg_indices)) then
@@ -374,7 +374,7 @@ contains
                 call finalize_node(node_index, local_type)
             type is (subroutine_call_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%arg_indices)) then
@@ -391,14 +391,14 @@ contains
                 post_frame%leave_scope = .true.
                 post_frame%has_cached_type = .true.
                 post_frame%cached_type = return_type
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 if (allocated(param_types)) then
                     post_frame%param_types = param_types
                 else
-                    allocate(post_frame%param_types(0))
+                    allocate (post_frame%param_types(0))
                 end if
                 call push_frame_local(post_frame)
-                if (allocated(param_types)) deallocate(param_types)
+                if (allocated(param_types)) deallocate (param_types)
                 if (allocated(expr%body_indices)) then
                     do i = size(expr%body_indices), 1, -1
                         call push_child(expr%body_indices(i))
@@ -406,14 +406,14 @@ contains
                 end if
             type is (assignment_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 call push_child(expr%target_index)
                 call push_child(expr%value_index)
             type is (array_literal_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%element_indices)) then
@@ -423,7 +423,7 @@ contains
                 end if
             type is (do_loop_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (expr%step_expr_index > 0) call push_child(expr%step_expr_index)
@@ -438,7 +438,7 @@ contains
                 call handle_declaration(expr, node_index)
             type is (if_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%then_body_indices)) then
@@ -449,7 +449,7 @@ contains
                 call push_child(expr%condition_index)
             type is (do_while_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%body_indices)) then
@@ -460,7 +460,7 @@ contains
                 call push_child(expr%condition_index)
             type is (where_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%where_body_indices)) then
@@ -471,7 +471,7 @@ contains
                 call push_child(expr%mask_expr_index)
             type is (where_stmt_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 call push_child(expr%assignment_index)
@@ -485,7 +485,7 @@ contains
                     end do
                 end if
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 post_frame%leave_scope = .true.
                 post_frame%has_cached_type = .true.
@@ -498,7 +498,7 @@ contains
                 end if
             type is (select_case_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 if (allocated(expr%case_indices)) then
@@ -509,7 +509,7 @@ contains
                 call push_child(expr%selector_index)
             type is (associate_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 post_frame%leave_scope = .true.
                 call push_frame_local(post_frame)
@@ -523,7 +523,7 @@ contains
                     do i = size(expr%associations), 1, -1
                         if (expr%associations(i)%expr_index > 0) then
                             post_frame = current
-                            if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                            if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                             post_frame%node_index = current%node_index
                             post_frame%state = STATE_ASSOC_DEFINE
                             post_frame%aux_index = i
@@ -536,7 +536,7 @@ contains
                 end if
             type is (stop_node)
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
                 call push_child(expr%stop_code_index)
@@ -551,7 +551,7 @@ contains
                 call finalize_node(node_index, local_type)
             class default
                 post_frame = current
-                if (allocated(post_frame%param_types)) deallocate(post_frame%param_types)
+                if (allocated(post_frame%param_types)) deallocate (post_frame%param_types)
                 post_frame%state = STATE_POST
                 call push_frame_local(post_frame)
             end select
@@ -623,7 +623,7 @@ contains
                 call finalize_node(node_index, node_type)
             end select
 
-            if (allocated(current%param_types)) deallocate(current%param_types)
+            if (allocated(current%param_types)) deallocate (current%param_types)
         end subroutine handle_postvisit
 
         subroutine handle_association(current)
@@ -644,7 +644,7 @@ contains
                 if (assoc_index < 1 .or. assoc_index > size(assoc_node%associations)) return
                 if (assoc_node%associations(assoc_index)%expr_index <= 0) return
                 assoc_type = get_node_type(assoc_node%associations(assoc_index)%expr_index)
-                assoc_scheme = create_poly_type(forall_vars=[type_var_t::], mono=assoc_type)
+                assoc_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=assoc_type)
                 if (allocated(assoc_node%associations(assoc_index)%name)) then
                     call this%scopes%define(assoc_node%associations(assoc_index)%name, assoc_scheme)
                 end if
@@ -659,7 +659,7 @@ contains
             final_type = this%apply_subst_to_type(raw_type)
             if (final_type%kind == TVAR) then
                 if (len_trim(final_type%var%name) == 0) then
-                    final_type%var%name = "v"//int_to_str(final_type%var%id)
+                    final_type%var%name = "v" // int_to_str(final_type%var%id)
                 end if
             end if
             call set_node_inferred_type(arena, node_idx, final_type)
@@ -704,10 +704,10 @@ contains
             end if
 
             if (allocated(frame%param_types)) then
-                allocate(params(size(frame%param_types)))
+                allocate (params(size(frame%param_types)))
                 params = frame%param_types
             else
-                allocate(params(0))
+                allocate (params(0))
             end if
 
             if (size(params) == 0) then
@@ -718,7 +718,7 @@ contains
                 fun_type = create_fun_type(params(1), return_type)
             end if
 
-            if (allocated(params)) deallocate(params)
+            if (allocated(params)) deallocate (params)
         end function build_function_type
 
     end function infer_type
@@ -745,11 +745,10 @@ contains
 
         typ = ctx%apply_subst_to_type(arena%entries(index)%node%inferred_type)
         if (typ%kind == TVAR) then
-            if (len_trim(typ%var%name) == 0) typ%var%name = "v"//int_to_str(typ%var%id)
+            if (len_trim(typ%var%name) == 0) typ%var%name = "v" // int_to_str(typ%var%id)
         end if
         arena%entries(index)%node%inferred_type = typ
     end function get_inferred_type_from_arena
-
 
     ! Type unification (simplified)
     subroutine unify_types(this, t1, t2)
@@ -773,7 +772,7 @@ contains
         class(semantic_context_t), intent(in) :: this
         type(mono_type_t), intent(in) :: typ
         type(poly_type_t) :: scheme
-        
+
         scheme = generalize_type_op(typ)
     end function generalize_type
 
@@ -832,7 +831,6 @@ contains
         copy%respect_implicit_none = this%respect_implicit_none
     end subroutine semantic_context_deep_copy
 
-
     ! Enhanced function definition semantic analysis (simplified main version)
     function infer_function_definition(ctx, arena, func_node, func_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
@@ -843,22 +841,22 @@ contains
         type(mono_type_t), allocatable :: param_types(:)
         type(mono_type_t) :: return_type
         integer :: i
-        
+
         ! Use extracted function analysis modules
         call analyze_function_parameters(arena, func_node, param_types, ctx%scopes, ctx%next_var_id)
         return_type = determine_function_return_type(arena, func_node, ctx%next_var_id)
         call create_function_scope(arena, func_node, func_index, return_type, ctx%scopes)
-        
+
         ! Analyze function body with parameters and result in scope
         if (allocated(func_node%body_indices)) then
             do i = 1, size(func_node%body_indices)
                 typ = get_inferred_type_from_arena(ctx, arena, func_node%body_indices(i))
             end do
         end if
-        
+
         ! Pop function scope
         call ctx%scopes%leave_scope()
-        
+
         ! Create function type
         if (size(param_types) == 0) then
             typ = create_fun_type(create_mono_type(TCHAR), return_type)  ! No params
@@ -889,7 +887,7 @@ contains
         class(semantic_context_t), intent(inout) :: ctx
         type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(in) :: slice_node
-        
+
         ! Simplified bounds validation
     end subroutine validate_array_access_bounds
 
@@ -908,8 +906,6 @@ contains
         logical :: has_errors
         has_errors = this%errors%has_errors()
     end function semantic_context_has_errors
-
-
 
     ! Infer type of literal
     function infer_literal(ctx, lit) result(typ)
@@ -962,26 +958,26 @@ contains
             if (ctx%strict_mode) then
                 ! Standard Fortran mode: undefined variable is an error
                 error_result = create_error_result( &
-                    "Undefined variable '" // ident%name // "' in strict mode", &
-                    ERROR_SEMANTIC, &
-                    component="semantic_analyzer", &
-                    context="infer_identifier", &
-                    suggestion="Declare the variable with 'integer :: " // ident%name // &
-                    "' or remove 'implicit none' for lazy Fortran mode" &
-                )
+                               "Undefined variable '" // ident%name // "' in strict mode", &
+                               ERROR_SEMANTIC, &
+                               component="semantic_analyzer", &
+                               context="infer_identifier", &
+                               suggestion="Declare the variable with 'integer :: " // ident%name // &
+                               "' or remove 'implicit none' for lazy Fortran mode" &
+                               )
                 call ctx%errors%add_result(error_result)
-                
+
                 ! Create fresh type variable for continued analysis
                 typ = create_mono_type(TVAR, var=ctx%fresh_type_var())
             else
                 ! Lazy Fortran mode: auto-declare undefined variables with type inference
                 ! Try to infer the type from context or create a fresh type variable
                 typ = infer_type_from_usage_context(ident%name, ctx%next_var_id)
-                
+
                 ! Create polymorphic type scheme and add to scope for future use
                 block
                     type(poly_type_t) :: new_scheme
-                    new_scheme = create_poly_type(forall_vars=[type_var_t::], mono=typ)
+                    new_scheme = create_poly_type(forall_vars=[type_var_t ::], mono=typ)
                     call ctx%scopes%define(ident%name, new_scheme)
                 end block
             end if
@@ -1076,25 +1072,25 @@ contains
 
         ! Look up function in scope
         call ctx%scopes%lookup(call_node%name, scheme)
-        
+
         if (allocated(scheme)) then
             typ = ctx%instantiate(scheme)
             ! Extract return type from function type
             if (typ%kind == TFUN .and. type_args_allocated(typ) .and. type_args_size(typ) >= 2) then
                 typ = type_args_element(typ, 2)  ! Second arg is return type
             end if
-        else 
+        else
             ! Check if it's an intrinsic function
             is_intrinsic_func = is_intrinsic_function(call_node%name)
             ! DEBUG: Print to stderr for debugging
             ! write(error_unit, '(A,A,A,L1)') "DEBUG: Checking function '", call_node%name, "' - is_intrinsic: ", is_intrinsic_func
-            
+
             if (is_intrinsic_func) then
                 ! Handle intrinsic functions - double check with registry
                 intrinsic_sig = get_intrinsic_signature(call_node%name)
                 ! DEBUG: Print signature
                 ! if (allocated(intrinsic_sig)) write(error_unit, '(A,A)') "DEBUG: Signature: ", intrinsic_sig
-                
+
                 if (len_trim(intrinsic_sig) > 0) then
                     ! Parse the return type from the signature
                     ! Signature format: "return_type(arg_types)"
@@ -1128,7 +1124,7 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         type(array_slice_node), intent(in) :: slice_node
         type(mono_type_t) :: typ
-        
+
         ! For now, return real array type
         typ = create_mono_type(TARRAY)
     end function infer_array_slice
@@ -1150,8 +1146,8 @@ contains
 
         ! Use extracted assignment processing
         call process_assignment_inference(arena, assignment, assignment_index, &
-                                         lhs_index, expr_typ, updated_expr_typ, &
-                                         ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id)
+                                          lhs_index, expr_typ, updated_expr_typ, &
+                                          ctx%scopes, ctx%errors, ctx%strict_mode, ctx%next_var_id)
 
         typ = updated_expr_typ
 
@@ -1194,7 +1190,6 @@ contains
         end do
     end subroutine ensure_declared_from_arena
 
-
     ! Infer type of array literal with type promotion
     function infer_array_literal(ctx, arena, array_lit, array_index) result(typ)
         type(semantic_context_t), intent(inout) :: ctx
@@ -1210,7 +1205,7 @@ contains
         ! If empty array, default to integer
         if (.not. allocated(array_lit%element_indices) .or. &
             size(array_lit%element_indices) == 0) then
-            allocate(args(1))
+            allocate (args(1))
             args(1) = create_mono_type(TINT)
             typ = create_mono_type(TARRAY, args=args)
             return
@@ -1222,17 +1217,16 @@ contains
         has_real = (first_type%kind == TREAL)
         all_arrays = (first_type%kind == TARRAY)
         consistent_sizes = .true.
-        
-        
+
         ! If first element is an array, get its size
         if (all_arrays) then
             first_array_size = first_type%size
         end if
-        
+
         ! Check all elements for type promotion and consistency
         do i = 2, size(array_lit%element_indices)
             element_type = get_inferred_type_from_arena(ctx, arena, array_lit%element_indices(i))
-            
+
             ! Check if all elements are arrays (for nested arrays)
             if (all_arrays .and. element_type%kind /= TARRAY) then
                 all_arrays = .false.
@@ -1243,7 +1237,7 @@ contains
                     consistent_sizes = .false.
                 end if
             end if
-            
+
             ! If we encounter a real type, promote the entire array to real
             if (element_type%kind == TREAL) then
                 has_real = .true.
@@ -1258,7 +1252,7 @@ contains
                 end if
             end if
         end do
-        
+
         ! Handle nested arrays (multi-dimensional)
         if (all_arrays .and. consistent_sizes) then
             ! All elements are arrays of the same size - create a 2D array
@@ -1267,39 +1261,39 @@ contains
                 ! Determine base element type (integer or real)
                 if (has_real) then
                     promoted_type = create_mono_type(TREAL)
-                else 
+                else
                     promoted_type = first_type%get_arg(1)
                 end if
             else
                 promoted_type = create_mono_type(TINT)
             end if
-            
+
             ! Create nested array type: array of arrays
             ! The outer array has size equal to number of sub-arrays
             ! The inner arrays have their original size
-            allocate(inner_args(1))
+            allocate (inner_args(1))
             inner_args(1) = promoted_type
-            
-            allocate(args(1))
+
+            allocate (args(1))
             args(1) = create_mono_type(TARRAY, args=inner_args, &
-                                        array_size=first_array_size)
+                                       array_size=first_array_size)
             typ = create_mono_type(TARRAY, args=args, &
                                    array_size=size(array_lit%element_indices))
-            deallocate(inner_args)
+            deallocate (inner_args)
         else
             ! Regular 1D array (not nested)
             ! If any element is real, promote to real
             if (has_real .and. promoted_type%kind == TINT) then
                 promoted_type = create_mono_type(TREAL)
             end if
-            
+
             ! Create array type with correct size
-            allocate(args(1))
+            allocate (args(1))
             args(1) = promoted_type
             typ = create_mono_type(TARRAY, args=args, &
                                    array_size=size(array_lit%element_indices))
         end if
-        
+
         ! Store in node
         call set_node_inferred_type(arena, array_index, typ)
     end function infer_array_literal
@@ -1314,12 +1308,10 @@ contains
         type(mono_type_t), allocatable :: args(:)
 
         ! For now, return integer array type
-        allocate(args(1))
+        allocate (args(1))
         args(1) = create_mono_type(TINT)
         typ = create_mono_type(TARRAY, args=args)
     end function infer_implied_do_loop
-
-
 
     function has_semantic_errors(ctx) result(has_errors)
         type(semantic_context_t), intent(in) :: ctx
@@ -1332,20 +1324,20 @@ contains
     ! Control flow helpers are now provided by semantic_control_flow_helpers module
 
     ! Implementation of required abstract procedures from semantic_context_base_t
-    
+
     ! Get context name
     function semantic_get_context_name(this) result(name)
         class(semantic_context_t), intent(in) :: this
         character(:), allocatable :: name
         name = "semantic_context"
     end function semantic_get_context_name
-    
-    ! Clone context (simplified implementation)  
+
+    ! Clone context (simplified implementation)
     function semantic_clone_context(this) result(cloned)
         class(semantic_context_t), intent(in) :: this
         class(semantic_context_base_t), allocatable :: cloned
         type(semantic_context_t) :: temp_context
-        
+
         ! Copy basic components - simplified for compatibility
         temp_context%context_id = this%context_id
         temp_context%context_name = this%context_name
@@ -1355,8 +1347,8 @@ contains
         ! Tracking fields removed in lean build
         temp_context%errors = this%errors
         temp_context%strict_mode = this%strict_mode
-        
-        allocate(cloned, source=temp_context)
+
+        allocate (cloned, source=temp_context)
     end function semantic_clone_context
 
 end module semantic_analyzer

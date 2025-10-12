@@ -10,11 +10,11 @@ program test_enhanced_error_messages
     ! Test 1: Invalid syntax - missing 'then'
     print *, 'Test 1: Missing "then" in if statement'
     source = 'program test' // new_line('a') // &
-            'if x > 0' // new_line('a') // &
-            '  print *, x' // new_line('a') // &
-            'end if' // new_line('a') // &
-            'end program'
-    
+             'if x > 0' // new_line('a') // &
+             '  print *, x' // new_line('a') // &
+             'end if' // new_line('a') // &
+             'end program'
+
     call transform_lazy_fortran_string(source, output, error_msg)
     print *, 'Error message length:', len_trim(error_msg)
     print *, 'Error message: "' // error_msg // '"'
@@ -23,10 +23,10 @@ program test_enhanced_error_messages
     print *, output(1:min(200, len(output)))
     print *
 
-    ! Test 2: Complete garbage  
+    ! Test 2: Complete garbage
     print *, 'Test 2: Complete garbage input'
     source = 'this is not fortran at all 123 *** %%% invalid'
-    
+
     call transform_lazy_fortran_string(source, output, error_msg)
     print *, 'Error message length:', len_trim(error_msg)
     print *, 'Error message: "' // error_msg // '"'

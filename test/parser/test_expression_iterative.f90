@@ -33,11 +33,11 @@ contains
         do while (i <= depth)
             remaining = depth - i + 1
             chunk_size = min(64, remaining)
-            write(u, '(a)', advance='no') repeat('(', chunk_size)
+            write (u, '(a)', advance='no') repeat('(', chunk_size)
             paren_group = paren_group + chunk_size
             if (paren_group >= 64 .and. i + chunk_size <= depth) then
-                write(u, '(a)') '&'
-                write(u, '(a)', advance='no') '    & '
+                write (u, '(a)') '&'
+                write (u, '(a)', advance='no') '    & '
                 paren_group = 0
             end if
             i = i + chunk_size
@@ -55,10 +55,10 @@ contains
             remaining = depth - i + 1
             chunk_size = min(64, remaining)
             if (paren_group == 0 .and. i > 1 .and. i < depth) then
-                write(u, '(a)') '&'
-                write(u, '(a)', advance='no') '    & '
+                write (u, '(a)') '&'
+                write (u, '(a)', advance='no') '    & '
             end if
-            write(u, '(a)', advance='no') repeat(')', chunk_size)
+            write (u, '(a)', advance='no') repeat(')', chunk_size)
             paren_group = mod(paren_group + chunk_size, 64)
             i = i + chunk_size
         end do
@@ -78,17 +78,17 @@ contains
         input_file = get_temp_filepath('test_expression_iterative_exp.lf')
         output_file = get_temp_filepath('test_expression_iterative_exp_out.f90')
 
-        open(newunit=unit, file=input_file, status='replace', action='write')
-        write(unit, '(a)') 'program test_exp_chain'
-        write(unit, '(a)') '    real :: value'
-        write(unit, '(a)', advance='no') '    value = 2.0'
+        open (newunit=unit, file=input_file, status='replace', action='write')
+        write (unit, '(a)') 'program test_exp_chain'
+        write (unit, '(a)') '    real :: value'
+        write (unit, '(a)', advance='no') '    value = 2.0'
         do i = 1, depth
-            write(unit, '(a)', advance='no') ' ** 2.0'
+            write (unit, '(a)', advance='no') ' ** 2.0'
         end do
-        write(unit, '(a)') ''
-        write(unit, '(a)') '    print *, value'
-        write(unit, '(a)') 'end program test_exp_chain'
-        close(unit)
+        write (unit, '(a)') ''
+        write (unit, '(a)') '    print *, value'
+        write (unit, '(a)') 'end program test_exp_chain'
+        close (unit)
 
         options%output_file = output_file
         call compile_source(input_file, options, error_msg)
@@ -98,7 +98,7 @@ contains
             return
         end if
 
-        open(newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_deep_exponent_chain = .false.
@@ -108,7 +108,7 @@ contains
         found_expr = .false.
         has_bad_grouping = .false.
         do
-            read(unit, '(a)', iostat=iostat) line
+            read (unit, '(a)', iostat=iostat) line
             if (iostat /= 0) exit
             if (index(trim(line), 'value =') > 0) then
                 found_expr = .true.
@@ -118,7 +118,7 @@ contains
                 end if
             end if
         end do
-        close(unit)
+        close (unit)
 
         if (.not. found_expr) then
             print *, '  FAIL: Did not find exponent expression in output'
@@ -145,18 +145,18 @@ contains
         input_file = get_temp_filepath('test_expression_iterative_unary.lf')
         output_file = get_temp_filepath('test_expression_iterative_unary_out.f90')
 
-        open(newunit=unit, file=input_file, status='replace', action='write')
-        write(unit, '(a)') 'program test_unary_chain'
-        write(unit, '(a)') '    real :: base, value'
-        write(unit, '(a)') '    base = 1.0'
-        write(unit, '(a)', advance='no') '    value ='
+        open (newunit=unit, file=input_file, status='replace', action='write')
+        write (unit, '(a)') 'program test_unary_chain'
+        write (unit, '(a)') '    real :: base, value'
+        write (unit, '(a)') '    base = 1.0'
+        write (unit, '(a)', advance='no') '    value ='
         do i = 1, depth
-            write(unit, '(a)', advance='no') ' -'
+            write (unit, '(a)', advance='no') ' -'
         end do
-        write(unit, '(a)') ' base'
-        write(unit, '(a)') '    print *, value'
-        write(unit, '(a)') 'end program test_unary_chain'
-        close(unit)
+        write (unit, '(a)') ' base'
+        write (unit, '(a)') '    print *, value'
+        write (unit, '(a)') 'end program test_unary_chain'
+        close (unit)
 
         options%output_file = output_file
         call compile_source(input_file, options, error_msg)
@@ -166,7 +166,7 @@ contains
             return
         end if
 
-        open(newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_deep_unary_minus_chain = .false.
@@ -176,7 +176,7 @@ contains
         found_expr = .false.
         count = 0
         do
-            read(unit, '(a)', iostat=iostat) line
+            read (unit, '(a)', iostat=iostat) line
             if (iostat /= 0) exit
             if (index(trim(line), 'value =') > 0) then
                 found_expr = .true.
@@ -189,7 +189,7 @@ contains
                 end do
             end if
         end do
-        close(unit)
+        close (unit)
 
         if (.not. found_expr) then
             print *, '  FAIL: Did not find unary expression in output'
@@ -217,18 +217,18 @@ contains
         input_file = get_temp_filepath('test_expression_iterative_not.lf')
         output_file = get_temp_filepath('test_expression_iterative_not_out.f90')
 
-        open(newunit=unit, file=input_file, status='replace', action='write')
-        write(unit, '(a)') 'program test_not_chain'
-        write(unit, '(a)') '    logical :: flag, result'
-        write(unit, '(a)') '    flag = .true.'
-        write(unit, '(a)', advance='no') '    result ='
+        open (newunit=unit, file=input_file, status='replace', action='write')
+        write (unit, '(a)') 'program test_not_chain'
+        write (unit, '(a)') '    logical :: flag, result'
+        write (unit, '(a)') '    flag = .true.'
+        write (unit, '(a)', advance='no') '    result ='
         do i = 1, depth
-            write(unit, '(a)', advance='no') ' .not.'
+            write (unit, '(a)', advance='no') ' .not.'
         end do
-        write(unit, '(a)') ' flag'
-        write(unit, '(a)') '    print *, result'
-        write(unit, '(a)') 'end program test_not_chain'
-        close(unit)
+        write (unit, '(a)') ' flag'
+        write (unit, '(a)') '    print *, result'
+        write (unit, '(a)') 'end program test_not_chain'
+        close (unit)
 
         options%output_file = output_file
         call compile_source(input_file, options, error_msg)
@@ -238,7 +238,7 @@ contains
             return
         end if
 
-        open(newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_logical_not_chain = .false.
@@ -248,7 +248,7 @@ contains
         found_expr = .false.
         count = 0
         do
-            read(unit, '(a)', iostat=iostat) line
+            read (unit, '(a)', iostat=iostat) line
             if (iostat /= 0) exit
             if (index(trim(line), 'result =') > 0) then
                 found_expr = .true.
@@ -261,7 +261,7 @@ contains
                 end do
             end if
         end do
-        close(unit)
+        close (unit)
 
         if (.not. found_expr) then
             print *, '  FAIL: Did not find logical expression in output'
@@ -288,13 +288,13 @@ contains
         input_file = get_temp_filepath('test_expression_iterative_mixed.lf')
         output_file = get_temp_filepath('test_expression_iterative_mixed_out.f90')
 
-        open(newunit=unit, file=input_file, status='replace', action='write')
-        write(unit, '(a)') 'program test_mixed'
-        write(unit, '(a)') '    integer :: value'
-        write(unit, '(a)') '    value = -2 ** 2 + 3'
-        write(unit, '(a)') '    print *, value'
-        write(unit, '(a)') 'end program test_mixed'
-        close(unit)
+        open (newunit=unit, file=input_file, status='replace', action='write')
+        write (unit, '(a)') 'program test_mixed'
+        write (unit, '(a)') '    integer :: value'
+        write (unit, '(a)') '    value = -2 ** 2 + 3'
+        write (unit, '(a)') '    print *, value'
+        write (unit, '(a)') 'end program test_mixed'
+        close (unit)
 
         options%output_file = output_file
         call compile_source(input_file, options, error_msg)
@@ -304,7 +304,7 @@ contains
             return
         end if
 
-        open(newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file'
             test_mixed_precedence_output = .false.
@@ -313,7 +313,7 @@ contains
 
         found_expr = .false.
         do
-            read(unit, '(a)', iostat=iostat) line
+            read (unit, '(a)', iostat=iostat) line
             if (iostat /= 0) exit
             if (index(trim(line), 'value =') > 0) then
                 found_expr = .true.
@@ -329,7 +329,7 @@ contains
                 end if
             end if
         end do
-        close(unit)
+        close (unit)
 
         if (.not. found_expr) then
             print *, '  FAIL: Did not find mixed expression in output'
@@ -351,18 +351,18 @@ contains
         input_file = get_temp_filepath('test_expression_iterative_extreme.lf')
         output_file = get_temp_filepath('test_expression_iterative_extreme_out.f90')
 
-        open(newunit=unit, file=input_file, status='replace', action='write')
-        write(unit, '(a)') 'program test_extreme_nesting'
-        write(unit, '(a)') '    implicit none'
-        write(unit, '(a)') '    real :: value'
-        write(unit, '(a)', advance='no') '    value = '
+        open (newunit=unit, file=input_file, status='replace', action='write')
+        write (unit, '(a)') 'program test_extreme_nesting'
+        write (unit, '(a)') '    implicit none'
+        write (unit, '(a)') '    real :: value'
+        write (unit, '(a)', advance='no') '    value = '
         call emit_open_parens(unit, depth)
-        write(unit, '(a)', advance='no') '1.0'
+        write (unit, '(a)', advance='no') '1.0'
         call emit_close_parens(unit, depth)
-        write(unit, '(a)') ''
-        write(unit, '(a)') '    print *, value'
-        write(unit, '(a)') 'end program test_extreme_nesting'
-        close(unit)
+        write (unit, '(a)') ''
+        write (unit, '(a)') '    print *, value'
+        write (unit, '(a)') 'end program test_extreme_nesting'
+        close (unit)
 
         options%output_file = output_file
         call compile_source(input_file, options, error_msg)
@@ -372,13 +372,13 @@ contains
             return
         end if
 
-        open(newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
+        open (newunit=unit, file=output_file, status='old', action='read', iostat=iostat)
         if (iostat /= 0) then
             print *, '  FAIL: Could not open generated file for extreme nesting'
             test_extreme_parentheses_depth = .false.
             return
         end if
-        close(unit)
+        close (unit)
 
         print *, '  PASS: Extreme parentheses nesting parsed successfully'
     end function test_extreme_parentheses_depth

@@ -39,7 +39,7 @@ module semantic_context_types
     end type symbol_context_t
 
     ! Specialized context for type analysis
-    type, extends(semantic_context_base_t), public :: type_context_t  
+    type, extends(semantic_context_base_t), public :: type_context_t
         integer :: current_type_level = 0
         logical :: in_derived_type = .false.
         logical :: in_interface_block = .false.
@@ -80,21 +80,21 @@ contains
         class(standard_context_t), intent(in) :: this
         class(semantic_context_base_t), allocatable :: cloned
         type(standard_context_t) :: temp_context
-        
+
         temp_context%context_id = this%context_id
         temp_context%context_name = this%context_name
         temp_context%arena => this%arena
         temp_context%current_node_index = this%current_node_index
         temp_context%type_checking_enabled = this%type_checking_enabled
         temp_context%scope_checking_enabled = this%scope_checking_enabled
-        
-        allocate(cloned, source=temp_context)
+
+        allocate (cloned, source=temp_context)
     end function standard_clone_context
 
     subroutine standard_context_assign(lhs, rhs)
         class(standard_context_t), intent(out) :: lhs
         type(standard_context_t), intent(in) :: rhs
-        
+
         lhs%context_id = rhs%context_id
         lhs%context_name = rhs%context_name
         lhs%arena => rhs%arena
@@ -114,20 +114,20 @@ contains
         class(symbol_context_t), intent(in) :: this
         class(semantic_context_base_t), allocatable :: cloned
         type(symbol_context_t) :: temp_context
-        
+
         temp_context%context_id = this%context_id
         temp_context%context_name = this%context_name
         temp_context%current_scope_name = this%current_scope_name
         temp_context%in_procedure = this%in_procedure
         temp_context%in_module = this%in_module
-        
-        allocate(cloned, source=temp_context)
+
+        allocate (cloned, source=temp_context)
     end function symbol_clone_context
 
     subroutine symbol_context_assign(lhs, rhs)
         class(symbol_context_t), intent(out) :: lhs
         type(symbol_context_t), intent(in) :: rhs
-        
+
         lhs%context_id = rhs%context_id
         lhs%context_name = rhs%context_name
         lhs%current_scope_name = rhs%current_scope_name
@@ -146,20 +146,20 @@ contains
         class(type_context_t), intent(in) :: this
         class(semantic_context_base_t), allocatable :: cloned
         type(type_context_t) :: temp_context
-        
+
         temp_context%context_id = this%context_id
         temp_context%context_name = this%context_name
         temp_context%current_type_level = this%current_type_level
         temp_context%in_derived_type = this%in_derived_type
         temp_context%in_interface_block = this%in_interface_block
-        
-        allocate(cloned, source=temp_context)
+
+        allocate (cloned, source=temp_context)
     end function type_clone_context
 
     subroutine type_context_assign(lhs, rhs)
         class(type_context_t), intent(out) :: lhs
         type(type_context_t), intent(in) :: rhs
-        
+
         lhs%context_id = rhs%context_id
         lhs%context_name = rhs%context_name
         lhs%current_type_level = rhs%current_type_level

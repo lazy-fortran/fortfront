@@ -31,13 +31,13 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
-        
+
         if (.not. associated(arena_generator)) then
             ! Provide an actionable diagnostic if initialization was skipped
             code = "! ERROR: Arena generator not set (call initialize_codegen())"
             return
         end if
-        
+
         code = arena_generator(arena, node_index)
     end function generate_code_from_arena
 

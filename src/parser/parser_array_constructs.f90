@@ -5,7 +5,7 @@ module parser_array_constructs_module
     use parser_state_module
     use parser_expressions_module, only: parse_expression
     use parser_statement_core_module, only: parse_basic_statement_core, &
-        statement_callbacks_t, null_statement_callbacks, find_statement_end
+                                            statement_callbacks_t, null_statement_callbacks, find_statement_end
     use parser_basic_statement_module, only: parse_statement_body
     use parser_if_constructs_module, only: parse_if, parse_if_condition
     use parser_select_constructs_module, only: parse_select_case
@@ -33,7 +33,7 @@ contains
         type(statement_callbacks_t) :: callbacks
         callbacks = build_where_callbacks()
     end function build_associate_callbacks
-    
+
     ! Parse WHERE construct (enhanced version)
     function parse_where_construct(parser, arena) result(where_index)
         type(parser_state_t), intent(inout) :: parser
@@ -48,7 +48,7 @@ contains
         type(statement_callbacks_t) :: callbacks
         logical :: single_line, has_elsewhere
         character(len=9), parameter :: where_end_keywords(2) = [ &
-            'elsewhere', 'end      ']
+                                       'elsewhere', 'end      ']
 
         ! Consume 'where' keyword
         token = parser%peek()
@@ -115,7 +115,7 @@ contains
                     end do
 
                     ! Extract remaining tokens
-                    allocate(remaining_tokens(n))
+                    allocate (remaining_tokens(n))
                     do j = 1, n
                         remaining_tokens(j) = &
                             parser%tokens(parser%current_token + j - 1)
@@ -124,23 +124,23 @@ contains
                     ! Parse statement
                     callbacks = build_where_callbacks()
                     stmt_indices = parse_basic_statement_core(remaining_tokens, &
-                        arena, callbacks=callbacks)
+                                                              arena, callbacks=callbacks)
 
                     if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
-                        allocate(where_body_indices(size(stmt_indices)))
+                        allocate (where_body_indices(size(stmt_indices)))
                         where_body_indices = stmt_indices
                         ! Advance parser position
                         parser%current_token = size(parser%tokens) + 1
                     else
-                        allocate(where_body_indices(0))
+                        allocate (where_body_indices(0))
                     end if
                 end block
 
                 ! Create WHERE node with single statement
                 where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                    line=line, column=column)
+                                         line=line, column=column)
 
-                deallocate(where_body_indices)
+                deallocate (where_body_indices)
                 return
             end if
         else
@@ -151,7 +151,7 @@ contains
         ! Multi-line WHERE - parse body statements using shared statement body parser
         callbacks = build_where_callbacks()
         where_body_indices = parse_statement_body(parser, arena, &
-            where_end_keywords, callbacks)
+                                                  where_end_keywords, callbacks)
 
         has_elsewhere = .false.
         token = parser%peek()
@@ -168,7 +168,7 @@ contains
                     end if
                 end if
                 elsewhere_body_indices = parse_statement_body(parser, arena, &
-                    where_end_keywords, callbacks)
+                                                              where_end_keywords, callbacks)
 
                 token = parser%peek()
                 if (token%kind == TK_KEYWORD .and. token%text == "elsewhere") then
@@ -192,10 +192,10 @@ contains
 
         if (has_elsewhere) then
             where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                elsewhere_body_indices, line=line, column=column)
+                                     elsewhere_body_indices, line=line, column=column)
         else
             where_index = push_where(arena, mask_expr_index, where_body_indices, &
-                line=line, column=column)
+                                     line=line, column=column)
         end if
     end function parse_where_construct
 
@@ -205,18 +205,18 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: assoc_index
-        
+
         type(token_t) :: token
         type(association_t), allocatable :: associations(:)
         integer, allocatable :: body_indices(:)
         integer :: assoc_count, body_count
         integer :: line, column
-        
+
         ! Get position
         token = parser%peek()
         line = token%line
         column = token%column
-        
+
         ! Consume 'associate'
         token = parser%consume()
 
@@ -227,30 +227,30 @@ contains
             return
         end if
         token = parser%consume()
-        
+
         ! Parse associations
         assoc_count = 0
-        allocate(associations(10))  ! Initial allocation
-        
+        allocate (associations(10))  ! Initial allocation
+
         do while (.not. parser%is_at_end())
             ! Parse association name
             token = parser%peek()
             if (token%kind /= TK_IDENTIFIER) exit
-            
+
             block
                 character(len=:), allocatable :: assoc_name
                 integer :: expr_index
-                
+
                 assoc_name = token%text
                 token = parser%consume()
-                
+
                 ! Expect '=>'
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "=>") then
                     token = parser%consume()
                 else if (token%kind == TK_OPERATOR .and. token%text == "=") then
                     if (parser%current_token + 1 > size(parser%tokens)) then
-                        deallocate(associations)
+                        deallocate (associations)
                         assoc_index = 0
                         return
                     end if
@@ -259,7 +259,7 @@ contains
                         next_token = parser%tokens(parser%current_token + 1)
                         if (next_token%kind /= TK_OPERATOR .or. &
                             next_token%text /= ">") then
-                            deallocate(associations)
+                            deallocate (associations)
                             assoc_index = 0
                             return
                         end if
@@ -267,21 +267,21 @@ contains
                     token = parser%consume()
                     token = parser%consume()
                 else
-                    deallocate(associations)
+                    deallocate (associations)
                     assoc_index = 0
                     return
                 end if
-                
+
                 ! Parse expression
-                expr_index = parse_expression(&
-                    parser%tokens(parser%current_token:), arena)
+                expr_index = parse_expression( &
+                             parser%tokens(parser%current_token:), arena)
                 if (expr_index <= 0) then
-                    deallocate(associations)
-                    if (allocated(body_indices)) deallocate(body_indices)
+                    deallocate (associations)
+                    if (allocated(body_indices)) deallocate (body_indices)
                     assoc_index = 0
                     return
                 end if
-                
+
                 ! Advance parser position - for simple expressions like &
                 ! "a + b", consume 3 tokens
                 ! This is a simplified approach that works for basic expressions
@@ -289,50 +289,50 @@ contains
                     integer :: tokens_to_consume
                     integer :: depth, j
                     type(token_t) :: current_token
-                    
+
                     ! Count tokens in the expression manually
                     tokens_to_consume = 0
                     depth = 0
                     do j = parser%current_token, size(parser%tokens)
                         current_token = parser%tokens(j)
                         if (current_token%kind == TK_EOF) exit
-                        
+
                         ! Track parentheses depth
                         if (current_token%kind == TK_OPERATOR) then
                             if (current_token%text == "(") then
                                 depth = depth + 1
                             else if (current_token%text == ")") then
                                 if (depth == 0) exit  ! Found closing paren &
-                                                       ! of association
+                                ! of association
                                 depth = depth - 1
                             else if (current_token%text == "," .and. depth == 0) then
                                 exit  ! Found comma at same level
                             end if
                         end if
-                        
+
                         tokens_to_consume = tokens_to_consume + 1
                     end do
-                    
+
                     if (tokens_to_consume == 0) tokens_to_consume = 1
                     parser%current_token = parser%current_token + tokens_to_consume
                 end block
-                
+
                 ! Add association
                 assoc_count = assoc_count + 1
                 if (assoc_count > size(associations)) then
                     ! Resize array
                     block
                         type(association_t), allocatable :: temp(:)
-                        allocate(temp(size(associations) * 2))
+                        allocate (temp(size(associations) * 2))
                         temp(1:size(associations)) = associations
                         call move_alloc(temp, associations)
                     end block
                 end if
-                
+
                 associations(assoc_count)%name = assoc_name
                 associations(assoc_count)%expr_index = expr_index
             end block
-            
+
             ! Check for comma or closing parenthesis
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -341,17 +341,17 @@ contains
             else if (token%kind == TK_OPERATOR .and. token%text == ")") then
                 token = parser%consume()
                 exit
-                else
-                    deallocate(associations)
-                    assoc_index = 0
-                    return
-                end if
+            else
+                deallocate (associations)
+                assoc_index = 0
+                return
+            end if
         end do
-        
+
         ! Parse body statements until 'end associate'
         body_count = 0
-        allocate(body_indices(100))  ! Initial allocation
-        
+        allocate (body_indices(100))  ! Initial allocation
+
         do while (.not. parser%is_at_end())
             do while (parser%current_token <= size(parser%tokens))
                 select case (parser%tokens(parser%current_token)%kind)
@@ -370,7 +370,7 @@ contains
             if (parser%current_token > size(parser%tokens)) exit
 
             token = parser%peek()
-            
+
             ! Check for 'end associate'
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
@@ -384,12 +384,12 @@ contains
                     end if
                 end if
             end if
-            
+
             ! Handle EOF
             if (token%kind == TK_EOF) then
                 exit
             end if
-            
+
             block
                 type(token_t), allocatable, target :: stmt_tokens(:)
                 integer, allocatable :: stmt_indices(:)
@@ -405,7 +405,7 @@ contains
                 remaining_count = stmt_end - parser%current_token + 1
                 if (remaining_count <= 0) exit
 
-                allocate(stmt_tokens(remaining_count + 1))
+                allocate (stmt_tokens(remaining_count + 1))
                 stmt_tokens(1:remaining_count) = &
                     parser%tokens(parser%current_token:stmt_end)
                 stmt_tokens(remaining_count + 1)%kind = TK_EOF
@@ -418,8 +418,8 @@ contains
 
                 callbacks = build_associate_callbacks()
                 stmt_indices = parse_basic_statement_core( &
-                    stmt_tokens, arena, callbacks=callbacks, &
-                    consumed_count=consumed_tokens)
+                               stmt_tokens, arena, callbacks=callbacks, &
+                               consumed_count=consumed_tokens)
 
                 if (allocated(stmt_indices) .and. size(stmt_indices) > 0) then
                     do k = 1, size(stmt_indices)
@@ -428,9 +428,9 @@ contains
                             if (body_count > size(body_indices)) then
                                 block
                                     integer, allocatable :: temp(:)
-                                    allocate(temp(size(body_indices) + 100))
+                                    allocate (temp(size(body_indices) + 100))
                                     temp(1:size(body_indices)) = body_indices
-                                    temp(size(body_indices)+1:) = 0
+                                    temp(size(body_indices) + 1:) = 0
                                     call move_alloc(temp, body_indices)
                                 end block
                             end if
@@ -441,35 +441,35 @@ contains
 
                 parser%current_token = stmt_end + 1
 
-                deallocate(stmt_tokens)
+                deallocate (stmt_tokens)
             end block
         end do
-        
+
         ! Create ASSOCIATE node
         if (assoc_count > 0) then
             block
                 type(association_t), allocatable :: final_assocs(:)
                 integer, allocatable :: final_body(:)
-                
-                allocate(final_assocs(assoc_count))
+
+                allocate (final_assocs(assoc_count))
                 final_assocs = associations(1:assoc_count)
-                
+
                 if (body_count > 0) then
-                    allocate(final_body(body_count))
+                    allocate (final_body(body_count))
                     final_body = body_indices(1:body_count)
                     assoc_index = push_associate(arena, final_assocs, &
-                                                  final_body, line, column)
+                                                 final_body, line, column)
                 else
                     assoc_index = push_associate(arena, final_assocs, &
-                                                  line=line, column=column)
+                                                 line=line, column=column)
                 end if
             end block
         else
             assoc_index = 0
         end if
-        
-        deallocate(associations)
-        deallocate(body_indices)
+
+        deallocate (associations)
+        deallocate (body_indices)
     end function parse_associate
 
 end module parser_array_constructs_module

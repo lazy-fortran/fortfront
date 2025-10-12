@@ -98,43 +98,43 @@ contains
         call create_scope_stack(stack)
 
         mono = create_mono_type(TINT)
-        scheme = create_poly_type([type_var_t::], mono)
+        scheme = create_poly_type([type_var_t ::], mono)
 
-        associate(env => stack%scopes(stack%depth)%env)
-        initial_count = env%count
-        call stack%define('foo', scheme)
-        if (env%count /= initial_count + 1) then
-            write (*, '(A)') 'FAIL: First definition did not increment count'
-            return
-        end if
+        associate (env => stack%scopes(stack%depth)%env)
+            initial_count = env%count
+            call stack%define('foo', scheme)
+            if (env%count /= initial_count + 1) then
+                write (*, '(A)') 'FAIL: First definition did not increment count'
+                return
+            end if
 
-        foo_id_first = env%name_ids(1)
-        interned_name = identifier_table_get(stack%identifier_storage, foo_id_first)
-        if (interned_name /= 'foo') then
-            write (*, '(A)') 'FAIL: Interned name mismatch for first definition'
-            return
-        end if
+            foo_id_first = env%name_ids(1)
+            interned_name = identifier_table_get(stack%identifier_storage, foo_id_first)
+            if (interned_name /= 'foo') then
+                write (*, '(A)') 'FAIL: Interned name mismatch for first definition'
+                return
+            end if
 
-        call stack%define('foo', scheme)
-        foo_id_second = env%name_ids(1)
-        if (env%count /= initial_count + 1) then
-            write (*, '(A)') 'FAIL: Duplicate definition created extra entry'
-            return
-        end if
-        if (foo_id_second /= foo_id_first) then
-            write (*, '(A)') 'FAIL: Duplicate definition produced new identifier id'
-            return
-        end if
+            call stack%define('foo', scheme)
+            foo_id_second = env%name_ids(1)
+            if (env%count /= initial_count + 1) then
+                write (*, '(A)') 'FAIL: Duplicate definition created extra entry'
+                return
+            end if
+            if (foo_id_second /= foo_id_first) then
+                write (*, '(A)') 'FAIL: Duplicate definition produced new identifier id'
+                return
+            end if
 
-        call stack%define('bar', scheme)
-        if (env%count /= initial_count + 2) then
-            write (*, '(A)') 'FAIL: Second unique definition did not increment count'
-            return
-        end if
-        if (env%name_ids(2) == foo_id_first) then
-            write (*, '(A)') 'FAIL: Distinct identifiers share the same intern id'
-            return
-        end if
+            call stack%define('bar', scheme)
+            if (env%count /= initial_count + 2) then
+                write (*, '(A)') 'FAIL: Second unique definition did not increment count'
+                return
+            end if
+            if (env%name_ids(2) == foo_id_first) then
+                write (*, '(A)') 'FAIL: Distinct identifiers share the same intern id'
+                return
+            end if
 
         end associate
 

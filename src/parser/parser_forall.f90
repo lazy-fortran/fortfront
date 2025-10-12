@@ -10,7 +10,7 @@ module parser_forall_module
     use ast_factory, only: push_forall
     use ast_nodes_loops, only: forall_triplet_t
     use parser_statement_core_module, only: parse_basic_statement_core, &
-        statement_callbacks_t, null_statement_callbacks, find_statement_end
+                                            statement_callbacks_t, null_statement_callbacks, find_statement_end
     implicit none
     private
 
@@ -65,7 +65,7 @@ contains
     end function parse_where_dispatch
 
     integer function parse_associate_dispatch(parser, arena) &
-            result(associate_index)
+        result(associate_index)
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
 
@@ -95,7 +95,7 @@ contains
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer :: forall_index
-        
+
         type(token_t) :: token, next_token
         type(forall_triplet_t), allocatable :: triplets(:)
         integer :: mask_index
@@ -110,61 +110,61 @@ contains
         integer :: stmt_start, stmt_end, token_count, k
         logical :: is_inline
         type(statement_callbacks_t) :: callbacks
-        
+
         ! Initialize
         forall_index = 0
         mask_index = 0
         triplet_count = 0
-        allocate(triplets(10))  ! Initial allocation
-        allocate(body_indices(0))
-        
+        allocate (triplets(10))  ! Initial allocation
+        allocate (body_indices(0))
+
         ! Get position
         token = parser%peek()
         line = token%line
         column = token%column
-        
+
         ! Consume 'forall'
         if (token%kind /= TK_KEYWORD .or. token%text /= "forall") then
             return
         end if
         token = parser%consume()
-        
+
         ! Expect opening parenthesis
         token = parser%peek()
         if (token%kind /= TK_OPERATOR .or. token%text /= "(") then
             return
         end if
         token = parser%consume()
-        
+
         ! Parse forall triplets
         do while (.not. parser%is_at_end())
             ! Parse index name
             token = parser%peek()
             if (token%kind /= TK_IDENTIFIER) exit
-            
+
             triplet_count = triplet_count + 1
             if (triplet_count > size(triplets)) then
                 ! Resize array
                 block
                     type(forall_triplet_t), allocatable :: temp(:)
-                    allocate(temp(size(triplets) * 2))
+                    allocate (temp(size(triplets) * 2))
                     temp(1:size(triplets)) = triplets
                     call move_alloc(temp, triplets)
                 end block
             end if
-            
+
             triplets(triplet_count)%index_name = token%text
             token = parser%consume()
-            
+
             ! Expect '='
             token = parser%peek()
             if (token%kind /= TK_OPERATOR .or. token%text /= "=") then
-                deallocate(triplets)
-                deallocate(body_indices)
+                deallocate (triplets)
+                deallocate (body_indices)
                 return
             end if
             token = parser%consume()
-            
+
             ! Parse lower bound expression (stop before colon, comma, or closing paren)
             block
                 character(len=1), dimension(3) :: lower_terms
@@ -174,8 +174,8 @@ contains
 
             token = parser%peek()
             if (token%kind /= TK_OPERATOR .or. token%text /= ":") then
-                deallocate(triplets)
-                deallocate(body_indices)
+                deallocate (triplets)
+                deallocate (body_indices)
                 return
             end if
             token = parser%consume()
@@ -188,8 +188,8 @@ contains
             end block
 
             if (triplets(triplet_count)%upper_expr_index <= 0) then
-                deallocate(triplets)
-                deallocate(body_indices)
+                deallocate (triplets)
+                deallocate (body_indices)
                 return
             end if
 
@@ -229,16 +229,16 @@ contains
                 exit
             end if
         end do
-        
+
         ! Consume closing parenthesis
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == ")") then
             token = parser%consume()
         end if
-        
+
         callbacks = build_forall_callbacks()
-        if (allocated(body_indices)) deallocate(body_indices)
-        allocate(body_indices(0))
+        if (allocated(body_indices)) deallocate (body_indices)
+        allocate (body_indices(0))
 
         stmt_start = parser%current_token
         is_inline = .true.
@@ -265,7 +265,7 @@ contains
                 if (stmt_end < parser%current_token) stmt_end = parser%current_token
                 token_count = stmt_end - parser%current_token + 1
                 if (token_count > 0) then
-                    allocate(stmt_tokens(token_count + 1))
+                    allocate (stmt_tokens(token_count + 1))
                     stmt_tokens(1:token_count) = &
                         parser%tokens(parser%current_token:stmt_end)
                     stmt_tokens(token_count + 1)%kind = TK_EOF
@@ -275,16 +275,16 @@ contains
                     stmt_tokens(token_count + 1)%column = &
                         parser%tokens(stmt_end)%column + 1
                     stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                        callbacks=callbacks)
+                                                              callbacks=callbacks)
                     if (allocated(stmt_indices)) then
                         do k = 1, size(stmt_indices)
                             if (stmt_indices(k) > 0) then
                                 body_indices = [body_indices, stmt_indices(k)]
                             end if
                         end do
-                        deallocate(stmt_indices)
+                        deallocate (stmt_indices)
                     end if
-                    deallocate(stmt_tokens)
+                    deallocate (stmt_tokens)
                 end if
                 parser%current_token = stmt_end + 1
             end if
@@ -337,7 +337,7 @@ contains
                     cycle
                 end if
 
-                allocate(stmt_tokens(token_count + 1))
+                allocate (stmt_tokens(token_count + 1))
                 stmt_tokens(1:token_count) = &
                     parser%tokens(parser%current_token:stmt_end)
                 stmt_tokens(token_count + 1)%kind = TK_EOF
@@ -348,29 +348,29 @@ contains
                     parser%tokens(stmt_end)%column + 1
 
                 stmt_indices = parse_basic_statement_core(stmt_tokens, arena, &
-                    callbacks=callbacks)
+                                                          callbacks=callbacks)
                 if (allocated(stmt_indices)) then
                     do k = 1, size(stmt_indices)
                         if (stmt_indices(k) > 0) then
                             body_indices = [body_indices, stmt_indices(k)]
                         end if
                     end do
-                    deallocate(stmt_indices)
+                    deallocate (stmt_indices)
                 end if
-                deallocate(stmt_tokens)
+                deallocate (stmt_tokens)
 
                 parser%current_token = stmt_end + 1
             end do
         end if
-        
+
         ! Create FORALL node
         if (triplet_count > 0) then
             if (triplet_count == 1) then
                 forall_index = push_forall(arena, triplets(1)%index_name, &
-                                          triplets(1)%lower_expr_index, &
-                                          triplets(1)%upper_expr_index, &
-                                          triplets(1)%stride_expr_index, &
-                                          mask_index, body_indices, line, column)
+                                           triplets(1)%lower_expr_index, &
+                                           triplets(1)%upper_expr_index, &
+                                           triplets(1)%stride_expr_index, &
+                                           mask_index, body_indices, line, column)
             else
                 max_name_len = 0
                 do k = 1, triplet_count
@@ -378,10 +378,10 @@ contains
                 end do
                 if (max_name_len <= 0) max_name_len = 1
 
-                allocate(character(len=max_name_len) :: index_names(triplet_count))
-                allocate(lower_bounds(triplet_count))
-                allocate(upper_bounds(triplet_count))
-                allocate(stride_bounds(triplet_count))
+                allocate (character(len=max_name_len) :: index_names(triplet_count))
+                allocate (lower_bounds(triplet_count))
+                allocate (upper_bounds(triplet_count))
+                allocate (stride_bounds(triplet_count))
 
                 do k = 1, triplet_count
                     index_names(k) = triplets(k)%index_name
@@ -392,36 +392,36 @@ contains
 
                 if (allocated(body_indices)) then
                     forall_index = push_forall(arena, triplets(1)%index_name, &
-                                              triplets(1)%lower_expr_index, &
-                                              triplets(1)%upper_expr_index, &
-                                              triplets(1)%stride_expr_index, &
-                                              mask_index=mask_index, &
-                                              body_indices=body_indices, line=line, column=column, &
-                                              index_vars_all=index_names, &
-                                              start_indices_all=lower_bounds, &
-                                              end_indices_all=upper_bounds, &
-                                              stride_indices_all=stride_bounds)
+                                               triplets(1)%lower_expr_index, &
+                                               triplets(1)%upper_expr_index, &
+                                               triplets(1)%stride_expr_index, &
+                                               mask_index=mask_index, &
+                                               body_indices=body_indices, line=line, column=column, &
+                                               index_vars_all=index_names, &
+                                               start_indices_all=lower_bounds, &
+                                               end_indices_all=upper_bounds, &
+                                               stride_indices_all=stride_bounds)
                 else
                     forall_index = push_forall(arena, triplets(1)%index_name, &
-                                              triplets(1)%lower_expr_index, &
-                                              triplets(1)%upper_expr_index, &
-                                              triplets(1)%stride_expr_index, &
-                                              mask_index=mask_index, line=line, column=column, &
-                                              index_vars_all=index_names, &
-                                              start_indices_all=lower_bounds, &
-                                              end_indices_all=upper_bounds, &
-                                              stride_indices_all=stride_bounds)
+                                               triplets(1)%lower_expr_index, &
+                                               triplets(1)%upper_expr_index, &
+                                               triplets(1)%stride_expr_index, &
+                                               mask_index=mask_index, line=line, column=column, &
+                                               index_vars_all=index_names, &
+                                               start_indices_all=lower_bounds, &
+                                               end_indices_all=upper_bounds, &
+                                               stride_indices_all=stride_bounds)
                 end if
             end if
         end if
 
-        deallocate(triplets)
-        if (allocated(body_indices)) deallocate(body_indices)
-        if (allocated(index_names)) deallocate(index_names)
-        if (allocated(lower_bounds)) deallocate(lower_bounds)
-        if (allocated(upper_bounds)) deallocate(upper_bounds)
-        if (allocated(stride_bounds)) deallocate(stride_bounds)
+        deallocate (triplets)
+        if (allocated(body_indices)) deallocate (body_indices)
+        if (allocated(index_names)) deallocate (index_names)
+        if (allocated(lower_bounds)) deallocate (lower_bounds)
+        if (allocated(upper_bounds)) deallocate (upper_bounds)
+        if (allocated(stride_bounds)) deallocate (stride_bounds)
 
     end function parse_forall
-    
+
 end module parser_forall_module

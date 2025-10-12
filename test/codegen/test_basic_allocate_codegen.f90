@@ -8,11 +8,11 @@ program test_basic_allocate_codegen
     print *, '=== Codegen: allocate/deallocate preservation ==='
 
     source = '' // &
-        'integer, parameter :: n = 100' // new_line('a') // &
-        'integer, dimension(n) :: arr'   // new_line('a') // &
-        'integer, allocatable :: dyn_arr(:)' // new_line('a') // &
-        'allocate(dyn_arr(n))' // new_line('a') // &
-        'deallocate(dyn_arr)'
+             'integer, parameter :: n = 100' // new_line('a') // &
+             'integer, dimension(n) :: arr' // new_line('a') // &
+             'integer, allocatable :: dyn_arr(:)' // new_line('a') // &
+             'allocate(dyn_arr(n))' // new_line('a') // &
+             'deallocate(dyn_arr)'
 
     call transform_lazy_fortran_string(source, output, error_msg)
 

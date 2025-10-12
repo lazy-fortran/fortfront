@@ -1,7 +1,7 @@
 module standardizer_declarations
     ! Variable declaration generation module - main interface
     ! Uses consolidated core functionality
-    
+
     use standardizer_declarations_core
     implicit none
     private

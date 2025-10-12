@@ -12,9 +12,9 @@ module lexer_token_types
     integer, parameter, public :: TK_KEYWORD = 5
     integer, parameter, public :: TK_NEWLINE = 6
     integer, parameter, public :: TK_COMMENT = 7
-    integer, parameter, public :: TK_WHITESPACE = 8    ! New: for CST trivia
+    integer, parameter, public :: TK_WHITESPACE = 8  ! New: for CST trivia
     integer, parameter, public :: TK_UNKNOWN = 99
-    
+
     ! Backward compatibility aliases
     integer, parameter, public :: TOKEN_WHITESPACE = TK_WHITESPACE
     integer, parameter, public :: TOKEN_COMMENT = TK_COMMENT
@@ -78,11 +78,11 @@ contains
     subroutine trivia_token_assign(this, other)
         class(trivia_token_t), intent(out) :: this
         type(trivia_token_t), intent(in) :: other
-        
+
         this%kind = other%kind
         this%line = other%line
         this%column = other%column
-        
+
         if (allocated(other%text)) then
             this%text = other%text
         end if
@@ -93,26 +93,26 @@ contains
         class(token_t), intent(out) :: this
         type(token_t), intent(in) :: other
         integer :: i
-        
+
         this%kind = other%kind
         this%line = other%line
         this%column = other%column
-        
+
         if (allocated(other%text)) then
             this%text = other%text
         end if
-        
+
         ! Copy leading trivia
         if (allocated(other%leading_trivia)) then
-            allocate(this%leading_trivia(size(other%leading_trivia)))
+            allocate (this%leading_trivia(size(other%leading_trivia)))
             do i = 1, size(other%leading_trivia)
                 this%leading_trivia(i) = other%leading_trivia(i)
             end do
         end if
-        
+
         ! Copy trailing trivia
         if (allocated(other%trailing_trivia)) then
-            allocate(this%trailing_trivia(size(other%trailing_trivia)))
+            allocate (this%trailing_trivia(size(other%trailing_trivia)))
             do i = 1, size(other%trailing_trivia)
                 this%trailing_trivia(i) = other%trailing_trivia(i)
             end do
@@ -123,7 +123,7 @@ contains
     function token_deep_copy(this) result(copy)
         class(token_t), intent(in) :: this
         type(token_t) :: copy
-        
+
         copy = this
     end function token_deep_copy
 
@@ -131,7 +131,7 @@ contains
     function token_type_name(kind) result(name)
         integer, intent(in) :: kind
         character(len=:), allocatable :: name
-        
+
         select case (kind)
         case (TK_EOF)
             name = "eof"

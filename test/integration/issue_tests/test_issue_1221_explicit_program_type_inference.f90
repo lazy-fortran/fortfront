@@ -15,18 +15,18 @@ contains
 
     subroutine test_explicit_program_with_inference()
         print *, "Testing explicit program with type inference..."
-        
+
         input = 'program test' // new_line('a') // &
                 '    x = 42' // new_line('a') // &
                 'end program'
-        
+
         call transform_lazy_fortran_string(input, output, error_msg)
-        
+
         if (len_trim(error_msg) > 0) then
             print *, "ERROR: ", trim(error_msg)
             error stop 1
         end if
-        
+
         ! Check that x = 42 is preserved (minimal requirement)
         success = index(output, "x = 42") > 0
         if (.not. success) then
@@ -35,7 +35,7 @@ contains
             print *, trim(output)
             error stop 1
         end if
-        
+
         ! Check if type inference worked (expected to fail currently - issue #1221)
         if (index(output, "integer :: x") > 0) then
             print *, "PASSED: Type inference works for explicit program"
@@ -49,18 +49,18 @@ contains
 
     subroutine test_explicit_program_array_inference()
         print *, "Testing explicit program with array type inference..."
-        
+
         input = 'program test_array' // new_line('a') // &
                 '    arr = [1, 2, 3]' // new_line('a') // &
                 'end program'
-        
+
         call transform_lazy_fortran_string(input, output, error_msg)
-        
+
         if (len_trim(error_msg) > 0) then
             print *, "ERROR: ", trim(error_msg)
             error stop 1
         end if
-        
+
         ! Check that array literal is preserved (minimal requirement)
         success = index(output, "arr = [1, 2, 3]") > 0
         if (.not. success) then
@@ -69,7 +69,7 @@ contains
             print *, trim(output)
             error stop 1
         end if
-        
+
         ! Check that array declaration was added (expected to fail - issue #1221)
         success = (index(output, "integer, dimension(3) :: arr") > 0) .or. &
                   (index(output, "integer :: arr(3)") > 0)
@@ -84,20 +84,20 @@ contains
 
     subroutine test_explicit_program_mixed_types()
         print *, "Testing explicit program with mixed type inference..."
-        
+
         input = 'program test_mixed' // new_line('a') // &
                 '    x = 42' // new_line('a') // &
                 '    y = 3.14' // new_line('a') // &
                 '    flag = .true.' // new_line('a') // &
                 'end program test_mixed'
-        
+
         call transform_lazy_fortran_string(input, output, error_msg)
-        
+
         if (len_trim(error_msg) > 0) then
             print *, "ERROR: ", trim(error_msg)
             error stop 1
         end if
-        
+
         ! Check that assignments are preserved (minimal requirement)
         success = (index(output, "x = 42") > 0) .and. &
                   (index(output, "y = 3.14") > 0) .and. &
@@ -108,7 +108,7 @@ contains
             print *, trim(output)
             error stop 1
         end if
-        
+
         ! Check that all declarations were added (expected to fail - issue #1221)
         success = (index(output, "integer :: x") > 0) .and. &
                   (index(output, "real :: y") > 0) .and. &

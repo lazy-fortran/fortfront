@@ -17,13 +17,13 @@ contains
 
     logical function test_module_adds_implicit_none()
         character(len=*), parameter :: input = &
-            'module m' // new_line('a') // &
-            'contains' // new_line('a') // &
-            '  subroutine s()' // new_line('a') // &
-            '    integer :: x' // new_line('a') // &
-            '    x = 1' // new_line('a') // &
-            '  end subroutine s' // new_line('a') // &
-            'end module m'
+                                       'module m' // new_line('a') // &
+                                       'contains' // new_line('a') // &
+                                       '  subroutine s()' // new_line('a') // &
+                                       '    integer :: x' // new_line('a') // &
+                                       '    x = 1' // new_line('a') // &
+                                       '  end subroutine s' // new_line('a') // &
+                                       'end module m'
         character(len=:), allocatable :: output, error_msg
 
         call transform_lazy_fortran_string(input, output, error_msg)

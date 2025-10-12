@@ -2,7 +2,7 @@ module ast_nodes_transfer
     use json_module
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
-                         ast_node_wrapper, ast_visitor_base_t
+                        ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 
@@ -15,7 +15,7 @@ module ast_nodes_transfer
 
     ! Cycle statement node
     type, extends(ast_node) :: cycle_node
-        character(len=:), allocatable :: label        ! Optional label to cycle to
+        character(len=:), allocatable :: label  ! Optional label to cycle to
     contains
         procedure :: accept => cycle_accept
         procedure :: to_json => cycle_to_json
@@ -25,7 +25,7 @@ module ast_nodes_transfer
 
     ! Exit statement node
     type, extends(ast_node) :: exit_node
-        character(len=:), allocatable :: label        ! Optional label to exit from
+        character(len=:), allocatable :: label  ! Optional label to exit from
     contains
         procedure :: accept => exit_accept
         procedure :: to_json => exit_to_json
@@ -35,9 +35,9 @@ module ast_nodes_transfer
 
     ! Stop statement node
     type, extends(ast_node) :: stop_node
-        integer :: stop_code_index = 0                ! Optional stop code &
-                                                        ! expression index
-        character(len=:), allocatable :: stop_message ! Optional stop message string
+        integer :: stop_code_index = 0  ! Optional stop code &
+        ! expression index
+        character(len=:), allocatable :: stop_message  ! Optional stop message string
     contains
         procedure :: accept => stop_accept
         procedure :: to_json => stop_to_json
@@ -57,7 +57,7 @@ module ast_nodes_transfer
 
     ! Goto statement node
     type, extends(ast_node) :: goto_node
-        character(len=:), allocatable :: label        ! Target label
+        character(len=:), allocatable :: label  ! Target label
     contains
         procedure :: accept => goto_accept
         procedure :: to_json => goto_to_json
@@ -67,8 +67,8 @@ module ast_nodes_transfer
 
     ! Error stop statement node
     type, extends(ast_node) :: error_stop_node
-        integer :: error_code_index = 0              ! Optional error code expression index
-        character(len=:), allocatable :: error_message ! Optional error message string
+        integer :: error_code_index = 0  ! Optional error code expression index
+        character(len=:), allocatable :: error_message  ! Optional error message string
     contains
         procedure :: accept => error_stop_accept
         procedure :: to_json => error_stop_to_json
@@ -188,9 +188,9 @@ contains
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         if (this%stop_code_index > 0) call json%add(obj, 'stop_code_index', &
-                                                   this%stop_code_index)
+                                                    this%stop_code_index)
         if (allocated(this%stop_message)) call json%add(obj, 'stop_message', &
-                                                      this%stop_message)
+                                                        this%stop_message)
         call json%add(parent, obj)
     end subroutine stop_to_json
 
@@ -328,9 +328,9 @@ contains
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         if (this%error_code_index > 0) call json%add(obj, 'error_code_index', &
-                                                   this%error_code_index)
+                                                     this%error_code_index)
         if (allocated(this%error_message)) call json%add(obj, 'error_message', &
-                                                      this%error_message)
+                                                         this%error_message)
         call json%add(parent, obj)
     end subroutine error_stop_to_json
 

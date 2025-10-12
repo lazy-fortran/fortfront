@@ -1,6 +1,6 @@
 module standardizer
     ! AST Standardization Stage - transforms lazy fortran AST to standard Fortran AST
-    ! 
+    !
     ! This module provides a unified interface to all standardizer functionality
     ! by re-exporting procedures from specialized sub-modules.
     !
@@ -17,7 +17,7 @@ module standardizer
         standardize_ast, &
         set_standardizer_type_standardization, &
         get_standardizer_type_standardization
-        
+
     use standardizer_types, only: &
         string_result_t, &
         INVALID_INTEGER
@@ -82,7 +82,7 @@ module standardizer
         collect_string_vars_needing_allocatable
 
     implicit none
-    
+
     ! Re-export all public interfaces
     public :: &
         ! Core functionality
@@ -91,16 +91,13 @@ module standardizer
         get_standardizer_type_standardization, &
         string_result_t, &
         INVALID_INTEGER, &
-        
         ! Program standardization
         standardize_program, &
         analyze_program_content, &
         find_contains_insertion_point, &
         insert_contains_statement, &
-        
         ! Module standardization
         standardize_module, &
-        
         ! Declaration generation
         insert_variable_declarations, &
         has_implicit_none, &
@@ -115,7 +112,6 @@ module standardizer
         add_variable, &
         mark_variable_declared, &
         standardize_declarations, &
-        
         ! Subprogram standardization
         standardize_subprograms, &
         standardize_function_def, &
@@ -125,7 +121,6 @@ module standardizer
         wrap_function_in_program, &
         wrap_subroutine_in_program, &
         infer_parameter_type, &
-        
         ! Type utilities
         is_array_type, &
         get_expression_type, &
@@ -138,7 +133,6 @@ module standardizer
         get_array_var_type, &
         infer_element_type_from_literal, &
         get_fortran_type_string, &
-        
         ! Allocatable marking
         mark_allocatable_for_array_reassignments, &
         mark_allocatable_for_string_length_changes, &

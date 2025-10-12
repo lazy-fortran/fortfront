@@ -12,8 +12,8 @@ module variable_usage_tracker_module
 
     ! Re-export types from core module
     public :: variable_usage_info_t, expression_visitor_t
-    
-    ! Public procedures  
+
+    ! Public procedures
     public :: create_variable_usage_info, get_variables_in_expression
     public :: get_identifiers_in_subtree, visit_expression_nodes
     public :: is_variable_used_in_expression, count_variable_usage
@@ -25,12 +25,12 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
         type(variable_usage_info_t) :: info
-        
+
         info = create_variable_usage_info()
-        
+
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
-        
+
         call collect_identifiers_recursive(arena, expr_index, info)
     end function get_variables_in_expression
 
@@ -39,15 +39,15 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: root_index
         character(len=:), allocatable :: identifiers(:)
-        
+
         type(variable_usage_info_t) :: info
-        
+
         info = get_variables_in_expression(arena, root_index)
-        
+
         if (allocated(info%variable_names) .and. size(info%variable_names) > 0) then
             identifiers = info%variable_names
         else
-            allocate(character(len=0) :: identifiers(0))
+            allocate (character(len=0) :: identifiers(0))
         end if
     end function get_identifiers_in_subtree
 
@@ -74,7 +74,7 @@ contains
         if (.not. allocated(arena%entries(root_index)%node)) return
 
         capacity = 128
-        allocate(stack(capacity))
+        allocate (stack(capacity))
         top = 1
         stack(top)%node_index = root_index
 
@@ -146,7 +146,7 @@ contains
             if (idx <= 0) return
             if (top + 1 > capacity) then
                 capacity = capacity * 2
-                allocate(tmp(capacity))
+                allocate (tmp(capacity))
                 tmp(1:top) = stack(1:top)
                 call move_alloc(tmp, stack)
             end if
@@ -161,13 +161,13 @@ contains
         integer, intent(in) :: expr_index
         character(len=*), intent(in) :: var_name
         logical :: used
-        
+
         type(variable_usage_info_t) :: info
         integer :: i
-        
+
         used = .false.
         info = get_variables_in_expression(arena, expr_index)
-        
+
         if (allocated(info%variable_names)) then
             do i = 1, size(info%variable_names)
                 if (info%variable_names(i) == var_name) then
@@ -184,13 +184,13 @@ contains
         integer, intent(in) :: expr_index
         character(len=*), intent(in) :: var_name
         integer :: count
-        
+
         type(variable_usage_info_t) :: info
         integer :: i
-        
+
         count = 0
         info = get_variables_in_expression(arena, expr_index)
-        
+
         if (allocated(info%variable_names)) then
             do i = 1, size(info%variable_names)
                 if (info%variable_names(i) == var_name) then

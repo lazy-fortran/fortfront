@@ -1,7 +1,7 @@
 module ast_nodes_core
     use json_module
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
-                         ast_visitor_base_t
+                        ast_visitor_base_t
     use uid_generator, only: generate_uid
     use ast_nodes_procedure, only: subroutine_call_node
     implicit none
@@ -30,8 +30,8 @@ module ast_nodes_core
 
     ! Assignment node
     type, extends(ast_node), public :: assignment_node
-        integer :: target_index      ! Index to target node in stack
-        integer :: value_index       ! Index to value node in stack
+        integer :: target_index  ! Index to target node in stack
+        integer :: value_index  ! Index to value node in stack
         character(len=:), allocatable :: operator
         ! Type inference support (dialect-agnostic)
         logical :: type_was_inferred = .false.  ! true if type was inferred
@@ -45,8 +45,8 @@ module ast_nodes_core
 
     ! Pointer assignment node (ptr => target)
     type, extends(ast_node), public :: pointer_assignment_node
-        integer :: pointer_index     ! Index to pointer node in stack
-        integer :: target_index      ! Index to target node in stack
+        integer :: pointer_index  ! Index to pointer node in stack
+        integer :: target_index  ! Index to target node in stack
     contains
         procedure :: accept => pointer_assignment_accept
         procedure :: to_json => pointer_assignment_to_json
@@ -79,8 +79,8 @@ module ast_nodes_core
 
     ! Binary operation node
     type, extends(ast_node), public :: binary_op_node
-        integer :: left_index        ! Index to left operand in stack
-        integer :: right_index       ! Index to right operand in stack
+        integer :: left_index  ! Index to left operand in stack
+        integer :: right_index  ! Index to right operand in stack
         character(len=:), allocatable :: operator
     contains
         procedure :: accept => binary_op_accept
@@ -120,7 +120,7 @@ module ast_nodes_core
 
     ! Component access node for % operator
     type, extends(ast_node), public :: component_access_node
-        integer :: base_expr_index      ! The structure/derived type expression
+        integer :: base_expr_index  ! The structure/derived type expression
         character(len=:), allocatable :: component_name  ! Name of the component
         ! For chained access (a%b%c), base_expr can be another component_access_node
     contains
@@ -135,10 +135,10 @@ module ast_nodes_core
     ! - Character substring (for character variables)
     ! This ambiguity is resolved during semantic analysis
     type, extends(ast_node), public :: range_subscript_node
-        integer :: base_expr_index      ! The expression being subscripted
-        integer :: start_index = -1     ! Start position expression
+        integer :: base_expr_index  ! The expression being subscripted
+        integer :: start_index = -1  ! Start position expression
         ! (-1 if not specified)
-        integer :: end_index = -1       ! End position expression (-1 if not specified)
+        integer :: end_index = -1  ! End position expression (-1 if not specified)
         ! Resolution flag (set during semantic analysis)
         logical :: is_character_substring = .false.  ! true if substring
     contains
@@ -163,20 +163,20 @@ contains
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: body_array, body_item
         integer :: i
-        
+
         ! Add type field
         call json%add(parent, 'type', 'program')
-        
+
         ! Add stack_index if available (we don't have it here, so add a placeholder)
         call json%add(parent, 'stack_index', 1)
-        
+
         ! Add program name
         if (allocated(this%name)) then
             call json%add(parent, 'name', this%name)
         else
             call json%add(parent, 'name', '')
         end if
-        
+
         ! Add body array
         call json%create_array(body_array, 'body')
         if (allocated(this%body_indices)) then
@@ -299,7 +299,7 @@ contains
     subroutine identifier_assign(lhs, rhs)
         class(identifier_node), intent(inout) :: lhs
         class(identifier_node), intent(in) :: rhs
-        
+
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -310,7 +310,7 @@ contains
         lhs%constant_integer = rhs%constant_integer
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
-        
+
         ! Copy derived class fields
         if (allocated(rhs%name)) then
             lhs%name = rhs%name
@@ -334,7 +334,7 @@ contains
     subroutine literal_assign(lhs, rhs)
         class(literal_node), intent(inout) :: lhs
         class(literal_node), intent(in) :: rhs
-        
+
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -345,7 +345,7 @@ contains
         lhs%constant_integer = rhs%constant_integer
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
-        
+
         ! Copy derived class fields
         if (allocated(rhs%value)) then
             lhs%value = rhs%value
@@ -402,27 +402,27 @@ contains
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: args_array, arg_item
         integer :: i
-        
+
         ! Add type field
         call json%add(parent, 'type', 'call_or_subscript')
-        
+
         ! Add function/subscript name
         if (allocated(this%name)) then
             call json%add(parent, 'name', this%name)
         else
             call json%add(parent, 'name', '')
         end if
-        
+
         ! Add intrinsic information
         call json%add(parent, 'is_intrinsic', this%is_intrinsic)
         if (allocated(this%intrinsic_signature) .and. &
             len_trim(this%intrinsic_signature) > 0) then
             call json%add(parent, 'intrinsic_signature', this%intrinsic_signature)
         end if
-        
+
         ! Add disambiguation information
         call json%add(parent, 'is_array_access', this%is_array_access)
-        
+
         ! Add arguments array
         call json%create_array(args_array, 'arguments')
         if (allocated(this%arg_indices)) then
@@ -493,7 +493,7 @@ contains
 
     ! Factory functions
     function create_pointer_assignment(pointer_index, target_index, &
-                                      line, column) result(node)
+                                       line, column) result(node)
         integer, intent(in) :: pointer_index
         integer, intent(in) :: target_index
         integer, intent(in), optional :: line, column
@@ -534,13 +534,13 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: base_expr
-        
+
         ! Add type field
         call json%add(parent, 'type', 'component_access')
-        
+
         ! Add base expression index
         call json%add(parent, 'base_expr_index', this%base_expr_index)
-        
+
         ! Add component name
         if (allocated(this%component_name)) then
             call json%add(parent, 'component_name', this%component_name)
@@ -552,7 +552,7 @@ contains
     subroutine component_access_assign(lhs, rhs)
         class(component_access_node), intent(inout) :: lhs
         class(component_access_node), intent(in) :: rhs
-        
+
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -563,7 +563,7 @@ contains
         lhs%constant_integer = rhs%constant_integer
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
-        
+
         ! Copy derived class fields
         lhs%base_expr_index = rhs%base_expr_index
         if (allocated(rhs%component_name)) then
@@ -573,12 +573,12 @@ contains
 
     ! Factory function for component access
     function create_component_access(base_expr_index, component_name, &
-                                    line, column) result(node)
+                                     line, column) result(node)
         integer, intent(in) :: base_expr_index
         character(len=*), intent(in) :: component_name
         integer, intent(in), optional :: line, column
         type(component_access_node) :: node
-        
+
         node%base_expr_index = base_expr_index
         node%component_name = component_name
         node%uid = generate_uid()
@@ -597,19 +597,19 @@ contains
         class(range_subscript_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        
+
         ! Add type field
         call json%add(parent, 'type', 'range_subscript')
-        
+
         ! Add base expression index
         call json%add(parent, 'base_expr_index', this%base_expr_index)
-        
+
         ! Add start index
         call json%add(parent, 'start_index', this%start_index)
-        
+
         ! Add end index
         call json%add(parent, 'end_index', this%end_index)
-        
+
         ! Add resolution flag
         call json%add(parent, 'is_character_substring', this%is_character_substring)
     end subroutine range_subscript_to_json
@@ -617,7 +617,7 @@ contains
     subroutine range_subscript_assign(lhs, rhs)
         class(range_subscript_node), intent(inout) :: lhs
         class(range_subscript_node), intent(in) :: rhs
-        
+
         ! Copy base class fields
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -628,7 +628,7 @@ contains
         lhs%constant_integer = rhs%constant_integer
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
-        
+
         ! Copy derived class fields
         lhs%base_expr_index = rhs%base_expr_index
         lhs%start_index = rhs%start_index
@@ -638,12 +638,12 @@ contains
 
     ! Factory function for range subscript
     function create_range_subscript(base_expr_index, start_index, end_index, &
-            line, column) result(node)
+                                    line, column) result(node)
         integer, intent(in) :: base_expr_index
         integer, intent(in), optional :: start_index, end_index
         integer, intent(in), optional :: line, column
         type(range_subscript_node) :: node
-        
+
         node%base_expr_index = base_expr_index
         node%uid = generate_uid()
         if (present(start_index)) then
@@ -687,7 +687,7 @@ contains
     end function create_literal
 
     function create_binary_op(left_index, right_index, operator, line, column) &
-            result(node)
+        result(node)
         integer, intent(in) :: left_index, right_index
         character(len=*), intent(in) :: operator
         integer, intent(in), optional :: line, column
@@ -721,7 +721,7 @@ contains
     end function create_call_or_subscript
 
     function create_assignment(target_index, value_index, line, column, &
-            inferred_type, inferred_type_name) result(node)
+                               inferred_type, inferred_type_name) result(node)
         use type_system_unified, only: mono_type_t
         integer, intent(in) :: target_index, value_index
         integer, intent(in), optional :: line, column

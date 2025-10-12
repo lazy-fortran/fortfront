@@ -27,13 +27,12 @@ contains
         character(len=:), allocatable :: subroutine_name
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
-        
-        
+
         ! Consume subroutine keyword
         token = parser%consume()
         line = token%line
         column = token%column
-        
+
         ! Get subroutine name
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER) then
@@ -42,13 +41,13 @@ contains
         else
             subroutine_name = "unnamed_subroutine"
         end if
-        
+
         ! Parse parameters (simplified - no type info)
-        allocate(param_indices(0))
+        allocate (param_indices(0))
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()  ! consume '('
-            
+
             ! Parse parameter names only
             do while (.not. parser%is_at_end())
                 token = parser%peek()
@@ -56,22 +55,22 @@ contains
                     token = parser%consume()  ! consume ')'
                     exit
                 end if
-                
+
                 if (token%kind == TK_IDENTIFIER) then
                     ! Create simple parameter node
                     block
                         integer :: param_index
                         block
                             integer, allocatable :: empty_dims(:)
-                            allocate(empty_dims(0))
+                            allocate (empty_dims(0))
                             param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
-                                                                   empty_dims, token%line, token%column)
+                                                                     empty_dims, token%line, token%column)
                         end block
                         param_indices = [param_indices, param_index]
                     end block
                     token = parser%consume()
                 end if
-                
+
                 ! Skip commas
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -79,12 +78,12 @@ contains
                 end if
             end do
         end if
-        
+
         ! Parse subroutine body until "end subroutine" (simplified)
-        allocate(body_indices(0))
+        allocate (body_indices(0))
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            
+
             ! Check for end of subroutine
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
@@ -98,7 +97,7 @@ contains
                             if (parser%tokens(parser%current_token + 2)%text == subroutine_name) then
                                 ! This is our matching "end subroutine" - consume it and exit
                                 token = parser%consume()  ! consume "end"
-                                token = parser%consume()  ! consume "subroutine" 
+                                token = parser%consume()  ! consume "subroutine"
                                 token = parser%consume()  ! consume subroutine name
                                 exit
                             else
@@ -114,7 +113,7 @@ contains
                     end if
                 end if
             end if
-            
+
             ! Handle nested procedures directly to avoid recursive call issues
             if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
                 block
@@ -145,10 +144,10 @@ contains
                 token = parser%consume()  ! consume newline
             end if
         end do
-        
+
         ! Create subroutine node
         sub_index = push_subroutine_def(arena, subroutine_name, param_indices, body_indices, &
-                                       line, column)
+                                        line, column)
     end function parse_subroutine_in_module
 
     ! Safe function parsing for module contexts (avoids circular dependencies)
@@ -160,19 +159,47 @@ contains
         character(len=:), allocatable :: function_name, return_type_str
         integer :: line, column
         integer, allocatable :: param_indices(:), body_indices(:)
-        
+        character(len=16), allocatable :: prefix_keywords(:)
+        logical :: has_recursive_keyword
+
         ! Initialize
         return_type_str = ""
-        
+        has_recursive_keyword = .false.
+        allocate (character(len=16) :: prefix_keywords(0))
+
+        ! Optional prefix keywords before "function"
+        do
+            token = parser%peek()
+            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
+                select case (trim(to_lower_local(token%text)))
+                case ("recursive")
+                    has_recursive_keyword = .true.
+                    call append_prefix_keyword(prefix_keywords, "recursive")
+                    token = parser%consume()
+                case ("pure")
+                    call append_prefix_keyword(prefix_keywords, "pure")
+                    token = parser%consume()
+                case ("elemental")
+                    call append_prefix_keyword(prefix_keywords, "elemental")
+                    token = parser%consume()
+                case default
+                    exit
+                end select
+            else
+                exit
+            end if
+        end do
+
         ! Check if we have a return type before "function"
         token = parser%peek()
-        if (token%kind == TK_KEYWORD .and. &
-            (token%text == "real" .or. token%text == "integer" .or. &
-             token%text == "logical" .or. token%text == "character")) then
-            return_type_str = token%text
-            token = parser%consume()
+        if (token%kind == TK_KEYWORD) then
+            select case (trim(to_lower_local(token%text)))
+            case ("real", "integer", "logical", "character")
+                return_type_str = token%text
+                token = parser%consume()
+            end select
         end if
-        
+
         ! Consume function keyword
         token = parser%peek()
         if (token%kind == TK_KEYWORD .and. token%text == "function") then
@@ -183,7 +210,7 @@ contains
             func_index = 0
             return
         end if
-        
+
         ! Get function name
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER) then
@@ -195,13 +222,13 @@ contains
         else
             function_name = "unnamed_function"
         end if
-        
+
         ! Parse parameters (simplified - no type info)
-        allocate(param_indices(0))
+        allocate (param_indices(0))
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()  ! consume '('
-            
+
             ! Parse parameter names only
             do while (.not. parser%is_at_end())
                 token = parser%peek()
@@ -209,22 +236,22 @@ contains
                     token = parser%consume()  ! consume ')'
                     exit
                 end if
-                
+
                 if (token%kind == TK_IDENTIFIER) then
                     ! Create simple parameter node
                     block
                         integer :: param_index
                         block
                             integer, allocatable :: empty_dims(:)
-                            allocate(empty_dims(0))
+                            allocate (empty_dims(0))
                             param_index = push_parameter_declaration(arena, token%text, "", 0, 0, .false., &
-                                                                   empty_dims, token%line, token%column)
+                                                                     empty_dims, token%line, token%column)
                         end block
                         param_indices = [param_indices, param_index]
                     end block
                     token = parser%consume()
                 end if
-                
+
                 ! Skip commas
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -232,7 +259,7 @@ contains
                 end if
             end do
         end if
-        
+
         ! Skip result clause if present
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER .and. token%text == "result") then
@@ -250,12 +277,12 @@ contains
                 end if
             end if
         end if
-        
+
         ! Parse function body until "end function" (simplified)
-        allocate(body_indices(0))
+        allocate (body_indices(0))
         do while (.not. parser%is_at_end())
             token = parser%peek()
-            
+
             ! Check for end of function
             if (token%kind == TK_KEYWORD .and. token%text == "end") then
                 if (parser%current_token + 1 <= size(parser%tokens)) then
@@ -269,7 +296,7 @@ contains
                             if (parser%tokens(parser%current_token + 2)%text == function_name) then
                                 ! This is our matching "end function" - consume it and exit
                                 token = parser%consume()  ! consume "end"
-                                token = parser%consume()  ! consume "function" 
+                                token = parser%consume()  ! consume "function"
                                 token = parser%consume()  ! consume function name
                                 exit
                             else
@@ -285,14 +312,14 @@ contains
                     end if
                 end if
             end if
-            
+
             ! Stop parsing body if we encounter another function or subroutine definition
             ! This prevents consuming tokens that belong to subsequent procedures
             if (token%kind == TK_KEYWORD .and. &
                 (token%text == "function" .or. token%text == "subroutine")) then
                 exit  ! Don't consume, let the module parser handle it
             end if
-            
+
             ! Handle nested procedures directly to avoid recursive call issues
             if (token%kind == TK_KEYWORD .and. token%text == "subroutine") then
                 block
@@ -323,11 +350,13 @@ contains
                 token = parser%consume()  ! consume newline
             end if
         end do
-        
+
         ! Create function node
         func_index = push_function_def(arena, function_name, param_indices, &
-                                      return_type_str, body_indices, &
-                                      line, column, result_variable="")
+                                       return_type_str, body_indices, &
+                                       line, column, result_variable="", &
+                                       is_recursive=has_recursive_keyword, &
+                                       prefix_keywords=prefix_keywords)
     end function parse_function_in_module
 
     logical function keyword_can_be_function_name(parser, token) result(can_use)
@@ -354,6 +383,34 @@ contains
         end select
     end function keyword_can_be_function_name
 
+    subroutine append_prefix_keyword(prefixes, value)
+        character(len=16), allocatable, intent(inout) :: prefixes(:)
+        character(len=*), intent(in) :: value
+        integer :: n, i
+        character(len=16), allocatable :: temp(:)
+        logical :: already_present
+
+        already_present = .false.
+        if (allocated(prefixes)) then
+            do i = 1, size(prefixes)
+                if (trim(prefixes(i)) == trim(value)) then
+                    already_present = .true.
+                    exit
+                end if
+            end do
+        else
+            allocate (character(len=16) :: prefixes(0))
+        end if
+
+        if (already_present) return
+
+        n = size(prefixes)
+        allocate (character(len=16) :: temp(n + 1))
+        if (n > 0) temp(1:n) = prefixes
+        temp(n + 1) = trim(value)
+        call move_alloc(temp, prefixes)
+    end subroutine append_prefix_keyword
+
     pure function to_lower_local(value) result(lower_value)
         character(len=*), intent(in) :: value
         character(len=len(value)) :: lower_value
@@ -374,11 +431,11 @@ contains
         type(ast_arena_t), intent(inout) :: arena
         integer :: stmt_index
         type(token_t) :: token
-        
+
         ! Check first token to determine statement type
         token = parser%peek()
         stmt_index = 0
-        
+
         select case (token%kind)
         case (TK_KEYWORD)
             select case (token%text)
@@ -412,7 +469,7 @@ contains
                 ! Handle nested subroutine definitions
                 stmt_index = parse_subroutine_in_module(parser, arena)
             case ("function")
-                ! Handle nested function definitions  
+                ! Handle nested function definitions
                 stmt_index = parse_function_in_module(parser, arena)
             case default
                 ! Unknown keyword - consume it
@@ -437,42 +494,42 @@ contains
         type(token_t) :: token
         integer, allocatable :: arg_indices(:)
         integer :: line, column
-        
+
         ! Consume 'print' keyword
         token = parser%consume()
         line = token%line
         column = token%column
-        
+
         ! Expect '*' or format specifier
-        allocate(arg_indices(0))
-        
+        allocate (arg_indices(0))
+
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "*") then
             token = parser%consume()  ! consume '*'
-            
+
             ! Optional comma (may not be present in compact format like print*,"foo")
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ",") then
                 token = parser%consume()  ! consume ','
             end if
-            
+
             ! Parse print arguments until end of line
             do while (.not. parser%is_at_end())
                 token = parser%peek()
                 if (token%kind == TK_NEWLINE) then
                     exit
                 end if
-                
+
                 if (token%kind == TK_STRING) then
                     ! String literal
                     block
                         integer :: arg_index
                         arg_index = push_literal(arena, token%text, LITERAL_STRING, &
-                                               token%line, token%column)
+                                                 token%line, token%column)
                         arg_indices = [arg_indices, arg_index]
                     end block
                     token = parser%consume()
-                    
+
                     ! After parsing a string literal, check if we're at end of statement
                     token = parser%peek()
                     if (token%kind == TK_NEWLINE) then
@@ -490,15 +547,15 @@ contains
                         ! This identifier likely belongs to a different statement
                         exit
                     end if
-                    
+
                     block
                         integer :: arg_index
                         arg_index = push_identifier(arena, token%text, &
-                                                  token%line, token%column)
+                                                    token%line, token%column)
                         arg_indices = [arg_indices, arg_index]
                     end block
                     token = parser%consume()
-                    
+
                     ! After parsing an identifier, check if we're at end of statement
                     token = parser%peek()
                     if (token%kind == TK_NEWLINE) then
@@ -514,11 +571,11 @@ contains
                     block
                         integer :: arg_index
                         arg_index = push_literal(arena, token%text, LITERAL_INTEGER, &
-                                               token%line, token%column)
+                                                 token%line, token%column)
                         arg_indices = [arg_indices, arg_index]
                     end block
                     token = parser%consume()
-                    
+
                     ! After parsing a number, check if we're at end of statement
                     token = parser%peek()
                     if (token%kind == TK_NEWLINE) then
@@ -537,7 +594,7 @@ contains
                 end if
             end do
         end if
-        
+
         ! Create print statement node
         stmt_index = push_print_statement(arena, "*", arg_indices, line, column)
     end function parse_simple_print_statement
@@ -549,31 +606,31 @@ contains
         integer :: stmt_index
         type(token_t) :: token
         integer :: lhs_index, rhs_index
-        
+
         stmt_index = 0
-        
+
         ! Parse left-hand side (identifier)
         token = parser%peek()
         if (token%kind == TK_IDENTIFIER) then
             lhs_index = push_identifier(arena, token%text, token%line, token%column)
             token = parser%consume()
-            
+
             ! Expect assignment operator
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == "=") then
                 token = parser%consume()  ! consume '='
-                
+
                 ! Parse right-hand side (expression)
                 rhs_index = parse_simple_rhs_expression(parser, arena)
-                
+
                 if (rhs_index <= 0) then
                     ! Failed to parse expression
                     return
                 end if
-                
+
                 ! Create assignment node
                 stmt_index = push_assignment(arena, lhs_index, rhs_index, &
-                                           token%line, token%column)
+                                             token%line, token%column)
             else
                 ! No assignment operator
                 stmt_index = 0
@@ -592,27 +649,27 @@ contains
         type(token_t) :: token
         integer :: left_index, right_index
         character(len=:), allocatable :: op_text
-        
+
         expr_index = 0
-        
+
         ! Parse first operand
         token = parser%peek()
         if (token%kind == TK_STRING) then
             left_index = push_literal(arena, token%text, LITERAL_STRING, &
-                                     token%line, token%column)
+                                      token%line, token%column)
             token = parser%consume()
         else if (token%kind == TK_NUMBER) then
             left_index = push_literal(arena, token%text, LITERAL_INTEGER, &
-                                     token%line, token%column)
+                                      token%line, token%column)
             token = parser%consume()
         else if (token%kind == TK_IDENTIFIER) then
             left_index = push_identifier(arena, token%text, &
-                                        token%line, token%column)
+                                         token%line, token%column)
             token = parser%consume()
         else
             return  ! Invalid expression
         end if
-        
+
         ! Check for binary operator
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. &
@@ -621,40 +678,40 @@ contains
              token%text == "**")) then
             op_text = token%text
             token = parser%consume()  ! consume operator
-            
+
             ! Parse second operand
             token = parser%peek()
             if (token%kind == TK_STRING) then
                 right_index = push_literal(arena, token%text, LITERAL_STRING, &
-                                         token%line, token%column)
+                                           token%line, token%column)
                 token = parser%consume()
             else if (token%kind == TK_NUMBER) then
                 right_index = push_literal(arena, token%text, LITERAL_INTEGER, &
-                                         token%line, token%column)
+                                           token%line, token%column)
                 token = parser%consume()
             else if (token%kind == TK_IDENTIFIER) then
                 right_index = push_identifier(arena, token%text, &
-                                            token%line, token%column)
+                                              token%line, token%column)
                 token = parser%consume()
             else
                 expr_index = left_index  ! Return just the left operand
                 return
             end if
-            
+
             ! Create binary operation node
             expr_index = push_binary_op(arena, left_index, right_index, op_text, &
-                                       token%line, token%column)
+                                        token%line, token%column)
         else
             ! No operator, just return the single operand
             expr_index = left_index
         end if
     end function parse_simple_rhs_expression
-    
+
     ! Skip tokens until end of line
     subroutine skip_to_end_of_line(parser)
         type(parser_state_t), intent(inout) :: parser
         type(token_t) :: token
-        
+
         do while (.not. parser%is_at_end())
             token = parser%peek()
             if (token%kind == TK_NEWLINE) then

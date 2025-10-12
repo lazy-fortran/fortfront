@@ -37,7 +37,7 @@ contains
         if (present(has_only)) use_stmt%has_only = has_only
         if (present(only_list)) then
             if (size(only_list) > 0) then
-                allocate(use_stmt%only_list(size(only_list)))
+                allocate (use_stmt%only_list(size(only_list)))
                 do i = 1, size(only_list)
                     use_stmt%only_list(i) = string_t(only_list(i))
                 end do
@@ -45,7 +45,7 @@ contains
         end if
         if (present(rename_list)) then
             if (size(rename_list) > 0) then
-                allocate(use_stmt%rename_list(size(rename_list)))
+                allocate (use_stmt%rename_list(size(rename_list)))
                 do i = 1, size(rename_list)
                     use_stmt%rename_list(i) = string_t(rename_list(i))
                 end do
@@ -83,15 +83,15 @@ contains
         if (present(length_value)) implicit_stmt%type_spec%length_value = length_value
         if (present(letter_ranges)) then
             if (size(letter_ranges) > 0) then
-                allocate(implicit_stmt%letter_specs(size(letter_ranges)))
+                allocate (implicit_stmt%letter_specs(size(letter_ranges)))
                 do i = 1, size(letter_ranges)
                     dash_pos = index(letter_ranges(i), '-')
                     if (dash_pos > 0) then
-                        implicit_stmt%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
-                        implicit_stmt%letter_specs(i)%end_letter = letter_ranges(i)(dash_pos+1:dash_pos+1)
+                        implicit_stmt%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
+                        implicit_stmt%letter_specs(i)%end_letter = letter_ranges(i) (dash_pos + 1:dash_pos + 1)
                     else
-                        implicit_stmt%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
-                        implicit_stmt%letter_specs(i)%end_letter = letter_ranges(i)(1:1)
+                        implicit_stmt%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
+                        implicit_stmt%letter_specs(i)%end_letter = letter_ranges(i) (1:1)
                     end if
                 end do
             end if
@@ -104,7 +104,7 @@ contains
 
     ! Create include statement node and add to stack
     function push_include_statement(arena, filename, line, column, &
-                                   parent_index) result(include_index)
+                                    parent_index) result(include_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: filename
         integer, intent(in), optional :: line, column, parent_index
@@ -134,7 +134,7 @@ contains
 
     ! Create STOP statement node and add to stack
     function push_stop(arena, stop_code_index, stop_message, line, column, &
-                      parent_index) result(stop_index)
+                       parent_index) result(stop_index)
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(in), optional :: stop_code_index
         character(len=*), intent(in), optional :: stop_message

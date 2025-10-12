@@ -11,21 +11,21 @@ program test_utf8_comment_acceptance
     call transform_lazy_fortran_string(source, output, error_msg)
 
     if (index(error_msg, 'binary data') > 0) then
-        write(error_unit, '(A)') 'FAIL: UTF-8 text misclassified as binary'
-        write(error_unit, '(A)') trim(error_msg)
+        write (error_unit, '(A)') 'FAIL: UTF-8 text misclassified as binary'
+        write (error_unit, '(A)') trim(error_msg)
         stop 1
     end if
 
     if (.not. allocated(output)) then
-        write(error_unit, '(A)') 'FAIL: no output produced for UTF-8 input'
+        write (error_unit, '(A)') 'FAIL: no output produced for UTF-8 input'
         stop 1
     end if
 
     if (len_trim(output) == 0) then
-        write(error_unit, '(A)') 'FAIL: empty output for UTF-8 input'
+        write (error_unit, '(A)') 'FAIL: empty output for UTF-8 input'
         stop 1
     end if
 
-    write(error_unit, '(A)') 'PASS: UTF-8 comment accepted'
+    write (error_unit, '(A)') 'PASS: UTF-8 comment accepted'
 end program test_utf8_comment_acceptance
 

@@ -17,7 +17,6 @@ module ast_operations
 
 contains
 
-
     function create_literal_node(arena, value, type_kind) result(node_id)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: value

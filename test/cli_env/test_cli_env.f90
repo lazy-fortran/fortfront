@@ -8,58 +8,58 @@ program test_cli_env
 
     call compute_cli_trace_settings('', '', enabled, path)
     if (enabled .or. trim(path) /= 'cli_trace.txt') then
-        write(error_unit, '(A,1X,L1,1X,A)') 'FAIL: default settings', enabled, trim(path)
+        write (error_unit, '(A,1X,L1,1X,A)') 'FAIL: default settings', enabled, trim(path)
         stop 1
     else
-        write(*, '(A)') 'PASS: default disabled with default path'
+        write (*, '(A)') 'PASS: default disabled with default path'
     end if
 
     call compute_cli_trace_settings('1', '', enabled, path)
     if (.not. enabled) then
-        write(error_unit, '(A)') 'FAIL: truthy 1 should enable'
+        write (error_unit, '(A)') 'FAIL: truthy 1 should enable'
         stop 1
     else
-        write(*, '(A)') 'PASS: truthy 1 enables trace'
+        write (*, '(A)') 'PASS: truthy 1 enables trace'
     end if
 
     call compute_cli_trace_settings('false', '', enabled, path)
     if (enabled) then
-        write(error_unit, '(A)') 'FAIL: false should disable'
+        write (error_unit, '(A)') 'FAIL: false should disable'
         stop 1
     else
-        write(*, '(A)') 'PASS: false disables trace'
+        write (*, '(A)') 'PASS: false disables trace'
     end if
 
     call compute_cli_trace_settings('0', '', enabled, path)
     if (enabled) then
-        write(error_unit, '(A)') 'FAIL: 0 should disable'
+        write (error_unit, '(A)') 'FAIL: 0 should disable'
         stop 1
     else
-        write(*, '(A)') 'PASS: 0 disables trace'
+        write (*, '(A)') 'PASS: 0 disables trace'
     end if
 
     call compute_cli_trace_settings('TRUE', '', enabled, path)
     if (.not. enabled) then
-        write(error_unit, '(A)') 'FAIL: TRUE should enable (case-insensitive)'
+        write (error_unit, '(A)') 'FAIL: TRUE should enable (case-insensitive)'
         stop 1
     else
-        write(*, '(A)') 'PASS: TRUE enables (case-insensitive)'
+        write (*, '(A)') 'PASS: TRUE enables (case-insensitive)'
     end if
 
     call compute_cli_trace_settings('on', 'my_log.txt', enabled, path)
     if (.not. enabled .or. trim(path) /= 'my_log.txt') then
-        write(error_unit, '(A,1X,L1,1X,A)') 'FAIL: file override with on', enabled, trim(path)
+        write (error_unit, '(A,1X,L1,1X,A)') 'FAIL: file override with on', enabled, trim(path)
         stop 1
     else
-        write(*, '(A)') 'PASS: file override respected when enabled'
+        write (*, '(A)') 'PASS: file override respected when enabled'
     end if
 
     call compute_cli_trace_settings('no', '', enabled, path)
     if (enabled) then
-        write(error_unit, '(A)') 'FAIL: no should disable'
+        write (error_unit, '(A)') 'FAIL: no should disable'
         stop 1
     else
-        write(*, '(A)') 'PASS: no disables trace'
+        write (*, '(A)') 'PASS: no disables trace'
     end if
 
     stop 0

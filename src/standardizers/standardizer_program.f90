@@ -1,7 +1,7 @@
 module standardizer_program
     ! Program-specific transformations module
     ! Handles program node standardization, contains insertion, and analysis
-    
+
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_procedure
@@ -21,7 +21,6 @@ module standardizer_program
     public :: analyze_program_content
     public :: find_contains_insertion_point
     public :: insert_contains_statement
-    
 
 contains
 
@@ -39,7 +38,7 @@ contains
 
         ! Analyze the program to determine if it should be a module
         call analyze_program_content(arena, prog, has_functions, has_subroutines, &
-                        has_use_statements, has_executable_statements, should_be_module)
+                                     has_use_statements, has_executable_statements, should_be_module)
 
         if (should_be_module) then
             ! Handle contains insertion for module-like programs
@@ -53,7 +52,6 @@ contains
 
         ! Standardize existing declarations (e.g., real -> real(8))
         call standardize_declarations(arena, prog)
-
 
         ! First, mark allocatable needs and split multi-declarations as needed
         call mark_allocatable_for_array_reassignments(arena, prog, prog_index)
@@ -83,7 +81,7 @@ contains
 
     ! Analyze program content to determine its nature
     subroutine analyze_program_content(arena, prog, has_functions, has_subroutines, &
-                        has_use_statements, has_executable_statements, should_be_module)
+                                       has_use_statements, has_executable_statements, should_be_module)
         type(ast_arena_t), intent(in) :: arena
         type(program_node), intent(in) :: prog
         logical, intent(out) :: has_functions, has_subroutines, has_use_statements
@@ -129,11 +127,11 @@ contains
             end if
         end do
 
-        ! Decision logic: if only functions/subroutines and use statements, 
+        ! Decision logic: if only functions/subroutines and use statements,
         ! it's likely a module
         ! For now, keep it simple - presence of multiple procedures suggests module
         should_be_module = (has_functions .or. has_subroutines) .and. &
-                   (count([has_functions, has_subroutines]) > 1 .or. has_use_statements)
+                           (count([has_functions, has_subroutines]) > 1 .or. has_use_statements)
 
     end subroutine analyze_program_content
 

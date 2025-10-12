@@ -79,7 +79,7 @@ contains
     function get_message(this) result(message)
         class(result_t), intent(in) :: this
         character(len=:), allocatable :: message
-        
+
         if (allocated(this%error_message)) then
             message = this%error_message
         else
@@ -91,7 +91,7 @@ contains
         class(result_t), intent(in) :: this
         character(len=:), allocatable :: message
         character(len=20) :: severity_str, code_str
-        
+
         ! Format severity
         select case (this%severity)
         case (ERROR_INFO)
@@ -105,10 +105,10 @@ contains
         case default
             severity_str = "UNKNOWN"
         end select
-        
+
         ! Format error code
-        write(code_str, '(I0)') this%error_code
-        
+        write (code_str, '(I0)') this%error_code
+
         ! Build comprehensive message
         message = trim(severity_str)
         if (allocated(this%component)) then
@@ -118,17 +118,17 @@ contains
             message = message // " (" // trim(code_str) // ")"
         end if
         message = message // ": "
-        
+
         if (allocated(this%error_message)) then
             message = message // this%error_message
         else
             message = message // "Unknown error"
         end if
-        
+
         if (allocated(this%context)) then
             message = message // " [Context: " // this%context // "]"
         end if
-        
+
         if (allocated(this%suggestion)) then
             message = message // " [Suggestion: " // this%suggestion // "]"
         end if
@@ -139,11 +139,11 @@ contains
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
-        
+
         this%success = .false.
         this%severity = ERROR_ERROR
         this%error_message = trim(message)
-        
+
         if (present(code)) this%error_code = code
         if (present(component)) this%component = trim(component)
         if (present(context)) this%context = trim(context)
@@ -155,11 +155,11 @@ contains
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
-        
+
         this%success = .true.  ! Warnings don't fail the operation
         this%severity = ERROR_WARNING
         this%error_message = trim(message)
-        
+
         if (present(code)) this%error_code = code
         if (present(component)) this%component = trim(component)
         if (present(context)) this%context = trim(context)
@@ -171,11 +171,11 @@ contains
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
-        
+
         this%success = .false.
         this%severity = ERROR_CRITICAL
         this%error_message = trim(message)
-        
+
         if (present(code)) this%error_code = code
         if (present(component)) this%component = trim(component)
         if (present(context)) this%context = trim(context)
@@ -184,26 +184,26 @@ contains
 
     subroutine clear(this)
         class(result_t), intent(inout) :: this
-        
+
         this%success = .true.
         this%error_code = 0
         this%severity = ERROR_INFO
-        if (allocated(this%error_message)) deallocate(this%error_message)
-        if (allocated(this%component)) deallocate(this%component)
-        if (allocated(this%context)) deallocate(this%context)
-        if (allocated(this%suggestion)) deallocate(this%suggestion)
+        if (allocated(this%error_message)) deallocate (this%error_message)
+        if (allocated(this%component)) deallocate (this%component)
+        if (allocated(this%context)) deallocate (this%context)
+        if (allocated(this%suggestion)) deallocate (this%suggestion)
     end subroutine clear
 
     function combine_result(this, other) result(combined)
         class(result_t), intent(in) :: this, other
         type(result_t) :: combined
-        
+
         ! Combined result fails if either fails
         combined%success = this%success .and. other%success
-        
+
         ! Use worst severity
         combined%severity = max(this%severity, other%severity)
-        
+
         ! Combine error codes (if both present, use the more severe one)
         if (this%severity >= other%severity) then
             combined%error_code = this%error_code
@@ -223,11 +223,11 @@ contains
     subroutine assign_result(lhs, rhs)
         class(result_t), intent(inout) :: lhs
         type(result_t), intent(in) :: rhs
-        
+
         lhs%success = rhs%success
         lhs%error_code = rhs%error_code
         lhs%severity = rhs%severity
-        
+
         if (allocated(rhs%error_message)) lhs%error_message = rhs%error_message
         if (allocated(rhs%component)) lhs%component = rhs%component
         if (allocated(rhs%context)) lhs%context = rhs%context
@@ -246,7 +246,7 @@ contains
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
         type(result_t) :: res
-        
+
         call res%set_error(message, code, component, context, suggestion)
     end function create_error_result
 
@@ -255,7 +255,7 @@ contains
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
         type(result_t) :: res
-        
+
         call res%set_warning(message, code, component, context, suggestion)
     end function warning_result
 
@@ -264,7 +264,7 @@ contains
         integer, intent(in), optional :: code
         character(len=*), intent(in), optional :: component, context, suggestion
         type(result_t) :: res
-        
+
         call res%set_critical(message, code, component, context, suggestion)
     end function critical_result
 
@@ -273,12 +273,12 @@ contains
         integer, intent(in), optional :: initial_capacity
         type(error_collection_t) :: collection
         integer :: cap
-        
+
         cap = 16
         if (present(initial_capacity)) cap = max(initial_capacity, 4)
-        
+
         collection%capacity = cap
-        allocate(collection%errors(cap))
+        allocate (collection%errors(cap))
         collection%count = 0
     end function create_error_collection
 
@@ -287,13 +287,13 @@ contains
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: code, severity
         character(len=*), intent(in), optional :: component, context, suggestion
-        
+
         type(result_t) :: error_result
         integer :: sev
-        
+
         sev = ERROR_ERROR
         if (present(severity)) sev = severity
-        
+
         select case (sev)
         case (ERROR_WARNING)
             error_result = warning_result(message, code, component, context, suggestion)
@@ -302,30 +302,30 @@ contains
         case default
             error_result = create_error_result(message, code, component, context, suggestion)
         end select
-        
+
         call this%add_result(error_result)
     end subroutine add_error
 
     subroutine add_result(this, result)
         class(error_collection_t), intent(inout) :: this
         type(result_t), intent(in) :: result
-        
+
         type(result_t), allocatable :: temp_errors(:)
         integer :: new_capacity, i
-        
+
         ! Grow array if needed
         if (this%count >= this%capacity) then
             new_capacity = this%capacity * 2
-            allocate(temp_errors(new_capacity))
-            
+            allocate (temp_errors(new_capacity))
+
             do i = 1, this%count
                 temp_errors(i) = this%errors(i)
             end do
-            
+
             call move_alloc(temp_errors, this%errors)
             this%capacity = new_capacity
         end if
-        
+
         this%count = this%count + 1
         this%errors(this%count) = result
     end subroutine add_result
@@ -334,7 +334,7 @@ contains
         class(error_collection_t), intent(in) :: this
         logical :: has_err
         integer :: i
-        
+
         has_err = .false.
         do i = 1, this%count
             if (this%errors(i)%severity >= ERROR_ERROR) then
@@ -348,7 +348,7 @@ contains
         class(error_collection_t), intent(in) :: this
         logical :: has_crit
         integer :: i
-        
+
         has_crit = .false.
         do i = 1, this%count
             if (this%errors(i)%severity >= ERROR_CRITICAL) then
@@ -368,7 +368,7 @@ contains
         class(error_collection_t), intent(in) :: this
         integer :: severity
         integer :: i
-        
+
         severity = ERROR_INFO
         do i = 1, this%count
             severity = max(severity, this%errors(i)%severity)
@@ -378,7 +378,7 @@ contains
     subroutine clear_errors(this)
         class(error_collection_t), intent(inout) :: this
         integer :: i
-        
+
         do i = 1, this%count
             call this%errors(i)%clear()
         end do
@@ -390,11 +390,11 @@ contains
         character(len=:), allocatable :: summary
         character(len=20) :: count_str
         integer :: warnings, errors, critical, i
-        
+
         warnings = 0
         errors = 0
         critical = 0
-        
+
         do i = 1, this%count
             select case (this%errors(i)%severity)
             case (ERROR_WARNING)
@@ -405,31 +405,31 @@ contains
                 critical = critical + 1
             end select
         end do
-        
-        write(count_str, '(I0)') this%count
+
+        write (count_str, '(I0)') this%count
         summary = "Total: " // trim(count_str)
-        
+
         if (critical > 0) then
-            write(count_str, '(I0)') critical
+            write (count_str, '(I0)') critical
             summary = summary // ", Critical: " // trim(count_str)
         end if
-        
+
         if (errors > 0) then
-            write(count_str, '(I0)') errors
+            write (count_str, '(I0)') errors
             summary = summary // ", Errors: " // trim(count_str)
         end if
-        
+
         if (warnings > 0) then
-            write(count_str, '(I0)') warnings
+            write (count_str, '(I0)') warnings
             summary = summary // ", Warnings: " // trim(count_str)
         end if
     end function get_summary
 
     subroutine cleanup_collection(this)
         type(error_collection_t), intent(inout) :: this
-        
+
         call this%clear_errors()
-        if (allocated(this%errors)) deallocate(this%errors)
+        if (allocated(this%errors)) deallocate (this%errors)
     end subroutine cleanup_collection
 
     ! Utility function for combining multiple results
@@ -437,9 +437,9 @@ contains
         type(result_t), intent(in) :: results(:)
         type(result_t) :: combined
         integer :: i
-        
+
         combined = success_result()
-        
+
         do i = 1, size(results)
             combined = combined%combine_result(results(i))
         end do

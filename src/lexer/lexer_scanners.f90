@@ -19,18 +19,18 @@ contains
         integer :: start_pos, start_col, dot_count, e_count
         logical :: has_dot, has_exp
         character :: c
-        
+
         start_pos = pos
         start_col = col_num
         dot_count = 0
         e_count = 0
         has_dot = .false.
         has_exp = .false.
-        
+
         ! Scan digits, decimal points, and scientific notation
         do while (pos <= len(source))
             c = source(pos:pos)
-            
+
             if (c >= '0' .and. c <= '9') then
                 pos = pos + 1
                 col_num = col_num + 1
@@ -56,12 +56,12 @@ contains
                 exit
             end if
         end do
-        
+
         ! Create number token
         if (token_count < size(tokens)) then
             token_count = token_count + 1
             tokens(token_count)%kind = TK_NUMBER
-            tokens(token_count)%text = source(start_pos:pos-1)
+            tokens(token_count)%text = source(start_pos:pos - 1)
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
         end if
@@ -74,14 +74,14 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         integer :: start_pos, start_col
         character :: c
-        
+
         start_pos = pos
         start_col = col_num
-        
+
         ! Skip the '!' character
         pos = pos + 1
         col_num = col_num + 1
-        
+
         ! Scan until end of line
         do while (pos <= len(source))
             c = source(pos:pos)
@@ -91,12 +91,12 @@ contains
             pos = pos + 1
             col_num = col_num + 1
         end do
-        
+
         ! Create comment token
         if (token_count < size(tokens)) then
             token_count = token_count + 1
             tokens(token_count)%kind = TK_COMMENT
-            tokens(token_count)%text = source(start_pos:pos-1)
+            tokens(token_count)%text = source(start_pos:pos - 1)
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
         end if
@@ -110,26 +110,26 @@ contains
         integer :: start_pos, start_col
         character :: quote_char, c
         logical :: escaped, found_closing_quote
-        
+
         start_pos = pos
         start_col = col_num
         quote_char = source(pos:pos)
         escaped = .false.
         found_closing_quote = .false.
-        
+
         ! Skip opening quote
         pos = pos + 1
         col_num = col_num + 1
-        
+
         ! Scan until closing quote, end of line, or end of file
         do while (pos <= len(source))
             c = source(pos:pos)
-            
+
             ! Stop at newlines to prevent multiline string literals
             if (c == char(10) .or. c == char(13)) then
                 exit
             end if
-            
+
             if (escaped) then
                 escaped = .false.
             else if (c == '\') then
@@ -140,27 +140,27 @@ contains
                 found_closing_quote = .true.
                 exit
             end if
-            
+
             pos = pos + 1
             col_num = col_num + 1
-            
+
             ! Check if we've reached the end - if so, we have an unclosed string
             if (pos > len(source)) then
                 exit
             end if
         end do
-        
+
         ! Create string token - ensure it's always valid Fortran
         if (token_count < size(tokens)) then
             token_count = token_count + 1
             tokens(token_count)%kind = TK_STRING
             if (found_closing_quote) then
                 ! Complete string token
-                tokens(token_count)%text = source(start_pos:pos-1)
+                tokens(token_count)%text = source(start_pos:pos - 1)
             else
                 ! Unclosed string - create proper closed string to prevent invalid multiline Fortran
                 ! Extract content until current position and add closing quote
-                tokens(token_count)%text = source(start_pos:pos-1) // quote_char
+                tokens(token_count)%text = source(start_pos:pos - 1) // quote_char
             end if
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
@@ -174,13 +174,13 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         type(scan_result_t), intent(out) :: scan_result
         integer :: start_pos
-        
+
         start_pos = pos
         scan_result%success = .true.
         scan_result%result = success_result()
-        
+
         call scan_string(source, pos, line_num, col_num, tokens, token_count)
-        
+
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_string_safe
 
@@ -191,10 +191,10 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         integer :: start_pos, start_col
         character :: c
-        
+
         start_pos = pos
         start_col = col_num
-        
+
         ! Scan identifier characters
         do while (pos <= len(source))
             c = source(pos:pos)
@@ -208,16 +208,16 @@ contains
                 exit
             end if
         end do
-        
+
         ! Create identifier/keyword token
         if (token_count < size(tokens)) then
             token_count = token_count + 1
-            if (is_keyword(source(start_pos:pos-1))) then
+            if (is_keyword(source(start_pos:pos - 1))) then
                 tokens(token_count)%kind = TK_KEYWORD
             else
                 tokens(token_count)%kind = TK_IDENTIFIER
             end if
-            tokens(token_count)%text = source(start_pos:pos-1)
+            tokens(token_count)%text = source(start_pos:pos - 1)
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
         end if
@@ -230,11 +230,11 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         integer :: start_pos, start_col
         character :: c
-        
+
         start_pos = pos
         start_col = col_num
         c = source(pos:pos)
-        
+
         ! Handle multi-character operators
         select case (c)
         case ('*')
@@ -290,12 +290,12 @@ contains
             pos = pos + 1
             col_num = col_num + 1
         end select
-        
+
         ! Create operator token
         if (token_count < size(tokens)) then
             token_count = token_count + 1
             tokens(token_count)%kind = TK_OPERATOR
-            tokens(token_count)%text = source(start_pos:pos-1)
+            tokens(token_count)%text = source(start_pos:pos - 1)
             tokens(token_count)%line = line_num
             tokens(token_count)%column = start_col
         end if
@@ -309,14 +309,14 @@ contains
         integer :: start_pos, start_col, end_pos
         character :: c
         character(len=:), allocatable :: token_text
-        
+
         start_pos = pos
         start_col = col_num
-        
+
         ! Skip the first dot
         pos = pos + 1
         col_num = col_num + 1
-        
+
         ! Find the closing dot
         do while (pos <= len(source))
             c = source(pos:pos)
@@ -331,10 +331,10 @@ contains
                 exit
             end if
         end do
-        
+
         ! Get the token text
-        token_text = source(start_pos:pos-1)
-        
+        token_text = source(start_pos:pos - 1)
+
         ! Create token - check if it's a logical constant or logical operator
         if (token_count < size(tokens)) then
             token_count = token_count + 1
@@ -356,13 +356,13 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         type(scan_result_t), intent(out) :: scan_result
         integer :: start_pos
-        
+
         start_pos = pos
         scan_result%success = .true.
         scan_result%result = success_result()
-        
+
         call scan_number(source, pos, line_num, col_num, tokens, token_count)
-        
+
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_number_safe
 
@@ -372,13 +372,13 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         type(scan_result_t), intent(out) :: scan_result
         integer :: start_pos
-        
+
         start_pos = pos
         scan_result%success = .true.
         scan_result%result = success_result()
-        
+
         call scan_identifier(source, pos, line_num, col_num, tokens, token_count)
-        
+
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_identifier_safe
 
@@ -388,13 +388,13 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         type(scan_result_t), intent(out) :: scan_result
         integer :: start_pos
-        
+
         start_pos = pos
         scan_result%success = .true.
         scan_result%result = success_result()
-        
+
         call scan_comment(source, pos, line_num, col_num, tokens, token_count)
-        
+
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_comment_safe
 
@@ -404,13 +404,13 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         type(scan_result_t), intent(out) :: scan_result
         integer :: start_pos
-        
+
         start_pos = pos
         scan_result%success = .true.
         scan_result%result = success_result()
-        
+
         call scan_operator(source, pos, line_num, col_num, tokens, token_count)
-        
+
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_operator_safe
 
@@ -420,13 +420,13 @@ contains
         type(token_t), intent(inout) :: tokens(:)
         type(scan_result_t), intent(out) :: scan_result
         integer :: start_pos
-        
+
         start_pos = pos
         scan_result%success = .true.
         scan_result%result = success_result()
-        
+
         call scan_logical_token(source, pos, line_num, col_num, tokens, token_count)
-        
+
         scan_result%chars_consumed = pos - start_pos
     end subroutine scan_logical_token_safe
 
@@ -435,9 +435,9 @@ contains
         character(len=*), intent(in) :: word
         logical :: keyword
         character(len=len(word)) :: lower_word
-        
+
         lower_word = to_lower(word)
-        
+
         select case (trim(lower_word))
         case ('program', 'end', 'endif', 'function', 'subroutine', 'if', 'then', 'else', &
               'do', 'while', 'for', 'integer', 'real', 'logical', 'character', &
@@ -460,9 +460,9 @@ contains
         character(len=*), intent(in) :: token_text
         logical :: is_constant
         character(len=len(token_text)) :: lower_text
-        
+
         lower_text = to_lower(token_text)
-        
+
         select case (trim(lower_text))
         case ('.true.', '.false.')
             is_constant = .true.
@@ -476,7 +476,7 @@ contains
         character(len=*), intent(in) :: str
         character(len=len(str)) :: lower_str
         integer :: i, ascii_val
-        
+
         lower_str = str
         do i = 1, len(str)
             ascii_val = iachar(str(i:i))

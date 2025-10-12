@@ -1,7 +1,7 @@
 module standardizer_core
     ! Core standardization module - main entry points and orchestration
     ! This module provides the primary interface for AST standardization
-    
+
     use ast_arena_modern, only: ast_arena_t
     use ast_factory
     use type_system_unified
@@ -9,16 +9,16 @@ module standardizer_core
     use error_handling, only: result_t, success_result, create_error_result, &
                               ERROR_TYPE_SYSTEM
     use standardizer_program
-    use standardizer_module  
+    use standardizer_module
     use standardizer_types, only: string_result_t
     use standardizer_subprograms, only: wrap_function_in_program, wrap_subroutine_in_program
     use debug_trace, only: trace_enter, trace_leave
     implicit none
     private
-    
+
     ! Type standardization configuration for standardizer
     logical, save :: standardizer_type_standardization_enabled = .true.
-    
+
     ! Constants
     integer, parameter :: INVALID_INTEGER = -999999
 
@@ -26,7 +26,6 @@ module standardizer_core
     ! JSON-based API removed
     public :: set_standardizer_type_standardization, &
               get_standardizer_type_standardization
-    
 
 contains
 

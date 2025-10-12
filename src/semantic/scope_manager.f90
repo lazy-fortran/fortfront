@@ -3,9 +3,9 @@ module scope_manager
     use iso_fortran_env, only: error_unit
     use type_system_unified
     use identifier_table, only: identifier_table_t, identifier_table_init, &
-        identifier_table_intern, identifier_table_find, identifier_id_kind
+                                identifier_table_intern, identifier_table_find, identifier_id_kind
     use error_handling, only: result_t, create_error_result, &
-        success_result, ERROR_MEMORY
+                              success_result, ERROR_MEMORY
     implicit none
     private
 
@@ -17,7 +17,7 @@ module scope_manager
     integer, parameter, public :: SCOPE_MODULE = 2
     integer, parameter, public :: SCOPE_FUNCTION = 3
     integer, parameter, public :: SCOPE_SUBROUTINE = 4
-    integer, parameter, public :: SCOPE_BLOCK = 5     ! if/do/etc blocks
+    integer, parameter, public :: SCOPE_BLOCK = 5  ! if/do/etc blocks
     integer, parameter, public :: SCOPE_INTERFACE = 6
 
     ! Single scope with its own environment
@@ -40,8 +40,8 @@ module scope_manager
     ! Stack of scopes for managing nested scopes (cache-efficient design)
     type :: scope_stack_t
         type(scope_t), allocatable :: scopes(:)  ! Stack of scopes (contiguous memory)
-        integer :: depth = 0                     ! Current depth (top of stack)
-        integer :: capacity = 0                  ! Array capacity
+        integer :: depth = 0  ! Current depth (top of stack)
+        integer :: capacity = 0  ! Array capacity
         type(identifier_table_t), pointer :: identifier_storage => null()
         ! No current/global pointers - use array indices
     contains
@@ -83,17 +83,17 @@ contains
             scope%identifiers => identifiers
             scope%env%identifiers => identifiers
         else
-            nullify(scope%identifiers)
-            nullify(scope%env%identifiers)
+            nullify (scope%identifiers)
+            nullify (scope%env%identifiers)
         end if
 
         ! Initialize empty environment (allocate on heap to avoid large stack usage)
         scope%env%count = 0
         scope%env%capacity = 64
-        if (allocated(scope%env%name_ids)) deallocate(scope%env%name_ids)
-        if (allocated(scope%env%schemes)) deallocate(scope%env%schemes)
-        allocate(scope%env%name_ids(scope%env%capacity))
-        allocate(scope%env%schemes(scope%env%capacity))
+        if (allocated(scope%env%name_ids)) deallocate (scope%env%name_ids)
+        if (allocated(scope%env%schemes)) deallocate (scope%env%schemes)
+        allocate (scope%env%name_ids(scope%env%capacity))
+        allocate (scope%env%schemes(scope%env%capacity))
 
     end subroutine create_scope
 
@@ -107,11 +107,11 @@ contains
         allocate (stack%scopes(stack%capacity))
         stack%depth = 1
         if (.not. associated(stack%identifier_storage)) then
-            allocate(stack%identifier_storage)
+            allocate (stack%identifier_storage)
         end if
         call identifier_table_init(stack%identifier_storage)
         call create_scope(stack%scopes(1), SCOPE_GLOBAL, "global", &
-            stack%identifier_storage)
+                          stack%identifier_storage)
 
     end subroutine create_scope_stack
 
@@ -166,23 +166,23 @@ contains
         integer :: j
 
         if (.not. associated(this%identifiers)) then
-            write(error_unit, '(A)') &
+            write (error_unit, '(A)') &
                 'ERROR [scope_manager]: scope missing identifier table; skipping define'
             return
         end if
 
         ! Robust define with local allocation guards
         if (.not. allocated(this%env%name_ids) .or. &
-                .not. allocated(this%env%schemes)) then
+            .not. allocated(this%env%schemes)) then
             if (this%env%capacity <= 0) this%env%capacity = 64
-            allocate(this%env%name_ids(this%env%capacity))
-            allocate(this%env%schemes(this%env%capacity))
+            allocate (this%env%name_ids(this%env%capacity))
+            allocate (this%env%schemes(this%env%capacity))
             this%env%count = 0
         else if (size(this%env%name_ids) == 0 .or. size(this%env%schemes) == 0) then
             if (this%env%capacity <= 0) this%env%capacity = 64
-            deallocate(this%env%name_ids, this%env%schemes)
-            allocate(this%env%name_ids(this%env%capacity))
-            allocate(this%env%schemes(this%env%capacity))
+            deallocate (this%env%name_ids, this%env%schemes)
+            allocate (this%env%name_ids(this%env%capacity))
+            allocate (this%env%schemes(this%env%capacity))
             this%env%count = 0
         end if
 
@@ -191,9 +191,9 @@ contains
                 integer :: new_capacity, j
                 integer(identifier_id_kind), allocatable :: new_ids(:)
                 type(poly_type_t), allocatable :: new_schemes(:)
-                new_capacity = max(64, this%env%capacity*2)
-                allocate(new_ids(new_capacity))
-                allocate(new_schemes(new_capacity))
+                new_capacity = max(64, this%env%capacity * 2)
+                allocate (new_ids(new_capacity))
+                allocate (new_schemes(new_capacity))
                 if (this%env%count > 0) then
                     do j = 1, this%env%count
                         new_ids(j) = this%env%name_ids(j)
@@ -232,7 +232,7 @@ contains
 
         ! Grow array if needed (following CLAUDE.md safe array extension)
         if (this%depth >= this%capacity) then
-            new_capacity = this%capacity*2
+            new_capacity = this%capacity * 2
             if (new_capacity == 0) new_capacity = 10
             allocate (temp_scopes(new_capacity))
             if (this%depth > 0) then
@@ -247,13 +247,13 @@ contains
                         ! Deep copy env via assignment (allocates and copies entries)
                         temp_scopes(i)%env = this%scopes(i)%env
                         call temp_scopes(i)%env%ensure_capacity(max(64, &
-                            temp_scopes(i)%env%count))
+                                                                    temp_scopes(i)%env%count))
                         if (associated(this%scopes(i)%identifiers)) then
                             temp_scopes(i)%identifiers => this%identifier_storage
                             temp_scopes(i)%env%identifiers => this%identifier_storage
                         else
-                            nullify(temp_scopes(i)%identifiers)
-                            nullify(temp_scopes(i)%env%identifiers)
+                            nullify (temp_scopes(i)%identifiers)
+                            nullify (temp_scopes(i)%env%identifiers)
                         end if
                     end do
                 end block
@@ -275,7 +275,7 @@ contains
         this%scopes(this%depth)%env = new_scope%env
         this%scopes(this%depth)%env%identifiers => this%identifier_storage
         call this%scopes(this%depth)%env%ensure_capacity(max(64, &
-            this%scopes(this%depth)%env%count))
+                                                             this%scopes(this%depth)%env%count))
 
     end subroutine stack_push_scope
 
@@ -286,7 +286,7 @@ contains
         if (this%depth > 1) then
             this%depth = this%depth - 1
         else
-            write(error_unit, '(A)') &
+            write (error_unit, '(A)') &
                 'ERROR [scope_manager]: Cannot pop global scope - ignoring pop request'
             ! Don't modify depth - keep the global scope intact
         end if
@@ -322,11 +322,11 @@ contains
         if (this%depth > 0) then
             ! Ensure environment arrays exist for current scope
             call this%scopes(this%depth)%env%ensure_capacity(max(64, &
-                this%scopes(this%depth)%env%count+1))
+                                                                 this%scopes(this%depth)%env%count + 1))
             ! Use direct scope_define to avoid type-bound procedure issues with arrays
             call scope_define(this%scopes(this%depth), name, scheme)
         else
-            write(error_unit, '(A)') &
+            write (error_unit, '(A)') &
                 'ERROR [scope_manager]: No current scope for define; ignoring'
             ! Don't perform the definition if there's no current scope
         end if
@@ -351,7 +351,7 @@ contains
         type(scope_t) :: new_scope
 
         call create_scope(new_scope, SCOPE_FUNCTION, function_name, &
-            this%identifier_storage)
+                          this%identifier_storage)
         call this%push(new_scope)
 
     end subroutine stack_enter_function
@@ -363,7 +363,7 @@ contains
         type(scope_t) :: new_scope
 
         call create_scope(new_scope, SCOPE_SUBROUTINE, subroutine_name, &
-            this%identifier_storage)
+                          this%identifier_storage)
         call this%push(new_scope)
 
     end subroutine stack_enter_subroutine
@@ -386,7 +386,7 @@ contains
 
         if (present(interface_name)) then
             call create_scope(new_scope, SCOPE_INTERFACE, interface_name, &
-                this%identifier_storage)
+                              this%identifier_storage)
         else
             call create_scope(new_scope, SCOPE_INTERFACE, "", this%identifier_storage)
         end if
@@ -429,8 +429,8 @@ contains
             copy%identifiers => this%identifiers
             copy%env%identifiers => this%identifiers
         else
-            nullify(copy%identifiers)
-            nullify(copy%env%identifiers)
+            nullify (copy%identifiers)
+            nullify (copy%env%identifiers)
         end if
     end function scope_deep_copy
 
@@ -448,8 +448,8 @@ contains
             lhs%identifiers => rhs%identifiers
             lhs%env%identifiers => rhs%identifiers
         else
-            nullify(lhs%identifiers)
-            nullify(lhs%env%identifiers)
+            nullify (lhs%identifiers)
+            nullify (lhs%env%identifiers)
         end if
     end subroutine scope_assign
 
@@ -463,14 +463,14 @@ contains
         copy%capacity = this%capacity
         if (associated(this%identifier_storage)) then
             if (.not. associated(copy%identifier_storage)) then
-                allocate(copy%identifier_storage)
+                allocate (copy%identifier_storage)
             end if
             copy%identifier_storage = this%identifier_storage
         else
             if (associated(copy%identifier_storage)) then
-                deallocate(copy%identifier_storage)
+                deallocate (copy%identifier_storage)
             end if
-            nullify(copy%identifier_storage)
+            nullify (copy%identifier_storage)
         end if
 
         if (allocated(this%scopes)) then
@@ -481,8 +481,8 @@ contains
                     copy%scopes(i)%identifiers => copy%identifier_storage
                     copy%scopes(i)%env%identifiers => copy%identifier_storage
                 else
-                    nullify(copy%scopes(i)%identifiers)
-                    nullify(copy%scopes(i)%env%identifiers)
+                    nullify (copy%scopes(i)%identifiers)
+                    nullify (copy%scopes(i)%env%identifiers)
                 end if
             end do
         end if
@@ -498,14 +498,14 @@ contains
         lhs%capacity = rhs%capacity
         if (associated(rhs%identifier_storage)) then
             if (.not. associated(lhs%identifier_storage)) then
-                allocate(lhs%identifier_storage)
+                allocate (lhs%identifier_storage)
             end if
             lhs%identifier_storage = rhs%identifier_storage
         else
             if (associated(lhs%identifier_storage)) then
-                deallocate(lhs%identifier_storage)
+                deallocate (lhs%identifier_storage)
             end if
-            nullify(lhs%identifier_storage)
+            nullify (lhs%identifier_storage)
         end if
 
         if (allocated(rhs%scopes)) then
@@ -516,8 +516,8 @@ contains
                     lhs%scopes(i)%identifiers => lhs%identifier_storage
                     lhs%scopes(i)%env%identifiers => lhs%identifier_storage
                 else
-                    nullify(lhs%scopes(i)%identifiers)
-                    nullify(lhs%scopes(i)%env%identifiers)
+                    nullify (lhs%scopes(i)%identifiers)
+                    nullify (lhs%scopes(i)%env%identifiers)
                 end if
             end do
         end if

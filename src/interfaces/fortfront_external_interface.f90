@@ -1,13 +1,13 @@
 module fortfront_external_interface
     ! External Fortran interface for fortfront library
     ! Provides high-level Fortran interface for external Fortran programs
-    
+
     use frontend, only: transform_lazy_fortran_string, compilation_options_t, &
                         compile_source, format_options_t, &
                         transform_lazy_fortran_string_with_format
     use error_handling, only: result_t, success_result, create_error_result, &
-                               ERROR_VALIDATION, ERROR_MEMORY, ERROR_PARSER
-    
+                              ERROR_VALIDATION, ERROR_MEMORY, ERROR_PARSER
+
     implicit none
     private
 
@@ -46,21 +46,21 @@ contains
     function fortfront_transform_source(input_source) result(result_data)
         character(len=*), intent(in) :: input_source
         type(fortfront_result_t) :: result_data
-        
+
         character(len=:), allocatable :: output, error_msg
-        
+
         ! Initialize result
         result_data%success = .false.
-        
+
         ! Validate input
         if (len_trim(input_source) == 0) then
             result_data%error_message = "Empty input source code"
             return
         end if
-        
+
         ! Call the core transformation function
         call transform_lazy_fortran_string(input_source, output, error_msg)
-        
+
         if (error_msg == "") then
             ! Success
             result_data%success = .true.
@@ -81,29 +81,29 @@ contains
         character(len=*), intent(in) :: input_source
         type(fortfront_format_options_t), intent(in) :: format_opts
         type(fortfront_result_t) :: result_data
-        
+
         character(len=:), allocatable :: output, error_msg
         type(format_options_t) :: internal_format_opts
-        
+
         ! Initialize result
         result_data%success = .false.
-        
+
         ! Validate input
         if (len_trim(input_source) == 0) then
             result_data%error_message = "Empty input source code"
             return
         end if
-        
+
         ! Convert external format options to internal format options
         internal_format_opts%indent_size = format_opts%indent_size
         internal_format_opts%use_tabs = format_opts%use_tabs
         internal_format_opts%indent_char = format_opts%indent_char
         internal_format_opts%standardize_types = format_opts%standardize_types
         internal_format_opts%line_length = format_opts%line_length
-        
+
         ! Call the core transformation function with formatting
         call transform_lazy_fortran_string_with_format(input_source, output, error_msg, internal_format_opts)
-        
+
         if (error_msg == "") then
             ! Success
             result_data%success = .true.
@@ -124,34 +124,34 @@ contains
         character(len=*), intent(in) :: input_file
         type(fortfront_compilation_options_t), intent(in) :: options
         type(fortfront_result_t) :: result_data
-        
+
         character(len=:), allocatable :: error_msg
         type(compilation_options_t) :: internal_options
-        
+
         ! Initialize result
         result_data%success = .false.
-        allocate(character(len=0) :: error_msg)
-        
+        allocate (character(len=0) :: error_msg)
+
         ! Validate input
         if (len_trim(input_file) == 0) then
             result_data%error_message = "Empty input file path"
             return
         end if
-        
+
         ! Convert external options to internal options
         internal_options%debug_tokens = options%debug_tokens
         internal_options%debug_ast = options%debug_ast
         internal_options%debug_semantic = options%debug_semantic
         internal_options%debug_standardize = options%debug_standardize
         internal_options%debug_codegen = options%debug_codegen
-        
+
         if (allocated(options%output_file)) then
             internal_options%output_file = options%output_file
         end if
-        
+
         ! Call the compilation function
         call compile_source(input_file, internal_options, error_msg)
-        
+
         if (error_msg == "") then
             ! Success
             result_data%success = .true.

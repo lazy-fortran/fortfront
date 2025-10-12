@@ -19,7 +19,7 @@ contains
 
         open (newunit=unit, file=filename, status='replace', action='write', iostat=iostat)
         if (iostat /= 0) then
-            error_msg = "Cannot create output file: "//filename
+            error_msg = "Cannot create output file: " // filename
             return
         end if
 

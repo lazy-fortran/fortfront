@@ -25,14 +25,14 @@ contains
                 status = 1
                 return
             end if
-            open(newunit=unit, file=filename, status='old', action='read', iostat=ios)
+            open (newunit=unit, file=filename, status='old', action='read', iostat=ios)
             if (ios /= 0) then
-                write(error_unit, '(A,A)') 'Cannot open file: ', filename
+                write (error_unit, '(A,A)') 'Cannot open file: ', filename
                 status = 2
                 return
             end if
             call read_all_from_unit(unit, text, status)
-            close(unit)
+            close (unit)
         else
             call read_all_from_unit(input_unit, text, status)
         end if
@@ -49,14 +49,14 @@ contains
         status = 0
         capacity = INITIAL_CAPACITY
         total_size = 0
-        allocate(character(len=capacity) :: text)
+        allocate (character(len=capacity) :: text)
 
-        allocate(character(len=4096) :: buffer)
+        allocate (character(len=4096) :: buffer)
 
         do
             ! Read one logical record in chunks using non-advancing I/O
             do
-                read(unit, '(A)', advance='no', iostat=ios, size=sz) buffer
+                read (unit, '(A)', advance='no', iostat=ios, size=sz) buffer
 
                 if (ios == iostat_end) then
                     if (sz > 0) then
@@ -78,7 +78,7 @@ contains
                         if (status /= 0) return
                     end if
                 else
-                    write(error_unit, '(A,I0,A)') 'Error reading input (iostat=', ios, ')'
+                    write (error_unit, '(A,I0,A)') 'Error reading input (iostat=', ios, ')'
                     status = 3
                     return
                 end if
@@ -89,9 +89,9 @@ contains
 
         ! Trim to actual size
         if (total_size == 0) then
-            allocate(character(len=0) :: temp_text)
+            allocate (character(len=0) :: temp_text)
         else
-            allocate(character(len=total_size) :: temp_text)
+            allocate (character(len=total_size) :: temp_text)
             temp_text = text(1:total_size)
         end if
         call move_alloc(temp_text, text)
@@ -107,7 +107,7 @@ contains
 
         need = total_size + len(chunk)
         if (need > MAX_INPUT_SIZE) then
-            write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', MAX_INPUT_SIZE, ' bytes)'
+            write (error_unit, '(A,I0,A)') 'Input exceeds maximum size (', MAX_INPUT_SIZE, ' bytes)'
             status = 4
             return
         end if
@@ -116,15 +116,15 @@ contains
                 capacity = min(capacity * 2, MAX_INPUT_SIZE)
             end do
             if (capacity < need) then
-                write(error_unit, '(A)') 'Input too large'
+                write (error_unit, '(A)') 'Input too large'
                 status = 4
                 return
             end if
-            allocate(character(len=capacity) :: tmp)
+            allocate (character(len=capacity) :: tmp)
             if (total_size > 0) tmp(1:total_size) = text(1:total_size)
             call move_alloc(tmp, text)
         end if
-        text(total_size+1:total_size+len(chunk)) = chunk
+        text(total_size + 1:total_size + len(chunk)) = chunk
         total_size = total_size + len(chunk)
     end subroutine append_chunk
 
@@ -136,7 +136,7 @@ contains
         integer :: need
         need = total_size + 1
         if (need > MAX_INPUT_SIZE) then
-            write(error_unit, '(A,I0,A)') 'Input exceeds maximum size (', MAX_INPUT_SIZE, ' bytes)'
+            write (error_unit, '(A,I0,A)') 'Input exceeds maximum size (', MAX_INPUT_SIZE, ' bytes)'
             status = 4
             return
         end if
@@ -145,15 +145,15 @@ contains
                 capacity = min(capacity * 2, MAX_INPUT_SIZE)
             end do
             if (capacity < need) then
-                write(error_unit, '(A)') 'Input too large'
+                write (error_unit, '(A)') 'Input too large'
                 status = 4
                 return
             end if
-            allocate(character(len=capacity) :: tmp)
+            allocate (character(len=capacity) :: tmp)
             if (total_size > 0) tmp(1:total_size) = text(1:total_size)
             call move_alloc(tmp, text)
         end if
-        text(total_size+1:total_size+1) = new_line('A')
+        text(total_size + 1:total_size + 1) = new_line('A')
         total_size = total_size + 1
     end subroutine append_newline
 

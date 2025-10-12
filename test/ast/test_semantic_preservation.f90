@@ -1,17 +1,17 @@
 program test_semantic_preservation
     use frontend, only: transform_lazy_fortran_string
     implicit none
-    
+
     character(len=:), allocatable :: input, output, error_msg
     logical :: test_passed
     integer :: total_tests, passed_tests
-    
+
     total_tests = 0
     passed_tests = 0
-    
+
     print *, "=== AST Transformation Correctness Tests ==="
     print *, ""
-    
+
     ! Test 1: Type information preservation
     total_tests = total_tests + 1
     input = "x = 42" // new_line('A') // &
@@ -22,7 +22,7 @@ program test_semantic_preservation
                    index(output, "real") > 0)
     if (test_passed) passed_tests = passed_tests + 1
     print *, "Test 1 - Type preservation:", merge("PASSED", "FAILED", test_passed)
-    
+
     ! Test 2: Variable scope correctness
     total_tests = total_tests + 1
     input = "x = 5" // new_line('A') // &
@@ -36,7 +36,7 @@ program test_semantic_preservation
                    index(output, "integer :: y") > 0)
     if (test_passed) passed_tests = passed_tests + 1
     print *, "Test 2 - Scope preservation:", merge("PASSED", "FAILED", test_passed)
-    
+
     ! Test 3: Expression evaluation order
     total_tests = total_tests + 1
     input = "result = a + b * c"
@@ -45,7 +45,7 @@ program test_semantic_preservation
                    index(output, "result = a + b * c") > 0)  ! Should preserve precedence
     if (test_passed) passed_tests = passed_tests + 1
     print *, "Test 3 - Expression order:", merge("PASSED", "FAILED", test_passed)
-    
+
     ! Test 4: Control flow integrity
     total_tests = total_tests + 1
     input = "if (x > 0) then" // new_line('A') // &
@@ -60,7 +60,7 @@ program test_semantic_preservation
                    index(output, "end if") > 0)
     if (test_passed) passed_tests = passed_tests + 1
     print *, "Test 4 - Control flow:", merge("PASSED", "FAILED", test_passed)
-    
+
     ! Test 5: Array operations preservation
     total_tests = total_tests + 1
     input = "arr = [1, 2, 3]" // new_line('A') // &
@@ -70,7 +70,7 @@ program test_semantic_preservation
                    index(output, "sum(arr)") > 0)  ! Function call preserved
     if (test_passed) passed_tests = passed_tests + 1
     print *, "Test 5 - Array operations:", merge("PASSED", "FAILED", test_passed)
-    
+
     ! Test 6: Variable declaration consolidation
     total_tests = total_tests + 1
     input = "a = 1" // new_line('A') // &
@@ -81,11 +81,11 @@ program test_semantic_preservation
                    count_substr(output, "integer ::") <= 1)  ! Should consolidate declarations
     if (test_passed) passed_tests = passed_tests + 1
     print *, "Test 6 - Declaration consolidation:", merge("PASSED", "FAILED", test_passed)
-    
+
     print *, ""
     print *, "=== Test Summary ==="
-    write(*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, " tests"
-    
+    write (*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, " tests"
+
     if (passed_tests == total_tests) then
         print *, "All AST transformation correctness tests passed!"
     else
@@ -101,10 +101,10 @@ contains
         character(len=*), intent(in) :: str, substr
         integer :: count
         integer :: pos, start
-        
+
         count = 0
         start = 1
-        
+
         do
             pos = index(str(start:), substr)
             if (pos == 0) exit
@@ -112,5 +112,5 @@ contains
             start = start + pos + len(substr) - 1
         end do
     end function count_substr
-    
+
 end program test_semantic_preservation

@@ -23,16 +23,16 @@ module ast_base
         integer :: column = 1
         type(mono_type_t) :: inferred_type  ! Type information
         ! from semantic analysis
-        
+
         ! Unique identifier for CST/AST bidirectional linking
         type(uid_t) :: uid
-        
+
         ! Constant folding information
         logical :: is_constant = .false.  ! True if this node is a compile-time constant
-        logical :: constant_logical       ! For logical constants
-        integer :: constant_integer       ! For integer constants
-        real :: constant_real             ! For real constants
-        integer :: constant_type = 0      ! Type of constant (LITERAL_* constants)
+        logical :: constant_logical  ! For logical constants
+        integer :: constant_integer  ! For integer constants
+        real :: constant_real  ! For real constants
+        integer :: constant_type = 0  ! Type of constant (LITERAL_* constants)
     contains
         procedure(visit_interface), deferred :: accept
         procedure(to_json_interface), deferred :: to_json
@@ -51,7 +51,7 @@ module ast_base
     type, abstract :: ast_visitor_base_t
     end type ast_visitor_base_t
 
-    ! Abstract interfaces for visitor pattern and JSON serialization  
+    ! Abstract interfaces for visitor pattern and JSON serialization
     abstract interface
         subroutine visit_interface(this, visitor)
             import :: ast_node, ast_visitor_base_t
@@ -76,13 +76,13 @@ contains
     subroutine ast_node_wrapper_assign(lhs, rhs)
         class(ast_node_wrapper), intent(inout) :: lhs
         class(ast_node_wrapper), intent(in) :: rhs
-        
+
         ! Deep copy the node if allocated
         if (allocated(rhs%node)) then
-            if (allocated(lhs%node)) deallocate(lhs%node)
-            allocate(lhs%node, source=rhs%node)
+            if (allocated(lhs%node)) deallocate (lhs%node)
+            allocate (lhs%node, source=rhs%node)
         end if
-        
+
         ! Copy the stack index
         lhs%stack_index = rhs%stack_index
     end subroutine ast_node_wrapper_assign

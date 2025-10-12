@@ -76,7 +76,7 @@ contains
         integer, intent(in) :: n
         character(len=:), allocatable :: s
         character(len=32) :: buf
-        write(buf, '(I0)') n
+        write (buf, '(I0)') n
         s = trim(buf)
     end function itoa
 

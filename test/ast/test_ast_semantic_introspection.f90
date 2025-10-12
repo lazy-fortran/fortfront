@@ -22,15 +22,15 @@ contains
 
     ! Helper function to find assignment node and get type details
     subroutine find_assignment_and_get_type_info(arena, type_kind, type_size, &
-                                                is_allocatable, is_pointer, found)
+                                                 is_allocatable, is_pointer, found)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(out) :: type_kind, type_size
         logical, intent(out) :: is_allocatable, is_pointer, found
         integer :: i, assignment_index
-        
+
         found = .false.
         assignment_index = 0
-        
+
         ! Find assignment node
         do i = 1, arena%size
             if (get_node_type_at(arena, i) == "assignment") then
@@ -38,11 +38,11 @@ contains
                 exit
             end if
         end do
-        
+
         if (assignment_index > 0) then
             print *, "    SUCCESS: Found assignment node at index: ", assignment_index
             call get_node_type_details(arena, assignment_index, type_kind, type_size, &
-                                     is_allocatable, is_pointer, found)
+                                       is_allocatable, is_pointer, found)
         else
             print *, "    FAIL: No assignment node found"
         end if
@@ -57,21 +57,21 @@ contains
         if (.not. test_integer_type_inference()) then
             test_semantic_analysis_integration = .false.
         end if
-        
+
         if (.not. test_real_type_inference()) then
             test_semantic_analysis_integration = .false.
         end if
-        
+
         if (.not. test_character_type_inference()) then
             test_semantic_analysis_integration = .false.
         end if
-        
+
         if (.not. test_logical_type_inference()) then
             test_semantic_analysis_integration = .false.
         end if
 
         print *, "  Semantic analysis integration: ", &
-                 merge("PASS", "FAIL", test_semantic_analysis_integration)
+            merge("PASS", "FAIL", test_semantic_analysis_integration)
     end function test_semantic_analysis_integration
 
     ! Test integer type inference with introspection APIs
@@ -84,7 +84,7 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: type_kind, type_size
         logical :: is_allocatable, is_pointer, found
-        
+
         test_integer_type_inference = .true.
         print *, "  Testing integer type inference..."
 
@@ -96,7 +96,7 @@ contains
             test_integer_type_inference = .false.
             return
         end if
-        
+
         call parse_tokens(tokens, arena, root_index, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "    FAIL: Parsing failed: ", error_msg
@@ -108,20 +108,19 @@ contains
         call create_semantic_context(sem_ctx)
         call analyze_program(sem_ctx, arena, root_index)
 
-        
         ! Find assignment node and get type info
         call find_assignment_and_get_type_info(arena, type_kind, type_size, &
-                                              is_allocatable, is_pointer, found)
-        
+                                               is_allocatable, is_pointer, found)
+
         if (.not. found) then
             test_integer_type_inference = .false.
             return
         end if
-        
+
         print *, "    SUCCESS: Type details found"
         print *, "      kind=", type_kind, " size=", type_size
         print *, "      allocatable=", is_allocatable, " pointer=", is_pointer
-        
+
         ! Verify this is an integer type
         if (type_kind == TINT) then
             print *, "    PASS: Correctly identified as integer type"
@@ -141,7 +140,7 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: type_kind, type_size
         logical :: is_allocatable, is_pointer, found
-        
+
         test_real_type_inference = .true.
         print *, "  Testing real type inference..."
 
@@ -153,7 +152,7 @@ contains
             test_real_type_inference = .false.
             return
         end if
-        
+
         call parse_tokens(tokens, arena, root_index, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "    FAIL: Parsing failed: ", error_msg
@@ -167,16 +166,16 @@ contains
 
         ! Find assignment node and get type info
         call find_assignment_and_get_type_info(arena, type_kind, type_size, &
-                                              is_allocatable, is_pointer, found)
-        
+                                               is_allocatable, is_pointer, found)
+
         if (.not. found) then
             test_real_type_inference = .false.
             return
         end if
-        
+
         print *, "    SUCCESS: Type details found"
         print *, "      kind=", type_kind, " size=", type_size
-        
+
         ! Verify this is a real type
         if (type_kind == TREAL) then
             print *, "    PASS: Correctly identified as real type"
@@ -196,7 +195,7 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: type_kind, type_size
         logical :: is_allocatable, is_pointer, found
-        
+
         test_character_type_inference = .true.
         print *, "  Testing character type inference..."
 
@@ -208,7 +207,7 @@ contains
             test_character_type_inference = .false.
             return
         end if
-        
+
         call parse_tokens(tokens, arena, root_index, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "    FAIL: Parsing failed: ", error_msg
@@ -222,16 +221,16 @@ contains
 
         ! Find assignment node and get type info
         call find_assignment_and_get_type_info(arena, type_kind, type_size, &
-                                              is_allocatable, is_pointer, found)
-        
+                                               is_allocatable, is_pointer, found)
+
         if (.not. found) then
             test_character_type_inference = .false.
             return
         end if
-        
+
         print *, "    SUCCESS: Type details found"
         print *, "      kind=", type_kind, " size=", type_size
-        
+
         ! Verify this is a character type
         if (type_kind == TCHAR) then
             print *, "    PASS: Correctly identified as character type"
@@ -256,7 +255,7 @@ contains
         character(len=:), allocatable :: error_msg
         integer :: type_kind, type_size
         logical :: is_allocatable, is_pointer, found
-        
+
         test_logical_type_inference = .true.
         print *, "  Testing logical type inference..."
 
@@ -268,7 +267,7 @@ contains
             test_logical_type_inference = .false.
             return
         end if
-        
+
         call parse_tokens(tokens, arena, root_index, error_msg)
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "    FAIL: Parsing failed: ", error_msg
@@ -282,16 +281,16 @@ contains
 
         ! Find assignment node and get type info
         call find_assignment_and_get_type_info(arena, type_kind, type_size, &
-                                              is_allocatable, is_pointer, found)
-        
+                                               is_allocatable, is_pointer, found)
+
         if (.not. found) then
             test_logical_type_inference = .false.
             return
         end if
-        
+
         print *, "    SUCCESS: Type details found"
         print *, "      kind=", type_kind, " size=", type_size
-        
+
         ! Verify this is a logical type
         if (type_kind == TLOGICAL) then
             print *, "    PASS: Correctly identified as logical type"

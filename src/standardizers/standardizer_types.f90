@@ -1,7 +1,7 @@
 module standardizer_types
     ! Type inference and utilities module
     ! Handles type analysis, expression type detection, and type string generation
-    
+
     use ast_arena_modern, only: ast_arena_t
     use ast_nodes_core
     use ast_nodes_loops
@@ -52,21 +52,21 @@ contains
     function is_array_type(mono_type) result(is_array)
         type(mono_type_t), intent(in) :: mono_type
         logical :: is_array
-        
+
         is_array = (mono_type%kind == TARRAY)
     end function is_array_type
-    
+
     ! Get the type of an expression from the AST
     function get_expression_type(arena, expr_index) result(expr_type)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
         type(mono_type_t), pointer :: expr_type
-        
+
         expr_type => null()
-        
+
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
-        
+
         select type (node => arena%entries(expr_index)%node)
         type is (literal_node)
             ! Handle literal nodes by checking their inferred type or literal kind
@@ -74,7 +74,7 @@ contains
                 expr_type => node%inferred_type
             else
                 ! Fallback to determining type from literal_kind
-                allocate(expr_type)
+                allocate (expr_type)
                 select case (node%literal_kind)
                 case (LITERAL_INTEGER)
                     expr_type = create_mono_type(TINT)
@@ -114,12 +114,12 @@ contains
                     use intrinsic_registry, only: get_intrinsic_signature, is_intrinsic_function
                     character(len=:), allocatable :: intrinsic_sig
                     logical :: is_intrinsic_func
-                    
+
                     is_intrinsic_func = is_intrinsic_function(node%name)
                     if (is_intrinsic_func) then
                         intrinsic_sig = get_intrinsic_signature(node%name)
                         if (len_trim(intrinsic_sig) > 0) then
-                            allocate(expr_type)
+                            allocate (expr_type)
                             ! Parse the return type from the signature
                             if (index(intrinsic_sig, "real(") == 1) then
                                 expr_type = create_mono_type(TREAL)
@@ -137,14 +137,14 @@ contains
                         end if
                     end if
                 end block
-                
-                ! If it's a subscript of an array, the result should be the 
+
+                ! If it's a subscript of an array, the result should be the
                 ! element type or a subarray
                 ! For now, we'll check if it has a colon operator (array slice)
                 if (has_array_slice_args(arena, node)) then
                     ! This is an array slice, so result is an array
                     ! We need to get the base array type with proper element type
-                    allocate(expr_type)
+                    allocate (expr_type)
                     ! Set element type based on common Fortran patterns
                     ! For slice operations, default to real unless identified otherwise
                     block
@@ -175,18 +175,18 @@ contains
             end if
         end select
     end function get_expression_type
-    
+
     ! Check if a call_or_subscript node has array slice arguments
     function has_array_slice_args(arena, node) result(has_slice)
         type(ast_arena_t), intent(in) :: arena
         type(call_or_subscript_node), intent(in) :: node
         logical :: has_slice
         integer :: i
-        
+
         has_slice = .false.
-        
+
         if (.not. allocated(node%arg_indices)) return
-        
+
         do i = 1, size(node%arg_indices)
             if (node%arg_indices(i) > 0 .and. node%arg_indices(i) <= arena%size) then
                 if (allocated(arena%entries(node%arg_indices(i))%node)) then
@@ -201,18 +201,18 @@ contains
             end if
         end do
     end function has_array_slice_args
-    
+
     ! Check if an expression is an array expression by structure
     function is_array_expression(arena, expr_index) result(is_array)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: expr_index
         logical :: is_array
-        
+
         is_array = .false.
-        
+
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
-        
+
         select type (node => arena%entries(expr_index)%node)
         type is (array_literal_node)
             is_array = .true.
@@ -223,15 +223,15 @@ contains
             end if
         end select
     end function is_array_expression
-    
+
     ! Check if array literal contains an implied do loop
     function has_implied_do_loop(arena, array_node) result(has_implied)
         type(ast_arena_t), intent(in) :: arena
         type(array_literal_node), intent(in) :: array_node
         logical :: has_implied
-        
+
         has_implied = .false.
-        
+
         if (allocated(array_node%element_indices)) then
             if (size(array_node%element_indices) == 1) then
                 ! Check if the single element is a do_loop_node
@@ -248,50 +248,50 @@ contains
             end if
         end if
     end function has_implied_do_loop
-    
+
     ! Calculate size of implied do loop
     function get_implied_do_size(arena, do_node_index) result(size)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: do_node_index
         integer :: size
-        
+
         size = -1  ! Return -1 if we can't determine the size
-        
+
         if (do_node_index <= 0 .or. do_node_index > arena%size) return
         if (.not. allocated(arena%entries(do_node_index)%node)) return
-        
+
         select type (do_node => arena%entries(do_node_index)%node)
         type is (do_loop_node)
             ! Try to calculate size from start, end, and step expressions
             ! For now, we'll handle simple integer literals
             if (do_node%start_expr_index > 0 .and. do_node%end_expr_index > 0) then
                 size = calculate_loop_size(arena, do_node%start_expr_index, &
-                                          do_node%end_expr_index, do_node%step_expr_index)
+                                           do_node%end_expr_index, do_node%step_expr_index)
             end if
         end select
     end function get_implied_do_size
-    
+
     ! Calculate loop size from start, end, and step expressions
     function calculate_loop_size(arena, start_idx, end_idx, step_idx) result(size)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: start_idx, end_idx, step_idx
         integer :: size
         integer :: start_val, end_val, step_val
-        
+
         size = -1
-        
+
         ! Get start value
         start_val = get_integer_literal_value(arena, start_idx)
         if (start_val == INVALID_INTEGER) then
             return
         end if
-        
+
         ! Get end value
         end_val = get_integer_literal_value(arena, end_idx)
         if (end_val == INVALID_INTEGER) then
             return
         end if
-        
+
         ! Get step value (default to 1 if not specified)
         if (step_idx > 0) then
             step_val = get_integer_literal_value(arena, step_idx)
@@ -299,7 +299,7 @@ contains
         else
             step_val = 1
         end if
-        
+
         ! Calculate size
         if (step_val /= 0) then
             if (step_val > 0) then
@@ -319,7 +319,7 @@ contains
             end if
         end if
     end function calculate_loop_size
-    
+
     ! Get integer value from a literal node
     function get_integer_literal_value(arena, expr_idx) result(value)
         type(ast_arena_t), intent(in) :: arena
@@ -344,10 +344,10 @@ contains
 
         if (.not. allocated(arena%entries(expr_idx)%node)) return
 
-        allocate(results(arena%size))
+        allocate (results(arena%size))
         results = INVALID_INTEGER
         capacity = 64
-        allocate(stack(capacity))
+        allocate (stack(capacity))
         top = 0
 
         call push(expr_idx, .false.)
@@ -374,7 +374,7 @@ contains
                 select type (node => arena%entries(idx)%node)
                 type is (literal_node)
                     if (node%literal_kind == LITERAL_INTEGER .and. allocated(node%value)) then
-                        read(node%value, *, iostat=iostat) value
+                        read (node%value, *, iostat=iostat) value
                         if (iostat /= 0) value = INVALID_INTEGER
                     else
                         value = INVALID_INTEGER
@@ -389,14 +389,14 @@ contains
                         if (node%right_index > 0 .and. node%right_index <= arena%size) &
                             right_val = results(node%right_index)
                         if (left_val /= INVALID_INTEGER .and. right_val /= INVALID_INTEGER) then
-                            select case(node%operator)
-                            case("-")
+                            select case (node%operator)
+                            case ("-")
                                 value = left_val - right_val
-                            case("+")
+                            case ("+")
                                 value = left_val + right_val
-                            case("*")
+                            case ("*")
                                 value = left_val * right_val
-                            case("/")
+                            case ("/")
                                 if (right_val /= 0) value = left_val / right_val
                             end select
                         end if
@@ -417,7 +417,7 @@ contains
             logical, intent(in) :: processed
             type(stack_entry), allocatable :: tmp(:)
             if (top >= capacity) then
-                allocate(tmp(capacity*2))
+                allocate (tmp(capacity * 2))
                 if (capacity > 0) tmp(1:capacity) = stack(1:capacity)
                 call move_alloc(tmp, stack)
                 capacity = size(stack)
@@ -439,7 +439,7 @@ contains
         end function pop
 
     end function get_integer_literal_value
-    
+
     ! Get array variable type declaration from an array expression
     function get_array_var_type(arena, expr_index) result(var_type)
         type(ast_arena_t), intent(in) :: arena
@@ -447,12 +447,12 @@ contains
         character(len=64) :: var_type
         type(mono_type_t), pointer :: expr_type
         character(len=:), allocatable :: elem_type_str
-        
+
         var_type = ""  ! Empty default indicates type not determined
-        
+
         if (expr_index <= 0 .or. expr_index > arena%size) return
         if (.not. allocated(arena%entries(expr_index)%node)) return
-        
+
         select type (node => arena%entries(expr_index)%node)
         type is (array_literal_node)
             ! For array literals, we know the exact size
@@ -489,20 +489,18 @@ contains
                             ! Try to infer from literal if possible
                             elem_type_str = &
                                 infer_element_type_from_literal(arena, &
-                                node%element_indices(1))
+                                                                node%element_indices(1))
                         end if
                     else
                         elem_type_str = ""  ! No fallback for empty arrays
                     end if
                 end if
-                
+
                 ! CRITICAL FIX: Provide fallback element type if inference failed
                 if (.not. allocated(elem_type_str) .or. len_trim(elem_type_str) == 0) then
                     elem_type_str = "integer"  ! Default fallback for array literals
                 end if
-                
 
-                
                 ! Check if this is an implied do loop
                 if (has_implied_do_loop(arena, node)) then
                     ! Calculate the size from the implied do loop bounds
@@ -510,7 +508,7 @@ contains
                         integer :: implied_size
                         implied_size = get_implied_do_size(arena, node%element_indices(1))
                         if (implied_size > 0) then
-                            write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                            write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
                                 ", dimension(", implied_size, ")"
                         else
                             ! Can't determine size, use allocatable
@@ -554,7 +552,7 @@ contains
                                                                          node%element_indices(5))
                                             end if
                                             if (sz > 0) then
-                                                write(var_type, '(a,a,i0,a)') trim(elem_type_str), ", dimension(", sz, ")"
+                                                write (var_type, '(a,a,i0,a)') trim(elem_type_str), ", dimension(", sz, ")"
                                             else
                                                 var_type = trim(elem_type_str) // ", dimension(:), allocatable"
                                             end if
@@ -576,7 +574,7 @@ contains
                         type(mono_type_t) :: inner_type
                         is_nested = .false.
                         inner_size = 0
-                        
+
                         ! Check if node has inferred type that's nested TARRAY
                         if (node%inferred_type%kind == TARRAY) then
                             if (node%inferred_type%has_args() .and. &
@@ -588,14 +586,14 @@ contains
                                 end if
                             end if
                         end if
-                        
+
                         if (is_nested .and. inner_size > 0) then
                             ! Nested array - output 2D dimensions
-                            write(var_type, '(a,a,i0,a,i0,a)') trim(elem_type_str), &
+                            write (var_type, '(a,a,i0,a,i0,a)') trim(elem_type_str), &
                                 ", dimension(", size(node%element_indices), ",", inner_size, ")"
                         else
                             ! Simple 1D array
-                            write(var_type, '(a,a,i0,a)') trim(elem_type_str), &
+                            write (var_type, '(a,a,i0,a)') trim(elem_type_str), &
                                 ", dimension(", size(node%element_indices), ")"
                         end if
                     end block
@@ -609,21 +607,21 @@ contains
             end if
         end select
     end function get_array_var_type
-    
+
     ! Helper function to infer type from a literal node
     function infer_element_type_from_literal(arena, elem_index) result(type_str)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: elem_index
         character(len=:), allocatable :: type_str
         logical :: standardizer_type_standardization_enabled
-        
+
         type_str = ""  ! Empty default indicates type not determined
-        
+
         call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
-        
+
         if (elem_index <= 0 .or. elem_index > arena%size) return
         if (.not. allocated(arena%entries(elem_index)%node)) return
-        
+
         select type (elem => arena%entries(elem_index)%node)
         type is (literal_node)
             select case (elem%literal_kind)
@@ -651,7 +649,7 @@ contains
         type(string_result_t) :: string_result
         type(string_result_t) :: elem_result
         logical :: standardizer_type_standardization_enabled
-        
+
         call get_standardizer_type_standardization(standardizer_type_standardization_enabled)
 
         select case (mono_type%kind)
@@ -676,7 +674,7 @@ contains
                 block
                     character(len=20) :: size_str
                     write (size_str, '(i0)') mono_type%size
-                    string_result%value = "character(len="//trim(size_str)//")"
+                    string_result%value = "character(len=" // trim(size_str) // ")"
                 end block
             else
                 ! For zero-length or unknown strings, use explicit length 0
@@ -692,30 +690,30 @@ contains
                     string_result%value = elem_result%get_value()
                 else
                     string_result%result = create_error_result( &
-                        "Failed to determine array element type", &
-                        ERROR_TYPE_SYSTEM, &
-                        component="standardizer", &
-                        context="get_fortran_type_string", &
-                        suggestion="Ensure array element type is properly inferred" &
-                    )
+                                           "Failed to determine array element type", &
+                                           ERROR_TYPE_SYSTEM, &
+                                           component="standardizer", &
+                                           context="get_fortran_type_string", &
+                                           suggestion="Ensure array element type is properly inferred" &
+                                           )
                 end if
             else
                 string_result%result = create_error_result( &
-                    "Array type has no element type information", &
-                    ERROR_TYPE_SYSTEM, &
-                    component="standardizer", &
-                    context="get_fortran_type_string", &
-                    suggestion="Array type should have at least one type argument for element type" &
-                )
+                                       "Array type has no element type information", &
+                                       ERROR_TYPE_SYSTEM, &
+                                       component="standardizer", &
+                                       context="get_fortran_type_string", &
+                                       suggestion="Array type should have at least one type argument for element type" &
+                                       )
             end if
         case default
             string_result%result = create_error_result( &
-                "Unknown or unsupported type kind", &
-                ERROR_TYPE_SYSTEM, &
-                component="standardizer", &
-                context="get_fortran_type_string", &
-                suggestion="Type inference may have failed or encountered an unsupported type" &
-            )
+                                   "Unknown or unsupported type kind", &
+                                   ERROR_TYPE_SYSTEM, &
+                                   component="standardizer", &
+                                   context="get_fortran_type_string", &
+                                   suggestion="Type inference may have failed or encountered an unsupported type" &
+                                   )
         end select
     end function get_fortran_type_string
 

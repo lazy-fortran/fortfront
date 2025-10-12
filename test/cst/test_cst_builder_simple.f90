@@ -21,9 +21,9 @@ program test_cst_builder
     call test_start("Create CST builder with default settings")
     block
         type(cst_builder_t) :: builder
-        
+
         builder = create_cst_builder()
-        
+
         if (builder%collect_trivia .and. &
             builder%parallel_mode .and. &
             .not. builder%debug_mode .and. &
@@ -33,8 +33,8 @@ program test_cst_builder
             call test_fail()
             print *, "  Expected: collect_trivia=.true., parallel_mode=.true., debug_mode=.false."
             print *, "  Got: collect_trivia=", builder%collect_trivia, &
-                     ", parallel_mode=", builder%parallel_mode, &
-                     ", debug_mode=", builder%debug_mode
+                ", parallel_mode=", builder%parallel_mode, &
+                ", debug_mode=", builder%debug_mode
         end if
     end block
 
@@ -42,9 +42,9 @@ program test_cst_builder
     call test_start("Create CST builder with custom settings")
     block
         type(cst_builder_t) :: builder
-        
+
         builder = create_cst_builder(initial_capacity=500, collect_trivia=.false.)
-        
+
         if (.not. builder%collect_trivia .and. &
             builder%parallel_mode .and. &
             builder%context%initialized .and. &
@@ -54,7 +54,7 @@ program test_cst_builder
             call test_fail()
             print *, "  Expected: collect_trivia=.false., capacity>=500"
             print *, "  Got: collect_trivia=", builder%collect_trivia, &
-                     ", capacity=", builder%context%arena%capacity
+                ", capacity=", builder%context%arena%capacity
         end if
     end block
 
@@ -64,10 +64,10 @@ program test_cst_builder
         type(cst_builder_t) :: builder
         type(builder_result_t) :: result
         type(cst_node_t) :: retrieved_node
-        
+
         builder = create_cst_builder()
         result = build_cst_node(builder, CST_IDENTIFIER, 10, 20, "my_var")
-        
+
         if (result%success .and. result%handle%index > 0) then
             retrieved_node = builder%context%arena%get(result%handle)
             if (retrieved_node%kind == CST_IDENTIFIER .and. &
@@ -81,7 +81,7 @@ program test_cst_builder
                 print *, "  Node validation failed"
                 print *, "  Expected: kind=", CST_IDENTIFIER, ", start=10, end=20, text='my_var'"
                 print *, "  Got: kind=", retrieved_node%kind, ", start=", retrieved_node%start_pos, &
-                         ", end=", retrieved_node%end_pos, ", text='", retrieved_node%text, "'"
+                    ", end=", retrieved_node%end_pos, ", text='", retrieved_node%text, "'"
             end if
         else
             call test_fail()
@@ -98,12 +98,12 @@ program test_cst_builder
     block
         type(cst_builder_t) :: builder
         type(builder_result_t) :: result
-        
+
         builder = create_cst_builder()
-        
+
         ! Invalid position range (end < start)
         result = build_cst_node(builder, CST_IDENTIFIER, 20, 10)
-        
+
         if (.not. result%success .and. allocated(result%error_message)) then
             call test_pass()
         else
@@ -119,10 +119,10 @@ program test_cst_builder
         type(cst_builder_t) :: builder
         type(builder_result_t) :: result
         type(cst_node_t) :: retrieved_node
-        
+
         builder = create_cst_builder()
         result = build_cst_node(builder, CST_FUNCTION, 1, 100, "main", ast_link=42)
-        
+
         if (result%success) then
             retrieved_node = builder%context%arena%get(result%handle)
             if (retrieved_node%ast_link == 42) then
@@ -143,14 +143,14 @@ program test_cst_builder
         type(cst_builder_t) :: builder
         type(cst_handle_t) :: cst_handle
         type(cst_node_t) :: node
-        
+
         builder = create_cst_builder()
-        
+
         cst_handle = build_parallel(builder, ast_node_index=123, &
-                                   cst_kind=CST_SUBROUTINE, &
-                                   start_pos=5, end_pos=50, &
-                                   text="test_sub")
-        
+                                    cst_kind=CST_SUBROUTINE, &
+                                    start_pos=5, end_pos=50, &
+                                    text="test_sub")
+
         if (cst_handle%index > 0) then
             node = builder%context%arena%get(cst_handle)
             if (node%kind == CST_SUBROUTINE .and. &
@@ -162,7 +162,7 @@ program test_cst_builder
                 print *, "  Node validation failed"
                 print *, "  Expected: kind=", CST_SUBROUTINE, ", ast_link=123, text='test_sub'"
                 print *, "  Got: kind=", node%kind, ", ast_link=", node%ast_link, &
-                         ", text='", node%text, "'"
+                    ", text='", node%text, "'"
             end if
         else
             call test_fail()
@@ -174,13 +174,13 @@ program test_cst_builder
     call test_start("Builder options configuration")
     block
         type(cst_builder_t) :: builder
-        
+
         builder = create_cst_builder()
-        
+
         call builder%set_options(collect_trivia=.false., &
                                  parallel_mode=.false., &
                                  debug_mode=.true.)
-        
+
         if (.not. builder%collect_trivia .and. &
             .not. builder%parallel_mode .and. &
             builder%debug_mode) then
@@ -189,8 +189,8 @@ program test_cst_builder
             call test_fail()
             print *, "  Expected: collect_trivia=.false., parallel_mode=.false., debug_mode=.true."
             print *, "  Got: collect_trivia=", builder%collect_trivia, &
-                     ", parallel_mode=", builder%parallel_mode, &
-                     ", debug_mode=", builder%debug_mode
+                ", parallel_mode=", builder%parallel_mode, &
+                ", debug_mode=", builder%debug_mode
         end if
     end block
 
@@ -199,14 +199,14 @@ program test_cst_builder
     block
         type(cst_builder_t) :: builder
         type(cst_handle_t) :: first_handle, second_handle, root_handle
-        
+
         builder = create_cst_builder()
-        
+
         first_handle = builder%create_node(CST_PROGRAM, 1, 100, "main_program")
         second_handle = builder%create_node(CST_SUBROUTINE, 20, 50, "sub1")
-        
+
         root_handle = builder%get_root()
-        
+
         ! Root should be the first node created
         if (root_handle%index == first_handle%index .and. &
             root_handle%generation == first_handle%generation) then
@@ -224,18 +224,18 @@ program test_cst_builder
     block
         type(builder_context_t) :: context
         type(cst_handle_t) :: parent1, parent2, current, popped
-        
+
         context = init_builder_context(100)
-        
+
         parent1%index = 10
         parent1%generation = 1
         parent2%index = 20
         parent2%generation = 1
-        
+
         ! Push parents onto stack
         call context%push_parent(parent1)
         call context%push_parent(parent2)
-        
+
         ! Check current parent
         current = context%current_parent()
         if (current%index /= parent2%index) then
@@ -243,7 +243,7 @@ program test_cst_builder
             print *, "  Expected current parent index=", parent2%index, ", Got:", current%index
             return
         end if
-        
+
         ! Pop parent
         popped = context%pop_parent()
         if (popped%index /= parent2%index) then
@@ -251,7 +251,7 @@ program test_cst_builder
             print *, "  Expected popped parent index=", parent2%index, ", Got:", popped%index
             return
         end if
-        
+
         ! Check new current parent
         current = context%current_parent()
         if (current%index /= parent1%index) then
@@ -259,7 +259,7 @@ program test_cst_builder
             print *, "  Expected current parent index=", parent1%index, ", Got:", current%index
             return
         end if
-        
+
         call test_pass()
     end block
 
@@ -270,31 +270,31 @@ program test_cst_builder
         type(cst_handle_t) :: node_handle
         type(trivia_token_t) :: leading_trivia(2), trailing_trivia(1)
         logical :: success
-        
+
         builder = create_cst_builder(collect_trivia=.true.)
-        
+
         ! Create test trivia
         leading_trivia(1)%kind = TK_COMMENT
         leading_trivia(1)%text = "! Leading comment"
         leading_trivia(1)%line = 1
         leading_trivia(1)%column = 1
-        
+
         leading_trivia(2)%kind = TK_WHITESPACE
         leading_trivia(2)%text = "  "
         leading_trivia(2)%line = 2
         leading_trivia(2)%column = 1
-        
+
         trailing_trivia(1)%kind = TK_NEWLINE
         trailing_trivia(1)%text = new_line('A')
         trailing_trivia(1)%line = 2
         trailing_trivia(1)%column = 10
-        
+
         ! Create node
         node_handle = builder%create_node(CST_DECLARATION, 10, 30, "integer :: x")
-        
+
         ! Attach trivia
         success = builder%attach_trivia(node_handle, leading_trivia, trailing_trivia)
-        
+
         if (success .and. node_handle%index > 0) then
             call test_pass()
         else
@@ -309,18 +309,18 @@ program test_cst_builder
     block
         type(cst_builder_t) :: builder
         type(cst_handle_t) :: handle_before, handle_after
-        
+
         builder = create_cst_builder()
-        
+
         ! Create a node
         handle_before = builder%create_node(CST_PROGRAM, 1, 50)
-        
+
         ! Clear builder
         call builder%clear()
-        
+
         ! Create another node after clear
         handle_after = builder%create_node(CST_FUNCTION, 1, 30)
-        
+
         ! After clear, arena should be empty and first node should get index 1
         if (handle_before%index > 0 .and. handle_after%index == 1) then
             call test_pass()
@@ -337,20 +337,20 @@ program test_cst_builder
     block
         type(builder_context_t) :: context
         type(trivia_token_t) :: trivia1, trivia2
-        
+
         context = init_builder_context(100)
-        
+
         ! Create test trivia
         trivia1%kind = TK_COMMENT
         trivia1%text = "! Comment 1"
-        
+
         trivia2%kind = TK_WHITESPACE
         trivia2%text = "    "
-        
+
         ! Add pending trivia
         call context%add_pending_trivia(trivia1, is_leading=.true.)
         call context%add_pending_trivia(trivia2, is_leading=.false.)
-        
+
         if (context%trivia_count == 2 .and. &
             allocated(context%pending_leading) .and. &
             allocated(context%pending_trailing)) then
@@ -366,7 +366,7 @@ program test_cst_builder
 
     print *, ""
     print *, "=== Test Summary ==="
-    write(*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, " tests"
+    write (*, '(A,I0,A,I0,A)') "Passed: ", passed_tests, "/", total_tests, " tests"
 
     if (passed_tests == total_tests) then
         print *, "All CST builder tests passed!"
@@ -380,7 +380,7 @@ contains
     subroutine test_start(test_name)
         character(len=*), intent(in) :: test_name
         total_tests = total_tests + 1
-        write(*, '(A,A)', advance='no') "Testing: ", test_name
+        write (*, '(A,A)', advance='no') "Testing: ", test_name
     end subroutine test_start
 
     subroutine test_pass()

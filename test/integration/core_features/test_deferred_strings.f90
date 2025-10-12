@@ -3,7 +3,7 @@ program test_deferred_strings
     character(len=:), allocatable :: str1, str2, str3
     character(len=10) :: fixed_str
     integer :: n
-    
+
     ! Test basic allocation
     str1 = "Hello"
     if (len(str1) /= 5) then
@@ -14,7 +14,7 @@ program test_deferred_strings
         print *, "Deferred string test failed: str1 content wrong"
         stop 1
     end if
-    
+
     ! Test reallocation
     str1 = "Hello, World!"
     if (len(str1) /= 13) then
@@ -25,7 +25,7 @@ program test_deferred_strings
         print *, "Deferred string test failed: str1 reallocated content wrong"
         stop 1
     end if
-    
+
     ! Test concatenation with automatic allocation
     str2 = "Fortran"
     str3 = str1 // " " // str2
@@ -37,7 +37,7 @@ program test_deferred_strings
         print *, "Deferred string test failed: concatenated content wrong"
         stop 1
     end if
-    
+
     ! Test assignment from fixed-length string - portable behavior
     ! Given: A fixed-length string with content and trailing spaces
     fixed_str = "Fixed"
@@ -54,7 +54,7 @@ program test_deferred_strings
         print *, "Deferred string test failed: str1 length not consistent with standard behavior"
         stop 1
     end if
-    
+
     ! Test assignment with trim - explicit trimming should be portable
     ! Given: A fixed-length string with trailing spaces
     ! When: Explicitly trimming before assignment
@@ -68,7 +68,7 @@ program test_deferred_strings
         print *, "Deferred string test failed: trimmed str1 content wrong"
         stop 1
     end if
-    
+
     ! Test edge case: Empty string assignment
     ! Given: An empty string
     str1 = ""
@@ -82,7 +82,7 @@ program test_deferred_strings
         print *, "Deferred string test failed: empty string content wrong"
         stop 1
     end if
-    
+
     ! Test edge case: All spaces assignment from fixed-length
     ! Given: A fixed-length string containing only spaces
     fixed_str = "          "  ! 10 spaces
@@ -98,7 +98,7 @@ program test_deferred_strings
         print *, "Deferred string test failed: all-spaces string length inconsistent"
         stop 1
     end if
-    
+
     ! Test edge case: Single character assignment
     ! Given: Single character in fixed-length string
     fixed_str = "A"  ! Implicit padding to length 10
@@ -109,12 +109,12 @@ program test_deferred_strings
         print *, "Deferred string test failed: single char content wrong"
         stop 1
     end if
-    
+
     ! Test edge case: Multiple consecutive assignments
     ! Given: Different string assignments in sequence
     str1 = "First"
     str1 = "Second Assignment"  ! Longer string
-    str1 = "X"                  ! Much shorter string
+    str1 = "X"  ! Much shorter string
     ! When: Checking final assignment
     ! Then: Should handle reallocation correctly
     if (len(str1) /= 1) then
@@ -125,6 +125,6 @@ program test_deferred_strings
         print *, "Deferred string test failed: final reassignment content wrong"
         stop 1
     end if
-    
+
     print *, "All deferred string tests passed!"
 end program test_deferred_strings

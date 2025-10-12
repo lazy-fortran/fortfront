@@ -55,7 +55,7 @@ contains
         write (*, '(A)') "Types for poly type created"
 
         write (*, '(A)') "Creating polymorphic type scheme..."
-        poly_type = create_poly_type(forall_vars=[type_var_t::], mono=fun_type)
+        poly_type = create_poly_type(forall_vars=[type_var_t ::], mono=fun_type)
         write (*, '(A)') "Polymorphic type created successfully"
 
         ! Check poly type

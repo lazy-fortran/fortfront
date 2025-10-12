@@ -19,30 +19,30 @@ module ast_nodes_bounds
     integer, parameter, public :: NODE_ARRAY_SLICE = 51
     integer, parameter, public :: NODE_RANGE_EXPRESSION = 52
     integer, parameter, public :: NODE_ARRAY_OPERATION = 53
-    
+
     ! Type to represent bounds for a single dimension
     type :: array_bounds_t
-        integer :: lower_bound_expr = -1    ! Expression index for lower bound
-        integer :: upper_bound_expr = -1    ! Expression index for upper bound
-        integer :: stride_expr = -1         ! Expression index for stride
+        integer :: lower_bound_expr = -1  ! Expression index for lower bound
+        integer :: upper_bound_expr = -1  ! Expression index for upper bound
+        integer :: stride_expr = -1  ! Expression index for stride
         logical :: is_constant_lower = .false.
         logical :: is_constant_upper = .false.
         logical :: is_constant_stride = .false.
-        integer :: const_lower = 1          ! Constant value if is_constant_lower
-        integer :: const_upper = 1          ! Constant value if is_constant_upper
-        integer :: const_stride = 1         ! Constant value if is_constant_stride
-        logical :: is_assumed = .false.     ! True for assumed shape (:)
-        logical :: is_deferred = .false.    ! True for deferred shape (:)
-        logical :: is_assumed_size = .false. ! True for assumed size (*)
+        integer :: const_lower = 1  ! Constant value if is_constant_lower
+        integer :: const_upper = 1  ! Constant value if is_constant_upper
+        integer :: const_stride = 1  ! Constant value if is_constant_stride
+        logical :: is_assumed = .false.  ! True for assumed shape (:)
+        logical :: is_deferred = .false.  ! True for deferred shape (:)
+        logical :: is_assumed_size = .false.  ! True for assumed size (*)
     end type array_bounds_t
-    
+
     ! Type to represent complete array specification
     type :: array_spec_t
-        integer :: rank = 0                     ! Number of dimensions
+        integer :: rank = 0  ! Number of dimensions
         type(array_bounds_t), allocatable :: bounds(:)  ! Bounds for each dimension
         logical :: is_allocatable = .false.
         logical :: is_pointer = .false.
-        logical :: is_fixed_size = .true.       ! True if all bounds are constant
+        logical :: is_fixed_size = .true.  ! True if all bounds are constant
     end type array_spec_t
 
     ! Represents array bounds information (lower:upper:stride)
@@ -52,11 +52,11 @@ module ast_nodes_bounds
         ! (-1 if implicit)
         integer :: upper_bound_index = -1  ! Index to upper bound expression
         ! (-1 if implicit)
-        integer :: stride_index = -1       ! Index to stride expression
+        integer :: stride_index = -1  ! Index to stride expression
         ! (-1 if no stride)
         logical :: is_assumed_shape = .false.  ! True for (:) bounds
-        logical :: is_deferred_shape = .false. ! True for allocatable/pointer arrays
-        logical :: is_assumed_size = .false.   ! True for (*) last dimension
+        logical :: is_deferred_shape = .false.  ! True for allocatable/pointer arrays
+        logical :: is_assumed_size = .false.  ! True for (*) last dimension
     contains
         procedure :: accept => array_bounds_accept
         procedure :: to_json => array_bounds_to_json
@@ -67,10 +67,10 @@ module ast_nodes_bounds
     ! a character substring operation rather than array slicing
     type, extends(ast_node) :: array_slice_node
         integer :: node_type = NODE_ARRAY_SLICE
-        integer :: array_index            ! Index to array expression being sliced
-        integer :: bounds_indices(10)     ! Indices to array_bounds_node
+        integer :: array_index  ! Index to array expression being sliced
+        integer :: bounds_indices(10)  ! Indices to array_bounds_node
         ! for each dimension
-        integer :: num_dimensions = 0     ! Number of dimensions in slice
+        integer :: num_dimensions = 0  ! Number of dimensions in slice
         ! Resolution flag (set during semantic analysis)
         logical :: is_character_substring = .false.  ! true if substring
     contains
@@ -81,8 +81,8 @@ module ast_nodes_bounds
     ! Represents range expression start:end or start:end:stride
     type, extends(ast_node) :: range_expression_node
         integer :: node_type = NODE_RANGE_EXPRESSION
-        integer :: start_index = -1   ! Index to start expression (-1 if implicit)
-        integer :: end_index = -1     ! Index to end expression (-1 if implicit)  
+        integer :: start_index = -1  ! Index to start expression (-1 if implicit)
+        integer :: end_index = -1  ! Index to end expression (-1 if implicit)
         integer :: stride_index = -1  ! Index to stride expression (-1 if no stride)
     contains
         procedure :: accept => range_expression_accept
@@ -92,12 +92,12 @@ module ast_nodes_bounds
     ! Represents array operations (assignment, arithmetic, etc.) with bounds info
     type, extends(ast_node) :: array_operation_node
         integer :: node_type = NODE_ARRAY_OPERATION
-        character(len=32) :: operation = ""    ! Operation type (=, +, -, *, etc.)
-        integer :: left_operand_index = -1     ! Left operand (array)
-        integer :: right_operand_index = -1    ! Right operand (array or scalar)
-        type(array_spec_t) :: array_spec       ! Array specification with bounds
-        type(array_spec_t) :: result_spec      ! Result specification
-        logical :: bounds_checked = .false.    ! Whether bounds have been validated
+        character(len=32) :: operation = ""  ! Operation type (=, +, -, *, etc.)
+        integer :: left_operand_index = -1  ! Left operand (array)
+        integer :: right_operand_index = -1  ! Right operand (array or scalar)
+        type(array_spec_t) :: array_spec  ! Array specification with bounds
+        type(array_spec_t) :: result_spec  ! Result specification
+        logical :: bounds_checked = .false.  ! Whether bounds have been validated
         logical :: shape_conformant = .false.  ! Whether operands are conformant
     contains
         procedure :: accept => array_operation_accept
@@ -110,7 +110,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         type(array_bounds_node), pointer :: node
-        
+
         node => null()
         if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
@@ -124,7 +124,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         type(array_slice_node), pointer :: node
-        
+
         node => null()
         if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
@@ -138,7 +138,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         type(range_expression_node), pointer :: node
-        
+
         node => null()
         if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
@@ -152,7 +152,7 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: index
         type(array_operation_node), pointer :: node
-        
+
         node => null()
         if (index > 0 .and. index <= arena%compat_size) then
             select type (p => arena%entries(index)%node)
@@ -241,7 +241,7 @@ contains
     subroutine array_bounds_accept(this, visitor)
         class(array_bounds_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
-        
+
         ! Visitor pattern stub - would need full implementation
         ! For now, just validate the visitor is not null
     end subroutine array_bounds_accept
@@ -249,7 +249,7 @@ contains
     subroutine array_slice_accept(this, visitor)
         class(array_slice_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
-        
+
         ! Visitor pattern stub - would need full implementation
         ! For now, just validate the visitor is not null
     end subroutine array_slice_accept
@@ -257,7 +257,7 @@ contains
     subroutine range_expression_accept(this, visitor)
         class(range_expression_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
-        
+
         ! Visitor pattern stub - would need full implementation
         ! For now, just validate the visitor is not null
     end subroutine range_expression_accept
@@ -265,7 +265,7 @@ contains
     subroutine array_operation_accept(this, visitor)
         class(array_operation_node), intent(in) :: this
         class(ast_visitor_base_t), intent(inout) :: visitor
-        
+
         ! Visitor pattern stub - would need full implementation
         ! For now, just validate the visitor is not null
     end subroutine array_operation_accept
@@ -275,7 +275,7 @@ contains
         class(array_bounds_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        
+
         call json%create_object(parent, "array_bounds")
         call json%add(parent, "node_type", "array_bounds")
         call json%add(parent, "lower_bound_index", this%lower_bound_index)
@@ -292,7 +292,7 @@ contains
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: bounds_array, bounds_item
         integer :: i
-        
+
         if (.not. associated(parent)) then
             call json%create_object(parent, "array_slice")
         end if
@@ -300,7 +300,7 @@ contains
         call json%add(parent, "array_index", this%array_index)
         call json%add(parent, "num_dimensions", this%num_dimensions)
         call json%add(parent, "is_character_substring", this%is_character_substring)
-        
+
         call json%create_array(bounds_array, "bounds_indices")
         do i = 1, this%num_dimensions
             call json%add(bounds_array, "", this%bounds_indices(i))
@@ -312,7 +312,7 @@ contains
         class(range_expression_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        
+
         call json%create_object(parent, "range_expression")
         call json%add(parent, "node_type", "range_expression")
         call json%add(parent, "start_index", this%start_index)
@@ -324,7 +324,7 @@ contains
         class(array_operation_node), intent(in) :: this
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
-        
+
         call json%create_object(parent, "array_operation")
         call json%add(parent, "node_type", "array_operation")
         call json%add(parent, "operation", trim(this%operation))
@@ -332,14 +332,14 @@ contains
         call json%add(parent, "right_operand_index", this%right_operand_index)
         call json%add(parent, "bounds_checked", this%bounds_checked)
         call json%add(parent, "shape_conformant", this%shape_conformant)
-        
+
         ! Add array_spec information if available
         if (this%array_spec%rank > 0) then
             call json%add(parent, "array_rank", this%array_spec%rank)
             call json%add(parent, "is_allocatable", this%array_spec%is_allocatable)
             call json%add(parent, "is_pointer", this%array_spec%is_pointer)
         end if
-        
+
         if (this%result_spec%rank > 0) then
             call json%add(parent, "result_rank", this%result_spec%rank)
         end if

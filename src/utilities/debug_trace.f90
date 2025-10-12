@@ -54,23 +54,23 @@ contains
         if (.not. enabled) return
         depth = depth + 1
         if (depth > MAX_DEPTH) then
-            write(error_unit, '(A,I0,1X,A)') 'TRACE: Max depth exceeded: ', depth, trim(name)
+            write (error_unit, '(A,I0,1X,A)') 'TRACE: Max depth exceeded: ', depth, trim(name)
             error stop 1
         end if
-        write(error_unit, '(A,I0,2X,A)') '>> depth', depth, trim(name)
+        write (error_unit, '(A,I0,2X,A)') '>> depth', depth, trim(name)
         if (file_u > 0) then
-            write(file_u, '(A,I0,2X,A)') '>> depth', depth, trim(name)
-            flush(file_u)
+            write (file_u, '(A,I0,2X,A)') '>> depth', depth, trim(name)
+            flush (file_u)
         end if
     end subroutine trace_enter
 
     subroutine trace_leave(name)
         character(len=*), intent(in) :: name
         if (.not. enabled) return
-        write(error_unit, '(A,I0,2X,A)') '<< depth', depth, trim(name)
+        write (error_unit, '(A,I0,2X,A)') '<< depth', depth, trim(name)
         if (file_u > 0) then
-            write(file_u, '(A,I0,2X,A)') '<< depth', depth, trim(name)
-            flush(file_u)
+            write (file_u, '(A,I0,2X,A)') '<< depth', depth, trim(name)
+            flush (file_u)
         end if
         if (depth > 0) depth = depth - 1
     end subroutine trace_leave

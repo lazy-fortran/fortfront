@@ -5,9 +5,9 @@ module semantic_analyzer_base
     use semantic_result_types, only: semantic_result_base_t
     implicit none
     private
-    
+
     public :: semantic_analyzer_t
-    
+
     ! Abstract base analyzer for semantic pipeline
     type, abstract :: semantic_analyzer_t
     contains
@@ -17,7 +17,7 @@ module semantic_analyzer_base
         procedure(assign_interface), deferred :: assign
         procedure(get_dependencies_interface), deferred :: get_dependencies
     end type semantic_analyzer_t
-    
+
     ! Abstract interfaces for analyzer methods
     abstract interface
         subroutine analyze_interface(this, shared_context, arena, node_index)
@@ -27,30 +27,30 @@ module semantic_analyzer_base
             type(ast_arena_t), intent(in) :: arena
             integer, intent(in) :: node_index
         end subroutine analyze_interface
-        
+
         function get_results_interface(this) result(results)
             import :: semantic_analyzer_t, semantic_result_base_t
             class(semantic_analyzer_t), intent(in) :: this
             class(semantic_result_base_t), allocatable :: results
         end function get_results_interface
-        
+
         function get_name_interface(this) result(name)
             import :: semantic_analyzer_t
             class(semantic_analyzer_t), intent(in) :: this
             character(:), allocatable :: name
         end function get_name_interface
-        
+
         subroutine assign_interface(lhs, rhs)
             import :: semantic_analyzer_t
             class(semantic_analyzer_t), intent(out) :: lhs
             class(semantic_analyzer_t), intent(in) :: rhs
         end subroutine assign_interface
-        
+
         function get_dependencies_interface(this) result(deps)
             import :: semantic_analyzer_t
             class(semantic_analyzer_t), intent(in) :: this
             character(:), allocatable :: deps(:)
         end function get_dependencies_interface
     end interface
-    
+
 end module semantic_analyzer_base

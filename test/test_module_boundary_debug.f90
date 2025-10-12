@@ -58,7 +58,7 @@ contains
         call find_program_unit_boundary(tokens, 1, unit_start, unit_end)
         print *, "Module boundary: start=", unit_start, " end=", unit_end
         print *, "Total tokens:", size(tokens)
-        
+
         if (unit_end > 0 .and. unit_end <= size(tokens)) then
             print *, "Last token in unit:"
             if (tokens(unit_end)%kind == TK_KEYWORD) then
@@ -74,7 +74,7 @@ contains
         ! Parse and emit
         arena = create_ast_arena()
         call parse_tokens(tokens, arena, prog_index, error_msg)
-        
+
         if (allocated(error_msg) .and. len_trim(error_msg) > 0) then
             print *, "Parsing error: ", trim(error_msg)
             return

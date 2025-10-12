@@ -42,7 +42,7 @@ module base_analyzer
     abstract interface
         function analyze_interface(this, ctx, arena, root_index) result(results)
             import :: base_analyzer_t, semantic_context_t, ast_arena_t, &
-                      analysis_results_t
+                analysis_results_t
             class(base_analyzer_t), intent(inout) :: this
             type(semantic_context_t), intent(inout) :: ctx
             type(ast_arena_t), intent(inout) :: arena

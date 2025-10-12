@@ -29,14 +29,14 @@ contains
         class(semantic_context_base_t), intent(in) :: shared_context
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
-        
+
         ! Mark as executed
         this%analysis_executed = .true.
-        
+
         ! Simple analysis: count how many nodes we would visit
         ! For now, just set to 1 (the root node)
         this%nodes_visited = 1
-        
+
         ! In a real analyzer, we would traverse the AST and
         ! populate the shared context with analysis results
     end subroutine
@@ -44,10 +44,10 @@ contains
     function get_test_results(this) result(results)
         class(simple_test_analyzer_t), intent(in) :: this
         class(semantic_result_base_t), allocatable :: results
-        
+
         ! For testing, return the execution status
-        allocate(test_result_t :: results)
-        select type(results)
+        allocate (test_result_t :: results)
+        select type (results)
         type is (test_result_t)
             results%analysis_executed = this%analysis_executed
             results%nodes_visited = this%nodes_visited
@@ -57,29 +57,29 @@ contains
     function get_test_analyzer_name(this) result(name)
         class(simple_test_analyzer_t), intent(in) :: this
         character(:), allocatable :: name
-        
+
         name = "simple_test_analyzer"
     end function
 
     function was_executed(this) result(executed)
         class(simple_test_analyzer_t), intent(in) :: this
         logical :: executed
-        
+
         executed = this%analysis_executed
     end function
 
     function get_nodes_visited(this) result(count)
         class(simple_test_analyzer_t), intent(in) :: this
         integer :: count
-        
+
         count = this%nodes_visited
     end function
 
     subroutine assign_test_analyzer(lhs, rhs)
         class(simple_test_analyzer_t), intent(out) :: lhs
         class(semantic_analyzer_t), intent(in) :: rhs
-        
-        select type(rhs)
+
+        select type (rhs)
         type is (simple_test_analyzer_t)
             lhs%analysis_executed = rhs%analysis_executed
             lhs%nodes_visited = rhs%nodes_visited
@@ -91,11 +91,11 @@ contains
     function get_test_dependencies(this) result(deps)
         class(simple_test_analyzer_t), intent(in) :: this
         character(:), allocatable :: deps(:)
-        
+
         ! Test analyzer has no dependencies
-        allocate(character(len=0) :: deps(0))
-        
-        associate(dummy => this)
+        allocate (character(len=0) :: deps(0))
+
+        associate (dummy => this)
         end associate
     end function
 

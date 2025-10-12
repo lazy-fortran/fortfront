@@ -1,15 +1,15 @@
 program test_array_slicing_codegen
     use fortfront, only: emit_fortran, lex_source, parse_tokens, &
-                        analyze_semantics, token_t, &
-                        ast_arena_t, create_ast_arena
+                         analyze_semantics, token_t, &
+                         ast_arena_t, create_ast_arena
     implicit none
 
     logical :: all_passed
     all_passed = .true.
 
-    if (.not. test_basic_slices())      all_passed = .false.
-    if (.not. test_empty_bounds())       all_passed = .false.
-    if (.not. test_multidim_slices())    all_passed = .false.
+    if (.not. test_basic_slices()) all_passed = .false.
+    if (.not. test_empty_bounds()) all_passed = .false.
+    if (.not. test_multidim_slices()) all_passed = .false.
 
     if (all_passed) then
         print *, 'All array slicing codegen tests passed!'
@@ -77,7 +77,7 @@ contains
             '  integer :: arr(5)' // new_line('a') // &
             '  arr(:3) = arr(:3)' // new_line('a') // &
             '  arr(2:) = arr(2:)' // new_line('a') // &
-            '  arr(:)  = arr(:)'  // new_line('a') // &
+            '  arr(:)  = arr(:)' // new_line('a') // &
             'end program p'
 
         call lex_source(source, tokens, error_msg)

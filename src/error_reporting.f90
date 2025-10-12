@@ -51,14 +51,14 @@ contains
         integer, intent(in) :: line, column
         character(len=*), intent(in), optional :: filename, source_line
         type(error_context_t) :: context
-        
+
         context%line = line
         context%column = column
-        
+
         if (present(filename)) then
             context%filename = filename
         end if
-        
+
         if (present(source_line)) then
             context%source_line = source_line
         end if
@@ -70,14 +70,14 @@ contains
         character(len=*), intent(in), optional :: filename
         character(len=*), intent(in), optional :: source_lines(:)
         type(error_context_t) :: context
-        
+
         context%line = token%line
         context%column = token%column
-        
+
         if (present(filename)) then
             context%filename = filename
         end if
-        
+
         if (present(source_lines) .and. token%line > 0 .and. token%line <= size(source_lines)) then
             context%source_line = source_lines(token%line)
         end if
@@ -89,32 +89,32 @@ contains
         character(len=*), intent(in) :: message
         integer, intent(in), optional :: severity
         character(len=*), intent(in), optional :: suggestion
-        
+
         type(error_record_t), allocatable :: temp_errors(:)
         integer :: new_size, sev
-        
+
         sev = ERROR_ERROR
         if (present(severity)) sev = severity
-        
+
         ! Expand array if needed
         if (.not. allocated(self%errors)) then
-            allocate(self%errors(10))
+            allocate (self%errors(10))
         else if (self%count >= size(self%errors)) then
             new_size = size(self%errors) * 2
-            allocate(temp_errors(new_size))
+            allocate (temp_errors(new_size))
             temp_errors(1:self%count) = self%errors(1:self%count)
             call move_alloc(temp_errors, self%errors)
         end if
-        
+
         ! Add new error
         self%count = self%count + 1
         self%errors(self%count)%message = message
         self%errors(self%count)%severity = sev
-        
+
         if (present(suggestion)) then
             self%errors(self%count)%suggestion = suggestion
         end if
-        
+
         if (sev == ERROR_FATAL) self%has_fatal = .true.
     end subroutine error_collection_add_error
 
@@ -125,7 +125,7 @@ contains
         type(token_t), intent(in) :: token
         integer, intent(in), optional :: severity
         character(len=*), intent(in), optional :: suggestion
-        
+
         call self%add_error(message, severity, suggestion)
         self%errors(self%count)%context = create_error_context_from_token(token)
     end subroutine error_collection_add_error_with_token
@@ -137,7 +137,7 @@ contains
         type(error_context_t), intent(in) :: context
         integer, intent(in), optional :: severity
         character(len=*), intent(in), optional :: suggestion
-        
+
         call self%add_error(message, severity, suggestion)
         self%errors(self%count)%context = context
     end subroutine error_collection_add_error_with_context
@@ -155,12 +155,12 @@ contains
         character(len=:), allocatable :: formatted
         integer :: i
         character(len=500) :: temp_msg
-        
+
         if (self%count == 0) then
             formatted = ""
             return
         end if
-        
+
         formatted = ""
         do i = 1, self%count
             formatted = formatted // format_error_message(self%errors(i)) // new_line('a')
@@ -170,7 +170,7 @@ contains
     ! Clear all errors
     subroutine error_collection_clear(self)
         class(error_collection_t), intent(inout) :: self
-        if (allocated(self%errors)) deallocate(self%errors)
+        if (allocated(self%errors)) deallocate (self%errors)
         self%count = 0
         self%has_fatal = .false.
     end subroutine error_collection_clear
@@ -181,7 +181,7 @@ contains
         character(len=:), allocatable :: formatted
         character(len=20) :: severity_str
         character(len=20) :: location_str
-        
+
         ! Format severity
         select case (error%severity)
         case (ERROR_INFO)
@@ -195,30 +195,30 @@ contains
         case default
             severity_str = "UNKNOWN"
         end select
-        
+
         ! Format location if available
         if (error%context%line > 0) then
             write(location_str, '("line ", I0, ", col ", I0)') error%context%line, error%context%column
         else
             location_str = ""
         end if
-        
+
         ! Build formatted message
         if (len_trim(location_str) > 0) then
             formatted = trim(severity_str) // " at " // trim(location_str) // ": " // error%message
         else
             formatted = trim(severity_str) // ": " // error%message
         end if
-        
+
         ! Add source line context if available
         if (allocated(error%context%source_line) .and. error%context%column > 0) then
             formatted = formatted // new_line('a') // "  " // error%context%source_line
             if (error%context%column <= len(error%context%source_line)) then
                 formatted = formatted // new_line('a') // "  " // &
-                           repeat(" ", error%context%column - 1) // "^"
+                            repeat(" ", error%context%column - 1) // "^"
             end if
         end if
-        
+
         ! Add suggestion if available
         if (allocated(error%suggestion)) then
             formatted = formatted // new_line('a') // "  Suggestion: " // error%suggestion

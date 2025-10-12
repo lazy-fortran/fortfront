@@ -56,12 +56,12 @@ contains
         end if
 
         call assert_contains(output, 'use iso_fortran_env', &
-            'missing iso_fortran_env use statement')
+                             'missing iso_fortran_env use statement')
         call assert_contains(output, 'use iso_c_binding', &
-            'missing iso_c_binding use statement')
+                             'missing iso_c_binding use statement')
         call assert_contains(output, 'integer :: n', 'missing integer decl for n')
         call assert_contains(output, 'integer :: count', &
-            'missing integer decl for count')
+                             'missing integer decl for count')
         call assert_contains(output, 'integer :: i', 'missing integer decl for i')
 
         use1_pos = index(output, 'use iso_fortran_env')
@@ -99,11 +99,11 @@ contains
             error stop 1
         end if
 
-        real_decl_variants = [ character(len=32) :: &
-            'real(kind=8) :: x, y', &
-            'real(8) :: x, y' ]
+        real_decl_variants = [character(len=32) :: &
+                              'real(kind=8) :: x, y', &
+                              'real(8) :: x, y']
         call assert_contains_any(output, real_decl_variants, &
-            'missing explicit real declaration for x,y')
+                                 'missing explicit real declaration for x,y')
 
         real_decl_pos = index(output, 'real(kind=8) :: x, y')
         existing_decl_line = 'real(kind=8) :: x, y'

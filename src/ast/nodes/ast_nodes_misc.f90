@@ -1,7 +1,7 @@
 module ast_nodes_misc
     use json_module
     use ast_base, only: ast_node, visit_interface, to_json_interface, string_t, &
-                         ast_visitor_base_t
+                        ast_visitor_base_t
     implicit none
     private
 
@@ -29,8 +29,8 @@ module ast_nodes_misc
 
     ! Complex literal node
     type, extends(ast_node), public :: complex_literal_node
-        integer :: real_index = 0     ! Index to real part expression in arena
-        integer :: imag_index = 0     ! Index to imaginary part expression in arena
+        integer :: real_index = 0  ! Index to real part expression in arena
+        integer :: imag_index = 0  ! Index to imaginary part expression in arena
     contains
         procedure :: accept => complex_literal_accept
         procedure :: to_json => complex_literal_to_json
@@ -40,14 +40,14 @@ module ast_nodes_misc
 
     ! Allocate statement node
     type, extends(ast_node), public :: allocate_statement_node
-        integer, allocatable :: var_indices(:)         ! Variables to allocate
-        integer, allocatable :: shape_indices(:)       ! Shape expressions
+        integer, allocatable :: var_indices(:)  ! Variables to allocate
+        integer, allocatable :: shape_indices(:)  ! Shape expressions
         ! for each variable
-        integer :: stat_var_index = 0                  ! Optional stat variable index
-        integer :: errmsg_var_index = 0                ! Optional errmsg variable index
-        integer :: source_expr_index = 0               ! Optional source
+        integer :: stat_var_index = 0  ! Optional stat variable index
+        integer :: errmsg_var_index = 0  ! Optional errmsg variable index
+        integer :: source_expr_index = 0  ! Optional source
         ! expression index
-        integer :: mold_expr_index = 0                 ! Optional mold expression index
+        integer :: mold_expr_index = 0  ! Optional mold expression index
     contains
         procedure :: accept => allocate_statement_accept
         procedure :: to_json => allocate_statement_to_json
@@ -57,9 +57,9 @@ module ast_nodes_misc
 
     ! Deallocate statement node
     type, extends(ast_node), public :: deallocate_statement_node
-        integer, allocatable :: var_indices(:)         ! Variables to deallocate
-        integer :: stat_var_index = 0                  ! Optional stat variable index
-        integer :: errmsg_var_index = 0                ! Optional errmsg variable index
+        integer, allocatable :: var_indices(:)  ! Variables to deallocate
+        integer :: stat_var_index = 0  ! Optional stat variable index
+        integer :: errmsg_var_index = 0  ! Optional errmsg variable index
     contains
         procedure :: accept => deallocate_statement_accept
         procedure :: to_json => deallocate_statement_to_json
@@ -70,11 +70,11 @@ module ast_nodes_misc
     ! Use statement node
     type, extends(ast_node), public :: use_statement_node
         character(len=:), allocatable :: module_name
-        character(len=:), allocatable :: url_spec          ! Optional URL specification for Go-style imports
-        type(string_t), allocatable :: only_list(:)       ! Optional only clause items
-        type(string_t), allocatable :: rename_list(:)     ! Optional rename
+        character(len=:), allocatable :: url_spec  ! Optional URL specification for Go-style imports
+        type(string_t), allocatable :: only_list(:)  ! Optional only clause items
+        type(string_t), allocatable :: rename_list(:)  ! Optional rename
         ! mappings (new_name => old_name)
-        logical :: has_only = .false.                     ! Whether the only
+        logical :: has_only = .false.  ! Whether the only
         ! clause is present
     contains
         procedure :: accept => use_statement_accept
@@ -113,10 +113,10 @@ module ast_nodes_misc
 
     ! Interface block node
     type, extends(ast_node), public :: interface_block_node
-        character(len=:), allocatable :: name         ! Interface name (optional)
-        character(len=:), allocatable :: kind         ! "interface", "generic",
+        character(len=:), allocatable :: name  ! Interface name (optional)
+        character(len=:), allocatable :: kind  ! "interface", "generic",
         ! "operator", "assignment"
-        character(len=:), allocatable :: operator     ! Operator symbol
+        character(len=:), allocatable :: operator  ! Operator symbol
         ! (for operator interfaces)
         integer, allocatable :: procedure_indices(:)  ! Procedure declaration
         ! arena indices
@@ -129,23 +129,23 @@ module ast_nodes_misc
 
     ! Letter specification for implicit statements
     type, public :: implicit_letter_spec_t
-        character :: start_letter = ' '   ! Starting letter of range
-        character :: end_letter = ' '     ! Ending letter of range (same as start for single letters)
+        character :: start_letter = ' '  ! Starting letter of range
+        character :: end_letter = ' '  ! Ending letter of range (same as start for single letters)
     end type implicit_letter_spec_t
 
     ! Type specification for implicit statements
     type, public :: implicit_type_spec_t
-        character(len=:), allocatable :: type_name    ! "real", "integer", "character", etc.
+        character(len=:), allocatable :: type_name  ! "real", "integer", "character", etc.
         logical :: has_kind = .false.
         integer :: kind_value = 0
-        logical :: has_length = .false.               ! For character types
+        logical :: has_length = .false.  ! For character types
         integer :: length_value = 0
     end type implicit_type_spec_t
 
     ! Implicit statement node
     type, extends(ast_node), public :: implicit_statement_node
-        logical :: is_none = .false.                           ! True for "implicit none"
-        type(implicit_type_spec_t) :: type_spec                ! Type specification
+        logical :: is_none = .false.  ! True for "implicit none"
+        type(implicit_type_spec_t) :: type_spec  ! Type specification
         type(implicit_letter_spec_t), allocatable :: letter_specs(:)  ! Letter ranges/singles
     contains
         procedure :: accept => implicit_statement_accept
@@ -209,7 +209,7 @@ contains
     end function create_end_statement
 
     function create_use_statement(module_name, only_list, rename_list, &
-            has_only, line, column, url_spec) result(node)
+                                  has_only, line, column, url_spec) result(node)
         use uid_generator, only: generate_uid
         character(len=*), intent(in) :: module_name
         character(len=*), intent(in), optional :: only_list(:), rename_list(:)
@@ -223,25 +223,25 @@ contains
         node%uid = generate_uid()
         if (present(url_spec)) node%url_spec = url_spec
         if (present(has_only)) node%has_only = has_only
-        
+
         if (present(only_list)) then
             if (size(only_list) > 0) then
-                allocate(node%only_list(size(only_list)))
+                allocate (node%only_list(size(only_list)))
                 do i = 1, size(only_list)
                     node%only_list(i)%s = only_list(i)
                 end do
             end if
         end if
-        
+
         if (present(rename_list)) then
             if (size(rename_list) > 0) then
-                allocate(node%rename_list(size(rename_list)))
+                allocate (node%rename_list(size(rename_list)))
                 do i = 1, size(rename_list)
                     node%rename_list(i)%s = rename_list(i)
                 end do
             end if
         end if
-        
+
         if (present(line)) node%line = line
         if (present(column)) node%column = column
     end function create_use_statement
@@ -272,15 +272,15 @@ contains
             if (present(length_value)) node%type_spec%length_value = length_value
 
             if (present(letter_ranges)) then
-                allocate(node%letter_specs(size(letter_ranges)))
+                allocate (node%letter_specs(size(letter_ranges)))
                 do i = 1, size(letter_ranges)
                     dash_pos = index(letter_ranges(i), '-')
                     if (dash_pos > 0) then
-                        node%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
-                        node%letter_specs(i)%end_letter = letter_ranges(i)(dash_pos+1:dash_pos+1)
+                        node%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
+                        node%letter_specs(i)%end_letter = letter_ranges(i) (dash_pos + 1:dash_pos + 1)
                     else
-                        node%letter_specs(i)%start_letter = letter_ranges(i)(1:1)
-                        node%letter_specs(i)%end_letter = letter_ranges(i)(1:1)
+                        node%letter_specs(i)%start_letter = letter_ranges(i) (1:1)
+                        node%letter_specs(i)%end_letter = letter_ranges(i) (1:1)
                     end if
                 end do
             end if
@@ -303,7 +303,7 @@ contains
     end function create_include_statement
 
     function create_interface_block(name, kind, operator, procedure_indices, &
-            line, column) result(node)
+                                    line, column) result(node)
         use uid_generator, only: generate_uid
         character(len=*), intent(in), optional :: name, kind, operator
         integer, intent(in), optional :: procedure_indices(:)
@@ -336,7 +336,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'complex_literal')
         call json%add(obj, 'line', this%line)
@@ -375,19 +375,19 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'allocate_statement')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         if (this%stat_var_index > 0) call json%add(obj, 'stat_var_index', &
-            this%stat_var_index)
+                                                   this%stat_var_index)
         if (this%errmsg_var_index > 0) call json%add(obj, 'errmsg_var_index', &
-            this%errmsg_var_index)
+                                                     this%errmsg_var_index)
         if (this%source_expr_index > 0) call json%add(obj, 'source_expr_index', &
-            this%source_expr_index)
+                                                      this%source_expr_index)
         if (this%mold_expr_index > 0) call json%add(obj, 'mold_expr_index', &
-            this%mold_expr_index)
+                                                    this%mold_expr_index)
         call json%add(parent, obj)
     end subroutine allocate_statement_to_json
 
@@ -406,13 +406,13 @@ contains
         lhs%constant_type = rhs%constant_type
         ! Copy specific components
         if (allocated(rhs%var_indices)) then
-            if (allocated(lhs%var_indices)) deallocate(lhs%var_indices)
-            allocate(lhs%var_indices(size(rhs%var_indices)))
+            if (allocated(lhs%var_indices)) deallocate (lhs%var_indices)
+            allocate (lhs%var_indices(size(rhs%var_indices)))
             lhs%var_indices = rhs%var_indices
         end if
         if (allocated(rhs%shape_indices)) then
-            if (allocated(lhs%shape_indices)) deallocate(lhs%shape_indices)
-            allocate(lhs%shape_indices(size(rhs%shape_indices)))
+            if (allocated(lhs%shape_indices)) deallocate (lhs%shape_indices)
+            allocate (lhs%shape_indices(size(rhs%shape_indices)))
             lhs%shape_indices = rhs%shape_indices
         end if
         lhs%stat_var_index = rhs%stat_var_index
@@ -432,15 +432,15 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'deallocate_statement')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         if (this%stat_var_index > 0) call json%add(obj, 'stat_var_index', &
-            this%stat_var_index)
+                                                   this%stat_var_index)
         if (this%errmsg_var_index > 0) call json%add(obj, 'errmsg_var_index', &
-            this%errmsg_var_index)
+                                                     this%errmsg_var_index)
         call json%add(parent, obj)
     end subroutine deallocate_statement_to_json
 
@@ -459,8 +459,8 @@ contains
         lhs%constant_type = rhs%constant_type
         ! Copy specific components
         if (allocated(rhs%var_indices)) then
-            if (allocated(lhs%var_indices)) deallocate(lhs%var_indices)
-            allocate(lhs%var_indices(size(rhs%var_indices)))
+            if (allocated(lhs%var_indices)) deallocate (lhs%var_indices)
+            allocate (lhs%var_indices(size(rhs%var_indices)))
             lhs%var_indices = rhs%var_indices
         end if
         lhs%stat_var_index = rhs%stat_var_index
@@ -478,15 +478,15 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'use_statement')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         if (allocated(this%module_name)) call json%add(obj, 'module_name', &
-            this%module_name)
+                                                       this%module_name)
         if (allocated(this%url_spec)) call json%add(obj, 'url_spec', &
-            this%url_spec)
+                                                    this%url_spec)
         call json%add(obj, 'has_only', this%has_only)
         call json%add(parent, obj)
     end subroutine use_statement_to_json
@@ -508,13 +508,13 @@ contains
         if (allocated(rhs%module_name)) lhs%module_name = rhs%module_name
         if (allocated(rhs%url_spec)) lhs%url_spec = rhs%url_spec
         if (allocated(rhs%only_list)) then
-            if (allocated(lhs%only_list)) deallocate(lhs%only_list)
-            allocate(lhs%only_list(size(rhs%only_list)))
+            if (allocated(lhs%only_list)) deallocate (lhs%only_list)
+            allocate (lhs%only_list(size(rhs%only_list)))
             lhs%only_list = rhs%only_list
         end if
         if (allocated(rhs%rename_list)) then
-            if (allocated(lhs%rename_list)) deallocate(lhs%rename_list)
-            allocate(lhs%rename_list(size(rhs%rename_list)))
+            if (allocated(lhs%rename_list)) deallocate (lhs%rename_list)
+            allocate (lhs%rename_list(size(rhs%rename_list)))
             lhs%rename_list = rhs%rename_list
         end if
         lhs%has_only = rhs%has_only
@@ -531,7 +531,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'include_statement')
         call json%add(obj, 'line', this%line)
@@ -568,7 +568,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'contains')
         call json%add(obj, 'line', this%line)
@@ -602,7 +602,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'end_statement')
         call json%add(obj, 'line', this%line)
@@ -636,7 +636,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'interface_block')
         call json%add(obj, 'line', this%line)
@@ -665,8 +665,8 @@ contains
         if (allocated(rhs%kind)) lhs%kind = rhs%kind
         if (allocated(rhs%operator)) lhs%operator = rhs%operator
         if (allocated(rhs%procedure_indices)) then
-            if (allocated(lhs%procedure_indices)) deallocate(lhs%procedure_indices)
-            allocate(lhs%procedure_indices(size(rhs%procedure_indices)))
+            if (allocated(lhs%procedure_indices)) deallocate (lhs%procedure_indices)
+            allocate (lhs%procedure_indices(size(rhs%procedure_indices)))
             lhs%procedure_indices = rhs%procedure_indices
         end if
     end subroutine interface_block_assign
@@ -683,7 +683,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'comment')
         call json%add(obj, 'line', this%line)
@@ -721,7 +721,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'blank_line')
         call json%add(obj, 'line', this%line)
@@ -759,13 +759,13 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'implicit_statement')
         call json%add(obj, 'line', this%line)
         call json%add(obj, 'column', this%column)
         call json%add(obj, 'is_none', this%is_none)
-        
+
         if (.not. this%is_none) then
             ! Add type specification as simple fields
             if (allocated(this%type_spec%type_name)) then
@@ -779,7 +779,7 @@ contains
             if (this%type_spec%has_length) then
                 call json%add(obj, 'length_value', this%type_spec%length_value)
             end if
-            
+
             ! For now, just add letter count - full letter spec serialization can be added later
             if (allocated(this%letter_specs)) then
                 call json%add(obj, 'letter_specs_count', size(this%letter_specs))
@@ -787,7 +787,7 @@ contains
                 call json%add(obj, 'letter_specs_count', 0)
             end if
         end if
-        
+
         call json%add(parent, obj)
     end subroutine implicit_statement_to_json
 
@@ -795,7 +795,7 @@ contains
         class(implicit_statement_node), intent(inout) :: lhs
         class(implicit_statement_node), intent(in) :: rhs
         integer :: i
-        
+
         ! Copy base class components
         lhs%line = rhs%line
         lhs%column = rhs%column
@@ -806,30 +806,30 @@ contains
         lhs%constant_integer = rhs%constant_integer
         lhs%constant_real = rhs%constant_real
         lhs%constant_type = rhs%constant_type
-        
+
         ! Copy implicit statement specific fields
         lhs%is_none = rhs%is_none
-        
+
         ! Copy type specification
         if (allocated(rhs%type_spec%type_name)) then
             lhs%type_spec%type_name = rhs%type_spec%type_name
         else
-            if (allocated(lhs%type_spec%type_name)) deallocate(lhs%type_spec%type_name)
+            if (allocated(lhs%type_spec%type_name)) deallocate (lhs%type_spec%type_name)
         end if
         lhs%type_spec%has_kind = rhs%type_spec%has_kind
         lhs%type_spec%kind_value = rhs%type_spec%kind_value
         lhs%type_spec%has_length = rhs%type_spec%has_length
         lhs%type_spec%length_value = rhs%type_spec%length_value
-        
+
         ! Copy letter specifications
         if (allocated(rhs%letter_specs)) then
-            if (allocated(lhs%letter_specs)) deallocate(lhs%letter_specs)
-            allocate(lhs%letter_specs(size(rhs%letter_specs)))
+            if (allocated(lhs%letter_specs)) deallocate (lhs%letter_specs)
+            allocate (lhs%letter_specs(size(rhs%letter_specs)))
             do i = 1, size(rhs%letter_specs)
                 lhs%letter_specs(i) = rhs%letter_specs(i)
             end do
         else
-            if (allocated(lhs%letter_specs)) deallocate(lhs%letter_specs)
+            if (allocated(lhs%letter_specs)) deallocate (lhs%letter_specs)
         end if
     end subroutine implicit_statement_assign
 

@@ -2,25 +2,25 @@ module codegen_core
     use iso_fortran_env, only: error_unit
     use ast_arena_modern, only: ast_arena_t
     use codegen_expressions
-    use codegen_statements  
+    use codegen_statements
     use codegen_control_flow
     use codegen_declarations
     use codegen_type_utils, only: set_type_standardization, get_type_standardization
     use codegen_basic_utils, only: add_line_continuations
     use codegen_arena_interface, only: set_arena_generator
     use ast_nodes_data, only: mixed_construct_container_node, declaration_node, &
-                               parameter_declaration_node, module_node, derived_type_node
+                              parameter_declaration_node, module_node, derived_type_node
     use ast_nodes_bounds, only: range_expression_node, array_bounds_node, array_slice_node, &
                                 array_operation_node
     use ast_nodes_core, only: range_subscript_node, literal_node, identifier_node, &
-                               binary_op_node, call_or_subscript_node, array_literal_node, &
-                               assignment_node, program_node, component_access_node
+                              binary_op_node, call_or_subscript_node, array_literal_node, &
+                              assignment_node, program_node, component_access_node
     use ast_nodes_procedure
     use ast_nodes_associate, only: associate_node
     use ast_nodes_misc, only: complex_literal_node, comment_node, blank_line_node, &
-                               implicit_statement_node, allocate_statement_node, &
-                               deallocate_statement_node, use_statement_node, &
-                               contains_node, end_statement_node
+                              implicit_statement_node, allocate_statement_node, &
+                              deallocate_statement_node, use_statement_node, &
+                              contains_node, end_statement_node
     use ast_nodes_control
     use ast_nodes_loops
     use ast_nodes_io
@@ -47,8 +47,8 @@ contains
 
         ! Dispatch to appropriate generator based on node type
         select type (node => arena%entries(node_index)%node)
-        
-        ! Expression nodes
+
+            ! Expression nodes
         type is (literal_node)
             code = generate_code_literal(node)
         type is (identifier_node)
@@ -73,8 +73,8 @@ contains
             code = generate_code_range_subscript(arena, node, node_index)
         type is (array_operation_node)
             code = generate_code_array_operation(arena, node, node_index)
-            
-        ! Statement nodes
+
+            ! Statement nodes
         type is (assignment_node)
             code = generate_code_assignment(arena, node, node_index)
         type is (subroutine_call_node)
@@ -109,8 +109,8 @@ contains
             code = generate_code_allocate_statement(arena, node, node_index)
         type is (deallocate_statement_node)
             code = generate_code_deallocate_statement(arena, node, node_index)
-            
-        ! Control flow nodes
+
+            ! Control flow nodes
         type is (if_node)
             code = generate_code_if(arena, node, node_index)
         type is (do_loop_node)
@@ -125,8 +125,8 @@ contains
             code = generate_code_forall(arena, node, node_index)
         type is (associate_node)
             code = generate_code_associate(arena, node, node_index)
-            
-        ! Declaration and definition nodes
+
+            ! Declaration and definition nodes
         type is (declaration_node)
             code = generate_code_declaration(arena, node, node_index)
         type is (parameter_declaration_node)
@@ -143,13 +143,13 @@ contains
             code = generate_code_derived_type(arena, node, node_index)
         type is (mixed_construct_container_node)
             code = generate_code_mixed_construct_container(arena, node, node_index)
-            
-        ! Special nodes
+
+            ! Special nodes
         type is (contains_node)
             code = "contains"
         type is (end_statement_node)
             code = "end"
-            
+
         class default
             ! Unknown node type
             code = "! Unknown node type"
@@ -192,7 +192,7 @@ contains
                 buffer = buffer // ch
                 if (ch == string_delim) then
                     if (i < len_text) then
-                        if (text(i+1:i+1) == string_delim) then
+                        if (text(i + 1:i + 1) == string_delim) then
                             buffer = buffer // string_delim
                             i = i + 1
                         else
@@ -270,7 +270,7 @@ contains
             pos = index(text(start:), pattern)
             if (pos == 0) exit
             pos = pos + start - 1
-            if (pos > start) buffer = buffer // text(start:pos-1)
+            if (pos > start) buffer = buffer // text(start:pos - 1)
             buffer = buffer // replacement
             start = pos + pat_len
         end do
@@ -321,34 +321,34 @@ contains
         integer, intent(in) :: node_index
         character(len=:), allocatable :: code
         integer :: i
-        
+
         code = ""
-        
+
         ! Generate code for explicit program units
         if (allocated(node%explicit_program_indices)) then
             do i = 1, size(node%explicit_program_indices)
                 if (node%explicit_program_indices(i) > 0 .and. &
                     node%explicit_program_indices(i) <= arena%size) then
-                    
+
                     if (i > 1) then
                         code = code // new_line('A') // new_line('A')
                     end if
-                    
+
                     code = code // codegen_core_generate_arena(arena, node%explicit_program_indices(i))
                 end if
             end do
         end if
-        
+
         ! Generate code for implicit declarations (if any)
         if (allocated(node%implicit_declaration_indices)) then
             do i = 1, size(node%implicit_declaration_indices)
                 if (node%implicit_declaration_indices(i) > 0 .and. &
                     node%implicit_declaration_indices(i) <= arena%size) then
-                    
+
                     if (len(code) > 0) then
                         code = code // new_line('A') // new_line('A')
                     end if
-                    
+
                     code = code // codegen_core_generate_arena(arena, node%implicit_declaration_indices(i))
                 end if
             end do

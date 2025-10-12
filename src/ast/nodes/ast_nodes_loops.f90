@@ -2,7 +2,7 @@ module ast_nodes_loops
     use json_module
     use uid_generator, only: generate_uid
     use ast_base, only: ast_node, visit_interface, to_json_interface, &
-                         ast_node_wrapper, ast_visitor_base_t
+                        ast_node_wrapper, ast_visitor_base_t
     implicit none
     private
 
@@ -17,13 +17,13 @@ module ast_nodes_loops
 
     ! Do loop node
     type, extends(ast_node) :: do_loop_node
-        character(len=:), allocatable :: var_name     ! Loop variable
-        character(len=:), allocatable :: label        ! Loop label (optional)
-        integer :: start_expr_index = 0               ! Start expression arena index
-        integer :: end_expr_index = 0                 ! End expression arena index
-        integer :: step_expr_index = 0                ! Step expression arena &
-                                                        ! index (optional)
-        integer, allocatable :: body_indices(:)       ! Loop body arena indices
+        character(len=:), allocatable :: var_name  ! Loop variable
+        character(len=:), allocatable :: label  ! Loop label (optional)
+        integer :: start_expr_index = 0  ! Start expression arena index
+        integer :: end_expr_index = 0  ! End expression arena index
+        integer :: step_expr_index = 0  ! Step expression arena &
+        ! index (optional)
+        integer, allocatable :: body_indices(:)  ! Loop body arena indices
     contains
         procedure :: accept => do_loop_accept
         procedure :: to_json => do_loop_to_json
@@ -33,7 +33,7 @@ module ast_nodes_loops
 
     ! Do while loop node
     type, extends(ast_node) :: do_while_node
-        integer :: condition_index       ! Index to condition expression
+        integer :: condition_index  ! Index to condition expression
         integer, allocatable :: body_indices(:)  ! Indices to body statements
     contains
         procedure :: accept => do_while_accept
@@ -50,25 +50,25 @@ module ast_nodes_loops
         integer, allocatable :: lower_bound_indices(:)
         integer, allocatable :: upper_bound_indices(:)
         integer, allocatable :: stride_indices(:)  ! Optional strides (0 = no stride)
-        
+
         ! Optional mask
         logical :: has_mask = .false.
         integer :: mask_expr_index = 0
-        
+
         ! Body statements
         integer, allocatable :: body_indices(:)
-        
+
         ! Dependency analysis results
         logical :: has_dependencies = .false.
         logical :: is_parallel_safe = .false.
-        integer, allocatable :: dependency_pairs(:,:)  ! Pairs of dependent statements
+        integer, allocatable :: dependency_pairs(:, :)  ! Pairs of dependent statements
     contains
         procedure :: accept => forall_accept
         procedure :: to_json => forall_to_json
         procedure :: assign => forall_assign
         generic :: assignment(=) => assign
     end type forall_node
-    
+
     ! FORALL triplet type for index specifications
     type :: forall_triplet_t
         character(len=:), allocatable :: index_name
@@ -113,8 +113,8 @@ contains
         lhs%end_expr_index = rhs%end_expr_index
         lhs%step_expr_index = rhs%step_expr_index
         if (allocated(rhs%body_indices)) then
-            if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
-            allocate(lhs%body_indices(size(rhs%body_indices)))
+            if (allocated(lhs%body_indices)) deallocate (lhs%body_indices)
+            allocate (lhs%body_indices(size(rhs%body_indices)))
             lhs%body_indices = rhs%body_indices
         end if
     end subroutine do_loop_assign
@@ -149,8 +149,8 @@ contains
         ! Copy specific components
         lhs%condition_index = rhs%condition_index
         if (allocated(rhs%body_indices)) then
-            if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
-            allocate(lhs%body_indices(size(rhs%body_indices)))
+            if (allocated(lhs%body_indices)) deallocate (lhs%body_indices)
+            allocate (lhs%body_indices(size(rhs%body_indices)))
             lhs%body_indices = rhs%body_indices
         end if
     end subroutine do_while_assign
@@ -167,7 +167,7 @@ contains
         type(json_core), intent(inout) :: json
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
-        
+
         call json%create_object(obj, '')
         call json%add(obj, 'type', 'forall')
         call json%add(obj, 'line', this%line)
@@ -210,43 +210,43 @@ contains
         ! Copy specific components
         lhs%num_indices = rhs%num_indices
         if (allocated(rhs%index_names)) then
-            if (allocated(lhs%index_names)) deallocate(lhs%index_names)
-            allocate(lhs%index_names, source=rhs%index_names)
+            if (allocated(lhs%index_names)) deallocate (lhs%index_names)
+            allocate (lhs%index_names, source=rhs%index_names)
         end if
         if (allocated(rhs%lower_bound_indices)) then
-            if (allocated(lhs%lower_bound_indices)) deallocate(lhs%lower_bound_indices)
-            allocate(lhs%lower_bound_indices(size(rhs%lower_bound_indices)))
+            if (allocated(lhs%lower_bound_indices)) deallocate (lhs%lower_bound_indices)
+            allocate (lhs%lower_bound_indices(size(rhs%lower_bound_indices)))
             lhs%lower_bound_indices = rhs%lower_bound_indices
         end if
         if (allocated(rhs%upper_bound_indices)) then
-            if (allocated(lhs%upper_bound_indices)) deallocate(lhs%upper_bound_indices)
-            allocate(lhs%upper_bound_indices(size(rhs%upper_bound_indices)))
+            if (allocated(lhs%upper_bound_indices)) deallocate (lhs%upper_bound_indices)
+            allocate (lhs%upper_bound_indices(size(rhs%upper_bound_indices)))
             lhs%upper_bound_indices = rhs%upper_bound_indices
         end if
         if (allocated(rhs%stride_indices)) then
-            if (allocated(lhs%stride_indices)) deallocate(lhs%stride_indices)
-            allocate(lhs%stride_indices(size(rhs%stride_indices)))
+            if (allocated(lhs%stride_indices)) deallocate (lhs%stride_indices)
+            allocate (lhs%stride_indices(size(rhs%stride_indices)))
             lhs%stride_indices = rhs%stride_indices
         end if
         lhs%has_mask = rhs%has_mask
         lhs%mask_expr_index = rhs%mask_expr_index
         if (allocated(rhs%body_indices)) then
-            if (allocated(lhs%body_indices)) deallocate(lhs%body_indices)
-            allocate(lhs%body_indices(size(rhs%body_indices)))
+            if (allocated(lhs%body_indices)) deallocate (lhs%body_indices)
+            allocate (lhs%body_indices(size(rhs%body_indices)))
             lhs%body_indices = rhs%body_indices
         end if
         lhs%has_dependencies = rhs%has_dependencies
         lhs%is_parallel_safe = rhs%is_parallel_safe
         if (allocated(rhs%dependency_pairs)) then
-            if (allocated(lhs%dependency_pairs)) deallocate(lhs%dependency_pairs)
-            allocate(lhs%dependency_pairs, source=rhs%dependency_pairs)
+            if (allocated(lhs%dependency_pairs)) deallocate (lhs%dependency_pairs)
+            allocate (lhs%dependency_pairs, source=rhs%dependency_pairs)
         end if
     end subroutine forall_assign
 
     ! Factory functions
     function create_do_loop(var_name, start_expr_index, end_expr_index, &
                             step_expr_index, body_indices, line, column) &
-                            result(node)
+        result(node)
         character(len=*), intent(in) :: var_name
         integer, intent(in) :: start_expr_index, end_expr_index
         integer, intent(in), optional :: step_expr_index

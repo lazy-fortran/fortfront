@@ -4,29 +4,29 @@ program test_parameter_attributes_simple
     use ast_visitor
     use ast_traversal
     implicit none
-    
+
     logical :: all_passed = .true.
-    
+
     print *, '=== Testing Parameter Attributes ==='
     print *
-    
+
     if (.not. test_parameter_attributes_parsing()) all_passed = .false.
-    
+
     if (all_passed) then
         print *, 'PASS: Parameter attribute tests passed'
     else
         print *, 'FAIL: Parameter attribute tests failed'
         stop 1
     end if
-    
+
 contains
-    
+
     function test_parameter_attributes_parsing() result(passed)
         logical :: passed
         character(len=:), allocatable :: source, generated_code, error_msg
-        
+
         passed = .true.
-        
+
         ! Test case from issue #20 - wrapped in a program
         source = &
             "program test_params" // new_line('a') // &
@@ -38,9 +38,9 @@ contains
             "        output = required * 2" // new_line('a') // &
             "    end subroutine test" // new_line('a') // &
             "end program test_params"
-        
+
         call transform_lazy_fortran_string(source, generated_code, error_msg)
-        
+
         if (error_msg /= "") then
             print *, "ERROR: Failed to parse parameter attributes: ", trim(error_msg)
             passed = .false.
@@ -54,7 +54,7 @@ contains
             print *, "SUCCESS: Parameter attributes parsed correctly"
             print *, "Generated code:"
             print *, trim(generated_code)
-            
+
             ! Verify attributes are preserved
             if (index(generated_code, "intent(in)") == 0) then
                 print *, "WARNING: intent(in) not found in output"
@@ -66,7 +66,7 @@ contains
                 print *, "WARNING: optional not found in output"
             end if
         end if
-        
+
     end function test_parameter_attributes_parsing
-    
+
 end program test_parameter_attributes_simple

@@ -33,8 +33,8 @@ contains
         table%count = 0_int32
         table%entry_capacity = 0_int32
         table%bucket_count = 0_int32
-        if (allocated(table%entries)) deallocate(table%entries)
-        if (allocated(table%buckets)) deallocate(table%buckets)
+        if (allocated(table%entries)) deallocate (table%entries)
+        if (allocated(table%buckets)) deallocate (table%buckets)
 
         if (present(initial_bucket_count)) then
             bucket_count = max(16, initial_bucket_count)
@@ -74,9 +74,9 @@ contains
 
         table%count = table%count + 1_int32
         if (allocated(table%entries(table%count)%value)) then
-            deallocate(table%entries(table%count)%value)
+            deallocate (table%entries(table%count)%value)
         end if
-        allocate(character(len=len(key)) :: table%entries(table%count)%value)
+        allocate (character(len=len(key)) :: table%entries(table%count)%value)
         table%entries(table%count)%value = key
         table%entries(table%count)%hash = hash
         table%entries(table%count)%next = 0_int32
@@ -113,7 +113,7 @@ contains
         character(len=:), allocatable :: value
 
         if (id <= 0_int32 .or. id > table%count) then
-            allocate(character(len=0) :: value)
+            allocate (character(len=0) :: value)
             value = ''
             return
         end if
@@ -155,7 +155,7 @@ contains
             new_capacity = new_capacity * 2
         end do
 
-        allocate(new_entries(new_capacity))
+        allocate (new_entries(new_capacity))
         if (table%entry_capacity > 0_int32 .and. table%count > 0_int32) then
             new_entries(1:table%count) = table%entries(1:table%count)
         end if
@@ -185,8 +185,8 @@ contains
         integer, intent(in) :: new_bucket_count
         integer(int32) :: i
 
-        if (allocated(table%buckets)) deallocate(table%buckets)
-        allocate(table%buckets(new_bucket_count))
+        if (allocated(table%buckets)) deallocate (table%buckets)
+        allocate (table%buckets(new_bucket_count))
         table%buckets = 0_int32
         table%bucket_count = new_bucket_count
 

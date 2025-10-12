@@ -16,7 +16,8 @@ contains
 
     ! Create function definition node and add to stack
     function push_function_def(arena, name, param_indices, return_type, body_indices, &
-                               line, column, parent_index, result_variable, is_recursive) result(func_index)
+                               line, column, parent_index, result_variable, &
+                               is_recursive, prefix_keywords) result(func_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
@@ -25,11 +26,13 @@ contains
         integer, intent(in), optional :: line, column, parent_index
         character(len=*), intent(in), optional :: result_variable
         logical, intent(in), optional :: is_recursive
+        character(len=16), intent(in), optional :: prefix_keywords(:)
         integer :: func_index
         type(function_def_node) :: func_def
 
         func_def = create_function_def(name, param_indices, return_type, &
-                                       body_indices, line, column, result_variable)
+                                       body_indices, line, column, result_variable, &
+                                       prefix_keywords)
         if (present(is_recursive)) then
             func_def%is_recursive = is_recursive
         end if
@@ -77,7 +80,7 @@ contains
 
     ! Create module node and add to stack
     function push_module(arena, name, body_indices, line, column, &
-                        parent_index) result(module_index)
+                         parent_index) result(module_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: body_indices(:)
@@ -112,10 +115,14 @@ contains
         mod_node%uid = generate_uid()
         mod_node%name = name
         if (present(declaration_indices)) then
-            if (size(declaration_indices) > 0) mod_node%declaration_indices = declaration_indices
+            if (size(declaration_indices) > 0) then
+                mod_node%declaration_indices = declaration_indices
+            end if
         end if
         if (present(procedure_indices)) then
-            if (size(procedure_indices) > 0) mod_node%procedure_indices = procedure_indices
+            if (size(procedure_indices) > 0) then
+                mod_node%procedure_indices = procedure_indices
+            end if
         end if
         if (present(has_contains)) mod_node%has_contains = has_contains
         mod_node%line = line

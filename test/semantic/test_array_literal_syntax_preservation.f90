@@ -43,7 +43,7 @@ contains
     function test_modern_array_syntax_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-            "arr = [1, 2, 3, 4]" // new_line('a')
+                                       "arr = [1, 2, 3, 4]" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "modern_array_syntax_preservation"
         type(token_t), allocatable :: tokens(:)
@@ -51,7 +51,7 @@ contains
         integer :: prog_index
 
         passed = .false.
-        
+
         ! Tokenize
         call lex_source(source, tokens, error_msg)
         if (allocated(error_msg)) then
@@ -70,20 +70,20 @@ contains
                 return
             end if
         end if
-        
+
         ! Generate code
         call emit_fortran(arena, prog_index, result)
-        
+
         ! Check if compilation succeeded
         if (.not. allocated(result)) then
             print *, "ERROR in ", test_name, ": Compilation failed - no result"
             return
         end if
-        
+
         print *, "Input: [1, 2, 3, 4]"
         print *, "Generated result:"
         print *, result
-        
+
         ! Should preserve modern syntax - should NOT convert to (/ ... /)
         if (.not. contains_without_spaces(result, "[1,2,3,4]")) then
             print *, "ERROR in ", test_name, ": Modern array syntax not preserved"
@@ -92,7 +92,7 @@ contains
             print *, result
             return
         end if
-        
+
         ! Should NOT convert to legacy syntax
         if (contains_without_spaces(result, "(/1,2,3,4/)")) then
             print *, "ERROR in ", test_name, ": Modern syntax incorrectly converted to legacy"
@@ -108,7 +108,7 @@ contains
     function test_legacy_array_syntax_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-            "arr = (/ 1, 2, 3, 4 /)" // new_line('a')
+                                       "arr = (/ 1, 2, 3, 4 /)" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "legacy_array_syntax_preservation"
         type(token_t), allocatable :: tokens(:)
@@ -116,7 +116,7 @@ contains
         integer :: prog_index
 
         passed = .false.
-        
+
         ! Tokenize
         call lex_source(source, tokens, error_msg)
         if (allocated(error_msg)) then
@@ -135,21 +135,21 @@ contains
                 return
             end if
         end if
-        
+
         ! Generate code
         call emit_fortran(arena, prog_index, result)
-        
+
         ! Check if compilation succeeded
         if (.not. allocated(result)) then
             print *, "ERROR in ", test_name, ": Compilation failed - no result"
             return
         end if
-        
+
         print *, "Input: (/ 1, 2, 3, 4 /)"
         print *, "Generated result:"
         print *, result
-        
-        ! Should preserve legacy syntax - should NOT convert to [...] 
+
+        ! Should preserve legacy syntax - should NOT convert to [...]
         if (.not. contains_without_spaces(result, "(/1,2,3,4/)")) then
             print *, "ERROR in ", test_name, ": Legacy array syntax not preserved"
             print *, "Expected to contain: (/ 1, 2, 3, 4 /) or (/1,2,3,4/)"
@@ -157,7 +157,7 @@ contains
             print *, result
             return
         end if
-        
+
         ! Should NOT convert to modern syntax
         if (contains_without_spaces(result, "[1,2,3,4]")) then
             print *, "ERROR in ", test_name, ": Legacy syntax incorrectly converted to modern"
@@ -173,8 +173,8 @@ contains
     function test_mixed_array_syntax_preservation() result(passed)
         logical :: passed
         character(len=*), parameter :: source = &
-            "arr1 = [1, 2, 3]" // new_line('a') // &
-            "arr2 = (/ 4, 5, 6 /)" // new_line('a')
+                                       "arr1 = [1, 2, 3]" // new_line('a') // &
+                                       "arr2 = (/ 4, 5, 6 /)" // new_line('a')
         character(len=:), allocatable :: result, error_msg
         character(len=*), parameter :: test_name = "mixed_array_syntax_preservation"
         type(token_t), allocatable :: tokens(:)
@@ -182,7 +182,7 @@ contains
         integer :: prog_index
 
         passed = .false.
-        
+
         ! Tokenize
         call lex_source(source, tokens, error_msg)
         if (allocated(error_msg)) then
@@ -201,20 +201,20 @@ contains
                 return
             end if
         end if
-        
+
         ! Generate code
         call emit_fortran(arena, prog_index, result)
-        
+
         ! Check if compilation succeeded
         if (.not. allocated(result)) then
             print *, "ERROR in ", test_name, ": Compilation failed - no result"
             return
         end if
-        
+
         print *, "Input mixed: [1, 2, 3] and (/ 4, 5, 6 /)"
         print *, "Generated result:"
         print *, result
-        
+
         ! Both syntaxes should be preserved independently
         if (.not. contains_without_spaces(result, "[1,2,3]") .or. &
             .not. contains_without_spaces(result, "(/4,5,6/)")) then

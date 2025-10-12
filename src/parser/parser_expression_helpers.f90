@@ -15,21 +15,20 @@ module parser_expression_helpers_module
 
 contains
 
-
     ! Parse number literal tokens
     function parse_number_literal(current_token, arena) result(expr_index)
         type(token_t), intent(in) :: current_token
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        
+
         if (index(current_token%text, '.') > 0) then
             ! Contains decimal point - classify as real
             expr_index = push_literal(arena, current_token%text, LITERAL_REAL, &
-                current_token%line, current_token%column)
+                                      current_token%line, current_token%column)
         else
             ! No decimal point - classify as integer
             expr_index = push_literal(arena, current_token%text, &
-                LITERAL_INTEGER, current_token%line, current_token%column)
+                                      LITERAL_INTEGER, current_token%line, current_token%column)
         end if
     end function parse_number_literal
 
@@ -38,9 +37,9 @@ contains
         type(token_t), intent(in) :: current_token
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        
+
         expr_index = push_literal(arena, current_token%text, LITERAL_STRING, &
-            current_token%line, current_token%column)
+                                  current_token%line, current_token%column)
     end function parse_string_literal
 
     ! Parse boolean literal tokens
@@ -48,9 +47,9 @@ contains
         type(token_t), intent(in) :: current_token
         type(ast_arena_t), intent(inout) :: arena
         integer :: expr_index
-        
+
         expr_index = push_literal(arena, current_token%text, LITERAL_LOGICAL, &
-            current_token%line, current_token%column)
+                                  current_token%line, current_token%column)
     end function parse_boolean_literal
 
     ! Parse component access postfix operator (%)
@@ -61,18 +60,18 @@ contains
         type(token_t), intent(in) :: op_token
         integer :: expr_index
         type(token_t) :: component_token
-        
+
         component_token = parser%peek()
         if (component_token%kind == TK_IDENTIFIER) then
             component_token = parser%consume()
             expr_index = push_component_access(arena, base_expr, &
-                                                  component_token%text, &
-                                             op_token%line, op_token%column)
+                                               component_token%text, &
+                                               op_token%line, op_token%column)
         else
             ! Error: expected identifier after %
             expr_index = push_literal(arena, &
-                "!ERROR: Expected identifier after %, got '"//trim(component_token%text)//"'", &
-                LITERAL_STRING, op_token%line, op_token%column)
+                                      "!ERROR: Expected identifier after %, got '" // trim(component_token%text) // "'", &
+                                      LITERAL_STRING, op_token%line, op_token%column)
         end if
     end function parse_component_access_postfix
 

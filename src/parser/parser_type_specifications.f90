@@ -18,16 +18,16 @@ contains
         integer, intent(out) :: count
         type(token_t) :: token
         integer :: saved_pos
-        
+
         count = 0
         saved_pos = parser%current_token
-        
+
         do
             token = parser%peek()
             if (token%kind == TK_IDENTIFIER .and. len(token%text) == 1) then
                 count = count + 1
                 token = parser%consume()
-                
+
                 ! Check for range (a-h)
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "-") then
@@ -37,7 +37,7 @@ contains
                         token = parser%consume()  ! consume end letter
                     end if
                 end if
-                
+
                 ! Check for comma
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == ",") then
@@ -49,7 +49,7 @@ contains
                 exit
             end if
         end do
-        
+
         ! Restore parser position
         parser%current_token = saved_pos
     end subroutine count_letter_ranges
@@ -60,15 +60,15 @@ contains
         character(len=64), intent(out) :: letter_ranges(:)
         type(token_t) :: token
         integer :: i
-        
+
         i = 1
         do while (i <= size(letter_ranges))
             token = parser%peek()
             if (token%kind == TK_IDENTIFIER .and. len(token%text) == 1) then
                 letter_ranges(i) = token%text
                 token = parser%consume()
-                
-                ! Check for range (a-h)  
+
+                ! Check for range (a-h)
                 token = parser%peek()
                 if (token%kind == TK_OPERATOR .and. token%text == "-") then
                     token = parser%consume()  ! consume '-'
@@ -78,12 +78,12 @@ contains
                         token = parser%consume()  ! consume end letter
                     end if
                 end if
-                
+
                 i = i + 1
-                
+
                 ! Check for comma
                 token = parser%peek()
-                if (token%kind == TK_OPERATOR .and. token%text == ",") then  
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
                     token = parser%consume()  ! consume ','
                 else
                     exit
@@ -118,7 +118,7 @@ contains
             has_length = .true.
             token = parser%consume()
         else if (token%kind == TK_NUMBER) then
-            read(token%text, *) length_value
+            read (token%text, *) length_value
             has_length = .true.
             token = parser%consume()
         end if
@@ -136,7 +136,7 @@ contains
 
         token = parser%peek()
         if (token%kind == TK_NUMBER) then
-            read(token%text, *) kind_value
+            read (token%text, *) kind_value
             has_kind = .true.
             token = parser%consume()
         end if
@@ -183,22 +183,22 @@ contains
         logical :: has_kind, has_length, is_none
         character(len=64), allocatable :: letter_ranges(:)
         integer :: line, column, range_count
-        
+
         ! Consume 'implicit' keyword
         token = parser%consume()
         line = token%line
         column = token%column
-        
+
         ! Check for 'none'
         token = parser%peek()
         if (token%kind == TK_KEYWORD .and. token%text == "none") then
             token = parser%consume()  ! consume 'none'
             is_none = .true.
             stmt_index = push_implicit_statement(arena, is_none, &
-                                                line=line, column=column, parent_index=0)
+                                                 line=line, column=column, parent_index=0)
             return
         end if
-        
+
         ! Parse type specification
         is_none = .false.
         has_kind = .false.
@@ -206,25 +206,25 @@ contains
         kind_value = 0
         length_value = 0
         range_count = 0
-        
+
         ! Get type name
         if (token%kind == TK_KEYWORD) then
             type_name = token%text
             token = parser%consume()
-            
+
             ! Check for kind or length specification
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == "(") then
                 if (is_type_specification(parser, type_name)) then
                     ! Parse as type specification
                     token = parser%consume()  ! consume '('
-                    
+
                     if (type_name == "character") then
                         call parse_character_type_spec(parser, length_value, has_length)
                     else
                         call parse_kind_specification(parser, kind_value, has_kind)
                     end if
-                    
+
                     token = parser%peek()
                     if (token%kind == TK_OPERATOR .and. token%text == ")") then
                         token = parser%consume()  ! consume ')'
@@ -232,30 +232,30 @@ contains
                 end if
             end if
         end if
-        
+
         ! Parse letter specification list in parentheses
         token = parser%peek()
         if (token%kind == TK_OPERATOR .and. token%text == "(") then
             token = parser%consume()  ! consume '('
-            
+
             ! Count letter ranges first
             call count_letter_ranges(parser, range_count)
-            
+
             if (range_count > 0) then
-                allocate(letter_ranges(range_count))
+                allocate (letter_ranges(range_count))
                 call parse_letter_ranges(parser, letter_ranges)
             end if
-            
+
             token = parser%peek()
             if (token%kind == TK_OPERATOR .and. token%text == ")") then
                 token = parser%consume()  ! consume ')'
             end if
         end if
-        
+
         ! Create implicit statement node
         stmt_index = push_implicit_statement(arena, is_none, type_name, kind_value, &
-                                           has_kind, length_value, has_length, &
-                                           letter_ranges, line, column, parent_index=0)
+                                             has_kind, length_value, has_length, &
+                                             letter_ranges, line, column, parent_index=0)
     end function parse_implicit_statement
 
 end module parser_type_specifications_module

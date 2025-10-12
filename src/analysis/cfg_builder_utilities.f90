@@ -18,15 +18,15 @@ contains
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         logical, intent(out) :: has_stat, has_errmsg
-        
+
         has_stat = .false.
         has_errmsg = .false.
-        
+
         ! Validate arena and indices
         if (.not. allocated(arena%entries)) return
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         ! Check node type before accessing fields
         if (arena%entries(node_index)%node_type == "allocate_statement" .or. &
             arena%entries(node_index)%node_type == "allocate_node") then
@@ -37,21 +37,21 @@ contains
             end select
         end if
     end subroutine check_allocate_exception_params
-    
+
     ! Helper function to check deallocate statement exception parameters
     subroutine check_deallocate_exception_params(arena, node_index, has_stat, has_errmsg)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         logical, intent(out) :: has_stat, has_errmsg
-        
+
         has_stat = .false.
         has_errmsg = .false.
-        
+
         ! Validate arena and indices
         if (.not. allocated(arena%entries)) return
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         ! Check node type before accessing fields
         if (arena%entries(node_index)%node_type == "deallocate_statement" .or. &
             arena%entries(node_index)%node_type == "deallocate_node") then
@@ -62,22 +62,22 @@ contains
             end select
         end if
     end subroutine check_deallocate_exception_params
-    
+
     ! Helper function to check I/O statement exception parameters
     subroutine check_io_exception_params(arena, node_index, has_iostat, has_err, has_end)
         type(ast_arena_t), intent(in) :: arena
         integer, intent(in) :: node_index
         logical, intent(out) :: has_iostat, has_err, has_end
-        
+
         has_iostat = .false.
         has_err = .false.
         has_end = .false.
-        
+
         ! Validate arena and indices
         if (.not. allocated(arena%entries)) return
         if (node_index <= 0 .or. node_index > arena%size) return
         if (.not. allocated(arena%entries(node_index)%node)) return
-        
+
         select case (arena%entries(node_index)%node_type)
         case ("read_statement", "read_node")
             select type (node => arena%entries(node_index)%node)

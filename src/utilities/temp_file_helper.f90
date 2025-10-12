@@ -27,7 +27,7 @@ contains
             end if
         else
             ! Unix/Linux: use /tmp
-            inquire(file="/tmp/.", exist=dir_exists)
+            inquire (file="/tmp/.", exist=dir_exists)
             if (dir_exists) then
                 temp_dir = "/tmp"
             else

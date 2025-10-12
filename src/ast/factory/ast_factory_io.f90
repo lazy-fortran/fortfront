@@ -15,7 +15,7 @@ contains
 
     ! Create print statement node and add to stack
     function push_print_statement(arena, format_spec, arg_indices, line, &
-                                 column, parent_index) result(print_index)
+                                  column, parent_index) result(print_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: format_spec
         integer, intent(in), optional :: arg_indices(:)
@@ -37,7 +37,7 @@ contains
     end function push_print_statement
 
     function push_write_statement(arena, unit_spec, arg_indices, format_spec, &
-                                 line, column, parent_index) result(write_index)
+                                  line, column, parent_index) result(write_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec
         integer, intent(in), optional :: arg_indices(:)
@@ -61,7 +61,7 @@ contains
     end function push_write_statement
 
     function push_read_statement(arena, unit_spec, var_indices, format_spec, &
-                                line, column, parent_index) result(read_index)
+                                 line, column, parent_index) result(read_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec
         integer, intent(in), optional :: var_indices(:)
@@ -86,7 +86,7 @@ contains
 
     ! Extended I/O statement functions with iostat/err/end specifiers
     function push_write_statement_with_iostat(arena, unit_spec, arg_indices, format_spec, &
-                             iostat_var, line, column, parent_index) result(write_index)
+                                              iostat_var, line, column, parent_index) result(write_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec, format_spec
         integer, intent(in) :: arg_indices(:), iostat_var
@@ -107,7 +107,7 @@ contains
     end function push_write_statement_with_iostat
 
     function push_read_statement_with_err(arena, unit_spec, var_indices, format_spec, &
-                               err_label, line, column, parent_index) result(read_index)
+                                          err_label, line, column, parent_index) result(read_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec, format_spec
         integer, intent(in) :: var_indices(:), err_label
@@ -128,7 +128,7 @@ contains
     end function push_read_statement_with_err
 
     function push_read_statement_with_end(arena, unit_spec, var_indices, format_spec, &
-                               end_label, line, column, parent_index) result(read_index)
+                                          end_label, line, column, parent_index) result(read_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec, format_spec
         integer, intent(in) :: var_indices(:), end_label
@@ -151,7 +151,7 @@ contains
     function push_read_statement_with_all_specifiers(arena, unit_spec, &
                                                      var_indices, format_spec, &
                                                      iostat_var, err_label, end_label, &
-                                          line, column, parent_index) result(read_index)
+                                                     line, column, parent_index) result(read_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec, format_spec
         integer, intent(in) :: var_indices(:), iostat_var, err_label, end_label
@@ -175,7 +175,7 @@ contains
 
     ! Format descriptor support functions
     function push_write_statement_with_format(arena, unit_spec, arg_indices, format_spec, &
-                                         line, column, parent_index) result(write_index)
+                                              line, column, parent_index) result(write_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec, format_spec
         integer, intent(in) :: arg_indices(:)
@@ -197,7 +197,7 @@ contains
 
     function push_write_statement_with_runtime_format(arena, unit_spec, &
                                                       arg_indices, format_var, &
-                                         line, column, parent_index) result(write_index)
+                                                      line, column, parent_index) result(write_index)
         type(ast_arena_t), intent(inout) :: arena
         character(len=*), intent(in) :: unit_spec
         integer, intent(in) :: arg_indices(:), format_var

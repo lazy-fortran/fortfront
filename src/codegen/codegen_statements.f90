@@ -265,15 +265,15 @@ contains
         end if
 
         code = "use"
-        
+
         ! Add URL spec for Go-style imports if present
         if (allocated(node%url_spec)) then
             code = code // " " // node%url_spec // " "
         end if
-        
+
         ! Add module name
         code = code // " " // node%module_name
-        
+
         ! Add only clause if present
         if (node%has_only .and. allocated(node%only_list)) then
             only_clause = ""
@@ -290,13 +290,13 @@ contains
                 code = code // ", only: " // trim(only_clause)
             end if
         end if
-        
+
         ! Add rename clause if present (format: new_name => old_name)
         if (allocated(node%rename_list) .and. size(node%rename_list) > 0) then
             rename_clause = ""
             do i = 1, size(node%rename_list), 2  ! Process pairs
-                if (i+1 <= size(node%rename_list)) then
-                    if (allocated(node%rename_list(i)%s) .and. allocated(node%rename_list(i+1)%s)) then
+                if (i + 1 <= size(node%rename_list)) then
+                    if (allocated(node%rename_list(i)%s) .and. allocated(node%rename_list(i + 1)%s)) then
                         if (len_trim(rename_clause) > 0) then
                             rename_clause = rename_clause // ", "
                         end if

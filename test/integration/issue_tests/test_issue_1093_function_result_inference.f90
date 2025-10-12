@@ -26,12 +26,12 @@ program test_issue_1093_function_result_inference
     ! function name. Standardizer should add implicit none, infer result
     ! name from first assignment target, and emit a declaration.
     source = &
-        "program p"        // new_line('a') // &
-        "contains"         // new_line('a') // &
+        "program p" // new_line('a') // &
+        "contains" // new_line('a') // &
         "function incr(x)" // new_line('a') // &
-        "integer :: x"     // new_line('a') // &
-        "incr = x + 1"     // new_line('a') // &
-        "end function incr"// new_line('a') // &
+        "integer :: x" // new_line('a') // &
+        "incr = x + 1" // new_line('a') // &
+        "end function incr" // new_line('a') // &
         "end program p"
 
     call initialize_codegen()
