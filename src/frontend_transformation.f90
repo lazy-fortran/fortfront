@@ -72,10 +72,10 @@ contains
         ! Obtain the shared compiler arena and reset for a clean run
         ! PERFORMANCE FIX: Initialize in-place to avoid assignment operator overhead
         if (.not. shared_arena_initialized) then
-            call shared_arena % init()
+            call shared_arena%init()
             shared_arena_initialized = .true.
         else
-            call shared_arena % reset()
+            call shared_arena%reset()
         end if
 
         ! Handle empty or whitespace-only input
@@ -106,7 +106,7 @@ contains
 
         ! Phase 1.5: Enhanced syntax validation with comprehensive error reporting (Issue #256)
         call trace_enter('phase:syntax')
-        call validate_syntax_with_reporting(input, tokens, error_msg, output, shared_arena)
+       call validate_syntax_with_reporting(input, tokens, error_msg, output, shared_arena)
         call trace_leave('phase:syntax')
         if (error_msg /= "") then
             call trace_leave('transform_lazy_fortran_string')
@@ -186,7 +186,7 @@ contains
 
         ! Restore original configuration
         call restore_configuration(saved_size, saved_char, saved_line_length, &
-                                    saved_standardize_types, saved_standardizer_types)
+                                   saved_standardize_types, saved_standardizer_types)
     end subroutine transform_lazy_fortran_string_with_format
 
     ! Check if input is empty or whitespace only
@@ -213,7 +213,7 @@ contains
         type(compiler_arena_t), intent(inout) :: compiler_arena
         character(len=:), allocatable, intent(inout) :: error_msg
 
-        call compiler_arena % next_phase("lexer")
+        call compiler_arena%next_phase("lexer")
         call lex_source(input, tokens, error_msg)
     end subroutine run_lexical_analysis
 
@@ -266,8 +266,8 @@ contains
         ! This handles cases where input is only comments, whitespace, or empty
         meaningful_tokens = 0
         do i = 1, size(tokens)
-            if (tokens(i) % kind == TK_EOF .or. tokens(i) % kind == TK_NEWLINE .or. &
-                tokens(i) % kind == TK_COMMENT) cycle
+            if (tokens(i)%kind == TK_EOF .or. tokens(i)%kind == TK_NEWLINE .or. &
+                tokens(i)%kind == TK_COMMENT) cycle
             meaningful_tokens = meaningful_tokens + 1
         end do
 
@@ -284,13 +284,13 @@ contains
         character(len=:), allocatable, intent(out) :: output
 
         ! Phase 2: Parsing with enhanced error recovery
-        call compiler_arena % next_phase("parser")
-        call parse_tokens(tokens, compiler_arena % ast, prog_index, error_msg)
+        call compiler_arena%next_phase("parser")
+        call parse_tokens(tokens, compiler_arena%ast, prog_index, error_msg)
 
         ! Enhanced error handling - don't stop at first parsing issue
         if (error_msg /= "" .and. index(error_msg, "Cannot open") == 0) then
             ! Try to continue parsing with partial results if we have a valid program
-            if (prog_index > 0 .and. prog_index <= compiler_arena % ast % size) then
+            if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
                 ! We have a partial parse - continue with what we have
                 ! Log the parsing warning but don't fail completely
 write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ", error_msg
@@ -317,7 +317,7 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         ! CRITICAL FIX for Issue #1058: Generate valid Fortran output only
         ! Error messages go to error_msg (stderr), valid Fortran goes to output (stdout)
         if (prog_index > 0) then
-            call emit_fortran(compiler_arena % ast, prog_index, output)
+            call emit_fortran(compiler_arena%ast, prog_index, output)
             ! Don't append error messages to output - they go to stderr via error_msg
         else
             call create_parsing_error_program(error_msg, output)
@@ -391,18 +391,18 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         integer, intent(in) :: prog_index
         character(len=:), allocatable, intent(out) :: error_msg
 
-        call compiler_arena % next_phase("semantic")
+        call compiler_arena%next_phase("semantic")
         block
             type(semantic_context_t), allocatable :: ctx
             allocate (ctx)
             call create_semantic_context(ctx)
 
             ! Keep pre-standardization semantics permissive in string transform path
-            ctx % strict_mode = .false.
-            ctx % respect_implicit_none = .false.
+            ctx%strict_mode = .false.
+            ctx%respect_implicit_none = .false.
 
             call trace_enter('semantic:analyze_program')
-            call analyze_program(ctx, compiler_arena % ast, prog_index)
+            call analyze_program(ctx, compiler_arena%ast, prog_index)
             call trace_leave('semantic:analyze_program')
 
             ! Check for semantic errors and provide detailed error messages
@@ -422,7 +422,7 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         integer :: i, total_errors
         character(len=256) :: buffer
 
-        total_errors = ctx % errors % count
+        total_errors = ctx%errors%count
         if (total_errors == 0) then
             error_msg = "No semantic errors found"
             return
@@ -434,10 +434,10 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
 
         ! Add first few error messages for details
         do i = 1, min(3, total_errors)  ! Limit to first 3 errors to avoid overflow
-            if (i <= size(ctx % errors % errors)) then
-                if (allocated(ctx % errors % errors(i) % error_message)) then
-    error_msg = error_msg//new_line('a')//"  - "//ctx % errors % errors(i) % error_message
-                    if (allocated(ctx % errors % errors(i) % suggestion)) then
+            if (i <= size(ctx%errors%errors)) then
+                if (allocated(ctx%errors%errors(i)%error_message)) then
+          error_msg = error_msg//new_line('a')//"  - "//ctx%errors%errors(i)%error_message
+                    if (allocated(ctx%errors%errors(i)%suggestion)) then
  error_msg = error_msg//new_line('a')//"    Suggestion: "//ctx%errors%errors(i)%suggestion
                     end if
                 end if
@@ -456,14 +456,14 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         type(compiler_arena_t), intent(inout) :: compiler_arena
         integer, intent(inout) :: prog_index
 
-        call compiler_arena % next_phase("standardization")
-        call normalize_multi_unit_container(compiler_arena % ast, prog_index)
+        call compiler_arena%next_phase("standardization")
+        call normalize_multi_unit_container(compiler_arena%ast, prog_index)
         ! Skip standardization for multi-unit containers
         if (should_skip_standardization(compiler_arena, prog_index)) then
             return
         end if
 
-        call standardize_ast(compiler_arena % ast, prog_index)
+        call standardize_ast(compiler_arena%ast, prog_index)
     end subroutine run_standardization_phase
 
     ! Check if should skip standardization
@@ -473,11 +473,11 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         logical :: skip_standardization
 
         skip_standardization = .false.
-        if (prog_index > 0 .and. prog_index <= compiler_arena % ast % size) then
-            if (allocated(compiler_arena % ast % entries(prog_index) % node)) then
-                select type (node => compiler_arena % ast % entries(prog_index) % node)
+        if (prog_index > 0 .and. prog_index <= compiler_arena%ast%size) then
+            if (allocated(compiler_arena%ast%entries(prog_index)%node)) then
+                select type (node => compiler_arena%ast%entries(prog_index)%node)
                 type is (program_node)
-                    if (node % name == "__MULTI_UNIT__") then
+                    if (node%name == "__MULTI_UNIT__") then
                         skip_standardization = .true.
                     end if
                 end select
@@ -494,12 +494,12 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         integer, allocatable :: new_body(:)
         class(program_node), pointer :: root_prog => null()
 
-        if (root_index <= 0 .or. root_index > arena % size) return
-        if (.not. allocated(arena % entries(root_index) % node)) return
+        if (root_index <= 0 .or. root_index > arena%size) return
+        if (.not. allocated(arena%entries(root_index)%node)) return
 
-        select type (root => arena % entries(root_index) % node)
+        select type (root => arena%entries(root_index)%node)
         type is (program_node)
-            if (trim(root % name) /= "__MULTI_UNIT__") return
+            if (trim(root%name) /= "__MULTI_UNIT__") return
             root_prog => root
         class default
             return
@@ -509,19 +509,19 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         allocate (functions(0))
         target_prog_idx = 0
 
-        if (allocated(root_prog % body_indices)) then
-            do i = 1, size(root_prog % body_indices)
+        if (allocated(root_prog%body_indices)) then
+            do i = 1, size(root_prog%body_indices)
      if (root_prog%body_indices(i) <= 0 .or. root_prog%body_indices(i) > arena%size) cycle
-            if (.not. allocated(arena % entries(root_prog % body_indices(i)) % node)) cycle
-                select type (child => arena % entries(root_prog % body_indices(i)) % node)
+                if (.not. allocated(arena%entries(root_prog%body_indices(i))%node)) cycle
+                select type (child => arena%entries(root_prog%body_indices(i))%node)
                 type is (program_node)
-                    if (trim(child % name) /= "__MULTI_UNIT__") then
+                    if (trim(child%name) /= "__MULTI_UNIT__") then
     if (trim(child%name) /= "" .and. child%name /= "main" .and. child%name /= "MAIN") then
-                            target_prog_idx = root_prog % body_indices(i)
+                            target_prog_idx = root_prog%body_indices(i)
                         end if
                     end if
                 type is (function_def_node)
-                    functions = [functions, root_prog % body_indices(i)]
+                    functions = [functions, root_prog%body_indices(i)]
                 end select
             end do
         end if
@@ -531,25 +531,25 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
 
         ! Remove function indices from multi-unit body
         allocate (new_body(0))
-        if (allocated(root_prog % body_indices)) then
-            do i = 1, size(root_prog % body_indices)
-                if (any(root_prog % body_indices(i) == functions)) cycle
-                new_body = [new_body, root_prog % body_indices(i)]
+        if (allocated(root_prog%body_indices)) then
+            do i = 1, size(root_prog%body_indices)
+                if (any(root_prog%body_indices(i) == functions)) cycle
+                new_body = [new_body, root_prog%body_indices(i)]
             end do
         end if
-        root_prog % body_indices = new_body
+        root_prog%body_indices = new_body
 
         ! Access target program
-        if (.not. allocated(arena % entries(target_prog_idx) % node)) return
-        select type (target => arena % entries(target_prog_idx) % node)
+        if (.not. allocated(arena%entries(target_prog_idx)%node)) return
+        select type (target => arena%entries(target_prog_idx)%node)
         type is (program_node)
             ! Ensure contains node exists
             contains_pos = 0
-            if (allocated(target % body_indices)) then
-                do i = 1, size(target % body_indices)
-     if (target % body_indices(i) > 0 .and. target % body_indices(i) <= arena % size) then
-                     if (allocated(arena % entries(target % body_indices(i)) % node)) then
-                    select type (stmt => arena % entries(target % body_indices(i)) % node)
+            if (allocated(target%body_indices)) then
+                do i = 1, size(target%body_indices)
+           if (target%body_indices(i) > 0 .and. target%body_indices(i) <= arena%size) then
+                        if (allocated(arena%entries(target%body_indices(i))%node)) then
+                          select type (stmt => arena%entries(target%body_indices(i))%node)
                             type is (contains_node)
                                 contains_pos = i
                                 exit
@@ -563,17 +563,17 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
                 block
                     type(contains_node) :: contains_stmt
                     integer :: contains_idx
-                    contains_stmt % line = 1
-                    contains_stmt % column = 1
-                    call arena % push(contains_stmt, "contains", target_prog_idx)
-                    contains_idx = arena % size
-                    if (.not. allocated(target % body_indices)) then
-                        allocate (target % body_indices(1))
-                        target % body_indices(1) = contains_idx
+                    contains_stmt%line = 1
+                    contains_stmt%column = 1
+                    call arena%push(contains_stmt, "contains", target_prog_idx)
+                    contains_idx = arena%size
+                    if (.not. allocated(target%body_indices)) then
+                        allocate (target%body_indices(1))
+                        target%body_indices(1) = contains_idx
                     else
-                        target % body_indices = [target % body_indices, contains_idx]
+                        target%body_indices = [target%body_indices, contains_idx]
                     end if
-                    contains_pos = size(target % body_indices)
+                    contains_pos = size(target%body_indices)
                 end block
             end if
 
@@ -581,54 +581,54 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
             block
                 integer, allocatable :: original(:)
                 integer :: orig_size, insert_size
-                if (allocated(target % body_indices)) then
-                    original = target % body_indices
-                    deallocate (target % body_indices)
+                if (allocated(target%body_indices)) then
+                    original = target%body_indices
+                    deallocate (target%body_indices)
                 else
                     allocate (original(0))
                 end if
                 orig_size = size(original)
                 insert_size = size(functions)
-                allocate (target % body_indices(orig_size + insert_size))
+                allocate (target%body_indices(orig_size + insert_size))
                 if (contains_pos >= 1) then
-                    target % body_indices(1:contains_pos) = original(1:contains_pos)
+                    target%body_indices(1:contains_pos) = original(1:contains_pos)
                 end if
-            target % body_indices(contains_pos + 1:contains_pos + insert_size) = functions
+              target%body_indices(contains_pos + 1:contains_pos + insert_size) = functions
                 if (contains_pos < orig_size) then
-                    target % body_indices(contains_pos + insert_size + 1:) = &
+                    target%body_indices(contains_pos + insert_size + 1:) = &
                         original(contains_pos + 1:orig_size)
                 end if
             end block
 
             ! Update parent indices and remove external declarations
             do i = 1, size(functions)
-                if (functions(i) > 0 .and. functions(i) <= arena % size) then
-                    arena % entries(functions(i)) % parent_index = target_prog_idx
+                if (functions(i) > 0 .and. functions(i) <= arena%size) then
+                    arena%entries(functions(i))%parent_index = target_prog_idx
                 end if
             end do
 
-            if (allocated(target % body_indices)) then
-                do i = 1, size(target % body_indices)
-     if (target % body_indices(i) <= 0 .or. target % body_indices(i) > arena % size) cycle
-              if (.not. allocated(arena % entries(target % body_indices(i)) % node)) cycle
-                    select type (stmt => arena % entries(target % body_indices(i)) % node)
+            if (allocated(target%body_indices)) then
+                do i = 1, size(target%body_indices)
+           if (target%body_indices(i) <= 0 .or. target%body_indices(i) > arena%size) cycle
+                    if (.not. allocated(arena%entries(target%body_indices(i))%node)) cycle
+                    select type (stmt => arena%entries(target%body_indices(i))%node)
                     type is (declaration_node)
                         block
                             logical :: declares_function
-                            declares_function = stmt % is_external
-                    if (stmt % is_multi_declaration .and. allocated(stmt % var_names)) then
-                                do j = 1, size(stmt % var_names)
-                    if (is_function_name(trim(stmt % var_names(j)), arena, functions)) then
+                            declares_function = stmt%is_external
+                       if (stmt%is_multi_declaration .and. allocated(stmt%var_names)) then
+                                do j = 1, size(stmt%var_names)
+                     if (is_function_name(trim(stmt%var_names(j)), arena, functions)) then
                                         declares_function = .true.
                                         exit
                                     end if
                                 end do
                             else
-                        if (is_function_name(trim(stmt % var_name), arena, functions)) then
+                         if (is_function_name(trim(stmt%var_name), arena, functions)) then
                                     declares_function = .true.
                                 end if
                             end if
-                            if (declares_function) target % body_indices(i) = 0
+                            if (declares_function) target%body_indices(i) = 0
                         end block
                     end select
                 end do
@@ -636,12 +636,12 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
                 block
                     integer, allocatable :: compressed(:)
                     allocate (compressed(0))
-                    do i = 1, size(target % body_indices)
-                        if (target % body_indices(i) /= 0) then
-                            compressed = [compressed, target % body_indices(i)]
+                    do i = 1, size(target%body_indices)
+                        if (target%body_indices(i) /= 0) then
+                            compressed = [compressed, target%body_indices(i)]
                         end if
                     end do
-                    target % body_indices = compressed
+                    target%body_indices = compressed
                 end block
             end if
         end select
@@ -655,11 +655,11 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
 
         match = .false.
         do k = 1, size(func_indices)
-            if (func_indices(k) <= 0 .or. func_indices(k) > arena % size) cycle
-            if (.not. allocated(arena % entries(func_indices(k)) % node)) cycle
-            select type (fn => arena % entries(func_indices(k)) % node)
+            if (func_indices(k) <= 0 .or. func_indices(k) > arena%size) cycle
+            if (.not. allocated(arena%entries(func_indices(k))%node)) cycle
+            select type (fn => arena%entries(func_indices(k))%node)
             type is (function_def_node)
-                if (trim(fn % name) == trim(name)) then
+                if (trim(fn%name) == trim(name)) then
                     match = .true.
                     return
                 end if
@@ -673,9 +673,9 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
         integer, intent(in) :: prog_index
         character(len=:), allocatable, intent(out) :: output
 
-        call compiler_arena % next_phase("codegen")
-        call maybe_dump_program_overview(compiler_arena % ast, prog_index)
-        output = generate_code_from_arena(compiler_arena % ast, prog_index)
+        call compiler_arena%next_phase("codegen")
+        call maybe_dump_program_overview(compiler_arena%ast, prog_index)
+        output = generate_code_from_arena(compiler_arena%ast, prog_index)
         output = add_line_continuations(output)
     end subroutine run_code_generation_phase
 
@@ -694,19 +694,19 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
 
         write (error_unit, '(A)') 'DEBUG AST: program overview'
         write (error_unit, '(A,I0)') '  root index: ', prog_index
-        do i = 1, min(arena % size, size(arena % entries))
-            if (.not. allocated(arena % entries(i) % node)) cycle
-            select type (node => arena % entries(i) % node)
+        do i = 1, min(arena%size, size(arena%entries))
+            if (.not. allocated(arena%entries(i)%node)) cycle
+            select type (node => arena%entries(i)%node)
             type is (program_node)
-                if (allocated(node % body_indices)) then
+                if (allocated(node%body_indices)) then
                     write (error_unit, '(A,I0,2X,A,2X,I0)') &
-                        '  program idx', i, trim(node % name), size(node % body_indices)
+                        '  program idx', i, trim(node%name), size(node%body_indices)
                 else
                     write (error_unit, '(A,I0,2X,A,2X,A)') &
-                        '  program idx', i, trim(node % name), 'no body'
+                        '  program idx', i, trim(node%name), 'no body'
                 end if
             type is (function_def_node)
-                write (error_unit, '(A,I0,2X,A)') '  function idx', i, trim(node % name)
+                write (error_unit, '(A,I0,2X,A)') '  function idx', i, trim(node%name)
             end select
         end do
     end subroutine maybe_dump_program_overview
@@ -728,10 +728,10 @@ write (error_unit, '(A,A)') "Warning: Parsing issues detected but continuing: ",
     subroutine apply_format_options(format_opts)
         type(format_options_t), intent(in) :: format_opts
 
-        call set_indent_config(format_opts % indent_size, format_opts % indent_char)
-        call set_line_length_config(format_opts % line_length)
-        call set_type_standardization(format_opts % standardize_types)
-        call set_standardizer_type_standardization(format_opts % standardize_types)
+        call set_indent_config(format_opts%indent_size, format_opts%indent_char)
+        call set_line_length_config(format_opts%line_length)
+        call set_type_standardization(format_opts%standardize_types)
+        call set_standardizer_type_standardization(format_opts%standardize_types)
     end subroutine apply_format_options
 
     ! Restore configuration

@@ -8,19 +8,19 @@ module parser_dispatcher_module
     use parser_state_module
     use parser_expressions_module
     use parser_declarations, only: parse_declaration, parse_multi_declaration, &
-                                    parse_derived_type_def
+                                   parse_derived_type_def
     use parser_utils, only: analyze_declaration_structure
     use parser_import_statements_module, only: parse_use_statement, &
-                                                parse_include_statement, parse_module
+                                               parse_include_statement, parse_module
     use parser_io_statements_module, only: parse_print_statement, &
-                                            parse_write_statement, parse_read_statement
+                                           parse_write_statement, parse_read_statement
     use parser_definition_statements_module, only: parse_function_definition, &
                                         parse_subroutine_definition, parse_interface_block
     use parser_control_statements_module, only: parse_stop_statement, &
-                parse_return_statement, parse_goto_statement, parse_error_stop_statement, &
+               parse_return_statement, parse_goto_statement, parse_error_stop_statement, &
                           parse_cycle_statement, parse_exit_statement, parse_end_statement
     use parser_memory_statements_module, only: parse_allocate_statement, &
-                                                parse_deallocate_statement
+                                               parse_deallocate_statement
     use parser_execution_statements_module, only: parse_call_statement, &
                                                   parse_program_statement
     use parser_control_flow_module, only: parse_if, parse_do_loop, parse_select_case, &
@@ -35,7 +35,7 @@ module parser_dispatcher_module
     use parser_expressions_module, only: parse_expression, parse_range
     use parser_prefix_state, only: set_pending_prefixes, get_pending_prefixes, &
                  consume_pending_prefixes, has_pending_prefixes, clear_pending_prefixes, &
-                                    append_prefix_token
+                                   append_prefix_token
     implicit none
     private
 
@@ -56,12 +56,12 @@ contains
         integer :: target_index, value_index
 
         parser = create_parser_state(tokens)
-        first_token = parser % peek()
+        first_token = parser%peek()
 
         ! Dispatch based on first token
-        select case (first_token % kind)
+        select case (first_token%kind)
         case (TK_KEYWORD)
-            select case (first_token % text)
+            select case (first_token%text)
             case ("use")
                 stmt_index = parse_use_statement(parser, arena)
             case ("include")
@@ -129,7 +129,7 @@ contains
                 integer :: start_position, i
                 type(token_t) :: token_after_prefix
 
-                start_position = parser % current_token
+                start_position = parser%current_token
                 allocate (character(len=16) :: local_prefixes(0))
                 call collect_prefix_keywords(parser, local_prefixes)
                 allocate (character(len=16) :: combined_prefixes(0))
@@ -147,22 +147,22 @@ contains
 
                 if (size(combined_prefixes) > 0) then
                     do
-                        token_after_prefix = parser % peek()
-                        if (token_after_prefix % kind == TK_WHITESPACE .or. &
-                            token_after_prefix % kind == TK_NEWLINE) then
-                            token_after_prefix = parser % consume()
+                        token_after_prefix = parser%peek()
+                        if (token_after_prefix%kind == TK_WHITESPACE .or. &
+                            token_after_prefix%kind == TK_NEWLINE) then
+                            token_after_prefix = parser%consume()
                             cycle
                         end if
                         exit
                     end do
 
-                    if (token_after_prefix % kind == TK_KEYWORD .and. &
-                        trim(to_lower(token_after_prefix % text)) == "function") then
+                    if (token_after_prefix%kind == TK_KEYWORD .and. &
+                        trim(to_lower(token_after_prefix%text)) == "function") then
                         call set_pending_prefixes(combined_prefixes)
                         stmt_index = parse_function_definition(parser, arena)
                         call clear_pending_prefixes()
                     else
-                        parser % current_token = start_position
+                        parser%current_token = start_position
                         call set_pending_prefixes(combined_prefixes)
                         stmt_index = 0
                     end if
@@ -191,18 +191,18 @@ contains
         type(token_t) :: first_token, second_token
         logical :: is_derived_type_def
 
-        first_token = parser % peek()
+        first_token = parser%peek()
         is_derived_type_def = .false.
 
-        if (first_token % text == "type") then
+        if (first_token%text == "type") then
             ! Check if this is a derived type definition or variable declaration
-            if (parser % current_token + 1 <= size(parser % tokens)) then
-                second_token = parser % tokens(parser % current_token + 1)
+            if (parser%current_token + 1 <= size(parser%tokens)) then
+                second_token = parser%tokens(parser%current_token + 1)
 
                 ! If second token is :: or identifier, it's a derived type definition
-            if (second_token % kind == TK_OPERATOR .and. second_token % text == "::") then
+                if (second_token%kind == TK_OPERATOR .and. second_token%text == "::") then
                     is_derived_type_def = .true.
-                else if (second_token % kind == TK_IDENTIFIER) then
+                else if (second_token%kind == TK_IDENTIFIER) then
                     is_derived_type_def = .true.
                 end if
             end if
@@ -276,14 +276,14 @@ contains
             call parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
         else
             ! Handle single assignment or expression
-            id_token = parser % consume()
-            op_token = parser % peek()
+            id_token = parser%consume()
+            op_token = parser%peek()
 
-            if (op_token % kind == TK_OPERATOR .and. op_token % text == "=") then
-                op_token = parser % consume()
+            if (op_token%kind == TK_OPERATOR .and. op_token%text == "=") then
+                op_token = parser%consume()
 
                 ! Create target identifier
-target_index = push_identifier(arena, id_token % text, id_token % line, id_token % column)
+      target_index = push_identifier(arena, id_token%text, id_token%line, id_token%column)
 
                 ! Parse value expression
                 value_index = parse_range(parser, arena)
@@ -291,11 +291,11 @@ target_index = push_identifier(arena, id_token % text, id_token % line, id_token
                 ! Create assignment
                 if (value_index > 0) then
                     stmt_index = push_assignment(arena, target_index, value_index, &
-                                                 id_token % line, id_token % column)
+                                                 id_token%line, id_token%column)
                 else
                     stmt_index = push_literal(arena, "! Error: missing value", &
-                                              LITERAL_STRING, id_token % line, &
-                                              id_token % column)
+                                              LITERAL_STRING, id_token%line, &
+                                              id_token%column)
                 end if
             else
                 ! Not an assignment: avoid emitting bare identifiers as statements
@@ -313,19 +313,19 @@ target_index = push_identifier(arena, id_token % text, id_token % line, id_token
         integer :: stmt_index
         type(token_t) :: first_token, second_token
 
-        first_token = parser % peek()
+        first_token = parser%peek()
 
         ! Look ahead to see if next token is "function"
-        if (parser % current_token + 1 <= size(parser % tokens)) then
-            second_token = parser % tokens(parser % current_token + 1)
-        if (second_token % kind == TK_KEYWORD .and. second_token % text == "function") then
+        if (parser%current_token + 1 <= size(parser%tokens)) then
+            second_token = parser%tokens(parser%current_token + 1)
+           if (second_token%kind == TK_KEYWORD .and. second_token%text == "function") then
                 stmt_index = parse_function_definition(parser, arena)
                 return
             end if
         end if
 
         ! Not a function definition, parse as expression
-        stmt_index = parse_as_expression(parser % tokens, arena)
+        stmt_index = parse_as_expression(parser%tokens, arena)
 
     end function parse_function_or_expression
 
@@ -346,31 +346,31 @@ target_index = push_identifier(arena, id_token % text, id_token % line, id_token
         has_double_colon = .false.
         paren_depth = 0
 
-do i = parser % current_token + 1, min(parser % current_token + 50, size(parser % tokens))
-            if (parser % tokens(i) % kind == TK_OPERATOR) then
-                if (parser % tokens(i) % text == "(") then
+      do i = parser%current_token + 1, min(parser%current_token + 50, size(parser%tokens))
+            if (parser%tokens(i)%kind == TK_OPERATOR) then
+                if (parser%tokens(i)%text == "(") then
                     paren_depth = paren_depth + 1
-                else if (parser % tokens(i) % text == ")") then
+                else if (parser%tokens(i)%text == ")") then
                     paren_depth = paren_depth - 1
-                else if (parser % tokens(i) % text == "::" .and. paren_depth == 0) then
+                else if (parser%tokens(i)%text == "::" .and. paren_depth == 0) then
                     has_double_colon = .true.
                     exit
                 end if
-            else if (parser % tokens(i) % kind == TK_EOF) then
+            else if (parser%tokens(i)%kind == TK_EOF) then
                 exit  ! Stop on EOF
-            else if (parser % tokens(i) % kind == TK_KEYWORD .and. paren_depth == 0) then
+            else if (parser%tokens(i)%kind == TK_KEYWORD .and. paren_depth == 0) then
                 ! Only stop on keywords outside of parentheses
                 ! Allow declaration attribute keywords to continue search
-                if (parser % tokens(i) % text == "parameter" .or. &
-                    parser % tokens(i) % text == "optional" .or. &
-                    parser % tokens(i) % text == "intent" .or. &
-                    parser % tokens(i) % text == "allocatable" .or. &
-                    parser % tokens(i) % text == "pointer" .or. &
-                    parser % tokens(i) % text == "target" .or. &
-                    parser % tokens(i) % text == "dimension" .or. &
-                    parser % tokens(i) % text == "in" .or. &
-                    parser % tokens(i) % text == "out" .or. &
-                    parser % tokens(i) % text == "inout") then
+                if (parser%tokens(i)%text == "parameter" .or. &
+                    parser%tokens(i)%text == "optional" .or. &
+                    parser%tokens(i)%text == "intent" .or. &
+                    parser%tokens(i)%text == "allocatable" .or. &
+                    parser%tokens(i)%text == "pointer" .or. &
+                    parser%tokens(i)%text == "target" .or. &
+                    parser%tokens(i)%text == "dimension" .or. &
+                    parser%tokens(i)%text == "in" .or. &
+                    parser%tokens(i)%text == "out" .or. &
+                    parser%tokens(i)%text == "inout") then
                     cycle  ! Continue searching
                 else
                     exit  ! Stop on other keywords outside parentheses
@@ -387,14 +387,14 @@ do i = parser % current_token + 1, min(parser % current_token + 50, size(parser 
         looks_like_function_definition = .false.
 
         ! Look for "function" keyword within the next few tokens
-do i = parser % current_token + 1, min(parser % current_token + 10, size(parser % tokens))
-    if (parser%tokens(i)%kind == TK_KEYWORD .and. parser%tokens(i)%text == "function") then
+      do i = parser%current_token + 1, min(parser%current_token + 10, size(parser%tokens))
+   if (parser%tokens(i)%kind == TK_KEYWORD .and. parser%tokens(i)%text == "function") then
                 looks_like_function_definition = .true.
                 exit
-    else if (parser%tokens(i)%kind == TK_OPERATOR .and. parser%tokens(i)%text == "::") then
+   else if (parser%tokens(i)%kind == TK_OPERATOR .and. parser%tokens(i)%text == "::") then
                 ! Found :: before function - this is a declaration
                 exit
-            else if (parser % tokens(i) % kind == TK_EOF) then
+            else if (parser%tokens(i)%kind == TK_EOF) then
                 exit
             end if
         end do
@@ -408,13 +408,13 @@ do i = parser % current_token + 1, min(parser % current_token + 10, size(parser 
         type(token_t) :: token
         type(comment_node) :: comment
 
-        token = parser % consume()
-        comment % uid = generate_uid()
-        comment % text = token % text
-        comment % line = token % line
-        comment % column = token % column
-        call arena % push(comment, "comment")
-        comment_index = arena % size
+        token = parser%consume()
+        comment%uid = generate_uid()
+        comment%text = token%text
+        comment%line = token%line
+        comment%column = token%column
+        call arena%push(comment, "comment")
+        comment_index = arena%size
     end function parse_comment
 
     ! Parse a blank line (newline token)
@@ -428,20 +428,20 @@ do i = parser % current_token + 1, min(parser % current_token + 10, size(parser 
 
         ! Count consecutive newlines
         count = 0
-        do while (parser % current_token <= size(parser % tokens))
-            token = parser % peek()
-            if (token % kind /= TK_NEWLINE) exit
+        do while (parser%current_token <= size(parser%tokens))
+            token = parser%peek()
+            if (token%kind /= TK_NEWLINE) exit
             count = count + 1
-            token = parser % consume()
+            token = parser%consume()
         end do
 
         ! Create blank line node with count of consecutive lines
-        blank_line % uid = generate_uid()
-        blank_line % count = count
-        blank_line % line = token % line
-        blank_line % column = token % column
-        call arena % push(blank_line, "blank_line")
-        blank_index = arena % size
+        blank_line%uid = generate_uid()
+        blank_line%count = count
+        blank_line%line = token%line
+        blank_line%column = token%column
+        call arena%push(blank_line, "blank_line")
+        blank_index = arena%size
     end function parse_blank_line
 
     ! Get additional indices from multi-declaration parsing
@@ -470,27 +470,27 @@ do i = parser % current_token + 1, min(parser % current_token + 10, size(parser 
         type(token_t) :: token
 
         is_multi_var_assignment_dispatcher = .false.
-        pos = parser % current_token
+        pos = parser%current_token
 
         ! Look ahead for pattern: identifier, comma, identifier, ..., =
-        do while (pos <= size(parser % tokens))
-            token = parser % tokens(pos)
+        do while (pos <= size(parser%tokens))
+            token = parser%tokens(pos)
 
-            if (token % kind == TK_IDENTIFIER) then
+            if (token%kind == TK_IDENTIFIER) then
                 pos = pos + 1
-                if (pos > size(parser % tokens)) exit
+                if (pos > size(parser%tokens)) exit
 
-                token = parser % tokens(pos)
-                if (token % kind == TK_OPERATOR .and. token % text == ",") then
+                token = parser%tokens(pos)
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
                     ! Found comma after identifier, continue looking
                     is_multi_var_assignment_dispatcher = .true.
                     pos = pos + 1
                     cycle
-                else if (token % kind == TK_OPERATOR .and. token % text == "=" .and. &
+                else if (token%kind == TK_OPERATOR .and. token%text == "=" .and. &
                          is_multi_var_assignment_dispatcher) then
                     ! Found = and we already saw a comma, this is multi-var assignment
                     return
-                else if (token % kind == TK_OPERATOR .and. token % text == "=") then
+                else if (token%kind == TK_OPERATOR .and. token%text == "=") then
                     ! Found = but no comma, this is single assignment
                     is_multi_var_assignment_dispatcher = .false.
                     return
@@ -511,7 +511,7 @@ do i = parser % current_token + 1, min(parser % current_token + 10, size(parser 
     ! Parse multi-variable assignment like "a, b, c = 1, 2, 3" (dispatcher version)
     subroutine parse_multi_variable_assignment_dispatcher(parser, arena, stmt_index)
         use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_KEYWORD, TK_NEWLINE
-        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+       use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
         type(parser_state_t), intent(inout) :: parser
         type(ast_arena_t), intent(inout) :: arena
         integer, intent(out) :: stmt_index
@@ -528,21 +528,21 @@ do i = parser % current_token + 1, min(parser % current_token + 10, size(parser 
         allocate (assignment_indices(0))
 
         ! Parse left-hand side variables (a, b, c)
-        do while (.not. parser % is_at_end())
-            token = parser % peek()
-            if (token % kind == TK_IDENTIFIER) then
-                token = parser % consume()
+        do while (.not. parser%is_at_end())
+            token = parser%peek()
+            if (token%kind == TK_IDENTIFIER) then
+                token = parser%consume()
                 ! Create identifier node immediately
-         target_index = push_identifier(arena, token % text, token % line, token % column)
+               target_index = push_identifier(arena, token%text, token%line, token%column)
                 var_indices = [var_indices, target_index]
 
                 ! Check for comma or equals
-                token = parser % peek()
-                if (token % kind == TK_OPERATOR .and. token % text == ",") then
-                    token = parser % consume()  ! consume comma
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    token = parser%consume()  ! consume comma
                     cycle
-                else if (token % kind == TK_OPERATOR .and. token % text == "=") then
-                    token = parser % consume()  ! consume equals
+                else if (token%kind == TK_OPERATOR .and. token%text == "=") then
+                    token = parser%consume()  ! consume equals
                     exit
                 else
                     ! Error condition
@@ -557,33 +557,33 @@ do i = parser % current_token + 1, min(parser % current_token + 10, size(parser 
         if (num_vars == 0) return
 
         ! Parse right-hand side values (1, 2, 3)
-        do while (.not. parser % is_at_end())
+        do while (.not. parser%is_at_end())
             ! Parse a value expression (could be literal, variable, etc.)
-            token = parser % peek()
-            if (token % kind == TK_NUMBER .or. token % kind == TK_STRING .or. &
-                token % kind == TK_IDENTIFIER .or. token % kind == TK_KEYWORD .or. &
+            token = parser%peek()
+            if (token%kind == TK_NUMBER .or. token%kind == TK_STRING .or. &
+                token%kind == TK_IDENTIFIER .or. token%kind == TK_KEYWORD .or. &
              (token%kind == TK_OPERATOR .and. (token%text == '.true.' .or. token%text == '.false.'))) then
-                token = parser % consume()
+                token = parser%consume()
                 ! Determine literal type based on token kind
-    literal_type = get_literal_type_from_token_kind_dispatcher(token % kind, token % text)
+        literal_type = get_literal_type_from_token_kind_dispatcher(token%kind, token%text)
                 ! Create literal node immediately
      value_index = push_literal(arena, token%text, literal_type, token%line, token%column)
                 value_indices = [value_indices, value_index]
 
                 ! Check for comma or end
-                token = parser % peek()
-                if (token % kind == TK_OPERATOR .and. token % text == ",") then
-                    token = parser % consume()  ! consume comma
+                token = parser%peek()
+                if (token%kind == TK_OPERATOR .and. token%text == ",") then
+                    token = parser%consume()  ! consume comma
                     cycle
                 else
                     ! End of expression list
                     exit
                 end if
-            else if (token % kind == TK_NEWLINE .or. parser % is_at_end()) then
+            else if (token%kind == TK_NEWLINE .or. parser%is_at_end()) then
                 exit
             else
                 ! Try to consume the token and exit
-                token = parser % consume()
+                token = parser%consume()
                 exit
             end if
         end do
@@ -606,8 +606,8 @@ do i = parser % current_token + 1, min(parser % current_token + 10, size(parser 
             if (target_index > 0 .and. value_index > 0) then
                 assignment_indices = [assignment_indices, &
                                       push_assignment(arena, target_index, value_index, &
-                                     parser % tokens(parser % current_token - 1) % line, &
-                                    parser % tokens(parser % current_token - 1) % column)]
+                                           parser%tokens(parser%current_token - 1)%line, &
+                                          parser%tokens(parser%current_token - 1)%column)]
             end if
         end do
 
@@ -627,7 +627,7 @@ do i = parser % current_token + 1, min(parser % current_token + 10, size(parser 
     ! Helper function to determine literal type from token kind (dispatcher version)
     function get_literal_type_from_token_kind_dispatcher(token_kind, token_text) result(literal_type)
         use lexer_token_types, only: TK_NUMBER, TK_STRING, TK_OPERATOR, TK_KEYWORD
-        use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
+       use ast_types, only: LITERAL_INTEGER, LITERAL_REAL, LITERAL_STRING, LITERAL_LOGICAL
         integer, intent(in) :: token_kind
         character(len=*), intent(in) :: token_text
         integer :: literal_type
@@ -676,14 +676,14 @@ do i = parser % current_token + 1, min(parser % current_token + 10, size(parser 
         character(len=:), allocatable :: lowered
 
         do
-            token = parser % peek()
-            lowered = to_lower(token % text)
-            if (token % kind == TK_KEYWORD .or. token % kind == TK_IDENTIFIER) then
+            token = parser%peek()
+            lowered = to_lower(token%text)
+            if (token%kind == TK_KEYWORD .or. token%kind == TK_IDENTIFIER) then
                 select case (trim(lowered))
                 case ("elemental", "pure", "impure", "recursive", &
                       "nonrecursive", "non_recursive", "module")
                     call append_prefix_token(prefixes, trim(lowered))
-                    token = parser % consume()
+                    token = parser%consume()
                 case default
                     exit
                 end select

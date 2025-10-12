@@ -43,7 +43,7 @@ contains
 
         ! Process all statements
         do while (i <= size(tokens))
-            if (tokens(i) % kind == TK_EOF) exit
+            if (tokens(i)%kind == TK_EOF) exit
 
             call find_statement_boundary(tokens, i, stmt_start, stmt_end)
 
@@ -51,20 +51,20 @@ contains
                 if (stmt_end + 1 <= size(tokens)) then
               call find_statement_boundary(tokens, stmt_end + 1, merged_start, merged_end)
                     if (merged_start == stmt_end + 1) then
-                        if (tokens(merged_start) % kind == TK_KEYWORD .and. &
-                            (tokens(merged_start) % text == "function" .or. &
-                             tokens(merged_start) % text == "subroutine")) then
+                        if (tokens(merged_start)%kind == TK_KEYWORD .and. &
+                            (tokens(merged_start)%text == "function" .or. &
+                             tokens(merged_start)%text == "subroutine")) then
                             stmt_end = merged_end
                         end if
                     end if
                 end if
             end if
 
-            if (tokens(stmt_start) % kind == TK_COMMENT) then
-        call process_comment_statement(tokens, stmt_start, arena, stmt_index, body_indices)
+            if (tokens(stmt_start)%kind == TK_COMMENT) then
+       call process_comment_statement(tokens, stmt_start, arena, stmt_index, body_indices)
             else
                 call process_regular_statement(tokens, stmt_start, stmt_end, arena, &
-                                                stmt_index, body_indices)
+                                               stmt_index, body_indices)
             end if
 
             if (stmt_index > 0) stmt_count = stmt_count + 1
@@ -88,10 +88,10 @@ contains
         allocate (stmt_tokens(2))
         stmt_tokens(1) = tokens(i)
         ! Add EOF token
-        stmt_tokens(2) % kind = TK_EOF
-        stmt_tokens(2) % text = ""
-        stmt_tokens(2) % line = tokens(i) % line
-        stmt_tokens(2) % column = tokens(i) % column + len(tokens(i) % text)
+        stmt_tokens(2)%kind = TK_EOF
+        stmt_tokens(2)%text = ""
+        stmt_tokens(2)%line = tokens(i)%line
+        stmt_tokens(2)%column = tokens(i)%column + len(tokens(i)%text)
 
         ! Parse the comment
         stmt_index = parse_statement_dispatcher(stmt_tokens, arena)
@@ -131,10 +131,10 @@ contains
 
             ! Locate first '=' in the statement (assignment anchor)
             do i = local_start, stmt_end
-                if (tokens(i) % kind == TK_KEYWORD) then
+                if (tokens(i)%kind == TK_KEYWORD) then
                     saw_keyword = .true.
                 end if
-                if (tokens(i) % kind == TK_OPERATOR .and. tokens(i) % text == "=") then
+                if (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == "=") then
                     eq_pos = i
                     exit
                 end if
@@ -146,8 +146,8 @@ contains
                 ! label and skip it. Do NOT do this when ':' is inside parentheses
                 ! (e.g., array slices/substrings like a(1:3) or s(2:4)).
                 do i = local_start, eq_pos - 1
-                    if (tokens(i) % kind == TK_OPERATOR) then
-                        select case (tokens(i) % text)
+                    if (tokens(i)%kind == TK_OPERATOR) then
+                        select case (tokens(i)%text)
                         case ("(")
                             paren_depth = paren_depth + 1
                         case (")")
@@ -169,10 +169,10 @@ contains
             allocate (stmt_tokens(stmt_end - local_start + 2))
             stmt_tokens(1:stmt_end - local_start + 1) = tokens(local_start:stmt_end)
             ! Add EOF token
-            stmt_tokens(stmt_end - local_start + 2) % kind = TK_EOF
-            stmt_tokens(stmt_end - local_start + 2) % text = ""
-            stmt_tokens(stmt_end - local_start + 2) % line = tokens(stmt_end) % line
-          stmt_tokens(stmt_end - local_start + 2) % column = tokens(stmt_end) % column + 1
+            stmt_tokens(stmt_end - local_start + 2)%kind = TK_EOF
+            stmt_tokens(stmt_end - local_start + 2)%text = ""
+            stmt_tokens(stmt_end - local_start + 2)%line = tokens(stmt_end)%line
+            stmt_tokens(stmt_end - local_start + 2)%column = tokens(stmt_end)%column + 1
         end block
 
         ! Note: stmt_tokens already allocated and filled in the block above
@@ -247,8 +247,8 @@ contains
             prog_index = push_program(arena, "main", [integer ::], 1, 1)
         else if (valid_count == 1) then
             ! Single unit - check if it's already a program node
-            if (allocated(arena % entries(valid_units(1)) % node)) then
-                select type (node => arena % entries(valid_units(1)) % node)
+            if (allocated(arena%entries(valid_units(1))%node)) then
+                select type (node => arena%entries(valid_units(1))%node)
                 type is (program_node)
                     ! Already a program node
                     prog_index = valid_units(1)
@@ -276,13 +276,13 @@ contains
 
         should_include = .true.
 
-        if (unit_index <= 0 .or. unit_index > size(arena % entries)) then
+        if (unit_index <= 0 .or. unit_index > size(arena%entries)) then
             should_include = .false.
             return
         end if
 
         ! Check for empty main programs
-        if (is_empty_main_program(arena % entries(unit_index) % node, arena)) then
+        if (is_empty_main_program(arena%entries(unit_index)%node, arena)) then
             should_include = .false.
         end if
     end function should_include_program_unit
@@ -297,8 +297,8 @@ contains
 
         select type (prog_node => node)
         type is (program_node)
-     if ((prog_node % name == "main" .or. prog_node % name == "__IMPLICIT_MAIN__") .and. &
-                size(prog_node % body_indices) == 0) then
+         if ((prog_node%name == "main" .or. prog_node%name == "__IMPLICIT_MAIN__") .and. &
+                size(prog_node%body_indices) == 0) then
                 is_empty = .true.
             end if
         end select
@@ -331,8 +331,8 @@ contains
         ! Skip leading newlines and semicolons (semicolons act as statement separators)
         stmt_start = start_pos
         do while (stmt_start <= size(tokens) .and. &
-                  (tokens(stmt_start) % kind == TK_NEWLINE .or. &
-        (tokens(stmt_start) % kind == TK_OPERATOR .and. tokens(stmt_start) % text == ";")))
+                  (tokens(stmt_start)%kind == TK_NEWLINE .or. &
+           (tokens(stmt_start)%kind == TK_OPERATOR .and. tokens(stmt_start)%text == ";")))
             stmt_start = stmt_start + 1
         end do
 
@@ -342,16 +342,16 @@ contains
         end if
 
         ! Check if this starts a multi-line control flow construct
-        if (tokens(stmt_start) % kind == TK_KEYWORD) then
-            select case (tokens(stmt_start) % text)
+        if (tokens(stmt_start)%kind == TK_KEYWORD) then
+            select case (tokens(stmt_start)%text)
             case ("if")
                 ! Check if it's if/then (multi-line) by looking ahead
                 do i = stmt_start + 1, min(stmt_start + 20, size(tokens))
-                 if (tokens(i) % kind == TK_KEYWORD .and. tokens(i) % text == "then") then
+                    if (tokens(i)%kind == TK_KEYWORD .and. tokens(i)%text == "then") then
                         is_multiline_construct = .true.
                         nesting_level = 1
                         exit
-                    else if (tokens(i) % kind == TK_NEWLINE) then
+                    else if (tokens(i)%kind == TK_NEWLINE) then
                         exit  ! Single-line if
                     end if
                 end do
@@ -364,13 +364,13 @@ contains
             case ("where")
                 ! Check if it's where construct (has newline before end where)
                 do i = stmt_start + 1, min(stmt_start + 20, size(tokens))
-                    if (tokens(i) % kind == TK_NEWLINE) then
+                    if (tokens(i)%kind == TK_NEWLINE) then
                         ! Might be multi-line where construct
                         is_multiline_construct = .true.
                         nesting_level = 1
                         exit
-                    else if (tokens(i) % kind == TK_KEYWORD .and. &
-                    (tokens(i) % text == "end" .or. tokens(i) % text == "elsewhere")) then
+                    else if (tokens(i)%kind == TK_KEYWORD .and. &
+                        (tokens(i)%text == "end" .or. tokens(i)%text == "elsewhere")) then
                         is_multiline_construct = .true.
                         nesting_level = 1
                         exit
@@ -383,13 +383,13 @@ contains
             ! Find the matching end construct
             stmt_end = stmt_start
             do i = stmt_start, size(tokens)
-                if (tokens(i) % kind == TK_EOF) then
+                if (tokens(i)%kind == TK_EOF) then
                     stmt_end = i - 1
                     exit
                 end if
 
-                if (tokens(i) % kind == TK_KEYWORD) then
-                    select case (tokens(i) % text)
+                if (tokens(i)%kind == TK_KEYWORD) then
+                    select case (tokens(i)%text)
                         ! Handle nested constructs
                     case ("if")
                         if (i > stmt_start) then
@@ -397,10 +397,10 @@ contains
                             block
                                 integer :: j
                                 do j = i + 1, min(i + 20, size(tokens))
-                 if (tokens(j) % kind == TK_KEYWORD .and. tokens(j) % text == "then") then
+                     if (tokens(j)%kind == TK_KEYWORD .and. tokens(j)%text == "then") then
                                         nesting_level = nesting_level + 1
                                         exit
-                                    else if (tokens(j) % kind == TK_NEWLINE) then
+                                    else if (tokens(j)%kind == TK_NEWLINE) then
                                         exit
                                     end if
                                 end do
@@ -417,15 +417,15 @@ contains
 
                         ! Handle end constructs
                     case ("endif", "end")
-                        if (tokens(stmt_start) % text == "if") then
-                            if (tokens(i) % text == "endif") then
+                        if (tokens(stmt_start)%text == "if") then
+                            if (tokens(i)%text == "endif") then
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     stmt_end = i
                                     exit
                                 end if
-                    else if (tokens(i) % text == "end" .and. i + 1 <= size(tokens) .and. &
-                tokens(i + 1) % kind == TK_KEYWORD .and. tokens(i + 1) % text == "if") then
+                      else if (tokens(i)%text == "end" .and. i + 1 <= size(tokens) .and. &
+                   tokens(i + 1)%kind == TK_KEYWORD .and. tokens(i + 1)%text == "if") then
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     stmt_end = i + 1
@@ -434,7 +434,7 @@ contains
                             end if
                         end if
                     case ("enddo")
-                        if (tokens(stmt_start) % text == "do") then
+                        if (tokens(stmt_start)%text == "do") then
                             nesting_level = nesting_level - 1
                             if (nesting_level == 0) then
                                 stmt_end = i
@@ -444,21 +444,21 @@ contains
                     end select
 
                     ! Check for two-word end constructs
-                    if (tokens(i) % text == "end") then
-                  if (i + 1 <= size(tokens) .and. tokens(i + 1) % kind == TK_KEYWORD) then
-            if (tokens(i + 1) % text == "do" .and. tokens(stmt_start) % text == "do") then
+                    if (tokens(i)%text == "end") then
+                    if (i + 1 <= size(tokens) .and. tokens(i + 1)%kind == TK_KEYWORD) then
+                if (tokens(i + 1)%text == "do" .and. tokens(stmt_start)%text == "do") then
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     stmt_end = i + 1
                                     exit
                                 end if
-    else if (tokens(i + 1)%text == "select" .and. tokens(stmt_start)%text == "select") then
+   else if (tokens(i + 1)%text == "select" .and. tokens(stmt_start)%text == "select") then
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     stmt_end = i + 1
                                     exit
                                 end if
- else if (tokens(i + 1) % text == "where" .and. tokens(stmt_start) % text == "where") then
+     else if (tokens(i + 1)%text == "where" .and. tokens(stmt_start)%text == "where") then
                                 nesting_level = nesting_level - 1
                                 if (nesting_level == 0) then
                                     stmt_end = i + 1
@@ -474,14 +474,14 @@ contains
         else
             ! Single-line statement - find end at newline or semicolon
             do i = stmt_start, size(tokens)
-                if (tokens(i) % kind == TK_EOF) then
+                if (tokens(i)%kind == TK_EOF) then
                     stmt_end = i - 1
                     exit
-                else if (tokens(i) % kind == TK_NEWLINE .or. &
-                     (tokens(i) % kind == TK_OPERATOR .and. tokens(i) % text == ";")) then
+                else if (tokens(i)%kind == TK_NEWLINE .or. &
+                         (tokens(i)%kind == TK_OPERATOR .and. tokens(i)%text == ";")) then
                     stmt_end = i - 1
                     exit
-                else if (tokens(i) % kind /= TK_COMMENT) then
+                else if (tokens(i)%kind /= TK_COMMENT) then
                     stmt_end = i
                 end if
             end do
@@ -492,7 +492,7 @@ contains
         if (stmt_end < stmt_start) stmt_end = stmt_start
     end subroutine find_statement_boundary
 
-    logical function is_prefix_only_statement(tokens, start_idx, end_idx) result(is_prefix)
+   logical function is_prefix_only_statement(tokens, start_idx, end_idx) result(is_prefix)
         type(token_t), intent(in) :: tokens(:)
         integer, intent(in) :: start_idx, end_idx
         integer :: idx
@@ -502,11 +502,11 @@ contains
         if (start_idx < 1 .or. end_idx < start_idx) return
 
         do idx = start_idx, end_idx
-            select case (tokens(idx) % kind)
+            select case (tokens(idx)%kind)
             case (TK_WHITESPACE, TK_NEWLINE)
                 cycle
             case (TK_IDENTIFIER)
-                lowered = to_lower(tokens(idx) % text)
+                lowered = to_lower(tokens(idx)%text)
                 select case (trim(lowered))
                 case ('elemental', 'pure', 'impure', 'recursive', 'module', &
                       'nonrecursive', 'non_recursive')

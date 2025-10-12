@@ -70,48 +70,48 @@ contains
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
 
-        call json % create_object(obj, '')
-        call json % add(obj, 'type', 'function_def')
-        call json % add(obj, 'line', this % line)
-        call json % add(obj, 'column', this % column)
-        call json % add(obj, 'name', this % name)
-        if (allocated(this % return_type)) then
-            call json % add(obj, 'return_type', this % return_type)
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'function_def')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'name', this%name)
+        if (allocated(this%return_type)) then
+            call json%add(obj, 'return_type', this%return_type)
         end if
-        if (allocated(this % result_variable)) then
-            call json % add(obj, 'result_variable', this % result_variable)
+        if (allocated(this%result_variable)) then
+            call json%add(obj, 'result_variable', this%result_variable)
         end if
-        call json % add(obj, 'is_recursive', this % is_recursive)
-        if (allocated(this % param_indices)) then
-            call json % add(obj, 'param_indices', this % param_indices)
+        call json%add(obj, 'is_recursive', this%is_recursive)
+        if (allocated(this%param_indices)) then
+            call json%add(obj, 'param_indices', this%param_indices)
         end if
-        if (allocated(this % body_indices)) then
-            call json % add(obj, 'body_indices', this % body_indices)
+        if (allocated(this%body_indices)) then
+            call json%add(obj, 'body_indices', this%body_indices)
         end if
-        call json % add(parent, obj)
+        call json%add(parent, obj)
     end subroutine function_def_to_json
 
     subroutine function_def_assign(lhs, rhs)
         class(function_def_node), intent(inout) :: lhs
         class(function_def_node), intent(in) :: rhs
         ! Copy base class fields
-        lhs % line = rhs % line
-        lhs % column = rhs % column
-        lhs % uid = rhs % uid
-        lhs % inferred_type = rhs % inferred_type
-        lhs % is_constant = rhs % is_constant
-        lhs % constant_logical = rhs % constant_logical
-        lhs % constant_integer = rhs % constant_integer
-        lhs % constant_real = rhs % constant_real
-        lhs % constant_type = rhs % constant_type
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
-        lhs % name = rhs % name
-        lhs % return_type = rhs % return_type
-        lhs % is_recursive = rhs % is_recursive
-        if (allocated(rhs % result_variable)) lhs % result_variable = rhs % result_variable
-        if (allocated(rhs % prefix_keywords)) lhs % prefix_keywords = rhs % prefix_keywords
-        if (allocated(rhs % param_indices)) lhs % param_indices = rhs % param_indices
-        if (allocated(rhs % body_indices)) lhs % body_indices = rhs % body_indices
+        lhs%name = rhs%name
+        lhs%return_type = rhs%return_type
+        lhs%is_recursive = rhs%is_recursive
+        if (allocated(rhs%result_variable)) lhs%result_variable = rhs%result_variable
+        if (allocated(rhs%prefix_keywords)) lhs%prefix_keywords = rhs%prefix_keywords
+        if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
+        if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
     end subroutine function_def_assign
 
     ! Implementation for subroutine_def_node
@@ -127,37 +127,37 @@ contains
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
 
-        call json % create_object(obj, '')
-        call json % add(obj, 'type', 'subroutine_def')
-        call json % add(obj, 'line', this % line)
-        call json % add(obj, 'column', this % column)
-        call json % add(obj, 'name', this % name)
-        if (allocated(this % param_indices)) then
-            call json % add(obj, 'param_indices', this % param_indices)
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'subroutine_def')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'name', this%name)
+        if (allocated(this%param_indices)) then
+            call json%add(obj, 'param_indices', this%param_indices)
         end if
-        if (allocated(this % body_indices)) then
-            call json % add(obj, 'body_indices', this % body_indices)
+        if (allocated(this%body_indices)) then
+            call json%add(obj, 'body_indices', this%body_indices)
         end if
-        call json % add(parent, obj)
+        call json%add(parent, obj)
     end subroutine subroutine_def_to_json
 
     subroutine subroutine_def_assign(lhs, rhs)
         class(subroutine_def_node), intent(inout) :: lhs
         class(subroutine_def_node), intent(in) :: rhs
         ! Copy base class fields
-        lhs % line = rhs % line
-        lhs % column = rhs % column
-        lhs % uid = rhs % uid
-        lhs % inferred_type = rhs % inferred_type
-        lhs % is_constant = rhs % is_constant
-        lhs % constant_logical = rhs % constant_logical
-        lhs % constant_integer = rhs % constant_integer
-        lhs % constant_real = rhs % constant_real
-        lhs % constant_type = rhs % constant_type
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
-        lhs % name = rhs % name
-        if (allocated(rhs % param_indices)) lhs % param_indices = rhs % param_indices
-        if (allocated(rhs % body_indices)) lhs % body_indices = rhs % body_indices
+        lhs%name = rhs%name
+        if (allocated(rhs%param_indices)) lhs%param_indices = rhs%param_indices
+        if (allocated(rhs%body_indices)) lhs%body_indices = rhs%body_indices
     end subroutine subroutine_def_assign
 
     ! Implementation for subroutine_call_node
@@ -173,33 +173,33 @@ contains
         type(json_value), pointer, intent(in) :: parent
         type(json_value), pointer :: obj
 
-        call json % create_object(obj, '')
-        call json % add(obj, 'type', 'subroutine_call')
-        call json % add(obj, 'line', this % line)
-        call json % add(obj, 'column', this % column)
-        call json % add(obj, 'name', this % name)
-        if (allocated(this % arg_indices)) then
-            call json % add(obj, 'arg_indices', this % arg_indices)
+        call json%create_object(obj, '')
+        call json%add(obj, 'type', 'subroutine_call')
+        call json%add(obj, 'line', this%line)
+        call json%add(obj, 'column', this%column)
+        call json%add(obj, 'name', this%name)
+        if (allocated(this%arg_indices)) then
+            call json%add(obj, 'arg_indices', this%arg_indices)
         end if
-        call json % add(parent, obj)
+        call json%add(parent, obj)
     end subroutine subroutine_call_to_json
 
     subroutine subroutine_call_assign(lhs, rhs)
         class(subroutine_call_node), intent(inout) :: lhs
         class(subroutine_call_node), intent(in) :: rhs
         ! Copy base class fields
-        lhs % line = rhs % line
-        lhs % column = rhs % column
-        lhs % uid = rhs % uid
-        lhs % inferred_type = rhs % inferred_type
-        lhs % is_constant = rhs % is_constant
-        lhs % constant_logical = rhs % constant_logical
-        lhs % constant_integer = rhs % constant_integer
-        lhs % constant_real = rhs % constant_real
-        lhs % constant_type = rhs % constant_type
+        lhs%line = rhs%line
+        lhs%column = rhs%column
+        lhs%uid = rhs%uid
+        lhs%inferred_type = rhs%inferred_type
+        lhs%is_constant = rhs%is_constant
+        lhs%constant_logical = rhs%constant_logical
+        lhs%constant_integer = rhs%constant_integer
+        lhs%constant_real = rhs%constant_real
+        lhs%constant_type = rhs%constant_type
         ! Copy derived class fields
-        lhs % name = rhs % name
-        if (allocated(rhs % arg_indices)) lhs % arg_indices = rhs % arg_indices
+        lhs%name = rhs%name
+        if (allocated(rhs%arg_indices)) lhs%arg_indices = rhs%arg_indices
     end subroutine subroutine_call_assign
 
     ! Factory functions
@@ -215,53 +215,53 @@ contains
         character(len=16), intent(in), optional :: prefix_keywords(:)
         type(function_def_node) :: node
 
-        node % uid = generate_uid()
-        node % name = name
+        node%uid = generate_uid()
+        node%name = name
         if (present(param_indices)) then
             if (size(param_indices) > 0) then
-                node % param_indices = param_indices
+                node%param_indices = param_indices
             end if
         end if
-        node % return_type = return_type
+        node%return_type = return_type
         if (present(result_variable)) then
-            node % result_variable = result_variable
+            node%result_variable = result_variable
         end if
         if (present(prefix_keywords)) then
             if (size(prefix_keywords) > 0) then
-                node % prefix_keywords = prefix_keywords
+                node%prefix_keywords = prefix_keywords
             end if
         end if
         if (present(body_indices)) then
             if (size(body_indices) > 0) then
-                node % body_indices = body_indices
+                node%body_indices = body_indices
             end if
         end if
-        if (present(line)) node % line = line
-        if (present(column)) node % column = column
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
     end function create_function_def
 
     function create_subroutine_def(name, param_indices, body_indices, &
-                                    line, column) result(node)
+                                   line, column) result(node)
         character(len=*), intent(in) :: name
         integer, intent(in), optional :: param_indices(:)
         integer, intent(in), optional :: body_indices(:)
         integer, intent(in), optional :: line, column
         type(subroutine_def_node) :: node
 
-        node % uid = generate_uid()
-        node % name = name
+        node%uid = generate_uid()
+        node%name = name
         if (present(param_indices)) then
             if (size(param_indices) > 0) then
-                node % param_indices = param_indices
+                node%param_indices = param_indices
             end if
         end if
         if (present(body_indices)) then
             if (size(body_indices) > 0) then
-                node % body_indices = body_indices
+                node%body_indices = body_indices
             end if
         end if
-        if (present(line)) node % line = line
-        if (present(column)) node % column = column
+        if (present(line)) node%line = line
+        if (present(column)) node%column = column
     end function create_subroutine_def
 
     ! Helper functions for unified procedure interface
@@ -288,14 +288,14 @@ contains
 
         select type (n => node)
         type is (function_def_node)
-            if (allocated(n % name)) then
-                name = n % name
+            if (allocated(n%name)) then
+                name = n%name
             else
                 name = ""
             end if
         type is (subroutine_def_node)
-            if (allocated(n % name)) then
-                name = n % name
+            if (allocated(n%name)) then
+                name = n%name
             else
                 name = ""
             end if
@@ -312,14 +312,14 @@ contains
 
         select type (n => node)
         type is (function_def_node)
-            if (allocated(n % param_indices)) then
-                param_indices = n % param_indices
+            if (allocated(n%param_indices)) then
+                param_indices = n%param_indices
             else
                 allocate (param_indices(0))
             end if
         type is (subroutine_def_node)
-            if (allocated(n % param_indices)) then
-                param_indices = n % param_indices
+            if (allocated(n%param_indices)) then
+                param_indices = n%param_indices
             else
                 allocate (param_indices(0))
             end if
@@ -336,14 +336,14 @@ contains
 
         select type (n => node)
         type is (function_def_node)
-            if (allocated(n % body_indices)) then
-                body_indices = n % body_indices
+            if (allocated(n%body_indices)) then
+                body_indices = n%body_indices
             else
                 allocate (body_indices(0))
             end if
         type is (subroutine_def_node)
-            if (allocated(n % body_indices)) then
-                body_indices = n % body_indices
+            if (allocated(n%body_indices)) then
+                body_indices = n%body_indices
             else
                 allocate (body_indices(0))
             end if
@@ -372,8 +372,8 @@ contains
 
         select type (n => node)
         type is (function_def_node)
-            if (allocated(n % return_type)) then
-                return_type = n % return_type
+            if (allocated(n%return_type)) then
+                return_type = n%return_type
             else
                 return_type = ""
             end if
